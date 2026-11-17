@@ -8,27 +8,21 @@ import {
 
 describe("getIncomingRelations", () => {
   const feature = defineFeature("core", (r) => {
-    r.entity({
-      name: "department",
-      ...createEntity({
+    r.entity(createEntity({
+        name: "department",
         table: "Departments",
         fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-      }),
-    });
-    r.entity({
-      name: "user",
-      ...createEntity({
+      }));
+    r.entity(createEntity({
+        name: "user",
         table: "Users",
         fields: { departmentId: createTextField({ personal: false, reason: "test_fixture" }) },
-      }),
-    });
-    r.entity({
-      name: "session",
-      ...createEntity({
+      }));
+    r.entity(createEntity({
+        name: "session",
         table: "Sessions",
         fields: { userId: createTextField({ personal: false, reason: "test_fixture" }) },
-      }),
-    });
+      }));
 
     r.relation({ entity: "department", name: "users", type: "hasMany",
       target: "user",

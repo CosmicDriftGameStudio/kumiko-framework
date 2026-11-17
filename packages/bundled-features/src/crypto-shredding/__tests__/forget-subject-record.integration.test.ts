@@ -79,7 +79,7 @@ const recordProbeEntity = createEntity({
 });
 const recordProbeTable = buildEntityTable(recordProbeEntity);
 const recordProbeFeature = defineFeature("forget-subject-record-probe", (r) => {
-  r.crud(RECORD_PROBE_ENTITY_NAME, recordProbeEntity, {
+  r.crud({ ...recordProbeEntity, name: RECORD_PROBE_ENTITY_NAME }, {
     verbs: { create: false, delete: false, detail: false, list: false },
     write: { access: { roles: ["DataProtectionOfficer"] } },
   });
@@ -484,7 +484,7 @@ const blockDeleteProbeTable = buildEntityTable(
   blockDeleteProbeEntity,
 );
 const blockDeleteProbeFeature = defineFeature("forget-subject-blockdelete-probe", (r) => {
-  r.entity({ name: BLOCK_DELETE_PROBE_ENTITY_NAME, ...blockDeleteProbeEntity });
+  r.entity({ ...blockDeleteProbeEntity, name: BLOCK_DELETE_PROBE_ENTITY_NAME });
 });
 
 function blockDeleteProbeExecutor() {
@@ -641,7 +641,7 @@ const overrideProbeEntity = createEntity({
 });
 const overrideProbeTable = buildEntityTable(overrideProbeEntity);
 const overrideProbeFeature = defineFeature("forget-subject-override-probe", (r) => {
-  r.entity({ name: OVERRIDE_PROBE_ENTITY_NAME, ...overrideProbeEntity });
+  r.entity({ ...overrideProbeEntity, name: OVERRIDE_PROBE_ENTITY_NAME });
 });
 
 describe("crypto-shredding :: forget-subject (record subject) tenant retention policy", () => {

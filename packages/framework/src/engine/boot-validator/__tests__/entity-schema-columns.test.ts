@@ -14,17 +14,15 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     // is semantically non-indexable, consistent with the type-level `sortable=false`.
     const features = [
       defineFeature("a", (r) => {
-        r.entity({
-          name: "doc",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "doc",
             table: "Docs",
             fields: {
               body: { type: "longText", allowPlaintext: "test fixture value, not personal data" },
               title: { type: "text", allowPlaintext: "test fixture value, not personal data" },
             },
             indexes: [{ columns: ["title", "body"] }],
-          }),
-        });
+          }));
       }),
     ];
     expect(() => validateBoot(features)).toThrow(/body.*longText.*cannot be indexed/i);
@@ -33,13 +31,11 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   test("throws when extendSchema column conflicts with existing field", () => {
     const features = [
       defineFeature("a", (r) => {
-        r.entity({
-          name: "item",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "item",
             table: "Items",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-          }),
-        });
+          }));
         r.extendsRegistrar("custom", {
           extendSchema: () => ({
             name: {
@@ -58,16 +54,14 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   test("throws when a derivedFields key conflicts with a stored field", () => {
     const features = [
       defineFeature("a", (r) => {
-        r.entity({
-          name: "item",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "item",
             table: "Items",
             fields: { status: createTextField({ personal: false, reason: "test_fixture" }) },
             derivedFields: {
               status: createDerivedField({ valueType: "text", derive: () => "computed" }),
             },
-          }),
-        });
+          }));
       }),
     ];
     expect(() => validateBoot(features)).toThrow(
@@ -78,16 +72,14 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   test("passes when derivedFields keys don't conflict with stored fields", () => {
     const features = [
       defineFeature("a", (r) => {
-        r.entity({
-          name: "item",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "item",
             table: "Items",
             fields: { status: createTextField({ personal: false, reason: "test_fixture" }) },
             derivedFields: {
               statusLabel: createDerivedField({ valueType: "text", derive: () => "computed" }),
             },
-          }),
-        });
+          }));
       }),
     ];
     expect(() => validateBoot(features)).not.toThrow();
@@ -96,13 +88,11 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   test("passes when extendSchema adds non-conflicting column", () => {
     const features = [
       defineFeature("a", (r) => {
-        r.entity({
-          name: "item",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "item",
             table: "Items",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-          }),
-        });
+          }));
         r.extendsRegistrar("custom", {
           extendSchema: () => ({
             extra: {

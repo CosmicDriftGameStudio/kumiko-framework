@@ -15,12 +15,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   describe("entityEdit extension section", () => {
     function makeFeature(component: unknown) {
       return defineFeature("shop", (r) => {
-        r.entity({
-          name: "product",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "product",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-          }),
-        });
+          }));
         r.screen({
           id: "product-edit",
           type: "entityEdit",
@@ -58,15 +56,13 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
       mode?: "single" | "wizard",
     ) {
       return defineFeature("shop", (r) => {
-        r.entity({
-          name: "product",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "product",
             fields: {
               name: createTextField({ personal: false, reason: "test_fixture" }),
               sku: createTextField({ personal: false, reason: "test_fixture" }),
             },
-          }),
-        });
+          }));
         r.screen({
           id: "product-edit",
           type: "entityEdit",
@@ -123,15 +119,13 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
       listScreens: readonly string[] = [],
     ) {
       return defineFeature("shop", (r) => {
-        r.entity({
-          name: "product",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "product",
             fields: {
               name: createTextField({ personal: false, reason: "test_fixture" }),
               sku: createTextField({ personal: false, reason: "test_fixture" }),
             },
-          }),
-        });
+          }));
         for (const list of listScreens) {
           r.screen({
             id: list,
@@ -236,14 +230,12 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("embedded field, entity-level required: true → Throw", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity({
-            name: "order",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "order",
               fields: {
                 lines: createEmbeddedField({ note: { type: "text" } }, { required: true }),
               },
-            }),
-          });
+            }));
           r.screen({
             id: "order-edit",
             type: "entityEdit",
@@ -260,14 +252,12 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("embedded field, entity-level required: true, screen-spec required: false override → no throw", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity({
-            name: "order",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "order",
               fields: {
                 lines: createEmbeddedField({ note: { type: "text" } }, { required: true }),
               },
-            }),
-          });
+            }));
           r.screen({
             id: "order-edit",
             type: "entityEdit",
@@ -282,14 +272,12 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("embedded field, entity-level required: true, screen-spec readOnly: true → no throw", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity({
-            name: "order",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "order",
               fields: {
                 lines: createEmbeddedField({ note: { type: "text" } }, { required: true }),
               },
-            }),
-          });
+            }));
           r.screen({
             id: "order-edit",
             type: "entityEdit",
@@ -304,15 +292,13 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("embedded field, entity-level required: true, dynamic screen-spec required condition → no throw (not statically resolvable)", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity({
-            name: "order",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "order",
               fields: {
                 kind: createTextField({ personal: false, reason: "test_fixture" }),
                 lines: createEmbeddedField({ note: { type: "text" } }, { required: true }),
               },
-            }),
-          });
+            }));
           r.screen({
             id: "order-edit",
             type: "entityEdit",
@@ -331,7 +317,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("jsonb field, screen-spec required: true override → Throw (JsonbFieldDef has no entity-level required)", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity({ name: "order", ...createEntity({ fields: { data: createJsonbField() } }) });
+          r.entity(createEntity({ name: "order", fields: { data: createJsonbField() } }));
           r.screen({
             id: "order-edit",
             type: "entityEdit",
@@ -348,12 +334,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("files and images field, screen-spec required: true → no throw (FileListField widget)", async () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity({
-            name: "order",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "order",
               fields: { attachments: createFilesField(), gallery: createImagesField() },
-            }),
-          });
+            }));
           r.screen({
             id: "order-edit",
             type: "entityEdit",
@@ -379,14 +363,12 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("multiSelect field, entity-level required: true → no throw (has a combobox widget)", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity({
-            name: "product",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "product",
               fields: {
                 tags: createMultiSelectField({ options: ["a", "b"] as const, required: true }),
               },
-            }),
-          });
+            }));
           r.screen({
             id: "product-edit",
             type: "entityEdit",
@@ -401,14 +383,12 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("embedded LIST field (multiple: true), entity-level required: true → no throw (has an EmbeddedListField grid widget)", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity({
-            name: "invoice",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "invoice",
               fields: {
                 lines: createEmbeddedListField({ note: { type: "text" } }, { required: true }),
               },
-            }),
-          });
+            }));
           r.screen({
             id: "invoice-edit",
             type: "entityEdit",

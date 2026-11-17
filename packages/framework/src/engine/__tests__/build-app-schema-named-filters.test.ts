@@ -8,15 +8,13 @@ import { createRegistry } from "../registry.ts";
 describe("buildAppSchema — named list filters", () => {
   test("function-valued namedFilters never reach the client schema", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity({
-        name: "ticket",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "ticket",
           fields: { status: createTextField({ personal: false, reason: "test_fixture" }) },
           namedFilters: {
             open: { filters: () => [{ field: "status", op: "eq", value: "open" }] },
           },
-        }),
-      });
+        }));
     });
     const app = buildAppSchema(createRegistry([feature]));
     const projected = app.features[0]?.entities["ticket"];
@@ -30,17 +28,15 @@ describe("buildAppSchema — named list filters", () => {
 describe("buildAppSchema — named filter roles on entityList screens", () => {
   const ticketFeature = (refs: readonly { id: string; label: string; access?: AccessRule }[]) =>
     defineFeature("shop", (r) => {
-      r.entity({
-        name: "ticket",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "ticket",
           fields: { status: createTextField({ personal: false, reason: "test_fixture" }) },
           namedFilters: {
             open: { filters: () => [] },
             audit: { access: { roles: ["Auditor"] }, filters: () => [] },
             everyone: { access: { openToAll: { reason: "test_fixture" } }, filters: () => [] },
           },
-        }),
-      });
+        }));
       r.screen({
         id: "ticket-list",
         type: "entityList",

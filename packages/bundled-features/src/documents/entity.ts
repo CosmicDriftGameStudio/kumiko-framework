@@ -70,12 +70,13 @@ export function createDocumentEntity(options: DocumentEntityOptions) {
         name: "read_filed_documents_file_unique",
         where: sql`"is_deleted" = false`,
       },
-    ],
+    ], name: "filed-document",
   });
 }
 
 export function createDocumentLinkEntity(linkTargets: readonly string[]) {
   return createEntity({
+    name: "filed-document-link",
     table: "read_filed_document_links",
     softDelete: true,
     description:

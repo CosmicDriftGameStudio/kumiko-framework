@@ -33,7 +33,7 @@ function childEntity(table: string, fields: Record<string, FieldDefinition>, rul
 
 function featureWith(entities: Record<string, EntityDefinition>): FeatureDefinition {
   return defineFeature("facilities", (r) => {
-    for (const [name, entity] of Object.entries(entities)) r.entity({ name, ...entity });
+    for (const [name, entity] of Object.entries(entities)) r.entity({ ...entity, name });
   });
 }
 

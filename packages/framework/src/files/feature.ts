@@ -83,7 +83,7 @@ export function createFilesFeature(options: FilesFeatureOptions = {}): FeatureDe
       category: "storage",
       recommended: false,
     });
-    r.entity({ name: FILE_REF_ENTITY_NAME, ...fileRefEntity });
+    r.entity(fileRefEntity);
     r.writeHandler(bindReferencedFilesWrite);
     r.storeTable(fileUploadLedgerTable, { reason: "coordination.file_upload_ledger" });
     r.job({

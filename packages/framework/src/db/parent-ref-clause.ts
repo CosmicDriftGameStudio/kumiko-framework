@@ -38,7 +38,7 @@ function candidateStaticsFor(
   if (resolveTable !== undefined) return staticsOf(resolveTable(candidateName));
   const cached = candidateStaticsCache.get(candidate);
   if (cached) return cached;
-  const statics = staticsOf(buildEntityTable(candidateName, candidate));
+  const statics = staticsOf(buildEntityTable({ ...candidate, name: candidateName }));
   candidateStaticsCache.set(candidate, statics);
   return statics;
 }

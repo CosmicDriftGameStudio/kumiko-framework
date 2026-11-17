@@ -37,7 +37,6 @@ import type {
 // projection applies and list queries to provide one column namespace.
 export const mailAccountsProjectionTable = buildEntityTable(mailAccountEntity);
 export const inboundMessagesProjectionTable = buildEntityTable(
-  "inbound-message",
   inboundMessageEntity,
 );
 

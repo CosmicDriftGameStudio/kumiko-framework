@@ -435,7 +435,7 @@ function featureWithWriteHandler(
   entity: EntityDefinition = noteEntity,
 ) {
   return defineFeature("notes", (r) => {
-    r.entity({ name: "note", ...entity });
+    r.entity({ ...entity, name: "note" });
     r.writeHandler({
       name: handlerName,
       schema,
@@ -546,7 +546,7 @@ describe("validateAccessDeclarations — owner-bound personal-data fields", () =
         ownerUserId: createTextField({ required: false, personal: "ref" }),
         assigneeId: createTextField({ required: false, personal: "ref" }),
       },
-      ...(write && { access: { read: write, write } }),
+      ...(write && { access: { read: write, write } }), name: "note",
     });
   }
 
@@ -625,7 +625,7 @@ describe("validateAccessDeclarations — owner-bound personal-data fields", () =
 
   test("a handler not mapped to a single entity is not exempted (fail-closed)", () => {
     const feature = defineFeature("notes", (r) => {
-      r.entity({ name: "note", ...ownedNoteEntity(ownerBound) });
+      r.entity(ownedNoteEntity(ownerBound));
       r.entity({ ...noteEntity, name: "memo" });
       r.writeHandler({
         name: "submit",
@@ -656,7 +656,7 @@ describe("validateAccessDeclarations — self-bound personal-data fields", () =>
         displayName: createTextField({ personal: "self", find: "none" }),
         bio: createTextField({ personal: { of: "id" }, find: "none" }),
       },
-      ...(write && { access: { write } }),
+      ...(write && { access: { write } }), name: "note",
     });
   }
 
@@ -696,7 +696,7 @@ describe("validateAccessDeclarations — self-bound personal-data fields", () =>
   test("a self-bound entity in an r.systemScope() feature is not exempted", () => {
     const feature = defineFeature("notes", (r) => {
       r.systemScope();
-      r.entity({ name: "note", ...profileEntity(selfBound) });
+      r.entity(profileEntity(selfBound));
       r.writeHandler({
         name: "note:update",
         schema: profileUpdate,

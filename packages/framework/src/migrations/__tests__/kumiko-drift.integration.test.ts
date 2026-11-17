@@ -243,6 +243,7 @@ describe("kumiko-drift end-to-end (generate → apply → gate)", () => {
 describe("kumiko-drift booted-tables layer", () => {
   function bootedEntity(table: string) {
     return createEntity({
+      name: "kdriftBooted",
       table,
       fields: {
         name: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -252,13 +253,13 @@ describe("kumiko-drift booted-tables layer", () => {
 
   function bootedFeature(table: string) {
     return defineFeature("kdrift-booted", (r) => {
-      r.entity({ name: "kdriftBooted", ...bootedEntity(table) });
+      r.entity(bootedEntity(table));
     });
   }
 
   async function applyInit(table: string): Promise<void> {
     const result = generateMigration({
-      metas: [deriveEntityTableMeta("kdriftBooted", bootedEntity(table))],
+      metas: [deriveEntityTableMeta(bootedEntity(table))],
       prevSnapshot: null,
       name: "init",
       sequenceNumber: 1,

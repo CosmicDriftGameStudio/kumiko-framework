@@ -17,15 +17,12 @@ function previewFeature(
   extraFields: Record<string, ReturnType<typeof createFileField>> = {},
 ): FeatureDefinition {
   return defineFeature("previews", (r) => {
-    r.entity({
-      name: "preview",
-      ...createEntity({
+    r.entity(createEntity({
         table: "read_sr_guard_previews",
         fields: { title: plaintextText, ...extraFields },
         streamRetention: { keepFor: "30d" },
-        ...overrides,
-      }),
-    });
+        ...overrides, name: "preview",
+      }));
   });
 }
 

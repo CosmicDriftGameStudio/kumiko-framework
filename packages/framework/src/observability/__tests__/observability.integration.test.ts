@@ -63,6 +63,7 @@ const errorFeature = defineFeature("err", (r) => {
 // column with an integer one; the insert then got a UUID-string and Postgres
 // failed the cast, surfacing as internal_error.
 const todoEntity = {
+  name: "todo",
   table: "store_todos",
   fields: {
     title: {
@@ -75,8 +76,8 @@ const todoEntity = {
 
 let postSaveInvocations = 0;
 const todoFeature = defineFeature("todo", (r) => {
-  const todoTable = deriveEntityTableMeta("todo", todoEntity, { source: "unmanaged" });
-  r.entity({ name: "todo", ...todoEntity });
+  const todoTable = deriveEntityTableMeta(todoEntity, { source: "unmanaged" });
+  r.entity(todoEntity);
 
   r.writeHandler({
     name: "create",

@@ -30,7 +30,7 @@ function registerFieldApproval(
     recommended: false,
   });
 
-  r.entity({ name: FIELD_CHANGE_REQUEST_ENTITY_NAME, ...createFieldChangeRequestEntity(parents) });
+  r.entity(createFieldChangeRequestEntity(parents));
   const requestExecutor = createFieldChangeRequestExecutor(parents);
   r.writeHandler(createRequestChangeHandler(access, requestExecutor));
   r.writeHandler(createApproveChangeHandler(access, requestExecutor));

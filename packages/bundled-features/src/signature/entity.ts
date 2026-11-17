@@ -141,7 +141,7 @@ function buildSignatureRequestEntity(
       { columns: ["tenantId", "status"] },
       { columns: ["tenantId", "subjectType", "subjectId"] },
       { columns: ["tenantId", "hostType", "hostId"] },
-    ],
+    ], name: SIGNATURE_REQUEST_ENTITY,
   });
 }
 
@@ -161,6 +161,7 @@ export function createSignatureSignerEntity(
   retention: Pick<SignatureRetention, "keepFor"> = { keepFor: DEFAULT_SIGNATURE_RETENTION_KEEP_FOR },
 ) {
   return createEntity({
+    name: SIGNATURE_SIGNER_ENTITY,
     table: "read_signature_signers",
     description:
       "One person who has to sign a signature request, with their way of signing (in person or link), the signature image and the audit values stored when they signed or declined; name, email, image, IP address and user agent are the signer's personal data.",
@@ -223,17 +224,15 @@ export const signatureSignerEntity = createSignatureSignerEntity();
 
 // ungated: system paths only (sweep, user-data run as systemUser and must see every host)
 export const { executor: ungatedRequestExecutor, table: signatureRequestTable } =
-  createEntityExecutor(SIGNATURE_REQUEST_ENTITY, signatureRequestEntity);
+  createEntityExecutor(signatureRequestEntity);
 
 export function createSignatureRequestExecutor(hostEntities: readonly string[]) {
   return createEntityExecutor(
-    SIGNATURE_REQUEST_ENTITY,
     createSignatureRequestEntity({ keepFor: DEFAULT_SIGNATURE_RETENTION_KEEP_FOR }, hostEntities),
   ).executor;
 }
 
 export type SignatureRequestExecutor = ReturnType<typeof createSignatureRequestExecutor>;
 export const { executor: signerExecutor, table: signatureSignerTable } = createEntityExecutor(
-  SIGNATURE_SIGNER_ENTITY,
   signatureSignerEntity,
 );

@@ -71,7 +71,7 @@ function registerFolders(
 
   const folderAssignmentEntity = createFolderAssignmentEntity(ownership, parents);
   r.entity(folderEntity);
-  r.entity({ name: "folder-assignment", ...folderAssignmentEntity });
+  r.entity(folderAssignmentEntity);
   r.applyExtension({ name: EXT_USER_DATA, entity: "folder", export: folderExportHook, delete: folderDeleteHook });
   r.applyExtension({ name: EXT_USER_DATA, entity: "folder-assignment", export: folderAssignmentExportHook,
     delete: folderAssignmentDeleteHook });

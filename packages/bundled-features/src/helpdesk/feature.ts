@@ -125,8 +125,8 @@ export function createHelpdeskFeature(opts: HelpdeskOptions): FeatureDefinition 
         templates: { telegram: telegramTemplate } });
     }
 
-    r.entity({ name: "helpdesk-request", ...requestEntity });
-    r.entity({ name: "helpdesk-reply", ...replyEntity });
+    r.entity({ ...requestEntity, name: "helpdesk-request" });
+    r.entity({ ...replyEntity, name: "helpdesk-reply" });
 
     r.writeHandler(createSubmitHandler(opts, settings));
     r.writeHandler(createReportHandler(opts, settings));

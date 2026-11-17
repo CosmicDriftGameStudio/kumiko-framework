@@ -21,10 +21,12 @@ import { generateId } from "../../utils/index.ts";
 const requiredText = { personal: false, reason: "test_fixture", required: true } as const;
 
 export const releaseEntity = createEntity({
+  name: "legacy-release",
   table: "read_evprune_release",
   fields: { appId: createTextField(requiredText), name: createTextField(requiredText) },
 });
 export const fileEntity = createEntity({
+  name: "legacy-file",
   table: "read_evprune_file",
   fields: { name: createTextField(requiredText) },
 });
@@ -39,14 +41,14 @@ export const FILE = "legacy-file";
 export const KEPT = "kept-item";
 
 export const feature = defineFeature("evprune", (r) => {
-  r.entity({ name: RELEASE, ...releaseEntity });
-  r.entity({ name: FILE, ...fileEntity });
-  r.entity({ name: KEPT, ...keptEntity });
+  r.entity(releaseEntity);
+  r.entity(fileEntity);
+  r.entity({ ...keptEntity, name: KEPT });
 });
 
 export const mixedFeature = defineFeature("evprunemixed", (r) => {
-  r.entity({ name: "mixed-a", ...keptEntity, table: "read_evprune_mixed_a" });
-  r.entity({ name: "mixed-b", ...keptEntity, table: "read_evprune_mixed_b" });
+  r.entity({ ...keptEntity, table: "read_evprune_mixed_a" });
+  r.entity({ ...keptEntity, name: "mixed-b", table: "read_evprune_mixed_b" });
   r.projection({
     name: "mixed-both",
     source: ["mixed-a", "mixed-b"],
@@ -57,8 +59,8 @@ export const mixedFeature = defineFeature("evprunemixed", (r) => {
 
 // camelCase entity names are written to the event store under their kebab-case form.
 export const camelCaseMixedFeature = defineFeature("evprunecamel", (r) => {
-  r.entity({ name: "camelA", ...keptEntity, table: "read_evprune_camel_a" });
-  r.entity({ name: "camelB", ...keptEntity, table: "read_evprune_camel_b" });
+  r.entity({ ...keptEntity, name: "camelA", table: "read_evprune_camel_a" });
+  r.entity({ ...keptEntity, name: "camelB", table: "read_evprune_camel_b" });
   r.projection({
     name: "camel-both",
     source: ["camelA", "camelB"],
@@ -69,7 +71,7 @@ export const camelCaseMixedFeature = defineFeature("evprunecamel", (r) => {
 
 // Dotted key = removed type "mixed-a"; the qualified key has no derivable aggregate type.
 export const mixedStreamFeature = defineFeature("evprunemsp", (r) => {
-  r.entity({ name: "msp-a", ...keptEntity, table: "read_evprune_msp_a" });
+  r.entity({ ...keptEntity, name: "msp-a", table: "read_evprune_msp_a" });
   r.multiStreamProjection({
     name: "msp-both",
     table: buildEntityTable({ ...keptEntity, name: "msp-a" }),
@@ -78,9 +80,9 @@ export const mixedStreamFeature = defineFeature("evprunemsp", (r) => {
 });
 
 export const admin = TestUsers.admin;
-export const releaseTable = buildEntityTable(RELEASE, releaseEntity);
-export const fileTable = buildEntityTable(FILE, fileEntity);
-export const keptTable = buildEntityTable(KEPT, keptEntity);
+export const releaseTable = buildEntityTable(releaseEntity);
+export const fileTable = buildEntityTable(fileEntity);
+export const keptTable = buildEntityTable({ ...keptEntity, name: KEPT });
 
 export async function createFixtureTables(stack: TestStack): Promise<void> {
   await unsafeCreateEntityTable(stack.db, releaseEntity, RELEASE);

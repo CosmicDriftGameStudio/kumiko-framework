@@ -15,13 +15,12 @@ const EXPECTED_INDEXES = [
 
 describe("tag-assignment entity — DDL", () => {
   test("tag-assignment table is indexed by host and by tag", () => {
-    const meta = deriveEntityTableMeta("tag-assignment", createTagAssignmentEntity(undefined, ["note"]));
+    const meta = deriveEntityTableMeta(createTagAssignmentEntity(undefined, ["note"]));
     expect(meta.indexes).toEqual(expect.arrayContaining(EXPECTED_INDEXES));
   });
 
   test("the parents variant carries the same indexes", () => {
     const meta = deriveEntityTableMeta(
-      "tag-assignment",
       createTagAssignmentEntity(undefined, ["note"]),
     );
     expect(meta.indexes).toEqual(expect.arrayContaining(EXPECTED_INDEXES));

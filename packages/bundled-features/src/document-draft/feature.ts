@@ -35,7 +35,7 @@ export function createDocumentDraftFeature(
     });
     r.translations({ keys: DOCUMENT_DRAFT_I18N });
 
-    r.entity({ name: "documentDraft", ...entity });
+    r.entity(entity);
 
     r.writeHandler(createCreateHandler(access, documentDraftExecutor, opts.subjectTypes));
     r.writeHandler(createPatchHandler(access, documentDraftExecutor));

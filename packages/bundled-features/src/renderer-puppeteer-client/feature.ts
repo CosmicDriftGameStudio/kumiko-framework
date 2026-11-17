@@ -33,7 +33,7 @@ export function createRendererPuppeteerClientFeature(): FeatureDefinition {
       render: puppeteerRender,
       previewDocument: buildDocumentPreview });
 
-    r.entity({ name: RENDERED_PDF_ENTITY_NAME, ...renderedPdfEntity });
+    r.entity(renderedPdfEntity);
     r.queryHandler(puppeteerStatusQuery);
     r.queryHandler(previewPdfQuery);
     r.queryHandler(previewPngQuery);

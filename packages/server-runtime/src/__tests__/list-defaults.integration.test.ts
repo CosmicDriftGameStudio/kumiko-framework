@@ -28,12 +28,10 @@ const LIST_DEFAULTS: ListDefaultsOptions = {
 };
 
 const shopFeature = defineFeature("shop", (r) => {
-  r.entity({
-    name: "item",
-    ...createEntity({
+  r.entity(createEntity({
+      name: "item",
       fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-    }),
-  });
+    }));
   r.screen({
     id: "item-list",
     type: "entityList",

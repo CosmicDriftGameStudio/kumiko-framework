@@ -48,19 +48,20 @@ const foreignOwner = {
 };
 
 const probeEntity = createEntity({
+  name: ENTITY,
   table: "read_after_delete_probe",
   fields: {
     body: createTextField({ required: true, maxLength: 200, personal: { of: "id" }, find: "none" }),
   },
 });
-const probeTable = buildEntityTable(ENTITY, probeEntity);
+const probeTable = buildEntityTable(probeEntity);
 const access = { roles: ["Owner"] };
 
 let rejectDelete = false;
 let trailingSubjectIds: readonly string[] = [];
 
 const probeFeature = defineFeature("after-delete-probe", (r) => {
-  const probe = r.entity({ name: ENTITY, ...probeEntity });
+  const probe = r.entity(probeEntity);
   r.writeHandler(defineEntityCreateHandler(ENTITY, probeEntity, { access }));
   r.writeHandler(defineEntityDeleteHandler(ENTITY, probeEntity, { access }));
   r.hook(

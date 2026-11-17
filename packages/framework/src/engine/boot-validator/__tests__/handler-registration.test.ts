@@ -12,13 +12,11 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   test("accepts bare CRUD write handler when feature name matches entity", () => {
     const features = [
       defineFeature("credit", (r) => {
-        r.entity({
-          name: "credit",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "credit",
             table: "Credits",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-          }),
-        });
+          }));
         r.writeHandler({
           name: "create",
           schema: z.object({ name: z.string() }),

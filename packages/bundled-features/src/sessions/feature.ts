@@ -102,7 +102,7 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
       // table out of implicit rebuild, like jobs/channel-in-app/feature-toggles
       // which are direct-write stores too.
       r.storeTable(
-        deriveEntityTableMeta(USER_SESSION_ENTITY_NAME, userSessionEntity, { source: "unmanaged" }),
+        deriveEntityTableMeta(userSessionEntity, { source: "unmanaged" }),
         {
           reason: "read_side.user_sessions_direct_write",
           // sessionCreator encrypts ip/userAgent via encryptForDirectWrite.

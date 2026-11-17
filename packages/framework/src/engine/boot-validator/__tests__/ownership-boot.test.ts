@@ -17,9 +17,8 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
           r.claimKey({ name: "teamId", type: "string" });
         }),
         defineFeature("orders", (r) => {
-          r.entity({
-            name: "order",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "order",
               table: "orders",
               fields: {
                 teamId: createTextField({
@@ -31,8 +30,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
               access: {
                 read: { Admin: "all", TeamMember: from("claim:teams:teamId") },
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).not.toThrow();
@@ -41,9 +39,8 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("detects claim-QN that no feature declared", () => {
       const features = [
         defineFeature("orders", (r) => {
-          r.entity({
-            name: "order",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "order",
               table: "orders",
               fields: {
                 teamId: createTextField({
@@ -56,8 +53,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
                 // No "teams" feature registered — claim doesn't exist.
                 read: { TeamMember: from("claim:teams:teamId") },
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).toThrow(
@@ -71,9 +67,8 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
           r.claimKey({ name: "teamId", type: "string" });
         }),
         defineFeature("orders", (r) => {
-          r.entity({
-            name: "order",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "order",
               table: "orders",
               fields: {
                 teamId: createTextField({
@@ -88,8 +83,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
                   TeamMember: from("claim:teams:teamId", "nonExistentColumn"),
                 },
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).toThrow(
@@ -103,9 +97,8 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
           r.claimKey({ name: "teamId", type: "string" });
         }),
         defineFeature("contracts", (r) => {
-          r.entity({
-            name: "contract",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "contract",
               table: "contracts",
               fields: {
                 teamId: createTextField({
@@ -122,8 +115,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
                   reason: "test_fixture",
                 }),
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).not.toThrow();
@@ -132,9 +124,8 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("detects unknown claim on field-level rule", () => {
       const features = [
         defineFeature("contracts", (r) => {
-          r.entity({
-            name: "contract",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "contract",
               table: "contracts",
               fields: {
                 teamId: createTextField({
@@ -151,8 +142,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
                   reason: "test_fixture",
                 }),
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).toThrow(
@@ -163,16 +153,14 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("user-ref rule with valid column passes", () => {
       const features = [
         defineFeature("orders", (r) => {
-          r.entity({
-            name: "order",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "order",
               table: "orders",
               fields: { assigneeId: createTextField({ personal: false, reason: "test_fixture" }) },
               access: {
                 read: { Driver: from("user:id", "assigneeId") },
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).not.toThrow();
@@ -181,9 +169,8 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("'all' rule and { where } rule bypass validation (no ref to check)", () => {
       const features = [
         defineFeature("orders", (r) => {
-          r.entity({
-            name: "order",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "order",
               table: "orders",
               fields: { assigneeId: createTextField({ personal: false, reason: "test_fixture" }) },
               access: {
@@ -195,8 +182,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
                   },
                 },
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).not.toThrow();
@@ -205,9 +191,8 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("a where-rule with an unqualified column inside a subquery fails boot", () => {
       const features = [
         defineFeature("orders", (r) => {
-          r.entity({
-            name: "order",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "order",
               table: "orders",
               fields: {
                 entityId: createTextField({
@@ -227,8 +212,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
                   },
                 },
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/unqualified/i);
@@ -237,9 +221,8 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("the same where-rule, correctly qualified, passes boot", () => {
       const features = [
         defineFeature("orders", (r) => {
-          r.entity({
-            name: "order",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "order",
               table: "orders",
               fields: {
                 entityId: createTextField({
@@ -259,8 +242,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
                   },
                 },
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).not.toThrow();
@@ -272,9 +254,8 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
           r.claimKey({ name: "teamId", type: "string" });
         }),
         defineFeature("orders", (r) => {
-          r.entity({
-            name: "order",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "order",
               table: "orders",
               fields: {},
               access: {
@@ -283,8 +264,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
                   TeamMember: from("claim:teams:teamId", "tenantId"),
                 },
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).not.toThrow();
@@ -307,9 +287,8 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
           });
         }),
         defineFeature("orders", (r) => {
-          r.entity({
-            name: "order",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "order",
               table: "orders",
               fields: {
                 teamId: createTextField({
@@ -321,8 +300,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
               access: {
                 read: { Admi: "all" },
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).toThrow(
@@ -341,9 +319,8 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
           });
         }),
         defineFeature("orders", (r) => {
-          r.entity({
-            name: "order",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "order",
               table: "orders",
               fields: {
                 secret: createTextField({
@@ -352,8 +329,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
                   reason: "test_fixture",
                 }),
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).toThrow(
@@ -372,9 +348,8 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
           });
         }),
         defineFeature("orders", (r) => {
-          r.entity({
-            name: "order",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "order",
               table: "orders",
               fields: {
                 teamId: createTextField({
@@ -386,8 +361,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
               access: {
                 read: { Admin: "all", TeamMember: "all" },
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).not.toThrow();
@@ -400,9 +374,8 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
       // for the canValidateRoles gate.
       const features = [
         defineFeature("orders", (r) => {
-          r.entity({
-            name: "order",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "order",
               table: "orders",
               fields: {
                 teamId: createTextField({
@@ -414,8 +387,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
               access: {
                 read: { AnyRole: "all" },
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).not.toThrow();

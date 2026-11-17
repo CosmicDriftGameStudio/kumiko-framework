@@ -14,9 +14,8 @@ function featureWith(
   screenExtras: { readonly readOnly?: { readonly field: string; readonly eq: unknown } } = {},
 ) {
   return defineFeature("demo", (r) => {
-    r.entity({
-      name: "protocol",
-      ...createEntity({
+    r.entity(createEntity({
+        name: "protocol",
         table: "Protocols",
         fields: {
           inspector: createTextField({ personal: false, reason: "test_fixture" }),
@@ -26,8 +25,7 @@ function featureWith(
             result: { type: "select", options: ["ok", "bad"], display: "radio" },
           }),
         },
-      }),
-    });
+      }));
     r.screen({
       id: "protocol-edit",
       type: "entityEdit",

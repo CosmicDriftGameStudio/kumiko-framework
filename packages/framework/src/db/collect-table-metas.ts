@@ -54,7 +54,7 @@ export function collectTableMetas(
   // (same order, same deriveEntityTableMeta options).
   for (const feature of features) {
     for (const [name, ent] of Object.entries(feature.entities ?? {})) {
-      const fieldMeta = deriveEntityTableMeta(name, ent, { relations: feature.relations[name] });
+      const fieldMeta = deriveEntityTableMeta({ ...ent, name: name }, { relations: feature.relations[name] });
       // Backing table wins: it's the physical DDL truth for ride-along columns/
       // indexes the field-DSL can't express (secrets' envelope). Validated as a
       // superset of the field-derived meta so a field/table disagreement throws.

@@ -54,7 +54,7 @@ function buildFieldChangeRequestEntity(parentRef: ParentRefDef | undefined) {
     indexes: [
       { columns: ["tenantId", "status"] },
       { columns: ["tenantId", "entityType", "entityId"] },
-    ],
+    ], name: "field-change-request",
   });
 }
 

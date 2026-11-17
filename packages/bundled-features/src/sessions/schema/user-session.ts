@@ -20,6 +20,7 @@ import { USER_SESSION_ENTITY_NAME } from "../constants.ts";
 export const userSessionEntity = createEntity({
   // The entity key is "user-session"; an explicit store_-prefixed table name keeps it a valid,
   // unquoted SQL identifier.
+  name: USER_SESSION_ENTITY_NAME,
   table: "store_user_sessions",
   // sid-as-PK: the sessionCreator callback generates the UUID, returns it to
   // the framework; the framework stamps it as `jti`; here the same value is
@@ -85,6 +86,6 @@ export const userSessionEntity = createEntity({
 // revocation is a column write, not an aggregate). Handlers write via ctx.db;
 // source: "unmanaged" makes the meta Writable so those writes compile. See
 // feature.ts for the rebuild-exclusion rationale.
-export const userSessionTable = deriveEntityTableMeta(USER_SESSION_ENTITY_NAME, userSessionEntity, {
+export const userSessionTable = deriveEntityTableMeta(userSessionEntity, {
   source: "unmanaged",
 });

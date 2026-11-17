@@ -91,6 +91,7 @@ const savedEnv = new Map<string, string | undefined>();
 
 const admin = createTestUser({ id: 9711, roles: ["TenantAdmin"], tenantId: testTenantId(9711) });
 const leaseEntity = createEntity({
+  name: SUBJECT_TYPE,
   table: "render_draft_test_leases",
   fields: {
     name: createTextField({
@@ -102,10 +103,10 @@ const leaseEntity = createEntity({
   },
 });
 const leaseHostFeature = defineFeature("render-draft-test-lease-host", (r) => {
-  r.entity({ name: SUBJECT_TYPE, ...leaseEntity });
+  r.entity(leaseEntity);
 });
 const leaseExecutor = createEventStoreExecutor(
-  buildEntityTable(SUBJECT_TYPE, leaseEntity),
+  buildEntityTable(leaseEntity),
   leaseEntity,
   { entityName: SUBJECT_TYPE },
 );

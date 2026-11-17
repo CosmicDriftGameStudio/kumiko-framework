@@ -38,12 +38,10 @@ const ROWS_QN = "shop:query:item:rows";
 const SHOP_COLUMNS: readonly ListColumnSpec[] = ["name"];
 
 const shopFeature = defineFeature("shop", (r) => {
-  r.entity({
-    name: "item",
-    ...createEntity({
+  r.entity(createEntity({
+      name: "item",
       fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-    }),
-  });
+    }));
   r.queryHandler({
     name: "item:rows",
     schema: z.object({}),
@@ -117,12 +115,10 @@ const jobsOverride = defineFeature(JOBS_FEATURE, (r) => {
       ],
     },
   });
-  r.entity({
-    name: "run",
-    ...createEntity({
+  r.entity(createEntity({
+      name: "run",
       fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-    }),
-  });
+    }));
   r.screen({
     id: "edit",
     type: "entityEdit",
@@ -196,12 +192,10 @@ describe("composeFeatures listDefaults", () => {
 
   test("an app feature takes the block on its lists and relatedList sections", () => {
     const crm = defineFeature("crm", (r) => {
-      r.entity({
-        name: "contact",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "contact",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-        }),
-      });
+        }));
       r.queryHandler({
         name: "contact:rows",
         schema: z.object({}),

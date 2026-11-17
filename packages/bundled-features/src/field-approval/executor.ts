@@ -6,13 +6,12 @@ import { createFieldChangeRequestEntity, fieldChangeRequestEntity } from "./enti
 
 // ungated: system paths and tests only; handlers use createFieldChangeRequestExecutor
 export const { executor: fieldChangeRequestExecutor, table: fieldChangeRequestTable } =
-  createEntityExecutor(FIELD_CHANGE_REQUEST_ENTITY_NAME, fieldChangeRequestEntity);
+  createEntityExecutor(fieldChangeRequestEntity);
 
 export function createFieldChangeRequestExecutor(
   parents: readonly string[],
 ): typeof fieldChangeRequestExecutor {
   return createEntityExecutor(
-    FIELD_CHANGE_REQUEST_ENTITY_NAME,
     createFieldChangeRequestEntity(parents),
   ).executor;
 }

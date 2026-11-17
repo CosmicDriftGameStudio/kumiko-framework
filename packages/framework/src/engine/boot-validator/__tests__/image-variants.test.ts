@@ -13,9 +13,8 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
       await withEnv({ FILE_STORAGE_PROVIDER: "local" }, () => {
         const features = [
           defineFeature("profile", (r) => {
-            r.entity({
-              name: "person",
-              ...createEntity({
+            r.entity(createEntity({
+                name: "person",
                 fields: {
                   avatar: createImageField({
                     variants: {
@@ -23,8 +22,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
                     },
                   }),
                 },
-              }),
-            });
+              }));
           }),
         ];
         expect(() => validateBoot(features)).not.toThrow();
@@ -35,14 +33,12 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
       await withEnv({ FILE_STORAGE_PROVIDER: "local" }, () => {
         const features = [
           defineFeature("profile", (r) => {
-            r.entity({
-              name: "person",
-              ...createEntity({
+            r.entity(createEntity({
+                name: "person",
                 fields: {
                   avatar: createImageField({ variants: { web: { format: "webp" } } }),
                 },
-              }),
-            });
+              }));
           }),
         ];
         expect(() => validateBoot(features)).not.toThrow();
@@ -52,9 +48,8 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("rejects a variant setting both `size` and `maxEdge`", () => {
       const features = [
         defineFeature("profile", (r) => {
-          r.entity({
-            name: "person",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "person",
               fields: {
                 avatar: createImageField({
                   variants: {
@@ -62,8 +57,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
                   },
                 }),
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/both/);
@@ -72,14 +66,12 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("rejects a variant name containing a slash", () => {
       const features = [
         defineFeature("profile", (r) => {
-          r.entity({
-            name: "person",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "person",
               fields: {
                 avatar: createImageField({ variants: { "a/b": { maxEdge: 200 } } }),
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/must match/);
@@ -88,14 +80,12 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("rejects maxEdge: 0", () => {
       const features = [
         defineFeature("profile", (r) => {
-          r.entity({
-            name: "person",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "person",
               fields: {
                 avatar: createImageField({ variants: { thumb: { maxEdge: 0 } } }),
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/maxEdge/);
@@ -104,14 +94,12 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("rejects quality: 101", () => {
       const features = [
         defineFeature("profile", (r) => {
-          r.entity({
-            name: "person",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "person",
               fields: {
                 avatar: createImageField({ variants: { thumb: { maxEdge: 200, quality: 101 } } }),
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/quality/);
@@ -120,14 +108,12 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("the same validation applies to `images` (multi) fields", () => {
       const features = [
         defineFeature("profile", (r) => {
-          r.entity({
-            name: "person",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "person",
               fields: {
                 gallery: createImagesField({ variants: { "a/b": { maxEdge: 200 } } }),
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/must match/);
@@ -136,16 +122,14 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("rejects size beyond the max variant edge", () => {
       const features = [
         defineFeature("profile", (r) => {
-          r.entity({
-            name: "person",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "person",
               fields: {
                 avatar: createImageField({
                   variants: { huge: { size: { width: 100000, height: 100000 } } },
                 }),
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/size/);
@@ -154,14 +138,12 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("rejects maxEdge beyond the max variant edge", () => {
       const features = [
         defineFeature("profile", (r) => {
-          r.entity({
-            name: "person",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "person",
               fields: {
                 avatar: createImageField({ variants: { huge: { maxEdge: 100000 } } }),
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/maxEdge/);
@@ -170,14 +152,12 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("rejects a negative blur", () => {
       const features = [
         defineFeature("profile", (r) => {
-          r.entity({
-            name: "person",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "person",
               fields: {
                 avatar: createImageField({ variants: { thumb: { maxEdge: 200, blur: -5 } } }),
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/blur/);
@@ -186,16 +166,14 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("rejects a blur far beyond the renderer's supported sigma", () => {
       const features = [
         defineFeature("profile", (r) => {
-          r.entity({
-            name: "person",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "person",
               fields: {
                 avatar: createImageField({
                   variants: { thumb: { maxEdge: 200, blur: 100000 } },
                 }),
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/blur/);
@@ -205,14 +183,12 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
       await withEnv({ FILE_STORAGE_PROVIDER: "local" }, () => {
         const features = [
           defineFeature("profile", (r) => {
-            r.entity({
-              name: "person",
-              ...createEntity({
+            r.entity(createEntity({
+                name: "person",
                 fields: {
                   avatar: createImageField({ variants: { thumb: { maxEdge: 200, blur: 8 } } }),
                 },
-              }),
-            });
+              }));
           }),
         ];
         expect(() => validateBoot(features)).not.toThrow();
@@ -222,9 +198,8 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("rejects a blurRegion that overflows the unit square", () => {
       const features = [
         defineFeature("profile", (r) => {
-          r.entity({
-            name: "person",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "person",
               fields: {
                 avatar: createImageField({
                   variants: {
@@ -235,8 +210,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
                   },
                 }),
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/blurRegions/);
@@ -246,9 +220,8 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
       await withEnv({ FILE_STORAGE_PROVIDER: "local" }, () => {
         const features = [
           defineFeature("profile", (r) => {
-            r.entity({
-              name: "person",
-              ...createEntity({
+            r.entity(createEntity({
+                name: "person",
                 fields: {
                   avatar: createImageField({
                     variants: {
@@ -259,8 +232,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
                     },
                   }),
                 },
-              }),
-            });
+              }));
           }),
         ];
         expect(() => validateBoot(features)).not.toThrow();

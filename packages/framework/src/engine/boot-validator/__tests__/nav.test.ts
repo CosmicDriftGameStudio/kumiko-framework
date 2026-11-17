@@ -398,12 +398,10 @@ describe("validateBoot nav allowlist wiring", () => {
 
   function shopFeature(options: { readonly withWorkspace: boolean }) {
     return defineFeature("shop", (r) => {
-      r.entity({
-        name: "item",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "item",
           fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
-        }),
-      });
+        }));
       r.queryHandler({
         name: "item:list",
         schema: z.object({}),

@@ -21,6 +21,7 @@ import { createBigIntField, createEntity, createTextField } from "../engine/inde
 export { FILE_REF_ENTITY_NAME } from "./types.ts";
 
 export const fileRefEntity = createEntity({
+  name: "fileRef",
   table: "file_refs",
   softDelete: true,
   fields: {

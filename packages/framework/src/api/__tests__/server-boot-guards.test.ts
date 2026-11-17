@@ -79,16 +79,14 @@ describe("buildServer — cross-replica fanout warning", () => {
 
 describe("buildServer — file-storage provider guard", () => {
   const fileFieldFeature = defineFeature("needs-files", (r) => {
-    r.entity({
-      name: "doc",
-      ...createEntity({
+    r.entity(createEntity({
+        name: "doc",
         table: "boot_guard_docs",
         fields: {
           title: createTextField({ personal: false, reason: "test_fixture" }),
           attachment: createFileField(),
         },
-      }),
-    });
+      }));
   });
 
   test("throws when registry declares file fields but no provider is mounted", () => {
@@ -241,26 +239,22 @@ describe("buildServer — feature httpRoute PUT mounting", () => {
 
 describe("buildServer — search-adapter boot warning", () => {
   const searchableFeature = defineFeature("has-search", (r) => {
-    r.entity({
-      name: "note",
-      ...createEntity({
+    r.entity(createEntity({
+        name: "note",
         table: "boot_guard_notes",
         fields: {
           title: createTextField({ personal: false, reason: "test_fixture", searchable: true }),
         },
-      }),
-    });
+      }));
     r.screen({ id: "note-list", type: "entityList", entity: "note", columns: ["title"] });
   });
 
   const nonSearchableFeature = defineFeature("no-search", (r) => {
-    r.entity({
-      name: "note",
-      ...createEntity({
+    r.entity(createEntity({
+        name: "note",
         table: "boot_guard_plain_notes",
         fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
-      }),
-    });
+      }));
     r.screen({ id: "note-list", type: "entityList", entity: "note", columns: ["title"] });
   });
 
@@ -269,15 +263,13 @@ describe("buildServer — search-adapter boot warning", () => {
   // field, ignoring that the screen (whitelisted per entity-list-screens.ts
   // SEARCHABLE_FALSE_WHITELIST) never renders the search box.
   const explicitlyNonSearchableScreenFeature = defineFeature("opted-out-search", (r) => {
-    r.entity({
-      name: "download-attempt",
-      ...createEntity({
+    r.entity(createEntity({
+        name: "download-attempt",
         table: "boot_guard_download_attempts",
         fields: {
           title: createTextField({ personal: false, reason: "test_fixture", searchable: true }),
         },
-      }),
-    });
+      }));
     r.screen({
       id: "download-attempt-list",
       type: "entityList",

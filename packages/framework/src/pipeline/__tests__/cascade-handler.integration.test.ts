@@ -97,7 +97,7 @@ const access = { access: { roles: ["Admin"] } } as const;
 
 const cascadeFeature = defineFeature("cascade", (r) => {
   for (const [name, entity] of Object.entries(entities)) {
-    r.entity({ name, ...entity });
+    r.entity({ ...entity, name });
   }
 
   r.relation({ entity: "department", name: "users", type: "hasMany",
@@ -162,7 +162,7 @@ const cascadeFeature = defineFeature("cascade", (r) => {
   });
 
   for (const [name, entity] of Object.entries(entities)) {
-    r.crud(name, entity, { write: access, read: access, registerEntity: false });
+    r.crud({ ...entity, name: name }, { write: access, read: access, registerEntity: false });
   }
 });
 

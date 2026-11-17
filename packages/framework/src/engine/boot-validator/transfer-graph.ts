@@ -73,7 +73,7 @@ function transferableEntityTables(
   for (const feature of featureMap.values()) {
     for (const [name, entity] of Object.entries(feature.entities ?? {})) {
       if (entity.transferable !== true) continue;
-      tables.set(name, tableNameOf(feature.entityTables?.[name] ?? buildEntityTable(name, entity)));
+      tables.set(name, tableNameOf(feature.entityTables?.[name] ?? buildEntityTable({ ...entity, name: name })));
     }
   }
   return tables;

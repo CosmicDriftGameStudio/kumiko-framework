@@ -9,7 +9,7 @@ import { NotFoundError } from "@cosmicdrift/kumiko-framework/errors";
 import { FILE_REF_ENTITY_NAME, fileRefEntity } from "@cosmicdrift/kumiko-framework/files";
 import { DOCUMENT_ENTITY } from "./constants.ts";
 
-const fileRefs = createEntityExecutor(FILE_REF_ENTITY_NAME, fileRefEntity).executor;
+const fileRefs = createEntityExecutor(fileRefEntity).executor;
 
 // One live document per file (unique on tenant + file): a member who names a colleague's pending
 // upload would block the colleague's own later save of that file, because capture could no longer

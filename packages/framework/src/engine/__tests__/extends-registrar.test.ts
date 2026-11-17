@@ -41,7 +41,7 @@ const dummySaveContext: SaveContext = {
 describe("extendsRegistrar", () => {
   test("r.useExtension records usage with name, entity, and options", () => {
     const consumer = defineFeature("fleet", (r) => {
-      r.entity({ name: "vehicle", ...createEntity({ table: "Vehicles", fields: {} }) });
+      r.entity(createEntity({ name: "vehicle", table: "Vehicles", fields: {} }));
       r.applyExtension({ name: "tags", entity: "vehicle" });
       r.applyExtension({ name: "customFields", entity: "vehicle", allowTypes: ["text", "number"] });
     });
@@ -67,7 +67,7 @@ describe("extendsRegistrar", () => {
     });
 
     const consumer = defineFeature("fleet", (r) => {
-      r.entity({ name: "vehicle", ...createEntity({ table: "Vehicles", fields: {} }) });
+      r.entity(createEntity({ name: "vehicle", table: "Vehicles", fields: {} }));
       r.applyExtension({ name: "tags", entity: "vehicle" });
     });
 
@@ -96,7 +96,7 @@ describe("extendsRegistrar", () => {
       r.extendsRegistrar("commentable", { onRegister: () => {} });
     });
     const consumer = defineFeature("fleet", (r) => {
-      r.entity({ name: "vehicle", ...createEntity({ table: "Vehicles", fields: {} }) });
+      r.entity(createEntity({ name: "vehicle", table: "Vehicles", fields: {} }));
       r.applyExtension({ name: "tags", entity: "vehicle" });
       r.applyExtension({ name: "commentable", entity: "vehicle" });
       r.applyExtension({ name: "tags", entity: "driver" });
@@ -120,13 +120,11 @@ describe("extendsRegistrar", () => {
       });
     });
     const consumer = defineFeature("fleet", (r) => {
-      r.entity({
-        name: "vehicle",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "vehicle",
           table: "Vehicles",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-        }),
-      });
+        }));
       r.applyExtension({ name: "customFields", entity: "vehicle" });
     });
 
@@ -147,13 +145,11 @@ describe("extendsRegistrar", () => {
     });
     const consumer = defineFeature("credit", (r) => {
       r.requires({ features: ["audit"] });
-      r.entity({
-        name: "credit",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "credit",
           table: "Credits",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-        }),
-      });
+        }));
       r.writeHandler({
         name: "create",
         schema: z.object({ name: z.string() }),
@@ -182,14 +178,12 @@ describe("extendsRegistrar", () => {
       });
     });
     const consumer = defineFeature("fleet", (r) => {
-      r.entity({
-        name: "vehicle",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "vehicle",
           table: "Vehicles",
           idType: "uuid",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-        }),
-      });
+        }));
       // Explicit handlers — the entity mapping is inferred from the
       // "vehicle:" prefix via tryMapEntity, so the extension's preSave
       // wires onto every entity-scoped handler automatically.
@@ -237,7 +231,7 @@ describe("extendsRegistrar", () => {
       });
     });
     const consumer = defineFeature("fleet", (r) => {
-      r.entity({ name: "vehicle", ...createEntity({ table: "Vehicles", fields: {} }) });
+      r.entity(createEntity({ name: "vehicle", table: "Vehicles", fields: {} }));
       r.applyExtension({ name: "audited", entity: "vehicle" });
     });
 
@@ -281,7 +275,7 @@ describe("extendsRegistrar", () => {
       });
     });
     const consumer = defineFeature("fleet", (r) => {
-      r.entity({ name: "vehicle", ...createEntity({ table: "Vehicles", fields: {} }) });
+      r.entity(createEntity({ name: "vehicle", table: "Vehicles", fields: {} }));
       r.applyExtension({ name: "audited", entity: "vehicle" });
     });
 
@@ -299,7 +293,7 @@ describe("extendsRegistrar", () => {
 describe("framework-owned EXT_USER_DATA", () => {
   test("a feature registers hooks without requiring a provider feature", () => {
     const owner = defineFeature("owner", (r) => {
-      r.entity({ name: "item", ...createEntity({ table: "Items", fields: {} }) });
+      r.entity(createEntity({ name: "item", table: "Items", fields: {} }));
       r.applyExtension({ name: EXT_USER_DATA, entity: "item", export: async () => null, delete: async () => {} });
     });
 

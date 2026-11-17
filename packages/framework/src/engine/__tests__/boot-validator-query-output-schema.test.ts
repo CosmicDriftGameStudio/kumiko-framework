@@ -421,12 +421,10 @@ describe("validateBoot query output schema column refs", () => {
       readonly subtitleHref?: string;
     }) {
       return defineFeature("app", (r) => {
-        r.entity({
-          name: "unit",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "unit",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-          }),
-        });
+          }));
         r.queryHandler({
           name: "unit:detail",
           schema: z.object({}),

@@ -16,14 +16,12 @@ const text = () =>
 
 function featureDeclaring(query: string, reason: string): FeatureDefinition {
   return defineFeature("requests", (r) => {
-    r.entity({
-      name: "request",
-      ...createEntity({
+    r.entity(createEntity({
+        name: "request",
         table: "cross_tenant_file_read_boot_requests",
         fields: { title: text() },
         crossTenantFileRead: { query, reason },
-      }),
-    });
+      }));
     r.queryHandler({
       name: "request:visible-to-me",
       schema: z.object({ id: z.string() }),

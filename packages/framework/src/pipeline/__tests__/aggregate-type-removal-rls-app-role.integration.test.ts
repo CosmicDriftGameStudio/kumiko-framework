@@ -45,7 +45,7 @@ const entities = {
 };
 
 const feature = defineFeature("evprunerls", (r) => {
-  for (const [name, entity] of Object.entries(entities)) r.entity({ name, ...entity });
+  for (const [name, entity] of Object.entries(entities)) r.entity({ ...entity, name });
 });
 const registry = createRegistry([feature]);
 
@@ -72,7 +72,7 @@ async function seedTenant(tenantId: typeof tenantA, userNumber: number): Promise
   const user = createTestUser({ id: userNumber, tenantId, roles: ["TenantAdmin"] });
   const tdb = createTenantDb({ db: testDb.db, tenantId });
   for (const [name, entity] of Object.entries(entities)) {
-    const executor = createEventStoreExecutor(buildEntityTable(name, entity), entity, {
+    const executor = createEventStoreExecutor(buildEntityTable({ ...entity, name: name }), entity, {
       entityName: name,
     });
     await executor.create({ name: `${name}-${userNumber}` }, user, tdb);

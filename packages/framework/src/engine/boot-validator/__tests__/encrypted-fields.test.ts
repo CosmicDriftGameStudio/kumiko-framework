@@ -12,9 +12,8 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   test("rejects encrypted + searchable field", () => {
     const features = [
       defineFeature("a", (r) => {
-        r.entity({
-          name: "secret",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "secret",
             table: "Secrets",
             fields: {
               apiKey: {
@@ -24,8 +23,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
                 searchable: true,
               },
             },
-          }),
-        });
+          }));
       }),
     ];
     expect(() => validateBoot(features)).toThrow(
@@ -36,9 +34,8 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   test("rejects encrypted + sortable field", () => {
     const features = [
       defineFeature("a", (r) => {
-        r.entity({
-          name: "secret",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "secret",
             table: "Secrets",
             fields: {
               token: {
@@ -48,8 +45,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
                 sortable: true,
               },
             },
-          }),
-        });
+          }));
       }),
     ];
     expect(() => validateBoot(features)).toThrow(/token.*cannot be both encrypted and sortable/i);
@@ -59,9 +55,8 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     await withEnv({ KUMIKO_SECRETS_MASTER_KEY_V1: Buffer.from( "0123456789abcdef0123456789abcdef", ).toString("base64") }, () => {
       const features = [
         defineFeature("a", (r) => {
-          r.entity({
-            name: "secret",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "secret",
               table: "Secrets",
               fields: {
                 apiKey: {
@@ -70,8 +65,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
                   encrypted: true,
                 },
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).not.toThrow();
@@ -82,9 +76,8 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     await withEnv({ KUMIKO_SECRETS_MASTER_KEY_V1: Buffer.from("too-short").toString("base64") }, () => {
       const features = [
         defineFeature("a", (r) => {
-          r.entity({
-            name: "secret",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "secret",
               table: "Secrets",
               fields: {
                 apiKey: {
@@ -93,8 +86,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
                   encrypted: true,
                 },
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/master key/i);
@@ -105,9 +97,8 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     await withEnv({ KUMIKO_SECRETS_MASTER_KEY_V1: undefined }, () => {
       const features = [
         defineFeature("a", (r) => {
-          r.entity({
-            name: "secret",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "secret",
               table: "Secrets",
               fields: {
                 apiKey: {
@@ -116,8 +107,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
                   encrypted: true,
                 },
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/master key/i);
@@ -127,9 +117,8 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   describe("entityFieldCipher option", () => {
     const encryptedFeatures = [
       defineFeature("a", (r) => {
-        r.entity({
-          name: "secret",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "secret",
             table: "Secrets",
             fields: {
               apiKey: {
@@ -138,8 +127,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
                 encrypted: true,
               },
             },
-          }),
-        });
+          }));
       }),
     ];
 
@@ -167,9 +155,8 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     await withEnv({ KUMIKO_SECRETS_MASTER_KEY_V1: undefined }, () => {
       const features = [
         defineFeature("a", (r) => {
-          r.entity({
-            name: "doc",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "doc",
               table: "Docs",
               fields: {
                 body: {
@@ -178,8 +165,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
                   encrypted: true,
                 },
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/master key/i);
@@ -193,9 +179,8 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     await withEnv({ ENCRYPTION_KEY: "test-key" }, () => {
       const features = [
         defineFeature("a", (r) => {
-          r.entity({
-            name: "doc",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "doc",
               table: "Docs",
               fields: {
                 secret: {
@@ -205,8 +190,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
                   filterable: true,
                 },
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/secret.*encrypted and filterable/i);
@@ -219,9 +203,8 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     await withEnv({ ENCRYPTION_KEY: "test-key" }, () => {
       const features = [
         defineFeature("a", (r) => {
-          r.entity({
-            name: "doc",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "doc",
               table: "Docs",
               fields: {
                 secret: {
@@ -231,8 +214,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
                 },
               },
               indexes: [{ columns: ["secret"], unique: true }],
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/secret.*encrypted.*unique index/i);

@@ -9,6 +9,7 @@ import { collectAnonymousLiveEntities } from "../anonymous-live-entities.ts";
 
 const entityOnTable = (table: string) =>
   createEntity({
+    name: "thing",
     table,
     fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
   });
@@ -21,8 +22,8 @@ type QueryDeclaration = {
 
 function registryWith(queries: readonly QueryDeclaration[]) {
   const feature = defineFeature("demo", (r) => {
-    r.entity({ name: "thing", ...entityOnTable("things") });
-    r.entity({ name: "secret", ...entityOnTable("secrets") });
+    r.entity(entityOnTable("things"));
+    r.entity({ ...entityOnTable("secrets"), name: "secret" });
     for (const query of queries) {
       r.queryHandler({
         name: query.name,

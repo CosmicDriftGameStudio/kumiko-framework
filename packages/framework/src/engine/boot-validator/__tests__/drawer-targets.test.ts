@@ -39,12 +39,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
 
     test('entityEdit.actions drawer-target unknown → throw with actionLabel "action"', () => {
       const feature = defineFeature("shop", (r) => {
-        r.entity({
-          name: "product",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "product",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-          }),
-        });
+          }));
         r.screen({
           id: "product-edit",
           type: "entityEdit",
@@ -62,12 +60,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
 
     test("entityEdit header action with a malformed clientAction name → throw", () => {
       const feature = defineFeature("shop", (r) => {
-        r.entity({
-          name: "product",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "product",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-          }),
-        });
+          }));
         r.screen({
           id: "product-edit",
           type: "entityEdit",
@@ -85,12 +81,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
 
     test("entityEdit.actions drawer-target → registered actionForm → no throw", () => {
       const feature = defineFeature("shop", (r) => {
-        r.entity({
-          name: "product",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "product",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-          }),
-        });
+          }));
         r.writeHandler({
           name: "add-note",
           schema: z.object({ note: z.string() }),
@@ -277,12 +271,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     }) {
       const targetId = opts.targetId ?? "restock-form";
       return defineFeature("shop", (r) => {
-        r.entity({
-          name: "product",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "product",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-          }),
-        });
+          }));
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -339,12 +331,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
 
     test("drawer-target → actionForm in ANOTHER feature → throw (drawer resolves same-feature only)", () => {
       const list = defineFeature("shop", (r) => {
-        r.entity({
-          name: "product",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "product",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-          }),
-        });
+          }));
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -383,12 +373,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     }) {
       const targetId = opts.targetId ?? "restock-form";
       return defineFeature("shop", (r) => {
-        r.entity({
-          name: "product",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "product",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-          }),
-        });
+          }));
         r.screen({
           id: "product-list",
           type: "entityList",

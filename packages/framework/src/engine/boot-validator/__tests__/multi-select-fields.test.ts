@@ -12,14 +12,12 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("accepts multiSelect with non-empty options", () => {
       const features = [
         defineFeature("driver", (r) => {
-          r.entity({
-            name: "profile",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "profile",
               fields: {
                 tags: createMultiSelectField({ options: ["a", "b", "c"] as const }),
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).not.toThrow();
@@ -28,9 +26,8 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("rejects multiSelect with empty options", () => {
       const features = [
         defineFeature("driver", (r) => {
-          r.entity({
-            name: "profile",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "profile",
               fields: {
                 // Cast over the empty-array hole — the factory's generic
                 // `as const` widens to `readonly never[]` for `[]`, which
@@ -38,8 +35,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
                 // it at boot.
                 tags: createMultiSelectField({ options: [] as readonly string[] }),
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/empty options/);
@@ -48,17 +44,15 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("rejects default value not in options", () => {
       const features = [
         defineFeature("driver", (r) => {
-          r.entity({
-            name: "profile",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "profile",
               fields: {
                 tags: createMultiSelectField({
                   options: ["a", "b"] as const,
                   default: ["c"] as never,
                 }),
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/not a valid option/);
@@ -67,17 +61,15 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("accepts default that is a subset of options", () => {
       const features = [
         defineFeature("driver", (r) => {
-          r.entity({
-            name: "profile",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "profile",
               fields: {
                 tags: createMultiSelectField({
                   options: ["a", "b", "c"] as const,
                   default: ["a", "c"],
                 }),
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).not.toThrow();
@@ -86,9 +78,8 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("accepts display: checkboxes with columns and maxRows", () => {
       const features = [
         defineFeature("driver", (r) => {
-          r.entity({
-            name: "profile",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "profile",
               fields: {
                 tags: createMultiSelectField({
                   options: ["a", "b", "c"] as const,
@@ -97,8 +88,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
                   maxRows: 3,
                 }),
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).not.toThrow();
@@ -107,9 +97,8 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test.each([0, 5])("rejects display: checkboxes with columns %p outside 1-4", (columns) => {
       const features = [
         defineFeature("driver", (r) => {
-          r.entity({
-            name: "profile",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "profile",
               fields: {
                 tags: createMultiSelectField({
                   options: ["a", "b"] as const,
@@ -118,8 +107,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
                   columns: columns as never,
                 }),
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).toThrow(
@@ -130,14 +118,12 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("rejects columns without display: checkboxes", () => {
       const features = [
         defineFeature("driver", (r) => {
-          r.entity({
-            name: "profile",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "profile",
               fields: {
                 tags: createMultiSelectField({ options: ["a", "b"] as const, columns: 2 }),
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/columns.*display.*checkboxes/);
@@ -146,9 +132,8 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("rejects columns when display is explicitly dropdown", () => {
       const features = [
         defineFeature("driver", (r) => {
-          r.entity({
-            name: "profile",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "profile",
               fields: {
                 tags: createMultiSelectField({
                   options: ["a", "b"] as const,
@@ -156,8 +141,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
                   columns: 2,
                 }),
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/columns.*display.*checkboxes/);
@@ -166,14 +150,12 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("rejects maxRows without display: checkboxes", () => {
       const features = [
         defineFeature("driver", (r) => {
-          r.entity({
-            name: "profile",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "profile",
               fields: {
                 tags: createMultiSelectField({ options: ["a", "b"] as const, maxRows: 3 }),
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/maxRows.*display.*checkboxes/);
@@ -182,9 +164,8 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("rejects maxRows below 1", () => {
       const features = [
         defineFeature("driver", (r) => {
-          r.entity({
-            name: "profile",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "profile",
               fields: {
                 tags: createMultiSelectField({
                   options: ["a", "b"] as const,
@@ -192,8 +173,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
                   maxRows: 0,
                 }),
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/invalid maxRows/);
@@ -202,9 +182,8 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("rejects non-integer maxRows", () => {
       const features = [
         defineFeature("driver", (r) => {
-          r.entity({
-            name: "profile",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "profile",
               fields: {
                 tags: createMultiSelectField({
                   options: ["a", "b"] as const,
@@ -212,8 +191,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
                   maxRows: 1.5,
                 }),
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/invalid maxRows/);

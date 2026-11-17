@@ -46,6 +46,7 @@ const projectOwnership: NonNullable<EntityDefinition["access"]> = {
 
 function createProjectEntity(access?: EntityDefinition["access"]): EntityDefinition {
   return createEntity({
+    name: "project",
     table: PROJECT_TABLE,
     fields: {
       teamId: createTextField({
@@ -115,7 +116,7 @@ const ticketEntity = createEntity({
 });
 
 const fixturesFeature = defineFeature("notes-pv-test-fixtures", (r) => {
-  r.entity({ name: "project", ...guardedProjectEntity });
+  r.entity(guardedProjectEntity);
   r.entity(contactEntity);
   r.entity(ticketEntity);
   r.entity(budgetEntity);

@@ -52,6 +52,7 @@ const PROBE_TABLE = "read_erasure_probes";
 // Only the Curator role may write a probe row, so the hook's non-curator user is
 // refused (framework system users bypass the write ownership check) with ownership_denied when it tries to forget one.
 const probeEntity = createEntity({
+  name: PROBE_ENTITY,
   table: PROBE_TABLE,
   access: { write: { Curator: "all" } },
   fields: {
@@ -59,7 +60,7 @@ const probeEntity = createEntity({
   },
 });
 
-const probeTable = buildEntityTable(PROBE_ENTITY, probeEntity);
+const probeTable = buildEntityTable(probeEntity);
 const probeCrud = createEventStoreExecutor(probeTable, probeEntity, { entityName: PROBE_ENTITY });
 
 const probeDeleteHook: UserDataDeleteHook = async (ctx) => {
@@ -82,7 +83,7 @@ const probeDeleteHook: UserDataDeleteHook = async (ctx) => {
 };
 
 const probeFeature = defineFeature("erasure-probe-host", (r) => {
-  r.entity({ name: PROBE_ENTITY, ...probeEntity });
+  r.entity(probeEntity);
   r.applyExtension({ name: EXT_USER_DATA, entity: PROBE_ENTITY, export: async () => null,
     delete: probeDeleteHook,
     escapeHatch: {

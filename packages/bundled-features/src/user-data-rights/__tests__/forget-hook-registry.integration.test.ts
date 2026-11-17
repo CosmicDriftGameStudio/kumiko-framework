@@ -50,6 +50,7 @@ const captureHook: UserDataDeleteHook = async (ctx) => {
 };
 
 const probeEntity = createEntity({
+  name: PROBE,
   table: `read_${PROBE.replace(/-/g, "_")}`,
   fields: {
     name: createTextField({ required: true, personal: false, reason: "technical_reference" }),
@@ -57,7 +58,7 @@ const probeEntity = createEntity({
 });
 
 const probeFeature = defineFeature(PROBE, (r) => {
-  r.entity({ name: PROBE, ...probeEntity });
+  r.entity(probeEntity);
   r.applyExtension({ name: EXT_USER_DATA, entity: PROBE, export: async () => null,
     delete: captureHook });
 });
@@ -114,12 +115,13 @@ const TENANT_SYSTEM_ID = TENANT_SYSTEM as TenantId;
 const CASCADE = "forget-cascade-probe";
 
 const cascadeEntity = createEntity({
+  name: CASCADE,
   table: "read_forget_cascade_probes",
   fields: {
     name: createTextField({ required: true, personal: false, reason: "technical_reference" }),
   },
 });
-const cascadeTable = buildEntityTable(CASCADE, cascadeEntity);
+const cascadeTable = buildEntityTable(cascadeEntity);
 const cascadeExecutor = createEventStoreExecutor(cascadeTable, cascadeEntity, {
   entityName: CASCADE,
 });
@@ -130,7 +132,7 @@ const cascadeChildrenTable = pgTable("read_forget_cascade_children", {
 });
 
 const cascadeFeature = defineFeature("forget-cascade-host", (r) => {
-  r.entity({ name: CASCADE, ...cascadeEntity });
+  r.entity(cascadeEntity);
   r.projection({
     name: "forget-cascade-children",
     source: CASCADE,

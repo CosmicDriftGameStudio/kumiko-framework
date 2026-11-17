@@ -29,6 +29,7 @@ const TENANT_DESTROY_ERASE_REASON = "channel-whatsapp:tenant-destroy";
 // lastEventId: every whatsapp event with an id at or below it already had its stream key erased;
 // text because event ids are bigint.
 export const whatsappRetentionCursorEntity = createEntity({
+  name: WHATSAPP_RETENTION_CURSOR_ENTITY,
   table: "store_whatsapp_retention_cursors",
   softDelete: false,
   fields: {
@@ -51,7 +52,6 @@ export const whatsappRetentionCursorEntity = createEntity({
 });
 
 export const whatsappRetentionCursorTable = deriveEntityTableMeta(
-  WHATSAPP_RETENTION_CURSOR_ENTITY,
   whatsappRetentionCursorEntity,
   { source: "unmanaged" },
 );

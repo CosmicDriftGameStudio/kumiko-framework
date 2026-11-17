@@ -15,7 +15,6 @@ const { table: folderTable, executor: folderExecutor } = createEntityExecutor(
   folderEntity,
 );
 const { table: folderAssignmentTable, executor: folderAssignmentExecutor } = createEntityExecutor(
-  "folder-assignment",
   folderAssignmentEntity,
 );
 

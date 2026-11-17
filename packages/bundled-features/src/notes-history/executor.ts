@@ -3,7 +3,6 @@ import { createNoteEntryEntity, noteEntryEntity, noteMentionEntity } from "./ent
 
 // ungated: system paths and tests only; handlers use createNoteEntryExecutor
 export const { executor: noteEntryExecutor, table: noteEntryTable } = createEntityExecutor(
-  "note-entry",
   noteEntryEntity,
 );
 
@@ -14,7 +13,6 @@ export function createNoteEntryExecutor(
   parents: readonly string[],
 ): typeof noteEntryExecutor {
   return createEntityExecutor(
-    "note-entry",
     createNoteEntryEntity(
       ownership?.write === undefined ? undefined : { write: ownership.write },
       parents,
@@ -23,6 +21,5 @@ export function createNoteEntryExecutor(
 }
 
 export const { executor: noteMentionExecutor, table: noteMentionTable } = createEntityExecutor(
-  "note-mention",
   noteMentionEntity,
 );

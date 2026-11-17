@@ -23,13 +23,11 @@ import { RateLimitError } from "../../errors/index.ts";
 const SYSTEM_TENANT_ID = "00000000-0000-4000-8000-000000000000" as TenantId;
 
 const ipLimitedFeature = defineFeature("rl-http", (r) => {
-  r.entity({
-    name: "item",
-    ...createEntity({
+  r.entity(createEntity({
+      name: "item",
       table: "Items",
       fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-    }),
-  });
+    }));
   r.queryHandler({
     name: "ping",
     schema: z.object({}),

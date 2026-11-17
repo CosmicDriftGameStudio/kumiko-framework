@@ -66,7 +66,7 @@ async function emitUserCreated(
 }
 
 const userFeature = defineFeature("users", (r) => {
-  const user = r.entity({ name: "user", ...userEntity });
+  const user = r.entity(userEntity);
 
   const userCreated = r.defineEvent("user.created", z.object({ id: z.any(), email: z.string() }), {
     piiFields: "none",

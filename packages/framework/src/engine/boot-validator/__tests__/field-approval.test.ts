@@ -21,6 +21,7 @@ const text = () =>
 
 const requestEntity = (allowedTypes: readonly string[]) =>
   createEntity({
+    name: FIELD_CHANGE_REQUEST_ENTITY_NAME,
     table: "read_fa_boot_requests",
     fields: { entityType: text(), entityId: text() },
     parentRef: { entityTypeField: "entityType", entityIdField: "entityId", allowedTypes },
@@ -31,12 +32,9 @@ function check(
   opts: { requests?: readonly string[] | undefined } = { requests: ["contact"] },
 ): void {
   const fa = defineFeature("fa", (r) => {
-    r.entity({
-      name: "contact",
-      ...createEntity({ table: "read_fa_boot_contacts", fields: { iban: ibanField } }),
-    });
+    r.entity(createEntity({ name: "contact", table: "read_fa_boot_contacts", fields: { iban: ibanField } }));
     if (opts.requests !== undefined) {
-      r.entity({ name: FIELD_CHANGE_REQUEST_ENTITY_NAME, ...requestEntity(opts.requests) });
+      r.entity(requestEntity(opts.requests));
     }
   });
   const features: FeatureDefinition[] = [fa];

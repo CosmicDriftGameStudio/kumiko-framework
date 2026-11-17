@@ -19,9 +19,8 @@ const postsQuerySchema = z.object({
 
 function campaignFeature(expandableRow: EntityListExpandableRow) {
   return defineFeature("campaigns", (r) => {
-    r.entity({
-      name: "campaign",
-      ...createEntity({
+    r.entity(createEntity({
+        name: "campaign",
         fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         derivedFields: {
           launched: createDerivedField({
@@ -29,8 +28,7 @@ function campaignFeature(expandableRow: EntityListExpandableRow) {
             derive: (row) => row["name"] !== "",
           }),
         },
-      }),
-    });
+      }));
     r.queryHandler({
       name: "post:list",
       schema: z.object({}),

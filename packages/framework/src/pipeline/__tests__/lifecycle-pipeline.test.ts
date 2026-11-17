@@ -17,13 +17,11 @@ import { buildEventId, createLifecycleHooks, type SystemHooks } from "../lifecyc
 
 function makeRegistry(hooks?: { preSave?: PreSaveHookFn[]; postSave?: PostSaveHookFn[] }) {
   const feature = defineFeature("test", (r) => {
-    r.entity({
-      name: "user",
-      ...createEntity({
+    r.entity(createEntity({
+        name: "user",
         table: "Users",
         fields: { email: createTextField({ personal: false, reason: "test_fixture" }) },
-      }),
-    });
+      }));
     // Dummy handler so hook targets resolve (boot validation requires it)
     r.writeHandler({
       name: "user",
@@ -300,7 +298,7 @@ describe("runPostSave phase routing", () => {
   test("runs only hooks matching the given phase", async () => {
     const calls: string[] = [];
     const feature = defineFeature("phases", (r) => {
-      r.entity({ name: "user", ...createEntity({ table: "Users", fields: {} }) });
+      r.entity(createEntity({ name: "user", table: "Users", fields: {} }));
       r.writeHandler({
         name: "user",
         schema: z.object({}),
@@ -336,7 +334,7 @@ describe("runPostSave phase routing", () => {
 
   test("inTransaction phase: hook errors throw (to roll back)", async () => {
     const feature = defineFeature("phases", (r) => {
-      r.entity({ name: "user", ...createEntity({ table: "Users", fields: {} }) });
+      r.entity(createEntity({ name: "user", table: "Users", fields: {} }));
       r.writeHandler({
         name: "user",
         schema: z.object({}),
@@ -365,7 +363,7 @@ describe("runPostSave phase routing", () => {
     try {
       const afterRan: string[] = [];
       const feature = defineFeature("phases", (r) => {
-        r.entity({ name: "user", ...createEntity({ table: "Users", fields: {} }) });
+        r.entity(createEntity({ name: "user", table: "Users", fields: {} }));
         r.writeHandler({
           name: "user",
           schema: z.object({}),
@@ -403,7 +401,7 @@ describe("runPostSave phase routing", () => {
 
   test("system hooks respect their phase setting", async () => {
     const feature = defineFeature("phases", (r) => {
-      r.entity({ name: "user", ...createEntity({ table: "Users", fields: {} }) });
+      r.entity(createEntity({ name: "user", table: "Users", fields: {} }));
       r.writeHandler({
         name: "user",
         schema: z.object({}),
@@ -458,13 +456,11 @@ describe("per-tenant entity-hook filter", () => {
     const calls: Array<{ tenant: string }> = [];
 
     const featureA = defineFeature("feat-a", (r) => {
-      r.entity({
-        name: "widget",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "widget",
           table: "Widgets",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-        }),
-      });
+        }));
       r.writeHandler({
         name: "widget:create",
         schema: z.object({ name: z.string() }),
@@ -601,13 +597,11 @@ describe("runPreDelete", () => {
   test("runs feature + entity + system hooks, all inTransaction (throw on error)", async () => {
     const calls: string[] = [];
     const feature = defineFeature("test", (r) => {
-      r.entity({
-        name: "user",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "user",
           table: "Users",
           fields: { email: createTextField({ personal: false, reason: "test_fixture" }) },
-        }),
-      });
+        }));
       r.writeHandler({
         name: "user",
         schema: z.object({}),
@@ -648,13 +642,11 @@ describe("runPreDelete", () => {
 
   test("a hook throwing aborts the delete (rejects, not swallowed)", async () => {
     const feature = defineFeature("test", (r) => {
-      r.entity({
-        name: "user",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "user",
           table: "Users",
           fields: { email: createTextField({ personal: false, reason: "test_fixture" }) },
-        }),
-      });
+        }));
       r.writeHandler({
         name: "user",
         schema: z.object({}),
@@ -701,13 +693,11 @@ describe("runPostDelete", () => {
   test("runs feature then system hooks (best-effort by default phase)", async () => {
     const calls: string[] = [];
     const feature = defineFeature("test", (r) => {
-      r.entity({
-        name: "user",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "user",
           table: "Users",
           fields: { email: createTextField({ personal: false, reason: "test_fixture" }) },
-        }),
-      });
+        }));
       r.writeHandler({
         name: "user",
         schema: z.object({}),
@@ -741,13 +731,11 @@ describe("runPostDelete", () => {
 
   test("inTransaction phase: hook errors throw", async () => {
     const feature = defineFeature("test", (r) => {
-      r.entity({
-        name: "user",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "user",
           table: "Users",
           fields: { email: createTextField({ personal: false, reason: "test_fixture" }) },
-        }),
-      });
+        }));
       r.writeHandler({
         name: "user",
         schema: z.object({}),

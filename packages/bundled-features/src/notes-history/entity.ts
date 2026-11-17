@@ -89,7 +89,7 @@ function buildNoteEntryEntity(
       }),
     },
     // Every host detail screen reads its notes by tenant + host entity.
-    indexes: [{ columns: ["tenantId", "entityType", "entityId"] }],
+    indexes: [{ columns: ["tenantId", "entityType", "entityId"] }], name: "note-entry",
   });
 }
 
@@ -121,6 +121,7 @@ export const noteEntryEntity = buildNoteEntryEntity(undefined, undefined);
 // runs first.
 export function createNoteMentionEntity() {
   return createEntity({
+    name: "note-mention",
     table: "read_note_mentions",
     description:
       "One row recording that a note names a subject via a structured @-mention, keyed by noteId and the mentioned subject's id.",

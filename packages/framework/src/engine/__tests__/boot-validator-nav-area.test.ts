@@ -101,12 +101,10 @@ describe("validateBoot — every screen must resolve its own nav area", () => {
 
   test("resolved via an entityList screen of the same entity → no throw", () => {
     const feature = defineFeature("app", (r) => {
-      r.entity({
-        name: "widget",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "widget",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-        }),
-      });
+        }));
       r.nav({ id: "home", label: "app.nav.home", screen: "app:screen:widget-list" });
       r.screen({ id: "widget-list", type: "entityList", entity: "widget", columns: ["name"] });
       r.screen({
@@ -121,12 +119,10 @@ describe("validateBoot — every screen must resolve its own nav area", () => {
 
   test("resolved via an entityList's createScreen → no throw", () => {
     const feature = defineFeature("app", (r) => {
-      r.entity({
-        name: "widget",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "widget",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-        }),
-      });
+        }));
       r.nav({ id: "home", label: "app.nav.home", screen: "app:screen:widget-list" });
       r.screen({
         id: "widget-list",

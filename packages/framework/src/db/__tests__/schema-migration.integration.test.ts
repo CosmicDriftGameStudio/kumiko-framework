@@ -43,7 +43,7 @@ async function applySchema(features: readonly FeatureDefinition[]): Promise<void
   const tables: Record<string, unknown> = {};
   for (const feature of features) {
     for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
-      tables[entityName] = buildEntityTable(entityName, entity);
+      tables[entityName] = buildEntityTable({ ...entity, name: entityName });
     }
   }
   await unsafePushTables(testDb.db, tables);
@@ -75,9 +75,8 @@ async function getTableColumns(
 describe("schema migration workflows", () => {
   test("workflow 1: new feature creates table with all base + field columns", async () => {
     const feature = defineFeature("blog", (r) => {
-      r.entity({
-        name: "post",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "post",
           table: "wf1_posts",
           fields: {
             title: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -86,8 +85,7 @@ describe("schema migration workflows", () => {
             publishedAt: createDateField(),
             isDraft: createBooleanField({ default: true }),
           },
-        }),
-      });
+        }));
     });
 
     await applySchema([feature]);
@@ -117,13 +115,11 @@ describe("schema migration workflows", () => {
 
   test("workflow 1b: tenant_id index is created on every table", async () => {
     const feature = defineFeature("indexed-blog", (r) => {
-      r.entity({
-        name: "article",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "article",
           table: "wf1b_articles",
           fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
-        }),
-      });
+        }));
     });
     await applySchema([feature]);
 
@@ -252,14 +248,12 @@ describe("schema migration workflows", () => {
 
   test("workflow 4: activate soft delete → adds 3 columns", async () => {
     const feature = defineFeature("tasks", (r) => {
-      r.entity({
-        name: "task",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "task",
           table: "wf4_tasks",
           fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
           softDelete: true,
-        }),
-      });
+        }));
     });
 
     await applySchema([feature]);
@@ -275,26 +269,22 @@ describe("schema migration workflows", () => {
 
   test("workflow 5: multiple features each create their own tables", async () => {
     const blogFeature = defineFeature("blog", (r) => {
-      r.entity({
-        name: "article",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "article",
           table: "wf5_articles",
           fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
-        }),
-      });
+        }));
     });
 
     const shopFeature = defineFeature("shop", (r) => {
-      r.entity({
-        name: "product",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "product",
           table: "wf5_products",
           fields: {
             name: createTextField({ personal: false, reason: "test_fixture" }),
             price: createNumberField(),
           },
-        }),
-      });
+        }));
     });
 
     await applySchema([blogFeature, shopFeature]);

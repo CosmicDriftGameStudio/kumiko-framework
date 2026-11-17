@@ -13,12 +13,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   describe("entityList rowAction kind=navigate", () => {
     function makeFeature(targetScreen: string, withTarget: boolean) {
       return defineFeature("shop", (r) => {
-        r.entity({
-          name: "product",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "product",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-          }),
-        });
+          }));
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -58,12 +56,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
       // consumer application's custom editor in another feature. Runtime
       // resolves the bare ID application-wide, so the validator must allow it.
       const list = defineFeature("shop", (r) => {
-        r.entity({
-          name: "product",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "product",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-          }),
-        });
+          }));
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -86,12 +82,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
       // open with no entity context at runtime. The validator must catch it
       // at boot instead.
       const list = defineFeature("shop", (r) => {
-        r.entity({
-          name: "product",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "product",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-          }),
-        });
+          }));
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -103,12 +97,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
         });
       });
       const consumer = defineFeature("billing", (r) => {
-        r.entity({
-          name: "invoice",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "invoice",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-          }),
-        });
+          }));
         r.screen({
           id: "invoice-edit",
           type: "entityEdit",
@@ -123,15 +115,13 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
 
     test("cross-feature navigate to an entityEdit screen WITH entityId → no throw", () => {
       const list = defineFeature("shop", (r) => {
-        r.entity({
-          name: "product",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "product",
             fields: {
               name: createTextField({ personal: false, reason: "test_fixture" }),
               invoiceId: createTextField({ personal: false, reason: "test_fixture" }),
             },
-          }),
-        });
+          }));
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -149,12 +139,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
         });
       });
       const consumer = defineFeature("billing", (r) => {
-        r.entity({
-          name: "invoice",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "invoice",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-          }),
-        });
+          }));
         r.screen({
           id: "invoice-edit",
           type: "entityEdit",
@@ -167,12 +155,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
 
     test("same-feature navigate to entityEdit WITHOUT entityId → no throw (same-feature fallback applies)", () => {
       const feature = defineFeature("shop", (r) => {
-        r.entity({
-          name: "product",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "product",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-          }),
-        });
+          }));
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -196,12 +182,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   describe("entityList rowAction kind=navigate entity-target", () => {
     test("entity-target resolving via detailFor → no throw", () => {
       const feature = defineFeature("shop", (r) => {
-        r.entity({
-          name: "product",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "product",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-          }),
-        });
+          }));
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -221,12 +205,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
 
     test("entity-target with no detailFor screen anywhere → throws with a clear message", () => {
       const feature = defineFeature("shop", (r) => {
-        r.entity({
-          name: "product",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "product",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-          }),
-        });
+          }));
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -242,12 +224,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
 
     test("both screen and entity set → Throw", () => {
       const feature = defineFeature("shop", (r) => {
-        r.entity({
-          name: "product",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "product",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-          }),
-        });
+          }));
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -277,12 +257,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
 
     test("neither screen nor entity set → Throw", () => {
       const feature = defineFeature("shop", (r) => {
-        r.entity({
-          name: "product",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "product",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-          }),
-        });
+          }));
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -301,12 +279,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
       // detailFor resolution — the owning feature's list navigates to a
       // detail screen a consumer app registers for the entity.
       const list = defineFeature("shop", (r) => {
-        r.entity({
-          name: "product",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "product",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-          }),
-        });
+          }));
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -333,12 +309,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
       // row["id"]), so the same-feature-fallback gap that check guards
       // against doesn't exist here.
       const list = defineFeature("shop", (r) => {
-        r.entity({
-          name: "product",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "product",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-          }),
-        });
+          }));
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -348,12 +322,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
         });
       });
       const consumer = defineFeature("billing", (r) => {
-        r.entity({
-          name: "invoice",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "invoice",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-          }),
-        });
+          }));
         r.screen({
           id: "invoice-edit",
           type: "entityEdit",
@@ -370,12 +342,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
       // guaranteed "id" field, unlike entityList rows — an entity-target
       // there must name the field to read the id from.
       const feature = defineFeature("shop", (r) => {
-        r.entity({
-          name: "product",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "product",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-          }),
-        });
+          }));
         r.queryHandler({
           name: "products",
           schema: z.object({}),
@@ -403,12 +373,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
 
     test("projectionList rowAction entity-target with explicit entityId → no throw", () => {
       const feature = defineFeature("shop", (r) => {
-        r.entity({
-          name: "product",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "product",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-          }),
-        });
+          }));
         r.queryHandler({
           name: "products",
           schema: z.object({}),
@@ -443,12 +411,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("projectionDetail action entity-target without explicit entityId → Throw", () => {
       const feature = defineFeature("shop", (r) => {
         registerStubQueryHandler(r, "order-detail");
-        r.entity({
-          name: "product",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "product",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-          }),
-        });
+          }));
         r.screen({
           id: "order-detail",
           type: "projectionDetail",

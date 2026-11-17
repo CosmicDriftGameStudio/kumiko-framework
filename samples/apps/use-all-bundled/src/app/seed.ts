@@ -57,7 +57,6 @@ import { seedPdfDocuments } from "./seed-documents";
 // projection-wiped direct writes. entityName must match the handlers' QNs.
 const { executor: tagExecutor } = createEntityExecutor(tagEntity);
 const { executor: tagAssignmentExecutor } = createEntityExecutor(
-  "tag-assignment",
   tagAssignmentEntity,
 );
 const { executor: noteExecutor } = createEntityExecutor(noteEntity);

@@ -113,7 +113,7 @@ export function validateOwnershipRules(
 
     let probe: WhereRuleProbe | undefined;
     try {
-      const table = buildEntityTable(entityName, entity);
+      const table = buildEntityTable({ ...entity, name: entityName });
       const columns = tableColumnSqlNames(table);
       if (columns.size > 0) {
         probe = { table, tableName: tableNameOf(table), columns };

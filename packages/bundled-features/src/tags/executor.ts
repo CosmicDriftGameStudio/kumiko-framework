@@ -12,7 +12,6 @@ export function createTagAssignmentExecutor(
   parents: readonly string[],
 ) {
   return createEntityExecutor(
-    "tag-assignment",
     createTagAssignmentEntity(
       ownership?.write === undefined ? undefined : { write: ownership.write },
       parents,

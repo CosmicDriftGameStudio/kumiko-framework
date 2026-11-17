@@ -20,7 +20,7 @@ export function registeredEntityExecutor(
   }
   const cached = byName.get(entityName);
   if (cached !== undefined) return cached;
-  const { executor } = createEntityExecutor(entityName, entity);
+  const { executor } = createEntityExecutor({ ...entity, name: entityName });
   byName.set(entityName, executor);
   return executor;
 }

@@ -54,6 +54,7 @@ const HOST_TYPE = "lease";
 const NOT_FOUND = 404;
 
 const leaseEntity = createEntity({
+  name: HOST_TYPE,
   table: "signature_host_gate_leases",
   softDelete: true,
   fields: {
@@ -85,10 +86,10 @@ const leaseEntity = createEntity({
 });
 
 const leaseHostFeature = defineFeature("signature-host-gate-lease", (r) => {
-  r.entity({ name: HOST_TYPE, ...leaseEntity });
+  r.entity(leaseEntity);
 });
 
-const leaseExecutor = createEventStoreExecutor(buildEntityTable(HOST_TYPE, leaseEntity), leaseEntity, {
+const leaseExecutor = createEventStoreExecutor(buildEntityTable(leaseEntity), leaseEntity, {
   entityName: HOST_TYPE,
 });
 

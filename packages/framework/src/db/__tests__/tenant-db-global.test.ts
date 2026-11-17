@@ -59,14 +59,17 @@ const globalUnmanagedTable = defineUnmanagedTable({
 // Regression coverage for the tenancy-brand type hole: an
 // EntityDefinition object literal (bypassing createEntity) must not be
 // mis-branded "global" just because it lacks a `tenancy` property at all.
-const bareLiteralTable = buildEntityTable("globalGuardBareLiteral", {
+const bareLiteralTable = buildEntityTable({
+  name: "globalGuardBareLiteral",
   fields: { name: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
-const explicitTenantLiteralTable = buildEntityTable("globalGuardExplicitTenant", {
+const explicitTenantLiteralTable = buildEntityTable({
+  name: "globalGuardExplicitTenant",
   tenancy: "tenant",
   fields: { name: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
-const explicitGlobalLiteralTable = buildEntityTable("globalGuardExplicitGlobal", {
+const explicitGlobalLiteralTable = buildEntityTable({
+  name: "globalGuardExplicitGlobal",
   tenancy: "global",
   fields: { name: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });

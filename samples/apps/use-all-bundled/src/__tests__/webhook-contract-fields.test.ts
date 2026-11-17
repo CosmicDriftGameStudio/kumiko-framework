@@ -125,7 +125,7 @@ describe("derived entity webhook contracts", () => {
 
   test("the real api-token entity would not release tokenHash", () => {
     const feature = defineFeature("pat-probe", (r) => {
-      r.entity({ name: "api-token", ...apiTokenEntity, webhookEvents: true });
+      r.entity({ ...apiTokenEntity, webhookEvents: true });
     });
     const fields = releasedFields(createWebhookContractResolver([feature]), "api-token");
     expect(fields).toBeDefined();

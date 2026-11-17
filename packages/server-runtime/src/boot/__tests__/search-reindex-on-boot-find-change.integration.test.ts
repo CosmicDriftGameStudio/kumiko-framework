@@ -33,6 +33,7 @@ const MEILI_UP = await meiliAvailable();
 
 function memoEntityWith(bodyFind: "none" | "fuzzy") {
   return createEntity({
+    name: "memo",
     table: "read_find_change_memos",
     fields: {
       title: createTextField({
@@ -49,7 +50,7 @@ function memoEntityWith(bodyFind: "none" | "fuzzy") {
 function featureWith(bodyFind: "none" | "fuzzy") {
   const entity = memoEntityWith(bodyFind);
   return defineFeature("findchange", (r) => {
-    r.entity({ name: "memo", ...entity });
+    r.entity(entity);
     r.writeHandler(
       defineEntityCreateHandler("memo", entity, { access: { roles: ["Admin"] } }),
     );

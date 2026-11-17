@@ -40,7 +40,7 @@ export function createTenantInactivityFeature<TTier extends string = string>(
     r.requires({ features: ["sessions", "tenant", "tenant-lifecycle", "delivery"] });
 
     r.storeTable(
-      deriveEntityTableMeta(TENANT_INACTIVITY_STATE_ENTITY, tenantInactivityStateEntity, {
+      deriveEntityTableMeta(tenantInactivityStateEntity, {
         source: "unmanaged",
       }),
       { reason: "read_side.tenant_inactivity_state_direct_write" },

@@ -144,8 +144,8 @@ function registerDocuments(
   );
   r.uiHints({ displayLabel: "Documents", category: "data", recommended: false });
 
-  r.entity({ name: DOCUMENT_ENTITY, ...documentEntity });
-  r.entity({ name: DOCUMENT_LINK_ENTITY, ...linkEntity });
+  r.entity(documentEntity);
+  r.entity(linkEntity);
 
   r.writeHandler(
     defineEntityCreateHandler(DOCUMENT_ENTITY, documentEntity, {

@@ -13,9 +13,8 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   ): ReturnType<typeof defineFeature>[] {
     return [
       defineFeature("a", (r) => {
-        r.entity({
-          name: "memo",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "memo",
             table: "Memos",
             fields: {
               secret: {
@@ -26,8 +25,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
                 ...field,
               } as never, // @cast-boundary test builds field variants dynamically
             },
-          }),
-        });
+          }));
       }),
     ];
   }
@@ -43,9 +41,8 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     parent: Record<string, unknown> = {},
   ) {
     return defineFeature("memos", (r) => {
-      r.entity({
-        name: "memo",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "memo",
           table: "Memos",
           fields: {
             note: {
@@ -54,8 +51,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
               ...parent,
             } as never, // @cast-boundary test builds embedded variants dynamically
           },
-        }),
-      });
+        }));
     });
   }
 

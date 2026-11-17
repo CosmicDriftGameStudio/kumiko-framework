@@ -14,6 +14,7 @@ import {
 } from "../table-introspection.ts";
 
 const noteEntity = {
+  name: "note",
   fields: {
     title: {
       type: "text",
@@ -25,7 +26,7 @@ const noteEntity = {
 
 describe("isEntityTableMeta", () => {
   test("accepts managed and unmanaged metas", () => {
-    expect(isEntityTableMeta(deriveEntityTableMeta("note", noteEntity))).toBe(true);
+    expect(isEntityTableMeta(deriveEntityTableMeta(noteEntity))).toBe(true);
     expect(isEntityTableMeta(defineUnmanagedTable({ tableName: "store_note", columns: [] }))).toBe(
       true,
     );
@@ -46,16 +47,17 @@ describe("isEntityTableMeta", () => {
 
 describe("asEntityTableMeta / requireEntityTableMeta", () => {
   test("resolves the meta of a built table and of a plain meta", () => {
-    const table = buildEntityTable("note", noteEntity);
+    const table = buildEntityTable(noteEntity);
     expect(asEntityTableMeta(table)?.tableName).toBe(schemaTableName(table));
-    const plain = deriveEntityTableMeta("note", noteEntity);
+    const plain = deriveEntityTableMeta(noteEntity);
     expect(asEntityTableMeta(plain)).toBe(plain);
   });
 
   test.each(["source", "columns", "tableName", "indexes"])(
     "a column named `%s` does not shadow the canonical meta",
     (fieldName) => {
-      const table = buildEntityTable("thing", {
+      const table = buildEntityTable({
+        name: "thing",
         fields: {
           [fieldName]: {
             type: "text",
@@ -79,7 +81,8 @@ describe("asEntityTableMeta / requireEntityTableMeta", () => {
 });
 
 describe("table name and column lookups", () => {
-  const table = buildEntityTable("note", {
+  const table = buildEntityTable({
+    name: "note",
     fields: {
       title: {
         type: "text",
@@ -94,7 +97,7 @@ describe("table name and column lookups", () => {
     const name = schemaTableName(table);
     expect(typeof name).toBe("string");
     expect(tableNameOf(table)).toBe(name ?? "");
-    const plain = deriveEntityTableMeta("note", noteEntity);
+    const plain = deriveEntityTableMeta(noteEntity);
     expect(schemaTableName(plain)).toBeUndefined();
     expect(tableNameOf(plain)).toBe(plain.tableName);
     expect(tableNameOf({})).toBe("<unknown>");

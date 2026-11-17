@@ -21,21 +21,23 @@ import type { ProjectionListScreenDefinition } from "../types/screen.ts";
 describe("buildAppSchema", () => {
   test("Multi-Feature: each feature is projected with its own featureName", () => {
     const orderEntity = {
+      name: "order",
       table: "orders",
       fields: { label: { type: "text" } },
     } as unknown as EntityDefinition;
     const fleetEntity = {
+      name: "vehicle",
       table: "vehicles",
       fields: { plate: { type: "text" } },
     } as unknown as EntityDefinition;
 
     const orderFeature = defineFeature("orders", (r) => {
-      r.entity({ name: "order", ...orderEntity });
+      r.entity(orderEntity);
       r.screen({ id: "list", type: "entityList", entity: "order", columns: ["label"] });
       r.nav({ id: "list", label: "Order List" });
     });
     const fleetFeature = defineFeature("fleet", (r) => {
-      r.entity({ name: "vehicle", ...fleetEntity });
+      r.entity(fleetEntity);
       r.screen({ id: "list", type: "entityList", entity: "vehicle", columns: ["plate"] });
       r.nav({ id: "list", label: "Fleet List" });
     });
@@ -162,13 +164,11 @@ describe("buildAppSchema", () => {
   // schema rather than a hand-rolled FeatureSchema literal.
   test("custom screen's `detailFor` survives the buildAppSchema projection, screen id stays unqualified", () => {
     const propertyFeature = defineFeature("property", (r) => {
-      r.entity({
-        name: "lease",
-        ...({
+      r.entity(({
+          name: "lease",
           table: "leases",
           fields: { name: { type: "text" } },
-        } as unknown as EntityDefinition),
-      });
+        } as unknown as EntityDefinition));
       r.screen({
         id: "lease-detail",
         type: "custom",
@@ -266,6 +266,7 @@ describe("buildAppSchema", () => {
     // bundle because it may access server internals. Projection must omit the
     // default slot rather than expose the function.
     const entity = {
+      name: "thing",
       fields: {
         id: { type: "text", default: () => "would-be-runtime-id" },
         title: { type: "text" },
@@ -273,7 +274,7 @@ describe("buildAppSchema", () => {
     } as unknown as EntityDefinition;
 
     const f = defineFeature("ent", (r) => {
-      r.entity({ name: "thing", ...entity });
+      r.entity(entity);
     });
     const app = buildAppSchema(createRegistry([f]));
     const projectedEntity = app.features[0]?.entities["thing"] as unknown as {
@@ -288,6 +289,7 @@ describe("buildAppSchema", () => {
   test("JSON-Safety: non-finite number defaults are dropped, shared sub-objects survive", () => {
     const shared = { a: 1 };
     const entity = {
+      name: "thing",
       fields: {
         nan: { type: "number", default: Number.NaN },
         inf: { type: "number", default: Number.POSITIVE_INFINITY },
@@ -296,7 +298,7 @@ describe("buildAppSchema", () => {
     } as unknown as EntityDefinition;
 
     const f = defineFeature("ent", (r) => {
-      r.entity({ name: "thing", ...entity });
+      r.entity(entity);
     });
     const app = buildAppSchema(createRegistry([f]));
     const thingEntity = app.features[0]?.entities["thing"] as unknown as {
@@ -314,6 +316,7 @@ describe("buildAppSchema", () => {
     // refEntity), causing a 404 and making the dropdown show „Keine Treffer"
     // even though the referenced entity has rows.
     const entity = {
+      name: "thing",
       fields: {
         name: { type: "text" },
         parentId: { type: "reference", entity: "component", labelField: "name" },
@@ -322,7 +325,7 @@ describe("buildAppSchema", () => {
     } as unknown as EntityDefinition;
 
     const f = defineFeature("ent", (r) => {
-      r.entity({ name: "thing", ...entity });
+      r.entity(entity);
     });
     const app = buildAppSchema(createRegistry([f]));
     const fields = (
@@ -340,6 +343,7 @@ describe("buildAppSchema", () => {
 
   test("JSON-Safety: literal Defaults bleiben erhalten", () => {
     const entity = {
+      name: "thing",
       fields: {
         active: { type: "boolean", default: false },
         count: { type: "number", default: 0 },
@@ -348,7 +352,7 @@ describe("buildAppSchema", () => {
     } as unknown as EntityDefinition;
 
     const f = defineFeature("ent", (r) => {
-      r.entity({ name: "thing", ...entity });
+      r.entity(entity);
     });
     const app = buildAppSchema(createRegistry([f]));
     const fields = (
@@ -363,13 +367,14 @@ describe("buildAppSchema", () => {
 
   test("filterable kommt ins Client-Schema (steuert die Faceted-Filter)", () => {
     const entity = {
+      name: "thing",
       fields: {
         status: { type: "select", options: ["draft", "published"], filterable: true },
         name: { type: "text" },
       },
     } as unknown as EntityDefinition;
     const f = defineFeature("ent", (r) => {
-      r.entity({ name: "thing", ...entity });
+      r.entity(entity);
     });
     const app = buildAppSchema(createRegistry([f]));
     const fields = (
@@ -384,13 +389,14 @@ describe("buildAppSchema", () => {
 
   test("searchable is included in the client schema (controls the EntityList default)", () => {
     const entity = {
+      name: "thing",
       fields: {
         title: { type: "text", searchable: true },
         name: { type: "text" },
       },
     } as unknown as EntityDefinition;
     const f = defineFeature("ent", (r) => {
-      r.entity({ name: "thing", ...entity });
+      r.entity(entity);
     });
     const app = buildAppSchema(createRegistry([f]));
     const fields = (
@@ -405,6 +411,7 @@ describe("buildAppSchema", () => {
 
   test("Select: display survives the projection so radio reaches the client schema", () => {
     const entity = {
+      name: "thing",
       fields: {
         priority: { type: "select", options: ["low", "high"], display: "radio" },
         state: { type: "select", options: ["open", "closed"] },
@@ -412,7 +419,7 @@ describe("buildAppSchema", () => {
     } as unknown as EntityDefinition;
 
     const f = defineFeature("ent", (r) => {
-      r.entity({ name: "thing", ...entity });
+      r.entity(entity);
     });
     const app = buildAppSchema(createRegistry([f]));
     const fields = (
@@ -430,6 +437,7 @@ describe("buildAppSchema", () => {
     // `field.display === "checkboxes"` check always falls through → the
     // renderer always shows the combobox, MultiSelectCheckboxes is unreachable.
     const entity = {
+      name: "thing",
       fields: {
         tags: {
           type: "multiSelect",
@@ -443,7 +451,7 @@ describe("buildAppSchema", () => {
     } as unknown as EntityDefinition;
 
     const f = defineFeature("ent", (r) => {
-      r.entity({ name: "thing", ...entity });
+      r.entity(entity);
     });
     const app = buildAppSchema(createRegistry([f]));
     const fields = (
@@ -463,6 +471,7 @@ describe("buildAppSchema", () => {
 
   test("Select: optionTones survive the projection", () => {
     const entity = {
+      name: "thing",
       fields: {
         status: {
           type: "select",
@@ -474,7 +483,7 @@ describe("buildAppSchema", () => {
     } as unknown as EntityDefinition;
 
     const f = defineFeature("ent", (r) => {
-      r.entity({ name: "thing", ...entity });
+      r.entity(entity);
     });
     const app = buildAppSchema(createRegistry([f]));
     const fields = (
@@ -540,6 +549,7 @@ describe("buildAppSchema", () => {
       : never = true;
 
     const entity = {
+      name: "thing",
       fields: {
         tags: {
           type: "multiSelect",
@@ -568,7 +578,7 @@ describe("buildAppSchema", () => {
     } as unknown as EntityDefinition;
 
     const f = defineFeature("ent", (r) => {
-      r.entity({ name: "thing", ...entity });
+      r.entity(entity);
     });
     const app = buildAppSchema(createRegistry([f]));
     const projected = (
@@ -590,6 +600,7 @@ describe("buildAppSchema", () => {
     // always renders a single-line <input> — the textarea row count never
     // arrives.
     const entity = {
+      name: "thing",
       fields: {
         notes: { type: "text", multiline: { rows: 6 } },
         bio: { type: "text", multiline: true },
@@ -599,7 +610,7 @@ describe("buildAppSchema", () => {
     } as unknown as EntityDefinition;
 
     const f = defineFeature("ent", (r) => {
-      r.entity({ name: "thing", ...entity });
+      r.entity(entity);
     });
     const app = buildAppSchema(createRegistry([f]));
     const fields = (
@@ -618,10 +629,11 @@ describe("buildAppSchema", () => {
   test("multiline.rows that is not a positive integer fails the build with the field name", () => {
     for (const rows of [0, -3, 2.5]) {
       const entity = {
+        name: "thing",
         fields: { notes: { type: "text", multiline: { rows } } },
       } as unknown as EntityDefinition;
       const f = defineFeature("ent", (r) => {
-        r.entity({ name: "thing", ...entity });
+        r.entity(entity);
       });
       expect(() => buildAppSchema(createRegistry([f]))).toThrow(
         /"thing" field "notes": multiline\.rows must be a positive integer/,
@@ -648,6 +660,7 @@ describe("buildAppSchema", () => {
 
   test("text: writeOnly survives the projection (the renderer picks the masked input from it)", () => {
     const entity = {
+      name: "thing",
       fields: {
         apiKey: { type: "text", sensitive: true, writeOnly: true },
         plain: { type: "text" },
@@ -655,7 +668,7 @@ describe("buildAppSchema", () => {
     } as unknown as EntityDefinition;
 
     const f = defineFeature("ent", (r) => {
-      r.entity({ name: "thing", ...entity });
+      r.entity(entity);
     });
     const app = buildAppSchema(createRegistry([f]));
     const fields = (
@@ -718,6 +731,7 @@ describe("buildAppSchema", () => {
     // renderer, so the browser's own range validation and date-picker
     // formatting were always off.
     const entity = {
+      name: "thing",
       fields: {
         quantity: { type: "number", min: 0, max: 100 },
         birthday: { type: "date", min: "1900-01-01", max: "2026-08-28", locale: "de-DE" },
@@ -737,7 +751,7 @@ describe("buildAppSchema", () => {
     } as unknown as EntityDefinition;
 
     const f = defineFeature("ent", (r) => {
-      r.entity({ name: "thing", ...entity });
+      r.entity(entity);
     });
     const app = buildAppSchema(createRegistry([f]));
     const fields = (
@@ -761,6 +775,7 @@ describe("buildAppSchema", () => {
     // Regression: `capture` decides whether a mobile file picker opens the
     // rear or front camera — never arrived, so it never applied.
     const entity = {
+      name: "thing",
       fields: {
         idPhoto: { type: "image", capture: "environment" },
         avatar: { type: "image" },
@@ -769,7 +784,7 @@ describe("buildAppSchema", () => {
     } as unknown as EntityDefinition;
 
     const f = defineFeature("ent", (r) => {
-      r.entity({ name: "thing", ...entity });
+      r.entity(entity);
     });
     const app = buildAppSchema(createRegistry([f]));
     const fields = (
@@ -788,6 +803,7 @@ describe("buildAppSchema", () => {
     // but the client schema never carried them — the suffix never rendered and
     // money fields always fell back to "EUR".
     const entity = {
+      name: "thing",
       defaultCurrency: "USD",
       fields: {
         distance: { type: "number", unit: "mi" },
@@ -799,7 +815,7 @@ describe("buildAppSchema", () => {
     } as unknown as EntityDefinition;
 
     const f = defineFeature("ent", (r) => {
-      r.entity({ name: "thing", ...entity });
+      r.entity(entity);
     });
     const app = buildAppSchema(createRegistry([f]));
     const projected = app.features[0]!.entities["thing"] as unknown as {
@@ -817,13 +833,14 @@ describe("buildAppSchema", () => {
 
   test("number grouping survives the projection (false only if declared)", () => {
     const entity = {
+      name: "thing",
       fields: {
         year: { type: "number", grouping: false },
         plain: { type: "number" },
       },
     } as unknown as EntityDefinition;
     const f = defineFeature("ent", (r) => {
-      r.entity({ name: "thing", ...entity });
+      r.entity(entity);
     });
     const app = buildAppSchema(createRegistry([f]));
     const projected = app.features[0]!.entities["thing"] as unknown as {
@@ -835,13 +852,11 @@ describe("buildAppSchema", () => {
 
   test("entity lockedWhen survives the projection so the client can show locked records read-only", () => {
     const f = defineFeature("ent", (r) => {
-      r.entity({
-        name: "thing",
-        ...({
+      r.entity(({
+          name: "thing",
           fields: { status: { type: "text" } },
           lockedWhen: { field: "status", eq: "closed" },
-        } as unknown as EntityDefinition),
-      });
+        } as unknown as EntityDefinition));
     });
     const app = buildAppSchema(createRegistry([f]));
     expect(app.features[0]!.entities["thing"]!.lockedWhen).toEqual({
@@ -852,10 +867,7 @@ describe("buildAppSchema", () => {
 
   test("entity without lockedWhen omits the key", () => {
     const f = defineFeature("ent", (r) => {
-      r.entity({
-        name: "thing",
-        ...({ fields: { label: { type: "text" } } } as unknown as EntityDefinition),
-      });
+      r.entity(({ name: "thing", fields: { label: { type: "text" } } } as unknown as EntityDefinition));
     });
     const app = buildAppSchema(createRegistry([f]));
     expect("lockedWhen" in app.features[0]!.entities["thing"]!).toBe(false);
@@ -863,10 +875,7 @@ describe("buildAppSchema", () => {
 
   test("entity without defaultCurrency omits the key", () => {
     const f = defineFeature("ent", (r) => {
-      r.entity({
-        name: "thing",
-        ...({ fields: { label: { type: "text" } } } as unknown as EntityDefinition),
-      });
+      r.entity(({ name: "thing", fields: { label: { type: "text" } } } as unknown as EntityDefinition));
     });
     const app = buildAppSchema(createRegistry([f]));
     expect("defaultCurrency" in app.features[0]!.entities["thing"]!).toBe(false);
@@ -874,6 +883,7 @@ describe("buildAppSchema", () => {
 
   test("money field's `currency: { kind: 'tenant' }` declaration survives the projection", () => {
     const entity = {
+      name: "thing",
       defaultCurrency: "USD",
       fields: {
         price: { type: "money", currency: { kind: "tenant" } },
@@ -882,7 +892,7 @@ describe("buildAppSchema", () => {
     } as unknown as EntityDefinition;
 
     const f = defineFeature("ent", (r) => {
-      r.entity({ name: "thing", ...entity });
+      r.entity(entity);
     });
     const app = buildAppSchema(createRegistry([f]));
     const projected = app.features[0]!.entities["thing"] as unknown as {
@@ -896,12 +906,13 @@ describe("buildAppSchema", () => {
 
   test("money field's `currency: { kind: 'literal', code }` declaration survives the projection", () => {
     const entity = {
+      name: "thing",
       defaultCurrency: "USD",
       fields: { price: { type: "money", currency: { kind: "literal", code: "USD" } } },
     } as unknown as EntityDefinition;
 
     const f = defineFeature("ent", (r) => {
-      r.entity({ name: "thing", ...entity });
+      r.entity(entity);
     });
     const app = buildAppSchema(createRegistry([f]));
     const projected = app.features[0]!.entities["thing"] as unknown as {
@@ -917,6 +928,7 @@ describe("buildAppSchema", () => {
     // masking, wall-clock input, upload constraints, preview variant, derived
     // embedded-cell rounding) but were missing from the client schema.
     const entity = {
+      name: "thing",
       fields: {
         secret: { type: "text", format: "password" },
         pickupAt: { type: "timestamp", locatedBy: "pickupTz" },
@@ -937,7 +949,7 @@ describe("buildAppSchema", () => {
     } as unknown as EntityDefinition;
 
     const f = defineFeature("ent", (r) => {
-      r.entity({ name: "thing", ...entity });
+      r.entity(entity);
     });
     const app = buildAppSchema(createRegistry([f]));
     const fields = (
@@ -966,6 +978,7 @@ describe("buildAppSchema", () => {
     // names to sum in a totals row" in its own doc-comment but was never
     // forwarded — same for the other embedded-list renderer hints.
     const entity = {
+      name: "thing",
       fields: {
         lines: {
           type: "embedded",
@@ -985,7 +998,7 @@ describe("buildAppSchema", () => {
     } as unknown as EntityDefinition;
 
     const f = defineFeature("ent", (r) => {
-      r.entity({ name: "thing", ...entity });
+      r.entity(entity);
     });
     const app = buildAppSchema(createRegistry([f]));
     const fields = (
@@ -1017,6 +1030,7 @@ describe("buildAppSchema", () => {
     // `totalsMatch`/`multiline` must go through isJsonSafeValue() too, not
     // just `default`.
     const entity = {
+      name: "thing",
       fields: {
         lines: {
           type: "embedded",
@@ -1031,7 +1045,7 @@ describe("buildAppSchema", () => {
     } as unknown as EntityDefinition;
 
     const f = defineFeature("ent", (r) => {
-      r.entity({ name: "thing", ...entity });
+      r.entity(entity);
     });
     const app = buildAppSchema(createRegistry([f]));
     const fields = (
@@ -1054,6 +1068,7 @@ describe("buildAppSchema", () => {
     // carrying a non-JSON-safe value (e.g. a validator/renderer function)
     // must lose only that value, not the whole schema map.
     const entity = {
+      name: "thing",
       fields: {
         lines: {
           type: "embedded",
@@ -1067,7 +1082,7 @@ describe("buildAppSchema", () => {
     } as unknown as EntityDefinition;
 
     const f = defineFeature("ent", (r) => {
-      r.entity({ name: "thing", ...entity });
+      r.entity(entity);
     });
     const app = buildAppSchema(createRegistry([f]));
     const fields = (
@@ -1089,6 +1104,7 @@ describe("buildAppSchema", () => {
     // only accepting string/number/boolean/null — but the defense-in-depth
     // against smuggled function/class-instance defaults must still hold.
     const entity = {
+      name: "thing",
       fields: {
         tags: { type: "multiSelect", options: ["a", "b"], default: ["a"] },
         nested: { type: "text", default: { rows: [1, "x"], flag: true } },
@@ -1098,7 +1114,7 @@ describe("buildAppSchema", () => {
     } as unknown as EntityDefinition;
 
     const f = defineFeature("ent", (r) => {
-      r.entity({ name: "thing", ...entity });
+      r.entity(entity);
     });
     const app = buildAppSchema(createRegistry([f]));
     const fields = (
@@ -1117,6 +1133,7 @@ describe("buildAppSchema", () => {
     // Contract smoke test: a function accidentally introduced by a project-
     // helper would make this check fail.
     const entity = {
+      name: "thing",
       fields: {
         id: { type: "text", default: () => "x" },
         tags: {
@@ -1129,7 +1146,7 @@ describe("buildAppSchema", () => {
       },
     } as unknown as EntityDefinition;
     const f = defineFeature("ent", (r) => {
-      r.entity({ name: "thing", ...entity });
+      r.entity(entity);
       r.nav({ id: "n", label: "N" });
       r.workspace({
         id: "ws",
@@ -1152,6 +1169,7 @@ describe("buildAppSchema", () => {
     // FieldCondition ({ field, eq/ne } | boolean) remains deep-equal to the
     // original after JSON.parse(JSON.stringify(app)).
     const entity = {
+      name: "event",
       table: "events",
       fields: {
         id: { type: "text" },
@@ -1162,7 +1180,7 @@ describe("buildAppSchema", () => {
     } as unknown as EntityDefinition;
 
     const f = defineFeature("ev", (r) => {
-      r.entity({ name: "event", ...entity });
+      r.entity(entity);
       r.screen({
         id: "list",
         type: "entityList",
@@ -1245,6 +1263,7 @@ describe("buildAppSchema", () => {
     // The executor attaches the value to the row server-side; the client only
     // needs the valueType.
     const contractEntity = {
+      name: "contract",
       table: "contracts",
       fields: { name: { type: "text" } },
       derivedFields: {
@@ -1254,7 +1273,7 @@ describe("buildAppSchema", () => {
     } as unknown as EntityDefinition;
 
     const f = defineFeature("credit", (r) => {
-      r.entity({ name: "contract", ...contractEntity });
+      r.entity(contractEntity);
       r.screen({
         id: "list",
         type: "entityList",
@@ -1344,7 +1363,7 @@ describe("buildAppSchema", () => {
 
     function derivedSearchable(entityName: string, entity: EntityDefinition): boolean | undefined {
       const f = defineFeature("ledger", (r) => {
-        r.entity({ name: entityName, ...entity });
+        r.entity({ ...entity, name: entityName });
         r.queryHandler(defineEntityListHandler(entityName, entity, listAccess));
         r.screen({
           id: "thing-list",

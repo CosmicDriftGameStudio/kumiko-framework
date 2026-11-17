@@ -11,6 +11,7 @@ import { tableToMeta } from "../table-push.ts";
 
 function exampleEntity(tableName = "read_units") {
   return createEntity({
+    name: "unit",
     table: tableName,
     fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
   });
@@ -24,7 +25,7 @@ const counterTable = table("read_unit_counters", {
 describe("collectTableMetas", () => {
   test("collects entity, projection, MSP and storeTable tables — same sources as the test-stack auto-push", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity({ name: "unit", ...exampleEntity() });
+      r.entity(exampleEntity());
       r.projection({
         name: "unit-counters",
         source: "unit",
@@ -69,11 +70,11 @@ describe("collectTableMetas", () => {
   test("dedupes a projection that materializes into an entity table — entity meta wins", () => {
     const entity = exampleEntity();
     const feature = defineFeature("test", (r) => {
-      r.entity({ name: "unit", ...entity });
+      r.entity(entity);
       r.projection({
         name: "unit-alt",
         source: "unit",
-        table: buildEntityTable("unit", entity) as unknown as SchemaTable,
+        table: buildEntityTable(entity) as unknown as SchemaTable,
         apply: {},
       });
     });
@@ -84,7 +85,7 @@ describe("collectTableMetas", () => {
 
   test("throws when two table-bearing registrations declare the same table with diverging columns", () => {
     const a = defineFeature("feat-a", (r) => {
-      r.entity({ name: "unit", ...exampleEntity() });
+      r.entity(exampleEntity());
       r.projection({
         name: "conflict-a",
         source: "unit",
@@ -96,7 +97,7 @@ describe("collectTableMetas", () => {
       });
     });
     const b = defineFeature("feat-b", (r) => {
-      r.entity({ name: "thing", ...exampleEntity("read_things") });
+      r.entity({ ...exampleEntity("read_things"), name: "thing" });
       r.projection({
         name: "conflict-b",
         source: "thing",
@@ -113,7 +114,7 @@ describe("collectTableMetas", () => {
 
   test("throws when a projection table carries no EntityTableMeta", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity({ name: "unit", ...exampleEntity() });
+      r.entity(exampleEntity());
       r.projection({
         name: "broken",
         source: "unit",
@@ -141,6 +142,7 @@ describe("collectTableMetas — r.entity backing table", () => {
 
   function widgetEntity() {
     return createEntity({
+      name: "widget",
       table: "read_widgets",
       fields: {
         name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -150,7 +152,7 @@ describe("collectTableMetas — r.entity backing table", () => {
 
   test("ride-along column + index from the backing table reach the generated meta", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity({ name: "widget", ...widgetEntity(), backingTable: richWidgetTable });
+      r.entity({ ...widgetEntity(), backingTable: richWidgetTable });
     });
     const meta = collectTableMetas([feature]).find((m) => m.tableName === "read_widgets");
     expect(meta?.columns.map((c) => c.name)).toContain("tag");
@@ -159,7 +161,7 @@ describe("collectTableMetas — r.entity backing table", () => {
 
   test("generate draws from the backing table itself — one source", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity({ name: "widget", ...widgetEntity(), backingTable: richWidgetTable });
+      r.entity({ ...widgetEntity(), backingTable: richWidgetTable });
     });
     const meta = collectTableMetas([feature]).find((m) => m.tableName === "read_widgets");
     // Identical to the table the test-stack push + executor use → they cannot drift.
@@ -214,7 +216,7 @@ describe("collectTableMetas — r.entity backing table", () => {
 describe("reference-data entities and systemRowsReadable", () => {
   test("the implicit projection table (push path) and collectTableMetas (boot check) agree without an explicit flag", () => {
     const feature = defineFeature("refdata", (r) => {
-      r.entity({ name: "unit", ...exampleEntity() });
+      r.entity(exampleEntity());
       r.referenceData({ entity: "unit", data: [{ name: "seed" }] });
     });
     const registry = createRegistry([feature]);
@@ -231,7 +233,7 @@ describe("reference-data entities and systemRowsReadable", () => {
 
   test("an entity without reference data stays unmarked on both paths", () => {
     const feature = defineFeature("plain", (r) => {
-      r.entity({ name: "unit", ...exampleEntity() });
+      r.entity(exampleEntity());
     });
     const registry = createRegistry([feature]);
     const [pushed] = [...registry.getAllProjections().values()].map((proj) =>
@@ -256,7 +258,7 @@ describe("collectTableMetas — entity event version", () => {
     });
     const feature = defineFeature("versions", (r) => {
       r.entity(versioned);
-      r.entity({ name: "plain", ...exampleEntity("read_plain") });
+      r.entity({ ...exampleEntity("read_plain"), name: "plain" });
       r.storeTable(
         defineUnmanagedTable({
           tableName: "version_cache",

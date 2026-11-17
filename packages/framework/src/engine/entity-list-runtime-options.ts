@@ -46,7 +46,7 @@ function implicitProjectionOf(ctx: HandlerContext, entityName: string) {
 
 function readTableOf(ctx: HandlerContext, entityName: string, entity: EntityDefinition) {
   const implicit = implicitProjectionOf(ctx, entityName);
-  return implicit?.table ?? buildEntityTable(entityName, entity);
+  return implicit?.table ?? buildEntityTable({ ...entity, name: entityName });
 }
 
 const readModelOwnersOf = memoizePerRegistry((registry) => {

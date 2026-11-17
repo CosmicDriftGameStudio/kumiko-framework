@@ -5,7 +5,7 @@ import { createEntity, createTimestampField } from "../factories.ts";
 
 function featureWith(field: ReturnType<typeof createTimestampField>) {
   return defineFeature("leads", (r) => {
-    r.entity({ name: "lead", ...createEntity({ table: "leads", fields: { receivedAt: field } }) });
+    r.entity(createEntity({ name: "lead", table: "leads", fields: { receivedAt: field } }));
   });
 }
 

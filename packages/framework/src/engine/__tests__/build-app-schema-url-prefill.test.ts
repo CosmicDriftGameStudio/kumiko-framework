@@ -6,15 +6,17 @@ import type { EntityDefinition } from "../types/fields.ts";
 import type { ScreenDefinition } from "../types/screen.ts";
 
 const leaseEntity = {
+  name: "lease",
   fields: { name: { type: "text" }, iban: { type: "text" } },
 } as unknown as EntityDefinition;
 const itemEntity = {
+  name: "item",
   fields: { leaseId: { type: "text" }, note: { type: "text" } },
 } as unknown as EntityDefinition;
 
 const leasesFeature = defineFeature("leases", (r) => {
-  r.entity({ name: "lease", ...leaseEntity });
-  r.entity({ name: "item", ...itemEntity });
+  r.entity(leaseEntity);
+  r.entity(itemEntity);
   r.screen({
     id: "lease-list",
     type: "entityList",
@@ -231,10 +233,7 @@ const leasesFeature = defineFeature("leases", (r) => {
 });
 
 const billingFeature = defineFeature("billing", (r) => {
-  r.entity({
-    name: "invoice",
-    ...({ fields: { payee: { type: "text" } } } as unknown as EntityDefinition),
-  });
+  r.entity(({ name: "invoice", fields: { payee: { type: "text" } } } as unknown as EntityDefinition));
   r.screen({
     id: "invoice-list",
     type: "entityList",

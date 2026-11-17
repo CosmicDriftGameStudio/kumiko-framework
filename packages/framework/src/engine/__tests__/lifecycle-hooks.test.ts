@@ -16,7 +16,7 @@ const stubHandler = async () => ({ isSuccess: true as const, data: null });
 describe("lifecycle hook registration", () => {
   test("preSave hooks are registered", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity({ name: "user", ...createEntity({ table: "Users", fields: {} }) });
+      r.entity(createEntity({ name: "user", table: "Users", fields: {} }));
       r.hook({
         type: "preSave",
         target: "user",
@@ -89,7 +89,7 @@ describe("lifecycle hook registration", () => {
 describe("lifecycle hooks in registry", () => {
   test("merges preSave hooks within same feature", () => {
     const f1 = defineFeature("a", (r) => {
-      r.entity({ name: "user", ...createEntity({ table: "Users", fields: {} }) });
+      r.entity(createEntity({ name: "user", table: "Users", fields: {} }));
       r.writeHandler({
         name: "user",
         schema: z.object({}),
@@ -106,7 +106,7 @@ describe("lifecycle hooks in registry", () => {
 
   test("cross-feature hooks use full prefixed name", () => {
     const f1 = defineFeature("a", (r) => {
-      r.entity({ name: "user", ...createEntity({ table: "Users", fields: {} }) });
+      r.entity(createEntity({ name: "user", table: "Users", fields: {} }));
       r.writeHandler({
         name: "user",
         schema: z.object({}),
@@ -135,7 +135,7 @@ describe("lifecycle hooks in registry", () => {
 
   test("returns empty array for entity without hooks", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity({ name: "user", ...createEntity({ table: "Users", fields: {} }) });
+      r.entity(createEntity({ name: "user", table: "Users", fields: {} }));
     });
 
     const registry = createRegistry([feature]);

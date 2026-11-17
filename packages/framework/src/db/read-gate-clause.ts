@@ -56,7 +56,7 @@ class GateSql {
 }
 
 function tableOf(option: ParentVisibilityOption, name: string, entity: EntityDefinition): Table {
-  return option.resolveTable?.(name) ?? buildEntityTable(name, entity);
+  return option.resolveTable?.(name) ?? buildEntityTable({ ...entity, name: name });
 }
 
 function tenantScopeSql(sql: GateSql, db: TenantDb, table: Table, alias: string): string[] {

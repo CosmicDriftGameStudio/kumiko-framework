@@ -25,9 +25,8 @@ function featureWith(
   withRecordOwnedField: boolean,
 ): FeatureDefinition {
   return defineFeature("notes", (r) => {
-    r.entity({
-      name: "note",
-      ...createEntity({
+    r.entity(createEntity({
+        name: "note",
         table: "fw2809_guard_notes",
         idType,
         fields: {
@@ -35,8 +34,7 @@ function featureWith(
             ? createTextField({ personal: { of: "id" }, find: "none" })
             : plaintextText,
         },
-      }),
-    });
+      }));
   });
 }
 
@@ -78,15 +76,12 @@ describe("validateForgetWithSubject", () => {
           ? createTextField({ personal: { of: "id" }, find: "none" })
           : plaintextText;
     return defineFeature("subscribers", (r) => {
-      r.entity({
-        name: "subscriber",
-        ...createEntity({
+      r.entity(createEntity({
           table: "forget_with_subject_subscribers",
           forgetWithSubject: true,
           ...(retention && { retention }),
-          fields: { email },
-        }),
-      });
+          fields: { email }, name: "subscriber",
+        }));
     });
   }
 
@@ -115,10 +110,7 @@ describe("validateForgetWithSubject", () => {
 describe("validateRecordKeyHeldByOneOwner", () => {
   function selfKeyedFeature(fields: FieldsMap): FeatureDefinition {
     return defineFeature("slips", (r) =>
-      r.entity({
-        name: "slip",
-        ...createEntity({ table: "record_key_one_owner_slips", fields }),
-      }),
+      r.entity(createEntity({ name: "slip", table: "record_key_one_owner_slips", fields })),
     );
   }
 

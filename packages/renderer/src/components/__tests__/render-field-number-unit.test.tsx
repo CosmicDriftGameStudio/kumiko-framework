@@ -55,6 +55,7 @@ function buildEntity(
   mileageUnit: string | { readonly field: string } | undefined,
 ): EntityDefinition {
   return {
+    name: "vehicle",
     fields: {
       mileage: {
         type: "number",
@@ -214,7 +215,7 @@ describe("RenderField — number unit through the shipped client schema", () => 
     mileageUnit: string | { readonly field: string },
   ): EntityDefinition {
     const feature = defineFeature("fleet", (r) => {
-      r.entity({ name: "vehicle", ...buildEntity(mileageUnit) });
+      r.entity(buildEntity(mileageUnit));
     });
     const app = buildAppSchema(createRegistry([feature]));
     const entity = app.features[0]?.entities["vehicle"];

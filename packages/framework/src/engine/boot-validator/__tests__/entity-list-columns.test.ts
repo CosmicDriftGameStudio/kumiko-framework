@@ -15,13 +15,11 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
 
   function noteFeatureWithColumn(columnName: string, options?: { readonly softDelete?: boolean }) {
     return defineFeature("notes", (r) => {
-      r.entity({
-        name: "note",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "note",
           fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
           softDelete: options?.softDelete,
-        }),
-      });
+        }));
       r.screen({
         id: "note-list",
         type: "entityList",
@@ -39,12 +37,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   describe("entityList column renderer form", () => {
     function shopFeature(renderer: unknown) {
       return defineFeature("shop", (r) => {
-        r.entity({
-          name: "product",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "product",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-          }),
-        });
+          }));
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -208,12 +204,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   describe("entityList virtual labeled column", () => {
     function noteFeature(column: unknown) {
       return defineFeature("notes", (r) => {
-        r.entity({
-          name: "note",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "note",
             fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
-          }),
-        });
+          }));
         r.screen({
           id: "note-list",
           type: "entityList",
@@ -343,17 +337,15 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
       }>,
     ) {
       return defineFeature("shop", (r) => {
-        r.entity({
-          name: "product",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "product",
             fields: {
               name: createTextField({ sortable: true, personal: false, reason: "test_fixture" }),
               // Intentionally not sortable: verifies that the validator distinguishes it
               // and accepts only sortable fields as `defaultSort` targets.
               description: createTextField({ personal: false, reason: "test_fixture" }),
             },
-          }),
-        });
+          }));
         r.screen({
           id: "product-list",
           type: "entityList",

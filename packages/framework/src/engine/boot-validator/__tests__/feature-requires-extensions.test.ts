@@ -12,13 +12,11 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   test("passes for valid features with no issues", () => {
     const features = [
       defineFeature("a", (r) => {
-        r.entity({
-          name: "user",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "user",
             table: "Users",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-          }),
-        });
+          }));
       }),
     ];
     expect(() => validateBoot(features)).not.toThrow();
@@ -72,7 +70,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
       r.extendsRegistrar("tags", { onRegister: () => {} });
     });
     const consumer = defineFeature("fleet", (r) => {
-      r.entity({ name: "vehicle", ...createEntity({ table: "Vehicles", fields: {} }) });
+      r.entity(createEntity({ name: "vehicle", table: "Vehicles", fields: {} }));
       r.applyExtension({ name: "tags", entity: "vehicle" });
       // Missing: r.requires({ features: ["tags"] })
     });
@@ -86,7 +84,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     });
     const consumer = defineFeature("fleet", (r) => {
       r.requires({ features: ["tags"] });
-      r.entity({ name: "vehicle", ...createEntity({ table: "Vehicles", fields: {} }) });
+      r.entity(createEntity({ name: "vehicle", table: "Vehicles", fields: {} }));
       r.applyExtension({ name: "tags", entity: "vehicle" });
     });
 
@@ -99,7 +97,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     });
     const consumer = defineFeature("fleet", (r) => {
       r.optionalRequires({ features: ["tags"] });
-      r.entity({ name: "vehicle", ...createEntity({ table: "Vehicles", fields: {} }) });
+      r.entity(createEntity({ name: "vehicle", table: "Vehicles", fields: {} }));
       r.applyExtension({ name: "tags", entity: "vehicle" });
     });
 
@@ -114,7 +112,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     // tests above only exercise providerFeature !== feature.name.
     const self = defineFeature("tier-stub", (r) => {
       r.extendsRegistrar("tenantTierResolver", { onRegister: () => {} });
-      r.entity({ name: "dummy", ...createEntity({ table: "Dummies", fields: {} }) });
+      r.entity(createEntity({ name: "dummy", table: "Dummies", fields: {} }));
       r.applyExtension({ name: "tenantTierResolver", entity: "dummy", build: async () => () => new Set() });
     });
     expect(() => validateBoot([self])).not.toThrow();
@@ -130,13 +128,11 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     });
     const consumer = defineFeature("money-horse", (r) => {
       r.requires({ features: ["cap-ext"] });
-      r.entity({
-        name: "credit",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "credit",
           table: "Credits",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-        }),
-      });
+        }));
       r.writeHandler({
         name: "doSomething",
         schema: z.object({}),

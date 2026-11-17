@@ -10,6 +10,7 @@ export const RENDERED_PDF_ENTITY_NAME = "rendered-pdf";
 // Provenance of a stored PDF: which template version produced the file. The file
 // name stays on the fileRef only, because it may carry personal data.
 export const renderedPdfEntity = createEntity({
+  name: RENDERED_PDF_ENTITY_NAME,
   table: "rendered_pdfs",
   fields: {
     fileRefId: createTextField({ required: true, personal: false, reason: "technical_reference" }),
@@ -24,4 +25,4 @@ export const renderedPdfEntity = createEntity({
   },
 });
 
-export const renderedPdfsTable = buildEntityTable(RENDERED_PDF_ENTITY_NAME, renderedPdfEntity);
+export const renderedPdfsTable = buildEntityTable(renderedPdfEntity);

@@ -70,7 +70,8 @@ function fakeClient(failures: unknown[], opts: FakeClientOptions = {}): FakeClie
   return client;
 }
 
-const table = buildEntityTable("note", {
+const table = buildEntityTable({
+  name: "note",
   fields: {
     title: {
       type: "text",

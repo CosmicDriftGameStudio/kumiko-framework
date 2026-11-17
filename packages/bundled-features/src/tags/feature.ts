@@ -71,7 +71,7 @@ function registerTags(
 
   const tagAssignmentEntity = createTagAssignmentEntity(ownership, parents);
   r.entity(tagEntity);
-  r.entity({ name: "tag-assignment", ...tagAssignmentEntity });
+  r.entity(tagAssignmentEntity);
 
   r.writeHandler(createCreateTagHandler(access));
   const tagUpdate = r.writeHandler(

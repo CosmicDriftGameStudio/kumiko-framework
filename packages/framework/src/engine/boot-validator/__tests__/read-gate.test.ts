@@ -32,7 +32,7 @@ function gated(readGate: EntityDefinition["readGate"], extra: Partial<EntityDefi
     table: "read_gate_boot_docs",
     fields: { title: text(), file: createFileField() },
     ...(readGate !== undefined && { readGate }),
-    ...extra,
+    ...extra, name: "doc",
   });
 }
 
@@ -43,7 +43,7 @@ const validGate = {
 
 function check(docEntity: EntityDefinition, withFiles = true, handwrittenList = false): void {
   const docs = defineFeature("docs", (r) => {
-    r.entity({ name: "doc", ...docEntity });
+    r.entity({ ...docEntity, name: "doc" });
     r.entity(linkEntity);
     if (handwrittenList) {
       r.queryHandler({
@@ -55,7 +55,7 @@ function check(docEntity: EntityDefinition, withFiles = true, handwrittenList = 
     }
   });
   const files = defineFeature("files-stub", (r) => {
-    r.entity({ name: FILE_REF_ENTITY_NAME, ...fileRefEntity });
+    r.entity(fileRefEntity);
   });
   const features: FeatureDefinition[] = withFiles ? [docs, files] : [docs];
   validateReadGates(docs, new Map(features.map((f) => [f.name, f] as const)));
@@ -108,7 +108,7 @@ describe("validateReadGates", () => {
   test("accepts the convention list handler", () => {
     const docEntity = gated(validGate);
     const docs = defineFeature("docs", (r) => {
-      r.entity({ name: "doc", ...docEntity });
+      r.entity(docEntity);
       r.entity(linkEntity);
       r.queryHandler(
         defineEntityListHandler("doc", docEntity, {
@@ -117,7 +117,7 @@ describe("validateReadGates", () => {
       );
     });
     const files = defineFeature("files-stub", (r) => {
-      r.entity({ name: FILE_REF_ENTITY_NAME, ...fileRefEntity });
+      r.entity(fileRefEntity);
     });
     expect(() =>
       validateReadGates(docs, new Map([docs, files].map((f) => [f.name, f] as const))),

@@ -15,13 +15,11 @@ import { buildServer } from "../server.ts";
 const JWT = "metrics-endpoint-test-secret-minimum-32-chars!!";
 
 const noopFeature = defineFeature("m", (r) => {
-  r.entity({
-    name: "widget",
-    ...createEntity({
+  r.entity(createEntity({
+      name: "widget",
       table: "Widgets",
       fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-    }),
-  });
+    }));
 });
 
 // Swap the NoopProvider's meter for a PrometheusMeter. Tracer + lifecycle

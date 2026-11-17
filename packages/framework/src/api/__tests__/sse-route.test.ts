@@ -352,13 +352,11 @@ describe("sse-route frame naming", () => {
   test("a camelCase entity signalled under its kebab-case aggregate type follows the entity's read rules", async () => {
     const registry = createRegistry([
       defineFeature("demo", (r) => {
-        r.entity({
-          name: "documentExtract",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "documentExtract",
             table: "document_extracts",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-          }),
-        });
+          }));
         r.queryHandler({
           name: "list-extracts",
           schema: z.object({}),
@@ -408,14 +406,12 @@ describe("sse-route frame naming", () => {
   describe("row-filtered read access", () => {
     const registry = createRegistry([
       defineFeature("demo", (r) => {
-        r.entity({
-          name: "contract",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "contract",
             table: "contracts",
             fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
             access: { read: { Admin: "all", Driver: from("user:id", "assigneeId") } },
-          }),
-        });
+          }));
         r.queryHandler({
           name: "list-contracts",
           schema: z.object({}),

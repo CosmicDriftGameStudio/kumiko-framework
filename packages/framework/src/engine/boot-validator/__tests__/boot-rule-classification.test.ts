@@ -35,7 +35,7 @@ const text = () => createTextField({ personal: false, reason: "test_fixture" });
 describe("pii rules", () => {
   const featureWith = (fields: Record<string, ReturnType<typeof text>>) =>
     defineFeature("demo", (r) => {
-      r.entity({ name: "vault", ...createEntity({ table: "Vaults", fields }) });
+      r.entity(createEntity({ name: "vault", table: "Vaults", fields }));
     });
 
   test("a classified rule id and its fix reach the violation", () => {
@@ -50,13 +50,11 @@ describe("pii rules", () => {
 
   test("two different rules on one field are both reported", () => {
     const feature = defineFeature("demo", (r) => {
-      r.entity({
-        name: "vault",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "vault",
           table: "Vaults",
           fields: { token: { ...plaintextText, sensitive: true, lookupable: true } },
-        }),
-      });
+        }));
     });
     const ruleIds = ruleIdsOf(() => validateBoot([feature]));
     expect(ruleIds).toContain("pii/sensitive-without-ciphertext");
@@ -76,15 +74,13 @@ describe("pii rules", () => {
 describe("entity-list rules", () => {
   test("searchable:false without defaultSort on a filterable field reports both rules", () => {
     const feature = defineFeature("demo", (r) => {
-      r.entity({
-        name: "item",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "item",
           table: "Items",
           fields: {
             name: createTextField({ filterable: true, personal: false, reason: "test_fixture" }),
           },
-        }),
-      });
+        }));
       r.screen({
         id: "item-list",
         type: "entityList",
@@ -106,7 +102,7 @@ describe("entity-list rules", () => {
 
   test("unknown columns are collected per column", () => {
     const feature = defineFeature("demo", (r) => {
-      r.entity({ name: "item", ...createEntity({ table: "Items", fields: { name: text() } }) });
+      r.entity(createEntity({ name: "item", table: "Items", fields: { name: text() } }));
       r.screen({
         id: "item-list",
         type: "entityList",
@@ -123,7 +119,7 @@ describe("entity-list rules", () => {
 describe("i18n rules", () => {
   test("two missing keys give two violations", () => {
     const feature = defineFeature("demo", (r) => {
-      r.entity({ name: "item", ...createEntity({ table: "Items", fields: { name: text() } }) });
+      r.entity(createEntity({ name: "item", table: "Items", fields: { name: text() } }));
       r.screen({
         id: "item-list",
         type: "entityList",
@@ -166,7 +162,7 @@ describe("api and extension rules", () => {
 
   test("an unknown extension usage is classified", () => {
     const feature = defineFeature("demo", (r) => {
-      r.entity({ name: "item", ...createEntity({ table: "Items", fields: { name: text() } }) });
+      r.entity(createEntity({ name: "item", table: "Items", fields: { name: text() } }));
       r.applyExtension({ name: "ghost-extension", entity: "item" });
     });
     expect(ruleIdsOf(() => validateBoot([feature]))).toContain("extension/unknown-extension");
@@ -176,12 +172,10 @@ describe("api and extension rules", () => {
 describe("list and action rules", () => {
   test("card meta overflow is one classified violation", () => {
     const feature = defineFeature("cards", (r) => {
-      r.entity({
-        name: "item",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "item",
           fields: { name: text(), a: text(), b: text(), c: text(), d: text() },
-        }),
-      });
+        }));
       r.screen({
         id: "item-list",
         type: "entityList",

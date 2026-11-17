@@ -93,6 +93,7 @@ const foreignAdmin = createTestUser({
 });
 
 const leaseEntity = createEntity({
+  name: SUBJECT_TYPE,
   table: "document_draft_test_leases",
   fields: {
     teamId: createTextField({
@@ -117,11 +118,11 @@ const leaseEntity = createEntity({
 });
 
 const leaseHostFeature = defineFeature("document-draft-test-lease-host", (r) => {
-  r.entity({ name: SUBJECT_TYPE, ...leaseEntity });
+  r.entity(leaseEntity);
 });
 
 const leaseExecutor = createEventStoreExecutor(
-  buildEntityTable(SUBJECT_TYPE, leaseEntity),
+  buildEntityTable(leaseEntity),
   leaseEntity,
   { entityName: SUBJECT_TYPE },
 );

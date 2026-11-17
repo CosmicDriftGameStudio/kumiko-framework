@@ -12,13 +12,11 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     await withEnv({ FILE_STORAGE_PROVIDER: undefined }, () => {
       const features = [
         defineFeature("a", (r) => {
-          r.entity({
-            name: "doc",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "doc",
               table: "Docs",
               fields: { contract: { type: "file" } },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/FILE_STORAGE_PROVIDER.*required/i);
@@ -29,13 +27,11 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     await withEnv({ FILE_STORAGE_PROVIDER: "local" }, () => {
       const features = [
         defineFeature("a", (r) => {
-          r.entity({
-            name: "doc",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "doc",
               table: "Docs",
               fields: { photo: { type: "image" } },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).not.toThrow();
@@ -46,10 +42,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     await withEnv({ FILE_STORAGE_PROVIDER: undefined }, () => {
       const features = [
         defineFeature("a", (r) => {
-          r.entity({
-            name: "doc",
-            ...createEntity({ table: "Docs", fields: { photo: { type: "image" } } }),
-          });
+          r.entity(createEntity({ name: "doc", table: "Docs", fields: { photo: { type: "image" } } }));
         }),
       ];
       const fixtured = withBootValidatorFixture(features);

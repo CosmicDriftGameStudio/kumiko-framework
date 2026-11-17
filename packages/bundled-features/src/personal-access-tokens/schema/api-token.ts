@@ -15,6 +15,7 @@ import { API_TOKEN_ENTITY_NAME } from "../web/constants.ts";
 // request can forge ownership/scope/hash by poking a field directly — the
 // handlers mutate them via ctx.db inside the pipeline.
 export const apiTokenEntity = createEntity({
+  name: "api-token",
   table: "store_api_tokens",
   // No softDelete: revocation is its own lifecycle (revokedAt timestamp), and
   // we keep revoked rows for the "your tokens" audit list.
@@ -92,6 +93,6 @@ export const apiTokenEntity = createEntity({
 // deriveEntityTableMeta (not buildEntityTable): this is a direct-write store, so
 // the table must be Writable, which only source: "unmanaged" yields — same as
 // sessions' userSessionTable.
-export const apiTokenTable = deriveEntityTableMeta(API_TOKEN_ENTITY_NAME, apiTokenEntity, {
+export const apiTokenTable = deriveEntityTableMeta(apiTokenEntity, {
   source: "unmanaged",
 });

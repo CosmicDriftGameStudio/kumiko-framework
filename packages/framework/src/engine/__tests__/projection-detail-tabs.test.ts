@@ -110,12 +110,10 @@ describe("validateBoot — projectionDetail tabs (fw record-layout)", () => {
   // required field on an unopened tab surfaces instead of blocking silently.
   test("mode: tabs on entityEdit boots", () => {
     const feature = defineFeature("app", (r) => {
-      r.entity({
-        name: "rent",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "rent",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-        }),
-      });
+        }));
       r.screen({
         id: "rent-edit",
         type: "entityEdit",
@@ -134,12 +132,10 @@ describe("validateBoot — projectionDetail tabs (fw record-layout)", () => {
 
   test("mode: tabs on entityEdit enforces the same per-tab id as projectionDetail", () => {
     const feature = defineFeature("app", (r) => {
-      r.entity({
-        name: "rent",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "rent",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-        }),
-      });
+        }));
       r.screen({
         id: "rent-edit",
         type: "entityEdit",
@@ -160,12 +156,10 @@ describe("validateBoot — projectionDetail tabs (fw record-layout)", () => {
 
   test("mode: tabs on entityEdit with a single section throws", () => {
     const feature = defineFeature("app", (r) => {
-      r.entity({
-        name: "rent",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "rent",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-        }),
-      });
+        }));
       r.screen({
         id: "rent-edit",
         type: "entityEdit",

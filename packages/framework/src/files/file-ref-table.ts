@@ -9,4 +9,4 @@ import { FILE_REF_ENTITY_NAME, fileRefEntity } from "./file-ref-entity.ts";
 // `id` is a UUID and also serves as the aggregate ID for the `fileRef` event stream:
 // each upload appends `fileRef.created`, and each deletion appends `fileRef.deleted`
 // (standard entity auto-verbs). UUIDs prevent enumeration attacks against /files/:id.
-export const fileRefsTable = buildEntityTable(FILE_REF_ENTITY_NAME, fileRefEntity);
+export const fileRefsTable = buildEntityTable(fileRefEntity);

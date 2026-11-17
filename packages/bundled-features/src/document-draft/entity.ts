@@ -116,7 +116,7 @@ function buildDocumentDraftEntity(
       finalizedAt: createTimestampField({ personal: false, reason: "is_business_timestamp" }),
       lastChange: createJsonbField(DRAFT_PERSONAL_JSON),
     },
-    indexes: [{ columns: ["tenantId", "subjectType", "subjectId"] }],
+    indexes: [{ columns: ["tenantId", "subjectType", "subjectId"] }], name: DOCUMENT_DRAFT_ENTITY,
   });
 }
 
@@ -140,11 +140,10 @@ export const documentDraftEntity = buildDocumentDraftEntity(
 
 // ungated: system paths only (user-data erasure runs without the subject gate)
 export const { executor: ungatedDocumentDraftExecutor, table: documentDraftTable } =
-  createEntityExecutor(DOCUMENT_DRAFT_ENTITY, documentDraftEntity);
+  createEntityExecutor(documentDraftEntity);
 
 export function createDocumentDraftExecutor(subjectTypes: readonly string[]) {
   return createEntityExecutor(
-    DOCUMENT_DRAFT_ENTITY,
     createDocumentDraftEntity(undefined, subjectTypes),
   ).executor;
 }

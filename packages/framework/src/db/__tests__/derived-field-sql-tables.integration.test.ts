@@ -26,8 +26,8 @@ const personEntity = createEntity({
   table: "dsqb_people",
   fields: { name: createTextField({ required: true, ...fixture }) },
 });
-const personBacking = { ...personEntity, table: "dsqb_people_backing" };
-const personTable = buildEntityTable("person", personBacking);
+const personBacking = { ...personEntity, table: "dsqb_people_backing", name: "person" };
+const personTable = buildEntityTable(personBacking);
 
 const jobEntity = createEntity({
   name: "job",
@@ -44,8 +44,8 @@ const jobEntity = createEntity({
   },
   indexes: [{ columns: ["crewId"] }],
 });
-const jobBacking = { ...jobEntity, table: "dsqb_jobs_backing" };
-const jobTable = buildEntityTable("job", jobBacking);
+const jobBacking = { ...jobEntity, table: "dsqb_jobs_backing", name: "job" };
+const jobTable = buildEntityTable(jobBacking);
 
 const crewEntity = createEntity({
   name: "crew",

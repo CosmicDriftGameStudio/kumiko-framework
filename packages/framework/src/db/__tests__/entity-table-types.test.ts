@@ -242,7 +242,7 @@ describe("createEntityExecutor — executor rows are typed from the entity", () 
     const fields: FieldsMap = {
       title: createTextField({ personal: false, reason: "test_fixture" }),
     };
-    const wide = createEntityExecutor("wide", createEntity({ fields }));
+    const wide = createEntityExecutor(createEntity({ name: "wide", fields }));
     expectTypeOf(wide.executor.detail).returns.resolves.toEqualTypeOf<Record<
       string,
       unknown

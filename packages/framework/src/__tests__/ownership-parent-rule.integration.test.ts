@@ -69,7 +69,7 @@ const facilitiesFeature = defineFeature("facilities", (r) => {
     ["fixture", fixtureEntity],
   ] as const;
   for (const [name, entity] of entities) {
-    r.entity({ name, ...entity });
+    r.entity({ ...entity, name });
     for (const verb of ["create", "update", "delete", "restore"] as const) {
       r.writeHandler(
         defineEntityWriteHandler(`${name}:${verb}`, entity, { access: { roles: [...roles] } }),

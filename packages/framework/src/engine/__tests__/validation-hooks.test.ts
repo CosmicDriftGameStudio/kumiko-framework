@@ -6,13 +6,11 @@ import { runValidation } from "../validation.ts";
 describe("validation hooks", () => {
   test("r.hook registers validation hook", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity({
-        name: "user",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "user",
           table: "Users",
           fields: { email: createTextField({ personal: false, reason: "test_fixture" }) },
-        }),
-      });
+        }));
       r.hook({
         type: "validation",
         target: "user:create",

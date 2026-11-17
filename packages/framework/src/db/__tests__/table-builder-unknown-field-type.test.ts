@@ -7,12 +7,12 @@ import { buildEntityTable } from "../table-builder.ts";
 // emitter lookup must reject unknown types, including Object.prototype keys
 // that a plain index access would resolve to a function.
 function entityWithFieldType(type: string): EntityDefinition {
-  return { fields: { probe: { type } } } as unknown as EntityDefinition;
+  return { name: "unknownTypeProbe", fields: { probe: { type } } } as unknown as EntityDefinition;
 }
 
 describe("buildEntityTable with an unknown field type", () => {
   test("rejects a type that has no column emitter", () => {
-    expect(() => buildEntityTable("unknownTypeProbe", entityWithFieldType("bogus"))).toThrow(
+    expect(() => buildEntityTable(entityWithFieldType("bogus"))).toThrow(
       "[Kumiko] unhandled field type: bogus",
     );
   });
@@ -21,7 +21,7 @@ describe("buildEntityTable with an unknown field type", () => {
     "rejects the Object.prototype key %s",
     (prototypeKey) => {
       expect(() =>
-        buildEntityTable("prototypeTypeProbe", entityWithFieldType(prototypeKey)),
+        buildEntityTable({ ...entityWithFieldType(prototypeKey), name: "prototypeTypeProbe" }),
       ).toThrow(`[Kumiko] unhandled field type: ${prototypeKey}`);
     },
   );

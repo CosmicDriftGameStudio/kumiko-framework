@@ -6,8 +6,8 @@ export function createDocumentExecutors(
   linkEntity: EntityDefinition,
 ) {
   return {
-    document: createEntityExecutor(DOCUMENT_ENTITY, documentEntity).executor,
-    link: createEntityExecutor(DOCUMENT_LINK_ENTITY, linkEntity).executor,
+    document: createEntityExecutor({ ...documentEntity, name: DOCUMENT_ENTITY }).executor,
+    link: createEntityExecutor({ ...linkEntity, name: DOCUMENT_LINK_ENTITY }).executor,
   };
 }
 export type DocumentExecutors = ReturnType<typeof createDocumentExecutors>;

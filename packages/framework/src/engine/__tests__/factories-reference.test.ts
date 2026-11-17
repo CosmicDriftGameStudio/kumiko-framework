@@ -63,7 +63,7 @@ describe("validateBoot — plaintext user reference", () => {
     return defineFeature("test", (r) => {
       r.requires({ features: ["user"] });
       r.crud({ ...named, name: "team" }, { write: { access }, read: { access } });
-      r.entity({ name: "note", ...createEntity({ fields: { approvedBy: field } }) });
+      r.entity(createEntity({ name: "note", fields: { approvedBy: field } }));
     });
   }
 

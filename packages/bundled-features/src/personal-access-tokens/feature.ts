@@ -99,7 +99,7 @@ export function createPersonalAccessTokensFeature(
     // resolver point-reads it. r.entity would make it a rebuildable projection
     // whose replay (no token events) would wipe every live token.
     r.storeTable(
-      deriveEntityTableMeta(API_TOKEN_ENTITY_NAME, apiTokenEntity, { source: "unmanaged" }),
+      deriveEntityTableMeta(apiTokenEntity, { source: "unmanaged" }),
       {
         reason: "read_side.api_tokens_direct_write",
         // create.write encrypts `name` via encryptForDirectWrite.

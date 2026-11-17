@@ -272,12 +272,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
 
     test("submitPrefilled on an entityEdit screen (untyped schema) → throw", () => {
       const feature = defineFeature("shop", (r) => {
-        r.entity({
-          name: "product",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "product",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-          }),
-        });
+          }));
         r.screen({
           id: "product-edit",
           type: "entityEdit",
@@ -294,12 +292,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
 
   test("navigate with params targeting a dashboard screen without a filter → Throw (params would be a no-op)", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity({
-        name: "product",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "product",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-        }),
-      });
+        }));
       r.screen({
         id: "product-list",
         type: "entityList",
@@ -342,12 +338,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
 
   test("navigate with params targeting a dashboard screen with a matching filter → no throw (useFilterParams reads it)", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity({
-        name: "product",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "product",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-        }),
-      });
+        }));
       r.screen({
         id: "product-list",
         type: "entityList",
@@ -394,12 +388,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
 
   test("navigate with params targeting a record-bound dashboard without a filter → no throw (record.param is read from the URL)", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity({
-        name: "product",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "product",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-        }),
-      });
+        }));
       r.screen({
         id: "product-list",
         type: "entityList",
@@ -441,12 +433,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
 
   test("navigate with params targeting a record-bound dashboard whose record.param is not extracted → Throw", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity({
-        name: "product",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "product",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-        }),
-      });
+        }));
       r.screen({
         id: "product-list",
         type: "entityList",
@@ -490,12 +480,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
 
   test("navigate with params targeting a dashboard screen whose filter id doesn't match any extracted key → Throw", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity({
-        name: "product",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "product",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-        }),
-      });
+        }));
       r.screen({
         id: "product-list",
         type: "entityList",
@@ -544,18 +532,14 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
 
   test("navigate with params targeting a cross-entity entityList screen → no throw (list screens read URL search params for filter-prefill)", () => {
     const feature = defineFeature("housing", (r) => {
-      r.entity({
-        name: "unit",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "unit",
           fields: { id: createTextField({ personal: false, reason: "test_fixture" }) },
-        }),
-      });
-      r.entity({
-        name: "contract",
-        ...createEntity({
+        }));
+      r.entity(createEntity({
+          name: "contract",
           fields: { unitId: createTextField({ personal: false, reason: "test_fixture" }) },
-        }),
-      });
+        }));
       r.screen({
         id: "unit-list",
         type: "entityList",
@@ -583,12 +567,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
 
   test("navigate with params targeting a custom screen → no throw (author owns the component, may read searchParams itself)", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity({
-        name: "product",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "product",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-        }),
-      });
+        }));
       r.screen({
         id: "product-list",
         type: "entityList",
@@ -618,12 +600,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     // runNavigate() auto-fills row["id"], landing in EntityEditUpdateBody,
     // which never reads searchParams. Params would silently no-op.
     const feature = defineFeature("shop", (r) => {
-      r.entity({
-        name: "product",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "product",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-        }),
-      });
+        }));
       r.screen({
         id: "product-list",
         type: "entityList",
@@ -653,18 +633,14 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
 
   test("navigate with params + explicit entityId targeting an entityEdit screen → Throw (forced update mode)", () => {
     const feature = defineFeature("housing", (r) => {
-      r.entity({
-        name: "unit",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "unit",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-        }),
-      });
-      r.entity({
-        name: "contract",
-        ...createEntity({
+        }));
+      r.entity(createEntity({
+          name: "contract",
           fields: { unitId: createTextField({ personal: false, reason: "test_fixture" }) },
-        }),
-      });
+        }));
       r.screen({
         id: "unit-list",
         type: "entityList",
@@ -698,12 +674,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   test("projectionList rowAction: navigate with params to an entityEdit target + explicit entityId → Throw", () => {
     const feature = defineFeature("shop", (r) => {
       registerStubQueryHandler(r, "products");
-      r.entity({
-        name: "product",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "product",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-        }),
-      });
+        }));
       r.screen({
         id: "product-projection",
         type: "projectionList",
@@ -734,12 +708,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
 
   test("projectionList rowAction: navigate with params to an entityEdit-create target (no entityId) → no throw", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity({
-        name: "product",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "product",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-        }),
-      });
+        }));
       r.queryHandler({
         name: "products",
         schema: z.object({}),
@@ -777,18 +749,14 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     // renderer's same-entity row["id"] fallback does NOT fire, so this stays
     // in create mode and EntityEditCreateBody reads the params.
     const feature = defineFeature("housing", (r) => {
-      r.entity({
-        name: "unit",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "unit",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-        }),
-      });
-      r.entity({
-        name: "contract",
-        ...createEntity({
+        }));
+      r.entity(createEntity({
+          name: "contract",
           fields: { unitId: createTextField({ personal: false, reason: "test_fixture" }) },
-        }),
-      });
+        }));
       r.screen({
         id: "unit-list",
         type: "entityList",
@@ -816,12 +784,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
 
   test("navigate with params targeting an actionForm screen → no throw", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity({
-        name: "product",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "product",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-        }),
-      });
+        }));
       r.writeHandler({
         name: "create",
         schema: z.object({ name: z.string() }),

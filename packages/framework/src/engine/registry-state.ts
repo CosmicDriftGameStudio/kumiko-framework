@@ -106,7 +106,7 @@ export function buildImplicitProjection(
   const entityTable =
     backingTable !== undefined
       ? resolveBackingTable(entityName, entity, backingTable)
-      : buildEntityTable(entityName, entity);
+      : buildEntityTable({ ...entity, name: entityName });
   // Push paths read the table's own meta, so the reference-data-derived flag must land there too.
   if (readsSystemRows) declareSystemRowsReadable(entityTable);
   markExecutorManagedTable(entityTable, { entityName, entity });
@@ -257,7 +257,7 @@ function resolveBackingTable(
         "EntityTableMeta — build it via table() / buildEntityTable.",
     );
   }
-  assertBackingTableSuperset(entityName, deriveEntityTableMeta(entityName, entity), tableMeta);
+  assertBackingTableSuperset(entityName, deriveEntityTableMeta({ ...entity, name: entityName }), tableMeta);
   return backingTable as ProjectionDefinition["table"];
 }
 

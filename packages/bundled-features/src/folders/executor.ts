@@ -12,7 +12,6 @@ export function createFolderAssignmentExecutor(
   parents: readonly string[],
 ) {
   return createEntityExecutor(
-    "folder-assignment",
     createFolderAssignmentEntity(
       ownership?.write === undefined ? undefined : { write: ownership.write },
       parents,

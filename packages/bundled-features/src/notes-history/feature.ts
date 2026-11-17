@@ -53,13 +53,13 @@ function registerNotesHistory(
   });
 
   const entity = createNoteEntryEntity(ownership, parents);
-  r.entity({ name: "note-entry", ...entity });
+  r.entity(entity);
   // No write/query handler of its own — populated only as a side effect of
   // add-note (see handlers/add-note.write.ts), looked up by
   // the forget cascade in user-data-hooks.ts. Registering the entity (not
   // just building it inline in the handler) is what makes it visible to the
   // registry-wide GDPR boot guards and to executor.ts's table/projection setup.
-  r.entity({ name: "note-mention", ...noteMentionEntity });
+  r.entity(noteMentionEntity);
   r.applyExtension({ name: EXT_USER_DATA, entity: "note-entry", export: noteEntryExportHook,
     delete: noteEntryDeleteHook });
   r.applyExtension({ name: EXT_USER_DATA, entity: "note-mention", export: noteMentionExportHook,

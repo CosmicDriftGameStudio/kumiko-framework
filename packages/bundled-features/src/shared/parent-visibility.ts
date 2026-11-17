@@ -98,7 +98,7 @@ export async function liveHostRowIds(
 
   let table = hostTablesByEntity.get(entity);
   if (!table) {
-    table = buildEntityTable(entityType, entity, { relations: registry.getRelations(entityType) });
+    table = buildEntityTable({ ...entity, name: entityType }, { relations: registry.getRelations(entityType) });
     hostTablesByEntity.set(entity, table);
   }
   const rows = await db.selectMany<Record<string, unknown>>(table, { id: wellFormed });

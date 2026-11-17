@@ -11,12 +11,10 @@ import { runDevApp } from "../run-dev-app.ts";
 
 function unresolvableNavFeature() {
   return defineFeature("shop", (r) => {
-    r.entity({
-      name: "product",
-      ...createEntity({
+    r.entity(createEntity({
+        name: "product",
         fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-      }),
-    });
+      }));
     r.screen({
       id: "product-list",
       type: "entityList",
@@ -30,10 +28,7 @@ function unresolvableNavFeature() {
 
 function fileFieldFeature() {
   return defineFeature("docs", (r) => {
-    r.entity({
-      name: "doc",
-      ...createEntity({ table: "dev_boot_docs", fields: { contract: { type: "file" } } }),
-    });
+    r.entity(createEntity({ name: "doc", table: "dev_boot_docs", fields: { contract: { type: "file" } } }));
   });
 }
 

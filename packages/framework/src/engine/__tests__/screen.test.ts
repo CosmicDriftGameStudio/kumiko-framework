@@ -16,6 +16,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
 
 function productEntity() {
   return createEntity({
+    name: "product",
     table: "products",
     fields: {
       name: createTextField({ personal: false, reason: "test_fixture" }),
@@ -26,6 +27,7 @@ function productEntity() {
 
 function derivedProductEntity() {
   return createEntity({
+    name: "product",
     table: "derived_products",
     fields: {
       name: createTextField({ personal: false, reason: "test_fixture" }),
@@ -42,7 +44,7 @@ function derivedProductEntity() {
 describe("r.screen() — registration", () => {
   test("stores an entityList screen on the FeatureDefinition", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity({ name: "product", ...productEntity() });
+      r.entity(productEntity());
       r.screen({
         id: "product-list",
         type: "entityList",
@@ -359,13 +361,11 @@ describe("r.screen() — registration", () => {
         });
       }),
       defineFeature("billing", (r) => {
-        r.entity({
-          name: "invoice",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "invoice",
             table: "invoices",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-          }),
-        });
+          }));
         r.screen({
           id: "invoice-detail",
           type: "custom",
@@ -801,7 +801,7 @@ describe("r.screen() — registration", () => {
     const features = [
       defineFeature("shop", (r) => {
         registerStubQueryHandler(r, "foo:list");
-        r.entity({ name: "product", ...productEntity() });
+        r.entity(productEntity());
         r.screen({
           id: "product-edit",
           type: "entityEdit",
@@ -953,13 +953,11 @@ describe("r.screen() — registration", () => {
   test("validateBoot rejects a relatedList section with both rowClick and a rowActions rowClick:true entry (fw editable-detail-screens)", () => {
     const features = [
       defineFeature("billing", (r) => {
-        r.entity({
-          name: "invoice",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "invoice",
             table: "invoices",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-          }),
-        });
+          }));
         r.screen({
           id: "invoice-detail",
           type: "custom",
@@ -1263,7 +1261,7 @@ describe("r.screen() — registration", () => {
   test("validateBoot rejects a writeForm section on entityEdit (fw editable-detail-screens)", () => {
     const features = [
       defineFeature("shop", (r) => {
-        r.entity({ name: "product", ...productEntity() });
+        r.entity(productEntity());
         r.screen({
           id: "product-edit",
           type: "entityEdit",
@@ -1353,7 +1351,7 @@ describe("r.screen() — registration", () => {
 
   test("stores an entityEdit screen with sections + conditional fields", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity({ name: "product", ...productEntity() });
+      r.entity(productEntity());
       r.screen({
         id: "product-edit",
         type: "entityEdit",
@@ -1393,7 +1391,7 @@ describe("r.screen() — registration", () => {
   test("rejects duplicate screen ids within the same feature", () => {
     expect(() =>
       defineFeature("shop", (r) => {
-        r.entity({ name: "product", ...productEntity() });
+        r.entity(productEntity());
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -1413,7 +1411,7 @@ describe("r.screen() — registration", () => {
   test("rejects non-kebab-case screen ids", () => {
     expect(() =>
       defineFeature("shop", (r) => {
-        r.entity({ name: "product", ...productEntity() });
+        r.entity(productEntity());
         r.screen({
           id: "productList",
           type: "entityList",
@@ -1427,7 +1425,7 @@ describe("r.screen() — registration", () => {
   test("accepts kebab-case screen ids", () => {
     expect(() =>
       defineFeature("shop", (r) => {
-        r.entity({ name: "product", ...productEntity() });
+        r.entity(productEntity());
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -1442,7 +1440,7 @@ describe("r.screen() — registration", () => {
 describe("createRegistry — screen indexing", () => {
   test("indexes screens by qualified name", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity({ name: "product", ...productEntity() });
+      r.entity(productEntity());
       r.screen({
         id: "product-list",
         type: "entityList",
@@ -1462,7 +1460,7 @@ describe("createRegistry — screen indexing", () => {
 
   test("getScreenFeature maps a screen back to its owning feature", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity({ name: "product", ...productEntity() });
+      r.entity(productEntity());
       r.screen({
         id: "product-list",
         type: "entityList",
@@ -1477,7 +1475,7 @@ describe("createRegistry — screen indexing", () => {
 
   test("same screen id from two features qualifies to different names", () => {
     const shop = defineFeature("shop", (r) => {
-      r.entity({ name: "product", ...productEntity() });
+      r.entity(productEntity());
       r.screen({
         id: "list",
         type: "entityList",
@@ -1486,7 +1484,7 @@ describe("createRegistry — screen indexing", () => {
       });
     });
     const warehouse = defineFeature("warehouse", (r) => {
-      r.entity({ name: "item", ...productEntity(), table: "items" });
+      r.entity({ ...productEntity(), name: "item", table: "items" });
       r.screen({ id: "list", type: "entityList", entity: "item", columns: ["name"] });
     });
     const registry = createRegistry([shop, warehouse]);
@@ -1497,7 +1495,7 @@ describe("createRegistry — screen indexing", () => {
 
   test("getScreensByEntity groups entity-bound screens", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity({ name: "product", ...productEntity() });
+      r.entity(productEntity());
       r.screen({
         id: "product-list",
         type: "entityList",
@@ -1527,7 +1525,7 @@ describe("createRegistry — screen indexing", () => {
 
   test("getScreensByEntity aggregates screens on the same entity from two different features", () => {
     const shop = defineFeature("shop", (r) => {
-      r.entity({ name: "product", ...productEntity() });
+      r.entity(productEntity());
       r.screen({
         id: "product-list",
         type: "entityList",
@@ -1553,7 +1551,7 @@ describe("createRegistry — screen indexing", () => {
 
   test("getScreen / getScreensByEntity return stored screens with qualified id", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity({ name: "product", ...productEntity() });
+      r.entity(productEntity());
       r.screen({
         id: "product-list",
         type: "entityList",
@@ -1577,7 +1575,7 @@ describe("createRegistry — screen indexing", () => {
 describe("validateBoot — screen validation", () => {
   test("entityList with unknown entity fails boot", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity({ name: "product", ...productEntity() });
+      r.entity(productEntity());
       r.screen({
         id: "list",
         type: "entityList",
@@ -1592,7 +1590,7 @@ describe("validateBoot — screen validation", () => {
     // Entity exists, but in another feature. The hint helps the feature
     // author realise cross-feature screen ownership isn't supported.
     const shop = defineFeature("shop", (r) => {
-      r.entity({ name: "product", ...productEntity() });
+      r.entity(productEntity());
     });
     const ui = defineFeature("ui", (r) => {
       r.screen({ id: "list", type: "entityList", entity: "product", columns: ["name"] });
@@ -1602,7 +1600,7 @@ describe("validateBoot — screen validation", () => {
 
   test("entityList with unknown field (string form) fails boot", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity({ name: "product", ...productEntity() });
+      r.entity(productEntity());
       r.screen({
         id: "list",
         type: "entityList",
@@ -1615,7 +1613,7 @@ describe("validateBoot — screen validation", () => {
 
   test("entityList with unknown field (object form) fails boot", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity({ name: "product", ...productEntity() });
+      r.entity(productEntity());
       r.screen({
         id: "list",
         type: "entityList",
@@ -1628,7 +1626,7 @@ describe("validateBoot — screen validation", () => {
 
   test("entityList with a derived-field column boots (derived is a valid column)", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity({ name: "product", ...derivedProductEntity() });
+      r.entity(derivedProductEntity());
       r.screen({
         id: "list",
         type: "entityList",
@@ -1641,7 +1639,7 @@ describe("validateBoot — screen validation", () => {
 
   test("entityList defaultSort on a derived field fails boot (server sort can't apply)", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity({ name: "product", ...derivedProductEntity() });
+      r.entity(derivedProductEntity());
       r.screen({
         id: "list",
         type: "entityList",
@@ -1655,7 +1653,7 @@ describe("validateBoot — screen validation", () => {
 
   test("entityEdit with unknown field (string form in sections) fails boot", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity({ name: "product", ...productEntity() });
+      r.entity(productEntity());
       r.screen({
         id: "edit",
         type: "entityEdit",
@@ -1670,7 +1668,7 @@ describe("validateBoot — screen validation", () => {
 
   test("entityEdit with unknown field (object form in sections) fails boot", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity({ name: "product", ...productEntity() });
+      r.entity(productEntity());
       r.screen({
         id: "edit",
         type: "entityEdit",
@@ -1719,7 +1717,7 @@ describe("validateBoot — screen validation", () => {
 
   test("fully-populated entityEdit with sections + slots + conditionals passes boot", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity({ name: "product", ...productEntity() });
+      r.entity(productEntity());
       r.screen({
         id: "edit",
         type: "entityEdit",
@@ -1742,7 +1740,7 @@ describe("validateBoot — screen validation", () => {
 
   test("wizard entityEdit with slots.footer passes boot", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity({ name: "product", ...productEntity() });
+      r.entity(productEntity());
       r.screen({
         id: "edit-wizard",
         type: "entityEdit",
@@ -1765,7 +1763,7 @@ describe("validateBoot — screen validation", () => {
     // oversight. Locked down at boot rather than silently producing an empty
     // UI surface.
     const feature = defineFeature("shop", (r) => {
-      r.entity({ name: "product", ...productEntity() });
+      r.entity(productEntity());
       r.screen({ id: "list", type: "entityList", entity: "product", columns: [] });
     });
     expect(() => validateBoot([feature])).toThrow(/empty columns list/);
@@ -1773,7 +1771,7 @@ describe("validateBoot — screen validation", () => {
 
   test("entityEdit with empty sections fails boot", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity({ name: "product", ...productEntity() });
+      r.entity(productEntity());
       r.screen({
         id: "edit",
         type: "entityEdit",
@@ -1786,7 +1784,7 @@ describe("validateBoot — screen validation", () => {
 
   test("entityEdit with a section that has zero fields fails boot", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity({ name: "product", ...productEntity() });
+      r.entity(productEntity());
       r.screen({
         id: "edit",
         type: "entityEdit",

@@ -40,6 +40,7 @@ const targets: Readonly<Record<string, EntityDefinition>> = {
 
 function orderEntityFor(table: string, target: string) {
   return createEntity({
+    name: "refGateOrder",
     table,
     fields: {
       note: createTextField({ searchable: true, personal: false, reason: "test_fixture" }),
@@ -64,8 +65,8 @@ const referenceFor = (target: string) => ({
 const admin = TestUsers.admin;
 const gatedCustomerTable = buildEntityTable(gatedCustomerEntity);
 const plainCustomerTable = buildEntityTable(plainCustomerEntity);
-const gatedOrderTable = buildEntityTable("refGateOrder", gatedOrderEntity);
-const plainOrderTable = buildEntityTable("refGatePlainOrder", plainOrderEntity);
+const gatedOrderTable = buildEntityTable(gatedOrderEntity);
+const plainOrderTable = buildEntityTable({ ...plainOrderEntity, name: "refGatePlainOrder" });
 const gatedOrders = createEventStoreExecutor(gatedOrderTable, gatedOrderEntity, {
   entityName: "refGateOrder",
 });

@@ -52,12 +52,10 @@ function metricFeature(navigate: { screen: string; tab?: string }) {
 
 function toolbarFeature(screen: string) {
   return defineFeature("shop", (r) => {
-    r.entity({
-      name: "product",
-      ...createEntity({
+    r.entity(createEntity({
+        name: "product",
         fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-      }),
-    });
+      }));
     r.screen({
       id: "product-list",
       type: "entityList",

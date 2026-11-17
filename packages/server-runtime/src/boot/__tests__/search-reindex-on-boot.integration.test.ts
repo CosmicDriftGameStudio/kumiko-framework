@@ -32,6 +32,7 @@ const TABLE = "read_boot_reindex_notes";
 
 function noteEntityWith(noteSearchable: boolean) {
   return createEntity({
+    name: "note",
     table: TABLE,
     fields: {
       title: createTextField({
@@ -52,7 +53,7 @@ function noteEntityWith(noteSearchable: boolean) {
 function featureWith(noteSearchable: boolean) {
   const entity = noteEntityWith(noteSearchable);
   return defineFeature("bootreindex", (r) => {
-    r.entity({ name: "note", ...entity });
+    r.entity(entity);
     r.writeHandler(
       defineEntityCreateHandler("note", entity, { access: { roles: ["Admin"] } }),
     );

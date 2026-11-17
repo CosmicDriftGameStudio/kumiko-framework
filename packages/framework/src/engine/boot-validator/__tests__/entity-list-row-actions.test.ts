@@ -73,12 +73,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   describe("entityList rowAction rowClick", () => {
     function makeFeature(rowClickCount: number) {
       return defineFeature("shop", (r) => {
-        r.entity({
-          name: "product",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "product",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-          }),
-        });
+          }));
         r.screen({ id: "product-editor", type: "custom", renderer: { react: "stub" } });
         r.screen({
           id: "product-list",
@@ -110,12 +108,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   describe("entityList rowAction kind=writeHandler handler-QN", () => {
     function makeFeature(handlerQn: string, register: boolean) {
       return defineFeature("shop", (r) => {
-        r.entity({
-          name: "product",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "product",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-          }),
-        });
+          }));
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -153,12 +149,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   describe("entityList rowAction payload pick", () => {
     function makeFeature(pick: readonly string[]) {
       return defineFeature("shop", (r) => {
-        r.entity({
-          name: "product",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "product",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-          }),
-        });
+          }));
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -209,9 +203,8 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
       softDelete?: boolean;
     }) {
       return defineFeature("shop", (r) => {
-        r.entity({
-          name: "product",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "product",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
             softDelete: opts.softDelete ?? false,
             derivedFields: {
@@ -224,8 +217,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
                 sql: { kind: "coalesce", fields: ["name"] },
               }),
             },
-          }),
-        });
+          }));
         r.screen({
           id: "product-list",
           type: "entityList",

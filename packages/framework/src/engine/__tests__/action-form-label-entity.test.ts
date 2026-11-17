@@ -17,15 +17,13 @@ function shopFeature(options: {
   readonly fieldLabels?: Record<string, string>;
 }) {
   return defineFeature("shop", (r) => {
-    r.entity({
-      name: "order",
-      ...createEntity({
+    r.entity(createEntity({
+        name: "order",
         fields: {
           status: createSelectField({ options: ["open", "done"] as const }),
           note: createTextField({ personal: false, reason: "test_fixture" }),
         },
-      }),
-    });
+      }));
     r.writeHandler({
       name: "set-status",
       schema: z.object({ status: z.string(), comment: z.string() }),

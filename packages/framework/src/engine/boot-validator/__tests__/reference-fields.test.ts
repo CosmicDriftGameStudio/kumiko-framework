@@ -14,21 +14,17 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("reference to an existing Entity → no throw", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity({
-            name: "customer",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "customer",
               fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-            }),
-          });
+            }));
           registerStubQueryHandler(r, "customer:list");
-          r.entity({
-            name: "order",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "order",
               fields: {
                 customerId: { type: "reference", entity: "customer", labelField: "name" },
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).not.toThrow();
@@ -37,14 +33,12 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("reference to unknown Entity → Throw", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity({
-            name: "order",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "order",
               fields: {
                 customerId: { type: "reference", entity: "ghost-entity" },
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).toThrow(
@@ -55,20 +49,16 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("reference labelField on unknown Field → Throw", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity({
-            name: "customer",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "customer",
               fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-            }),
-          });
-          r.entity({
-            name: "order",
-            ...createEntity({
+            }));
+          r.entity(createEntity({
+              name: "order",
               fields: {
                 customerId: { type: "reference", entity: "customer", labelField: "ghost-field" },
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).toThrow(
@@ -79,21 +69,17 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("reference labelField=id is always valid (PK)", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity({
-            name: "customer",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "customer",
               fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-            }),
-          });
+            }));
           registerStubQueryHandler(r, "customer:list");
-          r.entity({
-            name: "order",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "order",
               fields: {
                 customerId: { type: "reference", entity: "customer", labelField: "id" },
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).not.toThrow();
@@ -102,15 +88,13 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("self-reference (entity → entity) → no throw", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity({
-            name: "category",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "category",
               fields: {
                 name: createTextField({ personal: false, reason: "test_fixture" }),
                 parentId: { type: "reference", entity: "category", labelField: "name" },
               },
-            }),
-          });
+            }));
           registerStubQueryHandler(r, "category:list");
         }),
       ];
@@ -120,16 +104,13 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("reference with multiple: true → no throw", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity({
-            name: "tag",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "tag",
               fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-            }),
-          });
+            }));
           registerStubQueryHandler(r, "tag:list");
-          r.entity({
-            name: "post",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "post",
               fields: {
                 title: createTextField({ personal: false, reason: "test_fixture" }),
                 tagIds: {
@@ -139,8 +120,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
                   multiple: true,
                 },
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).not.toThrow();
@@ -150,23 +130,19 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("cross-feature reference (feature:entity) → no throw", () => {
       const features = [
         defineFeature("users", (r) => {
-          r.entity({
-            name: "user",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "user",
               fields: { email: createTextField({ personal: false, reason: "test_fixture" }) },
-            }),
-          });
+            }));
           registerStubQueryHandler(r, "user:list");
         }),
         defineFeature("shop", (r) => {
-          r.entity({
-            name: "order",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "order",
               fields: {
                 customerId: { type: "reference", entity: "users:user", labelField: "email" },
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).not.toThrow();
@@ -175,24 +151,20 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("cross-feature reference without a list-handler → throws", () => {
       const features = [
         defineFeature("users", (r) => {
-          r.entity({
-            name: "user",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "user",
               fields: { email: createTextField({ personal: false, reason: "test_fixture" }) },
-            }),
-          });
+            }));
           // No stub list handler is registered intentionally; its absence is the condition under
           // test.
         }),
         defineFeature("shop", (r) => {
-          r.entity({
-            name: "order",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "order",
               fields: {
                 customerId: { type: "reference", entity: "users:user" },
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).toThrow(
@@ -203,14 +175,12 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("cross-feature reference to an unknown feature → throws with a clear message", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity({
-            name: "order",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "order",
               fields: {
                 customerId: { type: "reference", entity: "ghost-feature:user" },
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).toThrow(
@@ -221,22 +191,18 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("cross-feature reference to an unknown entity → throws with feature context", () => {
       const features = [
         defineFeature("users", (r) => {
-          r.entity({
-            name: "user",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "user",
               fields: { email: createTextField({ personal: false, reason: "test_fixture" }) },
-            }),
-          });
+            }));
         }),
         defineFeature("shop", (r) => {
-          r.entity({
-            name: "order",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "order",
               fields: {
                 customerId: { type: "reference", entity: "users:ghost-entity" },
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).toThrow(
@@ -247,17 +213,14 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("cross-feature labelField on unknown Field → Throw", () => {
       const features = [
         defineFeature("users", (r) => {
-          r.entity({
-            name: "user",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "user",
               fields: { email: createTextField({ personal: false, reason: "test_fixture" }) },
-            }),
-          });
+            }));
         }),
         defineFeature("shop", (r) => {
-          r.entity({
-            name: "order",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "order",
               fields: {
                 customerId: {
                   type: "reference",
@@ -265,8 +228,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
                   labelField: "ghost-field",
                 },
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).toThrow(
@@ -283,16 +245,14 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("reference sub-field targeting an unknown entity → Throw with the parent.child field path", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity({
-            name: "invoice",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "invoice",
               fields: {
                 lines: createEmbeddedListField({
                   productId: { type: "reference", entity: "ghost-entity" },
                 }),
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).toThrow(
@@ -303,23 +263,19 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("reference sub-field with a valid target + registered list-handler → no throw", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity({
-            name: "product",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "product",
               fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-            }),
-          });
+            }));
           registerStubQueryHandler(r, "product:list");
-          r.entity({
-            name: "invoice",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "invoice",
               fields: {
                 lines: createEmbeddedListField({
                   productId: { type: "reference", entity: "product", labelField: "name" },
                 }),
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).not.toThrow();
@@ -328,24 +284,20 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("reference sub-field with a valid target but no registered list-handler → Throw", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity({
-            name: "product",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "product",
               fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-            }),
-          });
+            }));
           // No stub list handler is registered intentionally; its absence is the condition under
           // test.
-          r.entity({
-            name: "invoice",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "invoice",
               fields: {
                 lines: createEmbeddedListField({
                   productId: { type: "reference", entity: "product" },
                 }),
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).toThrow(
@@ -356,12 +308,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("reference optionsQuery naming a registered handler → no throw", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity({
-            name: "customer",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "customer",
               fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-            }),
-          });
+            }));
           registerStubQueryHandler(r, "customer:list");
           r.queryHandler({
             name: "customer:options",
@@ -369,9 +319,8 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
             handler: async () => ({ rows: [] }) as never,
             access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           });
-          r.entity({
-            name: "order",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "order",
               fields: {
                 customerId: {
                   type: "reference",
@@ -379,8 +328,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
                   optionsQuery: "shop:query:customer:options",
                 },
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).not.toThrow();
@@ -389,16 +337,13 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("reference optionsQuery on an unregistered handler → throws", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity({
-            name: "customer",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "customer",
               fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-            }),
-          });
+            }));
           registerStubQueryHandler(r, "customer:list");
-          r.entity({
-            name: "order",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "order",
               fields: {
                 customerId: {
                   type: "reference",
@@ -406,8 +351,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
                   optionsQuery: "shop:query:customer:typo",
                 },
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).toThrow(
@@ -418,21 +362,17 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("empty optionsQuery → throws", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity({
-            name: "customer",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "customer",
               fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-            }),
-          });
+            }));
           registerStubQueryHandler(r, "customer:list");
-          r.entity({
-            name: "order",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "order",
               fields: {
                 customerId: { type: "reference", entity: "customer", optionsQuery: "" },
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).toThrow(/has an empty optionsQuery/);
@@ -441,16 +381,13 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("reference sub-field optionsQuery on an unregistered handler → throws with parent.child path", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity({
-            name: "product",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "product",
               fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-            }),
-          });
+            }));
           registerStubQueryHandler(r, "product:list");
-          r.entity({
-            name: "invoice",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "invoice",
               fields: {
                 lines: createEmbeddedListField({
                   productId: {
@@ -460,8 +397,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
                   },
                 }),
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).toThrow(
@@ -472,16 +408,13 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("reference sub-field labelField referencing an unknown field → Throw with the parent.child field path", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity({
-            name: "product",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "product",
               fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-            }),
-          });
+            }));
           registerStubQueryHandler(r, "product:list");
-          r.entity({
-            name: "invoice",
-            ...createEntity({
+          r.entity(createEntity({
+              name: "invoice",
               fields: {
                 lines: createEmbeddedListField({
                   productId: {
@@ -491,8 +424,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
                   },
                 }),
               },
-            }),
-          });
+            }));
         }),
       ];
       expect(() => validateBoot(features)).toThrow(

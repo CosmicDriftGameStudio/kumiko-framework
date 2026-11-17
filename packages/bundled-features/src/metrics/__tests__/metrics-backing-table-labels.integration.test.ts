@@ -29,9 +29,9 @@ const ticketEntity = createEntity({
 });
 // The physical table is not the one the entity's own `table` names: apps point an entity at a
 // hand-picked backing table, and metrics read from that one.
-const backingEntity = { ...ticketEntity, table: "metrics_bt_tickets_backing" };
+const backingEntity = { ...ticketEntity, table: "metrics_bt_tickets_backing", name: "ticket" };
 const teamTable = buildEntityTable(teamEntity);
-const backingTicketTable = buildEntityTable("ticket", backingEntity);
+const backingTicketTable = buildEntityTable(backingEntity);
 
 const teamsFeature = defineFeature("metricsbtteams", (r) => {
   r.entity(teamEntity);

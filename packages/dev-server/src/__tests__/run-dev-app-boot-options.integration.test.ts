@@ -23,12 +23,10 @@ const PLAINTEXT_REASON = "test: boot options focus, not PII crypto";
 
 function shopFeature() {
   return defineFeature("shop", (r) => {
-    r.entity({
-      name: "product",
-      ...createEntity({
+    r.entity(createEntity({
+        name: "product",
         fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-      }),
-    });
+      }));
   });
 }
 

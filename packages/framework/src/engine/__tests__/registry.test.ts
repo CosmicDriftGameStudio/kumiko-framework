@@ -297,13 +297,11 @@ describe("extensionSelector boot-validation", () => {
     });
     const consumer = defineFeature("money-horse", (r) => {
       r.requires({ features: ["cap-ext"] });
-      r.entity({
-        name: "credit",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "credit",
           table: "Credits",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-        }),
-      });
+        }));
       r.writeHandler({
         name: "doSomething",
         schema: z.object({}),

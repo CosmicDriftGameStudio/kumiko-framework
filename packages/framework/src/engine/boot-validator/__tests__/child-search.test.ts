@@ -15,6 +15,7 @@ const ticketEntity = createEntity({
 
 function replyEntity(searchable: boolean) {
   return createEntity({
+    name: "reply",
     table: "read_replies",
     fields: {
       ticketId: createReferenceField({ entity: "ticket", personal: false, reason: "test_fixture" }),
@@ -30,7 +31,7 @@ function helpdesk(options: {
 }): FeatureDefinition {
   return defineFeature("helpdesk", (r) => {
     const ticket = r.entity(ticketEntity);
-    r.entity({ name: "reply", ...replyEntity(options.searchableBody) });
+    r.entity(replyEntity(options.searchableBody));
     r.relation({ entity: ticket, name: "replies", type: "hasMany",
       target: options.target,
       foreignKey: options.foreignKey,

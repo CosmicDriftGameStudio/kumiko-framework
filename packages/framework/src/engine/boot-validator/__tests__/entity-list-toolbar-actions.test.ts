@@ -12,12 +12,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   describe("entityList toolbarAction navigate", () => {
     function makeFeature(targetScreen: string, withTarget: boolean) {
       return defineFeature("shop", (r) => {
-        r.entity({
-          name: "product",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "product",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-          }),
-        });
+          }));
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -45,12 +43,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
 
     test("navigate-target → screen in ANOTHER feature → no throw (cross-feature)", () => {
       const list = defineFeature("shop", (r) => {
-        r.entity({
-          name: "product",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "product",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-          }),
-        });
+          }));
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -71,12 +67,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   describe("entityList toolbarAction writeHandler handler-QN", () => {
     function makeFeature(handlerQn: string, register: boolean) {
       return defineFeature("shop", (r) => {
-        r.entity({
-          name: "product",
-          ...createEntity({
+        r.entity(createEntity({
+            name: "product",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-          }),
-        });
+          }));
         r.screen({
           id: "product-list",
           type: "entityList",

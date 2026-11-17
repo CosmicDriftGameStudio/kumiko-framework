@@ -125,6 +125,7 @@ function ownMailboxOrSharedRead(memberRoles: readonly string[]): OwnershipMap {
  *  inboundMessageAggregateId(accountId, providerMessageId). */
 export function createInboundMessageEntity(memberRoles: readonly string[]) {
   return createEntity({
+    name: "inbound-message",
     access: { read: ownMailboxOrSharedRead(memberRoles) },
     table: "read_inbound_messages",
     fields: {

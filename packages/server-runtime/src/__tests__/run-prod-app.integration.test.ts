@@ -1643,13 +1643,11 @@ describe("rate-limit defaults", () => {
 
 describe("hard PII boot gate", () => {
   const gatePiiFeature = defineFeature("gate-pii", (r) => {
-    r.entity({
-      name: "gate-person",
-      ...createEntity({
+    r.entity(createEntity({
+        name: "gate-person",
         table: "read_gate_persons",
         fields: { email: createTextField({ required: true, personal: "self", find: "none" }) },
-      }),
-    });
+      }));
   });
 
   test("PII entities without a kms abort the boot", async () => {

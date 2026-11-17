@@ -25,7 +25,7 @@ const referenceTargetTables = new WeakMap<EntityDefinition, { name: string; tabl
 export function referenceTargetTable(name: string, entity: EntityDefinition): Table {
   const cached = referenceTargetTables.get(entity);
   if (cached?.name === name) return cached.table;
-  const table = buildEntityTable(name, entity);
+  const table = buildEntityTable({ ...entity, name: name });
   referenceTargetTables.set(entity, { name, table });
   return table;
 }

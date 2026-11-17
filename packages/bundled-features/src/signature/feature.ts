@@ -65,8 +65,8 @@ export function createSignatureFeature(opts: SignatureOptions): FeatureDefinitio
     r.requires({ features: ["files", "user-data-rights", "renderer-puppeteer-client"] });
     r.translations({ keys: SIGNATURE_I18N });
 
-    r.entity({ name: "signatureRequest", ...requestEntity });
-    r.entity({ name: "signatureSigner", ...signerEntity });
+    r.entity(requestEntity);
+    r.entity(signerEntity);
 
     r.defineEvent("completed", SignatureCompletedEventSchema, {
       piiFields: "none",

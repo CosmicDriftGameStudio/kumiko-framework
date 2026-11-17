@@ -256,7 +256,7 @@ export async function enrichWithReferences(
         return { fieldName: rf.fieldName, multiple: rf.multiple, map: new Map() };
       }
       const refTable =
-        viewer.resolveTable?.(rf.refEntityName) ?? buildEntityTable(rf.refEntityName, refEntity);
+        viewer.resolveTable?.(rf.refEntityName) ?? buildEntityTable({ ...refEntity, name: rf.refEntityName });
       const refTableName = tableNameOf(refTable);
       const usesUuidIds = refEntity.idType === undefined || refEntity.idType === "uuid";
       // A malformed ref value must not 500 the whole list via the uuid cast.

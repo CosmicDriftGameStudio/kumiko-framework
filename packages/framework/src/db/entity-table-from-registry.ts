@@ -25,5 +25,5 @@ export function entityTableFromRegistry(
     if (projection.source !== entityName) continue;
     return projection.table;
   }
-  return buildEntityTable(entityName, entity);
+  return buildEntityTable({ ...entity, name: entityName });
 }

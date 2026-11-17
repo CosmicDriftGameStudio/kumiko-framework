@@ -5,19 +5,15 @@ import { validateScopeEventContracts } from "../scope-events-check.ts";
 import type { PatScopeConfig } from "../web/scopes.ts";
 
 const ticketing = defineFeature("ticketing", (r) => {
-  r.entity({
-    name: "ticket",
-    ...createEntity({
+  r.entity(createEntity({
+      name: "ticket",
       webhookEvents: true,
       fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
-    }),
-  });
-  r.entity({
-    name: "note",
-    ...createEntity({
+    }));
+  r.entity(createEntity({
+      name: "note",
       fields: { body: createTextField({ personal: false, reason: "test_fixture" }) },
-    }),
-  });
+    }));
   r.defineEvent("internal-note", z.object({ id: z.string() }), { piiFields: "none" });
   r.defineWebhookEvent({
     name: "ticket-closed",

@@ -340,9 +340,8 @@ describe("validateSqlDerivedFields", () => {
 describe("entityList defaultSort over derived fields", () => {
   const featureSortingBy = (field: string) =>
     defineFeature("demo", (r) => {
-      r.entity({
-        name: "item",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "item",
           table: "Items",
           fields: { name: text(), nickname: text() },
           derivedFields: {
@@ -353,8 +352,7 @@ describe("entityList defaultSort over derived fields", () => {
             }),
             plain: createDerivedField({ valueType: "text", derive: () => "x" }),
           },
-        }),
-      });
+        }));
       r.screen({
         id: "item-list",
         type: "entityList",

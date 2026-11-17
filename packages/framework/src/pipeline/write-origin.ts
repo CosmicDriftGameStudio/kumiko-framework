@@ -77,7 +77,7 @@ function buildPersonalDataTableMap(registry: Registry): ReadonlyMap<string, Read
   for (const [entityName, entity] of registry.getAllEntities()) {
     const columns = personalColumnNames(entity);
     if (columns.size === 0) continue;
-    const table = buildEntityTable(entityName, entity, {
+    const table = buildEntityTable({ ...entity, name: entityName }, {
       relations: registry.getRelations(entityName),
     });
     map.set(tableNameOf(table), columns);

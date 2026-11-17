@@ -55,9 +55,8 @@ describe("S0 Integration — full surface stack", () => {
     const tenantFeature = defineFeature("tenant-app", (r) => {
       r.requires({ features: ["user-data-rights", "compliance-profiles"] });
 
-      r.entity({
-        name: "user",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "user",
           fields: {
             email: createTextField({
               personal: "self",
@@ -76,12 +75,10 @@ describe("S0 Integration — full surface stack", () => {
             strategy: "blockDelete",
             reference: "createdAt",
           },
-        }),
-      });
+        }));
 
-      r.entity({
-        name: "comment",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "comment",
           fields: {
             body: createLongTextField({
               personal: { of: "authorId", whenAbsent: "tenant" },
@@ -90,8 +87,7 @@ describe("S0 Integration — full surface stack", () => {
             }),
             authorId: { type: "reference", entity: "user" },
           },
-        }),
-      });
+        }));
 
       r.queryHandler({
         name: "user:list",
@@ -131,9 +127,8 @@ describe("S0 Integration — full surface stack", () => {
 
   test("retention.reference pointing to non-existent field throws even with valid PII annotations", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity({
-        name: "user",
-        ...createEntity({
+      r.entity(createEntity({
+          name: "user",
           fields: {
             email: createTextField({
               personal: "self",
@@ -145,8 +140,7 @@ describe("S0 Integration — full surface stack", () => {
             strategy: "hardDelete",
             reference: "notARealField",
           },
-        }),
-      });
+        }));
     });
     expect(() => validateBoot([feature])).toThrow(
       /retention\.reference "notARealField" does not exist/,
@@ -155,7 +149,7 @@ describe("S0 Integration — full surface stack", () => {
 
   test("ROLES.TenantAdmin works as handler-access role string (no Admin/TenantAdmin drift)", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity({ name: "thing", ...createEntity({ fields: { ts: createTimestampField() } }) });
+      r.entity(createEntity({ name: "thing", fields: { ts: createTimestampField() } }));
       r.writeHandler({
         name: "thing:create",
         schema: z.object({}),

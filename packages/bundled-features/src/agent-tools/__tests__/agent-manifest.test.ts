@@ -689,7 +689,7 @@ describe("buildAgentManifest feature descriptions", () => {
 
 describe("buildAgentManifest entity and feature reachability branches", () => {
   const textField = createTextField({ personal: false, reason: "technical_reference" });
-  const entityOf = () => createEntity({ fields: { name: textField } });
+  const entityOf = () => createEntity({ name: "hidden", fields: { name: textField } });
   const handler = (name: string, extra: Record<string, unknown> = {}) => ({
     name,
     schema: z.object({ id: z.string() }),
@@ -700,11 +700,11 @@ describe("buildAgentManifest entity and feature reachability branches", () => {
   });
 
   const branches = defineFeature("rf-branches", (r) => {
-    r.entity({ name: "hidden", ...entityOf() });
+    r.entity(entityOf());
     r.queryHandler(handler("hidden:lookup", { agent: { expose: false } }));
-    r.entity({ name: "listed", ...entityOf() });
+    r.entity({ ...entityOf(), name: "listed" });
     r.screen({ id: "listed-list", type: "entityList", entity: "listed", columns: ["name"] });
-    r.entity({ name: "detailed", ...entityOf() });
+    r.entity({ ...entityOf(), name: "detailed" });
     r.screen({
       id: "detailed-view",
       type: "projectionDetail",
@@ -712,7 +712,7 @@ describe("buildAgentManifest entity and feature reachability branches", () => {
       detailFor: "detailed",
       layout: { sections: [{ fields: ["name"] }] },
     });
-    r.entity({ name: "written", ...entityOf() });
+    r.entity({ ...entityOf(), name: "written" });
     r.writeHandler({
       ...handler("written:archive"),
       handler: async () => ({ isSuccess: true, data: {} }),
