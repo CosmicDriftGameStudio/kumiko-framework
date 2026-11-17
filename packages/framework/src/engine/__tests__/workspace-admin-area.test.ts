@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { createRegistry, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createRegistry,
+  defineFeature,
+  type NavDefinition,
+  type WorkspaceDefinition,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { deriveNavAllowlistFromWorkspaces } from "../boot-validator/workspaces.ts";
 
 const navFeature = (
@@ -74,26 +79,18 @@ describe("collectAdminArea", () => {
   });
 
   test("the nav allowlist contains collected navs only for collected areas", () => {
-    const navDefs = new Map(
+    const navDefs = new Map<string, NavDefinition & { readonly featureName: string }>([
       [
-        ["alpha:nav:a-same", "tenant"],
-        ["beta:nav:b-platform", "platform"],
-      ].map(([qn, adminArea]) => [
-        qn as string,
-        {
-          id: qn as string,
-          label: "x",
-          screen: "x:screen:x",
-          adminArea: adminArea as "tenant" | "platform",
-          featureName: "x",
-        },
-      ]),
-    );
-    const workspaces = new Map([
-      [
-        "host:workspace:main",
-        { id: "main", label: "x", collectAdminArea: "tenant" as const, featureName: "host" },
+        "alpha:nav:a-same",
+        { id: "a-same", label: "x", screen: "x:screen:x", adminArea: "tenant", featureName: "x" },
       ],
+      [
+        "beta:nav:b-platform",
+        { id: "b-platform", label: "x", screen: "x:screen:x", adminArea: "platform", featureName: "x" },
+      ],
+    ]);
+    const workspaces = new Map<string, WorkspaceDefinition & { readonly featureName: string }>([
+      ["host:workspace:main", { id: "main", label: "x", collectAdminArea: "tenant", featureName: "host" }],
     ]);
     const allowlist = deriveNavAllowlistFromWorkspaces(navDefs, workspaces);
     expect(allowlist.has("alpha:nav:a-same")).toBe(true);

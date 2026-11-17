@@ -15,7 +15,7 @@ export type CsvParse = {
   readonly unterminatedQuote: boolean;
 };
 
-const BYTE_ORDER_MARK = "﻿";
+const BYTE_ORDER_MARK = "\uFEFF";
 
 export function parseCsv(text: string, options: { readonly delimiter: CsvDelimiter }): CsvParse {
   const source = text.startsWith(BYTE_ORDER_MARK) ? text.slice(1) : text;

@@ -1,5 +1,5 @@
 ---
-"@cosmicdrift/kumiko-framework": minor
+"@cosmicdrift/kumiko-framework": patch
 ---
 
 `parseCsv` and `formatCsv` from `@cosmicdrift/kumiko-framework/utils` read and write RFC 4180 CSV.

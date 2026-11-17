@@ -47,12 +47,12 @@ function allHandlerQns(state: RegistryState): ReadonlySet<string> {
   return new Set([...state.writeHandlerMap.keys(), ...state.queryHandlerMap.keys()]);
 }
 
+const NAV_ORDER_UNSET = Number.MAX_SAFE_INTEGER;
+
 // Pass 2 for workspaces: fold any nav-self-assigned QNs into their
 // workspace's member list. Safe now that every feature (and therefore every
 // workspace) is in state.workspaceMap. Workspaces with collectAdminArea then
 // append every nav of that area, sorted by order.
-const NAV_ORDER_UNSET = Number.MAX_SAFE_INTEGER;
-
 export function finalizeWorkspaceNavMembership(state: RegistryState): void {
   // workspace's member list. We can do this safely now that every feature
   // (and therefore every workspace) is in state.workspaceMap. Cross-feature refs

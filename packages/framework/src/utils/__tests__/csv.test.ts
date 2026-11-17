@@ -25,7 +25,7 @@ describe("parseCsv", () => {
   });
 
   test("strips a BOM", () => {
-    expect(parseCsv("﻿a;b", semi).records[0]?.cells).toEqual(["a", "b"]);
+    expect(parseCsv("\uFEFFa;b", semi).records[0]?.cells).toEqual(["a", "b"]);
   });
 
   test("skips blank records and accepts CRLF and CR line ends", () => {
