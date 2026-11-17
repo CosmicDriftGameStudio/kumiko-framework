@@ -2138,7 +2138,7 @@ describe("flow 17: async send pipeline", () => {
         mode: "system",
         reason: "test reads delivery rows of any tenant",
         grants: {
-          unsafeRaw: { reason: "test: job context mirrors systemScope() grant" },
+          unsafeRaw: { reason: "test: job context mirrors systemScope() grant", grants: ["unsafeRaw"] },
         },
       }),
     );

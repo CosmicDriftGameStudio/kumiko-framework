@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { DELIVERY_CHANNEL_EXTENSION } from "../constants.ts";
 import { deliverySendJob } from "../jobs.ts";
+import type { ChannelResult } from "../types.ts";
 import { type ChatHarness, setupChatHarness, tenantAdmin } from "./chat-channel-harness.ts";
 
 let harness: ChatHarness;
@@ -14,7 +15,7 @@ let sendCompleted = false;
 const sendProbeFeature = defineFeature("send-log-probe", (r) => {
   r.requires({ features: ["delivery"] });
   r.applyExtension({ name: DELIVERY_CHANNEL_EXTENSION, entity: "send-log-probe", mode: "queued",
-    send: async () => {
+    send: async (): Promise<ChannelResult> => {
       sendCount++;
       sendCompleted = true;
       return { status: "sent" };

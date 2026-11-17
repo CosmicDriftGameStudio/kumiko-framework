@@ -71,8 +71,9 @@ export function wireCustomFieldsUserDataRightsFor<TReg extends FeatureRegistrar<
 ): void {
   const tableName = extractTableName(opts.entityTable, "custom-fields/wire-user-data-rights");
 
-  // biome-ignore lint/correctness/useHookAtTopLevel: r.useExtension is a registrar API, not a React hook.
-  r.useExtension(EXT_USER_DATA, opts.entityName, {
+  r.applyExtension({
+    name: EXT_USER_DATA,
+    entity: opts.entityName,
     export: async (ctx: UserDataHookCtx) =>
       exportCustomFields(ctx.db.unsafeRawAllTenants(), ctx, tableName, opts),
     escapeHatch: { reason: CUSTOM_FIELDS_EXPORT_REASON },

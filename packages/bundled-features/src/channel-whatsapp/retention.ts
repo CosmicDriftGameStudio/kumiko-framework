@@ -64,6 +64,8 @@ function isWhatsappStreamType(value: string): value is WhatsappStreamType {
   return value === WHATSAPP_MESSAGE_AGGREGATE_TYPE || value === WHATSAPP_STATUS_AGGREGATE_TYPE;
 }
 
+type WhatsappRetentionCursorRow = { readonly lastEventId: string };
+
 type StreamEventRow = {
   id: bigint;
   aggregateId: string;
@@ -77,7 +79,7 @@ async function eraseWhatsappStreamKeys(
 ): Promise<number> {
   const kms = configuredPiiSubjectKms();
   const cursorRow = (
-    await db.selectMany(whatsappRetentionCursorTable, { tenantId: db.tenantId }, { limit: 1 })
+    await db.selectMany<WhatsappRetentionCursorRow>(whatsappRetentionCursorTable, { tenantId: db.tenantId }, { limit: 1 })
   )[0];
   let cursor = cursorRow === undefined ? undefined : BigInt(cursorRow.lastEventId);
   let cursorStored = cursorRow !== undefined;

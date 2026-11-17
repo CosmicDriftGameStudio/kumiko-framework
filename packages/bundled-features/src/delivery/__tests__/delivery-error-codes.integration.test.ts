@@ -25,6 +25,7 @@ import { DELIVERY_CHANNEL_EXTENSION } from "../constants.ts";
 import { createDeliveryFeature } from "../feature.ts";
 import { deliveryAttemptsTable } from "../tables.ts";
 import { createDeliveryTestContext } from "../testing.ts";
+import type { ChannelResult } from "../types.ts";
 
 const LEAKY_MESSAGE =
   "POST https://hooks.example.com/services/SECRET123 failed for ops@example.com";
@@ -49,7 +50,7 @@ function leakyChannelFeature(name: string, behavior: "send" | "render", mode: "i
         if (behavior === "render") throw new Error(LEAKY_MESSAGE);
         return { html: "<p>x</p>", subject: "x" };
       },
-      send: async () => {
+      send: async (): Promise<ChannelResult> => {
         if (behavior === "send") throw new Error(LEAKY_MESSAGE);
         return { status: "sent" };
       } });

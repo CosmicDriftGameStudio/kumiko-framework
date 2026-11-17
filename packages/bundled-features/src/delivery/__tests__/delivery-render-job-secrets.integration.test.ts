@@ -6,6 +6,7 @@ import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import { DELIVERY_CHANNEL_EXTENSION } from "../constants.ts";
 import { deliverySendJob } from "../jobs.ts";
+import type { ChannelResult } from "../types.ts";
 import { type ChatHarness, setupChatHarness, tenantAdmin } from "./chat-channel-harness.ts";
 
 let harness: ChatHarness;
@@ -18,7 +19,7 @@ const renderProbeFeature = defineFeature("render-probe", (r) => {
       secretsSeenByRender = ctx.secrets;
       return { html: "<p>x</p>", subject: "x" };
     },
-    send: async () => ({ status: "sent" }) });
+    send: async (): Promise<ChannelResult> => ({ status: "sent" }) });
 });
 
 beforeAll(async () => {

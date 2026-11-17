@@ -13,7 +13,7 @@ import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { capSubjectHash, TENANT_WIDE_SUBJECT_HASH } from "./cap-subject.ts";
 import { ROLLING_CAP_MAX_WINDOW_DAYS } from "./constants.ts";
-import { capCountersTableMeta, rollingCapUsageTable } from "./tables.ts";
+import { capCountersTable, rollingCapUsageTable } from "./tables.ts";
 
 // periodStartIso goes through Temporal.Instant.from(); a non-instant string would throw a RangeError (500).
 const capPeriodSchema = z.object({
@@ -119,7 +119,7 @@ async function incrementCounterRow(
   key: ReturnType<typeof counterKey>,
   delta: number,
 ): Promise<number> {
-  const row = await db.upsert<CounterRow>(capCountersTableMeta, key, {
+  const row = await db.upsert<CounterRow>(capCountersTable, key, {
     conflictTarget: COUNTER_CONFLICT_TARGET,
     increment: { value: delta },
   });
@@ -133,14 +133,14 @@ async function decrementCounterRow(
   amount: number,
 ): Promise<void> {
   const row = await db.upsert<CounterRow>(
-    capCountersTableMeta,
+    capCountersTable,
     { ...key, value: 0 },
     { conflictTarget: COUNTER_CONFLICT_TARGET, increment: { value: -amount } },
   );
   if (!row) throw new Error("cap-counter: counter upsert returned no row");
   // The counter never drops below 0; a missing row is created at 0, which is the same usage.
   // The row is locked by this transaction, so the clamp cannot race another booking.
-  if (row.value < 0) await db.updateMany(capCountersTableMeta, { value: 0 }, key);
+  if (row.value < 0) await db.updateMany(capCountersTable, { value: 0 }, key);
 }
 
 // Returns the tenant-wide value after the booking.
@@ -178,7 +178,7 @@ export async function applyCapDeltaOn(
     const subjectValue = await incrementCounterRow(db, keyFor(delta.subjectHash), delta.amount);
     delta.guardSubjectValue?.(subjectValue - delta.amount);
     // Data minimisation: subject rows of finished periods are not needed, tenant rows stay for billing.
-    await db.deleteMany(capCountersTableMeta, {
+    await db.deleteMany(capCountersTable, {
       tenantId: user.tenantId,
       capName,
       subjectHash: { ne: TENANT_WIDE_SUBJECT_HASH },
@@ -231,13 +231,13 @@ export async function markCapSoftWarned(
   );
 
   async function mark(db: TenantDb): Promise<boolean> {
-    await db.upsert(capCountersTableMeta, key, {
+    await db.upsert(capCountersTable, key, {
       conflictTarget: COUNTER_CONFLICT_TARGET,
       increment: { value: 0 },
     });
     // The conditional update re-checks the null after the row lock, so exactly one parallel caller gets true.
     const changed = await db.updateMany(
-      capCountersTableMeta,
+      capCountersTable,
       { lastSoftWarnedAt: Temporal.Now.instant() },
       { ...key, lastSoftWarnedAt: null },
     );
@@ -269,7 +269,7 @@ export async function readCalendarCapCounter(
       ? TENANT_WIDE_SUBJECT_HASH
       : capSubjectHash(options.subjectKey);
   const row = await db.fetchOne<CalendarCapCounter>(
-    capCountersTableMeta,
+    capCountersTable,
     counterKey(tenantId, capName, Temporal.Instant.from(periodStartIso), subjectHash),
   );
   return row && { value: row.value, lastSoftWarnedAt: row.lastSoftWarnedAt };
@@ -283,7 +283,7 @@ export async function readCalendarCapUsageByTenant(
   const { capName, periodStartIso } = capPeriodSchema.parse(options);
   const usage = new Map<TenantId, number>(tenantIds.map((tenantId) => [tenantId, 0]));
   if (tenantIds.length === 0) return usage;
-  const rows = await db.selectMany<{ tenantId: TenantId; value: number }>(capCountersTableMeta, {
+  const rows = await db.selectMany<{ tenantId: TenantId; value: number }>(capCountersTable, {
     tenantId: { in: [...tenantIds] },
     subjectHash: TENANT_WIDE_SUBJECT_HASH,
     capName,

@@ -43,7 +43,7 @@ export const unsubscribeAddressWrite = defineWriteHandler({
       channel,
     });
     if (!result.isSuccess) return result;
-    await ctx.events.append({
+    await ctx.events.unsafeAppend({
       aggregateId: crypto.randomUUID(),
       aggregateType: "delivery-address-unsubscribe",
       type: DELIVERY_ADDRESS_UNSUBSCRIBED_EVENT,

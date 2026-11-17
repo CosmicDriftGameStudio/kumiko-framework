@@ -204,7 +204,7 @@ export async function setupChatHarness(
           mode: "system",
           reason: "test harness reads delivery rows of any tenant",
           grants: {
-            unsafeRaw: { reason: "test: job context mirrors systemScope() grant" },
+            unsafeRaw: { reason: "test: job context mirrors systemScope() grant", grants: ["unsafeRaw"] },
           },
         }),
       ),

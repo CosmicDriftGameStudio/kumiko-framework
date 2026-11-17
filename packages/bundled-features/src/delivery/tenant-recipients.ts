@@ -18,7 +18,7 @@ export type TenantRecipientDeps = {
   readonly registry: Registry;
   readonly tenantUserIdsQuery: string | undefined;
   readonly escapeHatchAuditSink: EscapeHatchAuditSink | undefined;
-  readonly log: Logger;
+  readonly log: Pick<Logger, "warn" | "error">;
 };
 
 export async function resolveUserIdsForTenant(
@@ -69,7 +69,7 @@ export async function resolveUserIdsForTenant(
         reason: "delivery fan-out of a systemScope handler resolves recipients across tenants",
         grants: {
           report,
-          unsafeRaw: { reason: `r.systemScope() handler "${tenantUserIdsQuery}"` },
+          unsafeRaw: { reason: `r.systemScope() handler "${tenantUserIdsQuery}"`, grants: ["unsafeRaw"] },
         },
       })
     : undefined;

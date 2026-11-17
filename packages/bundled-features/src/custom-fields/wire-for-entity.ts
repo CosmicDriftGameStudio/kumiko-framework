@@ -54,13 +54,13 @@ export function customFieldsField(): JsonbFieldDef {
 //
 // **What is registered**:
 //
-//   1. r.useExtension("customFields", entityName) — opt-in marker enabling
+//   1. r.applyExtension({ name: "customFields", entity: entityName }) — opt-in marker enabling
 //      boot validation and usage tracking through the registry.
 //
 //   2. The values are written by the one MSP `custom-fields:projection:host-values`
 //      of the custom-fields feature, which finds the host table through the
 //      registry. wireCustomFieldsFor makes the host visible to it via
-//      useExtension.
+//      applyExtension.
 //
 //   3. r.extendEntityProjection — adds the same apply handlers to the host
 //      entity's implicit projection so rebuildProjection replays the
@@ -83,8 +83,7 @@ export function wireCustomFieldsFor<TReg extends FeatureRegistrar<string>>(
   entityName: string,
   entityTable: unknown,
 ): void {
-  // biome-ignore lint/correctness/useHookAtTopLevel: r.useExtension is a registrar-API method, not a React hook — false positive on the "use"-prefix heuristic.
-  r.useExtension(CUSTOM_FIELDS_EXTENSION, entityName);
+  r.applyExtension({ name: CUSTOM_FIELDS_EXTENSION, entity: entityName });
 
   const { setEvent, clearedEvent, fieldDefinitionDeletedEvent } =
     createCustomFieldsFeature().exports;

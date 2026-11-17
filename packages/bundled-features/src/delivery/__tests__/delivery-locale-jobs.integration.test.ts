@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { DELIVERY_CHANNEL_EXTENSION } from "../constants.ts";
 import { deliverySendJob } from "../jobs.ts";
-import type { ChannelMessage } from "../types.ts";
+import type { ChannelMessage, ChannelResult } from "../types.ts";
 import { type ChatHarness, setupChatHarness, tenantAdmin } from "./chat-channel-harness.ts";
 
 let harness: ChatHarness;
@@ -19,7 +19,7 @@ const localeProbeFeature = defineFeature("locale-probe", (r) => {
       localesSeenByRender.push(message.locale);
       return { html: "<p>x</p>", subject: "x" };
     },
-    send: async (_address: string, message: ChannelMessage) => {
+    send: async (_address: string, message: ChannelMessage): Promise<ChannelResult> => {
       localesSeenBySend.push(message.locale);
       return { status: "sent" };
     } });

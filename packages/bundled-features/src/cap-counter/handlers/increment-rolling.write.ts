@@ -9,7 +9,7 @@ import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { rollingBucketStart } from "../book-cap-usage.ts";
 import { ROLLING_CAP_MAX_WINDOW_DAYS } from "../constants.ts";
-import { rollingCapUsageTableMeta } from "../tables.ts";
+import { rollingCapUsageTable } from "../tables.ts";
 
 const incrementRollingSchema = z.object({
   /** App-defined cap-name. e.g. "ai-tokens-7day", "egress-bytes-24h". */
@@ -32,14 +32,14 @@ export const incrementRollingCapHandler: WriteHandlerDef = {
     const now = Temporal.Now.instant();
     const bucketStart = rollingBucketStart(now);
     await ctx.db.upsert(
-      rollingCapUsageTableMeta,
+      rollingCapUsageTable,
       { tenantId: event.user.tenantId, capName, bucketStart, amount },
       {
         conflictTarget: ["tenantId", "capName", "bucketStart"],
         update: { amount: sql`"store_cap_rolling_usage"."amount" + EXCLUDED."amount"` },
       },
     );
-    await ctx.db.deleteMany(rollingCapUsageTableMeta, {
+    await ctx.db.deleteMany(rollingCapUsageTable, {
       tenantId: event.user.tenantId,
       bucketStart: {
         lt: rollingBucketStart(now.subtract({ hours: ROLLING_CAP_MAX_WINDOW_DAYS * 24 })),

@@ -32,7 +32,7 @@ export async function completeDocumentExtract(
   if (written.kind === "written") {
     return appendMissingDocumentExtractEvent(
       deps,
-      { id: written.documentExtractId, meta: input.meta },
+      { id: written.documentExtractId, meta: { error: input.meta["error"] } },
       input.fileRefId,
       options,
     );
