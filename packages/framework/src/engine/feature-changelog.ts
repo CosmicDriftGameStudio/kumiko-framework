@@ -15,6 +15,7 @@ export type ChangelogEntry = {
   readonly version: string;
   readonly type: ChangelogType;
   readonly title: string;
+  /** Kept in changes.json only on breaking entries; `kumiko changes fold` drops it from improvements and fixes, whose prose stays in the package CHANGELOG.md. */
   readonly detail?: string;
   /** Required when type=breaking. Shown in `kumiko upgrade` output. */
   readonly migration?: string;

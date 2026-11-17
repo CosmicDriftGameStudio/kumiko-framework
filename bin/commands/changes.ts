@@ -1,6 +1,7 @@
 import { parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
+import { Glob } from "bun";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, isAbsolute, join, relative, sep } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import {
   parseChangesetChanges,
   parseFeatureChangelog,
@@ -210,6 +211,25 @@ function readStatus(raw: string): ChangesetStatus {
   return { changesets, releases };
 }
 
+// changes.json carries what kumiko-upgrade acts on; the prose of fixes and improvements stays in the package CHANGELOG.md, written from the same changeset.
+function toChangesJsonEntry(entry: ChangelogEntry): ChangelogEntry {
+  return {
+    version: entry.version,
+    type: entry.type,
+    title: entry.title,
+    ...(entry.type === "breaking" && entry.detail ? { detail: entry.detail } : {}),
+    ...(entry.migration ? { migration: entry.migration } : {}),
+    ...(entry.codemod ? { codemod: entry.codemod } : {}),
+    ...(entry.manualAfterCodemod ? { manualAfterCodemod: true } : {}),
+  };
+}
+
+export function findChangesFiles(repoRoot: string): string[] {
+  return Array.from(new Glob("packages/**/changes.json").scanSync({ cwd: repoRoot }))
+    .filter((rel) => !rel.split("/").some((segment) => segment === "node_modules" || segment === "dist"))
+    .sort();
+}
+
 function entryKey(entry: ChangelogEntry): string {
   return [entry.version, entry.type, entry.title, entry.detail ?? "", entry.migration ?? "", entry.codemod ?? "", entry.manualAfterCodemod ? "manual" : ""].join("\0");
 }
@@ -316,7 +336,7 @@ function runFold(ctx: Parameters<typeof changesCommand.run>[0], args: ReturnType
         if (!release) {
           throw new Error(`${source}: no release found for ${target.packageName} in changeset status`);
         }
-        const entry: ChangelogEntry = {
+        const entry = toChangesJsonEntry({
           version: release.newVersion,
           type: change.type,
           title: change.title,
@@ -324,7 +344,7 @@ function runFold(ctx: Parameters<typeof changesCommand.run>[0], args: ReturnType
           ...(change.migration ? { migration: change.migration } : {}),
           ...(change.codemod ? { codemod: change.codemod } : {}),
           ...(change.manualAfterCodemod ? { manualAfterCodemod: true } : {}),
-        };
+        });
         const entries = pending.get(target.changelogPath) ?? [];
         if (!entries.some((existing) => entryKey(existing) === entryKey(entry))) entries.push(entry);
         pending.set(target.changelogPath, entries);
@@ -332,10 +352,18 @@ function runFold(ctx: Parameters<typeof changesCommand.run>[0], args: ReturnType
     }
     const updates: ChangelogUpdate[] = [];
     for (const [path, additions] of pending) {
-      const existing = readEntries(path);
+      const existing = readEntries(path).map(toChangesJsonEntry);
       const keys = new Set(existing.map(entryKey));
       const merged = [...additions.filter((entry) => !keys.has(entryKey(entry))), ...existing];
       updates.push({ path, contents: `${JSON.stringify(merged, null, 2)}\n`, length: merged.length });
+    }
+    const pendingPaths = new Set([...pending.keys()].map((path) => resolve(path)));
+    for (const rel of findChangesFiles(repoRoot)) {
+      const path = join(repoRoot, rel);
+      if (pendingPaths.has(resolve(path))) continue;
+      const normalized = readEntries(path).map(toChangesJsonEntry);
+      const contents = `${JSON.stringify(normalized, null, 2)}\n`;
+      if (contents !== readFileSync(path, "utf-8")) updates.push({ path, contents, length: normalized.length });
     }
     if (!dryRun) {
       for (const update of updates) {
