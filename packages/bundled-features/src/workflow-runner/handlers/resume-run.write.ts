@@ -7,7 +7,7 @@
 //   1. Fingerprint check FIRST — before claiming, before any pipeline
 //      work. A changed workflow definition fails loud (WORKFLOW_RUN_FAILED,
 //      reason "workflow_definition_changed"), never a silent skip.
-//   2. Claim via a savepoint-scoped WORKFLOW_RESUMED append (ctx.events.tryAppend,
+//   2. Claim via a version-pinned, savepoint-scoped WORKFLOW_RESUMED append (ctx.events.tryAppend,
 //      not unsafeAppendEvent — a losing VersionConflict must not poison this
 //      handler's own transaction). A losing claim means another worker beat
 //      us to this row; silent no-op.
@@ -56,10 +56,12 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
+import type { AppendConcurrency } from "@cosmicdrift/kumiko-types/handlers";
 import * as z from "zod";
 import {
   isResumableSuspension,
   type TriggerEventRef,
+  WORKFLOW_RUN_STREAM_CLAIMED_REASON,
   type WorkflowRunCompletedPayload,
   type WorkflowRunFailedPayload,
   WorkflowSuspensionUnsupportedError,
@@ -79,12 +81,14 @@ async function appendRunFailed(
   ctx: HandlerContext,
   runId: string,
   failedPayload: WorkflowRunFailedPayload,
+  concurrency: AppendConcurrency,
 ): Promise<void> {
   await ctx.events.unsafeAppend({
     aggregateId: runId,
     aggregateType: WORKFLOW_AGGREGATE_TYPE,
     type: WORKFLOW_RUN_FAILED_TYPE,
     payload: failedPayload,
+    ...concurrency,
   });
 }
 
@@ -394,6 +398,7 @@ async function runResumedPipeline(ctx: HandlerContext, db: TenantDb, input: Resu
       aggregateType: WORKFLOW_AGGREGATE_TYPE,
       type: WORKFLOW_RUN_COMPLETED_TYPE,
       payload: completedPayload,
+      blindAppendReason: WORKFLOW_RUN_STREAM_CLAIMED_REASON,
     });
     return { isSuccess: true as const, data: { outcome: "completed" as const } };
   } catch (error) {
@@ -412,7 +417,9 @@ async function runResumedPipeline(ctx: HandlerContext, db: TenantDb, input: Resu
           : stepIndex,
       error: describeWorkflowStepError(error),
     };
-    await appendRunFailed(ctx, runId, failedPayload);
+    await appendRunFailed(ctx, runId, failedPayload, {
+      blindAppendReason: WORKFLOW_RUN_STREAM_CLAIMED_REASON,
+    });
     return { isSuccess: true as const, data: { outcome: "failed" as const } };
   }
 }
@@ -425,6 +432,10 @@ export const resumeRunHandler: WriteHandlerDef = {
   handler: async (event, ctx) => {
     const { runId, stepIndex } = event.payload as z.infer<typeof resumeRunSchema>;
     const tenantId = event.user.tenantId;
+
+    // Pinned before the pending-row read and the stream load: the claim below must conflict with
+    // any dispatch that committed after either read.
+    const runStreamVersion = await ctx.events.streamVersion(runId);
 
     const systemDb = requireSystemDb(ctx, "workflow-runner:write:resume-run");
     const db = systemDb.assertTenantMatch(tenantId);
@@ -463,7 +474,7 @@ export const resumeRunHandler: WriteHandlerDef = {
       pending.definitionFingerprint,
     );
     if (resolved.failure !== null) {
-      await appendRunFailed(ctx, runId, resolved.failure);
+      await appendRunFailed(ctx, runId, resolved.failure, { expectedVersion: runStreamVersion });
       return { isSuccess: true, data: { outcome: "failed" as const } };
     }
     const workflow = resolved.workflow;
@@ -476,6 +487,7 @@ export const resumeRunHandler: WriteHandlerDef = {
         stepIndex,
         retryAttempt: pending.retryAttempt ?? undefined,
       },
+      expectedVersion: runStreamVersion,
     });
     if (!claim.ok) {
       // skip: lost the claim race against a concurrent resume-run dispatch
@@ -486,12 +498,17 @@ export const resumeRunHandler: WriteHandlerDef = {
 
     const recovered = await recoverTriggerEvent(ctx, runEvents, runId, event.user);
     if (recovered.unavailable) {
-      await appendRunFailed(ctx, runId, {
-        workflowName,
-        stepIndex,
-        error: `Trigger event of run ${runId} is no longer available — cannot resume.`,
-        reason: "trigger_event_unavailable",
-      });
+      await appendRunFailed(
+        ctx,
+        runId,
+        {
+          workflowName,
+          stepIndex,
+          error: `Trigger event of run ${runId} is no longer available — cannot resume.`,
+          reason: "trigger_event_unavailable",
+        },
+        { blindAppendReason: WORKFLOW_RUN_STREAM_CLAIMED_REASON },
+      );
       return { isSuccess: true, data: { outcome: "failed" as const } };
     }
     const triggerEvent = recovered.event;
@@ -501,12 +518,17 @@ export const resumeRunHandler: WriteHandlerDef = {
         ? await loadAwaitedPayload(ctx, pending)
         : ({ unavailable: false, payload: undefined } as const);
     if (awaited.unavailable) {
-      await appendRunFailed(ctx, runId, {
-        workflowName,
-        stepIndex,
-        error: `Awaited event of run ${runId} is no longer available — cannot resume.`,
-        reason: "awaited_event_unavailable",
-      });
+      await appendRunFailed(
+        ctx,
+        runId,
+        {
+          workflowName,
+          stepIndex,
+          error: `Awaited event of run ${runId} is no longer available — cannot resume.`,
+          reason: "awaited_event_unavailable",
+        },
+        { blindAppendReason: WORKFLOW_RUN_STREAM_CLAIMED_REASON },
+      );
       return { isSuccess: true, data: { outcome: "failed" as const } };
     }
 

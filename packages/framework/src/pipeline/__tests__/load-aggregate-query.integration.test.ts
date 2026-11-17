@@ -81,6 +81,7 @@ const asOfFeature = defineFeature("asoftest", (r) => {
     handler: async (event, ctx) => {
       await ctx.events.unsafeAppend({
         aggregateId: event.payload.id,
+        blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
         aggregateType: "asof-invoice",
         type: approved.name,
         payload: { amount: event.payload.amount, approvedBy: event.payload.approvedBy },

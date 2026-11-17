@@ -8,6 +8,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import type { MultiStreamApplyContext } from "@cosmicdrift/kumiko-framework/pipeline";
+import type { AppendConcurrency } from "@cosmicdrift/kumiko-types/handlers";
 import { SYSTEM_USER_ID, type TenantId } from "@cosmicdrift/kumiko-types/identifiers";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { redactEmailAddresses } from "../shared/index.ts";
@@ -119,7 +120,10 @@ export async function deliverDispatchRequest(args: DeliverDispatchRequestArgs): 
     return;
   }
   const ctx = args.applyContextFor(requested.metadata.userId || SYSTEM_USER_ID);
-  const recorder = createOutcomeRecorder(ctx, aggregateId, args.attempt);
+  const recorder = createOutcomeRecorder(ctx, aggregateId, args.attempt, {
+    blindAppendReason:
+      "the outcome records a send this worker already performed; a concurrent append must not turn it into a failure, and redelivery dedupes on the existing outcome",
+  });
 
   try {
     await deliverRequested(args, requested, ctx, recorder);
@@ -141,7 +145,7 @@ function createOutcomeRecorder(
   ctx: MultiStreamApplyContext,
   aggregateId: string,
   attempt: number,
-  expectedVersion?: number,
+  concurrency: AppendConcurrency,
 ): OutcomeRecorder {
   const record: OutcomeRecorder["record"] = async (type, payload) => {
     await ctx.unsafeAppendEvent({
@@ -149,7 +153,7 @@ function createOutcomeRecorder(
       aggregateType: STEP_DISPATCH_AGGREGATE_TYPE,
       type,
       payload,
-      ...(expectedVersion !== undefined && { expectedVersion }),
+      ...concurrency,
     });
     await eraseDispatchKey(aggregateId);
   };
@@ -174,7 +178,9 @@ export async function closeAbandonedDispatch(
     return "already-closed";
   }
   const requested = stream.find((e) => e.type === STEP_DISPATCH_REQUESTED_TYPE);
-  await createOutcomeRecorder(ctx, aggregateId, 0, stream.at(-1)?.version).recordFailure(
+  await createOutcomeRecorder(ctx, aggregateId, 0, {
+    expectedVersion: stream.at(-1)?.version ?? 0,
+  }).recordFailure(
     rawStepKindOf(requested?.payload),
     DISPATCH_ABANDONED_ERROR,
   );

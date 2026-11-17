@@ -76,6 +76,7 @@ export function createUpdateAccountHandler({ adminRoles }: InboundMailRoles): Wr
         return failUnprocessable("field_requires_system_identity");
       }
 
+      const accountStreamVersion = await ctx.events.streamVersion(payload.accountId);
       const current = await loadCurrentMailAccountPayload(ctx, payload.accountId);
       if (!current) {
         return failNotFound("mail-account", payload.accountId);
@@ -106,6 +107,7 @@ export function createUpdateAccountHandler({ adminRoles }: InboundMailRoles): Wr
         type: MAIL_ACCOUNT_UPDATED_EVENT_QN,
         payload: eventPayload,
         headers,
+        expectedVersion: accountStreamVersion,
       });
 
       return { isSuccess: true as const, data: { accountId: payload.accountId } };

@@ -43,6 +43,8 @@ export const deleteSystemFieldHandler: WriteHandlerDef = {
           fieldKey: payload.fieldKey,
           tenantId: SYSTEM_TENANT_ID,
         },
+        blindAppendReason:
+          "cascade event right after the executor delete in this transaction, which already pinned the definition stream's version; it only announces the delete that just happened",
       });
     }
 

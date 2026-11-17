@@ -60,6 +60,7 @@ async function appendMailAccountReactivation(
   ctx: Pick<HandlerContext, "events">,
   accountId: string,
   current: MailAccountEventPayload,
+  accountStreamVersion: number,
 ): Promise<boolean> {
   if (isAlreadyHealthy(current)) return false;
   const eventPayload: MailAccountEventPayload = {
@@ -78,6 +79,7 @@ async function appendMailAccountReactivation(
     type: MAIL_ACCOUNT_UPDATED_EVENT_QN,
     payload: eventPayload,
     headers,
+    expectedVersion: accountStreamVersion,
   });
   return true;
 }
@@ -97,6 +99,7 @@ export function createReactivateAccountHandler({
       "Brings a disconnected, interrupted or sign-in-failed mailbox back to active under its existing accountId, so cursor, seen messages and threads survive; the caller replaces the credential in the same flow.",
     handler: async (event, ctx) => {
       const payload = reactivateAccountSchema.parse(event.payload);
+      const accountStreamVersion = await ctx.events.streamVersion(payload.accountId);
       const current = await loadCurrentMailAccountPayload(ctx, payload.accountId);
       if (!current) return failNotFound("mail-account", payload.accountId);
       if (
@@ -122,7 +125,12 @@ export function createReactivateAccountHandler({
         const { reason, i18nKey } = InboundMailConnectErrors.credentialRequired;
         return writeFailure(new UnprocessableError(reason, { i18nKey }));
       }
-      const changed = await appendMailAccountReactivation(ctx, payload.accountId, current);
+      const changed = await appendMailAccountReactivation(
+        ctx,
+        payload.accountId,
+        current,
+        accountStreamVersion,
+      );
       return { isSuccess: true as const, data: { accountId: payload.accountId, changed } };
     },
   };

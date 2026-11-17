@@ -47,6 +47,7 @@ const testEventsFeature = defineFeature("wr-pending-test", (r) => {
     handler: async (event, ctx) => {
       await ctx.events.unsafeAppend({
         aggregateId: event.payload.runId,
+        blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
         aggregateType: WORKFLOW_AGGREGATE_TYPE,
         type: event.payload.type,
         payload: event.payload.payload,

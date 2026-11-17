@@ -39,6 +39,7 @@ export const ticketingFeature = defineFeature("ticketing", (r) => {
     schema: z.object({ id: z.uuid(), resolution: z.string().min(1) }),
     access: { roles: ["Admin"] },
     handler: async (event, ctx) => {
+      const streamVersion = await ctx.events.streamVersion(event.payload.id);
       const ticket = await ticketExecutor.detail({ id: event.payload.id }, event.user, ctx.db);
       if (!ticket) {
         return failNotFound("ticket", event.payload.id);
@@ -48,6 +49,7 @@ export const ticketingFeature = defineFeature("ticketing", (r) => {
         aggregateId: event.payload.id,
         aggregateType: "ticket",
         payload: { resolution: event.payload.resolution },
+        expectedVersion: streamVersion,
       });
       return { isSuccess: true as const, data: { id: event.payload.id } };
     },

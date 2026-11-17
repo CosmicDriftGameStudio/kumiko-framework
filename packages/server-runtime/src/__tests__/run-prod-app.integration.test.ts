@@ -155,6 +155,7 @@ const widgetFeature = defineFeature("prod-probe", (r) => {
       // so the strictly typed appendEvent narrows to never here.
       await ctx.events.unsafeAppend({
         aggregateId: payload.aggregateId,
+        blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
         aggregateType: "probe",
         type: pingedEvent.name,
         payload: { note: payload.note },

@@ -108,6 +108,7 @@ const peFeature = defineFeature("pe", (r) => {
             aggregateId: event.payload.id,
             aggregateType: "pe-order",
             payload: { note: event.payload.note },
+            blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
           });
           return { isSuccess: true as const, data: { id: event.payload.id } };
         },
@@ -124,6 +125,7 @@ const peFeature = defineFeature("pe", (r) => {
           aggregateId: event.payload.id,
           aggregateType: "pe-order",
           payload: { note: event.payload.note, bogus: "x" },
+          blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
         });
         return { isSuccess: true as const, data: { id: event.payload.id } };
       },

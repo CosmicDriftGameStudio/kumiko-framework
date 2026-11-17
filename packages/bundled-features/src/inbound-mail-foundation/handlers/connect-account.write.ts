@@ -176,6 +176,7 @@ export function createConnectAccountHandler({ adminRoles }: InboundMailRoles): W
         type: MAIL_ACCOUNT_CONNECTED_EVENT_QN,
         payload: eventPayload,
         headers,
+        expectedVersion: 0,
       });
 
       return { isSuccess: true as const, data: { accountId, reconnected: false as const } };

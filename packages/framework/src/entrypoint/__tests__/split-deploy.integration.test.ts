@@ -57,6 +57,7 @@ const workerWriteFeature = defineFeature("workerWrite", (r) => {
     handler: async (event, ctx) => {
       await ctx.events.unsafeAppend({
         aggregateId: crypto.randomUUID(),
+        expectedVersion: 0,
         aggregateType: "worker-note",
         type: noted.name,
         payload: { note: event.payload.note },

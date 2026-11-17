@@ -32,6 +32,7 @@ import type {
 import { databaseNowIso } from "./_database-clock.ts";
 import { addDuration } from "./_duration-utils.ts";
 import { resolveOptional, resolveRequired } from "./_resolver-utils.ts";
+import { WORKFLOW_RUN_STREAM_CLAIMED_REASON } from "./_run-stream-claim.ts";
 import {
   SUSPEND_SENTINEL,
   WORKFLOW_AGGREGATE_TYPE,
@@ -65,6 +66,7 @@ defineStep<WaitForEventArgs, undefined | typeof SUSPEND_SENTINEL>({
 
     await ctx.events.unsafeAppend({
       aggregateId: ctx.workflow.runId,
+      blindAppendReason: WORKFLOW_RUN_STREAM_CLAIMED_REASON,
       aggregateType: WORKFLOW_AGGREGATE_TYPE,
       type: WORKFLOW_WAITING_FOR_EVENT_TYPE,
       payload: {

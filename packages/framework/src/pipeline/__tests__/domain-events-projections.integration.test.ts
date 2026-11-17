@@ -111,6 +111,7 @@ const shippingFeature = defineFeature("shipping", (r) => {
     handler: async (event, ctx) => {
       await ctx.events.unsafeAppend({
         aggregateId: event.payload.id,
+        blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
         aggregateType: "domain-shipment",
         type: shipmentBilled.name,
         payload: { cost: event.payload.cost },
@@ -157,6 +158,7 @@ const shippingFeature = defineFeature("shipping", (r) => {
     handler: async (event, ctx) => {
       await ctx.events.unsafeAppend({
         aggregateId: event.payload.id,
+        blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
         aggregateType: "domain-shipment",
         type: "shipping:event:ghost", // never defined via r.defineEvent
         payload: {},
@@ -172,6 +174,7 @@ const shippingFeature = defineFeature("shipping", (r) => {
     handler: async (event, ctx) => {
       await ctx.events.unsafeAppend({
         aggregateId: event.payload.id,
+        blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
         aggregateType: "domain-shipment",
         type: shipmentBilled.name,
         // cost must be a number per the defineEvent schema

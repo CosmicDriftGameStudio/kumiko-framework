@@ -13,6 +13,7 @@ import { defineStep } from "../define-step.ts";
 import { runStepList } from "../run-pipeline.ts";
 import type { PipelineCtx, StepInstance } from "../types/step.ts";
 import { databaseNowIso } from "./_database-clock.ts";
+import { WORKFLOW_RUN_STREAM_CLAIMED_REASON } from "./_run-stream-claim.ts";
 import {
   SUSPEND_SENTINEL,
   WORKFLOW_AGGREGATE_TYPE,
@@ -68,6 +69,7 @@ defineStep<RetryStepArgs, undefined | typeof SUSPEND_SENTINEL>({
 
       await ctx.events.unsafeAppend({
         aggregateId: ctx.workflow.runId,
+        blindAppendReason: WORKFLOW_RUN_STREAM_CLAIMED_REASON,
         aggregateType: WORKFLOW_AGGREGATE_TYPE,
         type: WORKFLOW_RETRY_SCHEDULED_TYPE,
         payload: {

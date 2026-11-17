@@ -67,6 +67,9 @@ const fileRefIngestFieldsSchema = z.object({
 });
 type FileRefIngestFields = z.infer<typeof fileRefIngestFieldsSchema>;
 
+const INGEST_REQUEST_REASON =
+  "each ingest request or skip is an independent fact about one fileRef event; a delete-then-restore legitimately re-requests on the same stream, and the stream is never read to decide";
+
 // Shared by fileRef.created and fileRef.restored — a restored fileRef goes
 // through the same provider routing/skip logic as a fresh upload, so a
 // delete→restore round-trip re-requests ingest instead of leaving the file
@@ -90,6 +93,7 @@ async function requestIngestForFileRef(
         size: fileRef.size,
         reason,
       },
+      blindAppendReason: INGEST_REQUEST_REASON,
     });
 
   // Boot already refused an invalid/conflicting provider config — a
@@ -123,6 +127,7 @@ async function requestIngestForFileRef(
       size: fileRef.size,
       provider: provider.name,
     },
+    blindAppendReason: INGEST_REQUEST_REASON,
   });
 }
 

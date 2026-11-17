@@ -60,6 +60,7 @@ export const revokeAllOthersWrite = defineWriteHandler({
           sessionIds: updated.map((row) => row.id),
           keptSessionId: keepSid,
         },
+        expectedVersion: 0,
       });
     }
 

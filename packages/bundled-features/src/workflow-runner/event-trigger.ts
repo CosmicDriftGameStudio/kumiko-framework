@@ -34,6 +34,7 @@ import { workflowRunAggregateId } from "./aggregate-id.ts";
 import { registerEventWakeup } from "./event-subscriber.ts";
 import {
   startAndRunWorkflow,
+  WORKFLOW_RUN_STREAM_CLAIMED_REASON,
   type WorkflowRunFailedPayload,
   WorkflowSuspensionUnsupportedError,
 } from "./runner.ts";
@@ -184,6 +185,7 @@ export function registerEventTrigger(r: FeatureRegistrar, workflow: WorkflowDefi
             aggregateType: WORKFLOW_AGGREGATE_TYPE,
             type: WORKFLOW_RUN_FAILED_TYPE,
             payload: failedPayload,
+            blindAppendReason: WORKFLOW_RUN_STREAM_CLAIMED_REASON,
           });
           // No rethrow: the failure is now durably recorded as
           // workflow.run-failed. Rethrowing would make the dispatcher

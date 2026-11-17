@@ -28,6 +28,7 @@ defineStep<MailSendArgs, void>({
     const from = resolveOptional(args.from, ctx);
     await ctx.events.unsafeAppend({
       aggregateId: randomUUID(),
+      expectedVersion: 0,
       aggregateType: STEP_DISPATCH_AGGREGATE_TYPE,
       type: STEP_DISPATCH_REQUESTED_TYPE,
       payload: {

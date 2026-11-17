@@ -70,7 +70,7 @@ export function createSetCustomFieldHandler(
         return failUnprocessable("custom_fields_entity_not_wired", { entityName: payload.entityName });
       }
 
-
+      const hostStreamVersion = await ctx.events.streamVersion(payload.entityId);
       if (
         !(await parentRowIsVisible(
           ctx.registry,
@@ -126,6 +126,7 @@ export function createSetCustomFieldHandler(
         aggregateType: payload.entityName,
         type: createCustomFieldsFeature().exports.setEvent.name,
         payload: { fieldKey: payload.fieldKey, value: payload.value },
+        expectedVersion: hostStreamVersion,
       });
 
       return {

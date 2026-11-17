@@ -27,6 +27,7 @@ const attemptFixtureFeature = defineFeature("attemptfixture", (r) => {
     handler: async (_event, ctx) => {
       await ctx.events.append({
         aggregateId: crypto.randomUUID(),
+        expectedVersion: 0,
         aggregateType: "trigger-retry-request",
         type: "attemptfixture:event:trigger-retry",
         payload: {},
@@ -51,6 +52,7 @@ const attemptFixtureFeature = defineFeature("attemptfixture", (r) => {
     handler: async (_event, ctx) => {
       await ctx.events.append({
         aggregateId: crypto.randomUUID(),
+        expectedVersion: 0,
         aggregateType: "trigger-single-request",
         type: "attemptfixture:event:trigger-single",
         payload: {},

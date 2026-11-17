@@ -73,6 +73,7 @@ const workflowViewFeature = defineFeature("wfview", (r) => {
     handler: async (event, ctx) => {
       await ctx.events.unsafeAppend({
         aggregateId: event.payload.runId,
+        blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
         aggregateType: WORKFLOW_AGGREGATE_TYPE,
         type: WORKFLOW_RUN_STARTED_TYPE,
         payload: { workflowName: "invoice-reminder", triggerEventType: "billing:event:overdue" },
@@ -80,6 +81,7 @@ const workflowViewFeature = defineFeature("wfview", (r) => {
       if (event.payload.fail) {
         await ctx.events.unsafeAppend({
           aggregateId: event.payload.runId,
+          blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
           aggregateType: WORKFLOW_AGGREGATE_TYPE,
           type: WORKFLOW_RUN_FAILED_TYPE,
           payload: { workflowName: "invoice-reminder", stepIndex: 0, error: "Error" },

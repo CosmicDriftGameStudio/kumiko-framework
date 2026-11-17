@@ -24,6 +24,7 @@ const appFeature = defineFeature("app", (r) => {
       handler: async (event, ctx) => {
         await ctx.events.append({
           aggregateId: crypto.randomUUID(),
+          expectedVersion: 0,
           aggregateType: "generation-request",
           type: "app:event:generation-requested",
           payload: { campaignId: event.payload.campaignId },

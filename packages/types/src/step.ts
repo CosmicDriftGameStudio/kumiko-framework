@@ -297,7 +297,10 @@ export type StepNamespace = {
       readonly type: string;
       readonly payload: StepResolver<unknown>;
       readonly headers?: StepResolver<Readonly<Record<string, string | number | boolean>>>;
-    }) => StepInstance;
+    } & (
+      | { readonly expectedVersion: StepResolver<number>; readonly blindAppendReason?: never }
+      | { readonly blindAppendReason: string; readonly expectedVersion?: never }
+    )) => StepInstance;
   };
   // Conditional sub-pipeline. `onTrue` (required) and `onFalse`
   // (optional) are static StepInstance arrays; `r` for sub-step builders

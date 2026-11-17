@@ -135,6 +135,7 @@ export const processPaymentEventHandler: WriteHandlerDef = {
       type: PAYMENT_RECEIVED_EVENT_QN,
       payload: eventPayload,
       headers,
+      expectedVersion: existingEvents.at(-1)?.version ?? 0,
     });
 
     return {

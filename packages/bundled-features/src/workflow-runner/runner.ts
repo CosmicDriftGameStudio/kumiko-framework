@@ -75,6 +75,11 @@ export type WorkflowRunFailedPayload = {
   readonly reason?: string;
 };
 
+// Same text as the step-level constant in the framework's engine/steps/_run-stream-claim.ts; the
+// engine barrel does not export that one.
+export const WORKFLOW_RUN_STREAM_CLAIMED_REASON =
+  "workflow run stream is held by this transaction's run start or WORKFLOW_RESUMED claim; a concurrent pass conflicts on that claim";
+
 export type WorkflowRunContext = {
   readonly events: Pick<HandlerContext["events"], "unsafeAppend">;
   // wait, waitForEvent and retry derive their wake time from the database clock.
@@ -125,6 +130,7 @@ export async function startAndRunWorkflow(args: {
     aggregateType: WORKFLOW_AGGREGATE_TYPE,
     type: WORKFLOW_RUN_STARTED_TYPE,
     payload: startedPayload,
+    expectedVersion: 0,
   });
 
   const steps = buildPipelineSteps(args.workflow.pipelineDef, args.triggerEvent);
@@ -167,6 +173,7 @@ export async function startAndRunWorkflow(args: {
     aggregateType: WORKFLOW_AGGREGATE_TYPE,
     type: WORKFLOW_RUN_COMPLETED_TYPE,
     payload: completedPayload,
+    blindAppendReason: WORKFLOW_RUN_STREAM_CLAIMED_REASON,
   });
 
   return { outcome: "completed" };

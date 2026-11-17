@@ -67,5 +67,7 @@ export async function recordPlanSwitchRequested(
     aggregateType: SUBSCRIPTION_AGGREGATE_TYPE,
     type: PLAN_SWITCH_REQUESTED_EVENT_QN,
     payload,
+    blindAppendReason:
+      "assertNoPendingPlanSwitch holds the subscription stream lock until commit, so no locked writer interleaves; unlocked facts (consent, checkout ledger) do not affect a switch request",
   });
 }

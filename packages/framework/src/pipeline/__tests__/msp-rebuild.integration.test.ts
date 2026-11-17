@@ -176,6 +176,7 @@ const feature = defineFeature("mspreb", (r) => {
         const p = event.payload as { customer: string };
         await ctx.unsafeAppendEvent({
           aggregateId: p.customer,
+          blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
           aggregateType: "msp-reb-invoice",
           type: escalationTriggered.name,
           payload: { customer: p.customer },
@@ -203,6 +204,7 @@ const feature = defineFeature("mspreb", (r) => {
       if (!res.isSuccess) return res;
       await ctx.events.unsafeAppend({
         aggregateId: String(res.data.id),
+        blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
         aggregateType: "msp-reb-invoice",
         type: invoiceBilled.name,
         payload: event.payload,
@@ -224,6 +226,7 @@ const feature = defineFeature("mspreb", (r) => {
       if (!res.isSuccess) return res;
       await ctx.events.unsafeAppend({
         aggregateId: String(res.data.id),
+        blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
         aggregateType: "msp-reb-payment",
         type: paymentReceived.name,
         payload: event.payload,

@@ -53,9 +53,17 @@ without aliases; `kumiko-upgrade --apply` rewrites them, see
 
 ```ts illustration
 handler: async (event, ctx) => {
+  const streamVersion = await ctx.events.streamVersion(event.payload.id); // before reading state
   const invoice = await ctx.db.fetchOne(invoiceTable, { id: event.payload.id });
   if (!invoice) throw new NotFoundError("invoice");
-  await ctx.events.append({ type: "invoice:sent", aggregateId: invoice.id, aggregateType: "invoice", payload: {} });
+  // expectedVersion: 0 instead when the invoice is created in this same handler
+  await ctx.events.append({
+    type: "invoice:sent",
+    aggregateId: invoice.id,
+    aggregateType: "invoice",
+    payload: {},
+    expectedVersion: streamVersion,
+  });
   ctx.lifecycle.afterCommit?.(() => ctx.obs.log.info("invoice sent", { id: invoice.id }));
   return { isSuccess: true, data: { id: invoice.id } };
 },

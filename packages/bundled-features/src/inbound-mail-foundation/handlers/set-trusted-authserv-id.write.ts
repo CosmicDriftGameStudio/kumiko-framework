@@ -38,6 +38,7 @@ export const createSetTrustedAuthservIdHandler = ({ adminRoles }: InboundMailRol
       "Sets or clears the authserv-id of the mailbox's own server, which decides whose Authentication-Results header the sender check trusts; null or empty clears it, a connected mailbox only.",
     handler: async (event, ctx) => {
       const payload = event.payload;
+      const accountStreamVersion = await ctx.events.streamVersion(payload.accountId);
       const current = await loadCurrentMailAccountPayload(ctx, payload.accountId);
       if (!current) return failNotFound("mail-account", payload.accountId);
       if (current.status === InboundMailAccountStatuses.disconnected) {
@@ -60,6 +61,7 @@ export const createSetTrustedAuthservIdHandler = ({ adminRoles }: InboundMailRol
         type: MAIL_ACCOUNT_UPDATED_EVENT_QN,
         payload: eventPayload,
         headers,
+        expectedVersion: accountStreamVersion,
       });
       return { isSuccess: true as const, data: { accountId: payload.accountId, changed: true } };
     },

@@ -71,6 +71,7 @@ const jobTriggerFixtureFeature = defineFeature("job-trigger-fixture", (r) => {
       [FILE_REF_CREATED]: async (event, _tx, ctx) => {
         await ctx.unsafeAppendEvent({
           aggregateId: event.aggregateId,
+          blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
           aggregateType: "job-trigger-fixture-request",
           type: ITEM_REQUESTED_EVENT_QN,
           payload: { fileRefId: event.aggregateId },
@@ -160,6 +161,7 @@ const jobTriggerWhereFixtureFeature = defineFeature("job-trigger-where-fixture",
           typeof fileName === "string" && fileName.startsWith("alpha-") ? "alpha" : "beta";
         await ctx.unsafeAppendEvent({
           aggregateId: event.aggregateId,
+          blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
           aggregateType: "job-trigger-where-fixture-request",
           type: WHERE_ITEM_REQUESTED_EVENT_QN,
           payload: { fileRefId: event.aggregateId, kind },

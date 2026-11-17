@@ -184,6 +184,7 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
     handler: async (_query, ctx) => {
       await ctx.events.unsafeAppend({
         aggregateId: crypto.randomUUID(),
+        expectedVersion: 0,
         aggregateType: "qam-probe",
         type: "queryasmemberprobe:event:nope",
         payload: {},

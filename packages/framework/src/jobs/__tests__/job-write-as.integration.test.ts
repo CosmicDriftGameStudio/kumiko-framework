@@ -64,6 +64,7 @@ const writeAsProbeFeature = defineFeature("writeAsProbe", (r) => {
     handler: async (event, ctx) => {
       await ctx.events.unsafeAppend({
         aggregateId: crypto.randomUUID(),
+        expectedVersion: 0,
         aggregateType: "write-as-probe-note",
         type: noted.name,
         payload: { note: event.payload.note },

@@ -54,6 +54,7 @@ const emitterFeature = defineFeature("emitter", (r) => {
     handler: async (cmd, ctx) => {
       await ctx.events.unsafeAppend({
         aggregateId: cmd.payload.userId,
+        blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
         aggregateType: "user",
         type: welcome.name,
         payload: cmd.payload,
@@ -71,6 +72,7 @@ const emitterFeature = defineFeature("emitter", (r) => {
       // was never registered. ctx.events.append must reject at the append site.
       await ctx.events.unsafeAppend({
         aggregateId: cmd.payload.userId,
+        blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
         aggregateType: "user",
         type: "emitter:event:not-registered",
         payload: { userId: cmd.payload.userId },
@@ -87,6 +89,7 @@ const emitterFeature = defineFeature("emitter", (r) => {
       // System events skip schema validation, so only the object-shape guard stands between an array and the log.
       await ctx.events.unsafeAppend({
         aggregateId: cmd.payload.userId,
+        blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
         aggregateType: "user",
         type: "kumiko:system:test-array-payload",
         payload: [cmd.payload.userId],
@@ -103,6 +106,7 @@ const emitterFeature = defineFeature("emitter", (r) => {
       // userId is correct but email is missing / not an email string.
       await ctx.events.unsafeAppend({
         aggregateId: cmd.payload.userId,
+        blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
         aggregateType: "user",
         type: welcome.name,
         payload: { userId: cmd.payload.userId, email: "not-an-email" },
@@ -121,6 +125,7 @@ const emitterFeature = defineFeature("emitter", (r) => {
       // at emit-site — cross-feature emission silently breaks encapsulation.
       await ctx.events.unsafeAppend({
         aggregateId: cmd.payload.userId,
+        blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
         aggregateType: "user",
         type: foreignEventName,
         payload: { userId: cmd.payload.userId },

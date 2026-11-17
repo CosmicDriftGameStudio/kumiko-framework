@@ -45,6 +45,7 @@ const snapshotFeature = defineFeature("snaptest", (r) => {
     handler: async (event, ctx) => {
       await ctx.events.unsafeAppend({
         aggregateId: event.payload.id,
+        blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
         aggregateType: AGGREGATE_TYPE,
         type: ticked.name,
         payload: { amountCents: event.payload.amountCents },

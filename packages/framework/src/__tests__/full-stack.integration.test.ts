@@ -58,6 +58,7 @@ async function emitUserCreated(
 ): Promise<void> {
   await ctx.events.unsafeAppend({
     aggregateId: String(id),
+    blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
     aggregateType: "user",
     type: USER_CREATED_EVENT,
     payload: { id, email },

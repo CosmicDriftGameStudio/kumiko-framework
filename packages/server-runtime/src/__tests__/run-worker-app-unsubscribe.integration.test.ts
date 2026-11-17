@@ -77,6 +77,7 @@ const digestFeature = defineFeature("digest-probe", (r) => {
       handler: async (_event, ctx) => {
         await ctx.events.append({
           aggregateId: crypto.randomUUID(),
+          expectedVersion: 0,
           aggregateType: "digest-request",
           type: "digest-probe:event:triggered",
           payload: {},

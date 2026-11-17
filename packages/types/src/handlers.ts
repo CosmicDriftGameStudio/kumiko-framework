@@ -977,6 +977,14 @@ export type EventDef<TPayload = unknown, TName extends string = string> = {
   readonly piiFields: EventPiiStance;
 };
 
+// Every append states what it expects of the stream. expectedVersion pins the version the caller's
+// decision was based on (0 for a stream it just created); a concurrent append then fails with
+// version_conflict instead of landing on top. blindAppendReason says why the event is valid
+// whatever was appended meanwhile; the stream version is then read at append time.
+export type AppendConcurrency =
+  | { readonly expectedVersion: number; readonly blindAppendReason?: never }
+  | { readonly blindAppendReason: string; readonly expectedVersion?: never };
+
 // Args for ctx.events.append — explicit aggregate target, Marten-style.
 // `type` must match a name returned by r.defineEvent in any registered
 // feature; payload is validated against that event's Zod schema before
@@ -992,7 +1000,7 @@ export type AppendEventArgs = {
   readonly type: string;
   readonly payload: unknown;
   readonly headers?: Readonly<Record<string, string | number | boolean>>;
-};
+} & AppendConcurrency;
 
 // Typed-payload variant — used by the strict ctx.events.append. Keyed via
 // the discriminator type-arg so payload inference flows from `type`-literal
@@ -1013,7 +1021,7 @@ export type TypedAppendEventArgs<TMap extends object, K extends keyof TMap> = {
   readonly type: K;
   readonly payload: TMap[K];
   readonly headers?: Readonly<Record<string, string | number | boolean>>;
-};
+} & AppendConcurrency;
 
 // Strict-only form. Single overload — `<K extends keyof TMap>` against the
 // app's pre-bound TMap. No fallback overload: apps that need runtime-pluggable
@@ -1037,7 +1045,9 @@ export type TypedAppendEventArgs<TMap extends object, K extends keyof TMap> = {
 //     EventDef returned by r.defineEvent.
 //   - Cross-package callers (e.g. bundled-features's set.write.ts) that
 //     can't afford a local wrapper reach for `ctx.events.unsafeAppend`
-//     instead — same runtime, looser type-surface.
+//     instead — the untyped variant for runtime-pluggable events, with the
+//     same checks (schema, archive, version expectation). For typed payloads
+//     use emitEvent(ctx, eventDef, ...).
 export type AppendEventFn<TMap extends object = KumikoEventTypeMap> = <K extends keyof TMap>(
   args: TypedAppendEventArgs<TMap, K>,
 ) => Promise<void>;

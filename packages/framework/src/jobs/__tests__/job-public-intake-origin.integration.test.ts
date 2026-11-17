@@ -238,6 +238,7 @@ const jobsFeature = defineFeature("jobsx", (r) => {
     handler: async (event, ctx) => {
       await ctx.events.unsafeAppend({
         aggregateId: crypto.randomUUID(),
+        expectedVersion: 0,
         aggregateType: "jobsx-leak",
         type: "jobsx:event:sourced-no-declare",
         payload: { value: event.payload.value },
@@ -253,6 +254,7 @@ const jobsFeature = defineFeature("jobsx", (r) => {
     handler: async (event, ctx) => {
       await ctx.events.unsafeAppend({
         aggregateId: crypto.randomUUID(),
+        expectedVersion: 0,
         aggregateType: "jobsx-leak",
         type: "jobsx:event:sourced-declare",
         payload: { value: event.payload.value },
@@ -269,6 +271,7 @@ const jobsFeature = defineFeature("jobsx", (r) => {
     handler: async (event, ctx) => {
       await ctx.events.unsafeAppend({
         aggregateId: crypto.randomUUID(),
+        expectedVersion: 0,
         aggregateType: "jobsx-leak",
         type: "jobsx:event:leaked",
         payload: { value: event.payload.value },
@@ -284,6 +287,7 @@ const jobsFeature = defineFeature("jobsx", (r) => {
     handler: async (event, ctx) => {
       await ctx.events.unsafeAppend({
         aggregateId: crypto.randomUUID(),
+        expectedVersion: 0,
         aggregateType: "jobsx-leak",
         type: "jobsx:event:leaked",
         payload: { value: event.payload.value },

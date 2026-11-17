@@ -88,7 +88,8 @@ export const pubsubOrderFeature = defineFeature("pubsubOrders", (r) => {
         // error, not a runtime Zod reject. The event lands on the order's
         // OWN stream (aggregateType "pubsub-order"), with the correct
         // version bumped automatically. Schema validation still runs at
-        // append-time; a mismatch rolls back the whole write.
+        // append-time; a mismatch rolls back the whole write. The create already put version 1 on
+        // the stream, so the follow-up event is pinned to result.data.version.
         await emitEvent(ctx, orderPlaced, {
           aggregateId: String(result.data.id),
           aggregateType: "pubsub-order",
@@ -97,6 +98,7 @@ export const pubsubOrderFeature = defineFeature("pubsubOrders", (r) => {
             customer: event.payload.customer,
             product: event.payload.product,
           },
+          expectedVersion: result.data.version,
         });
       }
       return result;

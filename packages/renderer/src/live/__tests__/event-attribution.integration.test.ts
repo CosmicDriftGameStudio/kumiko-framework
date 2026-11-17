@@ -78,6 +78,7 @@ const attributionFeature = defineFeature("attribution", (r) => {
       if (!created.isSuccess) return created;
       await ctx.events.unsafeAppend({
         aggregateId: String(created.data.id),
+        blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
         aggregateType: "attr-order",
         type: placed.name,
         payload: { orderId: String(created.data.id) },
@@ -98,6 +99,7 @@ const attributionFeature = defineFeature("attribution", (r) => {
       if (!created.isSuccess) return created;
       await ctx.events.unsafeAppend({
         aggregateId: String(created.data.id),
+        blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
         aggregateType: "attr-order",
         type: probed.name,
         payload: { orderId: String(created.data.id) },
@@ -118,6 +120,7 @@ const attributionFeature = defineFeature("attribution", (r) => {
       const aggregateId = uuid();
       await ctx.events.unsafeAppend({
         aggregateId,
+        blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
         aggregateType: "attr-order",
         type: streamed.name,
         payload: { orderId: aggregateId },
@@ -156,6 +159,7 @@ const attributionFeature = defineFeature("attribution", (r) => {
         if (!ctx) throw new Error("MSP-apply ctx missing — regression of C.2b wiring");
         await ctx.unsafeAppendEvent({
           aggregateId: event.aggregateId,
+          blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
           aggregateType: "attr-order",
           type: confirmed.name,
           payload: { orderId: event.aggregateId },

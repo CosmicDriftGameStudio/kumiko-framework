@@ -36,6 +36,7 @@ const wiringFeature = defineFeature("wiring", (r) => {
     handler: async (event, ctx) => {
       await ctx.events.append({
         aggregateId: crypto.randomUUID(),
+        expectedVersion: 0,
         aggregateType: "order-placed",
         type: "wiring:event:order-placed",
         payload: { sku: event.payload.sku },
@@ -66,6 +67,7 @@ const mixedLaneFeature = defineFeature("mixed", (r) => {
     handler: async (event, ctx) => {
       await ctx.events.append({
         aggregateId: crypto.randomUUID(),
+        expectedVersion: 0,
         aggregateType: "pinged",
         type: "mixed:event:pinged",
         payload: { msg: event.payload.msg },
@@ -257,6 +259,7 @@ const featureGateJobFeature = defineFeature("featuregate", (r) => {
     handler: async (event, ctx) => {
       await ctx.events.append({
         aggregateId: crypto.randomUUID(),
+        expectedVersion: 0,
         aggregateType: "pinged",
         type: "featuregate:event:pinged",
         payload: { msg: event.payload.msg },

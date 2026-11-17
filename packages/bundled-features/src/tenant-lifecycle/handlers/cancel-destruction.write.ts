@@ -84,6 +84,8 @@ export const cancelDestructionWrite = defineWriteHandler({
         aggregateType: "tenant",
         type: DESTRUCTION_CANCELLED_EVENT_QN,
         payload: { cancelledBy: event.user.id },
+        blindAppendReason:
+          "records the transition crud.update just performed on this tenant stream in the same transaction; the status check on the tenant row decided it, and that update already moved the stream version",
       },
     );
 

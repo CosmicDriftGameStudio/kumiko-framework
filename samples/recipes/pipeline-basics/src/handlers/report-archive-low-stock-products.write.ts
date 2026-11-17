@@ -27,6 +27,8 @@ export function createReportArchiveLowStockProductsWrite(archivedEventName: stri
             aggregateType: "product",
             type: archivedEventName,
             payload: () => ({ reason: event.payload.reason }),
+            blindAppendReason:
+              "archiving is decided by the low-stock alert row, not by the product state on the stream",
           }),
           r.step.unsafeProjectionDelete({
             table: lowStockAlertsTable,

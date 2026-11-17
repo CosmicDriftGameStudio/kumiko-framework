@@ -29,6 +29,7 @@ const chainFeature = defineFeature("draintestchain", (r) => {
     handler: async (event, ctx) => {
       await ctx.events.append({
         aggregateId: crypto.randomUUID(),
+        expectedVersion: 0,
         aggregateType: "draintestchain",
         type: "draintestchain:event:started",
         payload: { value: event.payload.value },
@@ -44,6 +45,7 @@ const chainFeature = defineFeature("draintestchain", (r) => {
     handler: async (event, ctx) => {
       await ctx.events.unsafeAppend({
         aggregateId: crypto.randomUUID(),
+        expectedVersion: 0,
         aggregateType: "draintestchain",
         type: relayed.name,
         payload: { value: event.payload.value },
@@ -64,6 +66,7 @@ const chainFeature = defineFeature("draintestchain", (r) => {
       for (let index = 0; index < event.payload.fillerCount; index++) {
         await ctx.events.unsafeAppend({
           aggregateId: crypto.randomUUID(),
+          expectedVersion: 0,
           aggregateType: "draintestchain",
           type: filler.name,
           payload: { index },
@@ -71,6 +74,7 @@ const chainFeature = defineFeature("draintestchain", (r) => {
       }
       await ctx.events.unsafeAppend({
         aggregateId: crypto.randomUUID(),
+        expectedVersion: 0,
         aggregateType: "draintestchain",
         type: relayed.name,
         payload: { value: event.payload.value },

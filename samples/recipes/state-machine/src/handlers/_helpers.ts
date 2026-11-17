@@ -29,6 +29,7 @@ export function transitionHandler(opts: {
     schema: z.object({ id: z.uuid() }),
     access: opts.access,
     handler: async (event, ctx) => {
+      const streamVersion = await ctx.events.streamVersion(event.payload.id);
       const state = await loadInvoiceState(ctx, event.payload.id);
       if (!state) return failNotFound(ENTITY_NAME, event.payload.id);
 
@@ -45,6 +46,7 @@ export function transitionHandler(opts: {
         aggregateId: event.payload.id,
         aggregateType: ENTITY_NAME,
         payload: {},
+        expectedVersion: streamVersion,
       });
 
       return successResult(event.payload.id, opts.toStatus, state.status);

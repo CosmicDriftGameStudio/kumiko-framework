@@ -26,6 +26,7 @@ export const markCredentialStoredHandler: WriteHandlerDef = {
     "Signals that the credential of an active mailbox was stored after the account was created, so the first sync can start right away.",
   handler: async (event, ctx) => {
     const payload = markCredentialStoredSchema.parse(event.payload);
+    const accountStreamVersion = await ctx.events.streamVersion(payload.accountId);
     const current = await loadCurrentMailAccountPayload(ctx, payload.accountId);
     if (!current) return failNotFound("mail-account", payload.accountId);
     if (current.status !== InboundMailAccountStatuses.active) {
@@ -41,6 +42,7 @@ export const markCredentialStoredHandler: WriteHandlerDef = {
       type: MAIL_ACCOUNT_UPDATED_EVENT_QN,
       payload: current,
       headers,
+      expectedVersion: accountStreamVersion,
     });
     return { isSuccess: true as const, data: { accountId: payload.accountId, marked: true } };
   },

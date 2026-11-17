@@ -60,6 +60,7 @@ const generateWrite = defineWriteHandler({
   handler: async (event, ctx) => {
     await ctx.events.append({
       aggregateId: crypto.randomUUID(),
+      expectedVersion: 0,
       aggregateType: "generation-requested",
       type: "app:event:generation-requested",
       payload: { campaignId: event.payload.campaignId, mode: event.payload.mode },
@@ -76,6 +77,7 @@ const retryWrite = defineWriteHandler({
   handler: async (_event, ctx) => {
     await ctx.events.append({
       aggregateId: crypto.randomUUID(),
+      expectedVersion: 0,
       aggregateType: "flaky-requested",
       type: "app:event:flaky-requested",
       payload: {},

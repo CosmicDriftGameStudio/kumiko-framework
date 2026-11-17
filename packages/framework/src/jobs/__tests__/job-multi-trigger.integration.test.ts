@@ -27,6 +27,7 @@ const orderFeature = defineFeature("multi", (r) => {
     handler: async (event, ctx) => {
       await ctx.events.append({
         aggregateId: crypto.randomUUID(),
+        expectedVersion: 0,
         aggregateType: "order",
         type: "multi:event:order-opened",
         payload: { id: event.payload.id },
@@ -41,6 +42,7 @@ const orderFeature = defineFeature("multi", (r) => {
     handler: async (event, ctx) => {
       await ctx.events.append({
         aggregateId: crypto.randomUUID(),
+        expectedVersion: 0,
         aggregateType: "order",
         type: "multi:event:order-cancelled",
         payload: { id: event.payload.id },

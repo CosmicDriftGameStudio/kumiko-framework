@@ -55,6 +55,7 @@ const nsFeature = defineFeature(FEATURE, (r) => {
 
       await ctx.events.unsafeAppend({
         aggregateId: String(created.data["id"]),
+        blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
         aggregateType: "note",
         type: pinged.name,
         payload: { n: 1 },

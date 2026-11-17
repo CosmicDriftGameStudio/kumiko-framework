@@ -37,7 +37,7 @@ and tests use is `ticketing:write:ticket:close`.
 `r.defineEvent("ticket-closed", schema, { piiFields })`
 declares the event
 and its payload. `emitEvent(ctx, ticketClosed, { aggregateId, aggregateType,
-payload })` appends
+payload, expectedVersion })` (or a `blindAppendReason`) appends
 it to the ticket's stream in the handler's transaction. The handler states
 what happened; it does not update a row.
 

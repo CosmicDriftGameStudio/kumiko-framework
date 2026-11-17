@@ -86,6 +86,8 @@ function defineConsumerWrite(
           skippedEventId,
           actor: event.user.id,
         },
+        blindAppendReason:
+          "audit fact on the shared jobs stream; the consumer transition is guarded by its own status check in the consumer table, and stream order carries no decision",
       });
       return {
         isSuccess: true,

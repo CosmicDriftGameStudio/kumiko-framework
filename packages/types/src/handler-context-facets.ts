@@ -34,12 +34,14 @@ export type HandlerEvents<TMap extends object = KumikoEventTypeMap> = {
   /**
    * Default append: a typed domain event on one aggregate stream in the current tx. The runtime
    * bumps the stream version and fires matching projections in the same transaction. A version
-   * conflict throws and poisons the transaction.
+   * conflict throws and poisons the transaction. Pass `expectedVersion` (read `streamVersion`
+   * BEFORE reading any state; v+1 for follow-up appends, 0 for a freshly created id) or a concrete
+   * `blindAppendReason`; with neither the append throws.
    */
   readonly append: AppendEventFn<TMap>;
   /**
-   * Untyped append (`payload: unknown`) with the same runtime as `append`. Only for
-   * migrations and upcasters, where the event type is not knowable at compile time.
+   * Untyped payload for runtime-pluggable events; same checks and the same concurrency contract
+   * as `append`. Typed alternative: `emitEvent(ctx, eventDef, …)`.
    */
   readonly unsafeAppend: UnsafeAppendEventFn;
   /**

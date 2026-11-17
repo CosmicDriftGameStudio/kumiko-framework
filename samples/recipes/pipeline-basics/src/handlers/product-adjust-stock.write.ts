@@ -26,6 +26,8 @@ export function createProductAdjustStockWrite(stockAdjustedEventName: string) {
       { id: string; delta: number; reason: string },
       { id: string; newStock: number }
     >(({ event, r }) => [
+      // Read before the row: newStock below is decided on this read, so the append is pinned to it.
+      r.step.compute("streamVersion", ({ events }) => events.streamVersion(event.payload.id)),
       r.step.read.findOne("current", {
         table: productTable,
         where: () => ({ id: event.payload.id }),
@@ -45,6 +47,7 @@ export function createProductAdjustStockWrite(stockAdjustedEventName: string) {
         aggregateId: () => event.payload.id,
         aggregateType: "product",
         type: stockAdjustedEventName,
+        expectedVersion: ({ steps }: PipelineCtx) => steps["streamVersion"] as number,
         // Explicit ctx-type: payload's resolver is StepResolver<unknown>,
         // which prevents TS from inferring `ctx.steps` shape via the
         // destructure. Followup #4 (TData-Inference) tracks the DX-fix.

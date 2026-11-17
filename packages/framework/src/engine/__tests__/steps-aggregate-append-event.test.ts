@@ -17,6 +17,7 @@ describe("buildAggregateAppendEventStep", () => {
     const step = buildAggregateAppendEventStep({
       aggregateId: "abc-123",
       aggregateType: "widget",
+      expectedVersion: 0,
       type: "widget:event:custom",
       payload: { note: "test" },
     });
@@ -27,6 +28,7 @@ describe("buildAggregateAppendEventStep", () => {
     const step = buildAggregateAppendEventStep({
       aggregateId: "abc",
       aggregateType: "widget",
+      expectedVersion: 0,
       type: "widget:event:custom",
       payload: {},
       headers: { correlationId: "corr-1" },
@@ -50,6 +52,7 @@ describe("aggregate.appendEvent run", () => {
       {
         aggregateId: "abc-123",
         aggregateType: "widget",
+        expectedVersion: 0,
         type: "widget:event:custom",
         payload: { note: "hello" },
       },
@@ -61,6 +64,7 @@ describe("aggregate.appendEvent run", () => {
     expect(call).toMatchObject({
       aggregateId: "abc-123",
       aggregateType: "widget",
+      expectedVersion: 0,
       type: "widget:event:custom",
       payload: { note: "hello" },
     });
@@ -76,6 +80,7 @@ describe("aggregate.appendEvent run", () => {
       {
         aggregateId: idFn,
         aggregateType: "widget",
+        expectedVersion: 0,
         type: "widget:event:custom",
         payload: payloadFn,
         headers: headersFn,
@@ -103,6 +108,7 @@ describe("aggregate.appendEvent run", () => {
       {
         aggregateId: "abc",
         aggregateType: "widget",
+        expectedVersion: 0,
         type: "widget:event:plain",
         payload: { x: 1 },
       },

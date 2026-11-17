@@ -166,6 +166,8 @@ export function createSetWriteHandler(getRuntime: (() => GlobalFeatureToggleRunt
           previousEnabled,
           updatedBy: event.user.id,
         },
+        blindAppendReason:
+          "audit fact on the shared toggle-changes stream; the flip itself is serialized by the version-checked row update above, and stream order carries no decision",
       });
 
       // Update the local in-memory snapshot. Done AFTER the DB write +

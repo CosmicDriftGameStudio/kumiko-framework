@@ -3,6 +3,7 @@ import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { requestContext } from "../api/request-context.ts";
 import { SYSTEM_EVENT_PREFIX } from "../crypto/system-event-pii.ts";
 import type { DbRunner } from "../db/connection.ts";
+import { reasonProblem } from "../engine/escape-hatch-reason.ts";
 import { qnScope, toKebab } from "../engine/qualified-name.ts";
 import type { Registry, TenantId } from "../engine/types/index.ts";
 
@@ -45,9 +46,34 @@ function requirePayloadObject(payload: unknown, eventType: string): Record<strin
   return payload;
 }
 
+async function resolveExpectedVersion(
+  deps: AppendDomainEventCoreDeps,
+  args: AppendEventArgs,
+): Promise<number> {
+  const label = `${deps.callSiteLabel}("${args.type}")`;
+  if (args.expectedVersion !== undefined) {
+    if (!Number.isInteger(args.expectedVersion) || args.expectedVersion < 0) {
+      throw new InternalError({
+        message: `${label} — expectedVersion must be a non-negative integer, got ${args.expectedVersion}.`,
+      });
+    }
+    return args.expectedVersion;
+  }
+  if (args.blindAppendReason !== undefined) {
+    const problem = reasonProblem(args.blindAppendReason);
+    if (problem !== undefined) {
+      throw new InternalError({ message: `${label} blindAppendReason: ${problem}` });
+    }
+    return getStreamVersion(deps.db, args.aggregateId, deps.tenantId);
+  }
+  throw new InternalError({
+    message: `${label} — state the concurrency expectation: pass expectedVersion (read ctx.events.streamVersion before reading state, 0 for a new stream) or blindAppendReason when the event is valid whatever was appended meanwhile.`,
+  });
+}
+
 export async function appendDomainEventCore(
   deps: AppendDomainEventCoreDeps,
-  args: AppendEventArgs & { readonly expectedVersion?: number },
+  args: AppendEventArgs,
 ): Promise<StoredEvent> {
   const isSystemEvent = args.type.startsWith(SYSTEM_EVENT_PREFIX);
   const eventDef = deps.registry.getEvent(args.type);
@@ -95,12 +121,9 @@ export async function appendDomainEventCore(
     throw new ArchivedStreamError(deps.tenantId, args.aggregateId);
   }
 
-  // Stream-version authoritative. See Block 0 / getStreamVersion doc for
-  // why row.version isn't sufficient once ctx.events.append enters the picture.
-  // A caller-pinned version (fetchForWriting handles) must reach append() so a
-  // write landing between fetch and append conflicts instead of being re-read.
-  const expectedVersion =
-    args.expectedVersion ?? (await getStreamVersion(deps.db, args.aggregateId, deps.tenantId));
+  // A caller-pinned version must reach append() so a write landing between the caller's read and
+  // this append conflicts instead of being re-read; a blind append reads the stream version here.
+  const expectedVersion = await resolveExpectedVersion(deps, args);
 
   const reqCtx = requestContext.get();
   // metadata.requestId is a plain trace marker — no uniqueness constraint,

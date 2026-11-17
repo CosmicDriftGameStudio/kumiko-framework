@@ -80,6 +80,8 @@ export function registerEventTrigger(r: FeatureRegistrar, workflow: WorkflowDefi
               stepIndex: 0,
               error: describeWorkflowStepError(error),
             },
+            blindAppendReason:
+              "the run stream is held by this transaction's run start; a concurrent pass conflicts on that claim",
           });
           throw error;
         }

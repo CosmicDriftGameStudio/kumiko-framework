@@ -128,6 +128,7 @@ const sourceFeature = defineFeature(FEATURE, (r) => {
       const { aggregateId, ...payload } = event.payload;
       await ctx.events.unsafeAppend({
         aggregateId,
+        blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
         aggregateType: SOURCE_AGGREGATE_TYPE,
         type: SIGNUP_EVENT,
         payload,
@@ -149,6 +150,7 @@ const sourceFeature = defineFeature(FEATURE, (r) => {
       const aggregateId = crypto.randomUUID();
       await ctx.events.unsafeAppend({
         aggregateId,
+        blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
         aggregateType: SOURCE_AGGREGATE_TYPE,
         type: REPLIED_EVENT,
         payload: event.payload,

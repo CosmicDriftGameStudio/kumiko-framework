@@ -24,13 +24,10 @@ export type MultiStreamApplyContext<TMap extends object = KumikoEventTypeMap> = 
   // dispatcher wrap). Strict against KumikoEventTypeMap — same contract
   // as HandlerContext.appendEvent (compile-time-validated payload).
   readonly appendEvent: AppendEventFn<TMap>;
-  // Escape hatch for runtime-pluggable events without compile-time
-  // augmentation. Same runtime semantics; type-surface is `payload: unknown`.
-  // expectedVersion pins the stream version the caller saw; a concurrent append then throws
-  // VersionConflictError instead of landing on top.
-  readonly unsafeAppendEvent: (
-    args: Parameters<UnsafeAppendEventFn>[0] & { readonly expectedVersion?: number },
-  ) => Promise<void>;
+  // Runtime-pluggable events without compile-time augmentation: same checks, untyped payload
+  // (`payload: unknown`). The concurrency expectation (expectedVersion or blindAppendReason)
+  // comes from AppendConcurrency; a concurrent append then throws VersionConflictError.
+  readonly unsafeAppendEvent: (args: Parameters<UnsafeAppendEventFn>[0]) => Promise<void>;
   // Read an aggregate stream — useful when a saga needs to inspect the
   // current state of a different aggregate before deciding what to emit.
   readonly loadAggregate: (

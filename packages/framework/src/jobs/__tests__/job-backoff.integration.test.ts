@@ -31,6 +31,7 @@ const backoffFixtureFeature = defineFeature("backofffixture", (r) => {
     handler: async (_event, ctx) => {
       await ctx.events.append({
         aggregateId: crypto.randomUUID(),
+        expectedVersion: 0,
         aggregateType: "trigger-exponential-default-request",
         type: "backofffixture:event:trigger-exponential-default",
         payload: {},
@@ -61,6 +62,7 @@ const backoffFixtureFeature = defineFeature("backofffixture", (r) => {
     handler: async (_event, ctx) => {
       await ctx.events.append({
         aggregateId: crypto.randomUUID(),
+        expectedVersion: 0,
         aggregateType: "trigger-exponential-custom-request",
         type: "backofffixture:event:trigger-exponential-custom",
         payload: {},
@@ -91,6 +93,7 @@ const backoffFixtureFeature = defineFeature("backofffixture", (r) => {
     handler: async (_event, ctx) => {
       await ctx.events.append({
         aggregateId: crypto.randomUUID(),
+        expectedVersion: 0,
         aggregateType: "trigger-fixed-custom-request",
         type: "backofffixture:event:trigger-fixed-custom",
         payload: {},

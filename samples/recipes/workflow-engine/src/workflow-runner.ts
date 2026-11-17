@@ -75,6 +75,7 @@ export async function startAndRunWorkflow(args: {
     aggregateType: WORKFLOW_AGGREGATE_TYPE,
     type: WORKFLOW_RUN_STARTED_TYPE,
     payload: startedPayload as unknown as Record<string, unknown>,
+    expectedVersion: 0,
   });
 
   const steps = buildPipelineSteps(args.workflow.pipelineDef, args.triggerEvent);
@@ -102,6 +103,8 @@ export async function startAndRunWorkflow(args: {
     aggregateType: WORKFLOW_AGGREGATE_TYPE,
     type: WORKFLOW_RUN_COMPLETED_TYPE,
     payload: { workflowName: args.workflow.name },
+    blindAppendReason:
+      "the run stream is held by this transaction's run start; a concurrent pass conflicts on that claim",
   });
   return { outcome: "completed" };
 }

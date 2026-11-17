@@ -72,6 +72,9 @@ export class WorkflowDefinitionChangedError extends Error {
   }
 }
 
+const RUN_STREAM_CLAIMED_REASON =
+  "the run stream is held by this iteration's WORKFLOW_RESUMED claim; a concurrent pass conflicts on that claim";
+
 /**
  * Poll for suspended runs with expired wake times and resume them.
  * Called periodically (e.g. every 30s) by a scheduler or Bun.Timer.
@@ -89,6 +92,10 @@ export async function runResumeLoop(
   let resumed = 0;
 
   for (const run of suspended) {
+    // Pinned before any decision about this run: the claim below only lands if nobody appended
+    // since, so two loop instances cannot both resume the same step.
+    const runStreamVersion = await handlerCtx.events.streamVersion(run.runId);
+
     // Q7 fingerprint check FIRST — before we claim the run, before any
     // expensive work, before we burn a stream-version. If the workflow
     // definition changed since the run started, fail loud (do NOT silent-
@@ -111,6 +118,7 @@ export async function runResumeLoop(
             ).message,
             reason: "workflow_definition_changed",
           },
+          expectedVersion: runStreamVersion,
         });
         continue;
       }
@@ -132,6 +140,7 @@ export async function runResumeLoop(
           stepIndex: run.stepIndex,
           retryAttempt: run.retryAttempt,
         },
+        expectedVersion: runStreamVersion,
       });
     } catch (error) {
       if (error instanceof VersionConflictError) {
@@ -181,6 +190,7 @@ export async function runResumeLoop(
           aggregateType: WORKFLOW_AGGREGATE_TYPE,
           type: WORKFLOW_RUN_COMPLETED_TYPE,
           payload: { stepIndex: run.stepIndex },
+          blindAppendReason: RUN_STREAM_CLAIMED_REASON,
         });
       }
 
@@ -201,6 +211,7 @@ export async function runResumeLoop(
           stepIndex: run.stepIndex,
           error: describeWorkflowStepError(error),
         },
+        blindAppendReason: RUN_STREAM_CLAIMED_REASON,
       });
     }
   }

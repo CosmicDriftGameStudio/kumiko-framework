@@ -50,7 +50,7 @@ import { asTypedAppendEventFn } from "./typed-append-event.ts";
 
 async function appendDomainEvent(
   ctx: DispatchContext,
-  args: AppendEventArgs & { readonly expectedVersion?: number },
+  args: AppendEventArgs,
   user: SessionUser,
   tx: DbTx | undefined,
   callerFeature: string | undefined,
@@ -304,9 +304,8 @@ export function buildEventStoreFacet(scope: HandlerContextScope): {
 } {
   const { ctx, type, user, tx, registry } = scope;
   const events: EventsFacet = {
-    // Strict + unsafe share the same runtime — only the type-surface
-    // differs. The strict signature is what's exposed to typed callers;
-    // unsafe is the explicit escape-hatch for runtime-pluggable events.
+    // Strict and unsafe differ only in the payload type; both enforce the concurrency contract in
+    // appendDomainEventCore.
     append: asTypedAppendEventFn(async (args: AppendEventArgs) => {
       await appendDomainEvent(ctx, args, user, tx, registry.getHandlerFeature(type));
     }),

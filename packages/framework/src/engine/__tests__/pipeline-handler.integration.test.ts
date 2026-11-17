@@ -210,6 +210,7 @@ const annotateHandler = defineWriteHandler({
     }),
     r.step.aggregate.appendEvent({
       aggregateId: ({ steps }) => (steps["widget"] as { id: string }).id,
+      blindAppendReason: "the step appends an annotation to a stream the same pipeline just created; ordering is not under test",
       aggregateType: "widget",
       // Type below is registered via r.defineEvent in the feature
       // registration further down — keeps the demo feature self-

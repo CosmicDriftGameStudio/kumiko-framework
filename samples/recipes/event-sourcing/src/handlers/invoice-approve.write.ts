@@ -23,6 +23,8 @@ export function createInvoiceApproveWrite(
         aggregateId: event.payload.id,
         aggregateType: "showcase-invoice",
         payload: { amountCents: event.payload.amountCents, approvedBy: event.payload.approvedBy },
+        blindAppendReason:
+          "an approval is a fact about the invoice; the handler reads no invoice state to decide it",
         ...(Object.keys(headers).length > 0 ? { headers } : {}),
       });
       return { isSuccess: true as const, data: { id: event.payload.id } };

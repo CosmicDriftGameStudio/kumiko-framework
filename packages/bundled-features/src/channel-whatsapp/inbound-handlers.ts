@@ -92,7 +92,7 @@ export function createReceiveMessageHandler(options: ResolvedWhatsappOptions) {
       const input = event.payload;
       const tenantId = event.user.tenantId;
       const aggregateId = whatsappMessageAggregateId(tenantId, input.wamid);
-      // tryAppend re-reads the stream version, so a delivery that committed after our load would land as a second event.
+      // The lock keeps the empty-stream check below true until the append; expectedVersion 0 backstops it.
       await ctx.db.advisoryXactLock(WHATSAPP_STREAM_LOCK_NAMESPACE, aggregateId);
 
       // Dedupe before the limit: Meta's redeliveries must not use up the sender's budget.
@@ -121,6 +121,7 @@ export function createReceiveMessageHandler(options: ResolvedWhatsappOptions) {
           aggregateType: WHATSAPP_MESSAGE_AGGREGATE_TYPE,
           type: WHATSAPP_THROTTLED_EVENT_QN,
           payload,
+          expectedVersion: 0,
         });
         return appended.ok ? OUTCOME_THROTTLED : OUTCOME_DUPLICATE;
       }
@@ -160,6 +161,7 @@ export function createReceiveMessageHandler(options: ResolvedWhatsappOptions) {
         aggregateType: WHATSAPP_MESSAGE_AGGREGATE_TYPE,
         type: WHATSAPP_MESSAGE_RECEIVED_EVENT_QN,
         payload,
+        expectedVersion: 0,
       });
       return appended.ok ? OUTCOME_STORED : OUTCOME_DUPLICATE;
     },
@@ -184,7 +186,7 @@ export function createRecordStatusHandler(options: ResolvedWhatsappOptions) {
         input.status,
         input.rawStatus,
       );
-      // tryAppend re-reads the stream version, so a delivery that committed after our load would land as a second event.
+      // The lock keeps the empty-stream check below true until the append; expectedVersion 0 backstops it.
       await ctx.db.advisoryXactLock(WHATSAPP_STREAM_LOCK_NAMESPACE, aggregateId);
       if ((await ctx.events.load(aggregateId)).length > 0) return OUTCOME_DUPLICATE;
 
@@ -207,6 +209,7 @@ export function createRecordStatusHandler(options: ResolvedWhatsappOptions) {
         aggregateType: WHATSAPP_STATUS_AGGREGATE_TYPE,
         type: WHATSAPP_STATUS_UPDATED_EVENT_QN,
         payload,
+        expectedVersion: 0,
       });
       return appended.ok ? OUTCOME_STORED : OUTCOME_DUPLICATE;
     },

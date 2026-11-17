@@ -32,6 +32,7 @@ const catchUpFixtureFeature = defineFeature("catch-up-fixture", (r) => {
     handler: async (cmd, ctx) => {
       await ctx.events.unsafeAppend({
         aggregateId: cmd.payload.pingId,
+        blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
         aggregateType: "ping",
         type: ping.name,
         payload: cmd.payload,

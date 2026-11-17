@@ -61,6 +61,7 @@ const jobAppendFeature = defineFeature("jobappend", (r) => {
   r.job("append-own", { trigger: { manual: true }, retries: 0 }, async (payload, ctx) => {
     await untypedAppend(ctx)({
       aggregateId: String(payload["noteId"]),
+      blindAppendReason: "the job appends one independent note; ordering is not under test",
       aggregateType: "note",
       type: noted.name,
       payload: { text: String(payload["text"]) },
@@ -71,6 +72,7 @@ const jobAppendFeature = defineFeature("jobappend", (r) => {
     try {
       await untypedAppend(ctx)({
         aggregateId: String(payload["noteId"]),
+        blindAppendReason: "the job appends one independent note; ordering is not under test",
         aggregateType: "note",
         type: "jobappendother:event:foreign",
         payload: { text: "x" },
@@ -84,6 +86,7 @@ const jobAppendFeature = defineFeature("jobappend", (r) => {
     try {
       await untypedAppend(ctx)({
         aggregateId: String(payload["noteId"]),
+        blindAppendReason: "the job appends one independent note; ordering is not under test",
         aggregateType: "note",
         type: noted.name,
         payload: { text: 42 },

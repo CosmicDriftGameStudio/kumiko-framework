@@ -109,6 +109,7 @@ const mspFeature = defineFeature("msptest", (r) => {
       if (!res.isSuccess) return res;
       await ctx.events.unsafeAppend({
         aggregateId: String(res.data.id),
+        blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
         aggregateType: "msp-shipment",
         type: shipmentBilled.name,
         payload: { customer: event.payload.customer, cents: event.payload.cents },
@@ -130,6 +131,7 @@ const mspFeature = defineFeature("msptest", (r) => {
       if (!res.isSuccess) return res;
       await ctx.events.unsafeAppend({
         aggregateId: String(res.data.id),
+        blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
         aggregateType: "msp-refund",
         type: refundIssued.name,
         payload: { customer: event.payload.customer, cents: event.payload.cents },

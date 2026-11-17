@@ -90,6 +90,7 @@ map from payload field to owner, `{ email: { personal: { of: "userId" } } }`; re
 fails without it.
 Emit it inside a write handler with `emitEvent(ctx, def, { ... })` or
 `ctx.events.append(...)`; it commits in the same transaction as the write.
+Every append states `expectedVersion` (read `ctx.events.streamVersion` before you read state; `0` for a stream you create) or a concrete `blindAppendReason`; without one it throws.
 React to it with `r.projection(...)` (state on the same stream) or
 `r.multiStreamProjection({ name, apply })` (async consumer across streams,
 at least once, ordered).

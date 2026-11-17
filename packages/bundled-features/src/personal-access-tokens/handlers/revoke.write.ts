@@ -44,6 +44,7 @@ export const revokePatWrite = defineWriteHandler({
         aggregateType: PAT_REVOKED_AGGREGATE_TYPE,
         type: PAT_REVOKED_EVENT_QN,
         payload: { userId: event.user.id, tokenIds: [event.payload.id] },
+        expectedVersion: 0,
       });
       return { isSuccess: true, data: { id: event.payload.id } };
     }

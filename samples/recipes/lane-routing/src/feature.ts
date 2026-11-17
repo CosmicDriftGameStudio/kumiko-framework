@@ -61,6 +61,7 @@ export function createLaneRoutingFeature(): FeatureDefinition {
           aggregateType: "order",
           type: "orders:event:order-placed",
           payload: { orderId, amount: event.payload.amount },
+          expectedVersion: 0,
         });
         return {
           isSuccess: true as const,

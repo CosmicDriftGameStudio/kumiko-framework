@@ -67,6 +67,7 @@ export const ticketingFeature = defineFeature("ticketing", (r) => {
     schema: z.object({ id: z.uuid(), resolution: z.string().min(1) }),
     access: ticketAccess,
     handler: async (event, ctx) => {
+      const streamVersion = await ctx.events.streamVersion(event.payload.id);
       const ticket = await ticketExecutor.detail({ id: event.payload.id }, event.user, ctx.db);
       if (!ticket) return failNotFound("ticket", event.payload.id);
       if (ticket["status"] === "closed") return failUnprocessable("ticket_already_closed");
@@ -74,6 +75,7 @@ export const ticketingFeature = defineFeature("ticketing", (r) => {
         aggregateId: event.payload.id,
         aggregateType: "ticket",
         payload: { resolution: event.payload.resolution },
+        expectedVersion: streamVersion,
       });
       return { isSuccess: true as const, data: { id: event.payload.id } };
     },

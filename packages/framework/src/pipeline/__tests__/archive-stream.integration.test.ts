@@ -51,6 +51,7 @@ const archFeature = defineFeature("archtest", (r) => {
     handler: async (event, ctx) => {
       await ctx.events.unsafeAppend({
         aggregateId: event.payload.id,
+        blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
         aggregateType: "arch-item",
         type: labelChanged.name,
         payload: { label: event.payload.label },

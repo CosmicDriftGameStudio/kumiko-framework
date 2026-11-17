@@ -16,11 +16,13 @@ describe("emitEvent", () => {
     await emitEvent(ctx, orderPlaced, {
       aggregateId: "agg-1",
       aggregateType: "pubsub-order",
+      expectedVersion: 0,
       payload: { id: "agg-1", customer: "alice" },
     });
     expect(ctx.events.unsafeAppend).toHaveBeenCalledWith({
       aggregateId: "agg-1",
       aggregateType: "pubsub-order",
+      expectedVersion: 0,
       type: "pubsub-orders:event:order-placed",
       payload: { id: "agg-1", customer: "alice" },
     });
@@ -33,6 +35,7 @@ describe("emitEvent", () => {
     await emitEvent(ctx, orderPlaced, {
       aggregateId: "a",
       aggregateType: "pubsub-order",
+      expectedVersion: 0,
       payload: { id: "a", customer: "bob" },
     });
     const call = ctx.events.unsafeAppend.mock.calls[0]?.[0] as { payload: unknown };

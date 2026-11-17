@@ -18,6 +18,8 @@ export function createInvoiceAcknowledgeWrite(
         aggregateId: event.payload.id,
         aggregateType: "showcase-invoice",
         payload: { approverId: event.payload.approverId, approverDisplayName },
+        blindAppendReason:
+          "the acknowledgement reads the approver directory, not the invoice stream, so later invoice events cannot invalidate it",
       });
       return { isSuccess: true as const, data: { id: event.payload.id } };
     },

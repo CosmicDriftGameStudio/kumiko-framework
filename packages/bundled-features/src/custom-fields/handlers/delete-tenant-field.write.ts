@@ -61,6 +61,8 @@ export function createDeleteTenantFieldHandler(
           aggregateType: FIELD_DEFINITION_AGGREGATE_TYPE,
           type: createCustomFieldsFeature().exports.fieldDefinitionDeletedEvent.name,
           payload: { entityName: payload.entityName, fieldKey: payload.fieldKey, tenantId },
+          blindAppendReason:
+            "cascade event right after the executor delete in this transaction, which already pinned the definition stream's version; it only announces the delete that just happened",
         });
       }
 

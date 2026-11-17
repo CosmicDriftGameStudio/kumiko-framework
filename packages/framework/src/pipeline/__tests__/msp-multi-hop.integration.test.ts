@@ -60,6 +60,7 @@ const mmhFeature = defineFeature("mmh", (r) => {
       if (!created.isSuccess) return created;
       await ctx.events.unsafeAppend({
         aggregateId: String(created.data.id),
+        blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
         aggregateType: "mmh-order",
         type: placed.name,
         payload: { orderId: String(created.data.id) },
@@ -80,6 +81,7 @@ const mmhFeature = defineFeature("mmh", (r) => {
         confirmLoadCounts.push(history.length);
         await ctx.unsafeAppendEvent({
           aggregateId: event.aggregateId,
+          blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
           aggregateType: "mmh-order",
           type: confirmed.name,
           payload: { orderId: event.aggregateId },
@@ -96,6 +98,7 @@ const mmhFeature = defineFeature("mmh", (r) => {
         if (!ctx) throw new Error("MSP-apply ctx missing — regression of C.2b wiring");
         await ctx.unsafeAppendEvent({
           aggregateId: event.aggregateId,
+          blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
           aggregateType: "mmh-order",
           type: shipped.name,
           payload: { orderId: event.aggregateId },

@@ -70,6 +70,7 @@ const causationFeature = defineFeature("causation", (r) => {
       if (!created.isSuccess) return created;
       await ctx.events.unsafeAppend({
         aggregateId: String(created.data.id),
+        blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
         aggregateType: "causation-order",
         type: placed.name,
         payload: { orderId: String(created.data.id) },

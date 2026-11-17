@@ -65,6 +65,7 @@ const tryAppendFeature = defineFeature("tae", (r) => {
     handler: async (event, ctx) => {
       const result = await ctx.events.tryAppend({
         aggregateId: event.payload.aggregateId,
+        blindAppendReason: "the test races blind writers on purpose to prove a lost append does not poison the transaction",
         aggregateType: TAE_AGGREGATE_TYPE,
         type: appended.name,
         payload: { note: event.payload.note },

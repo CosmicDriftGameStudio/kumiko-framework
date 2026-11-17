@@ -78,6 +78,7 @@ const workerProbeFeature = defineFeature("worker-probe", (r) => {
     handler: async (event, ctx) => {
       await ctx.events.append({
         aggregateId: crypto.randomUUID(),
+        expectedVersion: 0,
         aggregateType: "probe-ping",
         type: "worker-probe:event:pinged",
         payload: { note: event.payload.note },

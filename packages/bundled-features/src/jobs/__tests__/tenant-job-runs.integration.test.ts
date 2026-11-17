@@ -72,6 +72,7 @@ const generateWrite = defineWriteHandler({
   handler: async (event, ctx) => {
     await ctx.events.append({
       aggregateId: crypto.randomUUID(),
+      expectedVersion: 0,
       aggregateType: "generation-requested",
       type: "app:event:generation-requested",
       payload: { campaignId: event.payload.campaignId, mode: event.payload.mode },
@@ -88,6 +89,7 @@ const plainWrite = defineWriteHandler({
   handler: async (event, ctx) => {
     await ctx.events.append({
       aggregateId: crypto.randomUUID(),
+      expectedVersion: 0,
       aggregateType: "plain-requested",
       type: "app:event:plain-requested",
       payload: { campaignId: event.payload.campaignId },

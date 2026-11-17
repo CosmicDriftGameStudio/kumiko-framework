@@ -103,6 +103,7 @@ export function createClaimTenantHandoverHandler(opts: ClaimTenantHandoverOption
               destinationTenantId,
               movedEntities,
             },
+            expectedVersion: 0,
           });
 
           return true;

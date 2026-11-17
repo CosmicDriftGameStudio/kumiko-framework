@@ -21,6 +21,7 @@ const ordersFeature = defineFeature("orders", (r) => {
     handler: async (event, ctx) => {
       await ctx.events.append({
         aggregateId: crypto.randomUUID(),
+        expectedVersion: 0,
         aggregateType: "order",
         type: "orders:event:order-placed",
         payload: { product: event.payload.product, amount: event.payload.amount },

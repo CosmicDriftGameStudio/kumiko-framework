@@ -289,6 +289,7 @@ describe("step-dispatcher sweep-abandoned", () => {
         const stream = await realContext.loadAggregate(aggregateId, options);
         await realContext.unsafeAppendEvent({
           aggregateId,
+          blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
           aggregateType: STEP_DISPATCH_AGGREGATE_TYPE,
           type: DISPATCHED,
           payload: { stepKind: "mail.send", status: 202 },

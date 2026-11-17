@@ -282,6 +282,7 @@ async function appendDenialAuditEvent(
       aggregateType: CRYPTO_SHREDDING_AGGREGATE_TYPE,
       type: SUBJECT_FORGET_DENIED_EVENT_NAME,
       payload,
+      expectedVersion: 0,
     },
   );
   return null;
@@ -484,6 +485,7 @@ export const forgetSubjectWrite = defineWriteHandler({
       aggregateType: CRYPTO_SHREDDING_AGGREGATE_TYPE,
       type: SUBJECT_FORGOTTEN_EVENT_NAME,
       payload: { subjectKey, reason: event.payload.reason, forgottenBy: event.user.id },
+      expectedVersion: 0,
     });
     return { isSuccess: true as const, data: { subjectKey } };
   },

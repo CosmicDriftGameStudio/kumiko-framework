@@ -43,6 +43,7 @@ export function createDisconnectAccountHandler({ adminRoles }: InboundMailRoles)
       // @cast-boundary engine-payload — dispatcher-zod-validated payload
       const payload = event.payload as DisconnectAccountPayload;
 
+      const accountStreamVersion = await ctx.events.streamVersion(payload.accountId);
       const current = await loadCurrentMailAccountPayload(ctx, payload.accountId);
       if (!current) {
         return failNotFound("mail-account", payload.accountId);
@@ -69,6 +70,7 @@ export function createDisconnectAccountHandler({ adminRoles }: InboundMailRoles)
         type: MAIL_ACCOUNT_DISCONNECTED_EVENT_QN,
         payload: eventPayload,
         headers,
+        expectedVersion: accountStreamVersion,
       });
 
       // Tests and apps without a secrets store have no credential to remove.

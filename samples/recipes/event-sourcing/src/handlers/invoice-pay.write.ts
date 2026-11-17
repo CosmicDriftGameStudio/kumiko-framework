@@ -10,6 +10,8 @@ export function createInvoicePayWrite(paid: EventDef<{ amountCents: number }>) {
         aggregateId: event.payload.id,
         aggregateType: "showcase-invoice",
         payload: { amountCents: event.payload.amountCents },
+        blindAppendReason:
+          "a payment is a fact about the invoice; the handler reads no invoice state to decide it",
       });
       return { isSuccess: true as const, data: { id: event.payload.id } };
     },

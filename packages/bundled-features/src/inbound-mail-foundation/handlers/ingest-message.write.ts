@@ -219,6 +219,7 @@ export const ingestMessageHandler = defineWriteHandler({
       type: INBOUND_MESSAGE_RECEIVED_EVENT_QN,
       payload: messageEventPayload,
       headers: messageHeaders,
+      expectedVersion: 0,
     });
     if (!messageAppend.ok) {
       // Lost the race against a concurrent ingest for the same messageAggId

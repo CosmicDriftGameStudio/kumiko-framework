@@ -193,5 +193,7 @@ export async function recordConsent(
     aggregateType: isSubscription ? SUBSCRIPTION_AGGREGATE_TYPE : PAYMENT_AGGREGATE_TYPE,
     type: CHECKOUT_CONSENT_RECORDED_EVENT_QN,
     payload,
+    blindAppendReason:
+      "a recorded consent is the evidence of what the user accepted at submit time; later stream events do not change what was accepted",
   });
 }

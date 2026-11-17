@@ -45,7 +45,7 @@ export function createMultiStreamApplyContext(
 ): MultiStreamApplyContext {
   const appendWithLabel = async (
     callSiteLabel: string,
-    args: AppendEventArgs & { readonly expectedVersion?: number },
+    args: AppendEventArgs,
   ): Promise<void> => {
     await appendDomainEventCore(
       {

@@ -48,6 +48,7 @@ export const unsubscribeAddressWrite = defineWriteHandler({
       aggregateType: "delivery-address-unsubscribe",
       type: DELIVERY_ADDRESS_UNSUBSCRIBED_EVENT,
       payload: { addressHash, notificationType, channel },
+      expectedVersion: 0,
     });
     return { isSuccess: true, data: { notificationType, channel } };
   },

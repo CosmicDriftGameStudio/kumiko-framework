@@ -60,6 +60,7 @@ export const revokeWrite = defineWriteHandler({
         aggregateType: SESSION_REVOKED_AGGREGATE_TYPE,
         type: SESSION_REVOKED_EVENT_QN,
         payload: { userId: event.user.id, sessionIds: [event.payload.id] },
+        expectedVersion: 0,
       });
       return { isSuccess: true, data: { id: event.payload.id } };
     }

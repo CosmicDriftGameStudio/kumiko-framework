@@ -187,9 +187,9 @@ export async function appendSubscriptionEvent(
   const aggId = subscriptionAggregateId(tenantId);
   const payload = clampProviderEventAt(rawPayload, now);
 
-  // The lock serialises the read (idempotency + late check) with the append: the append re-reads the
-  // stream version itself, so without it a concurrent delivery could slip in between and the late
-  // check would have judged an outdated stream. A caller that already holds it passes its stream.
+  // The lock serialises the read (idempotency + late check) with the append; the append is pinned to
+  // the version of the stream that was judged, so an unlocked writer slipping in conflicts instead of
+  // landing on top. A caller that already holds the lock passes its stream.
 
   // ---------------------------------------------------------------
   // 1. Idempotency: load the subscription stream and check whether this
@@ -283,6 +283,7 @@ export async function appendSubscriptionEvent(
     type: esEventType,
     payload: eventPayload,
     headers,
+    expectedVersion: existingEvents.at(-1)?.version ?? 0,
   });
 
   return { duplicate: false, subscriptionAggregateId: aggId };
