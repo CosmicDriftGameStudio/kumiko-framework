@@ -52,6 +52,8 @@ import {
 } from "../../tenant/membership-roles.ts";
 // kumiko-lint-ignore cross-feature-import invitee lookup by email reads the user row
 import { userTable } from "../../user/schema/user.ts";
+// kumiko-lint-ignore cross-feature-import global-role options are owned by the user feature
+import { GLOBAL_ROLE_OPTIONS, type GlobalRole } from "../../user/web/constants.ts";
 import type { AuthMailLocale } from "../email-templates.ts";
 import { inviteAlreadyAccepted } from "../errors.ts";
 import { invalidateExistingInviteToken, storeInviteToken } from "../invite-token-store.ts";
@@ -70,6 +72,7 @@ export type InviteCreateData = {
   readonly tenantId: string;
   readonly email: string;
   readonly role: string;
+  readonly globalRoles: readonly GlobalRole[];
   readonly expiresAt: string;
 };
 
@@ -111,6 +114,7 @@ function findRankedRole(roles: readonly string[]): string | undefined {
 type InviteIssueRequest = {
   readonly email: string;
   readonly role: string;
+  readonly globalRoles: readonly GlobalRole[];
   readonly locale?: string | undefined;
 };
 
@@ -201,6 +205,9 @@ async function issueInvitation(
         version: existingVersion,
         changes: {
           role: request.role,
+          // Always written, also as []: a tenant-admin resend must drop
+          // global roles a previous system invite put on this row.
+          globalRoles: [...request.globalRoles],
           status: INVITATION_STATUS.pending,
           invitedBy: inviter.id,
           membershipVersion,
@@ -216,6 +223,7 @@ async function issueInvitation(
       {
         email,
         role: request.role,
+        globalRoles: [...request.globalRoles],
         status: INVITATION_STATUS.pending,
         invitedBy: inviter.id,
         membershipVersion,
@@ -261,6 +269,7 @@ async function issueInvitation(
       tenantId,
       email,
       role: request.role,
+      globalRoles: request.globalRoles,
       expiresAt: expiresAt.toString(),
     },
   };
@@ -297,7 +306,7 @@ export function createInviteCreateHandler(opts: InviteCreateOptions) {
       return issueInvitation(
         opts,
         ttlSeconds,
-        { email: event.payload.email, role: event.payload.role },
+        { email: event.payload.email, role: event.payload.role, globalRoles: [] },
         event.user,
         ctx,
       );
@@ -308,13 +317,15 @@ export function createInviteCreateHandler(opts: InviteCreateOptions) {
 const SystemInviteCreateSchema = z.object({
   email: z.email(),
   role: z.string().min(1).max(50),
+  globalRoles: z.array(z.enum(GLOBAL_ROLE_OPTIONS)).max(GLOBAL_ROLE_OPTIONS.length).default([]),
   // Preferred over the request locale: provisioning callers know the invitee's language.
   locale: z.string().max(35).refine(isValidLocaleTag, "invalid locale tag").optional(),
 });
 
-// System-only sibling of invite-create for in-process callers dispatching as
-// createSystemUser (the waitlist). It refuses to reissue an accepted invitation;
-// no session mint path yields the "system" role, so HTTP callers get 403.
+// System-only sibling of invite-create: the only path that can put global
+// roles (SystemAdmin) on an invitation. No session mint path yields the
+// "system" role (users.roles only accepts GLOBAL_ROLE_OPTIONS), so only
+// in-process callers dispatching as createSystemUser (runBootstrap) get here.
 export function createSystemInviteCreateHandler(opts: InviteCreateOptions) {
   assertAppDefinedAdditionalRoles(opts);
   const ttlSeconds = (opts.tokenTtlMinutes ?? AUTH_INVITE_DEFAULT_TTL_MINUTES) * 60;
@@ -329,7 +340,7 @@ export function createSystemInviteCreateHandler(opts: InviteCreateOptions) {
     access: { roles: access.system },
     agent: { expose: false },
     description:
-      "System-only invite into the dispatching tenant for in-process callers such as the waitlist; refuses an invitation that was already accepted.",
+      "System-only invite into the dispatching tenant that may additionally carry global roles, which the invitee receives only when accepting; used by provisioning such as runBootstrap.",
     handler: async (event, ctx) => {
       const roleRejection = checkAssignableInviteRole(
         opts,

@@ -8,7 +8,9 @@ export {
   TARGET_USER_OUTRANKS_ACTOR,
 } from "./lib/deny-if-target-beyond-admin-reach.ts";
 export { isSystemAdminActor } from "./lib/is-admin-actor.ts";
-export { updateUserLifecycle } from "./lib/update-user-lifecycle.ts";
+// Reconcile existing data once before re-enabling read_users rebuilds.
+// See the library documentation for the required procedure.
+export { backfillUserLifecycleEvents, updateUserLifecycle } from "./lib/update-user-lifecycle.ts";
 export type { UserDataRightsOptions } from "./options.ts";
 export type {
   SendExportFailedEmailFn,

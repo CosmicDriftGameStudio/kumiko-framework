@@ -3,6 +3,26 @@ import type { DbRunner } from "../db/index.ts";
 import type { TenantId } from "../engine/types/index.ts";
 import { EventVersionAheadError } from "./errors.ts";
 import type { StoredEvent } from "./event-store.ts";
+import { recordUpcasterDeadLetter } from "./upcaster-dead-letter.ts";
+
+// Error-handling contract for the upcast pass.
+//
+//   throw      — the pass aborts, the dispatcher retries, a permanently broken
+//                payload eventually dead-letters at the consumer level after
+//                maxAttempts retries. Pick this when every event must land
+//                exactly once and "skip" is never acceptable.
+//
+//   quarantine — the failing event is written to `kumiko_upcaster_dead_letters`
+//                with the error + original payload and REMOVED from the
+//                returned list. The dispatcher skips it cleanly; ops tooling
+//                replays after the code fix. Pick this for projections where a
+//                single unrenderable historic event shouldn't block the rest
+//                of the stream.
+export type UpcasterErrorPolicy = "throw" | "quarantine";
+
+export type UpcastOptions = {
+  readonly errorPolicy?: UpcasterErrorPolicy;
+};
 
 // Event schema evolution (Marten-style upcaster). An event's stored payload
 // stays immutable on disk; when a feature bumps the event version and
@@ -32,7 +52,8 @@ export type EventUpcasters = ReadonlyMap<
 //   - Gaps in the chain are a hard error. The registry validates chain
 //     completeness at boot, so this throw is a belt-and-suspenders signal
 //     that something wrote a version number the registry doesn't expect.
-//   - A failing transform propagates its error.
+//   - A failing transform propagates its error (errorPolicy "throw"); with
+//     "quarantine" it is recorded as an upcaster dead letter and the event is dropped.
 //
 // `ctx` carries db + tenantId for async upcasters that need DB enrichment.
 // Sync transforms ignore ctx entirely.
@@ -41,6 +62,25 @@ export async function upcastStoredEvent(
   upcasters: EventUpcasters,
   ctx: EventUpcastCtx,
 ): Promise<StoredEvent> {
+  const result = await upcastStoredEventWithPolicy(event, upcasters, ctx, {
+    errorPolicy: "throw",
+  });
+  // `throw` mode never returns null: the catch-block rethrows.
+  if (result === null) {
+    throw new Error(
+      `unreachable: upcastStoredEvent with errorPolicy="throw" returned null for "${event.type}"`,
+    );
+  }
+  return result;
+}
+
+// Returns null when the transform threw AND errorPolicy="quarantine".
+async function upcastStoredEventWithPolicy(
+  event: StoredEvent,
+  upcasters: EventUpcasters,
+  ctx: EventUpcastCtx,
+  options: UpcastOptions,
+): Promise<StoredEvent | null> {
   const info = upcasters.get(event.type);
   const knownVersion = info?.currentVersion ?? 1;
   if (event.eventVersion > knownVersion) {
@@ -50,17 +90,32 @@ export async function upcastStoredEvent(
 
   let payload = event.payload as unknown; // @cast-boundary engine-payload
   let v = event.eventVersion;
+  const startVersion = event.eventVersion;
   while (v < info.currentVersion) {
     const transform = info.chain.get(v);
     if (!transform) {
-      // Missing chain is a boot-validator bug, not a data problem.
+      // Missing chain is a boot-validator bug, not a data problem: always throw
+      // regardless of policy so the gap gets fixed instead of rotting into dead letters.
       throw new Error(
         `Missing upcaster for event "${event.type}" v${v} → v${v + 1}. ` +
           `The registry should have caught this at boot — check the eventUpcasterMap wiring.`,
       );
     }
-    payload = await transform(payload, ctx);
-    v++;
+    try {
+      payload = await transform(payload, ctx);
+      v++;
+    } catch (err) {
+      if (options.errorPolicy === "quarantine") {
+        await recordUpcasterDeadLetter(ctx.db, {
+          event,
+          fromVersion: startVersion,
+          targetVersion: info.currentVersion,
+          error: err,
+        });
+        return null;
+      }
+      throw err;
+    }
   }
   return {
     ...event,
@@ -73,8 +128,12 @@ export async function upcastStoredEvents(
   events: readonly StoredEvent[],
   upcasters: EventUpcasters,
   ctx: EventUpcastCtx,
+  options: UpcastOptions = {},
 ): Promise<readonly StoredEvent[]> {
-  return Promise.all(events.map((e) => upcastStoredEvent(e, upcasters, ctx)));
+  const results = await Promise.all(
+    events.map((e) => upcastStoredEventWithPolicy(e, upcasters, ctx, options)),
+  );
+  return results.filter((e): e is StoredEvent => e !== null);
 }
 
 // Convenience builder for callers that have db + tenantId at hand and want

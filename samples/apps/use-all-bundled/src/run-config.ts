@@ -16,6 +16,7 @@
 
 import { createAccountSecurityFeature } from "@cosmicdrift/kumiko-bundled-features/account-security";
 import { createAdminShellFeature } from "@cosmicdrift/kumiko-bundled-features/admin-shell";
+import { createAgentToolsFeature } from "@cosmicdrift/kumiko-bundled-features/agent-tools";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { createAuthMfaFeature } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import { createBillingFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
@@ -28,6 +29,10 @@ import {
   type EmailTransport,
 } from "@cosmicdrift/kumiko-bundled-features/channel-email";
 import { createChannelInAppFeature } from "@cosmicdrift/kumiko-bundled-features/channel-in-app";
+import {
+  createChannelPushFeature,
+  type PushTransport,
+} from "@cosmicdrift/kumiko-bundled-features/channel-push";
 import { createChannelSlackFeature } from "@cosmicdrift/kumiko-bundled-features/channel-slack";
 import { createChannelTeamsFeature } from "@cosmicdrift/kumiko-bundled-features/channel-teams";
 import { createChannelTelegramFeature } from "@cosmicdrift/kumiko-bundled-features/channel-telegram";
@@ -73,6 +78,7 @@ import { createPersonalAccessTokensFeature } from "@cosmicdrift/kumiko-bundled-f
 import { createPresenceFeature } from "@cosmicdrift/kumiko-bundled-features/presence";
 import { createReadinessFeature } from "@cosmicdrift/kumiko-bundled-features/readiness";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
+import { createRendererPdfFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-pdf";
 import { createRendererPuppeteerClientFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-puppeteer-client";
 import { createSecretsFeature } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { createSeoFeature } from "@cosmicdrift/kumiko-bundled-features/seo";
@@ -109,6 +115,11 @@ import { patScopeLabelsFeature } from "./app/pat-scope-labels-feature";
 // Smoke-only stubs. Boot-mode skipt jede operative Methode — diese werden
 // nie aufgerufen, nur typecheck'd.
 const stubEmailTransport: EmailTransport = {
+  send: async () => {
+    /* smoke-only */
+  },
+};
+const stubPushTransport: PushTransport = {
   send: async () => {
     /* smoke-only */
   },
@@ -172,6 +183,10 @@ export const APP_FEATURES = [
   createChannelEmailFeature({
     transport: stubEmailTransport,
     resolveEmail: async () => "smoke@use-all-bundled.local",
+  }),
+  createChannelPushFeature({
+    transport: stubPushTransport,
+    resolveToken: async () => "smoke-push-token",
   }),
   // Chat channels are route-only and read their webhook URL / bot token from the
   // tenant's secrets at send time, so the smoke app needs no credentials here.
@@ -346,6 +361,7 @@ export const APP_FEATURES = [
   // collection-labels: the app-side nav labels for the two collections above.
   collectionLabelsFeature,
   createRendererFoundationFeature(),
+  createRendererPdfFeature(),
   // PDF printing for document templates; the print service is reached through
   // PUPPETEER_SERVICE_URL + PUPPETEER_AUTH_TOKEN and only asked when a PDF is generated.
   createRendererPuppeteerClientFeature(),
@@ -453,6 +469,7 @@ export const APP_FEATURES = [
   // document-ingest-foundation: Phase-1 skeleton — documentExtract entity +
   // ocrLanguage/maxPagesPerFile config, no handlers yet (kumiko-framework#1497).
   createDocumentIngestFoundationFeature(),
+  createAgentToolsFeature(),
 ] as const;
 
 // runProdApp / runDevApp mount feature-toggles themselves with `featureToggles: true`

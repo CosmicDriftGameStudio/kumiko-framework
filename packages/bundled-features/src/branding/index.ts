@@ -9,4 +9,10 @@ export {
 } from "./constants.ts";
 export { createBrandingCssFeature } from "./css-gate.ts";
 export { type BrandingOptions, createBrandingFeature } from "./feature.ts";
-export { coerceBranding, readBranding, readCustomCss } from "./keys.ts";
+export { coerceBranding } from "./keys.ts";
+export {
+  type BrandingTextName,
+  readBranding,
+  readBrandingText,
+  readCustomCss,
+} from "./legacy-fallback.ts";

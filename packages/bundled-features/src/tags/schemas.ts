@@ -53,3 +53,14 @@ export function rejectInvalidTagColorChange(
   }
   return null;
 }
+
+// The entity's required name check does not trim, so a whitespace-only rename passes it; create trims.
+export function rejectBlankTagNameChange(
+  data: Readonly<Record<string, unknown>>,
+): readonly ValidationError[] | null {
+  const name = propertyOf(propertyOf(data, "changes"), "name");
+  if (typeof name === "string" && name.trim() === "") {
+    return [{ field: "name", error: "invalid_name" }];
+  }
+  return null;
+}

@@ -1,4 +1,8 @@
-import { BRANDING_QN } from "@cosmicdrift/kumiko-bundled-features/branding";
+import {
+  BRANDING_QN,
+  type BrandingTextName,
+  readBrandingText,
+} from "@cosmicdrift/kumiko-bundled-features/branding";
 import { isSafeHttpsUrl } from "@cosmicdrift/kumiko-bundled-features/page-render";
 import type { RendererContext } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import {
@@ -161,6 +165,19 @@ async function readConfigText(ctx: RendererContext, key: string): Promise<string
   return typeof value === "string" && value !== "" ? value : undefined;
 }
 
+// Same registry guard as readConfigText, but values stored under the keys branding had
+// before it became its own feature still count.
+async function readBrandingConfigText(
+  ctx: RendererContext,
+  name: BrandingTextName,
+): Promise<string | undefined> {
+  if (ctx.config === undefined || ctx.registry.getConfigKey(BRANDING_QN[name]) === undefined) {
+    return undefined;
+  }
+  const value = await readBrandingText(ctx.config, name);
+  return value !== "" ? value : undefined;
+}
+
 // Dates and numbers follow the template locale, the language the document is
 // read in; the tenant's locale setting must not turn a German invoice into
 // "Oct 1, 2026". The currency is a tenant fact and still comes from its settings.
@@ -186,7 +203,7 @@ export async function readDocumentFormat(
 
 // Without the branding feature there is no branding title; the tenant record's own name is the fallback.
 export async function readTenantName(ctx: RendererContext): Promise<string> {
-  const branded = await readConfigText(ctx, BRANDING_QN.title);
+  const branded = await readBrandingConfigText(ctx, "title");
   if (branded !== undefined) return branded;
   if (ctx.registry.getFeature(TENANT_FEATURE) === undefined) return "";
   const rows = await selectMany<{ name?: unknown }>(ctx.db, tenantTable, { id: ctx.tenantId });
@@ -195,12 +212,12 @@ export async function readTenantName(ctx: RendererContext): Promise<string> {
 }
 
 export async function readBrandingAccentColor(ctx: RendererContext): Promise<string | undefined> {
-  const value = await readConfigText(ctx, BRANDING_QN.accentColor);
+  const value = await readBrandingConfigText(ctx, "accentColor");
   return value !== undefined && isHexColor(value) ? value : undefined;
 }
 
 export async function readBrandingSiteUrl(ctx: RendererContext): Promise<string | undefined> {
-  return readConfigText(ctx, BRANDING_QN.siteUrl);
+  return readBrandingConfigText(ctx, "siteUrl");
 }
 
 export const LOGO_RESOURCE_KEY = "logo";
@@ -244,7 +261,7 @@ export async function resolveResourceFileRefs(
 // The token is a free field of the tenant admin and the send reader also reaches the system
 // tenant's files, so only a file of the rendering tenant itself counts.
 export async function readBrandingLogo(ctx: RendererContext): Promise<string | undefined> {
-  const fileRefId = await readConfigText(ctx, BRANDING_QN.logoFile);
+  const fileRefId = await readBrandingConfigText(ctx, "logoFile");
   if (fileRefId === undefined || !isUuid(fileRefId)) return undefined;
   const [row] = await selectMany<{ id: string }>(ctx.db, fileRefsTable, {
     id: fileRefId,
@@ -257,7 +274,7 @@ export async function readBrandingLogo(ctx: RendererContext): Promise<string | u
 // The branding mask also stores a logo address instead of an upload. Mail clients load it
 // themselves; the PDF renderer must not, since the server would fetch an arbitrary URL.
 export async function readBrandingLogoUrl(ctx: RendererContext): Promise<string | undefined> {
-  const value = await readConfigText(ctx, BRANDING_QN.logoUrl);
+  const value = await readBrandingConfigText(ctx, "logoUrl");
   return value !== undefined && isSafeHttpsUrl(value) ? value : undefined;
 }
 

@@ -13,7 +13,7 @@ import { type ComposedEnvSchema, readKumikoMeta } from "@cosmicdrift/kumiko-fram
 import * as z from "zod";
 import { isNamedS3FileProvider, s3KeysOf } from "./file-storage-option.ts";
 import { type BootOptionFields, isSeedFnList } from "./resolve-boot-options.ts";
-import { meiliEnvSchema } from "./search-option.ts";
+import { meiliEnvSchema, searchProviderOf } from "./search-option.ts";
 import type { ProdSeedsConfig } from "./seed-shortcuts.ts";
 
 type OptionEnvBlock = {
@@ -130,7 +130,7 @@ function collectOptionEnvBlocks(options: BootOptionFields): OptionEnvBlock[] {
     });
   }
   blocks.push(...fileStorageEnvBlocks(options.fileStorage));
-  if (options.search?.provider === "meili-env") {
+  if (searchProviderOf(options.search)?.provider === "meili-env") {
     blocks.push({
       source: "runProdApp.search",
       shape: meiliEnvSchema.shape,

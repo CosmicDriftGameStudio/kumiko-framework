@@ -377,151 +377,161 @@ async function forgetSubjectRows(ctx: HandlerContext, subject: SubjectId): Promi
   }
 }
 
-// Manual crypto-shred for a DPO / platform operator. Forgets the subject's opted-in rows and derived data (for a user also the record keys of rows the user owns) and appends subject-forgotten in one transaction; the subject-key-eraser consumer erases the DEK after commit (reads then render "[[erased]]").
+// Manual crypto-shred for a DPO / platform operator. Forgets the subject's opted-in rows and derived data (for a user also, when opted in, the record keys of rows the user owns) and appends subject-forgotten in one transaction; the subject-key-eraser consumer erases the DEK after commit (reads then render "[[erased]]").
 // Forget is final — the adapter keeps a tombstone. The automated Art.-17 path (user-data-rights forget-cleanup) erases keys inside its per-user sub-tx and shares the erasure core (eraseSubjectData).
-export const forgetSubjectWrite = defineWriteHandler({
-  name: "forget-subject",
-  schema: forgetSubjectSchema,
-  access: { roles: [ROLES.DataProtectionOfficer, ROLES.SystemAdmin] },
-  description:
-    "Irreversibly crypto-shreds one user, tenant or record subject: forgets the rows of entities that declare forgetWithSubject, erases the record keys of rows the user owns, purges its search documents, files and blind indexes, closes the user's login and has its encryption key erased right after commit, for supervisory-authority requests and operator recovery outside the automated Art. 17 cleanup pipeline.",
-  // Erasing the subject key is irreversible: there is no undo, so an agent must
-  // not be able to reach it at all.
-  agent: { expose: false, risk: "high" },
-  escapeHatch: {
-    grants: ["unsafeRaw"],
-    reason:
-      "the denial audit appends name the caller's own tenant stream on the outside-transaction db; " +
-      "the tenant-scope and retention checks and the row-owner lookups run against the subject's tenant, not necessarily the caller's; " +
-      "the blind-index sweep, search purge and file purge address the subject across tenants; " +
-      "the subject-forgotten events of owned record subjects land in each row's own tenant; " +
-      "the user lifecycle update and PAT revoke run on the SYSTEM user stream.",
-  },
-  handler: async (event, ctx) => {
-    assertIrreversibleOperationAllowed("forget-subject key erase");
-    // Without a KMS the consumer could never erase the key.
-    if (!configuredPiiSubjectKms()) {
-      return writeFailure(
-        new InternalError({
-          message:
-            "[crypto-shredding] forget-subject called but no KMS adapter is configured — " +
-            "pass runProdApp({ kms }) / configurePiiSubjectKms(adapter) at boot.",
-        }),
+export type ForgetSubjectOptions = {
+  /** Opt-in, default off: forgetting a user also erases the record keys of rows the user owns. */
+  readonly eraseOwnedRecordKeys?: boolean;
+};
+
+export function createForgetSubjectWrite(opts: ForgetSubjectOptions = {}) {
+  return defineWriteHandler({
+    name: "forget-subject",
+    schema: forgetSubjectSchema,
+    access: { roles: [ROLES.DataProtectionOfficer, ROLES.SystemAdmin] },
+    description:
+      "Irreversibly crypto-shreds one user, tenant or record subject: forgets the rows of entities that declare forgetWithSubject, and, when the app opts in with eraseOwnedRecordKeys, erases the record keys of rows the user owns, purges its search documents, files and blind indexes, closes the user's login and has its encryption key erased right after commit, for supervisory-authority requests and operator recovery outside the automated Art. 17 cleanup pipeline.",
+    // Erasing the subject key is irreversible: there is no undo, so an agent must
+    // not be able to reach it at all.
+    agent: { expose: false, risk: "high" },
+    escapeHatch: {
+      grants: ["unsafeRaw"],
+      reason:
+        "the denial audit appends name the caller's own tenant stream on the outside-transaction db; " +
+        "the tenant-scope and retention checks and the row-owner lookups run against the subject's tenant, not necessarily the caller's; " +
+        "the blind-index sweep, search purge and file purge address the subject across tenants; " +
+        "the subject-forgotten events of owned record subjects land in each row's own tenant; " +
+        "the user lifecycle update and PAT revoke run on the SYSTEM user stream.",
+    },
+    handler: async (event, ctx) => {
+      assertIrreversibleOperationAllowed("forget-subject key erase");
+      // Without a KMS the consumer could never erase the key.
+      if (!configuredPiiSubjectKms()) {
+        return writeFailure(
+          new InternalError({
+            message:
+              "[crypto-shredding] forget-subject called but no KMS adapter is configured — " +
+              "pass runProdApp({ kms }) / configurePiiSubjectKms(adapter) at boot.",
+          }),
+        );
+      }
+
+      const raw = event.payload.subject;
+      const subject = subjectOfInput(raw);
+      const subjectKey = subjectIdToKey(subject);
+
+      const tenantScopeDenial = await resolveTenantScopeDenial(
+        ctx.db.unsafeRawAllTenants(),
+        ctx.registry.features,
+        event.user,
+        raw,
       );
-    }
+      if (tenantScopeDenial) {
+        const auditFailure = await appendDenialAuditEvent(
+          ctx,
+          event,
+          subjectKey,
+          raw.kind,
+          denialReasonOf(tenantScopeDenial),
+          ctx.db.outsideTransaction?.unsafeRawAllTenants(),
+        );
+        return auditFailure ?? tenantScopeDenial;
+      }
 
-    const raw = event.payload.subject;
-    const subject = subjectOfInput(raw);
-    const subjectKey = subjectIdToKey(subject);
-
-    const tenantScopeDenial = await resolveTenantScopeDenial(
-      ctx.db.unsafeRawAllTenants(),
-      ctx.registry.features,
-      event.user,
-      raw,
-    );
-    if (tenantScopeDenial) {
-      const auditFailure = await appendDenialAuditEvent(
-        ctx,
-        event,
-        subjectKey,
-        raw.kind,
-        denialReasonOf(tenantScopeDenial),
-        ctx.db.outsideTransaction?.unsafeRawAllTenants(),
+      // Runs after the tenant gate but before any key is touched: a retention
+      // check ahead of the tenant gate would leak a foreign entity's retention
+      // posture to a cross-tenant prober.
+      const retentionDenial = await resolveRetentionDenial(ctx, raw, () =>
+        ctx.db.unsafeRawAllTenants(),
       );
-      return auditFailure ?? tenantScopeDenial;
-    }
+      if (retentionDenial) {
+        const auditFailure = await appendDenialAuditEvent(
+          ctx,
+          event,
+          subjectKey,
+          raw.kind,
+          TARGET_RECORD_RETENTION_BLOCK_DELETE,
+          ctx.db.outsideTransaction?.unsafeRawAllTenants(),
+        );
+        return auditFailure ?? retentionDenial;
+      }
 
-    // Runs after the tenant gate but before any key is touched: a retention
-    // check ahead of the tenant gate would leak a foreign entity's retention
-    // posture to a cross-tenant prober.
-    const retentionDenial = await resolveRetentionDenial(ctx, raw, () =>
-      ctx.db.unsafeRawAllTenants(),
-    );
-    if (retentionDenial) {
-      const auditFailure = await appendDenialAuditEvent(
-        ctx,
-        event,
-        subjectKey,
-        raw.kind,
-        TARGET_RECORD_RETENTION_BLOCK_DELETE,
-        ctx.db.outsideTransaction?.unsafeRawAllTenants(),
+      const requestId = requestContext.get()?.requestId ?? "crypto-shredding:forget-subject";
+      // Everything below runs in the handler transaction: a failure rolls the whole forget back and
+      // a retry redoes it. The key is erased only after commit, by the subject-key-eraser consumer.
+      const crossTenantRunner = ctx.db.unsafeRawAllTenants();
+      // DEK erase makes passwordHash unreadable, but status and PATs are separate credentials: the PAT
+      // resolver only checks revokedAt/expiresAt. Sessions re-check the user row on every request.
+      if (raw.kind === "user" && ctx.registry.features.has("user")) {
+        await closeUserLoginDoor(ctx, raw.userId, crossTenantRunner);
+      }
+      const recordTenantId = await owningTenantOfRecordSubject(
+        crossTenantRunner,
+        ctx.registry.features,
+        raw,
       );
-      return auditFailure ?? retentionDenial;
-    }
-
-    const requestId = requestContext.get()?.requestId ?? "crypto-shredding:forget-subject";
-    // Everything below runs in the handler transaction: a failure rolls the whole forget back and
-    // a retry redoes it. The key is erased only after commit, by the subject-key-eraser consumer.
-    const crossTenantRunner = ctx.db.unsafeRawAllTenants();
-    // DEK erase makes passwordHash unreadable, but status and PATs are separate credentials: the PAT
-    // resolver only checks revokedAt/expiresAt. Sessions re-check the user row on every request.
-    if (raw.kind === "user" && ctx.registry.features.has("user")) {
-      await closeUserLoginDoor(ctx, raw.userId, crossTenantRunner);
-    }
-    const recordTenantId = await owningTenantOfRecordSubject(
-      crossTenantRunner,
-      ctx.registry.features,
-      raw,
-    );
-    const ownedRecordSubjects = await eraseSubjectData({
-      registry: ctx.registry,
-      db: crossTenantRunner,
-      subject,
-      searchAdapter: ctx.services.searchAdapter,
-      ...(recordTenantId !== undefined && { recordTenantId }),
-      resolveDeleteBytes: resolveFileBytesDeleter(ctx),
-      missingStorage: { mode: "fail" },
-      eraseRows: async () => {
-        await forgetSubjectRows(ctx, subject);
-        // Note bodies are keyed per note, so the subject's own key never reaches them.
-        if (ctx.registry.features.has(NOTES_HISTORY_FEATURE_NAME)) {
-          await eraseNoteBodiesReachingSubject({
-            db: crossTenantRunner,
-            subject,
-            erasedBy: event.user.id,
-            requestId,
-          });
-        }
-      },
-    });
-    // Fresh stream: the subject's own id may be an entity stream this forget just closed.
-    await ctx.events.unsafeAppend({
-      aggregateId: generateId(),
-      aggregateType: CRYPTO_SHREDDING_AGGREGATE_TYPE,
-      type: SUBJECT_FORGOTTEN_EVENT_NAME,
-      payload: { subjectKey, reason: event.payload.reason, forgottenBy: event.user.id },
-      expectedVersion: 0,
-    });
-    // No tenant or retention filter: pii/record-key-one-owner keeps these keys to the owner's data, which the user-key erase shreds in every tenant anyway.
-    for (const owned of ownedRecordSubjects) {
-      // In the row's own tenant: the actor's stream must not carry another tenant's row ids.
-      await runInSystemRowLevelSecurityScope(
-        "an owned record's subject-forgotten event lands in the row's own tenant",
-        () =>
-          appendDomainEventCore(
-            {
-              registry: ctx.registry,
+      const ownedRecordSubjects = await eraseSubjectData({
+        registry: ctx.registry,
+        db: crossTenantRunner,
+        subject,
+        searchAdapter: ctx.services.searchAdapter,
+        eraseOwnedRecordKeys: opts.eraseOwnedRecordKeys === true,
+        ...(recordTenantId !== undefined && { recordTenantId }),
+        resolveDeleteBytes: resolveFileBytesDeleter(ctx),
+        missingStorage: { mode: "fail" },
+        eraseRows: async () => {
+          await forgetSubjectRows(ctx, subject);
+          // Note bodies are keyed per note, so the subject's own key never reaches them.
+          if (ctx.registry.features.has(NOTES_HISTORY_FEATURE_NAME)) {
+            await eraseNoteBodiesReachingSubject({
               db: crossTenantRunner,
-              tenantId: owned.tenantId,
-              userId: String(event.user.id),
-              callSiteLabel: "forget-subject owned record",
-              callerFeature: CRYPTO_SHREDDING_FEATURE_NAME,
-            },
-            {
-              aggregateId: generateId(),
-              aggregateType: CRYPTO_SHREDDING_AGGREGATE_TYPE,
-              type: SUBJECT_FORGOTTEN_EVENT_NAME,
-              payload: {
-                subjectKey: subjectIdToKey(owned.subject),
-                reason: event.payload.reason,
-                forgottenBy: event.user.id,
+              subject,
+              erasedBy: event.user.id,
+              requestId,
+            });
+          }
+        },
+      });
+      // Fresh stream: the subject's own id may be an entity stream this forget just closed.
+      await ctx.events.unsafeAppend({
+        aggregateId: generateId(),
+        aggregateType: CRYPTO_SHREDDING_AGGREGATE_TYPE,
+        type: SUBJECT_FORGOTTEN_EVENT_NAME,
+        payload: { subjectKey, reason: event.payload.reason, forgottenBy: event.user.id },
+        expectedVersion: 0,
+      });
+      // No tenant or retention filter: pii/record-key-one-owner keeps these keys to the owner's data, which the user-key erase shreds in every tenant anyway.
+      for (const owned of ownedRecordSubjects) {
+        // In the row's own tenant: the actor's stream must not carry another tenant's row ids.
+        await runInSystemRowLevelSecurityScope(
+          "an owned record's subject-forgotten event lands in the row's own tenant",
+          () =>
+            appendDomainEventCore(
+              {
+                registry: ctx.registry,
+                db: crossTenantRunner,
+                tenantId: owned.tenantId,
+                userId: String(event.user.id),
+                callSiteLabel: "forget-subject owned record",
+                callerFeature: CRYPTO_SHREDDING_FEATURE_NAME,
               },
-              expectedVersion: 0,
-            },
-          ),
-      );
-    }
-    return { isSuccess: true as const, data: { subjectKey } };
-  },
-});
+              {
+                aggregateId: generateId(),
+                aggregateType: CRYPTO_SHREDDING_AGGREGATE_TYPE,
+                type: SUBJECT_FORGOTTEN_EVENT_NAME,
+                payload: {
+                  subjectKey: subjectIdToKey(owned.subject),
+                  reason: event.payload.reason,
+                  forgottenBy: event.user.id,
+                },
+                expectedVersion: 0,
+              },
+            ),
+        );
+      }
+      return { isSuccess: true as const, data: { subjectKey } };
+    },
+  });
+}
+
+export const forgetSubjectWrite = createForgetSubjectWrite();

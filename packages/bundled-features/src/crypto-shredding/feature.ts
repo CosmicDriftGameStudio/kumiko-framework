@@ -7,13 +7,14 @@ import {
 } from "./constants.ts";
 import { kmsEnvSchema } from "./env/index.ts";
 import {
-  forgetSubjectWrite,
+  createForgetSubjectWrite,
+  type ForgetSubjectOptions,
   subjectForgetDeniedSchema,
   subjectForgottenSchema,
 } from "./handlers/forget-subject.write.ts";
 import { eraseForgottenSubjectKey } from "./subject-key-eraser.ts";
 
-export function createCryptoShreddingFeature() {
+export function createCryptoShreddingFeature(options: ForgetSubjectOptions = {}) {
   const feature = defineFeature(
     CRYPTO_SHREDDING_FEATURE_NAME,
     (r) => {
@@ -29,7 +30,7 @@ export function createCryptoShreddingFeature() {
       // `reason` is operator free text and stays plaintext: it is the audit record of an erasure and must stay readable after the key it would be sealed under (the actor's own tenant, on a tenant forget) is gone.
       r.defineEvent("subject-forgotten", subjectForgottenSchema, { piiFields: "none" });
       r.defineEvent("forget-denied", subjectForgetDeniedSchema, { piiFields: "none" });
-      r.writeHandler(forgetSubjectWrite);
+      r.writeHandler(createForgetSubjectWrite(options));
       r.multiStreamProjection({
         name: SUBJECT_KEY_ERASER_PROJECTION_NAME,
         // No entry handler runs here; the erase is the committed outcome of a forget-subject (risk "high").
@@ -37,7 +38,7 @@ export function createCryptoShreddingFeature() {
         apply: { [SUBJECT_FORGOTTEN_EVENT_NAME]: eraseForgottenSubjectKey },
       });
     },
-    { dedupeOptions: {} },
+    { dedupeOptions: { eraseOwnedRecordKeys: options.eraseOwnedRecordKeys === true } },
   );
   return featureWithEnvSchema(feature, kmsEnvSchema);
 }

@@ -42,6 +42,7 @@ import { reasonProblem } from "./escape-hatch-reason.ts";
 import type { FeatureBuilderState } from "./feature-builder-state.ts";
 import { resolveName } from "./handler-helpers.ts";
 import { HookPhases } from "./hook-helpers.ts";
+import { isObjectArgument, throwObjectArgumentRequired } from "./object-form.ts";
 import { isKebabSegment, isValidQn, qualifyEntityName, toKebab } from "./qualified-name.ts";
 import type { HttpRouteDefinition } from "./types/http-route.ts";
 
@@ -191,6 +192,7 @@ export function buildUiExtensionsMethods<TName extends string>(
 
   return {
     hook(definition: HookDefinition): void {
+      if (!isObjectArgument(definition)) throwObjectArgumentRequired(name, "hook");
       const { type, target, handler: fn } = definition;
       const options: { phase?: HookPhase; escapeHatch?: EscapeHatchDeclaration } = {
         ...(definition.phase !== undefined && { phase: definition.phase }),

@@ -1,3 +1,5 @@
+import type { EventUpcastFn } from "@cosmicdrift/kumiko-types/handlers";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
 
 // Domain events for custom-field values. customField.set and .cleared live
@@ -31,3 +33,14 @@ export const fieldDefinitionDeletedSchema = z.object({
   tenantId: z.string().min(1),
 });
 export type FieldDefinitionDeletedPayload = z.infer<typeof fieldDefinitionDeletedSchema>;
+
+export const FIELD_DEFINITION_DELETED_EVENT_VERSION = 2;
+
+// v1 payloads predate the owning tenant in the payload; it lives only on the stored event row,
+// which the upcast context exposes as ctx.tenantId.
+export const addTenantIdToFieldDefinitionDeleted: EventUpcastFn = (payload, ctx) => {
+  if (!isPlainObject(payload)) return payload;
+  const existing = payload["tenantId"];
+  if (typeof existing === "string" && existing.length > 0) return payload;
+  return { ...payload, tenantId: ctx.tenantId };
+};

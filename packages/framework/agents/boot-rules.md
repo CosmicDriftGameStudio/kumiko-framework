@@ -1121,6 +1121,12 @@
 | <a id="reference-unknown-feature"></a>`reference/unknown-feature` | A reference field targets a registered feature. | Fix the feature prefix of the reference target. | `packages/framework/src/engine/boot-validator/entity-reference-embedded-rules.ts` |
 | <a id="reference-unknown-label-field"></a>`reference/unknown-label-field` | A reference labelField is a field of the referenced entity. | Name an existing field of the referenced entity. | `packages/framework/src/engine/boot-validator/entity-reference-embedded-rules.ts` |
 
+## registrar
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="registrar-options-object-required"></a>`registrar/options-object-required` | Object-form registrar methods take one options object. | Pass a single options object such as r.entity({ name: ... }). | `packages/framework/src/engine/boot-validator/definition-feature-rules.ts` |
+
 ## related-list
 
 | Rule | Summary | Fix | Source |

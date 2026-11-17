@@ -279,6 +279,7 @@ exports[`use-all-bundled agent exposure every bundled handler keeps its recorded
   "signature:write:sign-by-link expose=false risk=mid",
   "signature:write:sign-in-person expose=false risk=mid",
   "subscription-paddle:query:checkout-config expose=true risk=low",
+  "subscription-paddle:write:ledger-backfill-marker expose=false risk=mid",
   "tags:query:tag-assignment:list expose=true risk=low",
   "tags:query:tag:detail expose=true risk=low",
   "tags:query:tag:list expose=true risk=low",

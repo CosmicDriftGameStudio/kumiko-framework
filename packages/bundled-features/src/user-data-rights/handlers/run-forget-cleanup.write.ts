@@ -25,6 +25,7 @@ import {
 
 export type RunForgetCleanupOptions = {
   readonly sendDeletionExecutedEmail?: SendDeletionExecutedEmailFn;
+  readonly eraseOwnedRecordKeys?: boolean;
 };
 
 const RUN_FORGET_CLEANUP_REASON =
@@ -83,6 +84,7 @@ export function createRunForgetCleanupHandler(opts: RunForgetCleanupOptions = {}
         ...(opts.sendDeletionExecutedEmail && {
           sendDeletionExecutedEmail: opts.sendDeletionExecutedEmail,
         }),
+        ...(opts.eraseOwnedRecordKeys === true && { eraseOwnedRecordKeys: true }),
       });
 
       return {

@@ -1,6 +1,5 @@
 import {
   access,
-  type ConfigAccessor,
   type ConfigKeyDefinition,
   createTenantConfig,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -10,7 +9,7 @@ import {
   OPTIONAL_HEX_COLOR_CONFIG_PATTERN,
   OPTIONAL_HTTPS_URL_CONFIG_PATTERN,
 } from "../page-render/index.ts";
-import { BRANDING_QN, LAYOUT_PRESETS } from "./constants.ts";
+import { LAYOUT_PRESETS } from "./constants.ts";
 
 // Per-tenant branding so every app + studio-tenant gets tenant-editable
 // branding. Stored as `config` keys (scope: tenant), edited via the
@@ -101,48 +100,6 @@ export const BRANDING_KEYS = {
 export const CUSTOM_CSS_KEY = {
   customCss: createTenantConfig("text", { default: "", pattern: CUSTOM_CSS_PATTERN }),
 } satisfies Record<string, ConfigKeyDefinition>;
-
-async function readText(config: ConfigAccessor, qualifiedKey: string): Promise<string> {
-  const value = await config(qualifiedKey);
-  return typeof value === "string" ? value : "";
-}
-
-// Resolve the tenant's branding cascade into render tokens. `config` is
-// optional because ctx.config is only wired when the app composes the config
-// feature — a missing accessor degrades to defaults (same posture as
-// publicstatus' branding read), not a crash.
-export async function readBranding(config: ConfigAccessor | undefined): Promise<BrandingTokens> {
-  if (!config) return EMPTY_BRANDING;
-  const [title, description, siteUrl, accentColor, logoUrl, logoFile, layoutPreset] =
-    await Promise.all([
-      readText(config, BRANDING_QN.title),
-      readText(config, BRANDING_QN.description),
-      readText(config, BRANDING_QN.siteUrl),
-      readText(config, BRANDING_QN.accentColor),
-      readText(config, BRANDING_QN.logoUrl),
-      readText(config, BRANDING_QN.logoFile),
-      readText(config, BRANDING_QN.layoutPreset),
-    ]);
-  // customCss stays "" here — it is gated (allowCustomCss + per-tenant toggle)
-  // and read separately by the branding query via readCustomCss.
-  return {
-    title,
-    description,
-    siteUrl,
-    accentColor,
-    logoUrl,
-    logoFile,
-    layoutPreset,
-    customCss: "",
-  };
-}
-
-// Read the raw, untrusted custom CSS for the request's tenant. The caller (the
-// branding query) only invokes this once the gate has passed; the value is
-// sanitized at render (page-render), never trusted here.
-export async function readCustomCss(config: ConfigAccessor): Promise<string> {
-  return readText(config, BRANDING_QN.customCss);
-}
 
 function stringField(source: Record<string, unknown>, key: string): string {
   const value = source[key];

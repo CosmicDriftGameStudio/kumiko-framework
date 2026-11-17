@@ -74,7 +74,8 @@ async function appendAttempt(channel: string, recipientAddress: string | null): 
 
 async function projectedAddress(aggregateId: string): Promise<string | null | undefined> {
   const rows = await selectMany(stack.db, deliveryAttemptsTable, { id: aggregateId });
-  return rows[0]?.recipientAddress;
+  const address = rows[0]?.["recipientAddress"];
+  return typeof address === "string" || address === null ? address : undefined;
 }
 
 describe("delivery-log projection masks the recipient address", () => {

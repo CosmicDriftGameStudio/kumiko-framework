@@ -23,6 +23,7 @@ const FACTORIES_NEEDING_OPTIONS: ReadonlySet<string> = new Set([
   "documents/createDocumentsFeature",
   "personal-access-tokens/createPersonalAccessTokensFeature",
   "channel-email/createChannelEmailFeature",
+  "channel-push/createChannelPushFeature",
   "cap-overview/createCapOverviewFeature",
   "helpdesk/createHelpdeskFeature",
   "handbook-knowledge/createHandbookKnowledgeFeature",

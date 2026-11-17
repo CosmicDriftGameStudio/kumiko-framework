@@ -58,6 +58,8 @@ export {
   installFatalErrorHandlers,
 } from "./fatal-error-handlers.ts";
 export type { RateLimitOption } from "./rate-limit-defaults.ts";
+export type { RunBootstrapOptions } from "./run-bootstrap.ts";
+export { runBootstrap } from "./run-bootstrap.ts";
 export type {
   AccountUnlockSetup,
   EmailVerificationSetup,

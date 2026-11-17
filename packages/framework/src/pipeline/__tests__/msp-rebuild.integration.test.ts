@@ -475,7 +475,7 @@ describe("rebuildMultiStreamProjection — rebuildable read-model", () => {
 });
 
 describe("rebuildMultiStreamProjection — archived streams", () => {
-  test("events of an archived stream are not replayed into the read-model", async () => {
+  test("events of an archived stream are replayed like on the live path", async () => {
     const gina = "00000000-0000-4000-8000-000000000a07";
     const hugo = "00000000-0000-4000-8000-000000000b08";
     await updateMany(
@@ -502,10 +502,11 @@ describe("rebuildMultiStreamProjection — archived streams", () => {
       registry: stack.registry,
     });
 
-    expect(result.eventsProcessed).toBe(1);
+    expect(result.eventsProcessed).toBe(2);
     const rows = await selectMany(stack.db, balanceTable);
-    expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({ customer: hugo, invoicesCents: 6_00 });
+    expect(rows).toHaveLength(2);
+    expect(rows.find((r) => r.customer === gina)).toMatchObject({ invoicesCents: 11_00 });
+    expect(rows.find((r) => r.customer === hugo)).toMatchObject({ invoicesCents: 6_00 });
   });
 });
 

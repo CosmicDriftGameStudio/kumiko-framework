@@ -14,6 +14,7 @@ import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import { parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
 import { PADDLE_PROVIDER_NAME } from "./constants.ts";
 import type { PaddleWebhookRuntime } from "./runtime.ts";
@@ -69,7 +70,7 @@ function currentUnixSeconds(): number {
   return Math.floor(Temporal.Now.instant().epochMilliseconds / 1000);
 }
 
-function tenantIdOf(
+export function tenantIdOf(
   customData: Readonly<Record<string, unknown>> | null | undefined,
 ): string | undefined {
   const tenantId = customData?.["tenantId"];
@@ -152,6 +153,28 @@ function parseSubscriptionEvent(
   };
 }
 
+// Events whose custom_data still carries the pre-ledger tenantBinding: they belong to a checkout
+// the backfill sweep may not have ledgered yet. Kept beside the event, not on it, because
+// billing-foundation must not know about the legacy binding.
+const legacyBindingEvents = new WeakSet<object>();
+
+export function hasLegacyTenantBinding(event: SubscriptionEvent | PaymentEvent): boolean {
+  return legacyBindingEvents.has(event);
+}
+
+function markLegacyBinding<T extends SubscriptionEvent | PaymentEvent | null>(
+  event: T,
+  data: unknown,
+): T {
+  if (
+    event !== null &&
+    typeof propertyOf(propertyOf(data, "custom_data"), "tenantBinding") === "string"
+  ) {
+    legacyBindingEvents.add(event);
+  }
+  return event;
+}
+
 export function verifyAndParsePaddleWebhook(
   runtime: PaddleWebhookRuntime,
   options: PaddleWebhookOptions,
@@ -174,17 +197,23 @@ export function verifyAndParsePaddleWebhook(
 
     const { event_id: providerEventId, event_type: type, occurred_at, data } = envelope.data;
     if (type === TRANSACTION_COMPLETED) {
-      return parsePaymentEvent(providerEventId, data, options.oneOffPriceIds);
+      return markLegacyBinding(
+        parsePaymentEvent(providerEventId, data, options.oneOffPriceIds),
+        data,
+      );
     }
     if (!Object.hasOwn(PADDLE_SUBSCRIPTION_EVENT_TYPES, type)) return null;
     const normalizedType = PADDLE_SUBSCRIPTION_EVENT_TYPES[type];
     if (!normalizedType) return null;
-    return parseSubscriptionEvent(
-      providerEventId,
-      normalizedType,
-      occurred_at,
+    return markLegacyBinding(
+      parseSubscriptionEvent(
+        providerEventId,
+        normalizedType,
+        occurred_at,
+        data,
+        options.priceToTier,
+      ),
       data,
-      options.priceToTier,
     );
   };
 }

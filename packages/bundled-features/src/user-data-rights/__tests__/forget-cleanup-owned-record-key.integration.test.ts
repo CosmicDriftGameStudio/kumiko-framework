@@ -93,39 +93,50 @@ beforeEach(async () => {
   ]);
 });
 
+async function forgetOwnerOfEarlySlip(eraseOwnedRecordKeys: boolean) {
+  const { id: userId } = await seedUserViaExecutor(stack.db, {
+    email: "owner@example.com",
+    displayName: "Owner",
+    passwordHash: "hashed",
+    emailVerified: true,
+  });
+  const { id } = await stack.http.writeOk<{ id: string }>(
+    CREATE,
+    { name: "early" },
+    TestUsers.systemAdmin,
+  );
+  await stack.http.writeOk(
+    UPDATE,
+    { id, version: 1, changes: { ownerId: userId } },
+    TestUsers.systemAdmin,
+  );
+  const recordSubject = { kind: "record" as const, entity: "slip", id };
+  await getKms().getKey(recordSubject);
+
+  await updateUserLifecycle(stack.db, userId, {
+    status: USER_STATUS.DeletionRequested,
+    gracePeriodEnd: getTemporal().Instant.fromEpochMilliseconds(Date.now() - 60 * 1000),
+  });
+  const result = await runForgetCleanup({
+    db: stack.db,
+    registry: stack.registry,
+    now: getTemporal().Now.instant(),
+    ...(eraseOwnedRecordKeys && { eraseOwnedRecordKeys }),
+  });
+
+  expect(result.errors).toEqual([]);
+  expect(result.processedUserIds).toContain(userId);
+  return recordSubject;
+}
+
 describe("runForgetCleanup :: rows owned through whenAbsent self", () => {
-  test("erases the record key that sealed the row's ownerless phase", async () => {
-    const { id: userId } = await seedUserViaExecutor(stack.db, {
-      email: "owner@example.com",
-      displayName: "Owner",
-      passwordHash: "hashed",
-      emailVerified: true,
-    });
-    const { id } = await stack.http.writeOk<{ id: string }>(
-      CREATE,
-      { name: "early" },
-      TestUsers.systemAdmin,
-    );
-    await stack.http.writeOk(
-      UPDATE,
-      { id, version: 1, changes: { ownerId: userId } },
-      TestUsers.systemAdmin,
-    );
-    const recordSubject = { kind: "record" as const, entity: "slip", id };
-    await getKms().getKey(recordSubject);
+  test("by default keeps the record key that sealed the row's ownerless phase", async () => {
+    const recordSubject = await forgetOwnerOfEarlySlip(false);
+    await expect(getKms().getKey(recordSubject)).resolves.toBeDefined();
+  });
 
-    await updateUserLifecycle(stack.db, userId, {
-      status: USER_STATUS.DeletionRequested,
-      gracePeriodEnd: getTemporal().Instant.fromEpochMilliseconds(Date.now() - 60 * 1000),
-    });
-    const result = await runForgetCleanup({
-      db: stack.db,
-      registry: stack.registry,
-      now: getTemporal().Now.instant(),
-    });
-
-    expect(result.errors).toEqual([]);
-    expect(result.processedUserIds).toContain(userId);
+  test("with eraseOwnedRecordKeys erases the record key that sealed the row's ownerless phase", async () => {
+    const recordSubject = await forgetOwnerOfEarlySlip(true);
     await expect(getKms().getKey(recordSubject)).rejects.toBeInstanceOf(KeyErasedError);
   });
 });

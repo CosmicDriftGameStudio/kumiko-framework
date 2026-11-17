@@ -16,6 +16,9 @@ import type { SendDeletionExecutedEmailFn } from "./run-forget-cleanup.ts";
  * `jobs` feature.
  */
 export type UserDataRightsOptions = {
+  /** Opt-in, default off: forgetting a user also erases the record keys of rows the user owns
+   *  (personal fields with `userOwned.whenAbsent: "self"`). Off keeps those keys, so their ciphertext stays readable. */
+  readonly eraseOwnedRecordKeys?: boolean;
   /** Email notification when the export completes. The app author connects it
    * to an email provider. Best effort: a send failure for Job A does not stop
    * the batch; remaining pending jobs continue, and the failure is exposed via

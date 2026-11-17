@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import * as z from "zod";
 import { createTenantConfig } from "../config-helpers.ts";
-import { defineFeature } from "../index.ts";
+import { defineFeature, type FeatureRegistrar } from "../index.ts";
 
 // The renderer of feature-ast emits the object form; these tests execute the registrar runtime
 // that unpacks it into feature state (the types alone prove nothing about the state written).
@@ -205,6 +206,62 @@ describe("registrar object form registers what it declares", () => {
     });
     expect(feature.configKeys?.["limit"]).toMatchObject({ type: "number" });
   });
+});
+
+// The static types reject positional calls, so the runtime check is reached through
+// Reflect.apply, like untyped JS callers or stale generated code would reach it.
+describe("registrar — a positional call fails at registration", () => {
+  const schema = z.object({});
+  const handler = async () => ({ isSuccess: true as const, data: {} });
+  const access = { openToAll: { reason: "test" } } as const;
+
+  const positionalCalls: ReadonlyArray<{
+    readonly method: string;
+    readonly call: (r: FeatureRegistrar) => unknown;
+  }> = [
+    {
+      method: "writeHandler",
+      call: (r) => Reflect.apply(r.writeHandler, r, ["x", schema, handler, { access }]),
+    },
+    {
+      method: "queryHandler",
+      call: (r) => Reflect.apply(r.queryHandler, r, ["x", schema, handler, { access }]),
+    },
+    {
+      method: "entity",
+      call: (r) => Reflect.apply(r.entity, r, ["item", { fields: {} }]),
+    },
+    {
+      method: "requires",
+      call: (r) => Reflect.apply(r.requires, r, ["auth"]),
+    },
+    {
+      method: "hook",
+      call: (r) => Reflect.apply(r.hook, r, ["postSave", "item", () => {}]),
+    },
+    {
+      method: "defineWebhookEvent",
+      call: (r) => Reflect.apply(r.defineWebhookEvent, r, ["item.created", {}]),
+    },
+  ];
+
+  test("r.requires rejects extra arguments instead of dropping them", () => {
+    expect(() =>
+      defineFeature("legacy", (r) => {
+        Reflect.apply(r.requires, r, [{ features: ["a"] }, { features: ["b"] }]);
+      }),
+    ).toThrow("[Feature legacy] r.requires() takes one options object");
+  });
+
+  for (const { method, call } of positionalCalls) {
+    test(`r.${method}: a positional call throws instead of registering`, () => {
+      expect(() =>
+        defineFeature("legacy", (r) => {
+          call(r);
+        }),
+      ).toThrow(`[Feature legacy] r.${method}() takes one options object`);
+    });
+  }
 });
 
 describe("registrar — hook definitions are checked by the type system", () => {

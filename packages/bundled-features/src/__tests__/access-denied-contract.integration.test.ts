@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { expectRoleRestrictedHandlersDenyForeignRole } from "@cosmicdrift/kumiko-testing/helpers";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { createAccountSecurityFeature } from "../account-security/index.ts";
+import { createAgentToolsFeature } from "../agent-tools/feature.ts";
 import { createAuditFeature } from "../audit/feature.ts";
 import { createAuthEmailPasswordFeature } from "../auth-email-password/feature.ts";
 import { createAuthFoundationFeature } from "../auth-foundation/index.ts";
@@ -62,6 +63,7 @@ beforeAll(async () => {
       createTemplateResolverFeature(),
       createRendererFoundationFeature(),
       createLegalPagesFeature(),
+      createAgentToolsFeature(),
     ],
   });
 });

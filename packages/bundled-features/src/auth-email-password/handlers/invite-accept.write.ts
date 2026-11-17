@@ -20,6 +20,11 @@ import * as z from "zod";
 import { decryptStoredPii } from "../../shared/index.ts";
 // kumiko-lint-ignore cross-feature-import membership grant for a privileged cross-tenant add (like provisionSignupAccount)
 import { grantInvitedMembershipRole } from "../../tenant/invited-membership.ts";
+// kumiko-lint-ignore cross-feature-import global roles granted on invite accept live on the user row
+import {
+  grantInvitedGlobalRoles,
+  parseInvitedGlobalRoles,
+} from "../../user/invited-global-roles.ts";
 // kumiko-lint-ignore cross-feature-import the auth handler reads the user row for the email match
 import { userTable } from "../../user/schema/user.ts";
 import { inviteEmailMismatch } from "../errors.ts";
@@ -92,6 +97,12 @@ export function createInviteAcceptHandler() {
             invitation,
           });
           if (!grant.isSuccess) return grant;
+
+          const globalGrant = await grantInvitedGlobalRoles(dbConn, {
+            userId: event.user.id,
+            globalRoles: parseInvitedGlobalRoles(invitation.globalRoles),
+          });
+          if (!globalGrant.isSuccess) return globalGrant;
 
           const updateResult = await markInvitationAccepted(dbConn, invitation);
           if (!updateResult.isSuccess) return updateResult;

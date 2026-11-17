@@ -371,8 +371,8 @@ describe("scenario 5: rolling-window through dispatcher", () => {
     const events = await selectMany(db, eventsTable, {
       aggregateId: rollingCapAggregateId(admin.tenantId, "ai-tokens-7d"),
     });
-    expect(events.map((e) => e.type)).toEqual([ROLLING_INCREMENTED_EVENT_QN]);
-    expect(events[0]?.payload).toMatchObject({ capName: "ai-tokens-7d", amount: 1500 });
+    expect(events.map((e) => e["type"])).toEqual([ROLLING_INCREMENTED_EVENT_QN]);
+    expect(events[0]?.["payload"]).toMatchObject({ capName: "ai-tokens-7d", amount: 1500 });
 
     // Drift pin: The rolling counter MUST NOT touch the calendar counter.
     // If a refactor mixes the paths, a row unrelated to the rolling stream
@@ -518,6 +518,26 @@ describe("scenario 6: notification-wiring (calendar)", () => {
     expect(second["state"]).toBe("soft-hit");
     expect(second["crossed"]).toBe(false);
     expect(recordedNotifications).toHaveLength(1); // unchanged
+  });
+
+  test("two parallel bookings crossing the soft threshold notify exactly once", async () => {
+    recordedNotifications.length = 0;
+    const admin = adminFor(1004);
+    const NOTIFY_PERIOD = "2026-06-01T00:00:00Z";
+    await increment(admin, "cap-notify-parallel", 1100, NOTIFY_PERIOD);
+
+    const payload = {
+      capName: "cap-notify-parallel",
+      periodStartIso: NOTIFY_PERIOD,
+      limit: 1000,
+      profile: "burstable",
+    };
+    await Promise.all([
+      stack.http.writeOk(ENFORCE_NOTIFY_PROBE_QN, payload, admin),
+      stack.http.writeOk(ENFORCE_NOTIFY_PROBE_QN, payload, admin),
+    ]);
+
+    expect(recordedNotifications).toHaveLength(1);
   });
 
   test("ok range → notifier does not fire", async () => {

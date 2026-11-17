@@ -91,7 +91,7 @@ function report(out: ConsumerCliOut, result: AggregateTypeRemovalResult): void {
     out.log("");
     out.log(
       `  Deleted ${deleted.events} events, ${deleted.snapshots} snapshots, ${deleted.archivedStreams} archive markers, ` +
-        `${deleted.rebuildDeadLetters} rebuild dead letters.`,
+        `${deleted.upcasterDeadLetters + deleted.rebuildDeadLetters} dead letters.`,
     );
   }
   out.log("");

@@ -80,11 +80,13 @@ describe("removeAggregateTypes — apply", () => {
       events: 4,
       snapshots: 2,
       archivedStreams: 1,
+      upcasterDeadLetters: 1,
       rebuildDeadLetters: 1,
     });
     expect(await count("kumiko_events", `aggregate_type IN ('${RELEASE}', '${FILE}')`)).toBe(0);
     expect(await count("kumiko_snapshots", `aggregate_type IN ('${RELEASE}', '${FILE}')`)).toBe(0);
     expect(await count("kumiko_archived_streams")).toBe(0);
+    expect(await count("kumiko_upcaster_dead_letters")).toBe(0);
     expect(await count("kumiko_rebuild_dead_letters")).toBe(0);
     expect(await count("read_evprune_release")).toBe(0);
     expect(await count("read_evprune_file")).toBe(0);

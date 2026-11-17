@@ -137,6 +137,37 @@ describe("runPiiEventBackfill with a jsonb personal field", () => {
     expect(byType.get("draft.deleted")?.["previous"]).not.toHaveProperty("blob");
   });
 
+  test("legacy delete events with a plaintext previous.blob (written before slim delete events) are encrypted under the owner key", async () => {
+    const created = await stack.http.writeOk<{ id: string }>(
+      "jbf:write:draft:create",
+      { ownerId: OWNER_ID, blob: BLOB },
+      admin,
+    );
+    await stack.http.writeOk("jbf:write:draft:delete", { id: created.id }, admin);
+    // Test fixture only: rewrite the slim delete event into the legacy shape that old releases wrote.
+    await asRawClient(stack.db).unsafe(
+      `UPDATE "kumiko_events"
+          SET "payload" = jsonb_set("payload", '{previous}', $1::jsonb)
+        WHERE "type" = 'draft.deleted'`,
+      [JSON.stringify({ ownerId: OWNER_ID, blob: BLOB })],
+    );
+    expect(JSON.stringify(await readEvents())).toContain("Zebulon Quaxford");
+
+    configureBlindIndexKey(Buffer.alloc(32, 7).toString("base64"));
+    configurePiiSubjectKms(kms);
+    const result = await runPiiEventBackfill(stack.db, stack.registry);
+    expect(result.status).toBe("ran");
+    if (result.status === "ran") expect(result.failures).toEqual([]);
+
+    const events = await readEvents();
+    expect(JSON.stringify(events)).not.toContain("Zebulon Quaxford");
+    const previous = events.find((event) => event.type === "draft.deleted")?.payload["previous"] as
+      | Record<string, unknown>
+      | undefined;
+    expect(isPiiCiphertext(previous?.["blob"])).toBe(true);
+    expect(await decryptBlob(previous?.["blob"])).toEqual(BLOB);
+  });
+
   test("a second full pass (new transform version, state dropped) leaves already encrypted events untouched", async () => {
     await stack.http.writeOk("jbf:write:draft:create", { ownerId: OWNER_ID, blob: BLOB }, admin);
     configureBlindIndexKey(Buffer.alloc(32, 7).toString("base64"));

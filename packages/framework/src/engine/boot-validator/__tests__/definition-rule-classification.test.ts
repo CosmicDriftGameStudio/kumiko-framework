@@ -54,15 +54,26 @@ describe("definition layer rules", () => {
     );
   });
 
-  test("feature: r.requires with a positional string", () => {
+  test("feature: r.requires with a misspelled key", () => {
+    expectRule(
+      () =>
+        defineFeature("demo", (r) => {
+          Reflect.apply(r.requires, r, [{ feature: ["other"] }]);
+        }),
+      "feature/requires-needs-features",
+      "r.requires() needs { features: string[] }",
+    );
+  });
+
+  test("registrar: positional call of an object-form method", () => {
     expectRule(
       () =>
         defineFeature("demo", (r) => {
           // @ts-expect-error untyped JS callers pass strings
           r.requires("other");
         }),
-      "feature/requires-needs-features",
-      "r.requires() needs { features: string[] }",
+      "registrar/options-object-required",
+      "r.requires() takes one options object",
     );
   });
 

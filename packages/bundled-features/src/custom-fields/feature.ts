@@ -11,8 +11,10 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { fieldDefinitionEntity } from "./entity.ts";
 import {
+  addTenantIdToFieldDefinitionDeleted,
   customFieldClearedSchema,
   customFieldSetSchema,
+  FIELD_DEFINITION_DELETED_EVENT_VERSION,
   fieldDefinitionDeletedSchema,
 } from "./events.ts";
 import { createClearCustomFieldHandler } from "./handlers/clear-custom-field.write.ts";
@@ -70,7 +72,17 @@ function registerCustomFields(
   const fieldDefinitionDeletedEvent = r.defineEvent(
     FIELD_DEFINITION_DELETED_EVENT,
     fieldDefinitionDeletedSchema,
-    { piiFields: "none" },
+    {
+      piiFields: "none",
+      version: FIELD_DEFINITION_DELETED_EVENT_VERSION,
+      migrations: [
+        {
+          fromVersion: 1,
+          toVersion: FIELD_DEFINITION_DELETED_EVENT_VERSION,
+          transform: addTenantIdToFieldDefinitionDeleted,
+        },
+      ],
+    },
   );
 
   // Registers that this extension exists.

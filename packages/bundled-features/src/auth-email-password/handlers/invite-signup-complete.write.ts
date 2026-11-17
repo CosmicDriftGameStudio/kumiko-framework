@@ -36,6 +36,8 @@ import {
 } from "../../tenant/membership-roles.ts";
 // kumiko-lint-ignore cross-feature-import membership-seed-helper for privileged cross-tenant addition
 import { seedTenantMembership } from "../../tenant/seeding.ts";
+// kumiko-lint-ignore cross-feature-import global roles granted on invite accept live on the user row
+import { parseInvitedGlobalRoles } from "../../user/invited-global-roles.ts";
 // kumiko-lint-ignore cross-feature-import the handler rejects an invitation whose email already has a user row
 import { userTable } from "../../user/schema/user.ts";
 import { invalidInviteToken } from "../errors.ts";
@@ -106,6 +108,7 @@ async function acceptInvitationAndCreateUser(
   const invitationTenantId = invitation.tenantId;
   const invitationEmail = invitation.email;
   const invitationRole = invitation.role;
+  const invitationGlobalRoles = parseInvitedGlobalRoles(invitation.globalRoles);
 
   // If the email is already registered, the user must use Branch 2
   // (acceptWithLogin). This flow explicitly requires a new email;
@@ -127,6 +130,7 @@ async function acceptInvitationAndCreateUser(
     displayName: invitationEmail.split("@")[0] ?? invitationEmail,
     emailVerified: true,
     ...registrationLocale,
+    ...(invitationGlobalRoles.length > 0 && { roles: invitationGlobalRoles }),
   });
 
   // The seed helper bypasses addMember's access check because
@@ -152,7 +156,7 @@ async function acceptInvitationAndCreateUser(
 
   // buildSessionRoles calls stripForbiddenMembershipRoles internally —
   // a reserved role on the invitation itself must never reach the session.
-  const mergedRoles = buildSessionRoles([], [invitationRole]);
+  const mergedRoles = buildSessionRoles(invitationGlobalRoles, [invitationRole]);
 
   // Same gate as invite-accept-with-login: the account exists after this
   // call, but an MFA-gated role gets the MFA step instead of a session.

@@ -165,5 +165,7 @@ export const frApiDocsTexts = {
       "Plusieurs filtres de champ, chacun avec `field`, `op` et `value`. `op` est l'un de {ops}.",
     namedFilter: "Nom d'un filtre prédéfini de l'entité, par exemple une file de travail.",
     aggregate: "Renvoie des valeurs agrégées au lieu de lignes.",
+    fields:
+      "Renvoie uniquement ces champs stockés. Les lignes contiennent alors `id`, `version` et les champs indiqués ; les champs dérivés ne sont pas calculés. Un nom inconnu échoue avec `unknown_field`.",
   },
 } as const satisfies ApiDocsTexts;

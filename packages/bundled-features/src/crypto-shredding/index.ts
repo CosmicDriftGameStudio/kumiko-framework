@@ -7,6 +7,8 @@ export {
 export { kmsEnvSchema } from "./env/index.ts";
 export { createCryptoShreddingFeature } from "./feature.ts";
 export {
+  createForgetSubjectWrite,
+  type ForgetSubjectOptions,
   forgetSubjectSchema,
   subjectForgetDeniedSchema,
   subjectForgottenSchema,

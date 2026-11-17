@@ -1,9 +1,9 @@
 // Compliance profiles — GDPR + sector-specific regulations.
 //
 // The tenant admin must select a profile during onboarding. A profile
-// bundles the forget grace period, the data-export pipeline settings,
-// notification languages, the breach authority contact, audit-log retention
-// and the tenant-destruction grace period.
+// bundles user rights (forget grace period, restriction, access-request
+// deadline), notification languages, breach disclosure, audit-log retention,
+// subprocessor requirements, and the tenant-destruction grace period.
 //
 // Current set: three profiles plus one default fallback. Extending via
 // `extends` is straightforward; additional jurisdictions (uk-gdpr,
@@ -31,6 +31,7 @@
 //      all properties optional, but not nullable.
 
 import { isPlainObject } from "../utils/is-plain-object.ts";
+import type { BundleTier } from "./sub-processors.ts";
 
 // --- Profile-Schema ---
 
@@ -44,6 +45,20 @@ export type DurationSpec = { readonly days: number } | { readonly hours: number 
 
 export type RetentionSpec = DurationSpec | { readonly months: number } | { readonly years: number };
 
+export type AuthorityNotificationDeadline =
+  | DurationSpec
+  | "as-soon-as-feasible"
+  | "in-most-expedient-time"
+  | "manual";
+
+export type UserNotificationRequiredPolicy =
+  | "if-high-risk"
+  | "if-real-risk-of-significant-harm"
+  | "if-serious-risk-of-injury"
+  | "always-if-encrypted-data-or-pii"
+  | "always-without-undue-delay"
+  | "manual";
+
 export interface ComplianceProfile {
   readonly key: ComplianceProfileKey;
   readonly region: string;
@@ -52,6 +67,13 @@ export interface ComplianceProfile {
 
   readonly userRights: {
     readonly gracePeriod: DurationSpec;
+    readonly restrictionAllowed: boolean;
+    readonly objectionAllowed: boolean;
+    readonly portabilityFormat: readonly string[];
+    readonly auskunftFrist: DurationSpec;
+    readonly employeeAccessRight?: boolean;
+    readonly explicitConsentForAutomatedDecision?: boolean;
+    readonly doNotSellRequired?: boolean;
     /**
      * DSGVO Art. 15 + 20 Async-Export — Pipeline-Konfiguration. Spec:
      * docs/plans/architecture/user-data-rights.md "Async Export-Pipeline".
@@ -61,13 +83,39 @@ export interface ComplianceProfile {
     readonly exportStorageCleanupGraceHours: number;
   };
 
-  readonly notifications: { readonly languages: readonly string[] };
+  readonly notifications: {
+    readonly languages: readonly string[];
+    readonly languageDefault?: string;
+    readonly mandatoryBreachNotification: boolean;
+  };
 
-  readonly breach: { readonly authorityContact: string };
+  readonly breach: {
+    readonly authorityNotificationDeadline: AuthorityNotificationDeadline;
+    readonly authorityContact: string;
+    readonly userNotificationRequired: UserNotificationRequiredPolicy;
+    readonly worksCouncilNotificationRequired?: boolean;
+    readonly mandatoryRegisterOfBreaches?: boolean;
+  };
 
-  readonly auditLog: { readonly retention: RetentionSpec };
+  readonly auditLog: {
+    readonly retention: RetentionSpec;
+    readonly reportFrequency: "quarterly" | "yearly" | "annual-required" | "manual";
+  };
+
+  readonly subProcessor: {
+    readonly consentRequired: boolean;
+    readonly changeNotificationLeadDays: number;
+    readonly mandatoryBaaWithSubProcessors?: boolean;
+    readonly worksCouncilApprovalRequired?: boolean;
+    readonly tierFilter?: readonly BundleTier[];
+  };
 
   readonly tenantDestroyGracePeriod: DurationSpec;
+
+  readonly forgetDiscovery?: {
+    readonly enabled: boolean;
+    readonly mode?: "manual-redact" | "auto-redact-strict";
+  };
 }
 
 // --- Profile-Definitions (raw, before extends-Resolution) ---
@@ -79,14 +127,33 @@ const RAW_PROFILES: Readonly<Record<ComplianceProfileKey, ComplianceProfileRaw>>
     label: "EU — GDPR standard",
     userRights: {
       gracePeriod: { days: 30 },
+      restrictionAllowed: true,
+      objectionAllowed: true,
+      portabilityFormat: ["json"],
+      auskunftFrist: { days: 30 },
       exportDownloadTtl: { days: 7 },
       exportStaleTimeoutMinutes: 30,
       exportStorageCleanupGraceHours: 24,
     },
-    notifications: { languages: ["de", "en"] },
-    breach: { authorityContact: "BlnBDI Berlin" },
-    auditLog: { retention: { months: 24 } },
+    notifications: {
+      languages: ["de", "en"],
+      mandatoryBreachNotification: true,
+    },
+    breach: {
+      authorityNotificationDeadline: { hours: 72 },
+      authorityContact: "BlnBDI Berlin",
+      userNotificationRequired: "if-high-risk",
+    },
+    auditLog: {
+      retention: { months: 24 },
+      reportFrequency: "quarterly",
+    },
+    subProcessor: {
+      consentRequired: false,
+      changeNotificationLeadDays: 30,
+    },
     tenantDestroyGracePeriod: { days: 30 },
+    forgetDiscovery: { enabled: false },
   },
 
   "swiss-dsg": {
@@ -94,8 +161,15 @@ const RAW_PROFILES: Readonly<Record<ComplianceProfileKey, ComplianceProfileRaw>>
     region: "CH",
     label: "Switzerland — Federal Act on Data Protection (rev. 2023)",
     extends: "eu-dsgvo",
-    notifications: { languages: ["de", "fr", "it", "en"] },
-    breach: { authorityContact: "EDÖB Bern" },
+    notifications: {
+      languages: ["de", "fr", "it", "en"],
+      mandatoryBreachNotification: true,
+    },
+    breach: {
+      authorityNotificationDeadline: { hours: 72 },
+      authorityContact: "EDÖB Bern",
+      userNotificationRequired: "if-high-risk",
+    },
   },
 
   "de-hr-dsgvo-hgb": {
@@ -103,9 +177,36 @@ const RAW_PROFILES: Readonly<Record<ComplianceProfileKey, ComplianceProfileRaw>>
     region: "DE",
     label: "Germany HR — GDPR + HGB + personnel files",
     extends: "eu-dsgvo",
-    notifications: { languages: ["de"] },
-    breach: { authorityContact: "Landes-Datenschutzbehörde" },
-    auditLog: { retention: { years: 10 } },
+    userRights: {
+      gracePeriod: { days: 30 },
+      restrictionAllowed: true,
+      objectionAllowed: true,
+      portabilityFormat: ["json"],
+      auskunftFrist: { days: 30 },
+      employeeAccessRight: true,
+      exportDownloadTtl: { days: 7 },
+      exportStaleTimeoutMinutes: 30,
+      exportStorageCleanupGraceHours: 24,
+    },
+    notifications: {
+      languages: ["de"],
+      mandatoryBreachNotification: true,
+    },
+    breach: {
+      authorityNotificationDeadline: { hours: 72 },
+      authorityContact: "Landes-Datenschutzbehörde",
+      userNotificationRequired: "if-high-risk",
+      worksCouncilNotificationRequired: true,
+    },
+    auditLog: {
+      retention: { years: 10 },
+      reportFrequency: "yearly",
+    },
+    subProcessor: {
+      consentRequired: false,
+      changeNotificationLeadDays: 30,
+      worksCouncilApprovalRequired: true,
+    },
     tenantDestroyGracePeriod: { days: 60 },
   },
 
@@ -115,13 +216,31 @@ const RAW_PROFILES: Readonly<Record<ComplianceProfileKey, ComplianceProfileRaw>>
     label: "Minimal — no compliance profile (NOT for production)",
     userRights: {
       gracePeriod: { days: 30 },
+      restrictionAllowed: false,
+      objectionAllowed: false,
+      portabilityFormat: ["json"],
+      auskunftFrist: { days: 30 },
       exportDownloadTtl: { days: 7 },
       exportStaleTimeoutMinutes: 30,
       exportStorageCleanupGraceHours: 24,
     },
-    notifications: { languages: ["en"] },
-    breach: { authorityContact: "" },
-    auditLog: { retention: { months: 3 } },
+    notifications: {
+      languages: ["en"],
+      mandatoryBreachNotification: false,
+    },
+    breach: {
+      authorityNotificationDeadline: "manual",
+      authorityContact: "",
+      userNotificationRequired: "manual",
+    },
+    auditLog: {
+      retention: { months: 3 },
+      reportFrequency: "manual",
+    },
+    subProcessor: {
+      consentRequired: false,
+      changeNotificationLeadDays: 30,
+    },
     tenantDestroyGracePeriod: { days: 30 },
   },
 } satisfies Readonly<Record<ComplianceProfileKey, ComplianceProfileRaw>>;
@@ -163,8 +282,10 @@ type DeepPartial<T> = T extends object ? { [K in keyof T]?: DeepPartial<T[K]> } 
 // { months: 24, years: 10 }, which is semantically invalid.
 const ATOMIC_PATHS: ReadonlySet<string> = new Set([
   "userRights.gracePeriod",
+  "userRights.auskunftFrist",
   "userRights.exportDownloadTtl",
   "tenantDestroyGracePeriod",
+  "breach.authorityNotificationDeadline",
   "auditLog.retention",
 ]);
 

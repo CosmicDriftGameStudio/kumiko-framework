@@ -2,10 +2,12 @@ import type { DbConnection, TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
   type ConfigAccessor,
   type ConfigAccessorFactory,
+  type ConfigKeyDefinition,
   type ConfigKeyHandle,
   type ConfigKeyType,
   type ConfigSecretsReader,
   type ConfigValue,
+  type ConfigValueWithSource,
   defineFeature,
   type FeatureDefinition,
   type HandlerContext,
@@ -70,6 +72,22 @@ export function createConfigFeature(): FeatureDefinition {
   });
 }
 
+// Reads a key the registry does not know (a renamed key whose rows still sit
+// under the old name) and reports where the value came from, which the plain
+// accessor drops.
+export type ConfigSourceReader = (
+  qualifiedKey: string,
+  keyDef: ConfigKeyDefinition,
+) => Promise<ConfigValueWithSource>;
+
+export type SourceReadingConfigAccessor = ConfigAccessor & {
+  readonly readWithSource: ConfigSourceReader;
+};
+
+export function readsWithSource(accessor: ConfigAccessor): accessor is SourceReadingConfigAccessor {
+  return "readWithSource" in accessor && typeof accessor.readWithSource === "function";
+}
+
 export function createConfigAccessor(
   registry: Registry,
   resolver: ConfigResolver,
@@ -77,7 +95,7 @@ export function createConfigAccessor(
   userId: string,
   db: DbConnection | TenantDb,
   secrets?: ConfigSecretsReader,
-): ConfigAccessor {
+): SourceReadingConfigAccessor {
   async function configAccessor(
     qualifiedKey: string,
   ): Promise<string | number | boolean | undefined>;
@@ -92,7 +110,10 @@ export function createConfigAccessor(
     if (!keyDef) return undefined;
     return resolver.get(qualifiedKey, keyDef, tenantId, userId, db, secrets);
   }
-  return configAccessor;
+  return Object.assign(configAccessor, {
+    readWithSource: (qualifiedKey: string, keyDef: ConfigKeyDefinition) =>
+      resolver.getWithSource(qualifiedKey, keyDef, tenantId, userId, db, secrets),
+  });
 }
 
 // Pass to the test-stack / server-boot as `configAccessorFactory` —

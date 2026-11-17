@@ -29,6 +29,7 @@ const hostAccess: NonNullable<EntityDefinition["access"]> = {
 const hostEntity = createEntity({
   name: "host",
   table: "pr_write_hosts",
+  softDelete: true,
   fields: {
     teamId: createTextField({ required: true, personal: false, reason: "technical_reference" }),
   },
@@ -52,6 +53,8 @@ const linkEntity = createEntity({
   },
 });
 
+const linkTable = buildEntityTable(linkEntity);
+
 const feature = defineFeature("prwrite", (r) => {
   r.entity(hostEntity);
   r.entity(linkEntity);
@@ -69,6 +72,9 @@ const userA = createTestUser({ id: 90, roles: ["TenantMember"], claims: { team: 
 const userB = createTestUser({ id: 91, roles: ["TenantMember"], claims: { team: "team-b" } });
 
 const HOST_ID = "e0000000-0000-4000-8000-00000000000a";
+const DELETED_HOST_ID = "e0000000-0000-4000-8000-00000000000b";
+const SEEDED_LINK_ID = "e0000000-0000-4000-8000-0000000000a1";
+const DELETED_HOST_LINK_ID = "e0000000-0000-4000-8000-0000000000b1";
 const LABEL = "original";
 
 let stack: TestStack;
@@ -80,7 +86,31 @@ beforeAll(async () => {
   await seedRows(
     stack.db,
     hostTable,
-    [{ id: HOST_ID, tenantId: userA.tenantId, teamId: "team-a" }],
+    [
+      { id: HOST_ID, tenantId: userA.tenantId, teamId: "team-a" },
+      { id: DELETED_HOST_ID, tenantId: userA.tenantId, teamId: "team-a", isDeleted: true },
+    ],
+    { projectionOnly: "fixture plants a projection row without its event" },
+  );
+  await seedRows(
+    stack.db,
+    linkTable,
+    [
+      {
+        id: SEEDED_LINK_ID,
+        tenantId: userA.tenantId,
+        entityType: "host",
+        entityId: HOST_ID,
+        label: LABEL,
+      },
+      {
+        id: DELETED_HOST_LINK_ID,
+        tenantId: userA.tenantId,
+        entityType: "host",
+        entityId: DELETED_HOST_ID,
+        label: LABEL,
+      },
+    ],
     { projectionOnly: "fixture plants a projection row without its event" },
   );
 });
@@ -106,6 +136,24 @@ async function labelSeenByA(id: string): Promise<string | undefined> {
   );
   return row?.label;
 }
+
+describe("parentRef read-gate on detail", () => {
+  test("a user who cannot see the host gets null for the join row", async () => {
+    const own = await labelSeenByA(SEEDED_LINK_ID);
+    expect(own).toBe(LABEL);
+
+    const foreign = await stack.http.queryOk<{ id: string } | null>(
+      "prwrite:query:link:detail",
+      { id: SEEDED_LINK_ID },
+      userB,
+    );
+    expect(foreign).toBeNull();
+  });
+
+  test("a join row on a soft-deleted host is not returned", async () => {
+    expect(await labelSeenByA(DELETED_HOST_LINK_ID)).toBeUndefined();
+  });
+});
 
 describe("parentRef read-gate is enforced on update, delete and restore", () => {
   test("a user who cannot see the host cannot update the join row", async () => {

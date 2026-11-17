@@ -1,9 +1,9 @@
 import { createEntityExecutor } from "@cosmicdrift/kumiko-framework/engine";
-import { KumikoError, reraiseAsKumikoError } from "@cosmicdrift/kumiko-framework/errors";
+import { KumikoError } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import {
   type CapCounterContext,
-  markCapSoftWarned,
+  claimCapSoftWarning,
   readRollingCapUsage,
   resolveCapCounterScope,
 } from "./book-cap-usage.ts";
@@ -351,9 +351,9 @@ export type SoftHitNotifier = (info: {
 
 /**
  * Calendar-period enforcement with automatic soft-hit notification.
- * Calls `enforceCap`; when `crossed: true`, it calls the notifier and the
- * `mark-soft-warned` handler, which flips `lastSoftWarnedAt` so that the
- * same period does not trigger another notification.
+ * Calls `enforceCap`; when `crossed: true`, it first claims the soft-warned flag and only the
+ * call that flipped `lastSoftWarnedAt` calls the notifier, so that parallel bookings and the
+ * rest of the period do not notify again.
  *
  * Returns the `EnforceCapResult` unchanged, allowing the caller to branch
  * on the result, such as showing a UI toast in addition to the email
@@ -384,19 +384,20 @@ export async function enforceCapAndMaybeNotify(
   });
 
   if (result.state === "soft-hit" && result.crossed) {
-    await options.notify({
-      capName: options.capName,
-      value: result.value,
-      limit: options.limit,
-      tenantId: resolveCapCounterScope(ctx, false).user.tenantId,
-    });
-    // Flip the soft-warned flag so the same period doesn't re-notify.
-    const marked = await markCapSoftWarned(ctx, {
+    // Claim first: of two parallel bookings only the one that flips the flag notifies.
+    const claimed = await claimCapSoftWarning(ctx, {
       capName: options.capName,
       periodStartIso: options.periodStartIso,
       ...(options.markSoftWarnedOutsideTransaction && { outsideTransaction: true }),
     });
-    if (!marked.isSuccess) throw reraiseAsKumikoError(marked.error);
+    if (claimed) {
+      await options.notify({
+        capName: options.capName,
+        value: result.value,
+        limit: options.limit,
+        tenantId: resolveCapCounterScope(ctx, false).user.tenantId,
+      });
+    }
   }
 
   return result;

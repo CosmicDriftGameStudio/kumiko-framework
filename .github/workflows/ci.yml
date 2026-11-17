@@ -844,7 +844,9 @@ jobs:
     # github-hosted runners (HTTP 422 sonst). Public Repo → alle Jobs github-
     # hosted (gratis); cdgs-runner wird hier nicht mehr genutzt.
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # 20min reichte fuer Install+Publish allein; der Registry-Wait-Step
+    # unten kann bis zu 15min zusaetzlich blockieren (NPM_VISIBILITY_TIMEOUT_MS).
+    timeout-minutes: 40
     permissions:
       contents: write
       pull-requests: write
@@ -962,6 +964,7 @@ jobs:
           bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Install (rescue-publish)" -- bun install --frozen-lockfile
           bash scripts/publish-with-oidc.sh
           new_tags="$(git tag --points-at "$GITHUB_SHA")"
+          if [ -n "$new_tags" ]; then echo "released=true" >> "$GITHUB_OUTPUT"; else echo "released=false" >> "$GITHUB_OUTPUT"; fi
           if [ -z "$new_tags" ]; then
             echo "no tags at this SHA"
           # Push only tags pointing at this run's SHA, not --tags (a single
@@ -974,3 +977,18 @@ jobs:
             echo "::error::npm publish for this release already succeeded — only the git tag push failed. Push the missing tags manually (see kumiko-framework#1788): $flat_tags"
             exit 1
           fi
+
+      # Renovate respects npm `dist-tags.latest`, which can lag a publish for
+      # hours while the packuments are already current (fw#2644: a half
+      # lockstep bump with two kumiko-types copies). Anything that installs
+      # right after the release must wait until every package is the npm latest.
+      - name: Wait for npm packuments to catch up
+        if: steps.changesets.outputs.published == 'true' || steps.rescue-publish.outputs.released == 'true'
+        continue-on-error: true
+        timeout-minutes: 16
+        id: npm-visibility
+        env:
+          # Only set when the changesets action published; the rescue path
+          # leaves it empty and the script falls back to the workspace scan.
+          PUBLISHED_PACKAGES: ${{ steps.changesets.outputs.published == 'true' && steps.changesets.outputs.publishedPackages || '' }}
+        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Wait for npm packuments to catch up" -- bun scripts/wait-for-npm-visibility.ts

@@ -15,6 +15,10 @@ import {
   recordRebuildDeadLetters,
 } from "../../event-store/rebuild-dead-letter.ts";
 import { saveSnapshot } from "../../event-store/snapshot.ts";
+import {
+  createUpcasterDeadLetterTable,
+  recordUpcasterDeadLetter,
+} from "../../event-store/upcaster-dead-letter.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { generateId } from "../../utils/index.ts";
 
@@ -89,6 +93,7 @@ export async function createFixtureTables(stack: TestStack): Promise<void> {
   await unsafeCreateEntityTable(stack.db, fileEntity, FILE);
   await unsafeCreateEntityTable(stack.db, keptEntity, KEPT);
   await createRebuildDeadLetterTable(stack.db);
+  await createUpcasterDeadLetterTable(stack.db);
 }
 
 export async function sql<T>(stack: TestStack, text: string): Promise<readonly T[]> {
@@ -126,6 +131,12 @@ async function appendLegacyReleaseWithoutAppId(stack: TestStack): Promise<void> 
     metadata: { userId: admin.id },
   });
   await snapshotOf(stack, RELEASE, aggregateId);
+  await recordUpcasterDeadLetter(stack.db, {
+    event: stored,
+    fromVersion: 1,
+    targetVersion: 2,
+    error: "x",
+  });
   await recordRebuildDeadLetters(stack.db, "evprune:projection:legacy-release", [
     { event: stored, error: "x" },
   ]);
@@ -135,7 +146,7 @@ async function appendLegacyReleaseWithoutAppId(stack: TestStack): Promise<void> 
 export async function seedFixture(stack: TestStack): Promise<void> {
   await sql(
     stack,
-    `TRUNCATE kumiko_events, kumiko_snapshots, kumiko_archived_streams, kumiko_rebuild_dead_letters, kumiko_projections, read_evprune_release, read_evprune_file, read_evprune_kept RESTART IDENTITY CASCADE`,
+    `TRUNCATE kumiko_events, kumiko_snapshots, kumiko_archived_streams, kumiko_upcaster_dead_letters, kumiko_rebuild_dead_letters, kumiko_projections, read_evprune_release, read_evprune_file, read_evprune_kept RESTART IDENTITY CASCADE`,
   );
   const tdb = createTenantDb({ db: stack.db, tenantId: admin.tenantId });
   const releases = createEventStoreExecutor(releaseTable, releaseEntity, { entityName: RELEASE });

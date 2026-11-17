@@ -3,6 +3,7 @@ import { ZodObject } from "zod";
 import { bootRuleError } from "./boot-validator/boot-rule.ts";
 import { DEFINITION_WEBHOOK_EVENT_RULES } from "./boot-validator/definition-webhook-events-rules.ts";
 import type { FeatureBuilderState } from "./feature-builder-state.ts";
+import { isObjectArgument, throwObjectArgumentRequired } from "./object-form.ts";
 import { isKebabSegment, toKebab } from "./qualified-name.ts";
 import { findOpenPayloadShape } from "./webhook-payload-strictness.ts";
 
@@ -118,6 +119,9 @@ export function buildWebhookEventMethods(state: FeatureBuilderState, featureName
       readonly version: number;
       readonly wireName?: string;
     }): WebhookEventHandle {
+      if (!isObjectArgument(definition)) {
+        throwObjectArgumentRequired(featureName, "defineWebhookEvent");
+      }
       const { name, description, payload, version } = definition;
       const where = `[Feature ${featureName}] defineWebhookEvent`;
       assertValidWebhookEventDefinition(where, definition);

@@ -760,6 +760,7 @@
         "eventConsumerStateTable",
         "flushEscapeHatchAudits",
         "getAllConsumerProgress",
+        "getAllProjectionProgress",
         "getConsumerState",
         "getProjectionState",
         "listConsumersWithState",

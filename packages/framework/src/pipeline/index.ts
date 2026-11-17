@@ -48,6 +48,7 @@ export type { MultiStreamApplyContext } from "./multi-stream-apply-context.ts";
 export { createMultiStreamApplyContext } from "./multi-stream-apply-context.ts";
 export { assertNotifyTargetsOwnTenant, createDeferringNotify } from "./notify-scope.ts";
 export {
+  getAllProjectionProgress,
   getProjectionState,
   listProjectionsWithState,
   rebuildProjection,

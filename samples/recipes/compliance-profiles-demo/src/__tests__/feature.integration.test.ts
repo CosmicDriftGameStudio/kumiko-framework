@@ -18,6 +18,7 @@
 //   - Sprachen: de
 //   - Tenant-Destroy-Grace: 60d (HR-Override)
 //   - Audit-Retention: 10y (HGB-Override)
+//   - Plus worksCouncilApprovalRequired
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
@@ -98,18 +99,21 @@ describe("compliance-profiles-demo :: cross-tenant isolation", () => {
     const result = await stack.http.queryOk<{
       profile: {
         key: string;
-        breach: { authorityContact: string };
+        breach: { authorityContact: string; worksCouncilNotificationRequired?: boolean };
         notifications: { languages: string[] };
         tenantDestroyGracePeriod: { days: number };
         auditLog: { retention: { years?: number } };
+        subProcessor: { worksCouncilApprovalRequired?: boolean };
       };
     }>(FOR_TENANT, {}, tenantCHrAdmin);
 
     expect(result.profile.key).toBe("de-hr-dsgvo-hgb");
     expect(result.profile.breach.authorityContact).toBe("Landes-Datenschutzbehörde");
+    expect(result.profile.breach.worksCouncilNotificationRequired).toBe(true);
     expect(result.profile.notifications.languages).toEqual(["de"]);
     expect(result.profile.tenantDestroyGracePeriod).toEqual({ days: 60 });
     expect(result.profile.auditLog.retention).toEqual({ years: 10 });
+    expect(result.profile.subProcessor.worksCouncilApprovalRequired).toBe(true);
   });
 
   test("Profile switch on the same tenant immediately shows new behavior", async () => {
@@ -160,14 +164,19 @@ describe("compliance-profiles-demo :: cross-tenant isolation", () => {
 
     const result = await stack.http.queryOk<{
       profile: {
-        userRights: { gracePeriod: { days: number }; exportDownloadTtl: { days: number } };
+        userRights: {
+          gracePeriod: { days: number };
+          portabilityFormat: string[];
+          restrictionAllowed: boolean;
+        };
         notifications: { languages: string[] };
       };
     }>(FOR_TENANT, {}, tenantEAdmin);
 
     expect(result.profile.userRights.gracePeriod).toEqual({ days: 90 });
     // Andere userRights aus swiss-dsg bleiben
-    expect(result.profile.userRights.exportDownloadTtl).toEqual({ days: 7 });
+    expect(result.profile.userRights.portabilityFormat).toEqual(["json"]);
+    expect(result.profile.userRights.restrictionAllowed).toBe(true);
     // Languages from swiss-dsg unchanged
     expect(result.profile.notifications.languages).toEqual(["de", "fr", "it", "en"]);
   });

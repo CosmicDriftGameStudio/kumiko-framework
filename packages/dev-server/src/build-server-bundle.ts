@@ -10,13 +10,15 @@
 //                             found by walking up to bin/kumiko.ts)
 //   bin/worker.ts          →  dist-server/worker.js   (optional, next to bin/main.ts:
 //                             background worker as its own process from the same image)
+//   bin/bootstrap.ts       →  dist-server/bootstrap.js (optional, next to bin/main.ts:
+//                             one-shot runBootstrap provisioning, run as a k8s Job)
 //   extraEntries[i]        →  dist-server/<basename>.js (opt-in, e.g. a probe script
 //                             `bin/remote-probe.ts`; CLI: repeatable `--entry <path>`)
 //   dist-server/package.json → runtime dependencies with pinned versions
 //
 // All entries are built in ONE Bun.build call with `splitting`: the framework
-// lands once as shared chunk-*.js and server.js, kumiko.js, worker.js and
-// the extra entries are thin entries importing it. Separate
+// lands once as shared chunk-*.js and server.js, kumiko.js, worker.js,
+// bootstrap.js and the extra entries are thin entries importing it. Separate
 // bundles would inline ~14 MB per entry.
 //
 // Output:
@@ -25,6 +27,7 @@
 //     server.js            ← app boot entry
 //     kumiko.js            ← migration CLI entry (if bin/kumiko.ts is found)
 //     worker.js            ← worker entry (if bin/worker.ts sits next to main.ts)
+//     bootstrap.js         ← provisioning entry (if bin/bootstrap.ts sits next to main.ts)
 //     <basename>.js        ← one per extraEntries path
 //     chunk-*.js           ← shared framework chunks
 //     package.json         ← runtime dependencies with pinned versions
@@ -117,7 +120,7 @@ export type BuildServerBundleEntry = {
 
 export type BuildServerBundleResult = {
   readonly outDir: string;
-  /** Named entry files (server.js, plus kumiko.js, worker.js and extra entries when present). */
+  /** Named entry files (server.js, plus kumiko.js, worker.js, bootstrap.js and extra entries when present). */
   readonly entries: readonly BuildServerBundleEntry[];
   /** Shared framework chunks (from splitting). */
   readonly chunks: readonly BuildServerBundleEntry[];
@@ -131,7 +134,7 @@ export type BuildServerBundleResult = {
 // chunks are referenced by relative path), so renaming it is safe.
 const ENTRY_RENAMES: Readonly<Record<string, string>> = { "main.js": "server.js" };
 
-const OPTIONAL_SIBLING_ENTRY_NAMES = ["worker"] as const;
+const OPTIONAL_SIBLING_ENTRY_NAMES = ["worker", "bootstrap"] as const;
 
 // Output names the built-in entries occupy ("main" is renamed to server.js).
 const RESERVED_ENTRY_OUTPUT_NAMES: ReadonlySet<string> = new Set([

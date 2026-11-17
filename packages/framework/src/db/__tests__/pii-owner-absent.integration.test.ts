@@ -7,12 +7,14 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import { resetEventStore, setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { configureBlindIndexKey, resetBlindIndexKeyForTests } from "../../crypto/blind-index.ts";
 import { InMemoryKmsAdapter } from "../../crypto/in-memory-kms-adapter.ts";
 import {
   configurePiiSubjectKms,
   PII_CIPHERTEXT_PREFIX,
 } from "../../crypto/pii-field-encryption.ts";
 import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
+import { runPiiEventBackfill } from "../../migrations/pii-event-backfill.ts";
 import { rebuildProjection } from "../../pipeline/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { generateId } from "../../utils/index.ts";
@@ -151,6 +153,34 @@ describe("entity PII whenAbsent: tenant", () => {
     const previousKeys = await lastEventPreviousKeys(id);
     expect(previousKeys).toContain("id");
     expect(previousKeys).not.toContain("name");
+  });
+
+  test("backfill encrypts a legacy delete event's plaintext previous of an ownerless row under the tenant key", async () => {
+    resetPiiSubjectKmsForTests();
+    const id = await createRow({ name: "plain name" });
+    const row = await detail(id);
+    const res = await stack.http.write(DELETE, { id, version: row["version"] }, admin);
+    expect(res.status).toBeLessThan(300);
+    // Test fixture only: rewrite the slim delete event into the legacy shape that carried personal fields.
+    await asRawClient(stack.db).unsafe(
+      `UPDATE kumiko_events SET payload = jsonb_set(payload, '{previous,name}', '"plain name"'::jsonb)
+       WHERE aggregate_id = $1 AND type = 'item.deleted'`,
+      [id],
+    );
+    expect((await lastEventNames(id)).previousName).toBe("plain name");
+
+    await asRawClient(stack.db).unsafe(
+      `DROP TABLE IF EXISTS "kumiko_pii_backfill_state", "kumiko_pending_rebuilds"`,
+    );
+    resetBlindIndexKeyForTests();
+    configureBlindIndexKey(Buffer.alloc(32, 7).toString("base64"));
+    enableKms();
+    const result = await runPiiEventBackfill(stack.db, stack.registry);
+    expect(result.status).toBe("ran");
+    if (result.status === "ran") expect(result.failures).toEqual([]);
+
+    expect((await lastEventNames(id)).previousName).toStartWith(TENANT_PREFIX);
+    resetBlindIndexKeyForTests();
   });
 
   test("setting the owner in the same update keeps previous and changes under the user key", async () => {

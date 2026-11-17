@@ -343,6 +343,45 @@ describe("tags integration — update (recolor / re-scope)", () => {
     expectErrorIncludes(err, "invalid_color");
     expect((await tagById(id))?.["color"]).toBe("#abcdef");
   });
+
+  test.each([
+    ["an empty name", ""],
+    ["a whitespace-only name", "   "],
+    ["a name over 64 characters", "x".repeat(65)],
+  ])("tag:update rejects %s and leaves the tag untouched", async (_label, name) => {
+    const { id } = await stack.http.writeOk<{ id: string }>(
+      TagsHandlers.createTag,
+      { name: "Name streng" },
+      admin,
+    );
+    const version = (await tagById(id))?.["version"] as number;
+    const err = await stack.http.writeErr(
+      TagsHandlers.updateTag,
+      { id, version, changes: { name } },
+      admin,
+    );
+    expect(err.httpStatus).toBeGreaterThanOrEqual(400);
+    expect(err.httpStatus).toBeLessThan(500);
+    const after = await tagById(id);
+    expect(after?.["name"]).toBe("Name streng");
+    expect(after?.["version"]).toBe(version);
+  });
+
+  test("tag:update without a version is rejected", async () => {
+    const { id } = await stack.http.writeOk<{ id: string }>(
+      TagsHandlers.createTag,
+      { name: "Ohne Version" },
+      admin,
+    );
+    const err = await stack.http.writeErr(
+      TagsHandlers.updateTag,
+      { id, changes: { name: "Neu" } },
+      admin,
+    );
+    expect(err.httpStatus).toBeGreaterThanOrEqual(400);
+    expect(err.httpStatus).toBeLessThan(500);
+    expect((await tagById(id))?.["name"]).toBe("Ohne Version");
+  });
 });
 
 describe("tags integration — tag:delete cascade", () => {

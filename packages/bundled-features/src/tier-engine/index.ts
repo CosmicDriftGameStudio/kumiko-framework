@@ -26,6 +26,13 @@ export {
 } from "./feature.ts";
 export { tierAssignmentTable } from "./table.ts";
 export {
+  createTierOptionGate,
+  type TierOptionAvailability,
+  type TierOptionGate,
+  type TierOptionGateDeps,
+  type TierOptionSpec,
+} from "./tier-option-gate.ts";
+export {
   createTierResolver,
   type TierResolver,
   type TierResolverDeps,

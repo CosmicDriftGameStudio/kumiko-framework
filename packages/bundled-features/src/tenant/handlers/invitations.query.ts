@@ -4,6 +4,7 @@ import { mapWithConcurrency } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
 import { decryptStoredPii, KMS_POOL_CONCURRENCY } from "../../shared/index.ts";
 import { INVITATION_STATUS, tenantInvitationsTable } from "../invitation-table.ts";
+import { isSystemAdmin } from "./is-system-admin.ts";
 
 // Pending invitations for the current tenant, admin-only, filtered to
 // status="pending" — accepted/cancelled/expired don't belong in this UI
@@ -41,7 +42,8 @@ export const invitationsQuery = defineQueryHandler({
         typeof invitedBy === "string"
           ? await decryptStoredPii(invitedBy, "invitedBy", "tenant:invitations")
           : invitedBy;
-      // Explicit allowlist: the raw row also carries blind-index columns.
+      // Explicit allowlist: the raw row also carries blind-index columns and
+      // globalRoles, which only a SystemAdmin may see.
       return {
         id: row["id"],
         tenantId: row["tenantId"],
@@ -52,6 +54,7 @@ export const invitationsQuery = defineQueryHandler({
         expiresAt: row["expiresAt"],
         insertedAt: row["insertedAt"],
         version: row["version"],
+        ...(isSystemAdmin(query.user) && { globalRoles: row["globalRoles"] }),
       };
     });
   },

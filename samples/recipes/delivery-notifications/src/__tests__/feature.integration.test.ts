@@ -5,8 +5,9 @@
 // 2. Admin creates a ticket with assignee (via HTTP API), the handler sends via ctx.notify
 // 3. InApp → DB + SSE
 // 4. Email → stored template → mail renderer → Transport
-// 5. DeliveryLog has entries for both channels
-// 6. A tenant overrides the stored mail text and the next mail uses it
+// 5. Push → Transport
+// 6. DeliveryLog has entries for all 3 channels
+// 7. A tenant overrides the stored mail text and the next mail uses it
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
@@ -18,6 +19,11 @@ import {
   createChannelInAppFeature,
   inAppMessagesTable,
 } from "@cosmicdrift/kumiko-bundled-features/channel-in-app";
+import {
+  createChannelPushFeature,
+  createInMemoryPushTransport,
+  type PushMessage,
+} from "@cosmicdrift/kumiko-bundled-features/channel-push";
 import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
 import {
   createDeliveryFeature,
@@ -52,9 +58,11 @@ import { supportFeature, TICKET_ASSIGNED, ticketTable } from "../feature";
 // --- Test Infrastructure ---
 
 const emailTransport = createInMemoryTransport();
+const pushTransport = createInMemoryPushTransport();
 
 // Simple resolvers: userId → address
 const testEmail = (userId: string) => `user-${userId}@example.com`;
+const testPushToken = (userId: string) => `push-token-${userId}`;
 
 // Test users
 const admin: SessionUser = TestUsers.admin;
@@ -75,6 +83,10 @@ const features = [
   createChannelEmailFeature({
     transport: emailTransport,
     resolveEmail: async (userId) => testEmail(userId),
+  }),
+  createChannelPushFeature({
+    transport: pushTransport,
+    resolveToken: async (userId) => testPushToken(userId),
   }),
   supportFeature,
 ];
@@ -110,9 +122,10 @@ afterAll(async () => {
 // --- End-to-End Flow ---
 
 describe("delivery-notifications sample", () => {
-  test("ticket creation fires InApp + Email notifications to assignee", async () => {
+  test("ticket creation fires InApp + Email + Push notifications to assignee", async () => {
     // Reset transports and SSE
     emailTransport.sent.length = 0;
+    pushTransport.sent.length = 0;
     stack.events.reset();
 
     // --- Act: Admin creates a ticket with an assignee ---
@@ -149,15 +162,25 @@ describe("delivery-notifications sample", () => {
     expect(email?.html).toContain("Open ticket"); // button
     expect(email?.html).toContain("/support/tickets/"); // button URL
 
-    // --- Assert: DeliveryLog has entries for both channels ---
+    // --- Assert: Push ---
+    const push = pushTransport.sent.find(
+      (p: PushMessage) => p.token === testPushToken(assignee.id),
+    );
+    expect(push).toBeDefined();
+    expect(push?.title).toBe("New ticket");
+    expect(push?.body).toContain("Login-Button");
+    expect(push?.body).toContain("critical");
+
+    // --- Assert: DeliveryLog has entries for all 3 channels ---
     const logs = await selectMany(db, deliveryAttemptsTable, {
       notificationType: TICKET_ASSIGNED,
       recipientId: assignee.id,
     });
-    expect(logs).toHaveLength(2);
+    expect(logs).toHaveLength(3);
     const channels = logs.map((l) => l["channel"]);
     expect(channels).toContain("inApp");
     expect(channels).toContain("email");
+    expect(channels).toContain("push");
     expect(logs.every((l) => l["status"] === "sent")).toBe(true);
   });
 
@@ -242,6 +265,7 @@ describe("delivery-notifications sample", () => {
 
   test("ticket without assignee skips notification (recipient returns null)", async () => {
     emailTransport.sent.length = 0;
+    pushTransport.sent.length = 0;
 
     await stack.http.writeOk(
       "support:write:ticket:create",
@@ -256,6 +280,7 @@ describe("delivery-notifications sample", () => {
 
     // No notifications sent — no assignee
     expect(emailTransport.sent).toHaveLength(0);
+    expect(pushTransport.sent).toHaveLength(0);
   });
 
   test("access control: non-Admin/Support cannot create tickets", async () => {

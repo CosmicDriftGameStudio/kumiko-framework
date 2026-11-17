@@ -111,12 +111,10 @@ describe("seedComplianceProfile", () => {
     });
 
     const result = await stack.http.queryOk<{
-      profile: {
-        userRights: { gracePeriod: { days: number }; exportDownloadTtl: { days: number } };
-      };
+      profile: { userRights: { gracePeriod: { days: number }; portabilityFormat: string[] } };
     }>(FOR_TENANT, {}, user);
     expect(result.profile.userRights.gracePeriod).toEqual({ days: 90 });
     // Other userRights remain from eu-dsgvo
-    expect(result.profile.userRights.exportDownloadTtl).toEqual({ days: 7 });
+    expect(result.profile.userRights.portabilityFormat).toEqual(["json"]);
   });
 });

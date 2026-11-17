@@ -1,6 +1,6 @@
 # renderer-pdf
 
-Draws a table document as PDF in pure JavaScript (`pdf-lib`, standard Helvetica fonts), no browser and no Puppeteer service. Same input gives byte-identical output. This is a library function, not a feature or renderer plugin.
+Public `document-pdf` renderer plugin: draws a table document as PDF in pure JavaScript (`pdf-lib`, standard Helvetica fonts), no browser and no Puppeteer service. Same input gives byte-identical output.
 
 ## Pure function
 
@@ -25,3 +25,7 @@ const { pdfBytes, pageCount } = await renderTablePdf(
 ```
 
 The caller passes ready-formatted strings (dates, numbers); the renderer never reads the clock. Characters Helvetica (WinAnsi) cannot encode are drawn as `?`; umlauts, `ß` and `€` are kept.
+
+## Plugin
+
+Mount `createRendererPdfFeature()` next to `renderer-foundation`. It serves `kind: "document-pdf"` with a `PdfTableDocument` in `payload.variables`; `options.format` and `options.marginMm` apply. Invalid variables raise `RendererError("invalid_payload")`. A Puppeteer plugin keeps precedence (`DEFAULT_PLUGIN_BY_KIND`) when mounted.

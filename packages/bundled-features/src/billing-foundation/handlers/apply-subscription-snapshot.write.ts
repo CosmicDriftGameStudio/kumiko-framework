@@ -6,7 +6,7 @@
 // SYSTEM_ROLE: it is dispatched from the `sync-subscriptions` job's system user.
 
 import { createHash } from "node:crypto";
-import { defineWriteHandler, SYSTEM_ROLE } from "@cosmicdrift/kumiko-framework/engine";
+import { defineWriteHandler, SYSTEM_ROLE, type WriteResult } from "@cosmicdrift/kumiko-framework/engine";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { subscriptionAggregateId } from "../aggregate-id.ts";
@@ -86,7 +86,7 @@ export const applySubscriptionSnapshotHandler = defineWriteHandler({
   agent: { expose: false },
   schema: applySubscriptionSnapshotSchema,
   access: { roles: [SYSTEM_ROLE, "SystemAdmin"] },
-  handler: async (event, ctx) => {
+  handler: async (event, ctx): Promise<WriteResult<SyncSubscriptionResult>> => {
     const tenantId = event.user.tenantId;
     const snapshot = event.payload;
 

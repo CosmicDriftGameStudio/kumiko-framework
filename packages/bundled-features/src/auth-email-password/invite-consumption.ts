@@ -35,6 +35,7 @@ export type PendingInvitation = {
   /** Decrypted. */
   readonly email: string;
   readonly role: string;
+  readonly globalRoles: unknown;
   readonly version: number;
   readonly membershipVersion: number | null;
   readonly insertedAt: Temporal.Instant;

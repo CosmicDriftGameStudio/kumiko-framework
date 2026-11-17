@@ -8,6 +8,7 @@ import { createInitialFeatureBuilderState } from "./feature-builder-state.ts";
 import { buildConfigEventsJobsMethods } from "./feature-config-events-jobs.ts";
 import { buildEntityHandlerMethods } from "./feature-entity-handlers.ts";
 import { buildProbeMethods } from "./feature-probes.ts";
+import { isObjectArgument, throwObjectArgumentRequired } from "./object-form.ts";
 import { buildUiExtensionsMethods } from "./feature-ui-extensions.ts";
 import type { FeatureDefinition } from "./types/index.ts";
 import { buildWebhookEventMethods } from "./webhook-events.ts";
@@ -73,7 +74,11 @@ export function defineFeature<const TName extends string, TExports = undefined>(
       state.description = text.trim();
     },
     requires: (() => {
-      const fn = (first: { readonly features: readonly string[] }) => {
+      const fn = (...args: readonly [{ readonly features: readonly string[] }]) => {
+        const [first, ...rest] = args;
+        if (rest.length > 0 || !isObjectArgument(first)) {
+          throwObjectArgumentRequired(name, "requires");
+        }
         // Untyped callers can pass `{ feature: [...] }`; without this the object would be
         // registered as a dependency name.
         if (!Array.isArray(first.features) || !first.features.every((f) => typeof f === "string")) {

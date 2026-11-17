@@ -4,11 +4,16 @@ import type { Registry } from "@cosmicdrift/kumiko-framework/engine";
 import type { EnvelopeCipher } from "@cosmicdrift/kumiko-framework/secrets";
 import { configValueEntity, configValuesTable } from "./table.ts";
 
-export type { ConfigContext } from "./feature.ts";
+export type {
+  ConfigContext,
+  ConfigSourceReader,
+  SourceReadingConfigAccessor,
+} from "./feature.ts";
 export {
   createConfigAccessor,
   createConfigAccessorFactory,
   createConfigFeature,
+  readsWithSource,
   requireConfigResolver,
 } from "./feature.ts";
 export type { ReadinessMissingKey, RequiredKeyGate } from "./handlers/readiness.query.ts";

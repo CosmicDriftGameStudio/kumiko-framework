@@ -26,6 +26,14 @@ describe("feature-manifest", () => {
     },
   );
 
+  test("agent-tools is mounted, so the generated feature reference lists it", () => {
+    const manifest = buildFeatureManifest();
+    const agentTools = manifest.features.find((f) => f.name === "agent-tools");
+
+    expect(agentTools).toBeDefined();
+    expect(agentTools?.description ?? "").not.toBe("");
+  });
+
   test("introspects scope + per-role access for SMTP config (the drift-prone case)", () => {
     const manifest = buildFeatureManifest();
     const smtp = manifest.features.find((f) => f.name === "mail-transport-smtp");

@@ -52,7 +52,8 @@ function hintFor(shortName: string): string {
   return `Set it via config:write:set on \`${SUBSCRIPTION_PADDLE_FEATURE}:config:${shortName}\` (or seed it from the matching PADDLE_* variable during the env bridge).`;
 }
 
-// Only the HandlerContext slice the Paddle calls read.
+// The slice of HandlerContext and JobContext the Paddle calls need, so the
+// backfill job reaches Paddle through the same key and environment resolution.
 export type PaddleCallSource = Pick<HandlerContext, "config" | "services" | "user">;
 
 export type PaddleCtxRuntime = {

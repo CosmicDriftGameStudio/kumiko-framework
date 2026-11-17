@@ -42,6 +42,7 @@ import { assertReason } from "./escape-hatch-reason.ts";
 import type { FeatureBuilderState } from "./feature-builder-state.ts";
 import { agentSlots, transactionPhaseSlots } from "./handler-definition-slots.ts";
 import { resolveName } from "./handler-helpers.ts";
+import { isObjectArgument, throwObjectArgumentRequired } from "./object-form.ts";
 import { qualifyQueryName } from "./qualified-name.ts";
 
 import type { PipelineDef } from "./types/step.ts";
@@ -124,6 +125,7 @@ export function buildEntityHandlerMethods<TName extends string>(
 ) {
   const methods = {
     entity(definition: EntityObjectDefinition): EntityRef {
+      if (!isObjectArgument(definition)) throwObjectArgumentRequired(name, "entity");
       const { backingTable, ...entityDefinition } = definition;
       const entityName = entityDefinition.name;
       state.entities[entityName] = entityDefinition;
@@ -157,6 +159,7 @@ export function buildEntityHandlerMethods<TName extends string>(
         TWhenNested
       >,
     ): HandlerRef {
+      if (!isObjectArgument(def)) throwObjectArgumentRequired(name, "writeHandler");
       assertHandlerHasAccess(name, "writeHandler", def.name, def.access);
       assertHandlerNameFree(state, name, "write", def.name);
       state.writeHandlers[def.name] = {
@@ -204,6 +207,7 @@ export function buildEntityHandlerMethods<TName extends string>(
     queryHandler<TName extends string, TSchema extends ZodType, TResult = unknown>(
       def: QueryHandlerDefinition<TName, TSchema, TResult>,
     ): QueryHandlerRef<z.input<TSchema>, Exclude<TResult, WriteFailure>> {
+      if (!isObjectArgument(def)) throwObjectArgumentRequired(name, "queryHandler");
       assertHandlerHasAccess(name, "queryHandler", def.name, def.access);
       assertHandlerNameFree(state, name, "query", def.name);
       if (def.resultEntity !== undefined && def.unfilteredResult !== undefined) {

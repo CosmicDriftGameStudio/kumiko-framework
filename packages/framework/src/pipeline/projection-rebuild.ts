@@ -32,7 +32,7 @@ import { extractTableInfo } from "../db/table-info.ts";
 import { tableNameOf } from "../db/table-introspection.ts";
 import { withExecutorManagedWrites } from "../db/tenant-db.ts";
 import type { Registry, TenantId } from "../engine/types/index.ts";
-import { eventsTable, upcastStoredEvent } from "../event-store/index.ts";
+import { eventsTable, getEventsHighWaterMark, upcastStoredEvent } from "../event-store/index.ts";
 import {
   createRebuildDeadLetterTable,
   recordRebuildDeadLetters,
@@ -546,4 +546,40 @@ export async function listProjectionsWithState(
       lastError: state?.lastError ?? null,
     };
   });
+}
+
+export type ProjectionProgress = {
+  readonly name: string;
+  readonly sources: readonly string[];
+  readonly status: string;
+  readonly lastProcessedEventId: bigint;
+  readonly lastRebuildAt: Temporal.Instant | null;
+  readonly lastError: string | null;
+  // Global MAX(events.id) at query time.
+  readonly highWaterMark: bigint;
+  // HWM - cursor. 0n when caught-up. Cannot be negative (that would mean
+  // the projection is ahead of HWM = bug). Used by ops dashboards to
+  // visualize projection lag.
+  readonly lag: bigint;
+};
+
+// Extended variant of listProjectionsWithState that also returns HWM and lag
+// per projection. One extra cheap MAX-aggregate query — no additional
+// roundtrip per projection. Programmatic callers (e.g. a Prometheus gauge
+// exporter) can map the result directly to a `kumiko_projection_lag{name}`
+// gauge.
+export async function getAllProjectionProgress(
+  db: DbConnection,
+  registry: Registry,
+): Promise<readonly ProjectionProgress[]> {
+  const [projections, highWaterMark] = await Promise.all([
+    listProjectionsWithState(db, registry),
+    getEventsHighWaterMark(db),
+  ]);
+
+  return projections.map((p) => ({
+    ...p,
+    highWaterMark,
+    lag: highWaterMark - p.lastProcessedEventId,
+  }));
 }

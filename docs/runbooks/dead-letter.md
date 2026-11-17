@@ -1,18 +1,19 @@
 ---
 status: reference
-verified: 2026-11-17
-evidence: "pipeline/event-dispatcher.ts, event-dispatcher-delivery.ts, event-dispatcher-admin.ts, event-consumer-state.ts, event-store/rebuild-dead-letter.ts, upcaster.ts, packages/cli/src/commands/consumer.ts"
+verified: 2026-10-19
+evidence: "pipeline/event-dispatcher.ts, event-dispatcher-delivery.ts, event-dispatcher-admin.ts, event-consumer-state.ts, event-store/rebuild-dead-letter.ts, upcaster-dead-letter.ts, upcaster.ts, packages/cli/src/commands/consumer.ts"
 ---
 
-# Dead letters: stuck consumers and quarantined rebuild events
+# Dead letters: stuck consumers, quarantined rebuild events, failed upcasts
 
-"Dead letter" means two different things in Kumiko. Find yours first, then follow its section.
+"Dead letter" means three different things in Kumiko. Find yours first, then follow its section.
 None of them deletes an event; the log stays intact.
 
 | Kind | Where it lives | Tooling |
 | --- | --- | --- |
 | Dead event consumer (SSE, search, multi-stream projection) | row in `kumiko_event_consumers`, `status = 'dead'` | `bun kumiko consumer ...` |
 | Events skipped during a projection rebuild | table `kumiko_rebuild_dead_letters` | read function only |
+| Events whose upcaster threw | table `kumiko_upcaster_dead_letters` | read function only |
 
 ## 1. Dead consumer
 
@@ -70,13 +71,21 @@ across rebuild attempts.
   diagnostic only and do not affect the projection. Do not `DELETE` them by hand without
   agreeing it first; nothing in the framework depends on their absence.
 
-## 3. Failing upcasters
+## 3. Upcaster dead letters (`kumiko_upcaster_dead_letters`)
 
-A failing `r.eventMigration` transform, or an event stored at a newer `eventVersion` than the running code knows (`EventVersionAheadError`), throws. On a live consumer that ends as a dead consumer (section 1); in a rebuild the rebuild fails ([event-rebuild](./event-rebuild.md) section 3). There is no separate table. Fix the migration or deploy the newer code, then revive the consumer or rebuild.
+`upcastStoredEvent` walks an old payload through the `r.eventMigration` chain. With
+`errorPolicy: "quarantine"` it writes a failing event here and skips it instead of throwing.
+In the current code nothing outside `event-store/` sets that policy or calls
+`createUpcasterDeadLetterTable`, and no migration creates the table. So in a normal app the table
+does not exist and a failing upcaster surfaces as a thrown error in the consumer (section 1) or
+the rebuild ([event-rebuild](./event-rebuild.md) section 3).
+
+If you do have the table: `listDeadLetters(db, { eventType?, limit? })` reads it. A replay is
+not implemented (the source says so). Fix the migration, then rebuild.
 
 ## What has no tooling
 
-- No replay or discard for `kumiko_rebuild_dead_letters`, and no CLI to list it.
+- No replay or discard for either dead-letter table, and no CLI to list them.
 - No CLI for per-instance consumers (`--instance-id`).
 - No table or CLI listing events skipped by `errorPolicy.skipApplyErrors` on a live consumer;
   only the warn log.

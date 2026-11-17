@@ -239,6 +239,7 @@ export function registerUserDataRightsJobs(
           handlerName: FORGET_CLEANUP_HANDLER_NAME,
         }),
         ...(sendDeletionExecutedEmail && { sendDeletionExecutedEmail }),
+        ...(opts.eraseOwnedRecordKeys === true && { eraseOwnedRecordKeys: true }),
         escapeHatchAuditSink: ctx.services._escapeHatchAuditSink,
         escapeHatchAuditLog: ctx.obs.log,
         actor: ctx.systemUser.id,

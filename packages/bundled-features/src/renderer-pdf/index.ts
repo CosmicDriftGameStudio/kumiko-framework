@@ -1,3 +1,4 @@
+export { createRendererPdfFeature } from "./feature.ts";
 export {
   type PdfTableColumn,
   type PdfTableDocument,

@@ -1,0 +1,47 @@
+import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  findAgentDocGaps,
+  findHandlerTranslationGaps,
+  formatAgentDocGap,
+} from "./agent-doc-lint.ts";
+
+export const AGENT_TOOLS_FEATURE_NAME = "agent-tools";
+
+export function createAgentToolsFeature(): FeatureDefinition {
+  return defineFeature(AGENT_TOOLS_FEATURE_NAME, (r) => {
+    r.describe(
+      "Builds a tool catalog and an agent manifest from the mounted registry so an LLM agent can call handlers and understand the app's shape. A handler or entity without a `description` stays invisible to the agent by construction (see `resolveAgentExposure`), while a screen stays visible unless it opts out with `agent: { expose: false }` (see `isAgentVisibleScreen`) — this feature surfaces the resulting gaps at boot and via `kumiko agent lint` so an app author notices before an agent silently can't see a feature.",
+    );
+    r.uiHints({
+      displayLabel: "AI Agent Tools",
+      category: "ai",
+      recommended: false,
+    });
+
+    // Warns instead of throwing: undocumented handlers/screens/entities are a
+    // usability gap for the agent, not an invalid app — failing the boot here
+    // would turn every incrementally-documented app into an outage.
+    r.bootCheck(({ features }) => {
+      const gaps = findAgentDocGaps(features);
+      const warningCount = findHandlerTranslationGaps(features).length;
+      if (warningCount > 0) {
+        // biome-ignore lint/suspicious/noConsole: operator-visibility at boot for agent-doc gaps
+        console.warn(
+          `[agent-tools] ${warningCount} agent-exposed write handler(s) lack title/field-label translations — run \`kumiko agent lint\` for details.`,
+        );
+      }
+      if (gaps.length === 0) {
+        // skip: no blocking documentation gaps, nothing more to warn about
+        return;
+      }
+      // biome-ignore lint/suspicious/noConsole: operator-visibility at boot for agent-doc gaps
+      console.warn(
+        `[agent-tools] ${gaps.length} handler/screen/entity gap(s) invisible to the AI agent — run \`kumiko agent lint\` for details:`,
+      );
+      for (const gap of gaps) {
+        // biome-ignore lint/suspicious/noConsole: operator-visibility at boot for agent-doc gaps
+        console.warn(`  ${formatAgentDocGap(gap)}`);
+      }
+    });
+  });
+}

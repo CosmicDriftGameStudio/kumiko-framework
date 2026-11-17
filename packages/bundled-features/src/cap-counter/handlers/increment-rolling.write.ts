@@ -74,6 +74,8 @@ export const incrementRollingCapHandler = defineWriteHandler({
         capName: payload.capName,
         amount: payload.amount,
       },
+      blindAppendReason:
+        "each increment is an independent additive fact; the window sum does not depend on stream order or on increments appended meanwhile",
     });
 
     return { isSuccess: true, data: { aggregateId, amount: payload.amount } };

@@ -4,6 +4,7 @@ import {
   assignTagPayloadSchema,
   createTagPayloadSchema,
   deleteTagPayloadSchema,
+  rejectBlankTagNameChange,
   rejectInvalidTagColorChange,
   removeTagPayloadSchema,
 } from "../schemas.ts";
@@ -244,5 +245,18 @@ describe("assign/remove payload schemas", () => {
     expect(assignTagPayloadSchema.safeParse({ ...valid, entityId: "x".repeat(129) }).success).toBe(
       false,
     );
+  });
+});
+
+describe("rejectBlankTagNameChange", () => {
+  test("flags an empty or whitespace-only name in changes", () => {
+    const expected = [{ field: "name", error: "invalid_name" }];
+    expect(rejectBlankTagNameChange({ changes: { name: "" } })).toEqual(expected);
+    expect(rejectBlankTagNameChange({ changes: { name: "   " } })).toEqual(expected);
+  });
+
+  test("passes a real name and changes without a name", () => {
+    expect(rejectBlankTagNameChange({ changes: { name: "Neu" } })).toBeNull();
+    expect(rejectBlankTagNameChange({ changes: { color: "#fff" } })).toBeNull();
   });
 });

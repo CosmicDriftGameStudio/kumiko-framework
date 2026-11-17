@@ -149,6 +149,8 @@ export interface RunForgetCleanupArgs {
   // systemUser.id); attributes+audits any EXT_USER_DATA usage's declared
   // escapeHatch when its delete hook calls ctx.db.unsafeRaw().
   readonly escapeHatchAuditSink?: EscapeHatchAuditSink;
+  /** Opt-in: also erase the record keys of rows the forgotten user owns (see eraseSubjectData). */
+  readonly eraseOwnedRecordKeys?: boolean;
   readonly escapeHatchAuditLog?: Logger;
   readonly actor?: string;
 }
@@ -280,6 +282,7 @@ async function forgetDueUsers(args: RunForgetCleanupArgs): Promise<RunForgetClea
       escapeHatchAuditSink: args.escapeHatchAuditSink,
       escapeHatchAuditLog: args.escapeHatchAuditLog,
       actor: args.actor,
+      eraseOwnedRecordKeys: args.eraseOwnedRecordKeys,
     });
     hookCallsAttempted += userResult.hookCallsAttempted;
     errors.push(...userResult.errors);
@@ -341,6 +344,7 @@ async function processUser(args: {
   escapeHatchAuditSink?: EscapeHatchAuditSink;
   escapeHatchAuditLog?: Logger;
   actor?: string;
+  eraseOwnedRecordKeys?: boolean;
 }): Promise<ProcessUserResult> {
   const { db, registry, userId, now, hookEntries, buildStorageProvider, appTenantModel, kms } =
     args;
@@ -397,6 +401,7 @@ async function processUser(args: {
         searchAdapter: args.searchAdapter,
         resolveDeleteBytes: resolveForgetFileBytesDeleter(buildStorageProvider),
         missingStorage: { mode: "skip", warn: warnMissingStorage },
+        eraseOwnedRecordKeys: args.eraseOwnedRecordKeys === true,
         eraseRows: async () => {
           for (const tenantId of tenantList) {
             currentTenantId = tenantId;

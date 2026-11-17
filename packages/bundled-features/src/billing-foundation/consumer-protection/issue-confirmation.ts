@@ -7,6 +7,7 @@ import {
   createSystemUser,
   defineWriteHandler,
   SYSTEM_TENANT_ID,
+  type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import { createI18n } from "@cosmicdrift/kumiko-framework/i18n";
@@ -89,7 +90,7 @@ export function createIssueContractConfirmationHandler(
       grants: ["systemIdentity"],
     },
     // kumiko-lint-ignore complexity-budget one linear pass: stream lookup, consent match, idempotency check, recipient lookup, mail, marker append
-    handler: async (event, ctx) => {
+    handler: async (event, ctx): Promise<WriteResult<IssueContractConfirmationResult>> => {
       const payload = event.payload;
       const tenantId = event.user.tenantId;
 

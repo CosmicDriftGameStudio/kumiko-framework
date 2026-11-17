@@ -14,6 +14,7 @@ import { archivedStreamsTable } from "../event-store/archive.ts";
 import { eventsTable } from "../event-store/events-schema.ts";
 import { rebuildDeadLetterTable } from "../event-store/rebuild-dead-letter.ts";
 import { snapshotsTable } from "../event-store/snapshot.ts";
+import { upcasterDeadLetterTable } from "../event-store/upcaster-dead-letter.ts";
 
 // Whole-type removal for aggregate types that must not survive in the event log, e.g. old events
 // that no longer replay into their projection (a column became NOT NULL) and block
@@ -49,6 +50,7 @@ export type AggregateTypeRemovalDeleted = {
   readonly events: number;
   readonly snapshots: number;
   readonly archivedStreams: number;
+  readonly upcasterDeadLetters: number;
   readonly rebuildDeadLetters: number;
   readonly projectionRows: Readonly<Record<string, number>>;
 };
@@ -225,6 +227,12 @@ async function applyRemoval(
       tx,
       archivedStreamsTable,
       "kumiko_archived_streams",
+      types,
+    ),
+    upcasterDeadLetters: await deleteIfPresent(
+      tx,
+      upcasterDeadLetterTable,
+      "kumiko_upcaster_dead_letters",
       types,
     ),
     rebuildDeadLetters: await deleteIfPresent(

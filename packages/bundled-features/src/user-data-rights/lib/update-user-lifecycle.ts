@@ -1,9 +1,13 @@
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
-import { createEventStoreExecutor, type WritePurpose } from "@cosmicdrift/kumiko-framework/db";
+import {
+  createEventStoreExecutor,
+  selectMany,
+  type WritePurpose,
+} from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, VERSION_CONFLICT_CODE } from "@cosmicdrift/kumiko-framework/errors";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
-import { userEntity, userTable } from "../../user/index.ts";
+import { USER_STATUS, userEntity, userTable } from "../../user/index.ts";
 
 // Lifecycle mutations of the user entity MUST be emitted as `user.updated` events.
 // Writing them directly with updateMany causes a read_users rebuild to erase them
@@ -87,4 +91,53 @@ export async function updateUserLifecycle(
   throw new InternalError({
     message: `user lifecycle update failed for ${userId}: ${result.error.code}`,
   });
+}
+
+// Reconcile existing data: rows whose lifecycle state was set by the old
+// raw-updateMany path have no `user.updated` event, so a rebuild would restore
+// their `user.created` defaults. This function emits one `user.updated` event per
+// divergent row with its current live state, bringing the event log and live table
+// back into agreement.
+// MUST run once over the existing data BEFORE an app re-enables read_users
+// rebuilds. State-idempotent: a second run appends an identical user.updated
+// event, which is harmless because replay uses last-write-wins.
+// ponytail: full read_users scan, filtered in JS—a one-time migration; no
+// index/streaming is needed. For millions of rows, batch the work.
+export type BackfillResult = {
+  readonly backfilled: number;
+  readonly failed: ReadonlyArray<{ readonly id: string; readonly error: string }>;
+};
+
+export async function backfillUserLifecycleEvents(conn: DbRunner): Promise<BackfillResult> {
+  const rows = await selectMany<{
+    id: string;
+    status: string;
+    gracePeriodEnd: unknown;
+    pendingDeletionRequestId: unknown;
+  }>(conn, userTable, {});
+
+  let backfilled = 0;
+  const failed: Array<{ id: string; error: string }> = [];
+  for (const row of rows) {
+    const divergent =
+      row.status !== USER_STATUS.Active ||
+      row.gracePeriodEnd != null ||
+      row.pendingDeletionRequestId != null;
+    if (!divergent) continue;
+
+    // One bad row must not abort the run: the rows after it would then never
+    // get their user.updated event and stay vulnerable to the rebuild wipe
+    // (DSGVO-Datenverlust). Collect failures, finish the estate, report them.
+    try {
+      await updateUserLifecycle(conn, row.id, {
+        status: row.status,
+        gracePeriodEnd: row.gracePeriodEnd,
+        pendingDeletionRequestId: row.pendingDeletionRequestId,
+      });
+      backfilled++;
+    } catch (e) {
+      failed.push({ id: row.id, error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+  return { backfilled, failed };
 }

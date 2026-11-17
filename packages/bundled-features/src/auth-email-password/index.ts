@@ -19,6 +19,19 @@ export {
   verifyPassword,
   verifyToken,
 } from "../shared/index.ts";
+export type {
+  BootstrapConfigValue,
+  BootstrapDeps,
+  BootstrapInvite,
+  BootstrapInviteOutcome,
+  BootstrapPlan,
+  BootstrapReport,
+  BootstrapSeedDeps,
+  BootstrapSystemAdmin,
+  BootstrapTenant,
+  BootstrapTenantOutcome,
+} from "./bootstrap.ts";
+export { BootstrapPlanError, BootstrapWriteError, bootstrapTenants } from "./bootstrap.ts";
 export type { AuthMailLocale } from "./email-templates.ts";
 export type {
   AccountLockoutOptions,

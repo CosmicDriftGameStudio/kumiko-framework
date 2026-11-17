@@ -1,8 +1,8 @@
-// Shared boot core of the HTTP-less processes (runWorkerApp):
+// Shared boot core of the HTTP-less processes (runWorkerApp, runBootstrap):
 // env fail-fast, Temporal polyfill, composeFeatures/registry, PII invariants,
 // dry-run exit, KMS health gate, connections, schema-drift gate, boot-crypto
-// and extraContext. The worker must write rows the API can read, so it shares
-// every step that decides ciphers, blind indexes and config encryption.
+// and extraContext. Both processes must write rows the API can read, so they
+// share every step that decides ciphers, blind indexes and config encryption.
 
 import type { AuthEmailPasswordOptions } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
 import { createDefaultSseBroker, loadJwtSecretOrKeyring } from "@cosmicdrift/kumiko-framework/api";
@@ -76,6 +76,9 @@ export type WorkerBootProfile = {
   readonly processName: string;
   /** Resolved auth block for composeFeatures; implies includeBundled. */
   readonly authOptions?: AuthEmailPasswordOptions;
+  /** One-shot process: its job queue is not drained after exit, so ctx.notify
+   *  sends queued channels inline. */
+  readonly deliverQueuedInline?: boolean;
   /** Set by runWorkerApp when `featureToggles` mounted the feature; bound once the database exists. */
   readonly featureToggles?: FeatureTogglesWiring;
   /** Built by the `search` boot option; joins the extraContext. */
@@ -312,6 +315,7 @@ export async function bootWorkerProcess(
     ...(options.appOverrides && { appOverrides: options.appOverrides }),
     crypto: bootCrypto,
     ...(options.kms && { kms: options.kms }),
+    ...(profile.deliverQueuedInline === true && { deliverQueuedInline: true }),
     ...(bootLogger && { log: bootLogger }),
     ...(unsubscribeLinks && { unsubscribeLinks }),
   });

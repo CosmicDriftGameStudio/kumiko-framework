@@ -112,7 +112,6 @@ export function createCapCounterFeature() {
           escapeHatch: {
             reason:
               "SystemAdmin quota operator view lists usage counters of every tenant to see who consumes which cap",
-            grants: ["crossTenantReads"],
           },
           description:
             "Lists usage-counter rows across all tenants with cap name, current value, period start and soft-warn timestamp; use it as the operator view of who is consuming which quota.",

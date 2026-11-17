@@ -57,7 +57,8 @@ dasselbe. `set-profile` ändert es danach. Die Option braucht das Feature `tenan
 
 `override` wird als JSON-String gespeichert und beim Resolver
 deep-merged auf das gewählte Profile. Atomic-Paths (gracePeriod /
-exportDownloadTtl / retention / tenantDestroyGracePeriod) ersetzen komplett statt rekursiv zu mergen,
+auskunftFrist / retention / authorityNotificationDeadline /
+tenantDestroyGracePeriod) ersetzen komplett statt rekursiv zu mergen,
 weil sie diskriminierte Union-Objects sind (`{ months } | { years }` vs
 `{ days } | { hours }`).
 
@@ -68,7 +69,8 @@ weil sie diskriminierte Union-Objects sind (`{ months } | { years }` vs
 }
 // Effekt auf eu-dsgvo:
 //   userRights.gracePeriod = { days: 60 }     (overridden)
-//   userRights.exportDownloadTtl = { days: 7 }  (geerbt)
+//   userRights.restrictionAllowed = true       (geerbt)
+//   userRights.portabilityFormat = ["json"]    (geerbt)
 //   ...alle anderen userRights-Felder unverändert
 ```
 
