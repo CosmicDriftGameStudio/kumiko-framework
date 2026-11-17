@@ -6,7 +6,6 @@ import {
   type TenantLifecycleStatus,
   tenantTable,
 } from "../tenant/index.ts";
-import { classifyHost } from "./host.ts";
 import type { HostRoutingOptions } from "./options.ts";
 
 type TenantRow = {
@@ -38,28 +37,4 @@ export async function servingTenantIdByResolver(
   if (typeof options.tenantBy !== "function") return null;
   const resolved = await options.tenantBy(hostname, db);
   return resolved !== null && (await isTenantServing(db, resolved)) ? resolved : null;
-}
-
-// The tenant a Host header belongs to, without any request: subdomain key,
-// resolver result or the apex anchor. Fixed and unknown hosts have none.
-// Meant for features that serve per-tenant content by host, e.g. the
-// `resolveApexTenant` option of managed-pages.
-export function createHostTenantIdResolver(
-  options: HostRoutingOptions,
-  db: DbConnection | TenantDb,
-): (host: string) => Promise<TenantId | null> {
-  return async (host) => {
-    const classified = classifyHost(host, options);
-    switch (classified.kind) {
-      case "subdomain":
-        return options.tenantBy === "host" ? servingTenantIdByKey(db, classified.key) : null;
-      case "resolved":
-        return servingTenantIdByResolver(options, db, classified.hostname);
-      case "apex":
-        return options.apexAnonymousTenantId ?? null;
-      case "fixed":
-      case "unknown":
-        return null;
-    }
-  };
 }

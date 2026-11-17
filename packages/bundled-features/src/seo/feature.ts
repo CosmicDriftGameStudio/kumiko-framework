@@ -4,9 +4,11 @@ import {
   defineFeature,
   type FeatureDefinition,
   SYSTEM_TENANT_ID,
+  type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { RateLimitError } from "@cosmicdrift/kumiko-framework/errors";
 import { LEGAL_ROUTES } from "../legal-pages/index.ts";
+import type { ApexTenantResolver } from "../managed-pages/index.ts";
 import { cachedSecurePageResponse } from "../page-render/index.ts";
 import { rateLimitedTextResponse, type SystemQueryFn } from "../shared/index.ts";
 import { SEO_CONFIG_KEYS, SEO_DEFAULT_PATHS } from "./constants.ts";
@@ -23,10 +25,9 @@ const MANAGED_PAGES_BY_TENANT_PUBLISHED_QN = "managed-pages:query:by-tenant-publ
 const SEO_CONFIG_QUERY_QN = "seo:query:config";
 
 export type ManagedPagesDiscoveryOptions = {
-  /** Same per-host tenant resolver the app already passes to
-   *  createManagedPagesFeature — needed to X-Tenant-scope the anonymous
-   *  by-tenant-published query. */
-  readonly resolveApexTenant: (host: string) => Promise<string | null> | string | null;
+  /** Same resolver as createManagedPagesFeature; omit it when managed-pages
+   *  uses the server's host resolution. */
+  readonly resolveApexTenant?: ApexTenantResolver;
   /** Must match the basePath passed to createManagedPagesFeature. Default "/p". */
   readonly basePath?: string;
 };
@@ -100,6 +101,7 @@ async function readSeoConfig(
 async function gatherEntries(
   opts: SeoOptions,
   systemQuery: SystemQueryFn,
+  hostTenantId: () => Promise<TenantId | null>,
   origin: string,
   host: string,
 ): Promise<SitemapEntry[]> {
@@ -112,7 +114,9 @@ async function gatherEntries(
   }
 
   if (opts.managedPages) {
-    const tenantId = await opts.managedPages.resolveApexTenant(host);
+    const tenantId = opts.managedPages.resolveApexTenant
+      ? await opts.managedPages.resolveApexTenant(host, { hostTenantId })
+      : await hostTenantId();
     if (tenantId) {
       try {
         const data = (await systemQuery(MANAGED_PAGES_BY_TENANT_PUBLISHED_QN, {}, tenantId)) as {
@@ -189,11 +193,11 @@ export function createSeoFeature(opts: SeoOptions): FeatureDefinition {
       method: "GET",
       path: paths.sitemap,
       anonymous: true,
-      handler: async (c, { systemQuery }) => {
+      handler: async (c, { systemQuery, hostTenantId }) => {
         const { origin, host } = requestHost(c);
         let entries: SitemapEntry[];
         try {
-          entries = await gatherEntries(opts, systemQuery, origin, host);
+          entries = await gatherEntries(opts, systemQuery, hostTenantId, origin, host);
         } catch (error) {
           if (error instanceof RateLimitError) return rateLimitedTextResponse(error);
           throw error;
@@ -213,16 +217,19 @@ export function createSeoFeature(opts: SeoOptions): FeatureDefinition {
       method: "GET",
       path: paths.llmsTxt,
       anonymous: true,
-      handler: async (c, { systemQuery }) => {
+      handler: async (c, { systemQuery, hostTenantId }) => {
         const { origin, host } = requestHost(c);
-        const tenantId = opts.managedPages
-          ? ((await opts.managedPages.resolveApexTenant(host)) ?? SYSTEM_TENANT_ID)
-          : SYSTEM_TENANT_ID;
+        const resolvedTenantId = opts.managedPages
+          ? opts.managedPages.resolveApexTenant
+            ? await opts.managedPages.resolveApexTenant(host, { hostTenantId })
+            : await hostTenantId()
+          : null;
+        const tenantId = resolvedTenantId ?? SYSTEM_TENANT_ID;
         let entries: SitemapEntry[];
         let seoConfig: SeoConfigValues;
         try {
           [entries, seoConfig] = await Promise.all([
-            gatherEntries(opts, systemQuery, origin, host),
+            gatherEntries(opts, systemQuery, hostTenantId, origin, host),
             readSeoConfig(systemQuery, tenantId),
           ]);
         } catch (error) {

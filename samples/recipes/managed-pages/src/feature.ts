@@ -10,9 +10,9 @@ import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 // does not, so the recipe lists it explicitly).
 export const configFeature = createConfigFeature();
 
-// Single-tenant apex: every request maps to the one system tenant. A multi-
-// tenant app resolves the tenant from the request Host (subdomain / custom
-// domain) and returns the matching tenantId instead — see README.
+// Single-tenant: every host maps to the system tenant. A multi-tenant app with
+// host-routing (or another tenant resolver) omits resolveApexTenant; the route
+// then uses the server's host resolution.
 export const managedPagesFeature = createManagedPagesFeature({
   resolveApexTenant: () => SYSTEM_TENANT_ID,
   allowCustomCss: true,

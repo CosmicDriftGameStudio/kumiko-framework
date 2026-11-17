@@ -1,5 +1,11 @@
 export { isTimestamptzType } from "./aggregate-sql.ts";
 export { applyEntityEvent } from "./apply-entity-event.ts";
+export {
+  insertProjectedEntityRow,
+  patchProjectedEntityRow,
+  type ProjectedEntityTarget,
+  type ProjectedEntityValues,
+} from "./projected-entity-row.ts";
 export { assertExistsIn } from "./assert-exists-in.ts";
 export {
   nullBlindIndexesForSubject,

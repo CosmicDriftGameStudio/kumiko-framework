@@ -17,18 +17,25 @@
 //     for aggregates with long event tails (O(1) vs O(N) reduce), incl.
 //     the auto-snapshot policy ({ snapshotEvery, snapshotVersion })
 //   - streamAllEventsByType — memory-bounded iteration for ops/export jobs
+//   - insertProjectedEntityRow — a domain event writes a typed row into another entity's table
 
 import {
+  buildEntityTable,
   fetchOne,
   incrementCounter,
   insertOne,
+  insertProjectedEntityRow,
   updateMany,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
+  createEntity,
+  createTextField,
   defineFeature,
   defineProjectionQueryHandler,
+  type ProjectionDefinition,
   typedPayload,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { generateDeterministicId } from "@cosmicdrift/kumiko-framework/utils";
 import { z } from "zod";
 import { createInvoiceAcknowledgeWrite } from "./handlers/invoice-acknowledge.write";
 import { createInvoiceApproveWrite } from "./handlers/invoice-approve.write";
@@ -48,10 +55,29 @@ import {
   invoiceEntity,
 } from "./schema";
 
+// --- Receipt entity: one row per paid invoice, written by the invoice-paid event ---
+
+export const receiptEntity = createEntity({
+  table: "read_showcase_receipts",
+  fields: {
+    invoiceId: createTextField({ personal: false, reason: "is_business_data" }),
+    amountLabel: createTextField({ personal: false, reason: "is_business_data" }),
+  },
+});
+
+export const receiptTable = buildEntityTable("showcase-receipt", receiptEntity);
+
+// One receipt per invoice: the entity id column is a uuid, so derive it from tenant and aggregate.
+// The rebuild guard only knows these two, which is why the id is declared as rowIdOf below.
+function receiptIdOf(source: { readonly tenantId: string; readonly aggregateId: string }): string {
+  return generateDeterministicId("showcase-receipt", `${source.tenantId}|${source.aggregateId}`);
+}
+
 // --- Feature ---
 
 export const invoiceFeature = defineFeature("showcase", (r) => {
   r.entity({ name: "showcase-invoice", ...invoiceEntity });
+  r.entity({ name: "showcase-receipt", ...receiptEntity });
 
   // Two domain events. "approved" is versioned — v1 stored `amount` as
   // string, v2 uses `amountCents` integer. The DECLARATIVE migration form
@@ -145,6 +171,32 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
         );
       },
     },
+  });
+
+  // A domain event on the invoice stream writes a row of another entity; the helper fills
+  // tenant, version and the insert audit columns from the event.
+  const receiptApply: ProjectionDefinition["apply"] = {
+    [paid.name]: async (event, tx) => {
+      const p = typedPayload(event, paid);
+      await insertProjectedEntityRow(
+        tx,
+        { entityName: "showcase-receipt", entity: receiptEntity, table: receiptTable },
+        event,
+        receiptIdOf(event),
+        { invoiceId: event.aggregateId, amountLabel: String(p.amountCents) },
+      );
+    },
+  };
+  r.projection({
+    name: "invoice-receipt",
+    source: "showcase-invoice",
+    table: receiptTable,
+    apply: receiptApply,
+  });
+  r.extendEntityProjection("showcase-receipt", {
+    sources: ["showcase-invoice"],
+    rowIdOf: receiptIdOf,
+    apply: receiptApply,
   });
 
   // Multi-stream projection: one row per customer. Fires ASYNC via the

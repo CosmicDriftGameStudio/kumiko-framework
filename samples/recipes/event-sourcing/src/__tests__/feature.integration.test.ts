@@ -20,6 +20,7 @@ import {
   streamAllEventsByType,
   upcastStoredEvent,
 } from "@cosmicdrift/kumiko-framework/event-store";
+import { rebuildProjection } from "@cosmicdrift/kumiko-framework/pipeline";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -28,7 +29,7 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { invoiceFeature } from "../feature";
+import { invoiceFeature, receiptTable } from "../feature";
 import { approverDirectoryTable, invoiceDetailTable } from "../schema";
 
 let stack: TestStack;
@@ -47,6 +48,7 @@ beforeEach(async () => {
   await resetEventStore(stack, [
     "read_showcase_invoices",
     "read_showcase_invoice_detail",
+    "read_showcase_receipts",
     "read_showcase_customer_revenue",
     "read_showcase_approver_directory",
   ]);
@@ -77,6 +79,18 @@ describe("Event Sourcing Showcase", () => {
       status: "paid",
       amountCents: 2500,
     });
+
+    const receipts = await selectMany(stack.db, receiptTable, { invoiceId: id });
+    expect(receipts).toHaveLength(1);
+    expect(receipts[0]).toMatchObject({ invoiceId: id, version: 1 });
+
+    await rebuildProjection("showcase:projection:showcase-receipt-entity", {
+      db: stack.db,
+      registry: stack.registry,
+    });
+    const rebuilt = await selectMany(stack.db, receiptTable, { invoiceId: id });
+    expect(rebuilt).toHaveLength(1);
+    expect(rebuilt[0]).toMatchObject({ id: receipts[0]?.["id"], invoiceId: id, version: 1 });
   });
 
   test("async MSP: customer-revenue accumulates across paid invoices", async () => {

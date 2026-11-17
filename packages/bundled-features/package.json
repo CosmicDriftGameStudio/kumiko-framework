@@ -112,6 +112,7 @@
     "./auth-email-password/constants": "./src/auth-email-password/web/constants.ts",
     "./auth-email-password/return-path": "./src/auth-email-password/web/return-path.ts",
     "./auth-email-password/static-login": "./src/auth-email-password/web/static-login.ts",
+    "./auth-email-password/static-login-dom": "./src/auth-email-password/web/static-login-dom.ts",
     "./auth-email-password/static-account": "./src/auth-email-password/web/static-account.ts",
     "./auth-email-password/static-client": "./src/auth-email-password/web/static-client.ts",
     "./auth-email-password/email-templates": "./src/auth-email-password/email-templates.ts",
@@ -581,6 +582,10 @@
       "./auth-email-password/static-login": {
         "types": "./dist/auth-email-password/web/static-login.d.ts",
         "default": "./dist/auth-email-password/web/static-login.js"
+      },
+      "./auth-email-password/static-login-dom": {
+        "types": "./dist/auth-email-password/web/static-login-dom.d.ts",
+        "default": "./dist/auth-email-password/web/static-login-dom.js"
       },
       "./auth-email-password/static-account": {
         "types": "./dist/auth-email-password/web/static-account.d.ts",

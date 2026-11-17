@@ -1,5 +1,9 @@
 import { computeRevisionEtag, etagMatches } from "@cosmicdrift/kumiko-framework/api";
-import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  defineFeature,
+  type FeatureDefinition,
+  type TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { RateLimitError } from "@cosmicdrift/kumiko-framework/errors";
 import { escapeHtmlAttr } from "@cosmicdrift/kumiko-renderer/headless";
 import {
@@ -110,13 +114,17 @@ function escapedLayoutParts(args: {
   };
 }
 
+export type ApexTenantResolver = (
+  host: string,
+  deps: { readonly hostTenantId: () => Promise<TenantId | null> },
+) => Promise<string | null> | string | null;
+
 export type ManagedPagesOptions = {
-  /** Host → tenantId for anonymous per-tenant delivery. NULL → 404 (no
-   *  tenant for this host). Apex/marketing apps provide their subdomain or
-   *  custom-domain resolution here; single-tenant apps return a constant
-   *  tenantId (or SYSTEM_TENANT_ID). Required because the apex host has no
-   *  ambient ctx.tenantId. */
-  readonly resolveApexTenant: (host: string) => Promise<string | null> | string | null;
+  /** Host → tenantId for the anonymous page route; NULL → 404. Omit it to use the
+   *  server's own host resolution (`deps.hostTenantId()`: host-routing, a tenant
+   *  resolver or `anonymousAccess.defaultTenantId`). Pass it for a fixed tenant or
+   *  an app-specific mapping; `deps.hostTenantId` is available inside it. */
+  readonly resolveApexTenant?: ApexTenantResolver;
   /** Custom layout wrapper. Receives only escaped or sanitized parts (see
    *  ManagedPagesWrapLayout); without it the default skeleton wrapInLayout applies. */
   readonly wrapLayout?: ManagedPagesWrapLayout;
@@ -165,7 +173,7 @@ export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDef
   return defineFeature(MANAGED_PAGES_FEATURE, (r) => {
     r.adoptsBundledLists();
     r.describe(
-      "Tenant-editable, server-rendered public pages with per-tenant branding. Stores one `page` (Markdown or editor-document HTML body, per `bodyFormat`) per `(tenantId, slug, lang)` in the `read_pages` entity table with a `published` gate plus `description`/`ogImage` SEO meta. Registers an anonymous `GET {basePath}/:slug` route that resolves the tenant from the request Host via the app-supplied `resolveApexTenant`, serves only published pages (drafts → 404), renders Markdown through the hardened `page-render` core and document bodies through the template-resolver document sanitizer, and isolates per-tenant content with `Vary: Host`. Ships TenantAdmin/SystemAdmin admin screens (`entityList` + `entityEdit`) backed by convention CRUD handlers (`managed-pages:write:page:{create,update,delete}`, `managed-pages:query:page:{list,detail}`); the app wires nav/workspace onto `managed-pages:screen:page-list`. Also exposes `managed-pages:query:by-tenant-published` (anonymous, SQL-filtered on `published`) for sitemap/discovery consumers such as the `seo` feature. Branding (via `config`, scope tenant): `branding-{title,description,site-url,accent-color,logo-url,layout-preset,custom-css}` keys with write-time validation (hex color, https URLs), a `configEdit` self-service screen (`managed-pages:screen:branding-settings`), and a `managed-pages:query:branding` read that the render path applies as scoped `:root` CSS vars + a logo/title header. Also exposes `managed-pages:write:set` (idempotent slug-keyed upsert, SystemAdmin cross-tenant via `tenantIdOverride`) as a provisioning API. Requires `config` + `anonymousAccess` wired at app bootstrap.",
+      "Tenant-editable, server-rendered public pages with per-tenant branding. Stores one `page` (Markdown or editor-document HTML body, per `bodyFormat`) per `(tenantId, slug, lang)` in the `read_pages` entity table with a `published` gate plus `description`/`ogImage` SEO meta. Registers an anonymous `GET {basePath}/:slug` route that resolves the tenant from the request Host through the server's host resolution (`deps.hostTenantId`) or an app-supplied `resolveApexTenant`, serves only published pages (drafts → 404), renders Markdown through the hardened `page-render` core and document bodies through the template-resolver document sanitizer, and isolates per-tenant content with `Vary: Host`. Ships TenantAdmin/SystemAdmin admin screens (`entityList` + `entityEdit`) backed by convention CRUD handlers (`managed-pages:write:page:{create,update,delete}`, `managed-pages:query:page:{list,detail}`); the app wires nav/workspace onto `managed-pages:screen:page-list`. Also exposes `managed-pages:query:by-tenant-published` (anonymous, SQL-filtered on `published`) for sitemap/discovery consumers such as the `seo` feature. Branding (via `config`, scope tenant): `branding-{title,description,site-url,accent-color,logo-url,layout-preset,custom-css}` keys with write-time validation (hex color, https URLs), a `configEdit` self-service screen (`managed-pages:screen:branding-settings`), and a `managed-pages:query:branding` read that the render path applies as scoped `:root` CSS vars + a logo/title header. Also exposes `managed-pages:write:set` (idempotent slug-keyed upsert, SystemAdmin cross-tenant via `tenantIdOverride`) as a provisioning API. Requires `config` + `anonymousAccess` wired at app bootstrap.",
     );
     r.uiHints({
       displayLabel: "Managed Pages · Public CMS",
@@ -201,7 +209,7 @@ export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDef
       method: "GET",
       path: `${basePath}/:slug`,
       anonymous: true,
-      handler: async (c, { systemQuery }) => {
+      handler: async (c, { systemQuery, hostTenantId }) => {
         // `param("slug")` is string|undefined because `path` is a computed
         // template (Hono infers `:slug` only from string literals).
         const slug = c.req.param("slug");
@@ -211,7 +219,9 @@ export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDef
         // Host-Header zuerst (prod hinter Proxy), URL-Host als Fallback.
         const host = c.req.header("host") ?? url.host;
 
-        const tenantId = await opts.resolveApexTenant(host);
+        const tenantId = opts.resolveApexTenant
+          ? await opts.resolveApexTenant(host, { hostTenantId })
+          : await hostTenantId();
         if (!tenantId) return c.text("not found", 404);
 
         // Page and branding are read in parallel, both forced through systemQuery

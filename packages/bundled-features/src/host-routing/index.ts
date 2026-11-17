@@ -21,4 +21,3 @@ export type {
   HostRoutingTenantMode,
   HostTenantResolver,
 } from "./options.ts";
-export { createHostTenantIdResolver } from "./tenant-lookup.ts";

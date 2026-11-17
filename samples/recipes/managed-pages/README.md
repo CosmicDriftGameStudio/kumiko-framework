@@ -8,7 +8,7 @@ opt-in, tier-gated **custom CSS** — the framework generalization of the
 - Compose `managed-pages` (+ its `config` dependency and the `managed-pages-css`
   companion toggle) in `runProdApp({ features: [...] })`
 - Required wirings: `anonymousAccess` + `extraContext` config plumbing
-- Single-tenant `resolveApexTenant` (multi-tenant resolves from the Host)
+- Single-tenant `resolveApexTenant`; multi-tenant omits it and uses the server's host resolution
 - The render boundary: published-only, Markdown raw-HTML escaped, per-tenant
   branding applied as scoped `:root` vars, custom CSS allowlist-sanitized and
   contained in a `<style data-tenant-css>` block
@@ -60,9 +60,7 @@ await runProdApp({
   envSchema, // composeEnvSchema({ core: frameworkCoreEnvSchema, features })
   features: [
     createManagedPagesFeature({
-      // Host → tenantId. Single-tenant returns a constant; multi-tenant maps
-      // the subdomain / custom domain. NULL → 404 (no tenant for this host).
-      resolveApexTenant: (host) => resolveTenantForHost(host),
+      // Multi-tenant with host-routing: omit resolveApexTenant, the route uses the server's host resolution. Single-tenant: resolveApexTenant: () => SYSTEM_TENANT_ID.
       // Opt-in custom CSS (default false, fail-closed). The render-time
       // sanitizer is the safety boundary; gate per tier with the companion.
       allowCustomCss: true,
