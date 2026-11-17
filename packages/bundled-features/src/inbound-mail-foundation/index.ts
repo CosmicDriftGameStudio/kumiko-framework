@@ -67,6 +67,10 @@ export {
   type InboundMessageContent,
   loadInboundMessageContent,
 } from "./handlers/message-content.query.ts";
+export {
+  type InboundMessageEnvelope,
+  loadInboundMessageEnvelope,
+} from "./handlers/message-envelope.ts";
 export { isMailAdmin, mayReactivateMailbox } from "./handlers/scope-visibility.ts";
 export type { InboundOAuthFlow, OAuthCodeExchange, OAuthTokenSet } from "./inbound-oauth-flow.ts";
 export { ingestFailureEntity, ingestFailureTable } from "./ingest-failures.ts";

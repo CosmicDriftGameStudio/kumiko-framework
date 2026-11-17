@@ -9,6 +9,18 @@ export {
   type ExistingDocumentExtract,
 } from "./append-missing-extract-event.ts";
 export {
+  type CompleteDocumentExtractResult,
+  completeDocumentExtract,
+} from "./complete-document-extract.ts";
+export {
+  type DocumentExtractSummary,
+  type DocumentIngestProgress,
+  type LoadedDocumentExtract,
+  listDocumentExtractSummaries,
+  loadDocumentExtract,
+  loadDocumentIngestProgress,
+} from "./document-extract-reader.ts";
+export {
   type DocumentExtractMeta,
   documentExtractEntity,
   documentExtractsTable,
@@ -43,6 +55,7 @@ export {
   type ResolvedDocumentIngestProvider,
   resolveDocumentIngestProviders,
 } from "./providers.ts";
+export { readDocumentBytes } from "./read-document-bytes.ts";
 export {
   type ReportIngestProgressInput,
   reportIngestProgress,

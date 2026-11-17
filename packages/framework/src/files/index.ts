@@ -48,6 +48,7 @@ export {
   createFileProviderForTenant,
   isFileProviderPlugin,
 } from "./provider-resolver.ts";
+export { type PurgeFileRefOutcome, purgeFileRef } from "./purge-file-ref.ts";
 export type {
   FileRefOwner,
   RebindFileRefContext,
