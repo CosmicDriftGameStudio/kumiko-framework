@@ -388,6 +388,12 @@ export {
   filterReadFields,
   maskWriteOnlyFields,
 } from "./field-access.ts";
+export {
+  FIELD_CHANGE_REQUEST_ENTITY_NAME,
+  fieldApproveRoles,
+  fieldsAwaitingApproval,
+  userCanApproveField,
+} from "./field-approval.ts";
 export { DEFAULT_CURRENCIES, DEFAULT_LOCALES } from "./field-helpers.ts";
 export { findEntity } from "./find-entity.ts";
 export { handlerFieldReference } from "./handler-field-references.ts";

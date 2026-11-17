@@ -54,6 +54,7 @@
     "./tags": "./src/tags/index.ts",
     "./tenant-settings": "./src/tenant-settings/index.ts",
     "./tags/web": "./src/tags/web/index.ts",
+    "./field-approval": "./src/field-approval/index.ts",
     "./folders": "./src/folders/index.ts",
     "./folders/web": "./src/folders/web/index.ts",
     "./notes-history": "./src/notes-history/index.ts",
@@ -349,6 +350,10 @@
       "./tags/web": {
         "types": "./dist/tags/web/index.d.ts",
         "default": "./dist/tags/web/index.js"
+      },
+      "./field-approval": {
+        "types": "./dist/field-approval/index.d.ts",
+        "default": "./dist/field-approval/index.js"
       },
       "./folders": {
         "types": "./dist/folders/index.d.ts",

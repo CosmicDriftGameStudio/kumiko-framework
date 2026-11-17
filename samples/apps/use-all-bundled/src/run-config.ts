@@ -46,6 +46,7 @@ import {
   createFeatureTogglesFeature,
   FEATURE_TOGGLES_FEATURE,
 } from "@cosmicdrift/kumiko-bundled-features/feature-toggles";
+import { createFieldApprovalFeature } from "@cosmicdrift/kumiko-bundled-features/field-approval";
 import { createFileDerivativesFeature } from "@cosmicdrift/kumiko-bundled-features/file-derivatives";
 import { createFilesTenantDataFeature } from "@cosmicdrift/kumiko-bundled-features/files-tenant-data";
 import { createFoldersFeature } from "@cosmicdrift/kumiko-bundled-features/folders";
@@ -441,6 +442,8 @@ export const APP_FEATURES = [
   // notes-history: default roles are TenantAdmin/TenantMember; same
   // SystemAdmin-operator reasoning as tags above.
   createNotesHistoryFeature({ roles: TAGS_NOTES_ROLES, parents: BUNDLED_JOIN_HOSTS }),
+  // field-approval: same SystemAdmin-operator reasoning as tags above.
+  createFieldApprovalFeature({ roles: TAGS_NOTES_ROLES, parents: BUNDLED_JOIN_HOSTS }),
   // presence: no host entity in this sample opts in, so it only mounts the handlers.
   createPresenceFeature(),
   // notes-history-user-data: GDPR export/erase coverage for note-entry.

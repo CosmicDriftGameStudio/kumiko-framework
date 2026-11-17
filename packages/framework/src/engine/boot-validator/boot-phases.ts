@@ -39,6 +39,7 @@ import {
   validateEntitySelectOptionsQuery,
   validateMultiSelectFields,
 } from "./entity-select.ts";
+import { validateFieldApproval } from "./field-approval.ts";
 import { validateFieldConditions } from "./field-conditions.ts";
 import { validateHandlerFieldReferences } from "./handler-field-references.ts";
 import { validateJobRunAs } from "./job-run-as.ts";
@@ -165,6 +166,10 @@ const FEATURE_CHECKS: readonly FeatureCheck[] = [
   },
   { check: "validateJobRunAs", run: (f, c) => validateJobRunAs(f, c.knownRoles) },
   { check: "validateReadGates", run: (f, c) => validateReadGates(f, c.featureMap) },
+  {
+    check: "validateFieldApproval",
+    run: (f, c) => validateFieldApproval(f, c.featureMap, c.knownRoles),
+  },
   {
     check: "validateCrossTenantFileRead",
     run: (f, c) => validateCrossTenantFileRead(f, c.queryHandlerQns),

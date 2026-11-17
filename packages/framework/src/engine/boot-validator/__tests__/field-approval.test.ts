@@ -1,0 +1,90 @@
+import { describe, expect, test } from "bun:test";
+import { defineFeature } from "../../define-feature.ts";
+import {
+  createEmbeddedField,
+  createEntity,
+  createMoneyField,
+  createTextField,
+} from "../../factories.ts";
+import { FIELD_CHANGE_REQUEST_ENTITY_NAME } from "../../field-approval.ts";
+import type { FieldDefinition } from "../../types/fields.ts";
+import type { FeatureDefinition } from "../../types/index.ts";
+import { validateFieldApproval } from "../field-approval.ts";
+
+const text = () =>
+  createTextField({
+    required: true,
+    maxLength: 64,
+    personal: false,
+    reason: "technical_reference",
+  });
+
+const requestEntity = (allowedTypes: readonly string[]) =>
+  createEntity({
+    table: "read_fa_boot_requests",
+    fields: { entityType: text(), entityId: text() },
+    parentRef: { entityTypeField: "entityType", entityIdField: "entityId", allowedTypes },
+  });
+
+function check(
+  ibanField: FieldDefinition,
+  opts: { requests?: readonly string[] | undefined } = { requests: ["contact"] },
+): void {
+  const fa = defineFeature("fa", (r) => {
+    r.entity({
+      name: "contact",
+      ...createEntity({ table: "read_fa_boot_contacts", fields: { iban: ibanField } }),
+    });
+    if (opts.requests !== undefined) {
+      r.entity({ name: FIELD_CHANGE_REQUEST_ENTITY_NAME, ...requestEntity(opts.requests) });
+    }
+  });
+  const features: FeatureDefinition[] = [fa];
+  validateFieldApproval(fa, new Map(features.map((f) => [f.name, f] as const)), undefined);
+}
+
+const gatedText = (access: { write?: readonly string[]; approve: readonly string[] }) =>
+  createTextField({ maxLength: 34, personal: false, reason: "technical_reference", access });
+
+describe("validateFieldApproval", () => {
+  test("accepts approve roles that may write the field", () => {
+    expect(() =>
+      check(gatedText({ approve: ["Accountant"], write: ["Accountant", "PM"] })),
+    ).not.toThrow();
+  });
+
+  test("rejects empty approve", () => {
+    expect(() => check(gatedText({ approve: [] }))).toThrow("field-approval/approve-roles-empty");
+  });
+
+  test("rejects an approve role outside write", () => {
+    expect(() => check(gatedText({ approve: ["Accountant"], write: ["PM"] }))).toThrow(
+      "field-approval/approve-outside-write",
+    );
+  });
+
+  test("rejects approve on a non-scalar field", () => {
+    expect(() => check(createMoneyField({ access: { approve: ["Accountant"] } }))).toThrow(
+      "field-approval/field-type",
+    );
+  });
+
+  test("rejects approve on an embedded sub-field", () => {
+    const embedded = createEmbeddedField({
+      iban: { type: "text", access: { approve: ["Accountant"] } },
+    });
+    expect(() => check(embedded)).toThrow("field-approval/embedded-sub-field");
+  });
+
+  test("rejects approve without the request entity", () => {
+    expect(() =>
+      check(gatedText({ approve: ["Accountant"] }), { requests: undefined }),
+    ).toThrow("field-approval/needs-feature");
+  });
+
+  test("rejects approve when the host is not among the parents", () => {
+    expect(() => check(gatedText({ approve: ["Accountant"] }), { requests: ["other"] })).toThrow(
+      "field-approval/needs-feature",
+    );
+  });
+});

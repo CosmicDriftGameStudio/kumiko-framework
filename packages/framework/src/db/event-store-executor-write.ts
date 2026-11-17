@@ -11,6 +11,7 @@ import {
   type ErasedSubjectHandling,
   ErasedSubjectHandlings,
 } from "../crypto/pii-field-encryption.ts";
+import { fieldsAwaitingApproval } from "../engine/field-approval.ts";
 import { instructionFieldNames } from "../engine/instruction-fields.ts";
 import { userCanWriteFieldRow } from "../engine/ownership.ts";
 import { buildInsertSchema, buildUpdateSchema } from "../engine/schema-builder.ts";
@@ -23,6 +24,7 @@ import {
 } from "../errors/classes.ts";
 import {
   AccessDeniedError,
+  FrameworkReasons,
   VersionConflictError as FrameworkVersionConflict,
   InternalError,
   NotFoundError,
@@ -293,6 +295,28 @@ export function createWriteVerbs(
     );
   }
 
+  function fieldApprovalFailure(
+    user: SessionUser,
+    data: DbRow,
+    previous: DbRow | undefined,
+  ): WriteFailure | undefined {
+    // Framework system writes (seeds, retention, forget) are trusted code, not a second person's decision.
+    if (isFrameworkSystemUser(user)) return undefined;
+    const fields = fieldsAwaitingApproval(entity, user, data, previous);
+    if (fields.length === 0) return undefined;
+    return writeFailure(
+      new AccessDeniedError({
+        message: `${entityName}: ${fields.join(", ")} change only through an approved field-approval request`,
+        i18nKey: "errors.access.fieldApprovalRequired",
+        details: {
+          reason: FrameworkReasons.fieldApprovalRequired,
+          entity: entityName,
+          fields,
+        },
+      }),
+    );
+  }
+
   function updateSelectOptionFailure(
     user: SessionUser,
     mergedNew: Record<string, unknown>,
@@ -487,6 +511,8 @@ export function createWriteVerbs(
     const data = preSaveResult.data;
 
     assertFieldWritesAllowed(db, "create", data);
+    const approvalRequired = fieldApprovalFailure(user, data, undefined);
+    if (approvalRequired) return approvalRequired;
     const ownershipDenied = createOwnershipFailure({
       entity,
       entityName,
@@ -596,6 +622,8 @@ export function createWriteVerbs(
     const changes = preSaveResult.data;
 
     assertFieldWritesAllowed(db, "update", changes);
+    const approvalRequired = fieldApprovalFailure(user, changes, previous);
+    if (approvalRequired) return approvalRequired;
 
     const mergedNew: Record<string, unknown> = { ...previous, ...changes };
     const guardFailure =

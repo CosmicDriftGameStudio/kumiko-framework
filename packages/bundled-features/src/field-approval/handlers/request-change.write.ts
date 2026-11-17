@@ -1,0 +1,120 @@
+import {
+  type AccessRule,
+  buildUpdateSchema,
+  defineWriteHandler,
+  FIELD_CHANGE_REQUEST_ENTITY_NAME,
+  fieldApproveRoles,
+  normalizeAccessEntry,
+  registeredEntityExecutor,
+  userCanWriteFieldRow,
+} from "@cosmicdrift/kumiko-framework/engine";
+import {
+  AccessDeniedError,
+  FrameworkReasons,
+  NotFoundError,
+  writeFailure,
+} from "@cosmicdrift/kumiko-framework/errors";
+import { denyUnlessJoinRowParentVisible, unprocessable } from "../../shared/index.ts";
+import { fieldChangeRequestAggregateId } from "../aggregate-id.ts";
+import { FieldApprovalReasons, FieldChangeStatus } from "../constants.ts";
+import type { fieldChangeRequestExecutor } from "../executor.ts";
+import { requestFieldChangePayloadSchema } from "../schemas.ts";
+import { sealRequestedValue } from "../stored-value.ts";
+
+export function createRequestChangeHandler(
+  access: AccessRule,
+  requestExecutor: typeof fieldChangeRequestExecutor,
+) {
+  return defineWriteHandler({
+    name: "request-change",
+    schema: requestFieldChangePayloadSchema,
+    access,
+    description:
+      "Files a change of an approval-gated field for a second person to approve; use it when a direct write returned field_approval_required.",
+    handler: async (event, ctx) => {
+      const payload = event.payload;
+      const { entityType, entityId, fieldName } = payload;
+
+      const denied = await denyUnlessJoinRowParentVisible(
+        ctx.registry,
+        FIELD_CHANGE_REQUEST_ENTITY_NAME,
+        payload,
+        event.user,
+        ctx.db,
+      );
+      if (denied) return denied;
+
+      const hostEntity = ctx.registry.getEntity(entityType);
+      const field = hostEntity?.fields[fieldName];
+      if (hostEntity === undefined || field === undefined || fieldApproveRoles(field).length === 0) {
+        return unprocessable(FieldApprovalReasons.fieldNotApprovalGated, "errors.validation.invalid", {
+          field: fieldName,
+        });
+      }
+
+      const hostRow = await registeredEntityExecutor(ctx.registry, entityType)?.detail(
+        { id: entityId },
+        event.user,
+        ctx.db,
+      );
+      if (!hostRow) return writeFailure(new NotFoundError(entityType, entityId));
+
+      const parsed = buildUpdateSchema(hostEntity).shape[fieldName]?.safeParse(payload.value);
+      if (parsed === undefined || !parsed.success) {
+        return unprocessable(FieldApprovalReasons.invalidValue, "errors.validation.invalid", {
+          field: fieldName,
+        });
+      }
+
+      const writeMap = normalizeAccessEntry(field.access?.write);
+      if (
+        writeMap !== undefined &&
+        !userCanWriteFieldRow(event.user, writeMap, hostRow, {
+          ...hostRow,
+          [fieldName]: parsed.data,
+        })
+      ) {
+        return writeFailure(
+          new AccessDeniedError({
+            i18nKey: "errors.access.fieldDenied",
+            details: { reason: FrameworkReasons.fieldAccessDenied, field: fieldName },
+          }),
+        );
+      }
+
+      const requestedValue = await sealRequestedValue(
+        hostEntity,
+        entityType,
+        fieldName,
+        parsed.data,
+        { ...hostRow, id: entityId },
+      );
+
+      const id = fieldChangeRequestAggregateId(event.user.tenantId, entityType, entityId, fieldName);
+      const existing = await requestExecutor.detail({ id }, event.user, ctx.db);
+      // A new request overwrites the open value and bumps the version, so approve and reject pin
+      // the version the approver saw.
+      const saved = existing
+        ? await requestExecutor.update(
+            { id, changes: { status: FieldChangeStatus.Pending, requestedValue } },
+            event.user,
+            ctx.db,
+            { skipOptimisticLock: true },
+          )
+        : await requestExecutor.create(
+            {
+              id,
+              entityType,
+              entityId,
+              fieldName,
+              status: FieldChangeStatus.Pending,
+              requestedValue,
+            },
+            event.user,
+            ctx.db,
+          );
+      if (!saved.isSuccess) return saved;
+      return { isSuccess: true as const, data: { id } };
+    },
+  });
+}

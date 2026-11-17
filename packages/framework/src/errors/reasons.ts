@@ -30,6 +30,9 @@ export const FrameworkReasons = {
   // Details carry `field` and `handler`.
   fieldAccessDenied: "field_access_denied",
 
+  // AccessDeniedError: executor refused a change to a field with access.approve by a user without an approve role. Details carry `entity` and `fields`; the caller files field-approval:write:request-change instead.
+  fieldApprovalRequired: "field_approval_required",
+
   // ConflictError: cascade-delete guard refused because dependent rows exist.
   // Details carry `blockingEntity`, `entity`, `entityId`.
   deleteRestricted: "delete_restricted",

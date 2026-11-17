@@ -69,6 +69,33 @@ export const ENTITY_DECLARATION_RULES = {
     summary: "readGate.fileOwner.field is a single file or image field.",
     fix: "Point fileOwner.field at a single file or image field.",
   },
+  fieldApproveRolesEmpty: {
+    id: "field-approval/approve-roles-empty",
+    summary: "access.approve lists at least one role.",
+    fix: "List the approver roles or drop approve.",
+  },
+  fieldApproveOutsideWrite: {
+    id: "field-approval/approve-outside-write",
+    summary: "Every approve role may write the field.",
+    fix: "Add the role to access.write or drop it from approve.",
+  },
+  fieldApproveFieldType: {
+    id: "field-approval/field-type",
+    summary:
+      "access.approve is set on a scalar field (text, longText, number, bigInt, decimal, select, boolean, date, reference).",
+    fix: "Move approve to a scalar field.",
+  },
+  fieldApproveEmbedded: {
+    id: "field-approval/embedded-sub-field",
+    summary: "access.approve is set on top-level fields only.",
+    fix: "Move approve to a top-level field.",
+  },
+  fieldApproveNeedsFeature: {
+    id: "field-approval/needs-feature",
+    summary:
+      "A field with access.approve needs the field-approval feature mounted with its entity among the parents.",
+    fix: "Mount createFieldApprovalFeature({ parents: [...] }) and list the entity.",
+  },
   readGateFileOwnerNeedsFiles: {
     id: "read-gate/file-owner-needs-files-feature",
     summary: "readGate.fileOwner requires the files feature to be mounted.",

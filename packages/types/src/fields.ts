@@ -49,6 +49,8 @@ export { isSqlDerivedField } from "./fields-derived.ts";
 export type FieldAccess = {
   readonly read?: OwnershipMap | readonly string[];
   readonly write?: OwnershipMap | readonly string[];
+  // Roles that may change this field directly; anyone else with write access must file a field-approval request that a different approver applies.
+  readonly approve?: readonly string[];
 };
 
 // `sensitive: true` — the field's value is excluded from caller-facing event
