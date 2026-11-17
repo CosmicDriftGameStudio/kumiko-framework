@@ -175,7 +175,10 @@ function racyJobCtx(
         mode: "system",
         reason: "test seeds and inspects config values across tenants around the re-encryption job",
         grants: {
-          unsafeRaw: { reason: "test: job context mirrors systemScope() grant" },
+          unsafeRaw: {
+            reason: "test: job context mirrors systemScope() grant",
+            grants: ["unsafeRaw"],
+          },
         },
       }),
     ),

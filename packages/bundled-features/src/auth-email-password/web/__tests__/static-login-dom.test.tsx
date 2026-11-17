@@ -9,12 +9,16 @@ afterEach(() => {
 
 function stubFetch(...responses: Response[]): { calls: number } {
   const state = { calls: 0 };
-  globalThis.fetch = (async () => {
-    const response = responses[state.calls];
-    state.calls += 1;
-    if (response === undefined) throw new Error("unexpected fetch");
-    return response;
-  }) as typeof fetch;
+  // fetch also carries preconnect, a hint the stub has no use for; the real one keeps the type whole.
+  globalThis.fetch = Object.assign(
+    async () => {
+      const response = responses[state.calls];
+      state.calls += 1;
+      if (response === undefined) throw new Error("unexpected fetch");
+      return response;
+    },
+    { preconnect: realFetch.preconnect },
+  );
   return state;
 }
 
@@ -111,7 +115,10 @@ describe("mountStaticLoginForm", () => {
   });
 
   test("an MFA challenge swaps the forms and the code login navigates", async () => {
-    stubFetch(json({ isSuccess: true, mfaRequired: true, challengeToken: "c1" }), json(loginSuccess));
+    stubFetch(
+      json({ isSuccess: true, mfaRequired: true, challengeToken: "c1" }),
+      json(loginSuccess),
+    );
     const { credentials, mfa } = mount();
     fillCredentials(credentials);
     await submit(credentials);

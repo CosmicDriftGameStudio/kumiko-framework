@@ -214,6 +214,7 @@ export function createTenantCapsListQuery(caps: readonly CapSpec[], listCaps: re
     escapeHatch: {
       reason:
         "cap-overview:tenant-caps:list — grants app-owned CapSpec.usage()/usageBatch() providers raw SQL for aggregates TenantDb has no typed helper for (e.g. a SUM)",
+      grants: ["unsafeRaw"],
     },
     handler: async (query, ctx) => {
       const systemDb = requireSystemDb(ctx, "cap-overview:query:tenant-caps:list");

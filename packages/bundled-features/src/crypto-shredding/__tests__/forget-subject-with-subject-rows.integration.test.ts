@@ -11,7 +11,6 @@ import {
 import {
   buildEntityTable,
   createEventStoreExecutor,
-  createTenantDb,
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -22,7 +21,11 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { resetPiiSubjectKmsForTests, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  createTenantDb,
+  resetPiiSubjectKmsForTests,
+  resetTestTables,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import {
   drainEventConsumers,
   setupTestStack,

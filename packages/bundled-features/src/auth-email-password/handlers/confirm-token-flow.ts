@@ -73,6 +73,7 @@ export async function runConfirmTokenFlow<TSuccessData>(
   declareEscapeHatch({
     reason:
       "writes the confirming user's row via UserHandlers.update on the caller's handler context, using a SYSTEM_TENANT-scoped identity; the calling handler declares its own escapeHatch",
+    grants: ["systemIdentity"],
   });
   if (!ctx.services.redis) {
     return writeFailure(new InternalError({ message: spec.redisRequiredMessage }));
@@ -139,6 +140,7 @@ async function loadValidatedUser(
   declareEscapeHatch({
     reason:
       "reads the confirming user's row via UserQueries.findForAuth on the caller's handler context, using a SYSTEM_TENANT-scoped identity; the calling handler declares its own escapeHatch",
+    grants: ["systemIdentity"],
   });
   const me = parseAuthUserRow(
     await ctx.dispatch.queryAs(systemUser, UserQueries.findForAuth, { id: userId }),

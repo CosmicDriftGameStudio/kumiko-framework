@@ -34,7 +34,7 @@ export async function resolveAuditRetentionCutoff(args: {
 }): Promise<Temporal.Instant> {
   // Without compliance-profiles its table does not exist, so the minimal profile applies.
   if (!args.registry.getEntity(COMPLIANCE_PROFILE_ENTITY)) {
-    return subtractRetentionSpec(args.now, resolveComplianceProfile({}).auditLog.retention);
+    return subtractRetentionSpec(args.now, resolveComplianceProfile({}).profile.auditLog.retention);
   }
   return resolveProfileAuditCutoff(args.db, args.tenantId, args.now);
 }

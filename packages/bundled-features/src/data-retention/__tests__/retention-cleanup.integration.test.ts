@@ -346,7 +346,10 @@ describe("runRetentionCleanup :: real postgres", () => {
         tenantId: T1,
         mode: "tenant",
         grants: {
-          unsafeRaw: { reason: "per-tenant fan-out cleanup using raw helpers" },
+          unsafeRaw: {
+            reason: "per-tenant fan-out cleanup using raw helpers",
+            grants: ["unsafeRaw"],
+          },
         },
       }),
       registry: stack.registry,

@@ -113,7 +113,7 @@ export function createInviteAcceptWithLoginHandler(opts: InviteAcceptWithLoginOp
     },
     agent: { expose: false },
     handler: async (event, ctx) =>
-      consumeInviteToken(
+      consumeInviteToken<InviteAcceptWithLoginData>(
         ctx,
         {
           token: event.payload.token,
@@ -150,10 +150,16 @@ export function createInviteAcceptWithLoginHandler(opts: InviteAcceptWithLoginOp
           );
           if (!passwordGate.ok) return invalidCredentials();
 
-          const emailGate = gateEnforceEmailVerified(userRow, strictVerification);
+          const emailGate = gateEnforceEmailVerified(
+            { id: userRow.id, emailVerified: userRow.emailVerified },
+            strictVerification,
+          );
           if (!emailGate.ok) return emailGate.result;
 
-          const statusGate = gateEnforceAccountStatus(userRow);
+          const statusGate = gateEnforceAccountStatus({
+            id: userRow.id,
+            status: userRow.status,
+          });
           if (!statusGate.ok) return statusGate.result;
 
           const userId = userRow.id;
@@ -171,7 +177,10 @@ export function createInviteAcceptWithLoginHandler(opts: InviteAcceptWithLoginOp
 
           // buildSessionRoles calls stripForbiddenMembershipRoles internally —
           // a reserved role on an existing membership must never reach the session.
-          const mergedRoles = buildSessionRoles(parseRoles(userRow.roles ?? null), grant.data.roles);
+          const mergedRoles = buildSessionRoles(
+            parseRoles(userRow.roles ?? null),
+            grant.data.roles,
+          );
 
           // The MFA gate runs before the token is deleted, so a throwing check
           // leaves the link usable again; a challenge halts the session mint,

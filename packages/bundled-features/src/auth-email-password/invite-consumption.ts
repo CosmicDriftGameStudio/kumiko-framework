@@ -81,6 +81,7 @@ export async function consumeInviteToken<TData>(
     declareEscapeHatch({
       reason:
         "reads the pending invitation by id; the invitee is not yet a member of the invitation's tenant. The calling handler declares its own escapeHatch.",
+      grants: ["unsafeRaw"],
     });
     const dbConn = ctx.db.unsafeRawAllTenants();
     const row = await fetchOne<StoredInvitationRow>(dbConn, tenantInvitationsTable, {

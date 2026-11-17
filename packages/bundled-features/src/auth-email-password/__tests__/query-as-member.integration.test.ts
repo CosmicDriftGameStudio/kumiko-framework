@@ -153,9 +153,7 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
   r.entity(hookNoteAEntity);
   r.entity(hookNoteBEntity);
 
-  r.writeHandler(
-    defineEntityCreateHandler("note", noteEntity, { access: { roles: ["Admin"] } }),
-  );
+  r.writeHandler(defineEntityCreateHandler("note", noteEntity, { access: { roles: ["Admin"] } }));
   r.queryHandler(
     defineEntityListHandler("note", noteEntity, { access: { roles: ["Admin", "User"] } }),
   );
@@ -271,7 +269,9 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
     name: "tries-unsafe-raw-write",
     schema: z.object({}),
     handler: async (_query, ctx) => {
-      await asRawClient(ctx.db.unsafeRawAllTenants()).unsafe("UPDATE qam_notes SET body = 'tampered'");
+      await asRawClient(ctx.db.unsafeRawAllTenants()).unsafe(
+        "UPDATE qam_notes SET body = 'tampered'",
+      );
       return { ok: true };
     },
     access: { roles: ["Admin", "User"] },
@@ -359,7 +359,10 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
         query.payload.payload,
       ),
     access: { roles: ["Admin"] },
-    escapeHatch: { reason: "test: reads as a stored member via a query caller" },
+    escapeHatch: {
+      reason: "test: reads as a stored member via a query caller",
+      grants: ["systemIdentity"],
+    },
   });
 
   // Caller-facing write handler that reads as a member — WITH and WITHOUT
@@ -380,7 +383,7 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
       return { isSuccess: true as const, data };
     },
     access: { roles: ["Admin"] },
-    escapeHatch: { reason: "test: reads as a stored member" },
+    escapeHatch: { reason: "test: reads as a stored member", grants: ["systemIdentity"] },
   });
   r.writeHandler({
     name: "read-as-member-no-hatch",
@@ -408,7 +411,7 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
       return { isSuccess: true as const, data: { ok: true } };
     },
     access: { roles: ["Admin"] },
-    escapeHatch: { reason: "test: cache check" },
+    escapeHatch: { reason: "test: cache check", grants: ["systemIdentity"] },
   });
   r.writeHandler({
     name: "read-as-member-two-users",
@@ -419,7 +422,7 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
       return { isSuccess: true as const, data: { ok: true } };
     },
     access: { roles: ["Admin"] },
-    escapeHatch: { reason: "test: two-user cache check" },
+    escapeHatch: { reason: "test: two-user cache check", grants: ["systemIdentity"] },
   });
   r.writeHandler({
     name: "read-as-member-then-write",
@@ -436,7 +439,7 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
       return { isSuccess: true as const, data: { ok: true } };
     },
     access: { roles: ["Admin"] },
-    escapeHatch: { reason: "test: read-then-write probe" },
+    escapeHatch: { reason: "test: read-then-write probe", grants: ["systemIdentity"] },
   });
 
   // authClaims — counter parity with cache + real-login-claims check.
@@ -450,7 +453,7 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
     ...defineEntityCreateHandler("hook-note-a", hookNoteAEntity, {
       access: { roles: ["Admin"] },
     }),
-    escapeHatch: { reason: "test: handler has its own grant" },
+    escapeHatch: { reason: "test: handler has its own grant", grants: ["systemIdentity"] },
   });
   r.writeHandler(
     defineEntityCreateHandler("hook-note-b", hookNoteBEntity, {
@@ -482,15 +485,20 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
       hookWithHatchResults.push(res);
     },
     phase: HookPhases.inTransaction,
-    escapeHatch: { reason: "test: hook needs to read as a member" },
+    escapeHatch: { reason: "test: hook needs to read as a member", grants: ["systemIdentity"] },
   });
 
   // Jobs stay ungated.
   r.job({ name: "noop", trigger: { manual: true }, retries: 0, handler: async () => {} });
-  r.job({ name: "query-as-member-job", trigger: { manual: true }, retries: 0, handler: async (payload, ctx) => {
-    const result = await ctx.dispatch.queryAsMember(payload["userId"] as string, WHOAMI_QN, {}); // @cast-boundary dynamic-key
-    jobQueryAsMemberResults.push(result);
-  } });
+  r.job({
+    name: "query-as-member-job",
+    trigger: { manual: true },
+    retries: 0,
+    handler: async (payload, ctx) => {
+      const result = await ctx.dispatch.queryAsMember(payload["userId"] as string, WHOAMI_QN, {}); // @cast-boundary dynamic-key
+      jobQueryAsMemberResults.push(result);
+    },
+  });
 });
 
 // A whole-feature r.systemScope() grants queryAsMember without an

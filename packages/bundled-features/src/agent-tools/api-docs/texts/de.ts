@@ -162,5 +162,7 @@ export const deApiDocsTexts = {
     filters: "Mehrere Feldfilter, je mit `field`, `op` und `value`. `op` ist einer von {ops}.",
     namedFilter: "Name eines vordefinierten Filters der Entität, zum Beispiel einer Arbeitsliste.",
     aggregate: "Liefert aggregierte Werte statt Zeilen.",
+    fields:
+      "Nur diese gespeicherten Felder liefern. Die Zeilen enthalten dann `id`, `version` und die genannten Felder; abgeleitete Felder werden nicht berechnet. Ein unbekannter Name scheitert mit `unknown_field`.",
   },
 } as const satisfies ApiDocsTexts;

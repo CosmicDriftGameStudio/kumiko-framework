@@ -154,7 +154,9 @@ function jobCtx(captured?: CapturedLog): Parameters<typeof reencryptJob>[1] {
     tenantId: SYSTEM_TENANT_ID,
     mode: "system",
     reason: "test seeds and inspects config values across tenants around the KEK rotation",
-    grants: { unsafeRaw: { reason: "test: job context mirrors systemScope() grant" } },
+    grants: {
+      unsafeRaw: { reason: "test: job context mirrors systemScope() grant", grants: ["unsafeRaw"] },
+    },
   });
   return {
     db: systemModeDb,

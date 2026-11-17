@@ -28,6 +28,7 @@ export function createMfaCodeVerifier(): MfaCodeVerifier {
     declareEscapeHatch({
       reason:
         "reads the MFA enrollment of the user being re-authenticated on the caller's handler context; the calling handler declares its own escapeHatch",
+      grants: ["unsafeRaw"],
     });
     const scopedDb = createTenantDb({
       db: ctx.db.unsafeRawAllTenants(),

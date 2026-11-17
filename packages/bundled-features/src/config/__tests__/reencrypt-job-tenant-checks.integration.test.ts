@@ -130,7 +130,10 @@ function jobCtx(captured: CapturedLog): Parameters<typeof reencryptJob>[1] {
         mode: "system",
         reason: "test seeds config values of several tenants for the re-encryption job",
         grants: {
-          unsafeRaw: { reason: "test: job context mirrors systemScope() grant" },
+          unsafeRaw: {
+            reason: "test: job context mirrors systemScope() grant",
+            grants: ["unsafeRaw"],
+          },
         },
       }),
     ),

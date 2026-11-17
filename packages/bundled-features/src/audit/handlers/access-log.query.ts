@@ -1,10 +1,20 @@
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { accessLogTable } from "../access-log.ts";
+import { type AccessLogDetails, accessLogTable } from "../access-log.ts";
 import { AuditQueries } from "../web/constants.ts";
 import { requireAuditSystemDb } from "./audit-system-db.ts";
 
 const DEFAULT_LIMIT = 50;
+
+type AccessLogRow = {
+  readonly id: string;
+  readonly occurredAt: Temporal.Instant;
+  readonly actorId: string;
+  readonly subjectType: string;
+  readonly subjectId: string;
+  readonly action: string;
+  readonly details: AccessLogDetails;
+};
 
 export const accessLogQuery = defineQueryHandler({
   name: "access-log",
@@ -34,7 +44,7 @@ export const accessLogQuery = defineQueryHandler({
       ...(p.before !== undefined && { id: { lt: p.before } }),
     };
     // Ordering by id is chronological: generateId yields UUIDv7, so ids sort by creation time.
-    const rows = await db.selectMany(accessLogTable, where, {
+    const rows = await db.selectMany<AccessLogRow>(accessLogTable, where, {
       orderBy: { col: "id", direction: "desc" },
       limit,
     });

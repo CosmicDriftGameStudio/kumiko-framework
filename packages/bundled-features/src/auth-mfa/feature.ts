@@ -95,18 +95,18 @@ export function createAuthMfaFeature(
       trigger: { manual: true },
       escapeHatch: {
         reason: REENCRYPT_ESCAPE_HATCH_REASON,
+        grants: ["unsafeRaw"],
       },
-      handler: (payload, ctx) =>
-        mfaReencryptJob(
-          payload,
-          ctx,
-          ctx.db.unsafeRawAllTenants(),
-        ),
+      handler: (payload, ctx) => mfaReencryptJob(payload, ctx, ctx.db.unsafeRawAllTenants()),
     });
 
     r.entity(userMfaEntity);
-    r.applyExtension({ name: EXT_USER_DATA, entity: "user-mfa", export: userMfaExportHook,
-      delete: userMfaDeleteHook });
+    r.applyExtension({
+      name: EXT_USER_DATA,
+      entity: "user-mfa",
+      export: userMfaExportHook,
+      delete: userMfaDeleteHook,
+    });
 
     // Handlers and the status checker read the secrets through these getters
     // on each call, so the boot can bind them after env validation. Never

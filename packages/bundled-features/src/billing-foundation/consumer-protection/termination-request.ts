@@ -158,6 +158,7 @@ async function findTerminableTenantIds(
   declareEscapeHatch({
     reason:
       "anonymous declarant has no session — finds the contract by email via user:find-for-auth and tenant:memberships as a system user; the calling handler declares its own escapeHatch",
+    grants: ["systemIdentity"],
   });
   const user = authUserRowSchema.safeParse(
     await ctx.dispatch.queryAs(createSystemUser(requestTenantId), UserQueries.findForAuth, {
@@ -208,6 +209,7 @@ export function createRequestContractTerminationHandler(
     escapeHatch: {
       reason:
         "Anonymous declarant has no session — finds the contract by email via ctx.dispatch.queryAs(system, user:find-for-auth) and tenant:memberships; the tenant written to comes only from those lookups.",
+      grants: ["systemIdentity"],
     },
     handler: async (event, ctx) => {
       // @cast-boundary engine-payload — dispatcher-zod-validated payload
@@ -311,6 +313,7 @@ export function createTerminateContractHandler(
     escapeHatch: {
       reason:
         "reads the calling admin's own email via UserQueries.findForAuth as a system user; the receipt goes only to that address",
+      grants: ["systemIdentity"],
     },
     handler: async (event, ctx) => {
       // @cast-boundary engine-payload — dispatcher-zod-validated payload

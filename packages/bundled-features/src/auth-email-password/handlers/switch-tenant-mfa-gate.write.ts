@@ -37,6 +37,7 @@ export function createSwitchTenantMfaGateHandler(
     escapeHatch: {
       reason:
         "reads the MFA enrollment of the switch target tenant, not the caller's current tenant, via the mfaStatusChecker callback (it uses ctx.db.unsafeRaw())",
+      grants: ["systemIdentity", "unsafeRaw"],
     },
     agent: { expose: false },
     description:

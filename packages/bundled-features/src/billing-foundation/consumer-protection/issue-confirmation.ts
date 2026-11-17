@@ -86,6 +86,7 @@ export function createIssueContractConfirmationHandler(
     escapeHatch: {
       reason:
         "reads the consenting buyer's email via UserQueries.findForAuth as a tenant system user; the mail goes only to the user recorded in the consent event",
+      grants: ["systemIdentity"],
     },
     // kumiko-lint-ignore complexity-budget one linear pass: stream lookup, consent match, idempotency check, recipient lookup, mail, marker append
     handler: async (event, ctx) => {

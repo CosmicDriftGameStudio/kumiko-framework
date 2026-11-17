@@ -27,7 +27,7 @@ export const PAYMENT_TENANT_DESTROY_ARCHIVE_REASON =
  *  hard-delete the row. Either way the subscription stream is archived so a
  *  future projection rebuild can't resurrect what was erased. */
 export async function subscriptionTenantDestroyHook(ctx: TenantDataHookCtx): Promise<void> {
-  declareEscapeHatch({ reason: SUBSCRIPTION_TENANT_DESTROY_ARCHIVE_REASON });
+  declareEscapeHatch({ reason: SUBSCRIPTION_TENANT_DESTROY_ARCHIVE_REASON, grants: ["unsafeRaw"] });
   const { profile } = await resolveProfileForTenant({
     db: ctx.db.unsafeRawAllTenants(),
     tenantId: ctx.tenantId,
@@ -57,7 +57,7 @@ export async function subscriptionTenantDestroyHook(ctx: TenantDataHookCtx): Pro
  *  itself is still one stream per tenant (paymentAggregateId), so
  *  archiveStream targets that single aggregateId as usual. */
 export async function paymentTenantDestroyHook(ctx: TenantDataHookCtx): Promise<void> {
-  declareEscapeHatch({ reason: PAYMENT_TENANT_DESTROY_ARCHIVE_REASON });
+  declareEscapeHatch({ reason: PAYMENT_TENANT_DESTROY_ARCHIVE_REASON, grants: ["unsafeRaw"] });
   const { profile } = await resolveProfileForTenant({
     db: ctx.db.unsafeRawAllTenants(),
     tenantId: ctx.tenantId,

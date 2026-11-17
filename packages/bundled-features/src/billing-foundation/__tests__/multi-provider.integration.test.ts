@@ -179,7 +179,10 @@ const hostedFeature = defineFeature("test-mock-multi-hosted", (r) => {
   r.translations({
     keys: { "plan.starter.label": { en: "Starter" }, "plan.pro.label": { en: "Pro plan" } },
   });
-  r.applyExtension({ name: "subscriptionProvider", entity: HOSTED, ...plugin(
+  r.applyExtension({
+    name: "subscriptionProvider",
+    entity: HOSTED,
+    ...plugin(
       HOSTED,
       "Hosted Pay",
       [price("hosted_starter", 900), price("hosted_pro", 1900)],
@@ -190,12 +193,16 @@ const hostedFeature = defineFeature("test-mock-multi-hosted", (r) => {
           return { url: `https://${HOSTED}.example/switch/${options.targetPriceId}` };
         },
       },
-    ) });
+    ),
+  });
 });
 
 const inAppFeature = defineFeature("test-mock-multi-in-app", (r) => {
   r.requires({ features: ["billing-foundation"] });
-  r.applyExtension({ name: "subscriptionProvider", entity: IN_APP, ...plugin(
+  r.applyExtension({
+    name: "subscriptionProvider",
+    entity: IN_APP,
+    ...plugin(
       IN_APP,
       "In-App Pay",
       [price("inapp_starter", 990), price("inapp_pro", 2990)],
@@ -216,7 +223,8 @@ const inAppFeature = defineFeature("test-mock-multi-in-app", (r) => {
           await holdApplyPlanSwitch;
         },
       },
-    ) });
+    ),
+  });
 });
 
 const emailTransport = createInMemoryTransport();
@@ -586,16 +594,16 @@ describe("switching plans follows the subscription's provider", () => {
         currentPeriodEnd: "2026-06-01T00:00:00Z",
       };
       let webhookSettled = false;
-      const webhook = stack.app
-        .request(`/api/subscription/webhook/${IN_APP}`, {
+      const webhook = Promise.resolve(
+        stack.app.request(`/api/subscription/webhook/${IN_APP}`, {
           method: "POST",
           body: JSON.stringify(update),
           headers: { "stripe-signature": "test_sig" },
-        })
-        .then((res) => {
-          webhookSettled = true;
-          return res;
-        });
+        }),
+      ).then((res) => {
+        webhookSettled = true;
+        return res;
+      });
       await Bun.sleep(WEBHOOK_OBSERVATION_WINDOW_MS);
       expect(webhookSettled).toBe(false);
 

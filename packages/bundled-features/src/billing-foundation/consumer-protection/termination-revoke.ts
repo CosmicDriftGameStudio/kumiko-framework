@@ -94,6 +94,7 @@ export function createRevokeContractTerminationHandler(): WriteHandlerDef {
     escapeHatch: {
       reason:
         "Anonymous revoker has no session — writes as the system user of the tenant named in the link; only a declared event in that tenant whose revocationTokenHash matches the link token lets the revocation through, every other case answers the same generic invalid.",
+      grants: ["systemIdentity"],
     },
     handler: async (event, ctx) => {
       // @cast-boundary engine-payload — dispatcher-zod-validated payload
