@@ -18,8 +18,12 @@ import {
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { pruneEvents } from "@cosmicdrift/kumiko-framework/pipeline";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { resolveProfileForTenant } from "../compliance-profiles/index.ts";
 import { createConfigAccessor } from "../config/index.ts";
+import {
+  COMPLIANCE_PROFILE_ENTITY,
+  earlierInstant,
+  resolveProfileAuditCutoff,
+} from "./audit-retention-cutoff.ts";
 import {
   ESCAPE_HATCH_USE_AGGREGATE_TYPE,
   escapeHatchUsedSchema,
@@ -72,8 +76,6 @@ async function resolveExplicitRetentionDays(args: {
   return isOperatorSet && typeof value === "number" && value >= 1 ? value : undefined;
 }
 
-// Soft dependency: audit must stay mountable without compliance-profiles, so we probe its entity.
-const COMPLIANCE_PROFILE_ENTITY = "tenant-compliance-profile";
 const PRUNE_CHUNK_SIZE = 1000;
 const PRUNE_BATCH_SIZE = 5000;
 const SCAN_PAGE_SIZE = 2000;
@@ -86,21 +88,13 @@ type AuditEventRow = {
   readonly payload: unknown;
 };
 
-// Overrides may only lengthen retention: the earlier cutoff (same `now`) is the longer period.
-function earlierInstant(a: Temporal.Instant, b: Temporal.Instant): Temporal.Instant {
-  return Temporal.Instant.compare(a, b) <= 0 ? a : b;
-}
-
 async function resolveTenantCutoff(
   db: DbConnection,
   tenantId: TenantId,
   now: Temporal.Instant,
   operatorFloor: Temporal.Instant | undefined,
 ): Promise<Temporal.Instant> {
-  const { profile } = await resolveProfileForTenant({ db, tenantId });
-  const effective = subtractRetentionSpec(now, profile.auditLog.retention);
-  const base = subtractRetentionSpec(now, COMPLIANCE_PROFILES[profile.key].auditLog.retention);
-  const profileCutoff = earlierInstant(effective, base);
+  const profileCutoff = await resolveProfileAuditCutoff(db, tenantId, now);
   return operatorFloor ? earlierInstant(profileCutoff, operatorFloor) : profileCutoff;
 }
 

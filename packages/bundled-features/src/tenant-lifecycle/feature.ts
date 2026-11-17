@@ -9,6 +9,7 @@ import {
   type FeatureDefinition,
   type TenantLifecycleStatusPlugin,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { accessLogTenantDestroyHook } from "../audit/index.ts";
 import { EXT_TENANT_DESTRUCTION_HOLD } from "../shared/index.ts";
 import {
   validateTenantDataHookCoverage,
@@ -86,7 +87,8 @@ export function createTenantLifecycleFeature(): FeatureDefinition {
     r.useExtension(EXT_TENANT_DESTRUCTION_HOLD, "tenant-lifecycle", tenantDestructionHoldProvider);
 
     // Registered here because the hosts of these entities cannot require tenant-lifecycle (cycle,
-    // resp. standalone use); the override hook no-ops without data-retention.
+    // resp. standalone use); the override hook no-ops without data-retention, the access-log hook
+    // without audit.
     r.useExtension(EXT_TENANT_DATA, COMPLIANCE_PROFILE_ENTITY_NAME, {
       destroy: complianceProfileTenantDestroyHook,
       phase: "tenant-row",
@@ -95,6 +97,7 @@ export function createTenantLifecycleFeature(): FeatureDefinition {
       destroy: retentionOverrideTenantDestroyHook,
       phase: "tenant-row",
     });
+    r.useExtension(EXT_TENANT_DATA, "access-log", { destroy: accessLogTenantDestroyHook });
 
     // Self-extension, same pattern as `user`/EXT_PRINCIPAL_STATUS — declares
     // AND fulfils tenantLifecycleStatus so teardown state is visible with no per-app wiring.
