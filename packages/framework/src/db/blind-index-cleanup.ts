@@ -11,11 +11,11 @@
 // bidx recomputed automatically there; this sweep covers the rows left
 // behind (foreign entities with userOwned fields).
 
-import type { SubjectId } from "../crypto/kms-adapter.ts";
 import { collectLookupableFields } from "../crypto/blind-index.ts";
 import { subjectCiphertextLikePattern } from "../crypto/ciphertext-pattern.ts";
 import { quoteIdent } from "./sql-identifier.ts";
 import { isSelfPiiField } from "../crypto/is-self-pii-field.ts";
+import type { SubjectId } from "../crypto/kms-adapter.ts";
 import { findEntity } from "../engine/find-entity.ts";
 import type { FeatureDefinition } from "../engine/types/index.ts";
 import { toSnakeCase } from "../utils/case.ts";
