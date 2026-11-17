@@ -11,9 +11,8 @@
 //      seen anchors, quarantine entries, ingest failure counters), which is keyed by accountId and must therefore be
 //      collected from the account rows BEFORE deletion.
 //
-// The actual PII erasure uses crypto-shredding: eraseSubjectKeys deletes the
-// tenant subject key, making event-log payloads AND any ciphertext copies
-// unreadable. These hooks dispose of the rows.
+// The tenant key shreds the mailbox address. This hook shreds the content of
+// the mails through their record keys.
 
 import type { TenantDataHookCtx } from "@cosmicdrift/kumiko-framework/engine";
 import { archiveAndDeleteTenantRows } from "../tenant-lifecycle/index.ts";
@@ -24,6 +23,7 @@ import {
 } from "./events.ts";
 import { ingestFailureTable } from "./ingest-failures.ts";
 import { inboundMessagesProjectionTable, mailAccountsProjectionTable } from "./projection.ts";
+import { eraseInboundMessageKey } from "./purge-messages.ts";
 import { quarantineTable } from "./quarantine-entities.ts";
 
 // archiveStream sits outside TenantDb's own methods — needs the escape hatch.
@@ -45,7 +45,15 @@ export async function mailAccountTenantDestroyHook(ctx: TenantDataHookCtx): Prom
   }
 }
 
+const MESSAGE_TENANT_DESTROY_ERASE_REASON = "inbound-mail-foundation:tenant-destroy";
+
 export async function inboundMessageTenantDestroyHook(ctx: TenantDataHookCtx): Promise<void> {
+  // Before the rows go: they are the only pointer to the message ids, and the subject-keys stage
+  // erases only tenant and user keys.
+  const rows = await ctx.db.selectMany<{ id: string }>(inboundMessagesProjectionTable, {
+    tenantId: ctx.tenantId,
+  });
+  for (const row of rows) await eraseInboundMessageKey(row.id, MESSAGE_TENANT_DESTROY_ERASE_REASON);
   await archiveAndDeleteTenantRows(
     ctx,
     inboundMessagesProjectionTable,

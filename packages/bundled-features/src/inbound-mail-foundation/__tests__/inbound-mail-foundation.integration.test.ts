@@ -49,6 +49,7 @@ import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import { inboundMessageAggregateId } from "../aggregate-id.ts";
 import { InboundMailFoundationHandlers, InboundMailFoundationQueries } from "../constants.ts";
 import { seenMessageEntity, seenMessageTable, syncCursorEntity } from "../entities.ts";
+import { INBOUND_MESSAGE_AGGREGATE_TYPE } from "../events.ts";
 import { createInboundMailFoundationFeature } from "../feature.ts";
 import { ingestFailureEntity } from "../ingest-failures.ts";
 import { inboundMessagesProjectionTable, mailAccountsProjectionTable } from "../projection.ts";
@@ -539,8 +540,8 @@ describe("scenario 5: Projection-Rebuild reproduziert die Read-Models (Plan §3.
   });
 });
 
-describe("Subject-Key-Erase makes the event payload permanently unreadable", () => {
-  test("erasing the subject key makes the event payload permanently unreadable", async () => {
+describe("Record-key erase makes one mail's event payload permanently unreadable", () => {
+  test("erasing a mail's record key makes only that mail's event payload unreadable", async () => {
     const admin = adminFor(4006);
     const accountId = await connectSharedAccount(admin);
     await stack.http.writeOk(
@@ -553,18 +554,38 @@ describe("Subject-Key-Erase makes the event payload permanently unreadable", () 
       admin,
     );
 
+    await stack.http.writeOk(
+      InboundMailFoundationHandlers.ingestMessage,
+      ingestPayload(accountId, {
+        providerMessageId: "uid-keep",
+        messageIdHeader: "keep@example.com",
+        from: "kept-sender@example.com",
+      }),
+      admin,
+    );
+
     const events = await loadAggregate(
       db,
       inboundMessageAggregateId(accountId, "uid-shred"),
       admin.tenantId,
     );
+    const keptEvents = await loadAggregate(
+      db,
+      inboundMessageAggregateId(accountId, "uid-keep"),
+      admin.tenantId,
+    );
+    const keptCiphertext = (keptEvents[0]!.payload as { from?: string }).from as string;
     const ciphertext = (events[0]!.payload as { from?: string }).from as string;
     expect(isPiiCiphertext(ciphertext)).toBe(true);
 
     const kms = configuredPiiSubjectKms();
     if (!kms) throw new Error("expected a configured PII-subject KMS in this test stack");
     await kms.eraseKey(
-      { kind: "tenant", tenantId: admin.tenantId },
+      {
+        kind: "record",
+        entity: INBOUND_MESSAGE_AGGREGATE_TYPE,
+        id: inboundMessageAggregateId(accountId, "uid-shred"),
+      },
       { requestId: "test:crypto-shred", eraseReason: "test" },
     );
 
@@ -573,5 +594,10 @@ describe("Subject-Key-Erase makes the event payload permanently unreadable", () 
     });
     expect(decrypted["from"]).toBe(PII_ERASED_SENTINEL);
     expect(decrypted["from"]).not.toBe("secret-sender@example.com");
+
+    const kept = await decryptPiiFieldValues({ from: keptCiphertext }, ["from"], kms, {
+      requestId: "test:crypto-shred-keep",
+    });
+    expect(kept["from"]).toBe("kept-sender@example.com");
   });
 });

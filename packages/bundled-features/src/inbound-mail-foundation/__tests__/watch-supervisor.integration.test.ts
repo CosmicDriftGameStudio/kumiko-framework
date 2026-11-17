@@ -14,7 +14,10 @@ import {
 import type { DbConnection, EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { createDistributedLock } from "@cosmicdrift/kumiko-framework/pipeline";
+import {
+  createDistributedLock,
+  type DistributedLock,
+} from "@cosmicdrift/kumiko-framework/pipeline";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   resetPiiSubjectKmsForTests,
@@ -35,6 +38,7 @@ import { createConfigFeature } from "../../config/index.ts";
 import {
   emitWatchError,
   failNextFetchWith,
+  fetchCountOf,
   isWatching,
   resetInboundInMemory,
   seedInboundMessage,
@@ -782,6 +786,87 @@ describe("watch-supervisor — multi-worker watch coordination", () => {
     } finally {
       await supervisorA.stop();
       await supervisorB.stop();
+    }
+  });
+});
+
+describe("watch-supervisor — poll lease", () => {
+  const dispatchWrite = ({
+    handlerQn,
+    payload,
+    tenantId,
+  }: {
+    handlerQn: string;
+    payload: unknown;
+    tenantId: string;
+  }) =>
+    stack.dispatcher.write(
+      handlerQn,
+      payload,
+      createSystemUser(tenantId as TenantId, [ROLES.SystemAdmin]),
+    );
+
+  function supervisorWith(lock: DistributedLock) {
+    return createInboundMailSupervisor({
+      providerCtx: { registry: stack.registry },
+      db: stack.unscopedDb,
+      dispatchWrite,
+      lock,
+      pollIntervalMs: 60_000,
+    });
+  }
+
+  test("two workers poll a mailbox once per tick, an explicit poll and a restart still poll", async () => {
+    const accountId = await connectSharedAccount(adminFor(4251));
+    const redisLock = createDistributedLock(stack.redis.redis, "test-poll-lease:");
+    const lock: DistributedLock = {
+      // No watch lease for this mailbox: a watcher's catch-up fetch would blur the poll count.
+      acquire: async (key, options) => (key === accountId ? null : redisLock.acquire(key, options)),
+      release: (key, token) => redisLock.release(key, token),
+      renew: (key, token, ttlSeconds) => redisLock.renew(key, token, ttlSeconds),
+    };
+    const supervisorA = supervisorWith(lock);
+    const supervisorB = supervisorWith(lock);
+    const supervisorC = supervisorWith(lock);
+
+    try {
+      await supervisorA.start();
+      expect(fetchCountOf(accountId)).toBe(1);
+
+      await supervisorB.start();
+      expect(fetchCountOf(accountId)).toBe(1);
+
+      await supervisorB.pollOnce();
+      expect(fetchCountOf(accountId)).toBe(2);
+
+      await supervisorA.stop();
+      await supervisorC.start();
+      expect(fetchCountOf(accountId)).toBe(3);
+    } finally {
+      await supervisorA.stop();
+      await supervisorB.stop();
+      await supervisorC.stop();
+    }
+  });
+
+  test("a lock outage still polls", async () => {
+    const accountId = await connectSharedAccount(adminFor(4252));
+    const lock: DistributedLock = {
+      acquire: async (key) => {
+        if (key === accountId) return null;
+        if (key === `${accountId}:poll`) throw new Error("redis unavailable");
+        return `foreign-${key}`;
+      },
+      release: async () => true,
+      renew: async () => true,
+    };
+    const supervisor = supervisorWith(lock);
+
+    try {
+      await supervisor.start();
+      expect(fetchCountOf(accountId)).toBe(1);
+    } finally {
+      await supervisor.stop();
     }
   });
 });

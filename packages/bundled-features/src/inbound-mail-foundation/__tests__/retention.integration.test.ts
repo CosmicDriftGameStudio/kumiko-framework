@@ -7,10 +7,16 @@
 //     intact)
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
+import {
+  configuredPiiSubjectKms,
+  configurePiiSubjectKms,
+  decryptPiiFieldValues,
+  InMemoryKmsAdapter,
+  PII_ERASED_SENTINEL,
+} from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
-import { loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
+import { eventsTable, loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import { rebuildProjection } from "@cosmicdrift/kumiko-framework/pipeline";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
@@ -160,6 +166,43 @@ describe("retention: inbound messages", () => {
     const afterRebuild = await selectMany(db, inboundMessagesProjectionTable, { accountId });
     expect(afterRebuild).toHaveLength(1);
     expect(afterRebuild[0]?.["id"]).toBe(youngId);
+  });
+});
+
+describe("retention: record key of a purged mail", () => {
+  test("a mail purged by retention is unreadable in the event log", async () => {
+    const admin = adminFor(5004);
+    const accountId = await connectSharedAccount(admin);
+    await ingest(accountId, admin, "uid-old", "2024-01-01T10:00:00Z");
+    await ingest(accountId, admin, "uid-young", "2026-07-01T10:00:00Z");
+
+    await runInboundMailRetention({
+      db,
+      tenantId: admin.tenantId,
+      now: getTemporal().Instant.from("2026-07-13T00:00:00Z"),
+      seenRetentionDays: 100000,
+    });
+
+    const kms = configuredPiiSubjectKms();
+    if (!kms) throw new Error("expected a configured PII-subject KMS in this test stack");
+    const fromOf = async (providerMessageId: string): Promise<unknown> => {
+      const events = await selectMany<{ type: string; payload: { from?: string } }>(
+        db,
+        eventsTable,
+        { aggregateId: inboundMessageAggregateId(accountId, providerMessageId) },
+      );
+      const received = events.find((e) => e.type.endsWith("inbound-message-received"));
+      if (!received?.payload.from) throw new Error("expected a received event with a from");
+      const decrypted = await decryptPiiFieldValues(
+        { from: received.payload.from },
+        ["from"],
+        kms,
+        { requestId: `test:retention-read:${providerMessageId}` },
+      );
+      return decrypted["from"];
+    };
+    expect(await fromOf("uid-old")).toBe(PII_ERASED_SENTINEL);
+    expect(await fromOf("uid-young")).toBe("sender@example.com");
   });
 });
 

@@ -19,6 +19,8 @@ export function registerInboundMailRetentionJob(r: FeatureRegistrar<"inbound-mai
     name: "inbound-mail-retention",
     trigger: { maintenance: true },
     perTenant: true,
+    // The purge erases each expired mail's record key.
+    irreversibleWithoutEntryHandler: "high-risk-or-cron-pipeline",
     concurrency: "skip",
     escapeHatch: { reason: INBOUND_MAIL_RETENTION_REASON },
     handler: async (_payload, ctx) => {

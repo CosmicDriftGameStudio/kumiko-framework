@@ -3,7 +3,11 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
-import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
+import {
+  configuredPiiSubjectKms,
+  configurePiiSubjectKms,
+  InMemoryKmsAdapter,
+} from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { insertOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
@@ -201,10 +205,22 @@ describe("inbound-mail-foundation :: tenant destroy", () => {
     expect(beforeA.seen).toHaveLength(1);
     const beforeB = await ownedRows(survivingTenant.tenantId, accountIdB);
 
+    const kms = configuredPiiSubjectKms();
+    if (!kms) throw new Error("expected a configured PII-subject KMS in this test stack");
+    const messageKey = {
+      kind: "record",
+      entity: "inbound-message",
+      id: String(beforeA.messages[0]?.["id"]),
+    } as const;
+    await expect(kms.getKey(messageKey, { requestId: "test" })).resolves.toBeDefined();
+
     await seedDestroyingTenant(db, destroyedTenant.tenantId);
     expect(await driveDestructionToCompletion(stack, db, destroyedTenant.tenantId)).toBe(
       "destroyed",
     );
+
+    // The subject-keys stage erases only tenant and user keys; the hook erases the record key.
+    await expect(kms.getKey(messageKey, { requestId: "test" })).rejects.toThrow();
 
     const afterA = await ownedRows(destroyedTenant.tenantId, accountIdA);
     expect(afterA.messages).toHaveLength(0);

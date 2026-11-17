@@ -209,7 +209,7 @@ export async function encryptMessageBodyText(
   const piiKms = configuredPiiSubjectKms();
   if (!piiKms) return bodyText;
   const encrypted = await encryptPiiFieldValues(
-    { tenantId, bodyText },
+    { id: messageAggId, tenantId, bodyText },
     inboundMessageEntity,
     INBOUND_MESSAGE_PII_FIELDS,
     piiKms,
@@ -228,7 +228,7 @@ export async function encryptMessageBodyHtml(
   const piiKms = configuredPiiSubjectKms();
   if (!piiKms || bodyHtml === null) return bodyHtml;
   const encrypted = await encryptPiiFieldValues(
-    { tenantId, bodyHtml },
+    { id: messageAggId, tenantId, bodyHtml },
     inboundMessageEntity,
     INBOUND_MESSAGE_PII_FIELDS,
     piiKms,

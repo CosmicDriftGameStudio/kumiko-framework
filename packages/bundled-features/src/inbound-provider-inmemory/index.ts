@@ -6,6 +6,7 @@ export {
   emitWatchError,
   failNextFetchWith,
   failNextVerifyWith,
+  fetchCountOf,
   hangFetchesOf,
   INMEMORY_PROVIDER_KEY,
   isWatching,

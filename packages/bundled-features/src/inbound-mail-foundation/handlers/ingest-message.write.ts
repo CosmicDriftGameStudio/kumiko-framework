@@ -154,6 +154,7 @@ export const ingestMessageHandler = defineWriteHandler({
     const sanitizedHtml =
       payload.bodyHtml === undefined ? null : sanitizeInboundHtml(payload.bodyHtml);
     const messagePlainPii = {
+      id: messageAggId,
       tenantId,
       bodyText: payload.bodyText,
       bodyHtml: sanitizedHtml,

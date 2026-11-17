@@ -37,16 +37,13 @@ import {
 // The event-store streams `mail-account` / `inbound-message`
 // are the source of truth, so these tables can be rebuilt.
 //
-// **PII convention:** `personal: "tenant"` (not `encrypted`): fields must
-// be crypto-shredded when eraseSubjectKeys deletes the tenant subject key on
-// tenant destruction (pattern from billing-foundation).
+// **PII convention:** mail-account fields are `personal: "tenant"` and are
+// shredded when tenant destruction deletes the tenant subject key. The PII
+// fields of a mail are `personal: { of: "id" }`: they lie under the record key
+// `record:inbound-message:<messageId>`, which forget, retention and tenant
+// destroy erase. A sender-forget (keys per sender) is deliberately left out.
 // The projection holds ciphertext, so these fields' maxLength comes from
 // piiCiphertextMaxLengthFor(<plaintext limit>).
-//
-// **Design decision:** The PII subject of an inbound mail is currently the
-// TENANT (mailbox owner), not the external sender. A sender-forget flow would
-// require per-sender keys and is deliberately not included; the erasure path
-// is tenant destruction.
 
 /** A connected mailbox. One row per account, with PK = aggregateId
  *  (= accountId, random uuid on connect). */
@@ -154,28 +151,28 @@ export function createInboundMessageEntity(memberRoles: readonly string[]) {
       from: createTextField({
         required: true,
         maxLength: piiCiphertextMaxLengthFor(INBOUND_FROM_MAX_CHARS),
-        personal: "tenant",
+        personal: { of: "id" },
         find: "none",
       }),
       // JSON-stringified string[] — als Ganzes encrypted.
       to: createTextField({
         maxLength: piiCiphertextMaxLengthFor(INBOUND_ADDRESS_LIST_JSON_MAX_CHARS),
-        personal: "tenant",
+        personal: { of: "id" },
         find: "none",
       }),
       cc: createTextField({
         maxLength: piiCiphertextMaxLengthFor(INBOUND_ADDRESS_LIST_JSON_MAX_CHARS),
-        personal: "tenant",
+        personal: { of: "id" },
         find: "none",
       }),
       subject: createTextField({
         maxLength: piiCiphertextMaxLengthFor(INBOUND_SUBJECT_MAX_CHARS),
-        personal: "tenant",
+        personal: { of: "id" },
         find: "none",
       }),
       snippet: createTextField({
         maxLength: piiCiphertextMaxLengthFor(INBOUND_SNIPPET_MAX_CHARS),
-        personal: "tenant",
+        personal: { of: "id" },
         find: "none",
       }),
       receivedAt: createTimestampField({ required: true }),
@@ -185,7 +182,7 @@ export function createInboundMessageEntity(memberRoles: readonly string[]) {
       // Plaintext is clipped to INBOUND_BODY_TEXT_MAX_CHARS (32_000) before encryption.
       bodyText: createLongTextField({
         maxLength: piiCiphertextMaxLengthFor(INBOUND_BODY_TEXT_MAX_CHARS),
-        personal: "tenant",
+        personal: { of: "id" },
         find: "none",
       }),
       bodyTextTruncated: createBooleanField(),
@@ -193,7 +190,7 @@ export function createInboundMessageEntity(memberRoles: readonly string[]) {
       // drops anything over 500_000 bytes after sanitizing, before encryption.
       bodyHtml: createLongTextField({
         maxLength: piiCiphertextMaxLengthFor(INBOUND_BODY_HTML_MAX_BYTES),
-        personal: "tenant",
+        personal: { of: "id" },
         find: "none",
       }),
       // Bound to the message (entityType = the aggregate type), so the file guard answers with the

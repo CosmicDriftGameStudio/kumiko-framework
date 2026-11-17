@@ -12,13 +12,14 @@
 //   - Domain-clean and generic: no app-specific terms (no solon), and no
 //     provider-raw structures in the payload — raw data lives in
 //     metadata.headers.
-//   - NO bodies: bodyRef points to file-foundation storage. The event store
-//     is not a blob store.
-//   - PII (address/from/to/cc/subject/snippet) is stored as ciphertext in
-//     the payload (`kumiko-pii:v1:...`), encrypted BEFORE append in the
-//     write handler — the subject key is the tenant, and tenant destruction's
-//     eraseSubjectKeys makes both the event log and projection unreadable
-//     (crypto-shredding, the billing-foundation pattern).
+//   - The text of the mail (bodyText up to 32,000 characters, sanitized
+//     bodyHtml) travels encrypted in the received and content events; the
+//     original MIME lives in file storage (bodyRef).
+//   - PII (address/from/to/cc/subject/snippet/bodies) is stored as ciphertext
+//     in the payload (`kumiko-pii:v1:...`), encrypted BEFORE append in the
+//     write handler. The PII of a mail lie under its record key, the account
+//     address under the tenant key; erasing the key makes both the event log
+//     and projection unreadable (crypto-shredding).
 
 import { piiCiphertextMaxLengthFor } from "@cosmicdrift/kumiko-framework/crypto";
 import * as z from "zod";
