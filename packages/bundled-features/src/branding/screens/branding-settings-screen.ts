@@ -4,7 +4,7 @@ import {
   createSelectField,
   createTextField,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { BRANDING_QN, LAYOUT_PRESETS } from "../branding.ts";
+import { BRANDING_QN, LAYOUT_PRESETS } from "../constants.ts";
 
 // Tenant self-service branding editor. A `configEdit` screen (no entity
 // table) — the renderer loads config:query:values, maps the form fields via
@@ -20,7 +20,7 @@ const ADMIN_ROLES = ["TenantAdmin", "Admin", "SystemAdmin"] as const;
 
 // Factory so the raw-CSS field/key only exist when the app opted into
 // allowCustomCss (fail-closed: no CSS editor when the capability is off). The
-// CSS lands in `branding-custom-css` (registered conditionally by the feature);
+// CSS lands in `custom-css` (registered conditionally by the feature);
 // the write-time pattern only caps length, the render-time sanitizer is the
 // allowlist gate.
 export function createBrandingSettingsScreen(opts: {
@@ -74,7 +74,7 @@ export function createBrandingSettingsScreen(opts: {
     layout: {
       sections: [
         {
-          title: "managed-pages:branding.section.identity",
+          title: "branding:section.identity",
           columns: 2,
           fields: [
             { field: "title", span: 1 },
@@ -113,7 +113,7 @@ export function createBrandingSettingsScreen(opts: {
       sections: [
         ...base.layout.sections,
         {
-          title: "managed-pages:branding.section.custom-css",
+          title: "branding:section.custom-css",
           columns: 1,
           fields: [{ field: "customCss", span: 1 }],
         },

@@ -20,6 +20,7 @@ import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-feature
 import { createAuthMfaFeature } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import { createAuthMfaUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/auth-mfa-user-data";
 import { createBillingFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
+import { createBrandingFeature } from "@cosmicdrift/kumiko-bundled-features/branding";
 import { createCapCounterFeature } from "@cosmicdrift/kumiko-bundled-features/cap-counter";
 import { createCapOverviewFeature } from "@cosmicdrift/kumiko-bundled-features/cap-overview";
 import { createChannelDiscordFeature } from "@cosmicdrift/kumiko-bundled-features/channel-discord";
@@ -406,20 +407,21 @@ export const APP_FEATURES = [
     access: { roles: ["TenantAdmin", "TenantMember", "SystemAdmin"] },
   }),
 
-  // managed-pages: requires config (auto-bundled). Every host resolves to the
+  // branding: requires config (auto-bundled). allowCustomCss:true boot-validates the CSS
+  // code path + emits the custom-css key into the manifest. The branding-css companion
+  // toggle is handler-less and recipe-covered, not standalone-mounted here.
+  createBrandingFeature({ allowCustomCss: true }),
+
+  // managed-pages: requires config + branding. Every host resolves to the
   // dev tenant so the document-editor e2e can read a saved page back from the
-  // public route. allowCustomCss:true boot-validates the CSS code path + emits
-  // the branding-custom-css key into the manifest. The managed-pages-css
-  // companion toggle is handler-less, has no subpath export, and is recipe-
-  // covered — not standalone-mounted here (smoke = one mount per subpath-export).
+  // public route.
   createManagedPagesFeature({
     // Mapping every host to the dev tenant is for this sample and its e2e only; production maps
     // its known hosts and returns null for any other.
     resolveApexTenant: () => DEV_TENANT_ID as TenantId,
-    allowCustomCss: true,
   }),
 
-  // Template overview, layout editor and PDF template editor; needs template-resolver and managed-pages above.
+  // Template overview, layout editor and PDF template editor; needs template-resolver and managed-pages and branding above.
   createDocumentDesignerFeature(),
 
   // seo: requires config (auto-bundled). Smoke resolver never serves (boot-

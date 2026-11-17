@@ -1,6 +1,8 @@
 import * as z from "zod";
 import { ACCOUNT_TYPES, TRANSACTION_STATUS } from "./web/constants.ts";
 
+export const periodSchema = z.string().regex(/^\d{4}-\d{2}$/);
+
 // A posting line. amount is integer minor units (cents), SIGNED: Soll/debit > 0,
 // Haben/credit < 0. Integer → the balance check is exact (=== 0), no float epsilon.
 export const postingSchema = z.object({
@@ -23,6 +25,7 @@ export const createTransactionPayloadSchema = z
     date: z.string().min(1).max(32), // ISO booking date
     description: z.string().min(1).max(200),
     reference: z.string().max(120).optional(),
+    period: periodSchema.optional(),
     // Defaults to "posted" in the handler. draft lifecycle (editable) lands with
     // the debit/recurring work — only ever creates posted entries.
     status: z.enum(TRANSACTION_STATUS).optional(),
@@ -61,12 +64,12 @@ export type ReverseTransactionPayload = z.infer<typeof reverseTransactionPayload
 // confirm-schedule-period — materialise ONE projected period of a schedule as a
 // posted, balanced entry. `amount` overrides the schedule's amount for that period
 // (e.g. rent came in short); `date` overrides the booking date (default: 1st of
-// the period). Idempotent + reversal-aware in the handler via the schedule
-// reference, so re-confirming a booked month is a no-op and a stornoed month can
+// the period). Idempotent + reversal-aware in the handler via the scheduleId/period
+// columns, so re-confirming a booked month is a no-op and a stornoed month can
 // be re-confirmed.
 export const confirmSchedulePeriodPayloadSchema = z.object({
   scheduleId: z.string().min(1).max(64),
-  period: z.string().regex(/^\d{4}-\d{2}$/, "period must be YYYY-MM"),
+  period: periodSchema,
   amount: z.number().int().positive().optional(),
   date: z
     .string()
@@ -74,6 +77,25 @@ export const confirmSchedulePeriodPayloadSchema = z.object({
     .optional(),
 });
 export type ConfirmSchedulePeriodPayload = z.infer<typeof confirmSchedulePeriodPayloadSchema>;
+
+export const ensureAccountsPayloadSchema = z
+  .object({
+    accounts: z
+      .array(
+        z.object({
+          code: z.string().min(1).max(32),
+          name: z.string().min(1).max(120),
+          type: z.enum(ACCOUNT_TYPES),
+        }),
+      )
+      .min(1)
+      .max(50),
+  })
+  .refine((p) => new Set(p.accounts.map((a) => a.code)).size === p.accounts.length, {
+    message: "duplicate account code",
+    path: ["accounts"],
+  });
+export type EnsureAccountsPayload = z.infer<typeof ensureAccountsPayloadSchema>;
 
 // Re-export so callers building accounts have the type vocabulary in one place.
 export const accountTypeSchema = z.enum(ACCOUNT_TYPES);

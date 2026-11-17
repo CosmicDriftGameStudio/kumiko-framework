@@ -2,6 +2,7 @@
 // the PDF service is a local stub (Chromium is not available in CI), calls are real HTTP requests.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { BRANDING_QN, createBrandingFeature } from "@cosmicdrift/kumiko-bundled-features/branding";
 import {
   createChannelEmailFeature,
   createInMemoryTransport,
@@ -16,11 +17,6 @@ import {
   createDeliveryFeature,
   createDeliveryTestContext,
 } from "@cosmicdrift/kumiko-bundled-features/delivery";
-import {
-  BRANDING_QN,
-  createManagedPagesFeature,
-  pageEntity,
-} from "@cosmicdrift/kumiko-bundled-features/managed-pages";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import {
   createTemplateResolverFeature,
@@ -272,7 +268,7 @@ beforeAll(async () => {
       createFilesFeature(),
       createConfigFeature(),
       createTenantFeature(),
-      createManagedPagesFeature({ resolveApexTenant: () => null }),
+      createBrandingFeature(),
       createTemplateResolverFeature({
         tenantEditable: [
           { kind: "document-pdf", slug: "invoice", access: { roles: ["TenantAdmin"] } },
@@ -299,7 +295,6 @@ beforeAll(async () => {
   });
   await unsafeCreateEntityTable(stack.db, templateResourceEntity, "template-resource");
   await unsafeCreateEntityTable(stack.db, tenantEntity, "tenant");
-  await unsafeCreateEntityTable(stack.db, pageEntity);
   await unsafeCreateEntityTable(stack.db, renderedPdfEntity, "rendered-pdf");
   await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
   await seedNotificationTemplates(stack.db, stack.registry);

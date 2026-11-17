@@ -4,7 +4,6 @@ import {
   mergeScheduleActuals,
   projectSchedule,
   type ScheduleDef,
-  scheduleReference,
 } from "../recurring.ts";
 
 // Pure projection + planned/actual merge — no DB, no Date API (the window/asOf are
@@ -50,10 +49,11 @@ describe("projectSchedule", () => {
 });
 
 describe("mergeScheduleActuals", () => {
-  const ref = (period: string): string => scheduleReference("s1", period);
   const confirmTx = (id: string, period: string, amount = 50000): LedgerTxRow => ({
     id,
-    reference: ref(period),
+    scheduleId: "s1",
+    period,
+    reversesTransactionId: null,
     lines: [
       { accountId: "bank", amount },
       { accountId: "rent", amount: -amount },
@@ -83,10 +83,12 @@ describe("mergeScheduleActuals", () => {
   test("a reversed (stornoed) confirmation drops the month back to open + re-confirmable", () => {
     const tx: LedgerTxRow[] = [
       confirmTx("tx-jan", "2026-01"),
-      // Storno mirror: references the confirming tx's id (reverse-transaction shape).
+      // Storno mirror: reversesTransactionId names the confirming tx and it copies scheduleId/period.
       {
         id: "tx-storno",
-        reference: "tx-jan",
+        scheduleId: "s1",
+        period: "2026-01",
+        reversesTransactionId: "tx-jan",
         lines: [
           { accountId: "bank", amount: -50000 },
           { accountId: "rent", amount: 50000 },
@@ -107,7 +109,9 @@ describe("mergeScheduleActuals", () => {
       confirmTx("tx-jan", "2026-01"),
       {
         id: "tx-storno",
-        reference: "tx-jan",
+        scheduleId: "s1",
+        period: "2026-01",
+        reversesTransactionId: "tx-jan",
         lines: [
           { accountId: "bank", amount: -50000 },
           { accountId: "rent", amount: 50000 },
@@ -123,7 +127,9 @@ describe("mergeScheduleActuals", () => {
     const tx: LedgerTxRow[] = [
       {
         id: "tx-other",
-        reference: scheduleReference("s2", "2026-01"),
+        scheduleId: "s2",
+        period: "2026-01",
+        reversesTransactionId: null,
         lines: [
           { accountId: "bank", amount: 50000 },
           { accountId: "rent", amount: -50000 },
@@ -132,5 +138,12 @@ describe("mergeScheduleActuals", () => {
     ];
     const months = mergeScheduleActuals("s1", projection, tx, "2026-03");
     expect(months[0]).toMatchObject({ status: "open", txId: null });
+  });
+
+  test("a booking of another schedule in the same period does not count", () => {
+    const tx: LedgerTxRow[] = [confirmTx("tx-s1", "2026-02"), { ...confirmTx("tx-s2", "2026-01"), scheduleId: "s2" }];
+    const months = mergeScheduleActuals("s1", projection, tx, "2026-03");
+    expect(months[0]).toMatchObject({ period: "2026-01", status: "open", txId: null });
+    expect(months[1]).toMatchObject({ period: "2026-02", status: "posted", txId: "tx-s1" });
   });
 });

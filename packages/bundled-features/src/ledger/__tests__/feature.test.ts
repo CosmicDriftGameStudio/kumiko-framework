@@ -36,6 +36,7 @@ describe("createLedgerFeature shape", () => {
         expect.stringMatching(/schedule:create/),
         expect.stringMatching(/schedule:update/),
         expect.stringMatching(/confirm-schedule-period/),
+        expect.stringMatching(/ensure-accounts/),
       ]),
     );
 
@@ -50,6 +51,8 @@ describe("createLedgerFeature shape", () => {
         expect.stringMatching(/report:balances/),
         expect.stringMatching(/report:income-statement/),
         expect.stringMatching(/report:balance-sheet/),
+        expect.stringMatching(/report:subject-totals/),
+        expect.stringMatching(/schedule-actuals/),
       ]),
     );
   });

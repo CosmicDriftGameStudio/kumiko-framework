@@ -4,7 +4,7 @@
 // system-template seed), never straight into the tables.
 
 import { seedAdmin } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/seeding";
-import { BRANDING_QN } from "@cosmicdrift/kumiko-bundled-features/managed-pages";
+import { BRANDING_QN } from "@cosmicdrift/kumiko-bundled-features/branding";
 import {
   TemplateResolverHandlers,
   TemplateResolverQueries,

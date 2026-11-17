@@ -75,7 +75,7 @@ const EMPTY_SEO_CONFIG: SeoConfigValues = {
 };
 
 // Config is decoration, not a hard dependency — a failed/unreachable read
-// degrades to empty strings (same posture as managed-pages' readBrandingResponse).
+// degrades to empty strings (same posture as managed-pages' branding read via branding:query:tokens).
 // systemQuery forces tenantId in-process — no internal X-Tenant self-fetch,
 // which a host-based anonymousAccess resolver in "authoritative" mode would
 // reject as a forged client override.

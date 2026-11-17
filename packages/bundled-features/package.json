@@ -176,6 +176,8 @@
     "./handbook-knowledge": "./src/handbook-knowledge/index.ts",
     "./page-render": "./src/page-render/index.ts",
     "./page-render/web": "./src/page-render/web.ts",
+    "./branding": "./src/branding/index.ts",
+    "./branding/web": "./src/branding/web/index.ts",
     "./managed-pages": "./src/managed-pages/index.ts",
     "./managed-pages/web": "./src/managed-pages/web/index.ts",
     "./managed-pages/seeding": "./src/managed-pages/seeding.ts",
@@ -834,6 +836,14 @@
       "./page-render/web": {
         "types": "./dist/page-render/web.d.ts",
         "default": "./dist/page-render/web.js"
+      },
+      "./branding": {
+        "types": "./dist/branding/index.d.ts",
+        "default": "./dist/branding/index.js"
+      },
+      "./branding/web": {
+        "types": "./dist/branding/web/index.d.ts",
+        "default": "./dist/branding/web/index.js"
       },
       "./managed-pages": {
         "types": "./dist/managed-pages/index.d.ts",

@@ -28,7 +28,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { documentDesignerClient } from "../client-plugin.tsx";
 import {
   BRANDING_QUERY_QN,
-  MANAGED_PAGES_FEATURE_NAME,
+  BRANDING_FEATURE_NAME,
   TEMPLATE_IMPORT_CLIENT_ACTION,
 } from "../constants.ts";
 import { PdfTemplateEditor } from "../pdf-template-editor.tsx";
@@ -313,16 +313,16 @@ describe("PdfTemplateEditor", () => {
     for (const button of buttonsNamed("Generate PDF")) expect(button.disabled).toBe(true);
   });
 
-  test("without managed-pages the editor never asks for branding", async () => {
+  test("without the branding feature the editor never asks for branding", async () => {
     const { queries } = renderEditor({ puppeteer: "available" });
     await ready();
     expect(queries).toContain(TemplateResolverQueries.validate);
     expect(queries).not.toContain(BRANDING_QUERY_QN);
   });
 
-  test("with managed-pages mounted the editor asks for branding", async () => {
-    const managedPages: FeatureSchema = {
-      featureName: MANAGED_PAGES_FEATURE_NAME,
+  test("with the branding feature mounted the editor asks for branding", async () => {
+    const brandingFeature: FeatureSchema = {
+      featureName: BRANDING_FEATURE_NAME,
       entities: {},
       screens: [],
     };
@@ -330,7 +330,7 @@ describe("PdfTemplateEditor", () => {
       { puppeteer: "available" },
       undefined,
       ["TenantAdmin"],
-      [managedPages],
+      [brandingFeature],
     );
     await ready();
     await waitFor(() => expect(queries).toContain(BRANDING_QUERY_QN));

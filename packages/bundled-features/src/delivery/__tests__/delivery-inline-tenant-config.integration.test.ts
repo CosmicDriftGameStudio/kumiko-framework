@@ -21,7 +21,7 @@ import { createInMemoryTransport } from "../../channel-email/types.ts";
 import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.ts";
 import { createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";
-import { BRANDING_QN, createManagedPagesFeature } from "../../managed-pages/index.ts";
+import { BRANDING_QN, createBrandingFeature } from "../../branding/index.ts";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature.ts";
 import { createTemplateResolverFeature } from "../../template-resolver/feature.ts";
 import { seedNotificationTemplates } from "../../template-resolver/seeding.ts";
@@ -61,7 +61,7 @@ beforeAll(async () => {
       createConfigFeature(),
       createTenantFeature(),
       createTenantSettingsFeature(),
-      createManagedPagesFeature({ resolveApexTenant: () => null }),
+      createBrandingFeature(),
       createTemplateResolverFeature(),
       createRendererFoundationFeature(),
       createRendererMailHtmlFeature(),

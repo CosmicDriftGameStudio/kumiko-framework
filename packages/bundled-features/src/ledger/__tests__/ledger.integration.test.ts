@@ -23,7 +23,6 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import { accountEntity, scheduleEntity, transactionEntity } from "../entity.ts";
 import { createLedgerFeature } from "../feature.ts";
-import { scheduleReference } from "../recurring.ts";
 import type { Posting } from "../schemas.ts";
 import { type AccountType, LedgerHandlers, LedgerQueries } from "../web/constants.ts";
 
@@ -75,6 +74,8 @@ async function createTransaction(
     subjectId?: string;
     status?: "draft" | "posted";
     sourceRef?: string;
+    reference?: string;
+    period?: string;
   } = {},
   user = admin,
 ): Promise<{ id: string; alreadyBooked: boolean }> {
@@ -88,6 +89,8 @@ async function createTransaction(
       ...(opts.subjectId !== undefined && { subjectId: opts.subjectId }),
       ...(opts.status !== undefined && { status: opts.status }),
       ...(opts.sourceRef !== undefined && { sourceRef: opts.sourceRef }),
+      ...(opts.reference !== undefined && { reference: opts.reference }),
+      ...(opts.period !== undefined && { period: opts.period }),
     },
     user,
   );
@@ -204,8 +207,9 @@ describe("ledger integration — reverse-transaction (Storno)", () => {
     const rows = await listTransactions();
     expect(rows).toHaveLength(2);
 
-    const storno = rows.find((r) => r["reference"] === tx.id);
+    const storno = rows.find((r) => r["reversesTransactionId"] === tx.id);
     expect(storno).toBeDefined();
+    expect(storno?.["reference"]).toBeNull();
     const stornoLines = linesOf(storno as Record<string, unknown>);
     expect(stornoLines.find((l) => l.accountId === bank)?.amount).toBe(-100000);
     expect(stornoLines.find((l) => l.accountId === rent)?.amount).toBe(100000);
@@ -297,6 +301,70 @@ describe("ledger integration — reverse-transaction (Storno)", () => {
     }
   });
 
+  test("a forged reference cannot block a Storno: reversing still works and links via reversesTransactionId", async () => {
+    const bank = await createAccount("Bank Forge", "asset");
+    const rent = await createAccount("Forge Income", "income");
+    const lines = [
+      { accountId: bank, amount: 7000 },
+      { accountId: rent, amount: -7000 },
+    ];
+    const target = await createTransaction(lines);
+    await createTransaction(lines, { reference: target.id, description: "forged" });
+
+    const storno = await stack.http.writeOk<{ id: string }>(
+      LedgerHandlers.reverseTransaction,
+      { id: target.id },
+      admin,
+    );
+    const rows = await listTransactions();
+    const row = rows.find((r) => r["id"] === storno.id);
+    expect(row?.["reversesTransactionId"]).toBe(target.id);
+  });
+
+  test("reversing a Storno is rejected with transaction_is_reversal", async () => {
+    const bank = await createAccount("Bank RevRev", "asset");
+    const rent = await createAccount("RevRev Income", "income");
+    const tx = await createTransaction([
+      { accountId: bank, amount: 9000 },
+      { accountId: rent, amount: -9000 },
+    ]);
+    const storno = await stack.http.writeOk<{ id: string }>(
+      LedgerHandlers.reverseTransaction,
+      { id: tx.id },
+      admin,
+    );
+
+    const err = await stack.http.writeErr(
+      LedgerHandlers.reverseTransaction,
+      { id: storno.id },
+      admin,
+    );
+    expect(err.code).toBe("unprocessable");
+    expect(err.details).toMatchObject({ reason: "transaction_is_reversal" });
+    expect(await listTransactions()).toHaveLength(2);
+  });
+
+  test("create-transaction with a period stores it and list/detail return it", async () => {
+    const bank = await createAccount("Bank Period", "asset");
+    const rent = await createAccount("Period Income", "income");
+    const tx = await createTransaction(
+      [
+        { accountId: bank, amount: 1200 },
+        { accountId: rent, amount: -1200 },
+      ],
+      { period: "2026-04" },
+    );
+
+    const rows = await listTransactions();
+    expect(rows.find((r) => r["id"] === tx.id)?.["period"]).toBe("2026-04");
+    const detail = await stack.http.queryOk<Record<string, unknown>>(
+      LedgerQueries.transactionDetail,
+      { id: tx.id },
+      admin,
+    );
+    expect(detail["period"]).toBe("2026-04");
+  });
+
   test("reversing a booking without a subject leaves the Storno without one", async () => {
     const bank = await createAccount("Bank NoSubj", "asset");
     const rent = await createAccount("NoSubj Income", "income");
@@ -308,7 +376,7 @@ describe("ledger integration — reverse-transaction (Storno)", () => {
     await stack.http.writeOk(LedgerHandlers.reverseTransaction, { id: tx.id }, admin);
 
     const rows = await listTransactions();
-    const storno = rows.find((r) => r["reference"] === tx.id);
+    const storno = rows.find((r) => r["reversesTransactionId"] === tx.id);
     expect(storno).toBeDefined();
     expect(storno?.["subjectType"]).toBeNull();
     expect(storno?.["subjectId"]).toBeNull();
@@ -564,7 +632,7 @@ describe("ledger integration — confirm-schedule-period (recurring)", () => {
     expect(other["sourceRef"] ?? null).toBeNull();
   });
 
-  test("confirm books a balanced entry tagged with the schedule reference", async () => {
+  test("confirm books a balanced entry carrying scheduleId and period", async () => {
     const bank = await createAccount("Bank", "asset");
     const rent = await createAccount("Mieterträge", "income");
     const scheduleId = await createSchedule(bank, rent);
@@ -576,7 +644,9 @@ describe("ledger integration — confirm-schedule-period (recurring)", () => {
 
     const rows = await listTransactions();
     expect(rows).toHaveLength(1);
-    expect(rows[0]?.["reference"]).toBe(scheduleReference(scheduleId, "2026-01"));
+    expect(rows[0]?.["scheduleId"]).toBe(scheduleId);
+    expect(rows[0]?.["period"]).toBe("2026-01");
+    expect(rows[0]?.["reference"]).toBeNull();
     expect(rows[0]?.["description"]).toBe("Miete WE1");
     const lines = linesOf(rows[0] as Record<string, unknown>);
     expect(lines.find((l) => l.accountId === bank)?.amount).toBe(50000);
@@ -655,6 +725,50 @@ describe("ledger integration — confirm-schedule-period (recurring)", () => {
     expect(rows).toHaveLength(3);
     // Books net to zero (original cancels Storno) plus the fresh 48000 confirmation.
     expect(trialBalance(rows)).toBe(0);
+  });
+
+  test("a forged schedule reference does not mark the period as booked", async () => {
+    const bank = await createAccount("Bank Forge2", "asset");
+    const rent = await createAccount("Forge2 Income", "income");
+    const scheduleId = await createSchedule(bank, rent);
+    await createTransaction(
+      [
+        { accountId: bank, amount: 50000 },
+        { accountId: rent, amount: -50000 },
+      ],
+      {
+        reference: `schedule:${scheduleId}:2026-03`,
+        period: "2026-03",
+        subjectType: "lease",
+        subjectId: "lease-x",
+      },
+    );
+
+    const confirmed = await confirm(scheduleId, "2026-03");
+    expect(confirmed.alreadyBooked).toBe(false);
+  });
+
+  test("a Storno of a confirmed period carries scheduleId and period; re-confirm books anew, a third confirm is a no-op", async () => {
+    const bank = await createAccount("Bank Storno2", "asset");
+    const rent = await createAccount("Storno2 Income", "income");
+    const scheduleId = await createSchedule(bank, rent);
+
+    const booked = await confirm(scheduleId, "2026-01");
+    const storno = await stack.http.writeOk<{ id: string }>(
+      LedgerHandlers.reverseTransaction,
+      { id: booked.id },
+      admin,
+    );
+    const stornoRow = (await listTransactions()).find((r) => r["id"] === storno.id);
+    expect(stornoRow?.["scheduleId"]).toBe(scheduleId);
+    expect(stornoRow?.["period"]).toBe("2026-01");
+    expect(stornoRow?.["reversesTransactionId"]).toBe(booked.id);
+
+    const second = await confirm(scheduleId, "2026-01");
+    expect(second.alreadyBooked).toBe(false);
+    const third = await confirm(scheduleId, "2026-01");
+    expect(third.alreadyBooked).toBe(true);
+    expect(third.id).toBe(second.id);
   });
 
   test("confirming a period on a schedule with a subject stamps the same subject onto the transaction", async () => {
@@ -1171,7 +1285,7 @@ describe("ledger integration — transaction sourceRef (idempotent booking)", ()
 
     const rows = await listTransactions();
     expect(rows).toHaveLength(2);
-    const storno = rows.find((r) => r["reference"] === original.id);
+    const storno = rows.find((r) => r["reversesTransactionId"] === original.id);
     expect(storno?.["sourceRef"] ?? null).toBeNull();
   });
 });

@@ -5,8 +5,9 @@ opt-in, tier-gated **custom CSS** — the framework generalization of the
 `legal-pages`/`wrapLayout` render pattern, hardened for untrusted tenant input.
 
 **What the recipe demonstrates:**
-- Compose `managed-pages` (+ its `config` dependency and the `managed-pages-css`
-  companion toggle) in `runProdApp({ features: [...] })`
+- Compose `managed-pages` with the `branding` feature (+ its `config` dependency and the
+  `branding-css` companion toggle) in `runProdApp({ features: [...] })`. Branding lives in its
+  own feature `branding`; managed-pages requires it and reads `branding:query:tokens` at render time
 - Required wirings: `anonymousAccess` + `extraContext` config plumbing
 - Single-tenant `resolveApexTenant`; multi-tenant omits it and uses the server's host resolution
 - The render boundary: published-only, Markdown raw-HTML escaped, per-tenant
@@ -52,20 +53,21 @@ When the tests are green:
 // bin/main.ts
 import { runProdApp } from "@cosmicdrift/kumiko-server-runtime";
 import {
-  createManagedPagesFeature,
-  createManagedPagesCssFeature,
-} from "@cosmicdrift/kumiko-bundled-features/managed-pages";
+  createBrandingCssFeature,
+  createBrandingFeature,
+} from "@cosmicdrift/kumiko-bundled-features/branding";
+import { createManagedPagesFeature } from "@cosmicdrift/kumiko-bundled-features/managed-pages";
 
 await runProdApp({
   envSchema, // composeEnvSchema({ core: frameworkCoreEnvSchema, features })
   features: [
     createManagedPagesFeature({
       // Multi-tenant with host-routing: omit resolveApexTenant, the route uses the server's host resolution. Single-tenant: resolveApexTenant: () => SYSTEM_TENANT_ID.
-      // Opt-in custom CSS (default false, fail-closed). The render-time
-      // sanitizer is the safety boundary; gate per tier with the companion.
-      allowCustomCss: true,
     }),
-    createManagedPagesCssFeature(),
+    // Opt-in custom CSS (default false, fail-closed). The render-time
+    // sanitizer is the safety boundary; gate per tier with the companion.
+    createBrandingFeature({ allowCustomCss: true }),
+    createBrandingCssFeature(),
     /* ... your other features */
   ],
   // routes run anonymous; multi-tenant honors the per-page X-Tenant header
@@ -92,15 +94,15 @@ bunx kumiko-schema apply
 
 - Pages: TenantAdmin/SystemAdmin author via the `entityList`/`entityEdit`
   screens (`managed-pages:screen:page-list`); wire nav/workspace onto them.
-- Branding: the `configEdit` screen (`managed-pages:screen:branding-settings`)
+- Branding: the `configEdit` screen (`branding:screen:branding-settings`)
   or `config:write:set` against the `BRANDING_QN.*` keys
-  (`managed-pages:config:branding-{title,accent-color,...,custom-css}`).
+  (`branding:config:{title,accent-color,...,custom-css}`).
 
 ### 4. Per-tenant CSS gating
 
-`createManagedPagesCssFeature()` is `r.toggleable({ default: false })`. To gate
+`createBrandingCssFeature()` is `r.toggleable({ default: false })`. To gate
 custom CSS per tier, wire `feature-toggles`/`tier-engine` so the
-`managed-pages-css` toggle is on only for entitled tenants. **Without a toggle
+`branding-css` toggle is on only for entitled tenants. **Without a toggle
 runtime, `ctx.hasFeature` fails open** — the capability stays on. The fail-closed
 anchor is `allowCustomCss` (app-level opt-in); the toggle is the commercial gate.
 
@@ -144,7 +146,7 @@ container so the tenant CSS stays contained. The default skeleton
 | Draft leak to anonymous visitors                          | published-only; drafts → 404                                        |
 | `@import`/`url()`/`expression()`/`</style>` in custom CSS | allowlist-by-construction sanitizer (rebuilt from validated tokens) |
 | Scope-escape / overlay onto host chrome                   | scope-prefix + `position`/`isolation`/`overflow` containment        |
-| Untrusted tenant abusing CSS                              | tier-gate (`managed-pages-css`) + `allowCustomCss` opt-in           |
+| Untrusted tenant abusing CSS                              | tier-gate (`branding-css`) + `allowCustomCss` opt-in           |
 
 Custom-CSS sanitization for untrusted tenants is **best-effort defense-in-depth**:
 a tenant can still restyle its **own** page area within the clip. Keep it

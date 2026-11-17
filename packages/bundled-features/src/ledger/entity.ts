@@ -59,7 +59,7 @@ export const accountEntity = createEntity({
 export const transactionEntity = createEntity({
   table: "read_ledger_transactions",
   description:
-    "One journal entry: a booking date, a narration, an optional reference (a reversal points at the entry it corrects), an optional caller key (sourceRef) unique per tenant, a draft/posted status and the embedded posting lines of accountId plus signed minor-unit amount that must sum to zero; posted entries are immutable and corrected only by a reversing entry.",
+    "One journal entry: a booking date, a narration, an optional display reference, system links to the reversed entry (reversesTransactionId) and to a schedule period (scheduleId, period), an optional period for manual bookings, an optional caller key (sourceRef) unique per tenant, a draft/posted status and the embedded posting lines of accountId plus signed minor-unit amount that must sum to zero; posted entries are immutable and corrected only by a reversing entry.",
   fields: {
     date: createDateField({ required: true }),
     // Journal narration ("Miete Januar", "Storno: …") is accounting data, not
@@ -70,8 +70,7 @@ export const transactionEntity = createEntity({
       personal: false,
       reason: "is_business_data",
     }),
-    // Free-text memo (a reversal or confirmed schedule period overwrites it with
-    // a system-generated id, but a manual entry can carry caller-supplied text).
+    // Display-only memo. The system neither writes nor reads it; reversal and schedule links live in their own columns.
     reference: createTextField({
       maxLength: 120,
       personal: false,
@@ -114,12 +113,40 @@ export const transactionEntity = createEntity({
       reason: "technical_reference",
       filterable: true,
     }),
+    // System-written link: set only by reverse-transaction on the Storno entry; never caller input.
+    reversesTransactionId: createTextField({
+      maxLength: 64,
+      personal: false,
+      reason: "technical_reference",
+      filterable: true,
+    }),
+    // System-written by confirm-schedule-period; copied onto its Storno so the pair nets out per schedule period.
+    scheduleId: createTextField({
+      maxLength: 64,
+      personal: false,
+      reason: "technical_reference",
+      filterable: true,
+    }),
+    // Accounting period YYYY-MM. Set by confirm-schedule-period, optionally by create-transaction; copied onto a Storno.
+    period: createTextField({
+      minLength: 7,
+      maxLength: 7,
+      personal: false,
+      reason: "technical_reference",
+      filterable: true,
+    }),
   },
-  // Subject ids are only unique within their type, so lookups filter on both
-  // columns; a subjectId-only filter would not be served by this index.
+  // Subject ids are only unique within their type, so subject lookups filter on
+  // type + id (+ period); a subjectId-only filter would not be served by this index.
   indexes: [
-    { columns: ["tenantId", "subjectType", "subjectId"] },
-    { columns: ["tenantId", "reference"] },
+    { columns: ["tenantId", "subjectType", "subjectId", "period"] },
+    { columns: ["tenantId", "scheduleId", "period"] },
+    {
+      columns: ["tenantId", "reversesTransactionId"],
+      unique: true,
+      where: sql`"reverses_transaction_id" IS NOT NULL`,
+      name: "read_ledger_transactions_tenant_id_reverses_transaction_id_uidx",
+    },
     {
       columns: ["tenantId", "sourceRef"],
       unique: true,
@@ -134,7 +161,7 @@ export const transactionEntity = createEntity({
 // (create/update/list/detail); the framework projects `read_ledger_schedules`. It
 // holds NO bookings — the Soll (forecast) is a pure projection (projectSchedule)
 // and the Ist is materialised one period at a time by confirm-schedule-period,
-// which books a balanced transaction referencing scheduleReference(id, period).
+// which books a balanced transaction; confirmed periods carry scheduleId + period on the transaction.
 // amount is stored positive (minor units); the confirm handler assigns the signs.
 export const scheduleEntity = createEntity({
   table: "read_ledger_schedules",

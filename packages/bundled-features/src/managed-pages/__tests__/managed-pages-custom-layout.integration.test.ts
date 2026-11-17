@@ -6,10 +6,10 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
+import { BRANDING_QN, createBrandingFeature } from "../../branding/index.ts";
 import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.ts";
 import { createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";
-import { BRANDING_QN } from "../branding.ts";
 import { createManagedPagesFeature } from "../feature.ts";
 import { seedPage } from "../seeding.ts";
 import { pageEntity } from "../table.ts";
@@ -30,7 +30,7 @@ let stack: TestStack;
 beforeAll(async () => {
   const resolver = createConfigResolver();
   stack = await setupTestStack({
-    features: [createConfigFeature(), managed],
+    features: [createConfigFeature(), createBrandingFeature(), managed],
     anonymousAccess: { tenantExists: async (id) => id === TENANT },
     extraContext: ({ registry }) => ({
       configResolver: resolver,

@@ -16,6 +16,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
+import { createBrandingFeature } from "../../branding/index.ts";
 import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.ts";
 import { createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";
@@ -41,7 +42,7 @@ let stack: TestStack;
 beforeAll(async () => {
   const resolver = createConfigResolver();
   stack = await setupTestStack({
-    features: [createConfigFeature(), managed],
+    features: [createConfigFeature(), createBrandingFeature(), managed],
     anonymousAccess: { tenantExists: async (id) => id === TENANT_A },
     extraContext: ({ registry }) => ({
       configResolver: resolver,

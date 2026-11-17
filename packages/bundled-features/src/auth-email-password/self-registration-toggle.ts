@@ -1,7 +1,7 @@
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 
 // Companion toggle for the auth-email-password self-signup flow. Handler-less
-// (like managed-pages-css/css-gate.ts): composing it just registers
+// (like branding/css-gate.ts): composing it just registers
 // "auth-self-registration" as toggleable (default ON) so an operator can
 // flip it at runtime via feature-toggles, without redeploying and without
 // making the rest of auth-email-password (login/reset/verify) toggleable.
@@ -11,8 +11,8 @@ import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-frame
 // here would become unreachable exactly when it matters most (disabled).
 // The signup-request handler and the `signupRegistrationStatus` query both
 // live in auth-email-password itself and read `ctx.hasFeature(...)` against
-// this feature name instead — same split as managed-pages/css-gate.ts vs.
-// managed-pages' branding query.
+// this feature name instead — same split as branding/css-gate.ts vs.
+// the branding tokens query.
 export const AUTH_SELF_REGISTRATION_FEATURE = "auth-self-registration";
 
 export function createAuthSelfRegistrationToggleFeature(): FeatureDefinition {

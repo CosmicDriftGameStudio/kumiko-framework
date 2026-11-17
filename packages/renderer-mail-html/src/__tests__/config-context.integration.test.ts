@@ -5,16 +5,13 @@ import { localeDe } from "@cosmicdrift/kumiko-locale-de";
 // the production one.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { BRANDING_QN, createBrandingFeature } from "@cosmicdrift/kumiko-bundled-features/branding";
 import {
   configValuesTable,
   createConfigAccessorFactory,
   createConfigFeature,
   createConfigResolver,
 } from "@cosmicdrift/kumiko-bundled-features/config";
-import {
-  BRANDING_QN,
-  createManagedPagesFeature,
-} from "@cosmicdrift/kumiko-bundled-features/managed-pages";
 import {
   collectRendererPlugins,
   createRendererFoundationFeature,
@@ -102,7 +99,7 @@ beforeAll(async () => {
     [
       createConfigFeature(),
       createTenantSettingsFeature(),
-      createManagedPagesFeature({ resolveApexTenant: () => null }),
+      createBrandingFeature(),
       createTemplateResolverFeature({ tenantEditable: TENANT_EDITABLE }),
       createRendererFoundationFeature(),
       createRendererMailHtmlFeature({

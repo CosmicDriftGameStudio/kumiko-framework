@@ -61,7 +61,7 @@ function fakeDispatcher(source: LayoutSourceView | null, calls: Call[]): Dispatc
     ...(source !== null && { "template-resolver:query:layout-source": source }),
     "template-resolver:query:overview": { rows: [], nextCursor: null, total: 0 },
     "template-resolver:query:validate": okValidation,
-    "managed-pages:query:branding": {
+    "branding:query:tokens": {
       title: "Nordlicht",
       accentColor: "#205265",
       logoUrl: "",
@@ -101,8 +101,8 @@ const nav: NavApi = {
   setSearchParams: () => {},
 };
 
-const MANAGED_PAGES_FEATURE: FeatureSchema = {
-  featureName: "managed-pages",
+const BRANDING_FEATURE: FeatureSchema = {
+  featureName: "branding",
   entities: {},
   screens: [],
 };
@@ -118,7 +118,7 @@ function renderEditor(
   calls: Call[],
   searchParams: Readonly<Record<string, string>> = nav.searchParams,
   scope: "tenant" | "system" = "tenant",
-  features: readonly FeatureSchema[] = [MANAGED_PAGES_FEATURE],
+  features: readonly FeatureSchema[] = [BRANDING_FEATURE],
 ): void {
   render(
     <AppFeaturesProvider features={features}>
@@ -355,14 +355,14 @@ describe("LayoutEditor", () => {
     }
   });
 
-  test("without managed-pages the editor never asks for branding", async () => {
+  test("without the branding feature the editor never asks for branding", async () => {
     const calls: Call[] = [];
     renderEditor(["TenantAdmin"], tenantSource, calls, nav.searchParams, "tenant", []);
     await screen.findByTestId("document-designer-region-header");
     await waitFor(() =>
       expect(calls.some((call) => call.type === "template-resolver:query:validate")).toBe(true),
     );
-    expect(calls.some((call) => call.type === "managed-pages:query:branding")).toBe(false);
+    expect(calls.some((call) => call.type === "branding:query:tokens")).toBe(false);
   });
 
   test("appearance edits are saved as layout meta, keeping only non-default values", async () => {

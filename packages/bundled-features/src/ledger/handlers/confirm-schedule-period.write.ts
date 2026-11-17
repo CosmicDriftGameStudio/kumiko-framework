@@ -11,7 +11,7 @@ import {
   transactionExecutor,
   transactionTable,
 } from "../executor.ts";
-import { findReversedIds, isoMonth, scheduleReference } from "../recurring.ts";
+import { findReversedIds, isoMonth } from "../recurring.ts";
 import {
   type ConfirmSchedulePeriodPayload,
   confirmSchedulePeriodPayloadSchema,
@@ -24,11 +24,11 @@ import { DEFAULT_LEDGER_ACCESS } from "../web/constants.ts";
 const CONFIRM_PERIOD_LOCK_NAMESPACE = 0x6c637370;
 
 // confirm-schedule-period — turn ONE projected period of a schedule into a posted,
-// balanced transaction (debit +amount / credit −amount), tagged with
-// scheduleReference(scheduleId, period) so the host can merge Soll vs. Ist.
+// balanced transaction (debit +amount / credit −amount), carrying the scheduleId
+// and period columns so the host can merge Soll vs. Ist.
 //
 // Idempotent and reversal-aware: if an ACTIVE (non-reversed) booking for this
-// reference already exists, it's a no-op; a booking that was reversed (Storno)
+// scheduleId + period already exists, it's a no-op; a booking that was reversed (Storno)
 // leaves the period re-confirmable. Referential integrity (both accounts must
 // exist) mirrors create-transaction because a schedule could name a bogus
 // account that the generic CRUD create does not check.
@@ -65,36 +65,26 @@ export function createConfirmSchedulePeriodHandler(
         if (!account) return writeFailure(new NotFoundError("account", accountId));
       }
 
-      const reference = scheduleReference(payload.scheduleId, payload.period);
-
-      // Two targeted reads instead of a full-tenant transaction scan: (1) any
-      // booking that already carries this exact schedule-period reference —
-      // normally 0 or 1 row, never O(tenant's-full-history); (2) any Storno
-      // that mirrors one of those candidates (a tx is reversed when ANOTHER
-      // tx's `reference` names its id).
-      // Not unique on (tenantId, reference): a Storno makes re-confirming the
-      // same reference legitimate, so the check-then-write is serialized by a lock;
-      // the non-unique index serves the lookup.
-      await ctx.db.advisoryXactLock(CONFIRM_PERIOD_LOCK_NAMESPACE, reference);
-      const candidates = await ctx.db.selectMany(transactionTable, {
+      // Check-then-write is serialized by a lock per schedule period; the rows
+      // are read by the (tenantId, scheduleId, period) index, normally 0-2 of them.
+      await ctx.db.advisoryXactLock(
+        CONFIRM_PERIOD_LOCK_NAMESPACE,
+        `${payload.scheduleId}:${payload.period}`,
+      );
+      const rows = await ctx.db.selectMany(transactionTable, {
         tenantId: event.user.tenantId,
-        reference,
+        scheduleId: payload.scheduleId,
+        period: payload.period,
       });
-      const candidateIds = candidates.map((r) => String(r["id"]));
-      const stornos =
-        candidateIds.length > 0
-          ? await ctx.db.selectMany(transactionTable, {
-              tenantId: event.user.tenantId,
-              reference: { in: candidateIds },
-            })
-          : [];
-      const reversedIds = findReversedIds(
-        [...candidates, ...stornos].map((r) => ({
-          id: String(r["id"]),
-          reference: r["reference"] === null ? null : String(r["reference"]),
+      const reversed = findReversedIds(
+        rows.map((r) => ({
+          reversesTransactionId:
+            r["reversesTransactionId"] == null ? null : String(r["reversesTransactionId"]),
         })),
       );
-      const active = candidates.find((r) => !reversedIds.has(String(r["id"])));
+      const active = rows.find(
+        (r) => r["reversesTransactionId"] == null && !reversed.has(String(r["id"])),
+      );
       if (active) {
         const ok: WriteResult<{ id: string; alreadyBooked: true }> = {
           isSuccess: true,
@@ -112,7 +102,10 @@ export function createConfirmSchedulePeriodHandler(
           id: generateId(),
           date: payload.date ?? `${payload.period}-01`,
           description: String(schedule["description"]),
-          reference,
+          reference: null,
+          scheduleId: payload.scheduleId,
+          period: payload.period,
+          reversesTransactionId: null,
           status: "posted",
           lines: [
             { accountId: debitAccountId, amount },

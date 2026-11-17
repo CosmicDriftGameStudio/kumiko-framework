@@ -1,7 +1,7 @@
 import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-renderer/headless";
 
-// Tenant-branding tokens resolved at render time (managed-pages reads them
-// from config — see managed-pages/branding.ts). Empty string = "unset, use
+// Tenant-branding tokens resolved at render time (the branding feature reads them
+// from config — see branding/keys.ts). Empty string = "unset, use
 // the base-layout default" (mirrors the publicstatus convention). Every value
 // is tenant-supplied + untrusted, so it is re-validated/escaped HERE before it
 // touches HTML/CSS output — independent of the write-time config `pattern`
@@ -17,7 +17,7 @@ export type BrandingTokens = {
   readonly logoFile: string;
   readonly layoutPreset: string;
   // RAW, untrusted tenant CSS — "" unless the custom-css capability is gated on
-  // (managed-pages allowCustomCss + the per-tenant toggle). It is NOT pre-
+  // (branding allowCustomCss + the per-tenant toggle). It is NOT pre-
   // sanitized here: the layer that emits it MUST run it through
   // sanitizeTenantCss(value, scopeSelector) with its own scope (the default
   // wrapInLayout does). Scoping is a render concern, so sanitization lives at

@@ -12,9 +12,9 @@ export const CREATE_VARIANT_SCREEN_ID = "create-variant" as const;
 export const TEMPLATES_NAV_ID = "templates" as const;
 export const PLATFORM_TEMPLATES_NAV_ID = "platform-templates" as const;
 
-export const MANAGED_PAGES_FEATURE_NAME = "managed-pages" as const;
-export const BRANDING_SCREEN_QN = "managed-pages:screen:branding-settings" as const;
-export const BRANDING_QUERY_QN = "managed-pages:query:branding" as const;
+export const BRANDING_FEATURE_NAME = "branding" as const;
+export const BRANDING_SCREEN_QN = "branding:screen:branding-settings" as const;
+export const BRANDING_QUERY_QN = "branding:query:tokens" as const;
 
 // Pinned like the branding names: the user features' constants are not exported to the web barrel.
 export const USER_ME_QUERY_QN = "user:query:user:me" as const;

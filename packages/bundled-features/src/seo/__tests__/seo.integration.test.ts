@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, setSystemTime, test } from "bun:test";
+import { createBrandingFeature } from "@cosmicdrift/kumiko-bundled-features/branding";
 import { createLegalPagesFeature } from "@cosmicdrift/kumiko-bundled-features/legal-pages";
 import {
   createManagedPagesFeature,
@@ -46,7 +47,7 @@ const templateResolver = createTemplateResolverFeature();
 beforeAll(async () => {
   const resolver = createConfigResolver();
   stack = await setupTestStack({
-    features: [configFeature, templateResolver, managed, legal, seo],
+    features: [configFeature, createBrandingFeature(), templateResolver, managed, legal, seo],
     anonymousAccess: {
       tenantExists: async (id) => id === TENANT_A || id === SYSTEM_TENANT_ID,
     },
@@ -330,7 +331,7 @@ describe("seo :: resolverTrust authoritative (host-based, like publicstatus/show
   beforeAll(async () => {
     const resolver = createConfigResolver();
     authStack = await setupTestStack({
-      features: [authConfigFeature, authManaged, authSeo],
+      features: [authConfigFeature, createBrandingFeature(), authManaged, authSeo],
       anonymousAccess: {
         // No URL fallback — mirrors publicstatus' real resolver. An internal
         // self-fetch has no Host header; with a fallback, this test would mask

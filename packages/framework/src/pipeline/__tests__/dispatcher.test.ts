@@ -1017,8 +1017,8 @@ describe("dispatcher feature-gate", () => {
     // The sync resolver never carries trial features, so without the
     // trialGate fallback this silently reads false for a trial tenant even
     // though the tenant is genuinely in-trial for that companion feature —
-    // mirrors packages/bundled-features/src/managed-pages/handlers/branding.query.ts
-    // checking MANAGED_PAGES_CSS_FEATURE, which no handler owns.
+    // mirrors packages/bundled-features/src/branding/handlers/tokens.query.ts
+    // checking BRANDING_CSS_FEATURE, which no handler owns.
     const trialTenant = "00000000-0000-4000-8000-0000000000c5" as TenantId;
     const plainTenant = "00000000-0000-4000-8000-0000000000d6" as TenantId;
 

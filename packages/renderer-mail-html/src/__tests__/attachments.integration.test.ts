@@ -4,6 +4,7 @@
 // into the in-memory transport, and the payload handed to delivery.send is inspected for bytes.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { BRANDING_QN, createBrandingFeature } from "@cosmicdrift/kumiko-bundled-features/branding";
 import {
   createChannelEmailFeature,
   createInMemoryTransport,
@@ -20,11 +21,6 @@ import {
   createUnsubscribePageChromeReader,
   deliveryAttemptsTable,
 } from "@cosmicdrift/kumiko-bundled-features/delivery";
-import {
-  BRANDING_QN,
-  createManagedPagesFeature,
-  pageEntity,
-} from "@cosmicdrift/kumiko-bundled-features/managed-pages";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import {
   createTemplateResolverFeature,
@@ -196,7 +192,7 @@ beforeAll(async () => {
       createFilesFeature(),
       createConfigFeature(),
       createTenantFeature(),
-      createManagedPagesFeature({ resolveApexTenant: () => null }),
+      createBrandingFeature(),
       createTemplateResolverFeature({ tenantEditable: TENANT_EDITABLE }),
       createRendererFoundationFeature(),
       createRendererMailHtmlFeature(),
@@ -224,7 +220,6 @@ beforeAll(async () => {
     }),
   });
   await unsafeCreateEntityTable(stack.db, templateResourceEntity, "template-resource");
-  await unsafeCreateEntityTable(stack.db, pageEntity);
   await unsafeCreateEntityTable(stack.db, tenantEntity, "tenant");
   await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
   await seedNotificationTemplates(stack.db, stack.registry);

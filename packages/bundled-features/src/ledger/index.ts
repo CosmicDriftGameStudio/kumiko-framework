@@ -11,6 +11,7 @@ export {
   createCreateTransactionHandler,
   createTransactionHandler,
 } from "./handlers/create-transaction.write.ts";
+export { createEnsureAccountsHandler } from "./handlers/ensure-accounts.write.ts";
 export {
   createBalanceSheetHandler,
   createBalancesReportHandler,
@@ -21,6 +22,10 @@ export {
   reverseTransactionHandler,
 } from "./handlers/reverse-transaction.write.ts";
 export {
+  createScheduleActualsHandler,
+  createSubjectTotalsHandler,
+} from "./handlers/totals.query.ts";
+export {
   findReversedIds,
   type LedgerTxRow,
   mergeScheduleActuals,
@@ -29,7 +34,6 @@ export {
   type ScheduleDef,
   type ScheduleMonth,
   type ScheduleMonthStatus,
-  scheduleReference,
 } from "./recurring.ts";
 export {
   type AccountBalance,
@@ -50,6 +54,8 @@ export {
   type CreateTransactionPayload,
   confirmSchedulePeriodPayloadSchema,
   createTransactionPayloadSchema,
+  type EnsureAccountsPayload,
+  ensureAccountsPayloadSchema,
   type Posting,
   postingSchema,
   type ReverseTransactionPayload,

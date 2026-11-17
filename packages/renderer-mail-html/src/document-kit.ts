@@ -1,4 +1,4 @@
-import { BRANDING_QN } from "@cosmicdrift/kumiko-bundled-features/managed-pages";
+import { BRANDING_QN } from "@cosmicdrift/kumiko-bundled-features/branding";
 import { isSafeHttpsUrl } from "@cosmicdrift/kumiko-bundled-features/page-render";
 import type { RendererContext } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import {
@@ -184,7 +184,7 @@ export async function readDocumentFormat(
   };
 }
 
-// Without managed-pages there is no branding title; the tenant record's own name is the fallback.
+// Without the branding feature there is no branding title; the tenant record's own name is the fallback.
 export async function readTenantName(ctx: RendererContext): Promise<string> {
   const branded = await readConfigText(ctx, BRANDING_QN.title);
   if (branded !== undefined) return branded;

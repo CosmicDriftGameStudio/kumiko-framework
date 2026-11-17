@@ -10,11 +10,12 @@ import {
   OPTIONAL_HEX_COLOR_CONFIG_PATTERN,
   OPTIONAL_HTTPS_URL_CONFIG_PATTERN,
 } from "../page-render/index.ts";
+import { BRANDING_QN, LAYOUT_PRESETS } from "./constants.ts";
 
 // Per-tenant branding so every app + studio-tenant gets tenant-editable
 // branding. Stored as `config` keys (scope: tenant), edited via the
-// configEdit screen (screens/branding-screen.ts), read at render time via the
-// branding query.
+// configEdit screen (screens/branding-settings-screen.ts), read at render time
+// via the tokens query.
 //
 // Write-validated: accent-color must be a CSS hex, logo/site URLs must be
 // https. The configEdit screen dispatches `config:write:set` per key, which
@@ -47,54 +48,46 @@ const FILE_REF_ID_PATTERN = {
   regex: "^$|^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
 } as const;
 
-export const LAYOUT_PRESETS = ["minimal", "centered", "wide"] as const;
-
-// Companion toggle feature name. managed-pages reads ctx.hasFeature() against it
-// in the branding query to per-tenant-gate custom-CSS emission. Declared as a
-// `r.toggleable({default:false})` feature in css-gate.ts.
-export const MANAGED_PAGES_CSS_FEATURE = "managed-pages-css";
-
 // Short keys → qualified names via define-feature's `qn(feature, "config",
-// toKebab(key))`: e.g. `brandingSiteUrl` → `managed-pages:config:branding-
-// site-url`. BRANDING_QN below is the single source those QN strings are read
-// from (configEdit screen + render read); the integration test pins write-
-// target == read-source end-to-end.
+// toKebab(key))`: e.g. `siteUrl` → `branding:config:site-url`. BRANDING_QN is
+// the single source those QN strings are read from (configEdit screen + render
+// read); the integration test pins write-target == read-source end-to-end.
 // Admin self-service + system provisioning.
 const BRANDING_WRITE = access.withSystem(access.admin);
 
 export const BRANDING_KEYS = {
-  brandingTitle: createTenantConfig("text", {
+  title: createTenantConfig("text", {
     default: "",
     pattern: TITLE_PATTERN,
     write: BRANDING_WRITE,
   }),
-  brandingDescription: createTenantConfig("text", {
+  description: createTenantConfig("text", {
     default: "",
     pattern: DESCRIPTION_PATTERN,
     write: BRANDING_WRITE,
   }),
-  brandingSiteUrl: createTenantConfig("text", {
+  siteUrl: createTenantConfig("text", {
     default: "",
     pattern: OPTIONAL_HTTPS_URL_CONFIG_PATTERN,
     write: BRANDING_WRITE,
   }),
-  brandingAccentColor: createTenantConfig("text", {
+  accentColor: createTenantConfig("text", {
     default: "",
     pattern: OPTIONAL_HEX_COLOR_CONFIG_PATTERN,
     write: BRANDING_WRITE,
   }),
-  brandingLogoUrl: createTenantConfig("text", {
+  logoUrl: createTenantConfig("text", {
     default: "",
     pattern: OPTIONAL_HTTPS_URL_CONFIG_PATTERN,
     write: BRANDING_WRITE,
   }),
   // Ownership is checked where it is read (renderer-mail-html: FileRef must belong to the rendering tenant).
-  brandingLogoFile: createTenantConfig("text", {
+  logoFile: createTenantConfig("text", {
     default: "",
     pattern: FILE_REF_ID_PATTERN,
     write: BRANDING_WRITE,
   }),
-  brandingLayoutPreset: createTenantConfig("select", {
+  layoutPreset: createTenantConfig("select", {
     default: "centered",
     options: LAYOUT_PRESETS,
     write: BRANDING_WRITE,
@@ -106,21 +99,8 @@ export const BRANDING_KEYS = {
 // off (fail-closed at the app level). The render-time sanitizer is the real
 // safety boundary; this is the opt-in switch + a per-tenant toggle gate.
 export const CUSTOM_CSS_KEY = {
-  brandingCustomCss: createTenantConfig("text", { default: "", pattern: CUSTOM_CSS_PATTERN }),
+  customCss: createTenantConfig("text", { default: "", pattern: CUSTOM_CSS_PATTERN }),
 } satisfies Record<string, ConfigKeyDefinition>;
-
-export const BRANDING_QN = {
-  title: "managed-pages:config:branding-title",
-  description: "managed-pages:config:branding-description",
-  siteUrl: "managed-pages:config:branding-site-url",
-  accentColor: "managed-pages:config:branding-accent-color",
-  logoUrl: "managed-pages:config:branding-logo-url",
-  logoFile: "managed-pages:config:branding-logo-file",
-  layoutPreset: "managed-pages:config:branding-layout-preset",
-  customCss: "managed-pages:config:branding-custom-css",
-} as const;
-
-export const BRANDING_QUERY_QN = "managed-pages:query:branding";
 
 async function readText(config: ConfigAccessor, qualifiedKey: string): Promise<string> {
   const value = await config(qualifiedKey);
