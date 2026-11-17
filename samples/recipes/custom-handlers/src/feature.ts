@@ -38,6 +38,22 @@ export const counterFeature = defineFeature("counters", (r) => {
     access: { roles: ["Admin"] },
   });
 
+  // Many rows in one handler: one append statement for all events, all or nothing
+  r.writeHandler({
+    name: "counter:create-many",
+    schema: z.object({ names: z.array(z.string().min(1)).min(1).max(100) }),
+    handler: async (event, ctx) => {
+      const result = await counterExecutor.createMany(
+        event.payload.names.map((name) => ({ name, count: 0 })),
+        event.user,
+        ctx.db,
+      );
+      if (!result.isSuccess) return result;
+      return { isSuccess: true, data: { ids: result.data.map((saved) => saved.id) } };
+    },
+    access: { roles: ["Admin"] },
+  });
+
   // Custom handler: increment with business logic
   r.writeHandler({
     name: "counter:increment",

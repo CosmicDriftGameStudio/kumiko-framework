@@ -1227,24 +1227,27 @@ describe("encrypted config", () => {
 // per-value stream granularity.
 
 describe("configValue lifecycle events", () => {
+  // An update event carries only the changed keys, so the stream is found through its created event.
+  async function eventsOfConfigKey(key: string) {
+    const events = await selectMany(db, eventsTable, { aggregateType: "config-value" });
+    const created = events.find(
+      (e) => e.type === "config-value.created" && (e.payload as { key?: string })?.key === key,
+    );
+    if (!created) throw new Error(`no created event for ${key}`);
+    return events.filter((e) => e.aggregateId === created.aggregateId);
+  }
+
   test("set emits configValue.updated carrying the serialized new value", async () => {
     await stack.http.writeOk(
       ConfigHandlers.set,
       { key: "orders:config:max-order-count", value: 250 },
       tenantAdmin,
     );
-    const events = await selectMany(db, eventsTable, { aggregateType: "config-value" });
     // The first set in the suite created the row; subsequent sets update it.
-    // Look at the most recent update carrying our value to verify the
-    // serialized JSON lands in the event payload (key stays on the row,
-    // only value moves on updates — the executor emits a changes/previous
-    // diff).
-    const updates = events.filter(
-      (e) =>
-        e.type === "config-value.updated" &&
-        (e.payload as { previous?: { key?: string } })?.previous?.key ===
-          "orders:config:max-order-count",
-    );
+    // Look at the most recent update to verify the serialized JSON lands in the event
+    // payload (key stays on the row, only value moves on updates).
+    const events = await eventsOfConfigKey("orders:config:max-order-count");
+    const updates = events.filter((e) => e.type === "config-value.updated");
     expect(updates.length).toBeGreaterThanOrEqual(1);
     const last = updates[updates.length - 1];
     expect((last?.payload as { changes?: { value?: string } })?.changes?.value).toBe(
@@ -1318,7 +1321,7 @@ describe("configValue lifecycle events", () => {
   test("subsequent set emits configValue.updated carrying both changes and previous", async () => {
     // Change the value we seeded above to exercise the .updated-event
     // shape: the executor stamps BOTH halves of the diff onto the payload
-    // (changes = what the user sent, previous = the pre-update row). MSPs
+    // (changes = what the user sent, previous = the old values of the changed keys). MSPs
     // reading across aggregates need `previous` to decrement / undo when
     // a parent-FK moves — dropping it would break replays.
     await stack.http.writeOk(
@@ -1326,13 +1329,8 @@ describe("configValue lifecycle events", () => {
       { key: "integration:config:lifecycle-probe", value: "beta" },
       tenantAdmin,
     );
-    const events = await selectMany(db, eventsTable, { aggregateType: "config-value" });
-    const updates = events.filter(
-      (e) =>
-        e.type === "config-value.updated" &&
-        (e.payload as { previous?: { key?: string } })?.previous?.key ===
-          "integration:config:lifecycle-probe",
-    );
+    const events = await eventsOfConfigKey("integration:config:lifecycle-probe");
+    const updates = events.filter((e) => e.type === "config-value.updated");
     expect(updates.length).toBeGreaterThanOrEqual(1);
     const last = updates[updates.length - 1];
     const payload = last?.payload as {
@@ -1341,7 +1339,7 @@ describe("configValue lifecycle events", () => {
     };
     expect(payload.changes?.value).toBe(JSON.stringify("beta"));
     expect(payload.previous?.value).toBe(JSON.stringify("alpha"));
-    expect(payload.previous?.key).toBe("integration:config:lifecycle-probe");
+    expect(payload.previous).not.toHaveProperty("key");
   });
 
   test("encrypted-key plaintext never appears in the event payload", async () => {

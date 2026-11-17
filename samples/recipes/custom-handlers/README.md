@@ -19,6 +19,9 @@ logic is yours.
 - **Read-modify-write with optimistic locking** — `increment` reads the
   current count, computes the new one, and updates with the version it
   read. Two concurrent increments cannot both succeed.
+- **`createMany` for many rows in one handler** — `create-many` writes all
+  events with one append statement and projects the rows in one savepoint;
+  one invalid row fails the whole batch, nothing is written.
 - **`skipOptimisticLock` for last-writer-wins** — `reset` deliberately
   bypasses the version check because the operation is admin-driven and
   resetting twice is semantically the same as resetting once.

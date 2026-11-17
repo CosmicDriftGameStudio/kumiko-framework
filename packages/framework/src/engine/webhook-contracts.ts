@@ -92,10 +92,9 @@ function fieldShape(
   );
 }
 
-// The executor appends `changes` and `previous` (the whole pre-update row, which always has `id`)
-// on update and `{ previous }` on delete; create appends the flat fields without `id`. Receivers
-// need the id, so the contract carries it on the top level; `toEntityWebhookPayload` takes it from
-// the event's aggregate id.
+// Update carries `changes` and the old values of the changed keys; delete carries the whole row;
+// create appends the flat fields without `id`. Receivers need the id, so the contract carries it
+// on the top level; `toEntityWebhookPayload` takes it from the event's aggregate id.
 function payloadFor(
   verb: WebhookEntityVerb,
   fields: readonly (readonly [string, FieldDefinition])[],
@@ -106,7 +105,7 @@ function payloadFor(
     return z.object({
       id: z.uuid(),
       changes: z.object(fieldShape(fields, "optional")),
-      previous: row,
+      previous: z.object(fieldShape(fields, "optional")),
     });
   return z.object({ id: z.uuid(), previous: row });
 }

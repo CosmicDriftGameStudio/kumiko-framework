@@ -1,4 +1,9 @@
-import type { ParentVisibilityOption } from "@cosmicdrift/kumiko-types/event-store-executor-types";
+import type {
+  ExecutorCreateOptions,
+  ExecutorSaveContext,
+  ExecutorUpdateOptions,
+  ParentVisibilityOption,
+} from "@cosmicdrift/kumiko-types/event-store-executor-types";
 import type { EntityId } from "@cosmicdrift/kumiko-types/identifiers";
 import type { TenantDb } from "@cosmicdrift/kumiko-types/tenant-db-types";
 import type { ZodType } from "zod";
@@ -30,6 +35,7 @@ import {
   ArchivedStreamError,
   IdempotentAppendConflictError as EventStoreIdempotentAppendConflict,
 } from "../event-store/errors.ts";
+import type { EventToAppend } from "../event-store/event-store.ts";
 import {
   append,
   VersionConflictError as EventStoreVersionConflict,
@@ -60,6 +66,11 @@ import {
   tryMapUniqueViolation,
 } from "./event-store-executor-context.ts";
 import {
+  createBatchWriteVerbs,
+  type PreparedCreate,
+  type PreparedUpdate,
+} from "./event-store-executor-write-many.ts";
+import {
   fieldStateFailure,
   optimisticLockFailure,
   ownershipDeniedFailure,
@@ -82,7 +93,10 @@ type UpdateOptions = Parameters<EventStoreExecutor["update"]>[3];
 
 export function createWriteVerbs(
   ctx: ExecutorContext,
-): Pick<EventStoreExecutor, "create" | "update" | "delete" | "forget" | "restore"> {
+): Pick<
+  EventStoreExecutor,
+  "create" | "update" | "delete" | "forget" | "restore" | "createMany" | "updateMany"
+> {
   const {
     table,
     entity,
@@ -293,58 +307,47 @@ export function createWriteVerbs(
     return fieldStateFailure(entity.fields, mergedNew, previous);
   }
 
-  async function appendCreatedEvent(
+  // Append and projection share one savepoint: Postgres aborts the WHOLE surrounding transaction
+  // once any statement inside it errors, even if the JS error is caught, so a losing writer's
+  // unique violation or a failed projection write must roll back in a nested scope. A bare pool
+  // connection (seeds/tests calling the executor directly) has no transaction to poison and
+  // gets a plain call. flat event payloads are table ciphertext for pii/encrypted fields, so the
+  // immutable log never sees plaintext. A create with a deterministic id can collide with an
+  // existing stream: that is version_conflict, not internal_error. Application-level unique
+  // violations of the projection (e.g. (tenantId, email)) become 409 unique_violation.
+  async function appendAndApply(
     runner: WriteRunner,
-    user: SessionUser,
-    streamTenantId: TenantId | undefined,
-    aggregateId: string,
-    flatData: Record<string, unknown>,
-  ): Promise<{ readonly event: AppendedEvent } | { readonly failure: WriteFailure }> {
-    // 1. Append the event in the same transaction as the projection write — both must
-    //    succeed or both roll back; the dispatcher wraps them in one transaction.
-    //    flatData is already table ciphertext for pii/encrypted fields, so the immutable
-    //    log never sees plaintext and replay reproduces the row byte-for-byte.
-    //
-    //    `expectedVersion: 0` means the stream does not yet exist. With deterministic
-    //    aggregate-ID patterns (for example, uuidv5(tenantId|naturalKey)), a create can
-    //    legitimately collide — the same ID has an existing stream — so return
-    //    version_conflict instead of internal_error. Update uses the same catch.
+    toAppend: EventToAppend,
+    noRowMessage: string,
+  ): Promise<
+    { readonly event: AppendedEvent; readonly row: DbRow } | { readonly failure: WriteFailure }
+  > {
+    let committed: { event: AppendedEvent; applied: Awaited<ReturnType<typeof applyEntityEvent>> };
     try {
-      // Savepoint-scoped: Postgres aborts the WHOLE surrounding
-      // transaction once any statement inside it errors, even if the JS error
-      // is caught — a losing concurrent create's unique-violation
-      // would otherwise abort the caller's outer transaction and surface as
-      // internal_error at commit time instead of the version_conflict this
-      // catch classifies. runInSavepointIfSupported confines the failed
-      // INSERT to a nested scope that rolls back on its own (same pattern as
-      // ctx.events.tryAppend), and falls back to a plain call when the runner
-      // is a bare pool connection with no active transaction to poison
-      // (seeds/tests calling the executor directly).
-      const event = await runInSavepointIfSupported(runner, async (sp) =>
-        append(sp, {
-          aggregateId,
-          aggregateType: entityName,
-          tenantId: streamTenantFor(user, streamTenantId),
-          expectedVersion: 0,
-          type: entityEventName(entityName, "created"),
-          eventVersion,
-          payload: flatData,
-          metadata: buildEventMetadata(user),
-        }),
-      );
-      return { event };
+      committed = await runInSavepointIfSupported(withExecutorManagedWrites(runner), async (sp) => {
+        const event = await append(sp, toAppend);
+        const applied = await applyEntityEvent(event, table, entity, sp);
+        return { event, applied };
+      });
     } catch (e) {
+      const mapped = tryMapUniqueViolation(e, entityName);
+      if (mapped) return { failure: mapped };
       return {
         failure: await appendConflictFailure(e, runner, {
-          entityId: aggregateId,
-          expectedVersion: 0,
-          streamTenant: streamTenantFor(user, streamTenantId),
+          entityId: toAppend.aggregateId,
+          expectedVersion: toAppend.expectedVersion,
+          streamTenant: toAppend.tenantId,
         }),
       };
     }
+    const { event, applied } = committed;
+    if (applied.kind !== "applied" || applied.row === null) {
+      return { failure: writeFailure(new InternalError({ message: noRowMessage })) };
+    }
+    return { event, row: applied.row };
   }
 
-  // 2. Update the projection through applyEntityEvent — the same code path used by
+  // Update the projection through applyEntityEvent — the same code path used by
   //    rebuildProjection for replay, with the same StoredEvent, so live and rebuild
   //    produce the same result by construction.
   //
@@ -419,111 +422,25 @@ export function createWriteVerbs(
       ...erasureSentinelOption(options),
     });
 
-    // The event payload carries BOTH `changes` (what the user asked for) AND
-    // `previous` (the pre-update row). Cross-aggregate projections need the
-    // previous value to decrement/undo when a parent-FK moves — without it
-    // you'd have to snapshot-and-diff on every apply, and replays would
-    // break. Storage cost is acceptable (rows are bounded), correctness is
-    // not negotiable. `previous` came from loadWriteSnapshot(), which decrypts —
-    // re-encrypt it before it's persisted so plaintext of pii/encrypted
-    // fields doesn't land in the immutable log (flatChanges is already
-    // ciphertext from encryptForStorage above).
+    // previous carries the old values of exactly the keys this event changes (owner-transition
+    // rekeys included), so a projection can still undo a moved FK; the whole row grew every
+    // update by the record size (long text, jsonb). Encrypted with the full pre-update row as
+    // subject source so an unchanged owner still resolves. `previous` came from
+    // loadWriteSnapshot(), which decrypts, so it must be re-encrypted before it is persisted.
     // Owner chain for the ownerless-then-assigned row: previous owner, then
     // the owner this event sets, then whenAbsent.
-    const encryptedPrevious = await encryptForStorage(previous, user, {
+    const changedPrevious = Object.fromEntries(
+      Object.keys(changesToPersist)
+        .filter((key) => key in previous)
+        .map((key) => [key, previous[key]]),
+    );
+    const encryptedPrevious = await encryptForStorage(changedPrevious, user, {
+      subjectSource: previous,
       keyTenantId: streamTenantId,
       ownerFallback: submittedChanges,
       ...erasureSentinelOption(options),
     });
-    return { flatChangesPlain, flatChanges, encryptedPrevious };
-  }
-
-  async function appendUpdatedEvent(
-    runner: WriteRunner,
-    user: SessionUser,
-    id: EntityId,
-    streamTenant: TenantId,
-    currentVersion: number,
-    flatChanges: Record<string, unknown>,
-    encryptedPrevious: Record<string, unknown>,
-  ): Promise<AppendedEvent> {
-    // Savepoint-scoped — see appendCreatedEvent for why:
-    // confines a losing writer's unique-violation to a nested scope
-    // instead of poisoning the whole outer transaction.
-    return await runInSavepointIfSupported(runner, (sp) =>
-      append(sp, {
-        aggregateId: String(id),
-        aggregateType: entityName,
-        tenantId: streamTenant,
-        expectedVersion: currentVersion,
-        type: entityEventName(entityName, "updated"),
-        eventVersion,
-        payload: {
-          changes: flatChanges,
-          previous: encryptedPrevious,
-        },
-        metadata: buildEventMetadata(user),
-      }),
-    );
-  }
-
-  async function persistUpdate(input: {
-    readonly db: TenantDb;
-    readonly runner: WriteRunner;
-    readonly user: SessionUser;
-    readonly id: EntityId;
-    readonly previous: DbRow;
-    readonly changes: DbRow;
-    readonly mergedNew: Record<string, unknown>;
-    readonly streamTenantId: TenantId | undefined;
-    readonly streamTenant: TenantId;
-    readonly currentVersion: number;
-    readonly options: UpdateOptions;
-  }): Promise<
-    { readonly data: DbRow; readonly echoEvent: AppendedEvent } | { readonly failure: WriteFailure }
-  > {
-    const { db, runner, user, id, previous, changes, mergedNew, streamTenantId } = input;
-    const { flatChangesPlain, flatChanges, encryptedPrevious } = await encryptUpdatePayload(
-      user,
-      streamTenantId,
-      previous,
-      changes,
-      mergedNew,
-      input.options,
-    );
-    const event = await appendUpdatedEvent(
-      runner,
-      user,
-      id,
-      input.streamTenant,
-      input.currentVersion,
-      flatChanges,
-      encryptedPrevious,
-    );
-
-    // Live and rebuild use applyEntityEvent with the same StoredEvent —
-    // apply reads only `changes`, which contain identical ciphertext in live writes
-    // and replays.
-    //
-    // An update that violates a unique index (for example, an email update to an
-    // already-existing value) is reported as 409 unique_violation instead of 500
-    // internal_error.
-    // Savepoint like the create path: a raw DB error from the projection UPDATE would
-    // otherwise poison the enclosing transaction, so a sibling write after a failed
-    // nested one would throw 500 instead of failing cleanly.
-    const projected = await applyProjection(runner, event, "projection update returned no row");
-    if ("failure" in projected) return projected;
-    const data = await readProjectedRow(projected.row);
-
-    const echoEvent = {
-      ...event,
-      payload: {
-        changes: stripSensitive(flatChangesPlain),
-        previous: stripSensitive(previous),
-      },
-    };
-    await projectEntityEvent(db, runner, echoEvent);
-    return { data, echoEvent };
+    return { flatChangesPlain, flatChanges, encryptedPrevious, changedPrevious };
   }
 
   function assertTenantAllowedOnGlobalEntity(
@@ -538,208 +455,290 @@ export function createWriteVerbs(
     }
   }
 
-  return {
-    async create(payload, user, db, options) {
-      assertTenantAllowedOnGlobalEntity("create", "payload.tenantId", payload["tenantId"]);
-      const streamTenantId = options?.streamTenantId;
-      const streamTenantMismatch = streamTenantCreateFailure(db, payload, streamTenantId);
-      if (streamTenantMismatch) return streamTenantMismatch;
-      const runner = tenantDbWriteRunnerForTable(db, "ctx.db executor create", table);
-      // Respect an explicit id in the payload (seed pattern, SCIM import). Without
-      // one the framework mints a fresh UUIDv7 via generateId. Strip it out of the
-      // event payload so defaults + downstream consumers don't see a redundant id field.
-      const explicitId = typeof payload["id"] === "string" ? (payload["id"] as string) : undefined; // @cast-boundary engine-payload
-      const aggregateId = explicitId ?? generateId();
-      const { id: _id, ...payloadWithHandles } = payload;
-      const handles = await resolveFileHandles(entity, entityName, payloadWithHandles, db, user);
-      if ("failure" in handles) return handles.failure;
-      const payloadWithoutId = handles.values;
-      const preSaveResult = await runPreSave(
-        options?.preSave,
-        applyDefaults(payloadWithoutId),
-        {},
-        true,
-        entityName,
-        "create",
-        createOutputSchema,
-      );
-      if ("failure" in preSaveResult) return preSaveResult.failure;
-      const data = preSaveResult.data;
+  async function prepareCreate(
+    payload: Record<string, unknown>,
+    user: SessionUser,
+    db: TenantDb,
+    options: ExecutorCreateOptions | undefined,
+  ): Promise<WriteFailure | PreparedCreate> {
+    assertTenantAllowedOnGlobalEntity("create", "payload.tenantId", payload["tenantId"]);
+    const streamTenantId = options?.streamTenantId;
+    const streamTenantMismatch = streamTenantCreateFailure(db, payload, streamTenantId);
+    if (streamTenantMismatch) return streamTenantMismatch;
+    // Respect an explicit id in the payload (seed pattern, SCIM import). Without
+    // one the framework mints a fresh UUIDv7 via generateId. Strip it out of the
+    // event payload so defaults + downstream consumers don't see a redundant id field.
+    const explicitId = typeof payload["id"] === "string" ? (payload["id"] as string) : undefined; // @cast-boundary engine-payload
+    const aggregateId = explicitId ?? generateId();
+    const { id: _id, ...payloadWithHandles } = payload;
+    const handles = await resolveFileHandles(entity, entityName, payloadWithHandles, db, user);
+    if ("failure" in handles) return handles.failure;
+    const payloadWithoutId = handles.values;
+    const preSaveResult = await runPreSave(
+      options?.preSave,
+      applyDefaults(payloadWithoutId),
+      {},
+      true,
+      entityName,
+      "create",
+      createOutputSchema,
+    );
+    if ("failure" in preSaveResult) return preSaveResult.failure;
+    const data = preSaveResult.data;
 
-      assertFieldWritesAllowed(db, "create", data);
-      const ownershipDenied = createOwnershipFailure({
+    assertFieldWritesAllowed(db, "create", data);
+    const ownershipDenied = createOwnershipFailure({
+      entity,
+      entityName,
+      user,
+      streamTenantId,
+      payloadWithoutId,
+      data,
+      applyDefaults,
+    });
+    if (ownershipDenied) return ownershipDenied;
+
+    const invalidFieldState = fieldStateFailure(entity.fields, data);
+    if (invalidFieldState) return invalidFieldState;
+
+    // All compound types (locatedTimestamp, money, ...) use the same pipeline: the
+    // caller sends the combined API form, the framework stores the flat DB form (see
+    // db/compound-types.ts).
+    // subjectSource carries the freshly minted aggregateId: the create payload has no id
+    // column, but a pii:true self-subject resolves from it.
+    const flatCreateData = flattenCompoundTypes(data, entity);
+    const flatData = await encryptForStorage(flatCreateData, user, {
+      subjectSource: { ...flatCreateData, id: aggregateId },
+      keyTenantId: streamTenantId,
+    });
+    const streamTenant = streamTenantFor(user, streamTenantId);
+    return {
+      aggregateId,
+      streamTenantId,
+      streamTenant,
+      data,
+      flatCreateData,
+      claimedFileRefIds: handles.claimedFileRefIds,
+      toAppend: {
+        aggregateId,
+        aggregateType: entityName,
+        tenantId: streamTenant,
+        expectedVersion: 0,
+        type: entityEventName(entityName, "created"),
+        eventVersion,
+        payload: flatData,
+        metadata: buildEventMetadata(user),
+      },
+    };
+  }
+
+  async function finishCreate(
+    db: TenantDb,
+    runner: WriteRunner,
+    prepared: PreparedCreate,
+    event: AppendedEvent,
+    row: DbRow,
+  ): Promise<ExecutorSaveContext> {
+    const projection = await readProjectedRow(row);
+    // The echoed event is the one projections see (and the dispatcher later
+    // skips), so build it before projecting. The persisted event carries ciphertext by
+    // design; the caller-facing echo must be plaintext like every other response field.
+    const echoEvent = { ...event, payload: stripSensitive(prepared.flatCreateData) };
+    await projectEntityEvent(db, runner, echoEvent);
+    return {
+      kind: "save",
+      id: prepared.aggregateId,
+      data: projection,
+      changes: prepared.data,
+      previous: {},
+      isNew: true,
+      entityName,
+      event: echoEvent,
+      claimedFileRefIds: prepared.claimedFileRefIds,
+    };
+  }
+
+  async function prepareUpdate(
+    payload: { id: EntityId; version?: number | undefined; changes: Record<string, unknown> },
+    user: SessionUser,
+    db: TenantDb,
+    updateOptions: ExecutorUpdateOptions | undefined,
+  ): Promise<WriteFailure | PreparedUpdate> {
+    assertTenantAllowedOnGlobalEntity(
+      "update",
+      "payload.changes.tenantId",
+      payload.changes["tenantId"],
+    );
+    const streamTenantId = updateOptions?.streamTenantId;
+    const streamTenant = streamTenantFor(user, streamTenantId);
+    const snapshot = await loadWriteSnapshot(db, payload.id, user, {
+      includeDeleted: updateOptions?.includeDeleted === true,
+      streamTenant,
+      parentVisibility: updateOptions?.parentVisibility,
+    });
+    if (snapshot.row === null) return writeFailure(new NotFoundError(entityName, payload.id));
+    const previous = snapshot.row;
+    const streamTenantMismatch = streamTenantOverrideFailure(db, previous, streamTenantId);
+    if (streamTenantMismatch) return streamTenantMismatch;
+    const handles = await resolveFileHandles(entity, entityName, payload.changes, db, user);
+    if ("failure" in handles) return handles.failure;
+    const submittedChanges: DbRow = { ...handles.values };
+    const preSaveResult = await runPreSave(
+      updateOptions?.preSave,
+      submittedChanges,
+      previous,
+      false,
+      entityName,
+      "update",
+      updateOutputSchema,
+    );
+    if ("failure" in preSaveResult) return preSaveResult.failure;
+    const changes = preSaveResult.data;
+
+    assertFieldWritesAllowed(db, "update", changes);
+
+    const mergedNew: Record<string, unknown> = { ...previous, ...changes };
+    const guardFailure =
+      updateOwnershipFailure({
         entity,
         entityName,
         user,
         streamTenantId,
-        payloadWithoutId,
-        data,
-        applyDefaults,
-      });
-      if (ownershipDenied) return ownershipDenied;
+        id: payload.id,
+        submittedChanges,
+        previous,
+        changes,
+        mergedNew,
+      }) ??
+      recordLockedFailure(previous, payload.id, user, updateOptions) ??
+      updateSelectOptionFailure(user, mergedNew, previous, updateOptions);
+    if (guardFailure) return guardFailure;
 
-      const invalidFieldState = fieldStateFailure(entity.fields, data);
-      if (invalidFieldState) return invalidFieldState;
+    if (snapshot.archived) throw new ArchivedStreamError(streamTenant, String(payload.id));
 
-      // All compound types (locatedTimestamp, money, ...) use the same pipeline: the
-      // caller sends the combined API form, the framework stores the flat DB form (see
-      // db/compound-types.ts).
-      // subjectSource carries the freshly minted aggregateId: the create payload has no id
-      // column, but a pii:true self-subject resolves from it.
-      const flatCreateData = flattenCompoundTypes(data, entity);
-      const flatData = await encryptForStorage(flatCreateData, user, {
-        subjectSource: { ...flatCreateData, id: aggregateId },
-        keyTenantId: streamTenantId,
-      });
-
-      const appended = await appendCreatedEvent(
-        runner,
-        user,
-        streamTenantId,
-        aggregateId,
-        flatData,
+    if (updateOptions?.expect) {
+      const expectFailure = expectMismatchFailure(
+        snapshot.rawRow,
+        payload.id,
+        updateOptions.expect,
       );
-      if ("failure" in appended) return appended.failure;
-      const event = appended.event;
+      if (expectFailure) return expectFailure;
+    }
+    const currentVersion = snapshot.streamVersion;
 
-      const projected = await applyProjection(runner, event, "projection insert returned no row");
-      if ("failure" in projected) return projected.failure;
-      const projection = await readProjectedRow(projected.row);
+    const versionConflict = optimisticLockFailure(
+      payload.id,
+      payload.version,
+      currentVersion,
+      updateOptions?.skipOptimisticLock,
+    );
+    if (versionConflict) return versionConflict;
 
-      // The echoed event is the one projections see (and the dispatcher later
-      // skips), so build it before projecting.
-      const echoEvent = { ...event, payload: stripSensitive(flatCreateData) };
-      await projectEntityEvent(db, runner, echoEvent);
+    const { flatChangesPlain, flatChanges, encryptedPrevious, changedPrevious } =
+      await encryptUpdatePayload(user, streamTenantId, previous, changes, mergedNew, updateOptions);
+    return {
+      id: payload.id,
+      previous,
+      changes,
+      changedPrevious,
+      flatChangesPlain,
+      streamTenant,
+      currentVersion,
+      claimedFileRefIds: handles.claimedFileRefIds,
+      toAppend: {
+        aggregateId: String(payload.id),
+        aggregateType: entityName,
+        tenantId: streamTenant,
+        expectedVersion: currentVersion,
+        type: entityEventName(entityName, "updated"),
+        eventVersion,
+        payload: { changes: flatChanges, previous: encryptedPrevious },
+        metadata: buildEventMetadata(user),
+      },
+    };
+  }
 
+  async function finishUpdate(
+    db: TenantDb,
+    runner: WriteRunner,
+    prepared: PreparedUpdate,
+    event: AppendedEvent,
+    row: DbRow,
+  ): Promise<ExecutorSaveContext> {
+    const data = await readProjectedRow(row);
+    const echoEvent = {
+      ...event,
+      payload: {
+        changes: stripSensitive(prepared.flatChangesPlain),
+        previous: stripSensitive(prepared.changedPrevious),
+      },
+    };
+    await projectEntityEvent(db, runner, echoEvent);
+    return {
+      kind: "save",
+      id: String(prepared.id),
+      data,
+      changes: prepared.changes,
+      // The caller still gets the whole pre-update row; only the stored event is lean.
+      previous: prepared.previous,
+      isNew: false,
+      entityName,
+      event: echoEvent,
+      claimedFileRefIds: prepared.claimedFileRefIds,
+    };
+  }
+
+  return {
+    ...createBatchWriteVerbs({
+      table,
+      entity,
+      entityName,
+      prepareCreate,
+      prepareUpdate,
+      finishCreate,
+      finishUpdate,
+      appendConflictFailure,
+    }),
+    async create(payload, user, db, options) {
+      const runner = tenantDbWriteRunnerForTable(db, "ctx.db executor create", table);
+      const prepared = await prepareCreate(payload, user, db, options);
+      if ("isSuccess" in prepared) return prepared;
+      const applied = await appendAndApply(
+        runner,
+        prepared.toAppend,
+        "projection insert returned no row",
+      );
+      if ("failure" in applied) return applied.failure;
       return {
         isSuccess: true,
-        data: {
-          kind: "save",
-          id: aggregateId,
-          data: projection,
-          changes: data,
-          previous: {},
-          isNew: true,
-          entityName,
-          // Persisted event carries ciphertext by design — the caller-facing
-          // echo must be plaintext like every other response field.
-          event: echoEvent,
-          claimedFileRefIds: handles.claimedFileRefIds,
-        },
+        data: await finishCreate(db, runner, prepared, applied.event, applied.row),
       };
     },
 
     async update(payload, user, db, updateOptions) {
       const runner = tenantDbWriteRunnerForTable(db, "ctx.db executor update", table);
-      assertTenantAllowedOnGlobalEntity(
-        "update",
-        "payload.changes.tenantId",
-        payload.changes["tenantId"],
-      );
-      const streamTenantId = updateOptions?.streamTenantId;
-      const streamTenant = streamTenantFor(user, streamTenantId);
-      const snapshot = await loadWriteSnapshot(db, payload.id, user, {
-        includeDeleted: updateOptions?.includeDeleted === true,
-        streamTenant,
-        parentVisibility: updateOptions?.parentVisibility,
-      });
-      if (snapshot.row === null) return writeFailure(new NotFoundError(entityName, payload.id));
-      const previous = snapshot.row;
-      const streamTenantMismatch = streamTenantOverrideFailure(db, previous, streamTenantId);
-      if (streamTenantMismatch) return streamTenantMismatch;
-      const handles = await resolveFileHandles(entity, entityName, payload.changes, db, user);
-      if ("failure" in handles) return handles.failure;
-      const submittedChanges: DbRow = { ...handles.values };
-      const preSaveResult = await runPreSave(
-        updateOptions?.preSave,
-        submittedChanges,
-        previous,
-        false,
-        entityName,
-        "update",
-        updateOutputSchema,
-      );
-      if ("failure" in preSaveResult) return preSaveResult.failure;
-      const changes = preSaveResult.data;
-
-      assertFieldWritesAllowed(db, "update", changes);
-
-      const mergedNew: Record<string, unknown> = { ...previous, ...changes };
-      const guardFailure =
-        updateOwnershipFailure({
-          entity,
-          entityName,
-          user,
-          streamTenantId,
-          id: payload.id,
-          submittedChanges,
-          previous,
-          changes,
-          mergedNew,
-        }) ??
-        recordLockedFailure(previous, payload.id, user, updateOptions) ??
-        updateSelectOptionFailure(user, mergedNew, previous, updateOptions);
-      if (guardFailure) return guardFailure;
-
-      if (snapshot.archived) throw new ArchivedStreamError(streamTenant, String(payload.id));
-
-      if (updateOptions?.expect) {
-        const expectFailure = expectMismatchFailure(
-          snapshot.rawRow,
-          payload.id,
-          updateOptions.expect,
-        );
-        if (expectFailure) return expectFailure;
-      }
-      const currentVersion = snapshot.streamVersion;
-
-      const versionConflict = optimisticLockFailure(
-        payload.id,
-        payload.version,
-        currentVersion,
-        updateOptions?.skipOptimisticLock,
-      );
-      if (versionConflict) return versionConflict;
-
+      const prepared = await prepareUpdate(payload, user, db, updateOptions);
+      if ("isSuccess" in prepared) return prepared;
       try {
-        const persisted = await persistUpdate({
-          db,
+        const applied = await appendAndApply(
           runner,
-          user,
-          id: payload.id,
-          previous,
-          changes,
-          mergedNew,
-          streamTenantId,
-          streamTenant,
-          currentVersion,
-          options: updateOptions,
-        });
-        if ("failure" in persisted) return persisted.failure;
-        const { data, echoEvent } = persisted;
+          prepared.toAppend,
+          "projection update returned no row",
+        );
+        if ("failure" in applied) return applied.failure;
         return {
           isSuccess: true,
-          data: {
-            kind: "save",
-            id: String(payload.id),
-            data,
-            changes,
-            previous,
-            isNew: false,
-            entityName,
-            event: echoEvent,
-            claimedFileRefIds: handles.claimedFileRefIds,
-          },
+          data: await finishUpdate(db, runner, prepared, applied.event, applied.row),
         };
       } catch (e) {
-        // The pre-check above eliminates the common stale-version case; this
+        // The pre-check in prepareUpdate eliminates the common stale-version case; this
         // branch catches the narrow race where two writers both read version=N
         // and both pass the local check — the unique index on (aggregate_id,
         // version) serializes them, one wins, the other lands here.
         return await appendConflictFailure(e, runner, {
           entityId: payload.id,
-          expectedVersion: currentVersion,
-          streamTenant,
+          expectedVersion: prepared.currentVersion,
+          streamTenant: prepared.streamTenant,
         });
       }
     },

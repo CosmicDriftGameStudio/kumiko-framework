@@ -311,6 +311,51 @@ export async function insertSubsequentEventRow(
   return rows[0];
 }
 
+export type EventBatchInsertRow = SubsequentEventInsertRow & { readonly aggregate_id: string };
+
+// One statement and one optimistic check per stream for the whole batch; a lost race returns
+// no row for that stream instead of a 23505. A single jsonb parameter keeps the statement
+// clear of the 65535 bind-parameter limit.
+export async function insertEventRowsBatch(
+  db: AnyDb,
+  rows: readonly Omit<SubsequentEventInsertParams, "createdAt">[],
+): Promise<readonly EventBatchInsertRow[]> {
+  const recordset = rows.map((row) => ({
+    aggregate_id: row.aggregateId,
+    aggregate_type: row.aggregateType,
+    tenant_id: row.tenantId,
+    version: row.newVersion,
+    type: row.type,
+    event_version: row.eventVersion,
+    payload: row.payload,
+    metadata: row.metadata,
+    created_by: row.createdBy,
+    expected_version: row.expectedVersion,
+  }));
+  return asRawClient(db).unsafe<EventBatchInsertRow>(
+    `INSERT INTO "kumiko_events" (
+       aggregate_id, aggregate_type, tenant_id, version,
+       type, event_version, payload, metadata, created_by
+     )
+     SELECT u.aggregate_id, u.aggregate_type, u.tenant_id, u.version,
+            u.type, u.event_version, u.payload, u.metadata, u.created_by
+     FROM jsonb_to_recordset($1::jsonb -> 'rows') AS u(
+       aggregate_id uuid, aggregate_type text, tenant_id uuid, version integer, type text,
+       event_version integer, payload jsonb, metadata jsonb, created_by text,
+       expected_version integer)
+     WHERE u.expected_version = 0 OR EXISTS (
+       SELECT 1 FROM "kumiko_events" e
+       WHERE e.aggregate_id = u.aggregate_id
+         AND e.version = u.expected_version
+         AND e.tenant_id = u.tenant_id)
+     ON CONFLICT (tenant_id, aggregate_id, version) DO NOTHING
+     RETURNING id, created_at, aggregate_id`,
+    // Wrapped in an object: a bare JS array param would hit the driver's array-type inference
+    // (see toPostgresArrayLiteral), while an object binds to jsonb like payload above.
+    [{ rows: recordset }],
+  );
+}
+
 export async function selectStreamMaxVersion(
   db: AnyDb,
   aggregateId: string,

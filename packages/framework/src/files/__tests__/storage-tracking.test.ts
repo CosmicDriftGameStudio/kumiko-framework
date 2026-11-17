@@ -9,6 +9,7 @@ import { fileRefStorageDelta } from "../storage-tracking.ts";
 const CREATED = entityEventName("fileRef", "created");
 const DELETED = entityEventName("fileRef", "deleted");
 const RESTORED = entityEventName("fileRef", "restored");
+const FORGOTTEN = entityEventName("fileRef", "forgotten");
 
 describe("fileRefStorageDelta", () => {
   test("created: positive delta from payload.size", () => {
@@ -38,6 +39,24 @@ describe("fileRefStorageDelta", () => {
       bytes: 42,
       files: 1,
     });
+  });
+
+  test("forgotten of an active file subtracts its size and one file", () => {
+    expect(
+      fileRefStorageDelta({
+        type: FORGOTTEN,
+        payload: { previous: { size: 42, isDeleted: false } },
+      }),
+    ).toEqual({ bytes: -42, files: -1 });
+  });
+
+  test("forgotten of a soft-deleted file returns null, its delete already subtracted it", () => {
+    expect(
+      fileRefStorageDelta({
+        type: FORGOTTEN,
+        payload: { previous: { size: 42, isDeleted: true } },
+      }),
+    ).toBeNull();
   });
 
   test("an unrelated event type returns null", () => {

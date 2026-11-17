@@ -167,6 +167,8 @@ describe("event-store-executor — sensitive fields", () => {
     entityName: "esExecSensitive",
     encryption: createTestEnvelopeCipher(SENSITIVE_TEST_KEY),
   });
+  // The lean-previous checks need a plain text column, which only the esExecUser entity has.
+  const userCrud = createEventStoreExecutor(table, entity, { entityName: "esExecUser" });
 
   beforeAll(async () => {
     await unsafeCreateEntityTable(testDb.db, sensitiveEntity, "esExecSensitive");
@@ -223,7 +225,7 @@ describe("event-store-executor — sensitive fields", () => {
     expect(result.data.event.payload["apiToken"]).toBeUndefined();
   });
 
-  test("update event carries ciphertext in BOTH changes and previous", async () => {
+  test("update event carries ciphertext in changes and in previous for the changed keys", async () => {
     const created = await crud.create(
       { email: "u@test.de", passwordHash: "old-hash", apiToken: "old-tok" },
       adminUser,
@@ -251,12 +253,11 @@ describe("event-store-executor — sensitive fields", () => {
     expect(event.payload.changes.email).toBe("u2@test.de");
     expect(event.payload.changes.passwordHash).toBeDefined();
     expect(event.payload.changes.passwordHash).not.toBe("new-hash");
-    // Previous: email plaintext, passwordHash + apiToken ciphertext.
+    // Previous: the old values of the changed keys only — email plaintext, passwordHash ciphertext.
     expect(event.payload.previous.email).toBe("u@test.de");
     expect(event.payload.previous.passwordHash).toBeDefined();
     expect(event.payload.previous.passwordHash).not.toBe("old-hash");
-    expect(event.payload.previous.apiToken).toBeDefined();
-    expect(event.payload.previous.apiToken).not.toBe("old-tok");
+    expect(event.payload.previous).not.toHaveProperty("apiToken");
 
     // Caller-facing event echo stays stripped.
     if (!result.data.event) throw new Error("no event echo");
@@ -267,6 +268,51 @@ describe("event-store-executor — sensitive fields", () => {
     expect(echoPayload.changes["passwordHash"]).toBeUndefined();
     expect(echoPayload.previous["passwordHash"]).toBeUndefined();
     expect(echoPayload.previous["apiToken"]).toBeUndefined();
+  });
+
+  test("update leaves an unchanged long text out of the stored previous", async () => {
+    const longText = "long-unchanged-text ".repeat(200);
+    const created = await userCrud.create(
+      { email: "long@test.de", firstName: longText },
+      adminUser,
+      tdb,
+    );
+    if (!created.isSuccess) throw new Error("create failed");
+
+    const result = await userCrud.update(
+      { id: created.data.id, version: 1, changes: { email: "long2@test.de" } },
+      adminUser,
+      tdb,
+    );
+    if (!result.isSuccess) throw new Error("update failed");
+
+    const event = await lastEvent<{ previous: Record<string, unknown> }>();
+    expect(event.type).toBe("esExecUser.updated");
+    expect(event.payload.previous).toEqual({ email: "long@test.de" });
+    expect(result.data.previous["firstName"]).toBe(longText);
+  });
+
+  test("update stores the old value of a moved key in previous so a projection can undo it", async () => {
+    const created = await userCrud.create(
+      { email: "move@test.de", firstName: "old-parent" },
+      adminUser,
+      tdb,
+    );
+    if (!created.isSuccess) throw new Error("create failed");
+
+    const result = await userCrud.update(
+      { id: created.data.id, version: 1, changes: { firstName: "new-parent" } },
+      adminUser,
+      tdb,
+    );
+    if (!result.isSuccess) throw new Error("update failed");
+
+    const event = await lastEvent<{
+      changes: Record<string, unknown>;
+      previous: Record<string, unknown>;
+    }>();
+    expect(event.payload.changes).toEqual({ firstName: "new-parent" });
+    expect(event.payload.previous).toEqual({ firstName: "old-parent" });
   });
 
   test("delete event carries ciphertext in previous", async () => {
@@ -565,7 +611,7 @@ describe("event-store-executor — encrypted fields", () => {
     expect(rows[0]?.payload.changes).not.toHaveProperty("secretNote");
   });
 
-  test("update's persisted event carries ciphertext (not plaintext) for an encrypted field in `previous`", async () => {
+  test("update's persisted event carries ciphertext (not plaintext) for a changed encrypted field in `previous`", async () => {
     // Regression: `previous` in the STORED event came from loadById(), which
     // decrypts — appending it unchanged would put the plaintext of an
     // `encrypted` field into the immutable kumiko_events log even though the
@@ -577,10 +623,8 @@ describe("event-store-executor — encrypted fields", () => {
     );
     if (!created.isSuccess) throw new Error("create failed");
 
-    // Change an UNRELATED field — `secretNote` still rides along in `previous`
-    // unchanged, at its pre-update (decrypted) value.
     const updated = await crud.update(
-      { id: created.data.id, version: 1, changes: { email: "prev-enc-2@test.de" } },
+      { id: created.data.id, version: 1, changes: { secretNote: "new-plaintext-note" } },
       adminUser,
       tdb,
     );
@@ -592,6 +636,27 @@ describe("event-store-executor — encrypted fields", () => {
     const storedPrevious = rows[0]?.payload.previous?.secretNote;
     expect(storedPrevious).toBeDefined();
     expect(storedPrevious).not.toBe("old-plaintext-note");
+  });
+
+  test("update of an unrelated field leaves the encrypted field out of previous", async () => {
+    const created = await crud.create(
+      { email: "prev-unrelated@test.de", secretNote: "kept-note" },
+      adminUser,
+      tdb,
+    );
+    if (!created.isSuccess) throw new Error("create failed");
+
+    const updated = await crud.update(
+      { id: created.data.id, version: 1, changes: { email: "prev-unrelated-2@test.de" } },
+      adminUser,
+      tdb,
+    );
+    if (!updated.isSuccess) throw new Error("update failed");
+
+    const rows = (await asRawClient(testDb.db).unsafe(
+      `SELECT payload FROM kumiko_events WHERE type = 'esExecEncrypted.updated' ORDER BY id DESC LIMIT 1`,
+    )) as Array<{ payload: { previous?: Record<string, unknown> } }>;
+    expect(rows[0]?.payload.previous).not.toHaveProperty("secretNote");
   });
 
   test("delete's persisted event carries ciphertext (not plaintext) for an encrypted field in `previous`", async () => {

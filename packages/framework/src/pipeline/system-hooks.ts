@@ -38,7 +38,7 @@ const log = createFallbackLogger("kumiko:search");
 // Event → Search-Op Mapping:
 //
 //   <entity>.created     → index(tenantId, doc)   // state = event.payload
-//   <entity>.updated     → index(tenantId, doc)   // state = { ...previous, ...changes }
+//   <entity>.updated     → index(tenantId, doc)   // state read from the live projection row
 //   <entity>.restored    → index(tenantId, doc)   // state = event.payload.previous
 //   <entity>.deleted      → remove(tenantId, type, id)
 //   <entity>.forgotten    → remove(tenantId, type, id)
@@ -46,12 +46,12 @@ const log = createFallbackLogger("kumiko:search");
 //                          projection row — a named domain event carries
 //                          only a payload slice, not the full entity, so
 //                          there's no fixed shape to reconstruct state from
-//                          as there is for created/updated/restored.
+//                          as there is for created/restored.
 //                          Only queried when the entity declares searchable
 //                          fields/extensions; no row (hard/soft-deleted) →
 //                          remove, same as the deleted branch.
 //
-// Sensitive fields never reach this consumer for created/updated/restored —
+// Sensitive fields never reach this consumer for created/restored —
 // event-store-executor.ts strips them before they land in the event log.
 // The projection-row path (named events) reads them from the live table
 // instead, so the same sensitive+searchable boot-guard (entity-handler.ts)
@@ -76,13 +76,6 @@ export type SearchOperation =
       readonly entityType: string;
       readonly entityId: EntityId;
     };
-
-// An executor update with includeDeleted leaves the row deleted; indexing it would make it findable again.
-function isUpdateOfSoftDeletedRow(event: StoredEvent, verb: string | undefined): boolean {
-  return (
-    verb === "updated" && reconstructStateForSearch(event.payload, "updated")["isDeleted"] === true
-  );
-}
 
 type AggregateTransferredPayload = {
   readonly aggregateType: string;
@@ -147,7 +140,7 @@ async function indexOperationFromProjectionRow(
   // index, stays a no-op with no extra query, same as before.
   if (!entity || !isSearchable) return undefined;
 
-  const row = await readProjectionRowForSearch(ctx, registry, entityName, entity, tenantId, entityId);
+  const row = await readLiveProjectionRow(ctx, registry, entityName, entity, tenantId, entityId);
   // skip: no live row (hard-deleted stream, or soft-deleted) — same
   // outcome as the deleted/forgotten branch.
   if (!row) return { kind: "remove", tenantId, entityType: entityName, entityId };
@@ -196,14 +189,14 @@ async function resolveSearchOperation(
   const verb = event.type.split(".").pop();
   const tenantId = event.tenantId;
 
-  // skip: delete/forgotten (and an update on a still soft-deleted row) remove the
-  // index entry — reconstruct only makes sense for live created/updated/restored.
-  if (verb === "deleted" || verb === "forgotten" || isUpdateOfSoftDeletedRow(event, verb)) {
+  // skip: delete/forgotten remove the index entry — reconstruct only makes sense for live
+  // created/restored. An update reads the live row, which is gone when soft-deleted.
+  if (verb === "deleted" || verb === "forgotten") {
     return [{ kind: "remove", tenantId, entityType: entityName, entityId: event.aggregateId }];
   }
 
   const op =
-    verb === "created" || verb === "updated" || verb === "restored"
+    verb === "created" || verb === "restored"
       ? await indexOperationFromState(
           entityName,
           event.aggregateId,
@@ -497,13 +490,13 @@ function consumerTenantDb(
   return createTenantDb({ db: baseDb, tenantId });
 }
 
-// Reads the live projection row for a named domain event, tenant-
+// Reads the live projection row, tenant-
 // scoped through createTenantDb the same way MultiStreamProjection appliers
 // scope their apply()-writes (see api/server.ts), on the table the registry
 // actually booted (entityTableFromRegistry) rather than one freshly derived
 // from the entity definition alone. undefined means "no live row" — a hard
 // delete or a soft-delete — which the caller treats as a remove.
-async function readProjectionRowForSearch(
+async function readLiveProjectionRow(
   ctx: AppContext,
   registry: Registry,
   entityName: string,
@@ -575,26 +568,17 @@ export function hasErasedSearchableSubjectField(
   return collectSearchableSubjectFields(entity).some((name) => state[name] === PII_ERASED_SENTINEL);
 }
 
-// Rebuild the entity-state a search index needs from the event-payload alone.
-// Three shapes to handle — see event-store-executor.ts for the emitter side.
+// Rebuild the entity-state a search index needs from the event payload alone: created carries
+// the entity, restored carries the whole row as `previous`.
 function reconstructStateForSearch(
   payload: Record<string, unknown>,
-  verb: "created" | "updated" | "restored",
+  verb: "created" | "restored",
 ): Record<string, unknown> {
   if (verb === "created") {
-    // create: payload IS the entity (minus sensitive fields, already
-    // stripped by event-store-executor)
+    // Sensitive fields are already stripped by event-store-executor.
     return payload;
   }
-  if (verb === "updated") {
-    // update: payload = { changes, previous }. Merge to get the new state
-    // the index should reflect. Sensitive fields already filtered out.
-    const previous = (payload["previous"] as Record<string, unknown> | undefined) ?? {}; // @cast-boundary engine-payload
-    const changes = (payload["changes"] as Record<string, unknown> | undefined) ?? {}; // @cast-boundary engine-payload
-    return { ...previous, ...changes };
-  }
-  // restored: payload = { previous }. The restored entity is whatever the
-  // field-values were at delete time — restore copies them back verbatim.
+  // restore copies the field-values at delete time back verbatim.
   return (payload["previous"] as Record<string, unknown> | undefined) ?? {}; // @cast-boundary engine-payload
 }
 
@@ -780,13 +764,13 @@ export function createSseBroadcastEventConsumer(sseBroker: SseBroker): EventCons
 //     forget-subject). Always scoped to payload.tokenIds — a PAT revoke
 //     never touches another credential's stream.
 //   "tenant-membership.updated" / "tenant-membership.deleted" — role change
-//     or member removal. userId isn't in payload.changes (update only
-//     carries the changed fields, e.g. { roles }) so it's read from
-//     payload.previous, the full pre-write entity snapshot written by
-//     createEventStoreExecutor. tenantMembershipEntity declares no
-//     encrypted/PII fields, so previous.userId is plaintext — no KMS
-//     decrypt step; the original handoff assumed encryption that doesn't
-//     apply here.
+//     or member removal. updated takes userId from payload.changes, else from
+//     the live membership row (an update only carries the changed fields, e.g.
+//     { roles }); deleted takes it from payload.previous, the whole row.
+//     tenantMembershipEntity declares no encrypted/PII fields, so userId is
+//     plaintext — no KMS decrypt step. update-member-roles writes with
+//     streamTenantId = the target tenant, so stream tenant and row tenant are
+//     equal and the tenant-scoped read on event.tenantId finds the row.
 //
 // Over-invalidation (e.g. tenant-membership.updated fired by something
 // other than a role change) is fail-safe: the stream closes, the client
@@ -806,11 +790,18 @@ const PAT_REVOKED_EVENT_TYPE = "personal-access-tokens:event:pat-revoked";
 const TENANT_MEMBERSHIP_UPDATED_EVENT_TYPE = "tenant-membership.updated";
 const TENANT_MEMBERSHIP_DELETED_EVENT_TYPE = "tenant-membership.deleted";
 
+function nonEmptyString(value: unknown): string | undefined {
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function readUserIdFromChanges(payload: Record<string, unknown>): string | undefined {
+  const changes = payload["changes"];
+  return isPlainObject(changes) ? nonEmptyString(changes["userId"]) : undefined;
+}
+
 function readUserIdFromPreviousSnapshot(payload: Record<string, unknown>): string | undefined {
   const previous = payload["previous"];
-  if (!isPlainObject(previous)) return undefined;
-  const userId = previous["userId"];
-  return typeof userId === "string" && userId.length > 0 ? userId : undefined;
+  return isPlainObject(previous) ? nonEmptyString(previous["userId"]) : undefined;
 }
 
 // session-revoked's scope resolution, in order:
@@ -864,16 +855,16 @@ function isAccessInvalidationTransportError(
 
 // The gate rethrows without touching Redis until the backoff elapsed.
 function withTransportBackoff(
-  handle: (event: StoredEvent) => Promise<void>,
+  handle: (event: StoredEvent, ctx: AppContext) => Promise<void>,
   now: () => number,
-): (event: StoredEvent) => Promise<void> {
+): (event: StoredEvent, ctx: AppContext) => Promise<void> {
   let delayMs = ACCESS_INVALIDATION_BACKOFF_INITIAL_MS;
   let retryNotBefore = 0;
   let transportError: AccessInvalidationTransportError | null = null;
-  return async (event) => {
+  return async (event, ctx) => {
     if (transportError !== null && now() < retryNotBefore) throw transportError;
     try {
-      await handle(event);
+      await handle(event, ctx);
       delayMs = ACCESS_INVALIDATION_BACKOFF_INITIAL_MS;
       transportError = null;
     } catch (err) {
@@ -889,6 +880,7 @@ function withTransportBackoff(
 
 export function createAccessInvalidationEventConsumer(
   sseBroker: SseBroker,
+  registry: Registry,
   opts: { readonly now?: () => number } = {},
 ): EventConsumer {
   const now = opts.now ?? Date.now;
@@ -899,6 +891,23 @@ export function createAccessInvalidationEventConsumer(
       throw new AccessInvalidationTransportError(cause);
     }
   };
+  async function readUserIdFromMembershipRow(
+    event: StoredEvent,
+    ctx: AppContext,
+  ): Promise<string | undefined> {
+    const entity = registry.getEntity("tenant-membership");
+    if (!entity) return undefined;
+    const row = await readLiveProjectionRow(
+      ctx,
+      registry,
+      "tenant-membership",
+      entity,
+      event.tenantId,
+      event.aggregateId,
+    );
+    return nonEmptyString(row?.["userId"]);
+  }
+
   return {
     name: ACCESS_INVALIDATION_CONSUMER_NAME,
     // Count-based dead-lettering would end after a few seconds of Redis downtime.
@@ -913,7 +922,7 @@ export function createAccessInvalidationEventConsumer(
     // existed has nothing to invalidate — replaying it would be a no-op at
     // best and a spurious stream-close at worst.
     startFrom: "now",
-    handler: withTransportBackoff(async (event) => {
+    handler: withTransportBackoff(async (event, ctx) => {
       if (event.type === SESSION_REVOKED_EVENT_TYPE) {
         const userId = event.payload["userId"];
         // skip: malformed session-revoked payload — fail open on this one
@@ -932,10 +941,16 @@ export function createAccessInvalidationEventConsumer(
         await publish(userId, readPatRevokedScope(event.payload));
       }
 
-      if (
-        event.type === TENANT_MEMBERSHIP_UPDATED_EVENT_TYPE ||
-        event.type === TENANT_MEMBERSHIP_DELETED_EVENT_TYPE
-      ) {
+      if (event.type === TENANT_MEMBERSHIP_UPDATED_EVENT_TYPE) {
+        const userId =
+          readUserIdFromChanges(event.payload) ?? (await readUserIdFromMembershipRow(event, ctx));
+        // skip: neither changes nor the membership row yield a userId — same fail-open
+        // reasoning as above.
+        if (userId === undefined) return;
+        await publish(userId);
+      }
+
+      if (event.type === TENANT_MEMBERSHIP_DELETED_EVENT_TYPE) {
         const userId = readUserIdFromPreviousSnapshot(event.payload);
         // skip: previous snapshot missing/malformed userId — same fail-open
         // reasoning as above.

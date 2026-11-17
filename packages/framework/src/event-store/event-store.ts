@@ -94,7 +94,7 @@ type SelectedEvent = {
 // by TCP round-trip instead of pollIntervalMs.
 export const EVENTS_PUBSUB_CHANNEL = "kumiko_events_new";
 
-export async function append(db: DbRunner, event: EventToAppend): Promise<StoredEvent> {
+export async function prepareEventForStore(event: EventToAppend): Promise<EventToAppend> {
   // Event-PII: stored payload AND returned echo carry ciphertext, so
   // inline projections and rebuilds materialize identical rows.
   const payload = await encryptEventPayloadPii(event.type, event.payload, {
@@ -102,7 +102,11 @@ export async function append(db: DbRunner, event: EventToAppend): Promise<Stored
     aggregateType: event.aggregateType,
     aggregateId: event.aggregateId,
   });
-  const toStore = stampOrigin(payload === event.payload ? event : { ...event, payload });
+  return stampOrigin(payload === event.payload ? event : { ...event, payload });
+}
+
+export async function append(db: DbRunner, event: EventToAppend): Promise<StoredEvent> {
+  const toStore = await prepareEventForStore(event);
   const seedCreatedAt = currentSeedCreatedAt();
   const newVersion = toStore.expectedVersion + 1;
   const eventVersion = toStore.eventVersion ?? 1;
@@ -129,22 +133,24 @@ export async function append(db: DbRunner, event: EventToAppend): Promise<Stored
 
     return buildStoredEvent(toStore, newVersion, eventVersion, row);
   } catch (e) {
-    if (isUniqueViolation(e)) {
-      // The version index normally never throws (ON CONFLICT DO NOTHING); it
-      // only lands here for an unknown or renamed constraint.
-      // Two unique constraints on this table: events_aggregate_version_uq
-      // (tenant_id, aggregate_id, version) — a concurrent writer won the
-      // race to the next version — and events_idempotency_uq (tenant_id,
-      // metadata->>'idempotencyKey') — the caller reused an idempotency key.
-      // constraintOf() tells them apart; unknown/renamed constraint falls
-      // back to VersionConflictError, the pre-existing behaviour.
-      if (constraintOf(e) === "events_idempotency_uq" && event.metadata.idempotencyKey) {
-        throw new IdempotentAppendConflictError(event.tenantId, event.metadata.idempotencyKey);
-      }
-      throw new VersionConflictError(event.aggregateId, event.expectedVersion);
-    }
+    if (isUniqueViolation(e)) throw mapAppendUniqueViolation(e, event);
     throw e;
   }
+}
+
+export function mapAppendUniqueViolation(error: unknown, event: EventToAppend): unknown {
+  // The version index normally never throws (ON CONFLICT DO NOTHING); it
+  // only lands here for an unknown or renamed constraint.
+  // Two unique constraints on this table: events_aggregate_version_uq
+  // (tenant_id, aggregate_id, version) — a concurrent writer won the
+  // race to the next version — and events_idempotency_uq (tenant_id,
+  // metadata->>'idempotencyKey') — the caller reused an idempotency key.
+  // constraintOf() tells them apart; unknown/renamed constraint falls
+  // back to VersionConflictError, the pre-existing behaviour.
+  if (constraintOf(error) === "events_idempotency_uq" && event.metadata.idempotencyKey) {
+    return new IdempotentAppendConflictError(event.tenantId, event.metadata.idempotencyKey);
+  }
+  return new VersionConflictError(event.aggregateId, event.expectedVersion);
 }
 
 // Attribution is derived from the execution scope, never taken from
@@ -189,7 +195,7 @@ async function assertSeedTimeNotBeforePredecessor(
   }
 }
 
-type InsertReturn = { id: bigint; createdAt: Temporal.Instant };
+export type InsertReturn = { id: bigint; createdAt: Temporal.Instant };
 
 async function insertFirstEvent(
   db: DbRunner,
@@ -242,7 +248,7 @@ async function insertSubsequentEvent(
   return insertReturnOf(row);
 }
 
-function insertReturnOf(row: SubsequentEventInsertRow): InsertReturn {
+export function insertReturnOf(row: SubsequentEventInsertRow): InsertReturn {
   const createdAt =
     row.created_at instanceof Date
       ? Temporal.Instant.fromEpochMilliseconds(row.created_at.getTime())
@@ -263,7 +269,7 @@ async function versionConflictWithCurrentVersion(
   return new VersionConflictError(event.aggregateId, event.expectedVersion, currentVersion);
 }
 
-function buildStoredEvent(
+export function buildStoredEvent(
   event: EventToAppend,
   newVersion: number,
   eventVersion: number,

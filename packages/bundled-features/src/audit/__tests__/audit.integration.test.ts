@@ -441,11 +441,11 @@ describe("audit: list query", () => {
     // metadata carries the actor (userId) for the write.
     expect(created?.metadata).toMatchObject({ userId: admin.id });
 
-    // updated: payload is { changes, previous } — both halves matter for audit.
+    // updated: payload is { changes, previous }; previous holds only the old values of the changed keys.
     expect(updated?.type).toBe("widget.updated");
     expect(updated?.payload).toMatchObject({
       changes: { color: "yellow" },
-      previous: expect.objectContaining({ color: "green", name: "Auditable" }),
+      previous: { color: "green" },
     });
     expect(updated?.metadata).toMatchObject({ userId: admin.id });
   });

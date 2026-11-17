@@ -11,6 +11,7 @@
 // consumer-cursor row. Apps that want it pass filesStorageTrackingFeature
 // into createApp / setupTestStack alongside their domain features.
 
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { bigint, instant, integer, table as pgTable, sql, uuid } from "../db/dialect.ts";
 import { type DbRunner, entityEventName } from "../db/index.ts";
 import { toPostgresArrayLiteral } from "../db/queries/postgres-array-literal.ts";
@@ -30,11 +31,12 @@ const TENANT_STORAGE_USAGE_MSP_NAME = "tenant-storage-usage";
 
 // fileRef is a standard ES entity, so usage tracking subscribes to its
 // auto-verb events. `fileRef.created` payload carries the entity fields
-// (incl. size); `fileRef.deleted` / `fileRef.restored` carry `{ previous }`
-// (the pre-event row), so the byte count to apply lives at previous.size.
+// (incl. size); `fileRef.deleted` / `fileRef.restored` / `fileRef.forgotten` carry
+// `{ previous }` (the pre-event row), so the byte count to apply lives at previous.size.
 const FILE_REF_CREATED = entityEventName(FILE_REF_AGGREGATE_TYPE, "created");
 const FILE_REF_DELETED = entityEventName(FILE_REF_AGGREGATE_TYPE, "deleted");
 const FILE_REF_RESTORED = entityEventName(FILE_REF_AGGREGATE_TYPE, "restored");
+const FILE_REF_FORGOTTEN = entityEventName(FILE_REF_AGGREGATE_TYPE, "forgotten");
 
 function readNumber(value: unknown): number {
   return typeof value === "number" ? value : 0;
@@ -46,6 +48,11 @@ function sizeFromPrevious(payload: Record<string, unknown>): number {
     return readNumber((previous as Record<string, unknown>)["size"]); // @cast-boundary engine-payload
   }
   return 0;
+}
+
+function isPreviousSoftDeleted(payload: Record<string, unknown>): boolean {
+  const previous = payload["previous"];
+  return isPlainObject(previous) && previous["isDeleted"] === true;
 }
 
 // Single source of truth for "how much does this fileRef event move the
@@ -65,6 +72,10 @@ export function fileRefStorageDelta(event: {
       return { bytes: 0 - sizeFromPrevious(event.payload), files: -1 };
     case FILE_REF_RESTORED:
       return { bytes: sizeFromPrevious(event.payload), files: 1 };
+    case FILE_REF_FORGOTTEN:
+      // A soft-deleted file was already subtracted by its delete event.
+      if (isPreviousSoftDeleted(event.payload)) return null;
+      return { bytes: 0 - sizeFromPrevious(event.payload), files: -1 };
     default:
       return null;
   }
@@ -120,6 +131,20 @@ export const filesStorageTrackingFeature = defineFeature(STORAGE_TRACKING_FEATUR
           { set: { lastUpdatedAt: sql`now()` } },
         );
       },
+      [FILE_REF_FORGOTTEN]: async (event, tx) => {
+        const delta = fileRefStorageDelta(event);
+        // skip: a soft-deleted file was already subtracted by its delete event
+        if (!delta) return;
+        // Same as delete: INSERT values stay 0/0 so a forget that precedes any upload cannot
+        // create negative usage.
+        await incrementCounter(
+          tx,
+          tenantStorageUsageTable,
+          { tenantId: event.tenantId, totalBytes: 0, fileCount: 0 },
+          { totalBytes: delta.bytes, fileCount: delta.files },
+          { set: { lastUpdatedAt: sql`now()` } },
+        );
+      },
       [FILE_REF_RESTORED]: async (event, tx) => {
         // Restore re-increments by the soft-deleted row's size — symmetric
         // to delete. Without this handler totalBytes/fileCount drift low
@@ -148,7 +173,12 @@ const TENANT_STORAGE_USAGE_MSP_QN = qn(
   toKebab(TENANT_STORAGE_USAGE_MSP_NAME),
 );
 
-const TRACKED_FILE_REF_EVENT_TYPES = [FILE_REF_CREATED, FILE_REF_DELETED, FILE_REF_RESTORED];
+const TRACKED_FILE_REF_EVENT_TYPES = [
+  FILE_REF_CREATED,
+  FILE_REF_DELETED,
+  FILE_REF_RESTORED,
+  FILE_REF_FORGOTTEN,
+];
 
 function isWithinPendingGap(eventId: bigint, gaps: readonly PendingGapEntry[]): boolean {
   return gaps.some((gap) => eventId >= BigInt(gap.from) && eventId <= BigInt(gap.to));

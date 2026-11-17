@@ -103,6 +103,15 @@ async function lastEventNames(
   return { changesName: row.changes_name, previousName: row.previous_name };
 }
 
+async function lastEventPreviousKeys(id: string): Promise<readonly string[]> {
+  const rows = await asRawClient(stack.db).unsafe<{ keys: string[] }>(
+    `SELECT ARRAY(SELECT jsonb_object_keys(payload->'previous')) AS keys
+     FROM kumiko_events WHERE aggregate_id = $1 ORDER BY version DESC LIMIT 1`,
+    [id],
+  );
+  return rows[0]?.keys ?? [];
+}
+
 async function projectionColumns(id: string): Promise<Record<string, unknown>> {
   const rows = await asRawClient(stack.db).unsafe<Record<string, unknown>>(
     `SELECT name, owner_id, version FROM pii_owner_absent_items WHERE id = $1`,
@@ -123,6 +132,7 @@ describe("entity PII whenAbsent: tenant", () => {
     const events = await lastEventNames(id);
     expect(events.changesName).toStartWith(TENANT_PREFIX);
     expect(events.previousName).toStartWith(TENANT_PREFIX);
+    expect(await lastEventPreviousKeys(id)).toEqual(["name"]);
 
     const live = await projectionColumns(id);
     await rebuildProjection(PROJECTION, { db: stack.db, registry: stack.registry });

@@ -144,6 +144,36 @@ export type ListAggregateRequest = {
 // The executor runs uuid aggregates only (event-store-executor-context.ts rejects any other idType), so a save it returns always carries the string aggregate id.
 export type ExecutorSaveContext = SaveContext & { readonly id: string };
 
+export type ExecutorCreateOptions = StreamTenantOption & { preSave?: PreSaveRunner };
+
+export type ExecutorUpdateOptions = StreamTenantOption &
+  LockGuardOption &
+  ParentVisibilityGateOption & {
+    skipOptimisticLock?: boolean;
+    skipUnchanged?: boolean;
+    // Server-code only (never forwarded by the generic update handler): also
+    // update a soft-deleted row, e.g. to move it with its parent so a later
+    // restore lands consistently. Tenant and ownership checks still apply;
+    // the row stays deleted.
+    includeDeleted?: boolean;
+    preSave?: PreSaveRunner;
+    // Declarative precondition for a "genau einmal"-transition:
+    // field/value pairs the row must still hold at write
+    // time — a `null` expected value matches a null field. Re-read fresh,
+    // atomically with the write's stream version (not the payload's stale
+    // `previous`), so a concurrent writer that already moved the row on is
+    // caught even when it doesn't collide with the stream-version check.
+    // Mismatch fails the whole update with PreconditionFailedError instead
+    // of applying it.
+    // Scalars only (string/number/boolean/null) — the check is `!==`, so an
+    // object/Date/Instant value would compare by reference and silently
+    // never match; a timestamp precondition needs its own scalar mirror
+    // field to check against, not the compound value itself. Also plain
+    // columns only: the check reads raw column values (no decrypt pass),
+    // so a pii/encrypted field can't be used here.
+    expect?: Readonly<Record<string, string | number | boolean | null>>;
+  };
+
 // `Row` is the shape list()/detail() hand back; create/update payloads stay untyped. The default
 // keeps every untyped use compiling, and an executor typed to an entity row stays assignable to it.
 export type EventStoreExecutor<Row extends Record<string, unknown> = Record<string, unknown>> = {
@@ -151,41 +181,36 @@ export type EventStoreExecutor<Row extends Record<string, unknown> = Record<stri
     payload: Record<string, unknown>,
     user: SessionUser,
     db: TenantDb,
-    options?: StreamTenantOption & { preSave?: PreSaveRunner },
+    options?: ExecutorCreateOptions,
   ) => Promise<WriteResult<ExecutorSaveContext>>;
 
   update: (
     payload: { id: EntityId; version?: number | undefined; changes: Record<string, unknown> },
     user: SessionUser,
     db: TenantDb,
-    options?: StreamTenantOption &
-      LockGuardOption &
-      ParentVisibilityGateOption & {
-        skipOptimisticLock?: boolean;
-        skipUnchanged?: boolean;
-        // Server-code only (never forwarded by the generic update handler): also
-        // update a soft-deleted row, e.g. to move it with its parent so a later
-        // restore lands consistently. Tenant and ownership checks still apply;
-        // the row stays deleted.
-        includeDeleted?: boolean;
-        preSave?: PreSaveRunner;
-        // Declarative precondition for a "genau einmal"-transition:
-        // field/value pairs the row must still hold at write
-        // time — a `null` expected value matches a null field. Re-read fresh,
-        // atomically with the write's stream version (not the payload's stale
-        // `previous`), so a concurrent writer that already moved the row on is
-        // caught even when it doesn't collide with the stream-version check.
-        // Mismatch fails the whole update with PreconditionFailedError instead
-        // of applying it.
-        // Scalars only (string/number/boolean/null) — the check is `!==`, so an
-        // object/Date/Instant value would compare by reference and silently
-        // never match; a timestamp precondition needs its own scalar mirror
-        // field to check against, not the compound value itself. Also plain
-        // columns only: the check reads raw column values (no decrypt pass),
-        // so a pii/encrypted field can't be used here.
-        expect?: Readonly<Record<string, string | number | boolean | null>>;
-      },
+    options?: ExecutorUpdateOptions,
   ) => Promise<WriteResult<ExecutorSaveContext>>;
+
+  // All or nothing: every row runs the checks of create/update, all events go into the log with one
+  // statement and one optimistic check per stream, and the projection runs in one savepoint. Write hooks
+  // run once for the handler, not per row.
+  createMany: (
+    payloads: readonly Record<string, unknown>[],
+    user: SessionUser,
+    db: TenantDb,
+    options?: ExecutorCreateOptions,
+  ) => Promise<WriteResult<readonly ExecutorSaveContext[]>>;
+
+  updateMany: (
+    payloads: readonly {
+      id: EntityId;
+      version?: number | undefined;
+      changes: Record<string, unknown>;
+    }[],
+    user: SessionUser,
+    db: TenantDb,
+    options?: ExecutorUpdateOptions,
+  ) => Promise<WriteResult<readonly ExecutorSaveContext[]>>;
 
   delete: (
     payload: { id: EntityId },

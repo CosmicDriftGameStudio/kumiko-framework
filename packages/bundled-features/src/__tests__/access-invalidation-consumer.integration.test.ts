@@ -6,8 +6,8 @@
 //     path AND the privileged, cross-tenant revoke-all-for-user (DSGVO
 //     Art.18 account-freeze, appended anchored on SYSTEM_TENANT_ID).
 //   - tenant-membership.updated / .deleted (role change / member removal),
-//     where userId is read from the previous-snapshot rather than
-//     payload.changes.
+//     where userId is read from the membership row (updated) or the
+//     previous-snapshot (deleted) rather than payload.changes.
 //
 // Asserted directly against stack.sseBroker.subscribeAccessInvalidation —
 // no real SSE connection or HTTP-stream needed, mirrors how sse-broker.test.ts
@@ -186,7 +186,7 @@ describe("access-invalidation event consumer", () => {
     expect(invalidated).toEqual([userId]);
   });
 
-  test("tenant-membership.updated (role change) reads userId from the previous snapshot and invalidates", async () => {
+  test("tenant-membership.updated (role change) reads userId from the membership row and invalidates", async () => {
     const { userId } = await h.seedUser("rolechange@example.com", "pw-long-enough");
     trackInvalidation(userId);
 

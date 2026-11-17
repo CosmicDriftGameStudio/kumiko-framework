@@ -155,7 +155,7 @@ function buildSystemEventConsumers(
   const accessInvalidationEnabled =
     options.eventDispatcher?.systemConsumers?.accessInvalidation ?? true;
   if (accessInvalidationEnabled) {
-    systemConsumers.push(createAccessInvalidationEventConsumer(sseBroker));
+    systemConsumers.push(createAccessInvalidationEventConsumer(sseBroker, options.registry));
   }
   return systemConsumers;
 }

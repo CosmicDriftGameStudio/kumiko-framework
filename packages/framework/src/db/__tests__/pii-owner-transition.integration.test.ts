@@ -181,7 +181,7 @@ describe("personal fields on owner transition", () => {
   test("absent -> X rekeys the value under X; pre-owner created event stays tenant-keyed", async () => {
     enableKms();
     const owner = generateId();
-    const id = await createRow(ITEM, { name: "Alice" });
+    const id = await createRow(ITEM, { name: "Alice", note: "untouched" });
     expect(await createdEventValue(ITEM, id)).toStartWith(TENANT_PREFIX);
 
     await update(ITEM, id, { ownerId: owner });
@@ -190,6 +190,8 @@ describe("personal fields on owner transition", () => {
     const event = await lastUpdatedEvent(id);
     expect(event.changes["name"]).toStartWith(userPrefix(owner));
     expect(event.previous["name"]).toStartWith(userPrefix(owner));
+    // Only changed and rekeyed keys carry an old value.
+    expect(Object.keys(event.previous).sort()).toEqual(["name", "ownerId"]);
     // Pre-owner history stays tenant-keyed: the created event is immutable.
     expect(await createdEventValue(ITEM, id)).toStartWith(TENANT_PREFIX);
     expect((await detail(ITEM, id))["name"]).toBe("Alice");
@@ -240,7 +242,7 @@ describe("personal fields on owner transition", () => {
     enableKms();
     const ownerX = generateId();
     const ownerY = generateId();
-    const id = await createRow(ITEM, { name: "Bob", ownerId: ownerX });
+    const id = await createRow(ITEM, { name: "Bob", ownerId: ownerX, note: "untouched" });
 
     await update(ITEM, id, { ownerId: ownerY });
 
@@ -248,6 +250,7 @@ describe("personal fields on owner transition", () => {
     const event = await lastUpdatedEvent(id);
     expect(event.changes["name"]).toStartWith(userPrefix(ownerY));
     expect(event.previous["name"]).toStartWith(userPrefix(ownerX));
+    expect(event.previous).not.toHaveProperty("note");
 
     await kms.eraseKey({ kind: "user", userId: ownerX });
     expect((await detail(ITEM, id))["name"]).toBe("Bob");

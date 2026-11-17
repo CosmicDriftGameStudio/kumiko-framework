@@ -2,6 +2,7 @@
 // never reach open SSE streams. deliverEvents is a pure function, so this stays unit-level.
 import { beforeAll, describe, expect, test } from "bun:test";
 import type { SseBroker } from "../../api/sse-broker.ts";
+import { createRegistry } from "../../engine/registry.ts";
 import type { AppContext } from "../../engine/types/index.ts";
 import { ensureTemporalPolyfill } from "../../time/polyfill.ts";
 import {
@@ -75,6 +76,7 @@ describe("access-invalidation consumer during a Redis outage", () => {
     const published: string[] = [];
     const consumer = createAccessInvalidationEventConsumer(
       brokerFailingWhile(() => down, published),
+      createRegistry([]),
       { now: () => nowMs },
     );
 
@@ -114,6 +116,7 @@ describe("access-invalidation consumer during a Redis outage", () => {
           throw new Error("redis unavailable");
         },
       } as unknown as SseBroker,
+      createRegistry([]),
       { now: () => nowMs },
     );
     const event = sessionRevokedEvent();
@@ -132,6 +135,7 @@ describe("access-invalidation consumer during a Redis outage", () => {
   test("a poison event still dead-letters at the dispatcher limit instead of blocking later revocations", async () => {
     const consumer = createAccessInvalidationEventConsumer(
       brokerFailingWhile(() => false, []),
+      createRegistry([]),
       {
         now: () => 0,
       },

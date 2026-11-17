@@ -261,16 +261,28 @@ describe("derived entity contracts", () => {
     });
   });
 
-  test("updated carries changes and the previous row with its id", () => {
+  test("updated carries changes and the old values of the changed keys", () => {
     expect(shape("car.updated").sort()).toEqual(["changes", "id", "previous"]);
     const result = parseWebhookPayload(registry.getWebhookEventContract("car.updated")!, {
       id: ID,
       changes: { model: "T", owner: "leak" },
-      previous: { id: ID, vin: "V1", owner: "leak" },
+      previous: { model: "S", owner: "leak", unknownField: "x" },
     });
     expect(result).toEqual({
       ok: true,
-      payload: { id: ID, changes: { model: "T" }, previous: { id: ID, vin: "V1" } },
+      payload: { id: ID, changes: { model: "T" }, previous: { model: "S" } },
+    });
+  });
+
+  test("updated strips an id inside previous instead of failing the parse", () => {
+    const result = parseWebhookPayload(registry.getWebhookEventContract("car.updated")!, {
+      id: ID,
+      changes: { model: "T" },
+      previous: { id: ID, model: "S" },
+    });
+    expect(result).toEqual({
+      ok: true,
+      payload: { id: ID, changes: { model: "T" }, previous: { model: "S" } },
     });
   });
 

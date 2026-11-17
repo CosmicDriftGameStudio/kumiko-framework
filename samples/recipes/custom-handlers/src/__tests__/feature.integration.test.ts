@@ -114,6 +114,45 @@ describe("custom write handler: increment", () => {
   });
 });
 
+describe("custom write handler: create-many", () => {
+  test("creates every row with count 0", async () => {
+    const { ids } = await stack.http.writeOk<{ ids: string[] }>(
+      "counters:write:counter:create-many",
+      { names: ["batch-a", "batch-b", "batch-c"] },
+      admin,
+    );
+    expect(ids).toHaveLength(3);
+
+    const names: unknown[] = [];
+    for (const id of ids) {
+      const row = await stack.http.queryOk<Record<string, unknown>>(
+        "counters:query:counter:detail",
+        { id },
+        admin,
+      );
+      expect(row["count"]).toBe(0);
+      names.push(row["name"]);
+    }
+    expect(names).toEqual(["batch-a", "batch-b", "batch-c"]);
+  });
+
+  test("an invalid name fails the whole batch and writes no row", async () => {
+    const error = await stack.http.writeErr(
+      "counters:write:counter:create-many",
+      { names: ["ok", ""] },
+      admin,
+    );
+    expectErrorIncludes(error, "validation");
+
+    const active = await stack.http.queryOk<{ rows: Record<string, unknown>[] }>(
+      "counters:query:counter:active",
+      { minCount: 0 },
+      admin,
+    );
+    expect(active.rows.map((row) => row["name"])).not.toContain("ok");
+  });
+});
+
 describe("custom write handler: reset", () => {
   test("reset sets count back to zero", async () => {
     const created = await stack.http.writeOk<SaveContext>(
