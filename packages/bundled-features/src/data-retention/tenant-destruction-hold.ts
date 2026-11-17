@@ -5,6 +5,7 @@
 import {
   createEventStoreExecutor,
   type DbRunner,
+  type SchemaTable,
   selectMany,
   type WhereObject,
   WritePurposes,
@@ -31,7 +32,7 @@ import {
 
 const ANONYMIZE_PAGE_SIZE = 1000;
 
-type ProjectionTable = Parameters<typeof selectMany>[1];
+type ProjectionTable = SchemaTable;
 
 type BlockDeleteEntity = {
   readonly entityName: string;

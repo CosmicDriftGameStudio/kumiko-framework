@@ -2,6 +2,7 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
+import type { NotificationPreferenceRow } from "../db/queries/preferences.ts";
 import { collapsePreferenceRows } from "../preference-rows.ts";
 import { notificationPreferencesTable } from "../tables.ts";
 
@@ -33,7 +34,7 @@ export const preferencesQuery = defineQueryHandler({
     }
     const db = ctx.systemDb.scopedTo(query.user.tenantId);
 
-    const rows = await selectMany(db, notificationPreferencesTable, {
+    const rows = await selectMany<NotificationPreferenceRow>(db, notificationPreferencesTable, {
       tenantId: query.user.tenantId,
       userId: query.user.id,
     });

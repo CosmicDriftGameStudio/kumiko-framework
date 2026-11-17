@@ -21,6 +21,8 @@ import type {
   WritableTable,
 } from "@cosmicdrift/kumiko-types/executor-brand";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
+import type { SchemaTable } from "@cosmicdrift/kumiko-types/schema-table-types";
+import type { TableColumnRow, TenantDb } from "@cosmicdrift/kumiko-types/tenant-db-types";
 import type { SelectOptions, WhereObject } from "@cosmicdrift/kumiko-types/where-clause-types";
 import { quoteIdent } from "./sql-identifier.ts";
 import { InternalError } from "../errors/index.ts";
@@ -286,10 +288,12 @@ function assertNotTenantScoped(db: unknown, fnName: string): void {
   }
 }
 
-export type AnyDb = DbRunner | unknown;
+export type AnyDb = DbRunner | TenantDb;
 
-// biome-ignore lint/suspicious/noExplicitAny: opt-in default loosens row type for unannotated test fixtures
-type AnyRow = any;
+type AnyRow = Record<string, unknown>;
+
+// Write helpers also receive the bare capability brand (overload 2); the runtime value is always a runner.
+type WriteDb = AnyDb | ExecutorManagedWriteCapability;
 
 export type {
   JsonTextMatch,
@@ -301,8 +305,7 @@ export type {
 } from "@cosmicdrift/kumiko-types/where-clause-types";
 
 // Accepts EITHER. Both have a tableName and field→column mapping.
-// biome-ignore lint/suspicious/noExplicitAny: legacy drizzle pgTable surface
-export type TableLike = EntityTableMeta | any;
+export type TableLike = SchemaTable | EntityTableMeta;
 
 export function coerceRow<TOut = Record<string, unknown>>(
   row: Record<string, unknown>,
@@ -333,7 +336,7 @@ function unsafeBehindPendingUnits<TRow>(
 }
 
 export async function unsafeLoggingClosedConnection<TRow = unknown>(
-  db: AnyDb,
+  db: WriteDb,
   sqlText: string,
   params: readonly unknown[],
   context: ClosedConnectionContext,
@@ -398,6 +401,18 @@ function selectColumnList(info: TableInfo, fields: readonly string[] | undefined
     .join(", ");
 }
 
+export function selectMany<TTable extends TableLike>(
+  db: AnyDb,
+  table: TTable,
+  where?: WhereObject,
+  options?: SelectOptions & { readonly fields?: undefined },
+): Promise<readonly TableColumnRow<TTable>[]>;
+export function selectMany<TRow = AnyRow>(
+  db: AnyDb,
+  table: TableLike,
+  where?: WhereObject,
+  options?: SelectOptions,
+): Promise<readonly TRow[]>;
 export async function selectMany<TRow = AnyRow>(
   db: AnyDb,
   table: TableLike,
@@ -443,6 +458,16 @@ export async function selectMany<TRow = AnyRow>(
   return coerceRows<TRow>(raw, info);
 }
 
+export function fetchOne<TTable extends TableLike>(
+  db: AnyDb,
+  table: TTable,
+  where: WhereObject,
+): Promise<TableColumnRow<TTable> | undefined>;
+export function fetchOne<TRow = AnyRow>(
+  db: AnyDb,
+  table: TableLike,
+  where: WhereObject,
+): Promise<TRow | undefined>;
 export async function fetchOne<TRow = AnyRow>(
   db: AnyDb,
   table: TableLike,
@@ -569,7 +594,7 @@ export function insertMany<TRow = AnyRow>(
   rows: ReadonlyArray<Record<string, unknown>>,
 ): Promise<readonly TRow[]>;
 export async function insertMany<TRow = AnyRow>(
-  db: AnyDb,
+  db: WriteDb,
   table: EntityTableMeta,
   rows: ReadonlyArray<Record<string, unknown>>,
 ): Promise<readonly TRow[]> {
@@ -626,7 +651,7 @@ export function insertOne<TRow = AnyRow>(
   values: Record<string, unknown>,
 ): Promise<TRow | undefined>;
 export async function insertOne<TRow = AnyRow>(
-  db: AnyDb,
+  db: WriteDb,
   table: EntityTableMeta,
   values: Record<string, unknown>,
 ): Promise<TRow | undefined> {
@@ -663,7 +688,7 @@ export function updateMany<TRow = AnyRow>(
   where: WhereObject,
 ): Promise<readonly TRow[]>;
 export async function updateMany<TRow = AnyRow>(
-  db: AnyDb,
+  db: WriteDb,
   table: EntityTableMeta,
   set: Record<string, unknown>,
   where: WhereObject,
@@ -713,7 +738,7 @@ export function deleteMany(
   where: WhereObject,
 ): Promise<number>;
 export async function deleteMany(
-  db: AnyDb,
+  db: WriteDb,
   table: EntityTableMeta,
   where: WhereObject,
 ): Promise<number> {
@@ -908,7 +933,7 @@ export function upsertOnConflict<TRow = AnyRow>(
   options: UpsertOnConflictOptions,
 ): Promise<TRow | undefined>;
 export function upsertOnConflict<TRow = AnyRow>(
-  db: AnyDb,
+  db: WriteDb,
   table: EntityTableMeta,
   values: Record<string, unknown>,
   options: UpsertOnConflictOptions,
@@ -918,7 +943,7 @@ export function upsertOnConflict<TRow = AnyRow>(
 
 // upsertByPk shares this body; the checks inside gate the write, so it needs no overload pair.
 async function upsertOnConflictChecked<TRow>(
-  db: AnyDb,
+  db: WriteDb,
   table: EntityTableMeta,
   values: Record<string, unknown>,
   options: UpsertOnConflictOptions,
@@ -962,7 +987,7 @@ export function upsertByPk<TRow = AnyRow>(
   updateOnConflict?: Record<string, unknown>,
 ): Promise<TRow | undefined>;
 export async function upsertByPk<TRow = AnyRow>(
-  db: AnyDb,
+  db: WriteDb,
   table: EntityTableMeta,
   values: Record<string, unknown>,
   updateOnConflict?: Record<string, unknown>,
@@ -993,7 +1018,7 @@ export function insertOnConflictDoNothing<TRow = AnyRow>(
   options?: InsertOnConflictDoNothingOptions,
 ): Promise<TRow | undefined>;
 export async function insertOnConflictDoNothing<TRow = AnyRow>(
-  db: AnyDb,
+  db: WriteDb,
   table: EntityTableMeta,
   values: Record<string, unknown>,
   options?: InsertOnConflictDoNothingOptions,
@@ -1037,7 +1062,7 @@ export function incrementCounter<TRow = AnyRow>(
   options?: IncrementCounterOptions,
 ): Promise<TRow | undefined>;
 export async function incrementCounter<TRow = AnyRow>(
-  db: AnyDb,
+  db: WriteDb,
   table: EntityTableMeta,
   values: Record<string, unknown>,
   increments: Record<string, number>,
@@ -1110,7 +1135,7 @@ export function deleteManyBatched(
   options: DeleteManyBatchedOptions,
 ): Promise<DeleteManyBatchedResult>;
 export async function deleteManyBatched(
-  db: AnyDb,
+  db: WriteDb,
   table: EntityTableMeta,
   where: WhereObject,
   options: DeleteManyBatchedOptions,

@@ -108,6 +108,8 @@ export function unscopedRunnerOf(runner: object): object {
   return scopedRunnerInners.get(runner) ?? runner;
 }
 
+export function innerOfScopedRunner<T extends object>(runner: T): T | undefined;
+export function innerOfScopedRunner(runner: unknown): object | undefined;
 export function innerOfScopedRunner(runner: unknown): object | undefined {
   if (typeof runner !== "object" && typeof runner !== "function") return undefined;
   return runner === null ? undefined : scopedRunnerInners.get(runner);

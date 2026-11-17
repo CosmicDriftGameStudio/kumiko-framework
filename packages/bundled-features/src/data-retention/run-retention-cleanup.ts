@@ -53,6 +53,7 @@ import {
   createEventStoreExecutor,
   type DbRunner,
   nullBlindIndexesForSubject,
+  type SchemaTable,
   selectMany,
   type TenantDb,
   type WhereObject,
@@ -157,7 +158,7 @@ export interface RunRetentionCleanupResult {
 
 async function purgeMatchingRows(
   db: DbRunner,
-  table: Parameters<typeof selectMany>[1],
+  table: SchemaTable,
   where: WhereObject,
   batchLimit: number,
   op: (id: EntityId) => Promise<{ readonly isSuccess: boolean }>,
@@ -311,7 +312,7 @@ async function deleteFileFailingClosed(
 
 async function purgeHardDeleteRowWithFiles(args: {
   readonly db: DbRunner;
-  readonly table: Parameters<typeof selectMany>[1];
+  readonly table: SchemaTable;
   readonly fileHolders: readonly SingleFileHolder[];
   readonly tenantId: TenantId;
   readonly entityName: string;
@@ -381,7 +382,7 @@ async function purgeHardDeleteRowWithFiles(args: {
 // be noise; the per-row failure is already warned above).
 async function purgeHardDeleteRowsWithFiles(args: {
   readonly db: DbRunner;
-  readonly table: Parameters<typeof selectMany>[1];
+  readonly table: SchemaTable;
   readonly fileHolders: readonly SingleFileHolder[];
   readonly where: WhereObject;
   readonly batchLimit: number;
@@ -504,7 +505,7 @@ export function sameAnonymizedValue(current: unknown, target: unknown): boolean 
 // column if a hot entity accumulates millions of held rows.
 export async function anonymizeMatchingRows(
   db: DbRunner,
-  table: Parameters<typeof selectMany>[1],
+  table: SchemaTable,
   where: WhereObject,
   batchLimit: number,
   targets: Record<string, unknown>,
@@ -544,7 +545,7 @@ export async function loadOverrideByEntity(
 
 async function hardDeleteMatchingRows(args: {
   readonly db: DbRunner;
-  readonly table: Parameters<typeof selectMany>[1];
+  readonly table: SchemaTable;
   readonly where: WhereObject;
   readonly batchLimit: number;
   readonly tenantId: TenantId;

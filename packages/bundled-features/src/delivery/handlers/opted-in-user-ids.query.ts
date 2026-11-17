@@ -3,6 +3,7 @@ import { defineQueryHandler, SYSTEM_ROLE } from "@cosmicdrift/kumiko-framework/e
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { tenantMembershipsTable } from "../../tenant/index.ts";
+import type { NotificationPreferenceRow } from "../db/queries/preferences.ts";
 import { currentNotificationType, notificationTypeNames } from "../notification-type-aliases.ts";
 import { collapsePreferenceRows } from "../preference-rows.ts";
 import { notificationPreferencesTable } from "../tables.ts";
@@ -32,7 +33,7 @@ export const optedInUserIdsQuery = defineQueryHandler({
     const { channel } = query.payload;
     const notificationType = currentNotificationType(ctx.registry, query.payload.notificationType);
 
-    const rows = await selectMany(db, notificationPreferencesTable, {
+    const rows = await selectMany<NotificationPreferenceRow>(db, notificationPreferencesTable, {
       tenantId: query.user.tenantId,
       channel,
       notificationType: { in: [...notificationTypeNames(ctx.registry, notificationType)] },

@@ -9,11 +9,13 @@
 // (see TS-typing notes in the design doc). M.1 uses unsafeAppendEvent
 // semantics under the hood for r.step.aggregate.appendEvent.
 
+import type { EntityTableMeta } from "./entity-table-meta-types.ts";
 import type { EventStoreExecutor } from "./event-store-executor-types.ts";
 import type { KumikoEventTypeMap } from "./event-type-map.ts";
 import type { HandlerContext, WriteEvent, WriteResult } from "./handlers.ts";
 import type { SaveContext } from "./hooks.ts";
 import type { EntityId } from "./identifiers.ts";
+import type { SchemaTable } from "./schema-table-types.ts";
 import type { WhereObject } from "./where-clause-types.ts";
 
 /**
@@ -178,7 +180,7 @@ export type StepNamespace = {
     readonly findOne: (
       name: string,
       opts: {
-        readonly table: unknown;
+        readonly table: SchemaTable | EntityTableMeta;
         readonly where: StepResolver<WhereObject | undefined>;
         readonly unsafeAllTenants?: { readonly reason: string };
       },
@@ -186,7 +188,7 @@ export type StepNamespace = {
     readonly findMany: (
       name: string,
       opts: {
-        readonly table: unknown;
+        readonly table: SchemaTable | EntityTableMeta;
         readonly where?: StepResolver<WhereObject | undefined>;
         readonly limit?: number;
         readonly unsafeAllTenants?: { readonly reason: string };
