@@ -49,6 +49,7 @@ const authorEntity = createEntity({
   fields: { name: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
 const postEntity = createEntity({
+  name: "post",
   table: "el_posts",
   fields: {
     title: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -76,6 +77,7 @@ const contactEntity = createEntity({
   },
 });
 const leadEntity = createEntity({
+  name: "lead",
   table: "el_leads",
   fields: {
     title: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -296,6 +298,7 @@ async function enrichA(row: Record<string, unknown>): Promise<EagerloadedRow | u
 describe("collectReferenceFields", () => {
   test("extrahiert reference-Felder, parst cross-feature-Prefix, flaggt multiple", () => {
     const e = createEntity({
+      name: "e",
       table: "x",
       fields: {
         title: createTextField({ personal: false, reason: "test_fixture" }),

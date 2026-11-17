@@ -96,6 +96,7 @@ function buildSchema(
   lockedWhen: EntityDefinition["lockedWhen"],
 ): FeatureSchema {
   const entity: EntityDefinition = {
+    name: "entity",
     ...(lockedWhen !== undefined && { lockedWhen }),
     fields: {
       acknowledged: { type: "boolean", required: false },

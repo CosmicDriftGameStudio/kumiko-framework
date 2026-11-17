@@ -46,6 +46,7 @@ afterEach(() => {
 // One entity per test: a rebuild replays every event of its aggregate type.
 async function setupFixture(name: string) {
   const entity = createEntity({
+    name: "entity",
     table: `read_${name}`,
     fields: { attachment: createFileField({ personal: "self" }) },
   });

@@ -89,6 +89,7 @@ function stubDispatcher(record: Readonly<Record<string, unknown>>): Dispatcher {
 
 function buildSchema(): FeatureSchema {
   const entity: EntityDefinition = {
+    name: "entity",
     fields: {
       name: {
         type: "text",

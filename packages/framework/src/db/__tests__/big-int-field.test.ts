@@ -89,6 +89,7 @@ describe("buildEntityTable — bigInt-Mapping", () => {
 describe("buildInsertSchema — bigInt-Validation", () => {
   test("accepts safe-integer values including >2^31", () => {
     const entity = createEntity({
+      name: "entity",
       fields: { bytesWritten: createBigIntField({ required: true }) },
     });
     const schema = buildInsertSchema(entity);
@@ -105,6 +106,7 @@ describe("buildInsertSchema — bigInt-Validation", () => {
 
   test("lehnt Float ab (silent-Truncation-Schutz)", () => {
     const entity = createEntity({
+      name: "entity",
       fields: { count: createBigIntField({ required: true }) },
     });
     const schema = buildInsertSchema(entity);
@@ -113,6 +115,7 @@ describe("buildInsertSchema — bigInt-Validation", () => {
 
   test("lehnt non-safe-integer ab (>2^53)", () => {
     const entity = createEntity({
+      name: "entity",
       fields: { count: createBigIntField({ required: true }) },
     });
     const schema = buildInsertSchema(entity);
@@ -124,6 +127,7 @@ describe("buildInsertSchema — bigInt-Validation", () => {
 
   test("default-Wert reist in Zod-Schema durch", () => {
     const entity = createEntity({
+      name: "entity",
       fields: { count: createBigIntField({ default: 100 }) },
     });
     const schema = buildInsertSchema(entity);

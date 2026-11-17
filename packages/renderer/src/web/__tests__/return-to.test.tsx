@@ -25,6 +25,7 @@ import { useBrowserNavApi } from "../app/nav.tsx";
 import { createMockDispatcher, fireEvent, render, screen, waitFor } from "./test-utils.tsx";
 
 const tokenEntity: EntityDefinition = {
+  name: "token",
   fields: {
     name: {
       type: "text",

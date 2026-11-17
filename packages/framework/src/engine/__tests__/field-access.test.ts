@@ -7,6 +7,7 @@ import {
 } from "../field-access.ts";
 
 const entity: EntityDefinition = {
+  name: "entity",
   fields: {
     title: {
       type: "text",
@@ -40,6 +41,7 @@ describe("filterReadFields", () => {
 
   test("filters each row of an embedded list, keeping it an array", () => {
     const entityWithLines: EntityDefinition = {
+      name: "entityWithLines",
       fields: {
         lines: {
           type: "embedded",
@@ -78,6 +80,7 @@ describe("checkWriteFieldRoles", () => {
 
 describe("checkWriteFieldOwnership embedded sub-fields", () => {
   const checkpoints: EntityDefinition = {
+    name: "checkpoints",
     fields: {
       checkpoints: {
         type: "embedded",

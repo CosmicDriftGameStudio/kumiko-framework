@@ -16,6 +16,7 @@ import {
 import { flattenCompoundTypes, rehydrateCompoundTypes } from "../compound-types.ts";
 
 const mixedEntity: EntityDefinition = createEntity({
+  name: "mixed",
   defaultCurrency: "EUR",
   fields: {
     label: createTextField({ personal: false, reason: "test_fixture" }),

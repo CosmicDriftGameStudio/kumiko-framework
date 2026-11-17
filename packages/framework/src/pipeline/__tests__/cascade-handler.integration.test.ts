@@ -18,55 +18,66 @@ function textField() {
 }
 
 const departmentEntity = createEntity({
+  name: "department",
   table: "cascade_departments",
   fields: { name: textField() },
 });
 const userEntity = createEntity({
+  name: "user",
   table: "cascade_users",
   fields: { name: textField(), departmentId: textField() },
 });
 const sessionEntity = createEntity({
+  name: "session",
   table: "cascade_sessions",
   fields: { userId: textField(), token: textField() },
 });
-const groupEntity = createEntity({ table: "cascade_groups", fields: { name: textField() } });
+const groupEntity = createEntity({ name: "group", table: "cascade_groups", fields: { name: textField() } });
 // Two separate junction tables so one Registry can host both onDelete
 // strategies (restrict + cascade) on the same user→group pair.
 const userGroupRestrictEntity = createEntity({
+  name: "userGroupRestrict",
   table: "cascade_user_group_restrict",
   fields: { userId: textField(), groupId: textField() },
 });
 const userGroupCascadeEntity = createEntity({
+  name: "userGroupCascade",
   table: "cascade_user_group_cascade",
   fields: { userId: textField(), groupId: textField() },
 });
 // setNull pair: members survive the team deletion with teamId nulled out.
-const teamEntity = createEntity({ table: "cascade_teams", fields: { name: textField() } });
+const teamEntity = createEntity({ name: "team", table: "cascade_teams", fields: { name: textField() } });
 const memberEntity = createEntity({
+  name: "member",
   table: "cascade_members",
   fields: { name: textField(), teamId: textField() },
 });
 const taskEntity = createEntity({
+  name: "task",
   table: "cascade_tasks",
   fields: { title: textField(), memberId: textField() },
 });
 // Grandchild chain: squad → recruit → badge, all cascade.
-const squadEntity = createEntity({ table: "cascade_squads", fields: { name: textField() } });
+const squadEntity = createEntity({ name: "squad", table: "cascade_squads", fields: { name: textField() } });
 const recruitEntity = createEntity({
+  name: "recruit",
   table: "cascade_recruits",
   fields: { name: textField(), squadId: textField() },
 });
 const badgeEntity = createEntity({
+  name: "badge",
   table: "cascade_badges",
   fields: { label: textField(), recruitId: textField() },
 });
 // Restrict on the grandchild level: fort → bunker (cascade) → crate (restrict).
-const fortEntity = createEntity({ table: "cascade_forts", fields: { name: textField() } });
+const fortEntity = createEntity({ name: "fort", table: "cascade_forts", fields: { name: textField() } });
 const bunkerEntity = createEntity({
+  name: "bunker",
   table: "cascade_bunkers",
   fields: { name: textField(), fortId: textField() },
 });
 const crateEntity = createEntity({
+  name: "crate",
   table: "cascade_crates",
   fields: { label: textField(), bunkerId: textField() },
 });

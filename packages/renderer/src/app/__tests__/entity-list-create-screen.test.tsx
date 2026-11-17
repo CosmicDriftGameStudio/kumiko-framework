@@ -34,6 +34,7 @@ function stubDispatcher(): Dispatcher {
 
 function buildSchema(createScreen: string | undefined, createUnavailable = false): FeatureSchema {
   const entity: EntityDefinition = {
+    name: "entity",
     fields: {
       name: {
         type: "text",

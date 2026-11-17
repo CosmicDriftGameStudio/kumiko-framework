@@ -132,6 +132,7 @@ const drawerAction = {
 } as const;
 
 const entity: EntityDefinition = {
+  name: "entity",
   fields: {
     name: {
       type: "text",

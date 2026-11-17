@@ -17,6 +17,7 @@ const KMS_CTX: KmsContext = { requestId: "test" };
 const ENTITY_NAME = "golden";
 
 const goldenEntity = createEntity({
+  name: "golden",
   table: "pii_jsonb_goldens",
   fields: {
     input: createJsonbField({ personal: "tenant" }),

@@ -146,6 +146,7 @@ describe("entityList facets — unchanged after the shared buildFilterFacets/bui
     queryCalls = [];
     capturedProps = undefined;
     const entity: EntityDefinition = {
+      name: "entity",
       fields: {
         active: { type: "boolean", filterable: true, required: false },
       },
@@ -555,6 +556,7 @@ describe("projectionList filter + facets", () => {
       },
     });
     const entity: EntityDefinition = {
+      name: "entity",
       fields: {
         tenantId: {
           type: "reference",

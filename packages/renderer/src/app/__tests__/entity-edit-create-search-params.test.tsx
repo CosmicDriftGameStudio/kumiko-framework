@@ -61,6 +61,7 @@ function stubDispatcher(): Dispatcher {
 
 function buildSchema(urlPrefillFields: readonly string[] | undefined): FeatureSchema {
   const entity: EntityDefinition = {
+    name: "entity",
     fields: {
       name: {
         type: "text",

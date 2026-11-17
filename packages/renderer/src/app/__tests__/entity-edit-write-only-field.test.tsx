@@ -103,6 +103,7 @@ function stubDispatcher(record: Readonly<Record<string, unknown>>): Dispatcher {
 
 function buildSchema(apiKeyRequired: boolean): FeatureSchema {
   const entity: EntityDefinition = {
+    name: "entity",
     fields: {
       name: {
         type: "text",

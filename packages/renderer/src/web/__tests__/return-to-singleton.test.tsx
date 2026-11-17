@@ -23,6 +23,7 @@ import { useBrowserNavApi } from "../app/nav.tsx";
 import { createMockDispatcher, fireEvent, type MockQueryHandler, type MockWriteHandler, render, screen, waitFor } from "./test-utils.tsx";
 
 const settingEntity: EntityDefinition = {
+  name: "setting",
   fields: {
     title: {
       type: "text",

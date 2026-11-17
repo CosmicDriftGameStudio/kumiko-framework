@@ -27,6 +27,7 @@ const text = () =>
   });
 
 const linkEntity = createEntity({
+  name: "link",
   table: "read_gate_links",
   fields: { documentId: text(), entityType: text(), entityId: text() },
   parentRef: {
@@ -36,6 +37,7 @@ const linkEntity = createEntity({
   },
 });
 const hostEntity = createEntity({
+  name: "host",
   table: "read_gate_hosts",
   fields: { name: text(), scan: createFileField() },
   access: { read: { Reader: "all" } },

@@ -8,6 +8,7 @@ import { createEntity, createLocatedTimestampField, createTextField } from "../.
 import { flattenLocatedTimestamp, rehydrateLocatedTimestamp } from "../located-timestamp.ts";
 
 const orderEntity: EntityDefinition = createEntity({
+  name: "order",
   fields: {
     clientName: createTextField({ personal: false, reason: "test_fixture" }),
     pickup: createLocatedTimestampField(),

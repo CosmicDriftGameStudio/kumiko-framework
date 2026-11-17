@@ -283,6 +283,7 @@ describe("buildParentRefClause on a global host", () => {
 
   test("a global host marked systemRowsReadable keeps its EXISTS arm under the tenant scope", () => {
     const readableHost = createEntity({
+      name: "readableHost",
       table: "read_test_readable_global_hosts",
       tenancy: "global",
       systemRowsReadable: true,
@@ -311,6 +312,7 @@ describe("buildParentRefClause on a global host", () => {
 
   test("the host check skips readable hosts and hosts whose access.read is a where-rule", () => {
     const whereHost = createEntity({
+      name: "whereHost",
       table: "read_test_where_global_hosts",
       tenancy: "global",
       fields: { ownerId: textField() },
@@ -327,6 +329,7 @@ describe("buildParentRefClause on a global host", () => {
       },
     });
     const readableHost = createEntity({
+      name: "readableHost",
       table: "read_test_readable_global_hosts",
       tenancy: "global",
       systemRowsReadable: true,

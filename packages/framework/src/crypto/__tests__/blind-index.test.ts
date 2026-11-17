@@ -23,6 +23,7 @@ const TEST_KEY_B64 = Buffer.alloc(32, 7).toString("base64");
 const TEST_KEY = decodeBlindIndexKey(TEST_KEY_B64);
 
 const userLikeEntity = createEntity({
+  name: "userLike",
   fields: {
     email: createTextField({ required: true, personal: "self", find: "exact" }),
     role: createTextField({ personal: false, reason: "test_fixture" }),

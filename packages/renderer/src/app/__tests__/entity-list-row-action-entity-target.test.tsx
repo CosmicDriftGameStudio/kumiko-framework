@@ -89,6 +89,7 @@ const testPrimitives = createStubPrimitives({
 
 function buildSchema(rowAction: EntityListScreenDefinition["rowActions"]): FeatureSchema {
   const entity: EntityDefinition = {
+    name: "entity",
     fields: {
       customerId: {
         type: "text",

@@ -1136,6 +1136,7 @@ describe("computeEditViewModel — declared reference metadata", () => {
 
   test("a select field's optionsAvailabilityQuery reaches the view-model next to its static options", () => {
     const entity: EntityDefinition = {
+      name: "entity",
       fields: {
         plan: {
           type: "select",
@@ -1164,6 +1165,7 @@ describe("computeEditViewModel — declared reference metadata", () => {
 
   test("a multiSelect field's optionsAvailabilityQuery reaches the view-model with an empty payload", () => {
     const entity: EntityDefinition = {
+      name: "entity",
       fields: {
         roles: {
           type: "multiSelect",
@@ -1191,6 +1193,7 @@ describe("computeEditViewModel — declared reference metadata", () => {
 
   test("a multiSelect field's optionsQuery and payload reach the view-model as selectOptionsQuery", () => {
     const entity: EntityDefinition = {
+      name: "entity",
       fields: {
         scopes: {
           type: "multiSelect",

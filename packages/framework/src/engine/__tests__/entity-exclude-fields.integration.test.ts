@@ -172,6 +172,7 @@ describe("excludeFields on a required field with a default", () => {
 describe("excludeFields definition-time checks", () => {
   test("rejects excluding a field that is part of a totalsMatch pair", () => {
     const invoiceEntity = createEntity({
+      name: "invoice",
       table: "exclude_fields_invoices",
       fields: {
         total: createMoneyField({ required: true }),

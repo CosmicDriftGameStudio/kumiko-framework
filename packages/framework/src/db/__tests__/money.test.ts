@@ -11,6 +11,7 @@ import { createEntity, createMoneyField, createTextField } from "../../engine/in
 import { flattenMoney, rehydrateMoney } from "../money.ts";
 
 const orderEntity: EntityDefinition = createEntity({
+  name: "order",
   defaultCurrency: "EUR",
   fields: {
     label: createTextField({ personal: false, reason: "test_fixture" }),
@@ -20,6 +21,7 @@ const orderEntity: EntityDefinition = createEntity({
 });
 
 const usdEntity: EntityDefinition = createEntity({
+  name: "usd",
   defaultCurrency: "USD",
   fields: {
     fee: createMoneyField(),
@@ -27,6 +29,7 @@ const usdEntity: EntityDefinition = createEntity({
 });
 
 const jpyEntity: EntityDefinition = createEntity({
+  name: "jpy",
   defaultCurrency: "JPY",
   fields: {
     fee: createMoneyField(),
@@ -93,6 +96,7 @@ describe("flattenMoney — splits { amount, currency } into the two columns", ()
 
   test("Framework default 'EUR' when entity.defaultCurrency is not set", () => {
     const noCurrencyEntity: EntityDefinition = createEntity({
+      name: "noCurrency",
       fields: { fee: createMoneyField() },
     });
     const flat = flattenMoney({ fee: { amount: 50 } }, noCurrencyEntity);

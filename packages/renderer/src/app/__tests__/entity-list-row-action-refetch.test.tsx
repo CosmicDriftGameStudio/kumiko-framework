@@ -113,6 +113,7 @@ function stubDispatcher(state: StubState): Dispatcher {
 
 function buildSchema(): FeatureSchema {
   const entity: EntityDefinition = {
+    name: "entity",
     fields: {
       status: {
         type: "text",
@@ -246,6 +247,7 @@ const toolbarTestPrimitives = createStubPrimitives({
 
 function buildToolbarSchema(): FeatureSchema {
   const entity: EntityDefinition = {
+    name: "entity",
     fields: {
       status: {
         type: "text",

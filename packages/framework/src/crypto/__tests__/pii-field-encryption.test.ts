@@ -35,6 +35,7 @@ const KMS_CTX: KmsContext = { requestId: "test" };
 const ENTITY_NAME = "pii-entity";
 
 const userLikeEntity = createEntity({
+  name: "userLike",
   fields: {
     email: createTextField({ required: true, personal: "self", find: "none" }),
     role: createTextField({ personal: false, reason: "test_fixture" }),
@@ -43,6 +44,7 @@ const userLikeEntity = createEntity({
 });
 
 const commentEntity = createEntity({
+  name: "comment",
   fields: {
     body: createTextField({
       personal: { of: "authorId" },
@@ -54,6 +56,7 @@ const commentEntity = createEntity({
 });
 
 const brandingEntity = createEntity({
+  name: "branding",
   fields: {
     brandColor: createTextField({
       personal: "tenant",
@@ -277,6 +280,7 @@ describe("tenant-owned field encryption", () => {
   test("tenant-owned field round-trips through the subject-KMS pipeline", async () => {
     const kms = new InMemoryKmsAdapter();
     const brandingWithAccess = createEntity({
+      name: "brandingWithAccess",
       fields: {
         iban: createTextField({
           personal: "tenant",
@@ -303,6 +307,7 @@ describe("tenant-owned field encryption", () => {
   test("tenant-annotated field becomes unreadable after subject erasure (Art. 17)", async () => {
     const kms = new InMemoryKmsAdapter();
     const brandingWithAccess = createEntity({
+      name: "brandingWithAccess",
       fields: {
         iban: createTextField({ personal: "tenant", find: "none" }),
       },

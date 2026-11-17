@@ -15,6 +15,7 @@ const TEST_KEY = Buffer.from("a]bJm#kP9xQ2@wN!vL$hR5yT8eU0iO3f").toString("base6
 
 describe("event-store-executor-context — encryptForStorage/decryptForRead layering", () => {
   const entity = createEntity({
+    name: "entity",
     table: "pii_roundtrip_test",
     fields: {
       userId: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -69,6 +70,7 @@ describe("event-store-executor-context — encryptForStorage/decryptForRead laye
 
 describe("event-store-executor-context — file-reference fields", () => {
   const entity = createEntity({
+    name: "entity",
     table: "pii_file_ref_test",
     fields: {
       userId: createTextField({ personal: false, reason: "test_fixture", required: true }),

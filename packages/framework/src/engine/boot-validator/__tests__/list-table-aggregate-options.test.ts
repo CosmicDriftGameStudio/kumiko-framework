@@ -278,6 +278,7 @@ describe("validateBoot — counted chip facets", () => {
 
   test("chips with showCounts on a multiple reference are rejected", () => {
     const entity = createEntity({
+      name: "entity",
       fields: { tags: createReferenceField({ entity: "tag", multiple: true, filterable: true }) },
     });
     expect(() =>

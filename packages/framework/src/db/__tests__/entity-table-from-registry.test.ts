@@ -55,6 +55,7 @@ describe("entityTableFromRegistry", () => {
     ]);
 
     const other = createEntity({
+      name: "other",
       table: "read_tenants",
       fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
     });

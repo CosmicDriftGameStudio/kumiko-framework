@@ -112,6 +112,7 @@ function renderScreen(
 }
 
 const statusEntity: EntityDefinition = {
+  name: "status",
   fields: {
     status: { type: "select", options: ["open", "done"], filterable: true, required: false },
   },
@@ -235,6 +236,7 @@ describe("entityList facets config", () => {
     queryCalls = [];
     capturedProps = undefined;
     const entity: EntityDefinition = {
+      name: "entity",
       fields: {
         status: { type: "select", options: ["open", "done"], filterable: true, required: false },
         priority: { type: "select", options: ["high", "low"], filterable: true, required: false },
@@ -321,6 +323,7 @@ describe("entityList defaultFilters", () => {
   test("a boolean default applies as a coerced boolean filter", async () => {
     queryCalls = [];
     const entity: EntityDefinition = {
+      name: "entity",
       fields: { active: { type: "boolean", filterable: true, required: false } },
     };
     const screen: EntityListScreenDefinition = {

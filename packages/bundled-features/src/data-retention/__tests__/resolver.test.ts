@@ -8,6 +8,7 @@ import { resolveRetentionPolicy } from "../resolver.ts";
 describe("resolveRetentionPolicy — Layer-Resolution", () => {
   test("Layer 1 Entity-Default applies when neither preset nor override is present", () => {
     const entity = createEntity({
+      name: "entity",
       fields: { foo: createTextField({ personal: false, reason: "technical_reference" }) },
       retention: { keepFor: "30d", strategy: "hardDelete", reference: "createdAt" },
     });
@@ -29,6 +30,7 @@ describe("resolveRetentionPolicy — Layer-Resolution", () => {
 
   test("Layer 2 preset overrides Entity-Default", () => {
     const entity = createEntity({
+      name: "entity",
       fields: { foo: createTextField({ personal: false, reason: "technical_reference" }) },
       retention: { keepFor: "7d", strategy: "hardDelete" },
     });
@@ -75,6 +77,7 @@ describe("resolveRetentionPolicy — Layer-Resolution", () => {
 
   test("Entity without retention + no preset + no override → policy=null + source=none", () => {
     const entity = createEntity({
+      name: "entity",
       fields: { foo: createTextField({ personal: false, reason: "technical_reference" }) },
     });
 
@@ -174,6 +177,7 @@ describe("resolveRetentionPolicy — override-incomplete-Guard", () => {
 describe("resolveRetentionPolicy — Edge-Cases", () => {
   test("default-Preset is empty → falls back to entity-default", () => {
     const entity = createEntity({
+      name: "entity",
       fields: { foo: createTextField({ personal: false, reason: "technical_reference" }) },
       retention: { keepFor: "30d", strategy: "hardDelete" },
     });

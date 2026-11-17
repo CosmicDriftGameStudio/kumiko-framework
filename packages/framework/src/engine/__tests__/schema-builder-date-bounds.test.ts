@@ -9,6 +9,7 @@ import { buildInsertSchema } from "../schema-builder.ts";
 describe("date/timestamp min/max bounds", () => {
   test("date max rejected, accepted within bounds", () => {
     const entity = createEntity({
+      name: "entity",
       table: "T",
       fields: { born: createDateField({ max: "2026-06-15" }) },
     });
@@ -19,6 +20,7 @@ describe("date/timestamp min/max bounds", () => {
 
   test("date min rejected, accepted within bounds", () => {
     const entity = createEntity({
+      name: "entity",
       table: "T",
       fields: { d: createDateField({ min: "2026-01-01" }) },
     });
@@ -28,13 +30,14 @@ describe("date/timestamp min/max bounds", () => {
   });
 
   test("without bounds: every valid date is accepted", () => {
-    const entity = createEntity({ table: "T", fields: { d: createDateField() } });
+    const entity = createEntity({ name: "entity", table: "T", fields: { d: createDateField() } });
     const schema = buildInsertSchema(entity);
     expect(schema.safeParse({ d: "1999-01-01" }).success).toBe(true);
   });
 
   test("timestamp min/max (UTC-Instant) durchgesetzt", () => {
     const entity = createEntity({
+      name: "entity",
       table: "T",
       fields: {
         at: createTimestampField({ min: "2026-01-01T00:00:00Z", max: "2026-12-31T23:59:59Z" }),

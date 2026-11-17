@@ -17,6 +17,7 @@ import {
 } from "../subject-resolver.ts";
 
 const userLikeEntity = createEntity({
+  name: "userLike",
   fields: {
     email: createTextField({ required: true, personal: "self", find: "none" }),
     role: createTextField({ personal: false, reason: "test_fixture" }),
@@ -26,6 +27,7 @@ const userLikeEntity = createEntity({
 });
 
 const commentEntity = createEntity({
+  name: "comment",
   fields: {
     body: createTextField({
       personal: { of: "authorId" },
@@ -37,6 +39,7 @@ const commentEntity = createEntity({
 });
 
 const brandingEntity = createEntity({
+  name: "branding",
   fields: {
     brandColor: createTextField({
       personal: "tenant",
@@ -119,6 +122,7 @@ describe("resolveSubjectForField", () => {
 
   describe("userOwned owner chain", () => {
     const nullableOwnerEntity = createEntity({
+      name: "nullableOwner",
       fields: {
         body: createTextField({ personal: { of: "authorId", whenAbsent: "tenant" }, find: "none" }),
         authorId: createTextField({ personal: "ref" }),
@@ -174,6 +178,7 @@ describe("resolveSubjectForField", () => {
 
     test('whenAbsent "self" keys an ownerless row on its own record subject', () => {
       const selfEntity = createEntity({
+        name: "self",
         fields: {
           body: createTextField({ personal: { of: "authorId", whenAbsent: "self" }, find: "none" }),
           authorId: createTextField({ personal: "ref" }),
@@ -251,6 +256,7 @@ describe("collectPiiSubjectFields", () => {
 
 describe("collectPiiEncryptedFields", () => {
   const mediaEntity = createEntity({
+    name: "media",
     table: "resolver_media",
     fields: {
       authorId: createTextField({ personal: false, reason: "test_fixture" }),

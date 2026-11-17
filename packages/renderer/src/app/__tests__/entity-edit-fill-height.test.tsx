@@ -29,6 +29,7 @@ function stubDispatcher(): Dispatcher {
 
 function buildSchema(fillHeight?: boolean): FeatureSchema {
   const entity: EntityDefinition = {
+    name: "entity",
     fields: {
       name: {
         type: "text",

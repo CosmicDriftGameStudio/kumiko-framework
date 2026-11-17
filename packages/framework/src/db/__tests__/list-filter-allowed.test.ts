@@ -3,6 +3,7 @@ import { createEntity, createTextField } from "../../engine/factories.ts";
 import { isListFilterAllowed, isListSortAllowed } from "../entity-field-encryption.ts";
 
 const entity = createEntity({
+  name: "entity",
   table: "read_list_filter_allowed",
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture" }),

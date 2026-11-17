@@ -185,6 +185,7 @@ describe("resolveTransferAdjacency", () => {
 
   test("ignores a multiple reference, which the boot validator rejects up front", () => {
     const bulk = createEntity({
+      name: "bulk",
       table: "t",
       idType: "uuid",
       transferable: true,

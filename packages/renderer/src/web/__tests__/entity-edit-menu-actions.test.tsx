@@ -13,6 +13,7 @@ import { PageHeaderSlotProvider, usePageHeaderSlot } from "../layout/page-header
 import { createMockDispatcher, fireEvent, type MockWriteHandler, render, screen, waitFor, within } from "./test-utils.tsx";
 
 const productEntity: EntityDefinition = {
+  name: "product",
   fields: {
     name: {
       type: "text",

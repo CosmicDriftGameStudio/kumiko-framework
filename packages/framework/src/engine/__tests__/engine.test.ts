@@ -1166,12 +1166,12 @@ describe("hasAccess", () => {
 
 describe("entity options", () => {
   test("softDelete defaults to false", () => {
-    const entity = createEntity({ table: "Users", fields: {} });
+    const entity = createEntity({ name: "entity", table: "Users", fields: {} });
     expect(entity.softDelete).toBe(false);
   });
 
   test("softDelete can be enabled", () => {
-    const entity = createEntity({ table: "Users", fields: {}, softDelete: true });
+    const entity = createEntity({ name: "entity", table: "Users", fields: {}, softDelete: true });
     expect(entity.softDelete).toBe(true);
   });
 });

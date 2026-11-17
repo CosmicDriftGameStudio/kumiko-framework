@@ -21,6 +21,7 @@ const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNod
 const passFormChildren = (props: FormProps): ReactNode => props.children;
 
 const entity: EntityDefinition = {
+  name: "entity",
   fields: {
     name: {
       type: "text",

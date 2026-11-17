@@ -139,6 +139,7 @@ describe("GDPR-storage boot guards V2-V4 (via r.bootCheck)", () => {
         table: projectionTable,
         apply: { [contactCreated.name]: async () => {} },
         entity: createEntity({
+          name: "entity",
           fields: {
             email: createTextField({
               personal: "self",
@@ -194,6 +195,7 @@ describe("GDPR-storage boot guards V2-V4 (via r.bootCheck)", () => {
         table: projectionTable,
         apply: { [contactCreated.name]: async () => {} },
         entity: createEntity({
+          name: "entity",
           fields: {
             email: createTextField({
               personal: "self",

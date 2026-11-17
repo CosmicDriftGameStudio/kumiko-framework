@@ -6,6 +6,7 @@ import { personalFieldsRekeyedOnOwnerTransition } from "../owner-transition-reke
 import { PII_CIPHERTEXT_PREFIX } from "../pii-ciphertext-format.ts";
 
 const entity = createEntity({
+  name: "entity",
   table: "rekey_items",
   fields: {
     ownerId: createTextField({ personal: false, reason: "test_fixture" }),
@@ -15,6 +16,7 @@ const entity = createEntity({
 });
 
 const recordOwnedEntity = createEntity({
+  name: "recordOwned",
   table: "rekey_record_items",
   fields: {
     ownerId: createTextField({ personal: false, reason: "test_fixture" }),

@@ -127,6 +127,7 @@ function renderScreen(
 }
 
 const entity: EntityDefinition = {
+  name: "entity",
   fields: {
     name: {
       type: "text",

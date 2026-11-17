@@ -71,6 +71,7 @@ const testPrimitives = createStubPrimitives({
 
 function buildSchema(): FeatureSchema {
   const entity: EntityDefinition = {
+    name: "entity",
     fields: {
       status: {
         type: "text",

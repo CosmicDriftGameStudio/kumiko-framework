@@ -17,6 +17,7 @@ import { DispatcherProvider, KumikoScreen, NavProvider } from "../../index.ts";
 import { createMockDispatcher, fireEvent, render, screen, waitFor } from "./test-utils.tsx";
 
 const productEntity: EntityDefinition = {
+  name: "product",
   fields: {
     name: {
       type: "text",
@@ -54,6 +55,7 @@ function buildSchema(redirect?: string): FeatureSchema {
 // screen is the redirect target, and parentEntity's own field carries the
 // parent id.
 const parentEntity: EntityDefinition = {
+  name: "parent",
   fields: {
     name: {
       type: "text",

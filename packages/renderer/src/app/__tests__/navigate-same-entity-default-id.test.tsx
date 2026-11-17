@@ -102,6 +102,7 @@ function stubDispatcher(): Dispatcher {
 }
 
 const rentEntity: EntityDefinition = {
+  name: "rent",
   fields: {
     name: {
       type: "text",

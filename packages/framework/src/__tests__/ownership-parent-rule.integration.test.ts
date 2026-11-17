@@ -22,6 +22,7 @@ import type { SessionUser } from "../engine/types/index.ts";
 import { createTestUser, TestUsers, testTenantId } from "../seeding/seed-users.ts";
 
 const siteEntity = createEntity({
+  name: "site",
   table: "parent_rule_sites",
   softDelete: true,
   fields: {
@@ -35,6 +36,7 @@ const siteEntity = createEntity({
 });
 
 const roomEntity = createEntity({
+  name: "room",
   table: "parent_rule_rooms",
   softDelete: true,
   fields: {
@@ -48,6 +50,7 @@ const roomEntity = createEntity({
 });
 
 const fixtureEntity = createEntity({
+  name: "fixture",
   table: "parent_rule_fixtures",
   softDelete: true,
   fields: {

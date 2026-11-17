@@ -16,6 +16,7 @@ const referenceTo = (entity: string) =>
   createReferenceField({ entity, personal: false, reason: "test_fixture" });
 
 const siteEntity = createEntity({
+  name: "site",
   table: "read_sites",
   fields: { name: textField() },
 });
@@ -59,6 +60,7 @@ describe("validateParentOwnershipRules", () => {
     const feature = featureWith({
       site: siteEntity,
       room: createEntity({
+        name: "room",
         table: "read_rooms",
         fields: {
           siteId: referenceTo("site"),
@@ -93,6 +95,7 @@ describe("validateParentOwnershipRules", () => {
   test("rejects a global parent entity", () => {
     const feature = featureWith({
       site: createEntity({
+        name: "site",
         table: "read_sites",
         tenancy: "global",
         fields: { name: textField() },

@@ -72,6 +72,7 @@ const testPrimitives = createStubPrimitives({
 });
 
 const entity: EntityDefinition = {
+  name: "entity",
   fields: {
     name: {
       type: "text",

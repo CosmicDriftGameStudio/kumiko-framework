@@ -19,6 +19,7 @@ import { type BunTestDb, createTestDb } from "./query/bun-test-db.ts";
 const text = () => createTextField({ required: true, personal: false, reason: "test_fixture" });
 
 const linkEntity = createEntity({
+  name: "link",
   table: "read_ref_gate_links",
   fields: { customerId: text() },
 });

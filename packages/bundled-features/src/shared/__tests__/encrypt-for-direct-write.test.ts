@@ -12,6 +12,7 @@ import { encryptForDirectWrite } from "../encrypt-for-direct-write.ts";
 // Row-subject (`personal: { of: "id" }`) keys are derived from the entity
 // name; a direct-write path that drops it would throw on every insert.
 const recordOwnedEntity = createEntity({
+  name: "recordOwned",
   table: "direct_write_record_owned",
   fields: {
     secretNote: createTextField({

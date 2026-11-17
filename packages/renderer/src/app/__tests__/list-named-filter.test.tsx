@@ -127,6 +127,7 @@ function renderScreen(
 }
 
 const statusEntity: EntityDefinition = {
+  name: "status",
   fields: {
     status: { type: "select", options: ["open", "done"], filterable: true, required: false },
   },
