@@ -8,7 +8,7 @@ auth.sessionExchangeHandlers — app-defined login methods (ID token, email code
 
 # Sample: Session Exchange
 
-**I want my own login method (Apple/Google ID token, email code) without rebuilding cookies, JWTs and rate limits.**
+**I want my own login method (Apple/Google ID token, email link) without rebuilding cookies, JWTs and rate limits.**
 
 ## What this sample shows
 
@@ -29,7 +29,7 @@ The client calls `POST /api/auth/session-exchange` with `{ method: "code", paylo
 ## Design rules
 
 1. **Only listed handlers can issue a session.** The route resolves `method` against the map (own keys only); the handler QN never comes from the client.
-2. **The handler owns verification.** The demo compares a fixed code; a real handler verifies the ID token signature and audience first, then calls `sessionForVerifiedUser(ctx, { email })` (or `{ userId }`) for the login gates: account status, membership choice, claims. A lookup by email only issues a session for a verified address (otherwise a pre-registered attacker account would be taken over by the victim), a lookup by `userId` trusts your own identity link. There is no password or lockout gate. There is no MFA gate: boot aborts when `auth-mfa` is mounted together with `sessionExchangeHandlers`.
+2. **The handler owns verification.** The demo compares a fixed code; a real handler verifies the ID token signature and audience first, then calls `sessionForVerifiedUser(ctx, { email })` (or `{ userId }`) for the login gates: account status, membership choice, claims. A lookup by email only issues a session for a verified address (otherwise a pre-registered attacker account would be taken over by the victim), a lookup by `userId` trusts your own identity link. There is no password or lockout gate, so accept only credentials that cannot be guessed: a signed ID token or a long random one-time token. A short code (six digits by mail) needs its own attempt counter per identity in the handler; the route only knows the IP, and a per-IP bucket does not stop a distributed guess. There is no MFA gate: boot aborts when `auth-mfa` is mounted together with `sessionExchangeHandlers`.
 3. **Anything but `auth-session` is rejected.** An MFA challenge or foreign result yields 500 and no cookie.
 4. **Errors map like login.** `details.reason` goes through `loginErrorStatusMap`.
 5. **Grant SYSTEM to the one handler, hide it from agents.** `escapeHatch: { grants: ["systemIdentity"] }` on the exchange handler, not `r.systemScope()` on the feature, and `agent: { expose: false }` because the payload is a credential.
@@ -52,7 +52,7 @@ The client calls `POST /api/auth/session-exchange` with `{ method: "code", paylo
 // auth.sessionExchangeHandlers and the framework route mints the session.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { hashPassword } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
+import { AuthErrors, hashPassword } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
 import {
   configValuesTable,
   createConfigFeature,
@@ -181,9 +181,9 @@ describe("session-exchange sample wiring", () => {
       method: "code",
       payload: { email: "unverified@example.com", code: DEMO_EXCHANGE_CODE },
     });
-    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(res.status).toBe(422);
     expect(res.headers.getSetCookie()).toEqual([]);
-    expect(((await res.json()) as { token?: string }).token).toBeUndefined();
+    expect(JSON.stringify(await res.json())).toContain(AuthErrors.emailNotVerified);
   });
 
   test("unknown method is 400", async () => {
