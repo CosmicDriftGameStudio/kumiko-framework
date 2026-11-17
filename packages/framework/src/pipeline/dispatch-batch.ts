@@ -200,7 +200,7 @@ async function runBatchBody(
   requestId?: string,
   inheritedOrigin?: WriteOrigin,
 ): Promise<BatchResult> {
-  const { idempotency, lifecycle, appContext: context } = ctx;
+  const { idempotency } = ctx;
   if (commands.length === 0) {
     return { isSuccess: true, results: [] };
   }
@@ -213,6 +213,28 @@ async function runBatchBody(
   const idempotencyCheck = await checkBatchIdempotency(ctx, user, requestId);
   if (idempotencyCheck.cached) return idempotencyCheck.cached;
   const idempotencyToken = idempotencyCheck.token;
+
+  // Without renewal a retry after the lock TTL slips past a still-running handler and runs it twice.
+  const stopPendingRenewal =
+    requestId && idempotency && idempotencyToken
+      ? idempotency.keepPendingAlive(user.tenantId, user.id, requestId, idempotencyToken)
+      : undefined;
+  try {
+    return await runAcquiredBatch(ctx, commands, user, requestId, inheritedOrigin, idempotencyToken);
+  } finally {
+    stopPendingRenewal?.();
+  }
+}
+
+async function runAcquiredBatch(
+  ctx: DispatchContext,
+  commands: readonly BatchCommand[],
+  user: SessionUser,
+  requestId: string | undefined,
+  inheritedOrigin: WriteOrigin | undefined,
+  idempotencyToken: string | undefined,
+): Promise<BatchResult> {
+  const { idempotency, lifecycle, appContext: context } = ctx;
 
   // Hooks already ran on the plaintext results; what is returned and cached
   // for retries must not carry writeOnly values.

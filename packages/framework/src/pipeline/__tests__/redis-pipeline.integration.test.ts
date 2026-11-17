@@ -61,6 +61,42 @@ describe("idempotency guard", () => {
     expect((await guard.check(tenantA, userA, requestId)).status).toBe("acquired");
   });
 
+  test("keepPendingAlive holds the lock past pendingTtl so the owner can still store", async () => {
+    const guard = createIdempotencyGuard(testRedis.redis, { pendingTtlSeconds: 1 });
+    const requestId = "req-keepalive-1";
+
+    const acquired = await guard.check(tenantA, userA, requestId);
+    if (acquired.status !== "acquired") throw new Error("expected to acquire the lock");
+    const stop = guard.keepPendingAlive(tenantA, userA, requestId, acquired.token);
+    try {
+      // Fixed wait: longer than the 1s lock TTL, which would have expired without renewal.
+      await sleep(2500);
+      await guard.store(tenantA, userA, requestId, acquired.token, { ok: true });
+    } finally {
+      stop();
+    }
+
+    const cached = await guard.check(tenantA, userA, requestId);
+    expect(cached.status).toBe("cached");
+    if (cached.status !== "cached") throw new Error("expected cached value");
+    expect(JSON.parse(cached.result)).toEqual({ ok: true });
+  });
+
+  test("after stop the pending lock expires on its TTL", async () => {
+    const guard = createIdempotencyGuard(testRedis.redis, { pendingTtlSeconds: 1 });
+    const requestId = "req-keepalive-2";
+
+    const acquired = await guard.check(tenantA, userA, requestId);
+    if (acquired.status !== "acquired") throw new Error("expected to acquire the lock");
+    const stop = guard.keepPendingAlive(tenantA, userA, requestId, acquired.token);
+    await sleep(500);
+    stop();
+
+    // Fixed wait: the 1s lock TTL bound is the assertion.
+    await sleep(1600);
+    expect((await guard.check(tenantA, userA, requestId)).status).toBe("acquired");
+  });
+
   test("parallel check(): second caller waits for the first's store() instead of racing", async () => {
     const guard = createIdempotencyGuard(testRedis.redis, {
       pendingTtlSeconds: 5,

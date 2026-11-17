@@ -17,7 +17,6 @@ import {
 } from "../db/queries/event-consumer.ts";
 import {
   type PendingIdRange,
-  selectEventsHeadId,
   selectPendingAndNewEventRows,
   selectTenantIdsInRangesAbove,
 } from "../db/queries/event-store.ts";
@@ -683,18 +682,16 @@ export async function persistConsumerOutcome(
   await updateConsumerDeliveryOutcome(tx, name, instanceId, outcome);
 }
 
-// Emit the lag gauge inside the consumer pass's tx so ops sees a snapshot
-// consistent with the cursor we just advanced to. `MAX(id)` on the events
-// table is an O(1) reverse-index scan — cheap even under load.
-export async function emitLagFromTx(
-  tx: DbTx,
+// Emitted inside the consumer pass's tx so ops sees a snapshot consistent with the cursor we
+// just advanced to; the head is read once per dispatcher pass by the caller.
+export function emitConsumerLagMetrics(
+  meter: Meter,
   consumerName: string,
   instanceId: string,
   cursor: bigint,
-  meter: Meter,
+  head: bigint,
   pendingGapRanges: number,
-): Promise<void> {
-  const head = await selectEventsHeadId(tx);
+): void {
   const lag = head > cursor ? Number(head - cursor) : 0;
   emitEventConsumerLag(meter, { consumer: consumerName, instanceId }, lag);
   emitEventConsumerPendingGaps(meter, { consumer: consumerName, instanceId }, pendingGapRanges);

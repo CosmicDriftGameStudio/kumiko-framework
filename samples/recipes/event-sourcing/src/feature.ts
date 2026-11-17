@@ -17,7 +17,6 @@
 //     for aggregates with long event tails (O(1) vs O(N) reduce), incl.
 //     the auto-snapshot policy ({ snapshotEvery, snapshotVersion })
 //   - streamAllEventsByType — memory-bounded iteration for ops/export jobs
-//   - getAllProjectionProgress — projection lag for ops dashboards
 
 import {
   buildEntityTable,

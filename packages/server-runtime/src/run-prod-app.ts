@@ -639,7 +639,8 @@ export type RunProdAppOptions = AppRuntimeOptions & {
   readonly eventDispatcher?: {
     readonly disabled?: boolean;
     /** Dispatcher-loop polling interval (default: see createEventDispatcher).
-     *  LISTEN/NOTIFY wiring comes with a later pgClient pass-through. */
+     *  The dispatcher listens for new events via LISTEN; without this option it
+     *  only polls once per second as a safety net. */
     readonly pollIntervalMs?: number;
   };
   /** When true (default), Bun.serve is started before runProdApp resolves —

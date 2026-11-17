@@ -2,7 +2,7 @@ import type { RunIn } from "@cosmicdrift/kumiko-types/config";
 import type { ExecutorManagedRunner } from "@cosmicdrift/kumiko-types/executor-brand";
 import type { MultiStreamApplyContext } from "@cosmicdrift/kumiko-types/multi-stream-apply-context-types";
 import type { MultiStreamProjectionDefinition } from "@cosmicdrift/kumiko-types/projection";
-import type { DbConnection } from "../db/connection.ts";
+import type { DbConnection, PgListenClient } from "../db/connection.ts";
 import { runInSavepoint } from "../db/query.ts";
 import { withExecutorManagedWrites } from "../db/tenant-db.ts";
 import { createDerivativesContext } from "../derivatives/derivatives-context.ts";
@@ -88,9 +88,17 @@ export function createServerEventDispatcher(deps: {
       meter: observability.meter,
       instanceId,
       ...dispatcherTunables,
+      ...(dispatcherTunables.pgClient === undefined && canListen(baseDb)
+        ? { pgClient: baseDb }
+        : {}),
     });
   }
   return { baseDb, consumers, eventDispatcher };
+}
+
+// Bun.SQL holds LISTEN on its own connection; RawDbClient has none.
+function canListen(db: DbConnection): db is DbConnection & PgListenClient {
+  return "listen" in db && typeof db.listen === "function";
 }
 
 export function resolveBaseDbAndSearchAdapter(

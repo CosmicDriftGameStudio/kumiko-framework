@@ -30,13 +30,14 @@ import { withoutStatementTimeout } from "../db/statement-timeout.ts";
 import { extractTableInfo } from "../db/table-info.ts";
 import { withExecutorManagedWrites } from "../db/tenant-db.ts";
 import type { Registry, TenantId } from "../engine/types/index.ts";
-import { eventsTable, getEventsHighWaterMark, upcastStoredEvent } from "../event-store/index.ts";
+import { eventsTable, upcastStoredEvent } from "../event-store/index.ts";
 import {
   createRebuildDeadLetterTable,
   recordRebuildDeadLetters,
   type SkippedApply,
 } from "../event-store/rebuild-dead-letter.ts";
 import { toStoredEvent } from "../event-store/row-to-stored-event.ts";
+import { inEventStreamScope } from "../event-store/stream-scope.ts";
 import { createFallbackLogger } from "../logging/utils.ts";
 import { emitProjectionRebuild } from "../observability/standard-metrics.ts";
 import type { Meter } from "../observability/types/metric.ts";
@@ -284,29 +285,34 @@ async function replayProjectionIntoShadow(
     for (const r of rawEvents) {
       deps.signal?.throwIfAborted();
       const row = coerceRow<Parameters<typeof toStoredEvent>[0]>(r, eventsInfo);
+      const streamTenantId = row.tenantId as TenantId; // @cast-boundary db-row
       const storedEvent = await upcastStoredEvent(toStoredEvent(row), upcasters, {
         db: tx,
-        tenantId: row.tenantId as TenantId, // @cast-boundary db-row
+        tenantId: streamTenantId,
       });
       const applyFn = projection.apply[row.type];
       // skip: apply-key validation ensures every subscribed type has a handler;
       //       defensive check against runtime-mutated registry
       if (!applyFn) continue;
-      if (skipApplyErrors) {
-        // Driver-native savepoint: a throwing SQL statement would otherwise
-        // poison the rebuild tx (25P02) AND make the driver reject the whole
-        // begin() even after a caught error. The apply runs on the
-        // savepoint-scoped handle so its statements are confined.
-        try {
-          await runInSavepoint(applyTx, async (sp) => {
-            await applyFn(storedEvent, sp, projection.table);
-          });
-        } catch (e) {
-          skipped.push({ event: storedEvent, error: e });
+      // Same tenant scope as the live path (projections-runner); an apply that reads without a
+      // tenant filter would otherwise see every tenant here.
+      await inEventStreamScope(streamTenantId, async () => {
+        if (skipApplyErrors) {
+          // Driver-native savepoint: a throwing SQL statement would otherwise
+          // poison the rebuild tx (25P02) AND make the driver reject the whole
+          // begin() even after a caught error. The apply runs on the
+          // savepoint-scoped handle so its statements are confined.
+          try {
+            await runInSavepoint(applyTx, async (sp) => {
+              await applyFn(storedEvent, sp, projection.table);
+            });
+          } catch (e) {
+            skipped.push({ event: storedEvent, error: e });
+          }
+        } else {
+          await applyFn(storedEvent, applyTx, projection.table);
         }
-      } else {
-        await applyFn(storedEvent, applyTx, projection.table);
-      }
+      });
       eventsProcessed++;
       lastProcessedEventId = row.id;
     }
@@ -535,40 +541,4 @@ export async function listProjectionsWithState(
         lastError: state?.lastError ?? null,
       };
     });
-}
-
-export type ProjectionProgress = {
-  readonly name: string;
-  readonly sources: readonly string[];
-  readonly status: string;
-  readonly lastProcessedEventId: bigint;
-  readonly lastRebuildAt: Temporal.Instant | null;
-  readonly lastError: string | null;
-  // Global MAX(events.id) at query time.
-  readonly highWaterMark: bigint;
-  // HWM - cursor. 0n when caught-up. Cannot be negative (that would mean
-  // the projection is ahead of HWM = bug). Used by ops dashboards to
-  // visualize projection lag.
-  readonly lag: bigint;
-};
-
-// Extended variant of listProjectionsWithState that also returns HWM and lag
-// per projection. One extra cheap MAX-aggregate query — no additional
-// roundtrip per projection. Programmatic callers (e.g. a Prometheus gauge
-// exporter) can map the result directly to a `kumiko_projection_lag{name}`
-// gauge.
-export async function getAllProjectionProgress(
-  db: DbConnection,
-  registry: Registry,
-): Promise<readonly ProjectionProgress[]> {
-  const [projections, highWaterMark] = await Promise.all([
-    listProjectionsWithState(db, registry),
-    getEventsHighWaterMark(db),
-  ]);
-
-  return projections.map((p) => ({
-    ...p,
-    highWaterMark,
-    lag: highWaterMark - p.lastProcessedEventId,
-  }));
 }

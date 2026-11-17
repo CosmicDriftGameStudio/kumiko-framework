@@ -31,6 +31,7 @@ import { createTestUser, testTenantId } from "../../seeding/seed-users.ts";
 
 const LIVE_TABLE = "read_rebuild_app_per_group";
 const LOCK_NOT_AVAILABLE = "55P03";
+const PROBE_TABLE = "read_rebuild_app_scope_probe";
 
 const itemEntity = createEntity({
   table: "read_rebuild_app_items",
@@ -46,6 +47,28 @@ const perGroupTable = pgTable(LIVE_TABLE, {
   tenantId: uuid("tenant_id").notNull(),
   itemCount: integer("item_count").notNull().default(0),
 });
+
+const probeTable = pgTable(PROBE_TABLE, {
+  groupId: uuid("group_id").primaryKey(),
+  tenantId: uuid("tenant_id").notNull(),
+  foreignItems: integer("foreign_items").notNull().default(0),
+});
+
+// Reads another table without a tenant filter of its own: only the row-level-security scope
+// decides what it sees.
+const scopeProbeProjection: ProjectionDefinition = {
+  name: "app-scope-probe",
+  source: "rebuild-app-item",
+  table: probeTable,
+  apply: {
+    "rebuild-app-item.created": defineApply<{ groupId: string }>(async (event, tx) => {
+      await asRawClient(tx).unsafe(
+        `INSERT INTO "${PROBE_TABLE}" (group_id, tenant_id, foreign_items) VALUES ($1::uuid, $2::uuid, (SELECT count(*)::int FROM "read_rebuild_app_items" WHERE tenant_id <> $2::uuid)) ON CONFLICT (group_id) DO UPDATE SET foreign_items = EXCLUDED.foreign_items`,
+        [event.payload.groupId, event.tenantId],
+      );
+    }),
+  },
+};
 
 const projection: ProjectionDefinition = {
   name: "app-per-group",
@@ -63,9 +86,11 @@ const projection: ProjectionDefinition = {
 const feature = defineFeature("rebuildapp", (r) => {
   r.entity({ name: "rebuild-app-item", ...itemEntity });
   r.projection(projection);
+  r.projection(scopeProbeProjection);
 });
 const registry = createRegistry([feature]);
 const projectionName = "rebuildapp:projection:app-per-group";
+const probeProjectionName = "rebuildapp:projection:app-scope-probe";
 const executor = createEventStoreExecutor(itemTable, itemEntity, {
   entityName: "rebuild-app-item",
 });
@@ -109,7 +134,7 @@ beforeAll(async () => {
   testDb = await createTestDb({ applicationRole: true });
   await unsafeCreateEntityTable(testDb.db, itemEntity, "rebuild-app-item");
   await createProjectionStateTable(testDb.db);
-  await unsafePushTables(testDb.db, { perGroup: perGroupTable });
+  await unsafePushTables(testDb.db, { perGroup: perGroupTable, scopeProbe: probeTable });
   for (const [tenantId, group, id] of [
     [tenantA, groupA, 241],
     [tenantB, groupB, 242],
@@ -159,5 +184,20 @@ describe("rebuildProjection as the application role", () => {
     expect(policyChange).toBe(LOCK_NOT_AVAILABLE);
     expect(plainRead).toBeUndefined();
     expect((await stateOf())?.policies.map((policy) => policy.name)).not.toContain("mid_rebuild");
+  });
+
+  test("rebuild applies see only the event's tenant, like the live path", async () => {
+    await rebuildProjection(probeProjectionName, { db: testDb.db, registry });
+
+    const rows = await runInSystemRowLevelSecurityScope(
+      "test reads the probe table across all tenants",
+      () =>
+        asRawClient(testDb.db).unsafe<Record<string, unknown>>(
+          `SELECT tenant_id, foreign_items FROM "${PROBE_TABLE}" ORDER BY group_id`,
+        ),
+    );
+    expect(rows.map((row) => row["tenant_id"])).toEqual([tenantA, tenantB]);
+    // System scope would count the other tenant's item (1).
+    expect(rows.map((row) => row["foreign_items"])).toEqual([0, 0]);
   });
 });

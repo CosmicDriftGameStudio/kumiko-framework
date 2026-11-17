@@ -9,7 +9,6 @@
 //   - ctx.events.archive
 //   - ctx.dispatch.queryProjection
 //   - streamAllEventsByType (memory-bounded ops iteration)
-//   - getAllProjectionProgress (projection lag for ops dashboards)
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import type { DbTx } from "@cosmicdrift/kumiko-framework/db";
@@ -21,7 +20,6 @@ import {
   streamAllEventsByType,
   upcastStoredEvent,
 } from "@cosmicdrift/kumiko-framework/event-store";
-import { getAllProjectionProgress } from "@cosmicdrift/kumiko-framework/pipeline";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -647,39 +645,6 @@ describe("Event Sourcing Showcase", () => {
       "showcase-invoice.created",
       "showcase:event:invoice-approved",
     ]);
-  });
-
-  test("getAllProjectionProgress: HWM advances with the event log", async () => {
-    // Inline projections (r.projection) don't track a cursor in
-    // kumiko_projections — the row only gets written by ops-rebuild.
-    // So getAllProjectionProgress mainly surfaces HWM + the cursor
-    // remembered from the last rebuild. Useful as a "is anyone behind?"
-    // dashboard once you actually run rebuilds. This test pins the HWM
-    // advance and the never-rebuilt baseline so a regression in either
-    // surfaces cleanly.
-    const before = await getAllProjectionProgress(stack.db, stack.registry);
-    const detail = before.find((p) => p.name === "showcase:projection:invoice-detail");
-    expect(detail?.status).toBe("never-rebuilt");
-    expect(detail?.highWaterMark).toBe(0n);
-    expect(detail?.lastProcessedEventId).toBe(0n);
-    expect(detail?.lag).toBe(0n);
-
-    const { id } = await stack.http.writeOk<{ id: string }>(
-      "showcase:write:invoice:create",
-      { customer: "LagCheck" },
-      admin,
-    );
-    await stack.http.writeOk(
-      "showcase:write:invoice:approve",
-      { id, amountCents: 200, approvedBy: "cfo" },
-      admin,
-    );
-
-    const after = await getAllProjectionProgress(stack.db, stack.registry);
-    const detailAfter = after.find((p) => p.name === "showcase:projection:invoice-detail");
-    expect(detailAfter?.highWaterMark).toBe(2n);
-    expect(detailAfter?.lastProcessedEventId).toBe(0n);
-    expect(detailAfter?.lag).toBe(2n);
   });
 
   test("AllConsumerProgress: MSP cursor catches up to HWM after dispatcher run", async () => {

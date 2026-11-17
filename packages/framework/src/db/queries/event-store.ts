@@ -1,3 +1,5 @@
+/// <reference types="temporal-polyfill/global" preserve="true" />
+
 import type { DbRunner } from "@cosmicdrift/kumiko-types/db-connection";
 import { createFallbackLogger } from "../../logging/utils.ts";
 import {
@@ -394,6 +396,47 @@ export async function selectEventsHighWaterMark(db: AnyDb): Promise<bigint> {
 /** Head event id for lag metrics — alias for selectEventsHighWaterMark. */
 export async function selectEventsHeadId(db: AnyDb): Promise<bigint> {
   return selectEventsHighWaterMark(db);
+}
+
+// A stream is only deleted whole: a partial prune drops the created event while later events stay,
+// and a rebuild then loses the row. The limit counts streams so no batch cuts one.
+export async function selectExpiredStreamEventIds(
+  db: AnyDb,
+  args: {
+    aggregateTypes: readonly string[];
+    aggregateIds?: readonly string[];
+    cutoff: Temporal.Instant;
+    streamLimit?: number;
+  },
+): Promise<bigint[]> {
+  const params: unknown[] = [toPostgresArrayLiteral(args.aggregateTypes)];
+  let idFilter = "";
+  if (args.aggregateIds !== undefined) {
+    params.push(toPostgresArrayLiteral(args.aggregateIds));
+    idFilter = `AND s."aggregate_id" = ANY($${params.length}::uuid[])`;
+  }
+  params.push(args.cutoff.toString());
+  const cutoffPlaceholder = `$${params.length}::timestamptz`;
+  let limitClause = "";
+  if (args.streamLimit !== undefined) {
+    params.push(args.streamLimit);
+    limitClause = `LIMIT $${params.length}`;
+  }
+  const rows = await unsafeReadRetrying<{ id: string | bigint }>(
+    db,
+    `SELECT e."id" FROM "kumiko_events" e
+JOIN (
+  SELECT s."tenant_id", s."aggregate_id" FROM "kumiko_events" s
+  WHERE s."aggregate_type" = ANY($1::text[]) ${idFilter}
+  GROUP BY s."tenant_id", s."aggregate_id"
+  HAVING MAX(s."created_at") < ${cutoffPlaceholder}
+  ORDER BY MIN(s."id")
+  ${limitClause}
+) expired ON expired."tenant_id" = e."tenant_id" AND expired."aggregate_id" = e."aggregate_id"
+ORDER BY e."id"`,
+    params,
+  );
+  return rows.map((row) => (typeof row.id === "bigint" ? row.id : BigInt(row.id)));
 }
 
 export async function selectNextEventIdAfter(db: AnyDb, afterId: bigint): Promise<bigint | null> {

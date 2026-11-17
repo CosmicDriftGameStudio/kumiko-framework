@@ -88,6 +88,10 @@ export type ProjectionDefinition = {
 // replay — without it, a rebuild resets everything the extension wrote.
 // Live delivery stays with the extension's own MSP: implicit projections are
 // skipped by the inline runner, so the apply here runs ONLY during rebuild.
+// Every extension apply must be idempotent: applying the same event again must set the same
+// state (assign, never add or append). Live delivery runs through the extension's own MSP with
+// its own cursor, so an event the entity rebuild replays before the fence can still be applied
+// once more by that MSP onto the swapped-in table.
 export type EntityProjectionExtension = {
   // Aggregate-types beyond the entity's own stream whose events the rebuild
   // must scan (e.g. "field-definition"). Omit when all extension events are

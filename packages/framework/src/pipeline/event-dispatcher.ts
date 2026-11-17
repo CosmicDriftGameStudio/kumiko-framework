@@ -3,6 +3,7 @@ import type { Meter, Tracer } from "@cosmicdrift/kumiko-types/observability";
 import { BUN_SQL_CONNECTION_ERROR_CODES } from "../db/bun-sql-connection-codes.ts";
 import type { DbTx, PgListenClient, PgListenSubscription } from "../db/connection.ts";
 import { extractPgError } from "../db/pg-error.ts";
+import { selectEventsHeadId } from "../db/queries/event-store.ts";
 import {
   recordConsumerPassFailure,
   selectSnapshotXmax,
@@ -30,7 +31,7 @@ import {
   acquireConsumerState,
   consumerInstanceId,
   deliverConsumerTurn,
-  emitLagFromTx,
+  emitConsumerLagMetrics,
   fetchPendingEvents,
   markProcessing,
   type PersistedConsumerOutcome,
@@ -232,6 +233,7 @@ export type EventDispatcherOptions = {
   readonly consumers: readonly EventConsumer[];
   readonly context: AppContext;
   readonly batchSize?: number;
+  // Default 100 ms, or 1000 ms when pgClient is wired (poll is then only a safety net).
   readonly pollIntervalMs?: number;
   readonly maxAttempts?: number;
   // Bounded auto-revival of a "dead" consumer. A dead consumer whose last
@@ -262,13 +264,16 @@ export type EventDispatcherOptions = {
   // Optional LISTEN-capable client (Bun.SQL) for wake-up
   // (Sprint E.4). When present, `.start()` subscribes to EVENTS_PUBSUB_CHANNEL
   // and fires runOnce on each NOTIFY — delivery latency becomes TCP-round-
-  // trip instead of pollIntervalMs. The polling timer remains active as a
-  // safety net (missed NOTIFYs from crashes, subscription drops).
+  // trip instead of the poll interval. The polling timer remains active as a
+  // safety net (missed NOTIFYs from crashes, subscription drops); buildServer
+  // wires context.db here by default when it can LISTEN.
   readonly pgClient?: PgListenClient;
 };
 
 export const DEFAULT_BATCH_SIZE = 200;
 const DEFAULT_POLL_MS = 100;
+// With LISTEN wired the poll only covers dropped subscriptions and missed NOTIFYs.
+const DEFAULT_LISTEN_SAFETY_POLL_MS = 1_000;
 const DEFAULT_MAX_ATTEMPTS = 10;
 const DEFAULT_REARM_COOLDOWN_MS = 5 * 60_000;
 const DEFAULT_MAX_REARM_COUNT = 3;
@@ -295,18 +300,21 @@ function isConnectionLossError(e: unknown): boolean {
 const PASS_FAILURE_BASE_BACKOFF_MS = 1_000;
 const PASS_FAILURE_MAX_BACKOFF_MS = 60_000;
 
+type PassHead = { value: bigint | undefined };
+
 export function createEventDispatcher(options: EventDispatcherOptions): EventDispatcher {
   const {
     db,
     consumers,
     context,
     batchSize = DEFAULT_BATCH_SIZE,
-    pollIntervalMs = DEFAULT_POLL_MS,
     maxAttempts = DEFAULT_MAX_ATTEMPTS,
     rearmCooldownMs = DEFAULT_REARM_COOLDOWN_MS,
     maxRearmCount = DEFAULT_MAX_REARM_COUNT,
     maxPendingGapRanges = DEFAULT_MAX_PENDING_GAP_RANGES,
   } = options;
+  const pollIntervalMs =
+    options.pollIntervalMs ?? (options.pgClient ? DEFAULT_LISTEN_SAFETY_POLL_MS : DEFAULT_POLL_MS);
 
   // Fail-fast on misconfigured per-instance wiring. Catching this at
   // construction surfaces the problem in boot logs instead of first
@@ -425,15 +433,24 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
   // back the others. Keyed like consumerBackoff: a consumer already running
   // its turn hands back that same promise instead of starting a second one.
   const inFlightTurns = new Map<string, Promise<{ processed: number; failed: number }>>();
+  // Keys whose wake-up arrived while their turn was running; the turn's end schedules a pass.
+  const followUpRequestedKeys = new Set<string>();
 
   async function runConsumerTurn(
     consumer: EventConsumer,
     effective: ReadonlySet<string> | undefined,
     idleKeys: ReadonlySet<string>,
+    passHead: PassHead,
+    isWakeUpPass: boolean,
   ): Promise<{ processed: number; failed: number }> {
     const key = `${consumer.name}:${consumerInstanceId(consumer, options.instanceId)}`;
     const existing = inFlightTurns.get(key);
-    if (existing !== undefined) return existing;
+    if (existing !== undefined) {
+      // Follow-up passes must not request follow-ups themselves, or two non-idle consumers
+      // (pending gaps, dead) with overlapping turns keep re-triggering each other in a hot loop.
+      if (isWakeUpPass) followUpRequestedKeys.add(key);
+      return existing;
+    }
 
     // Feature-gate, backoff-gate and idle-gate are resolved synchronously,
     // before any promise is registered — a gated consumer must resolve
@@ -470,16 +487,23 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
     const turn = (async () => {
       const releaseSlot = await acquireConsumerTurnSlot();
       try {
-        return await processConsumer(consumer);
+        return await processConsumer(consumer, passHead);
       } finally {
         releaseSlot();
       }
     })();
     inFlightTurns.set(key, turn);
+    let deliveredEvents = false;
     try {
-      return await turn;
+      const result = await turn;
+      deliveredEvents = result.processed > 0;
+      return result;
     } finally {
       if (inFlightTurns.get(key) === turn) inFlightTurns.delete(key);
+      // processConsumer handles one batch per turn and a NOTIFY during the turn was coalesced
+      // into it; without a follow-up pass both would wait for the safety poll.
+      const wakeUpAbsorbed = followUpRequestedKeys.delete(key);
+      if (running && (wakeUpAbsorbed || deliveredEvents)) startBackgroundPass(false);
     }
   }
 
@@ -510,15 +534,24 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
 
   let backgroundPassPauseDepth = 0;
 
+  // Timer and LISTEN callback; the LISTEN driver passes the payload, so this takes no arguments.
   function runBackgroundPass(): void {
+    startBackgroundPass(true);
+  }
+
+  function startBackgroundPass(isWakeUpPass: boolean): void {
     // skip: background passes are paused
     if (backgroundPassPauseDepth > 0) return;
-    void runOnce().catch(() => {
+    void runPass(isWakeUpPass).catch(() => {
       // skip: per-consumer errors already recorded in the state row
     });
   }
 
-  async function runOnce(): Promise<DispatcherPassResult> {
+  function runOnce(): Promise<DispatcherPassResult> {
+    return runPass(true);
+  }
+
+  async function runPass(isWakeUpPass: boolean): Promise<DispatcherPassResult> {
     if (!preRegistered) {
       throw new Error(
         "EventDispatcher.runOnce() called before start() — consumer state rows are not registered. Call start() first (production) or ensureRegistered() (tests after truncating kumiko_event_consumers).",
@@ -527,7 +560,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
     // Per pass, never around start(): the poll loop itself must stay outside any scope.
     const pass = runInSystemRowLevelSecurityScope(
       "event dispatcher pass runs consumers for every tenant",
-      doPass,
+      () => doPass(isWakeUpPass),
     );
     inFlightPasses.add(pass);
     try {
@@ -537,7 +570,10 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
     }
   }
 
-  async function doPass(): Promise<DispatcherPassResult> {
+  async function doPass(isWakeUpPass: boolean): Promise<DispatcherPassResult> {
+    // The head is the same for every consumer of a pass; stored as a value, not a shared promise,
+    // so an aborted read in one consumer's tx cannot take the others down.
+    const passHead: PassHead = { value: undefined };
     let totalProcessed = 0;
     let totalFailed = 0;
     const byConsumer: Record<string, { processed: number; failed: number }> = {};
@@ -604,7 +640,13 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
     // blocks the others' delivery until it commits, see runConsumerTurn.
     const results = await Promise.all(
       consumers.map(async (consumer) => {
-        const perConsumer = await runConsumerTurn(consumer, effective, idleKeys);
+        const perConsumer = await runConsumerTurn(
+          consumer,
+          effective,
+          idleKeys,
+          passHead,
+          isWakeUpPass,
+        );
         return [consumer.name, perConsumer] as const;
       }),
     );
@@ -619,6 +661,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
 
   async function processConsumer(
     consumer: EventConsumer,
+    passHead: PassHead,
   ): Promise<{ processed: number; failed: number }> {
     let processed = 0;
     let failed = 0;
@@ -756,12 +799,13 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
 
         warnOnceOnLargeGapSet(consumer.name, instanceId, persistedOutcome.pendingGaps.length);
         await persistConsumerOutcome(tx, consumer.name, instanceId, persistedOutcome);
-        await emitLagFromTx(
-          tx,
+        if (passHead.value === undefined) passHead.value = await selectEventsHeadId(tx);
+        emitConsumerLagMetrics(
+          meter,
           consumer.name,
           instanceId,
           outcome.cursor,
-          meter,
+          passHead.value,
           persistedOutcome.pendingGaps.length,
         );
       });
@@ -933,6 +977,8 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
         return await fn();
       } finally {
         backgroundPassPauseDepth--;
+        // A NOTIFY that arrived during the pause was dropped by runBackgroundPass.
+        if (backgroundPassPauseDepth === 0 && running) runBackgroundPass();
       }
     },
 

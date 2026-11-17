@@ -1274,6 +1274,56 @@ describe("runProdApp: local event dispatcher (MSP application in a single contai
     }
   });
 
+  test("LISTEN wake-up: MSP applies without the poll timer", async () => {
+    let dispatchSystemWrite: import("../extra-routes-deps.ts").SystemWireDeps["dispatchSystemWrite"];
+    const handle = await boot(undefined, {
+      eventDispatcher: { pollIntervalMs: 60_000 },
+      wire: (deps) => {
+        dispatchSystemWrite = deps.dispatchSystemWrite;
+      },
+    });
+
+    // The default boot builds the local dispatcher and start() has started it.
+    expect(handle.entrypoint.eventDispatcher).toBeDefined();
+
+    const aggregateId = crypto.randomUUID();
+    const result = await dispatchSystemWrite!({
+      handlerQn: "prod-probe:write:probe-append",
+      payload: { aggregateId, note: "dispatched" },
+      tenantId: TENANT_ID as import("@cosmicdrift/kumiko-framework/engine").TenantId,
+    });
+    expect(result.isSuccess).toBe(true);
+
+    const url = ADMIN_URL.replace(/\/[^/]+$/, `/${TEST_DB}`);
+    const { db, close } = createDbConnection({ url, rowLevelSecurity: "off" });
+    try {
+      const row = await pollFor(async () => {
+        const rows = (await asRawClient(db).unsafe(
+          `SELECT note FROM prod_probe_pings WHERE aggregate_id = $1`,
+          [aggregateId],
+        )) as Array<{ note: string }>;
+        return rows[0];
+      });
+      expect(row.note).toBe("dispatched");
+
+      // In prod this table was empty, which proved no dispatcher ever ran.
+      // The cursor is committed after the projection row, so poll on the
+      // cursor value itself — a registered consumer still reads 0 for a moment.
+      const consumer = await pollFor(async () => {
+        const rows = (await asRawClient(db).unsafe(
+          `SELECT name, last_processed_event_id FROM kumiko_event_consumers
+           WHERE name = $1`,
+          ["prod-probe:projection:probe-ping-projection"],
+        )) as Array<{ name: string; last_processed_event_id: string | number }>;
+        const [consumerRow] = rows;
+        return Number(consumerRow?.last_processed_event_id) > 0 ? consumerRow : undefined;
+      });
+      expect(Number(consumer.last_processed_event_id)).toBeGreaterThan(0);
+    } finally {
+      await close();
+    }
+  });
+
   test("eventDispatcher.disabled: no local dispatcher built", async () => {
     const handle = await boot(undefined, {
       eventDispatcher: { disabled: true },
