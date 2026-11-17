@@ -6,3 +6,4 @@ export {
 } from "./constants.ts";
 export { createReadinessFeature } from "./feature.ts";
 export type { ReadinessMissingSecret } from "./handlers/status.query.ts";
+export type { RunOutcome, VisibleProbeResult } from "./visible-results.ts";

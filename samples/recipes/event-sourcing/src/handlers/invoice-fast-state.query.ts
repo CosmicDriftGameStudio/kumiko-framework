@@ -40,4 +40,5 @@ export const invoiceFastStateQuery = defineQueryHandler({
         "demo recipe: any signed-in user may read the snapshot-accelerated invoice " +
         "state; there is no per-user invoice ownership in this sample",
     },
+  },
 });

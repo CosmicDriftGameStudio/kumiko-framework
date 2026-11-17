@@ -13,6 +13,7 @@ import {
   createNumberField,
   createTextField,
   defineFeature,
+  emitEvent,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
@@ -43,7 +44,7 @@ export function createLaneRoutingFeature(): FeatureDefinition {
     r.entity(orderEntity);
 
     // The event both jobs trigger on. No PII: customerName stays out of it.
-    r.defineEvent("order-placed", z.object({ orderId: z.string(), amount: z.number() }), {
+    const orderPlaced = r.defineEvent("order-placed", z.object({ orderId: z.string(), amount: z.number() }), {
       piiFields: "none",
     });
 
@@ -57,10 +58,9 @@ export function createLaneRoutingFeature(): FeatureDefinition {
       }),
       handler: async (event, ctx) => {
         const orderId = crypto.randomUUID();
-        await ctx.events.append({
+        await emitEvent(ctx, orderPlaced, {
           aggregateId: orderId,
           aggregateType: "order",
-          type: "orders:event:order-placed",
           payload: { orderId, amount: event.payload.amount },
           expectedVersion: 0,
         });

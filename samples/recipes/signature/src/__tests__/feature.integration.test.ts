@@ -81,8 +81,6 @@ async function seedLease(): Promise<string> {
   const db = createTenantDb({
     db: stack.db,
     tenantId: TENANT,
-    mode: "system",
-    reason: "recipe seeds the host row the request belongs to",
   });
   const created = await createEventStoreExecutor(
     buildEntityTable(leaseEntity),

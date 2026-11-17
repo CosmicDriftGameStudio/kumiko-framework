@@ -37,6 +37,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 
 export const teamMembershipEntity = createEntity({
+  name: "team-membership",
   table: "read_sample_auth_team_memberships",
   fields: {
     userId: createTextField({ personal: "ref", required: true }),
@@ -45,6 +46,7 @@ export const teamMembershipEntity = createEntity({
 });
 
 export const betaFlagsEntity = createEntity({
+  name: "beta-flag",
   table: "read_sample_auth_beta_flags",
   fields: {
     userId: createTextField({ personal: "ref", required: true }),

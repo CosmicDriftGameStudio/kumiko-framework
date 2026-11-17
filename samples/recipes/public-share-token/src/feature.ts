@@ -134,7 +134,7 @@ export const shareLinkRevokeWrite = defineWriteHandler({
       { limit: 1 },
     );
     const row = rows[0];
-    const ownerId = String(row?.["insertedById"] ?? row?.["inserted_by_id"] ?? "");
+    const ownerId = String(row?.insertedById ?? "");
     if (!row || ownerId !== event.user.id) {
       throw new NotFoundError("share-link");
     }

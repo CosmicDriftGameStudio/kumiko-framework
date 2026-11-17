@@ -83,7 +83,7 @@ describe("overview dashboard", () => {
       admin,
     );
     const panels = screen.panels.flatMap((panel) =>
-      panel.kind === "stat-group" ? panel.stats : [panel],
+      panel.kind === "stat-group" ? [...panel.stats] : [panel],
     );
     for (const panel of panels) {
       expect(panel.kind === "custom" || panel.kind === "screen").toBe(false);

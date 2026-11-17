@@ -90,7 +90,7 @@ export const pubsubOrderFeature = defineFeature("pubsubOrders", (r) => {
         // OWN stream (aggregateType "pubsub-order"), with the correct
         // version bumped automatically. Schema validation still runs at
         // append-time; a mismatch rolls back the whole write. The create already put version 1 on
-        // the stream, so the follow-up event is pinned to result.data.version.
+        // the stream, so the follow-up event is pinned to result.data.event.version.
         await emitEvent(ctx, orderPlaced, {
           aggregateId: String(result.data.id),
           aggregateType: "pubsub-order",
@@ -99,7 +99,7 @@ export const pubsubOrderFeature = defineFeature("pubsubOrders", (r) => {
             customer: event.payload.customer,
             product: event.payload.product,
           },
-          expectedVersion: result.data.version,
+          expectedVersion: result.data.event.version,
         });
       }
       return result;

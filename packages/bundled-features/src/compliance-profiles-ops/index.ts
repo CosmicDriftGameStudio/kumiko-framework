@@ -38,3 +38,4 @@ export function createComplianceProfilesOpsFeature() {
     { dedupeOptions: {} },
   );
 }
+export type { TenantsMissingProfileResponse } from "./handlers/tenants-missing-profile.query.ts";

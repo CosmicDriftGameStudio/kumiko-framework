@@ -26,6 +26,7 @@ export {
 export { allowedBlocksFor } from "./document-op-blocks.ts";
 export {
   applyDocumentOps,
+  type DocumentBlock,
   type DocumentOp,
   documentBlocksOf,
   documentOpsSchema,
@@ -237,3 +238,10 @@ export {
   TemplateResolverHandlers,
   TemplateResolverQueries,
 } from "./web/qualified-names.ts";
+export type { DocumentBase } from "./handlers/document-base.ts";
+export type { SendTestStatus } from "./handlers/send-test-status.query.ts";
+export type { PdfLayoutUser } from "./handlers/usage.query.ts";
+export type { VariantSummary } from "./handlers/variants.query.ts";
+export type { ActiveInfo } from "./template-draft.ts";
+export type { TemplatePreview } from "./template-preview.ts";
+export type { DocumentToolbarBlock } from "./web/document-blocks.ts";

@@ -9,6 +9,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { contactFeature, fieldApprovalFeature } from "../feature";
@@ -53,7 +54,7 @@ describe("field approval", () => {
       propertyManager,
     );
     expect(refused.httpStatus).toBe(403);
-    expect(refused.details?.["reason"]).toBe("field_approval_required");
+    expect(propertyOf(refused.details, "reason")).toBe("field_approval_required");
 
     await stack.http.writeOk(
       "field-approval:write:request-change",

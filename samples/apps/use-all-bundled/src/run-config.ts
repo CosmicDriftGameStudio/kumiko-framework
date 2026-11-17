@@ -18,7 +18,6 @@ import { createAccountSecurityFeature } from "@cosmicdrift/kumiko-bundled-featur
 import { createAdminShellFeature } from "@cosmicdrift/kumiko-bundled-features/admin-shell";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { createAuthMfaFeature } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
-import { createAuthMfaUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/auth-mfa-user-data";
 import { createBillingFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import { createBrandingFeature } from "@cosmicdrift/kumiko-bundled-features/branding";
 import { createCapCounterFeature } from "@cosmicdrift/kumiko-bundled-features/cap-counter";
@@ -50,9 +49,7 @@ import { createFieldApprovalFeature } from "@cosmicdrift/kumiko-bundled-features
 import { createFileDerivativesFeature } from "@cosmicdrift/kumiko-bundled-features/file-derivatives";
 import { createFilesTenantDataFeature } from "@cosmicdrift/kumiko-bundled-features/files-tenant-data";
 import { createFoldersFeature } from "@cosmicdrift/kumiko-bundled-features/folders";
-import { createFoldersUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/folders-user-data";
 import { createFormDraftFeature } from "@cosmicdrift/kumiko-bundled-features/form-draft";
-import { createFormDraftUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/form-draft-user-data";
 import { createHandbookKnowledgeFeature } from "@cosmicdrift/kumiko-bundled-features/handbook-knowledge";
 import {
   createHelpdeskFeature,
@@ -72,7 +69,6 @@ import {
   DEFAULT_METRICS,
 } from "@cosmicdrift/kumiko-bundled-features/metrics";
 import { createNotesHistoryFeature } from "@cosmicdrift/kumiko-bundled-features/notes-history";
-import { createNotesHistoryUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/notes-history-user-data";
 import { createPersonalAccessTokensFeature } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
 import { createPresenceFeature } from "@cosmicdrift/kumiko-bundled-features/presence";
 import { createReadinessFeature } from "@cosmicdrift/kumiko-bundled-features/readiness";
@@ -85,7 +81,6 @@ import { createSubscriptionPaddleFeature } from "@cosmicdrift/kumiko-bundled-fea
 import { createSubscriptionStripeFeature } from "@cosmicdrift/kumiko-bundled-features/subscription-stripe";
 import { createTagsFeature } from "@cosmicdrift/kumiko-bundled-features/tags";
 import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
-import { createTemplateResolverUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver-user-data";
 import { createTenantHandoverFeature } from "@cosmicdrift/kumiko-bundled-features/tenant-handover";
 import { createTenantInactivityFeature } from "@cosmicdrift/kumiko-bundled-features/tenant-inactivity";
 import { createTenantLifecycleFeature } from "@cosmicdrift/kumiko-bundled-features/tenant-lifecycle";
@@ -348,11 +343,6 @@ export const APP_FEATURES = [
       },
     ],
   }),
-  // template-resolver-user-data: GDPR export/erase coverage for the
-  // user-content-entry rows the `signatures` collection writes. Mandatory
-  // whenever a user-owned collection is mounted — the boot guard refuses the
-  // subject-carrying entity without it.
-  createTemplateResolverUserDataFeature(),
   // collection-labels: the app-side nav labels for the two collections above.
   collectionLabelsFeature,
   createRendererFoundationFeature(),
@@ -446,15 +436,7 @@ export const APP_FEATURES = [
   createFieldApprovalFeature({ roles: TAGS_NOTES_ROLES, parents: BUNDLED_JOIN_HOSTS }),
   // presence: no host entity in this sample opts in, so it only mounts the handlers.
   createPresenceFeature(),
-  // notes-history-user-data: GDPR export/erase coverage for note-entry.
-  // Depends (optionally) on notes-history + (hard) on user-data-rights —
-  // both mounted here.
-  createNotesHistoryUserDataFeature(),
   createFormDraftFeature(),
-  // form-draft-user-data: GDPR export/erase coverage for the form-draft
-  // entity. Depends (optionally) on form-draft + (hard) on
-  // user-data-rights — both mounted here.
-  createFormDraftUserDataFeature(),
   createFoldersFeature({ parents: BUNDLED_JOIN_HOSTS }),
   // documents: filed files visible through the records they link to; folder stands in for a host.
   createDocumentsFeature({
@@ -462,13 +444,6 @@ export const APP_FEATURES = [
     linkTargets: ["folder"],
     adminRoles: ["TenantAdmin", "SystemAdmin"],
   }),
-  // folders-user-data: GDPR hooks for folder entities. Depends (optionally)
-  // on folders + (hard) on user-data-rights — both mounted above.
-  createFoldersUserDataFeature(),
-  // auth-mfa-user-data: GDPR hooks for the user-mfa entity. Depends
-  // (optionally) on auth-mfa + (hard) on user-data-rights — both mounted
-  // above.
-  createAuthMfaUserDataFeature(),
   // files-tenant-data: tenant-destroy row purge + storage-prefix binary wipe for fileRef.
   // Depends (optionally) on files + (hard) on tenant-lifecycle — both
   // mounted above.
