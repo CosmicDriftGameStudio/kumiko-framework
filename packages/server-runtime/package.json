@@ -107,7 +107,6 @@
     "@cosmicdrift/kumiko-bundled-features": "workspace:*",
     "@cosmicdrift/kumiko-framework": "workspace:*",
     "@cosmicdrift/kumiko-renderer": "workspace:*",
-    "@cosmicdrift/kumiko-renderer-mail-html": "workspace:*",
     "@cosmicdrift/kumiko-types": "workspace:*",
     "ioredis": "^5.11.1",
     "temporal-polyfill": "^0.3.2",

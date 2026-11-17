@@ -7,6 +7,7 @@ import type {
 import type { TenantDb, UncheckedSystemDb } from "@cosmicdrift/kumiko-types/tenant-db-types";
 import { assertReason } from "../engine/escape-hatch-reason.ts";
 import type { EntityDefinition } from "../engine/types/fields.ts";
+import type { TenantId } from "../engine/types/identifiers.ts";
 import type { Registry } from "../engine/types/index.ts";
 import { InternalError } from "../errors/index.ts";
 import { type DbRunner, shareUnboundedSiblingPool } from "./connection.ts";
@@ -265,4 +266,20 @@ export function reportConventionCrossTenantUse(
     });
   }
   reporter(target);
+}
+
+export const tenantScopeRebinders = new WeakMap<TenantDb, (targetTenantId: TenantId) => TenantDb>();
+
+// Tenant-mode handle for one tenant on the same runner/transaction. Keeps report, projection
+// registry, personal-data gate, member read-only and write denial; drops unsafeRaw and global
+// writes, so callbacks handed this db cannot leave the tenant filter.
+export function scopeTenantDbToTenant(db: TenantDb, tenantId: TenantId): TenantDb {
+  const rebind = tenantScopeRebinders.get(db);
+  if (!rebind) {
+    throw new InternalError({
+      message:
+        "scopeTenantDbToTenant received a TenantDb not built by createTenantDb — no tenant-scope rebinder bound.",
+    });
+  }
+  return rebind(tenantId);
 }

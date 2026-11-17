@@ -1,5 +1,5 @@
 ---
-"@cosmicdrift/kumiko-renderer-puppeteer-client": patch
+"@cosmicdrift/kumiko-bundled-features": patch
 ---
 
 `renderPdfsBeforeTransaction` prints several PDFs for one write, and the HTTP client honours `Retry-After` on 503.

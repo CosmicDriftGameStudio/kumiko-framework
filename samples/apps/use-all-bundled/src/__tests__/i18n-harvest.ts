@@ -10,7 +10,7 @@ import { GDPR_MAIL_EN } from "@cosmicdrift/kumiko-bundled-features/user-data-rig
 import { buildAppSchema, createRegistry } from "@cosmicdrift/kumiko-framework/engine";
 import type { TranslationValue } from "@cosmicdrift/kumiko-framework/ui-types";
 import { kumikoDefaultTranslations } from "@cosmicdrift/kumiko-renderer";
-import { MAIL_CHROME_EN } from "@cosmicdrift/kumiko-renderer-mail-html";
+import { MAIL_CHROME_EN } from "@cosmicdrift/kumiko-bundled-features/renderer-mail-html";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import { APP_FEATURES, AUTH_COMPOSE_OPTIONS } from "../run-config";
 

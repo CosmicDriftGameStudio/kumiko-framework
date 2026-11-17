@@ -11,7 +11,7 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import type { SeedFn } from "@cosmicdrift/kumiko-dev-server";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { DEFAULT_MAIL_LAYOUT_MJML } from "@cosmicdrift/kumiko-renderer-mail-html";
+import { DEFAULT_MAIL_LAYOUT_MJML } from "@cosmicdrift/kumiko-bundled-features/renderer-mail-html";
 import { readBundledAsset } from "@cosmicdrift/kumiko-server-runtime";
 import {
   NORDLICHT_TENANT_ID,

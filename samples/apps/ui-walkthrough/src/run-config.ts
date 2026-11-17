@@ -23,8 +23,8 @@ import { createDocumentDesignerFeature } from "@cosmicdrift/kumiko-document-desi
 import { createFilesFeature } from "@cosmicdrift/kumiko-framework/files";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
 import { localeEs } from "@cosmicdrift/kumiko-locale-es";
-import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
-import { createRendererPuppeteerClientFeature } from "@cosmicdrift/kumiko-renderer-puppeteer-client";
+import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-mail-html";
+import { createRendererPuppeteerClientFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-puppeteer-client";
 import { TENANT_ADMIN_EMAIL } from "./app/auth-constants";
 import { billingFeature } from "./features/billing";
 import { rentalFeature } from "./features/rental";

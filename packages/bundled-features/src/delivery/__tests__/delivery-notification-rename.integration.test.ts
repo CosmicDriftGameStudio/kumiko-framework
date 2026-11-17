@@ -8,7 +8,7 @@ import {
   type NotifyFn,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
-import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
+import { createRendererMailHtmlFeature } from "../../renderer-mail-html/index.ts";
 import { expectSuccess, resetBlindIndexKeyForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,

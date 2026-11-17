@@ -4,7 +4,7 @@ import {
   TemplateResolverHandlers,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import type { DispatcherError } from "@cosmicdrift/kumiko-renderer/headless";
-import { RendererPuppeteerClientQueries } from "@cosmicdrift/kumiko-renderer-puppeteer-client/qualified-names";
+import { RendererPuppeteerClientQueries } from "@cosmicdrift/kumiko-bundled-features/renderer-puppeteer-client/qualified-names";
 import { buildPdfActions, type PdfActionsInput } from "../pdf-editor-actions.ts";
 import { type EditorState, SETTLE_MS, snapshotOf } from "../pdf-editor-draft.ts";
 import { EMPTY_PDF_META } from "../pdf-meta.ts";

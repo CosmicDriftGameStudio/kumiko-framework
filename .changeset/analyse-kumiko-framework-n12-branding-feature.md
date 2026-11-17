@@ -1,6 +1,5 @@
 ---
 "@cosmicdrift/kumiko-bundled-features": minor
-"@cosmicdrift/kumiko-renderer-mail-html": patch
 "@cosmicdrift/kumiko-document-designer": patch
 "@cosmicdrift/kumiko-locale-de": patch
 "@cosmicdrift/kumiko-locale-es": patch

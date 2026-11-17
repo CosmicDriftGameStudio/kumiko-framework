@@ -210,7 +210,7 @@
     "happy-dom": "^21.0.4",
     "handlebars": "^4.7.10",
     "hono": "^4.13.14",
-    "html-to-text": "^9.0.5",
+    "html-to-text": "^10.0.1",
     "imapflow": "^1.7.8",
     "ioredis": "^5.11.1",
     "jose": "^6.2.14",

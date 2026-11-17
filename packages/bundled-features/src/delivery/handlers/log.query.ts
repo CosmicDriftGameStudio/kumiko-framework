@@ -147,18 +147,15 @@ export const logQuery = definePagedQueryHandler({
     if (!ctx.systemDb) {
       throw new InternalError({ message: "delivery log handler requires ctx.systemDb" });
     }
-    // delivery is r.systemScope()'d, so the TenantDb is system-mode (reads
-    // unfiltered). assertTenantMatch is a self-check on the caller's own
-    // tenantId, not a query filter — it returns that same unfiltered db, so
-    // the explicit `where` below still does the actual tenant scoping for
-    // non-SystemAdmin callers. SystemAdmin acknowledges cross-tenant read
-    // (PII-bearing delivery logs across all tenants incl. SYSTEM_TENANT_ID).
+    // SystemAdmin acknowledges the cross-tenant read (PII-bearing delivery logs across all
+    // tenants incl. SYSTEM_TENANT_ID); everyone else gets a tenant-filtered db via scopedTo, and
+    // the explicit `where` below still covers the SYSTEM_TENANT_ID rows that filter lets through.
     const isSystemAdmin = query.user.roles.includes("SystemAdmin");
     const db = isSystemAdmin
       ? ctx.systemDb.acknowledgeCrossTenant(
           "SystemAdmin reads delivery attempts across all tenants including SYSTEM_TENANT_ID",
         )
-      : ctx.systemDb.assertTenantMatch(query.user.tenantId);
+      : ctx.systemDb.scopedTo(query.user.tenantId);
 
     const requestedSort = query.payload.sort;
     const sortField: DeliveryLogSortField =

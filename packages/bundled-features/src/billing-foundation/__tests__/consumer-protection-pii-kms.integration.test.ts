@@ -13,7 +13,7 @@ import {
 import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
+import { createRendererMailHtmlFeature } from "../../renderer-mail-html/index.ts";
 import {
   resetPiiSubjectKmsForTests,
   resetTestTables,

@@ -153,6 +153,9 @@ export const SYSTEM_SCOPE_CHECK_BRAND: unique symbol = Symbol.for("kumiko.system
 export type UncheckedSystemDb = {
   readonly [SYSTEM_SCOPE_CHECK_BRAND]: true;
   assertTenantMatch(tenantId: TenantId): TenantDb;
+  // Same self-check as assertTenantMatch, but returns a tenant-mode db for that tenant: the
+  // framework filters reads and pins writes instead of each query's own tenantId WHERE.
+  scopedTo(tenantId: TenantId): TenantDb;
   assertRowsTenant<T>(rows: readonly T[], tenantField: keyof T): readonly T[];
   acknowledgeCrossTenant(reason: string): TenantDb;
   /**

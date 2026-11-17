@@ -74,7 +74,7 @@ import {
   createRendererMailHtmlFeature,
   type MailBrandSuffixResolver,
   type MailFooterResolver,
-} from "@cosmicdrift/kumiko-renderer-mail-html";
+} from "@cosmicdrift/kumiko-bundled-features/renderer-mail-html";
 
 export type FileProviderKind = "inmemory" | "s3" | "s3-env";
 export type MailTransportKind = "inmemory" | "smtp";

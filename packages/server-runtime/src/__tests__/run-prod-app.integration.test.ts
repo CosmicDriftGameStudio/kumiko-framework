@@ -61,7 +61,7 @@ import {
   APEX_LIGHTBOX_SCRIPT_CSP_HASH,
   renderApexPage,
 } from "@cosmicdrift/kumiko-renderer/headless/apex";
-import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
+import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-mail-html";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { testRunQueueNamePrefix, unsafeEnsureEntityTable } from "@cosmicdrift/kumiko-testing/stack";
 import { AUTH_COOKIE_BASE, sessionCookieName } from "@cosmicdrift/kumiko-types/session-cookies";

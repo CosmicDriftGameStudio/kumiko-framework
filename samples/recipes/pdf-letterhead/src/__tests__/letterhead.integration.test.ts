@@ -29,7 +29,7 @@ import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-fra
 import {
   createRendererPuppeteerClientFeature,
   RendererPuppeteerClientQueries,
-} from "@cosmicdrift/kumiko-renderer-puppeteer-client";
+} from "@cosmicdrift/kumiko-bundled-features/renderer-puppeteer-client";
 import {
   setupTestStack,
   type TestStack,

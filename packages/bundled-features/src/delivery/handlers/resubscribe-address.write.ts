@@ -30,7 +30,7 @@ export const resubscribeAddressWrite = defineWriteHandler({
         message: "resubscribeAddress: ctx.systemDb missing on a system-scoped handler",
       });
     }
-    const db = ctx.systemDb.assertTenantMatch(tenantId);
+    const db = ctx.systemDb.scopedTo(tenantId);
 
     for (const name of notificationTypeNames(ctx.registry, notificationType)) {
       const result = await removeAddressOptOut(db, event.user, {

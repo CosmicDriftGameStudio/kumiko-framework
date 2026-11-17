@@ -23,7 +23,7 @@ import {
 import { FrameworkReasons } from "@cosmicdrift/kumiko-framework/errors";
 import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
+import { createRendererMailHtmlFeature } from "../../renderer-mail-html/index.ts";
 import {
   expectSuccess,
   resetBlindIndexKeyForTests,

@@ -3,7 +3,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
+import { createRendererMailHtmlFeature } from "../../renderer-mail-html/index.ts";
 import {
   setupTestStack,
   type TestStack,

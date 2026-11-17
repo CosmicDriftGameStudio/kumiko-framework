@@ -137,7 +137,7 @@ export function buildHandlerDbFacet(scope: HandlerContextScope) {
       ? createSystemScopedDbGuard(
           type,
           "db",
-          "ctx.systemDb.assertTenantMatch(...) or ctx.systemDb.acknowledgeCrossTenant(...)",
+          "ctx.systemDb.scopedTo(...), ctx.systemDb.assertTenantMatch(...) or ctx.systemDb.acknowledgeCrossTenant(...)",
         )
       : db;
   const exposedDb = unattachedExposedDb

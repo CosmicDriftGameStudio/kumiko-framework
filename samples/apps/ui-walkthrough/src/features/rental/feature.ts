@@ -2,7 +2,7 @@ import { defineFeature, defineWriteHandler, i18nKey } from "@cosmicdrift/kumiko-
 import {
   renderPdfBeforeTransaction,
   storeRenderedPdf,
-} from "@cosmicdrift/kumiko-renderer-puppeteer-client";
+} from "@cosmicdrift/kumiko-bundled-features/renderer-puppeteer-client";
 import { z } from "zod";
 import { toKeyFirst } from "../translations";
 import { open } from "./access";

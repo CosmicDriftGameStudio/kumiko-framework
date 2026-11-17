@@ -8,7 +8,8 @@
 //   1. web.tsx/web.ts monolith or JSX screens directly at the feature root
 //   2. feature.ts as a logic dump (> MAX_FEATURE_TS_LINES lines)
 //   3. r.screen({ type: "custom" }) without an allowlist tag — declarative
-//      screen types (entityList/dashboard/data-table) are the default.
+//      screen types (entityList/dashboard/data-table) are the default
+//      (the custom-screen galleries under samples are exempt).
 //   4. a runtime-client marker instead of the web/ path.
 // The handler file convention (handlers/<topic>.write.ts|.query.ts) is enforced by guard-handler-definitions.ts.
 
@@ -97,8 +98,14 @@ function checkFeatureTsSize(sf: SourceFile, base: string, violations: GuardViola
   }
 }
 
+// The widget galleries and the screens-nav recipe exist to show custom screens registered through
+// r.screen; a declarative screen type would remove what they demonstrate.
+const CUSTOM_SCREEN_SHOWCASES =
+  /(?:^|\/)samples\/(?:apps\/(?:showcase|styleguide)|recipes\/screens-nav)\//;
+
 // 3. type: "custom" without an allowlist tag
 function checkCustomScreens(sf: SourceFile, violations: GuardViolation[]): void {
+  if (CUSTOM_SCREEN_SHOWCASES.test(sf.getFilePath())) return;
   for (const prop of sf.getDescendantsOfKind(SyntaxKind.PropertyAssignment)) {
     if (prop.getName() !== "type") continue;
     const init = prop.getInitializer();

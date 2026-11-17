@@ -41,7 +41,7 @@ export const unsubscribePageChromeQuery = defineQueryHandler({
     return plugin.readMailChrome(
       { locale: query.payload.locale },
       {
-        db: ctx.systemDb.assertTenantMatch(tenantId),
+        db: ctx.systemDb.scopedTo(tenantId),
         registry: ctx.registry,
         tenantId,
         ...(ctx.config !== undefined && { config: ctx.config }),

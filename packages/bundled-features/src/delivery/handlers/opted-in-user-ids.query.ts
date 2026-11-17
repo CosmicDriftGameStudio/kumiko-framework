@@ -28,7 +28,7 @@ export const optedInUserIdsQuery = defineQueryHandler({
         message: "opted-in-user-ids: ctx.systemDb missing on a system-scoped handler",
       });
     }
-    const db = ctx.systemDb.assertTenantMatch(query.user.tenantId);
+    const db = ctx.systemDb.scopedTo(query.user.tenantId);
     const { channel } = query.payload;
     const notificationType = currentNotificationType(ctx.registry, query.payload.notificationType);
 

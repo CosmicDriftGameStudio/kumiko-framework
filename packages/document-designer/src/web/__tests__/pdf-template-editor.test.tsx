@@ -23,7 +23,7 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
-import { RendererPuppeteerClientQueries } from "@cosmicdrift/kumiko-renderer-puppeteer-client/qualified-names";
+import { RendererPuppeteerClientQueries } from "@cosmicdrift/kumiko-bundled-features/renderer-puppeteer-client/qualified-names";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { documentDesignerClient } from "../client-plugin.tsx";
 import {

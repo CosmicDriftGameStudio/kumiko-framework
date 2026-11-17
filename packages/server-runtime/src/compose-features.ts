@@ -42,7 +42,7 @@ import {
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { FILES_FEATURE } from "@cosmicdrift/kumiko-framework/files";
-import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
+import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-mail-html";
 import { applyListDefaults } from "./list-defaults.ts";
 
 export { type AuthOptionsCarrier, buildComposeAuthOptions } from "./compose-auth-options.ts";

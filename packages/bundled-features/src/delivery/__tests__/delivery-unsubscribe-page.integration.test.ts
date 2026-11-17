@@ -12,7 +12,7 @@ import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/e
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
 import { localeEs } from "@cosmicdrift/kumiko-locale-es";
-import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
+import { createRendererMailHtmlFeature } from "../../renderer-mail-html/index.ts";
 import {
   setupTestStack,
   type TestStack,

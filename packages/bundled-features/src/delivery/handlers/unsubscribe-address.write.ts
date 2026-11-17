@@ -34,7 +34,7 @@ export const unsubscribeAddressWrite = defineWriteHandler({
         message: "unsubscribeAddress: ctx.systemDb missing on a system-scoped handler",
       });
     }
-    const db = ctx.systemDb.assertTenantMatch(tenantId);
+    const db = ctx.systemDb.scopedTo(tenantId);
 
     const result = await upsertAddressOptOut(db, event.user, {
       tenantId,

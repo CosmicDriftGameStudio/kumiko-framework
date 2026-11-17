@@ -61,6 +61,7 @@ import {
   personalDataGates,
   runnerPersonalDataGates,
   type TenantDbGrants,
+  tenantScopeRebinders,
   unsafeRawRebinders,
   withExecutorManagedWrites,
   withoutExecutorManagedWrites,
@@ -107,6 +108,7 @@ export {
   bindAppProjectionRegistry,
   type PersonalDataGate,
   reportConventionCrossTenantUse,
+  scopeTenantDbToTenant,
   type TenantDbGrants,
   unsafeRawForDeclaredStep,
   withExecutorManagedWrites,
@@ -660,6 +662,28 @@ function buildTenantDb(
   });
   // Carries a runner-bound gate (grants.personalDataGate unset, resolved via the fallback above) forward explicitly, since a fresh tx-handle isn't itself registered in runnerPersonalDataGates.
   const scopedGrants = personalDataGate ? { ...rebindGrants, personalDataGate } : rebindGrants;
+  // A tenant-mode source may only be rescoped to its own tenant; anything else would widen, not narrow.
+  tenantScopeRebinders.set(tenantDb, (targetTenantId) => {
+    if (mode === "tenant" && targetTenantId !== tenantId) {
+      throw new AccessDeniedError({
+        message: `scopeTenantDbToTenant(): a tenant-mode handle for "${tenantId}" cannot be moved to tenant "${targetTenantId}"`,
+      });
+    }
+    const {
+      unsafeRaw: _unsafeRaw,
+      globalWrites: _globalWrites,
+      ...tenantScopedGrants
+    }: TenantDbGrants = scopedGrants ?? {};
+    return createTenantDb({
+      db,
+      tenantId: targetTenantId,
+      mode: "tenant",
+      tracer,
+      meter,
+      signal,
+      grants: tenantScopedGrants,
+    });
+  });
   registerScopedRebinder(tenantDb, {
     memberReadOnly: grants?.memberReadOnly === true,
     rebind: (runner) =>

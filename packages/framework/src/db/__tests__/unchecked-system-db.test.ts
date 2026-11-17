@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { EscapeHatchReporter, EscapeHatchTarget } from "@cosmicdrift/kumiko-types/handlers";
 import { SYSTEM_TENANT_ID } from "../../engine/index.ts";
+import { AccessDeniedError } from "../../errors/index.ts";
 import { testTenantId } from "../../seeding/seed-users.ts";
 import type { DbRunner } from "../connection.ts";
 import { createTenantDb, createUncheckedSystemDb, SYSTEM_SCOPE_CHECK_BRAND } from "../tenant-db.ts";
@@ -87,6 +88,41 @@ describe("createUncheckedSystemDb", () => {
       unchecked.assertTenantMatch(own);
       expect(() => unchecked.assertTenantMatch(foreign)).toThrow();
       expect(calls).toEqual([]);
+    });
+  });
+
+  describe("scopedTo", () => {
+    function uncheckedWithUnsafeRawGrant(report?: EscapeHatchReporter) {
+      const systemDb = createTenantDb({
+        db: unusedRunner(),
+        tenantId: own,
+        mode: "system",
+        reason: "test builds the system-mode source of the unchecked system db",
+        grants: { unsafeRaw: { reason: "test grants unsafeRaw to prove scopedTo drops it" } },
+      });
+      return createUncheckedSystemDb(systemDb, undefined, report);
+    }
+
+    test("returns a tenant-mode db for the caller's tenant without reporting", () => {
+      const { report, calls } = recordingReporter();
+      const scoped = uncheckedWithUnsafeRawGrant(report).scopedTo(own);
+
+      expect(scoped.mode).toBe("tenant");
+      expect(scoped.tenantId).toBe(own);
+      expect(calls).toEqual([]);
+    });
+
+    test("throws AccessDeniedError for a foreign tenant", () => {
+      const unchecked = uncheckedWithUnsafeRawGrant();
+
+      expect(() => unchecked.scopedTo(foreign)).toThrow(AccessDeniedError);
+      expect(() => unchecked.scopedTo(foreign)).toThrow(/tenant self-check failed/);
+    });
+
+    test("drops the unsafeRaw grant of the source db", () => {
+      const scoped = uncheckedWithUnsafeRawGrant().scopedTo(own);
+
+      expect(() => scoped.unsafeRaw()).toThrow(AccessDeniedError);
     });
   });
 

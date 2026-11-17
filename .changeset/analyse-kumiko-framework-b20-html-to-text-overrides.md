@@ -1,9 +1,9 @@
 ---
-"@cosmicdrift/kumiko-renderer-mail-html": patch
+"@cosmicdrift/kumiko-bundled-features": patch
 "@cosmicdrift/kumiko-dev-server": minor
 ---
 
-renderer-mail-html depends on html-to-text ^10.0.1, and the managed-files check rejects overrides of Kumiko packages.
+renderer-mail-html in bundled-features depends on html-to-text ^10.0.1, and the managed-files check rejects overrides of Kumiko packages.
 
 <!-- kumiko-changes
 feature: renderer-mail-html

@@ -7,11 +7,16 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { asRawClient, selectMany } from "../../db/query.ts";
-import { createBooleanField, createEntity, createTextField } from "../../engine/index.ts";
+import {
+  createBooleanField,
+  createEntity,
+  createTextField,
+  SYSTEM_TENANT_ID,
+} from "../../engine/index.ts";
 import { TestUsers, testTenantId } from "../../seeding/seed-users.ts";
 import { table as pgTable, serial, text, timestamp } from "../dialect.ts";
 import { deriveEntityTableMeta } from "../entity-table-meta.ts";
-import { createTenantDb } from "../tenant-db.ts";
+import { createTenantDb, createUncheckedSystemDb } from "../tenant-db.ts";
 
 // --- Entity table (has tenantId via buildBaseColumns) ---
 
@@ -367,6 +372,57 @@ describe("system mode (r.systemScope())", () => {
     // Verify it's gone
     const remaining = await scoped2.selectMany(table, { id: id });
     expect(remaining).toHaveLength(0);
+  });
+});
+
+describe("UncheckedSystemDb.scopedTo", () => {
+  function scopedToTenant1() {
+    const systemDb = createTenantDb({
+      db: testDb.db,
+      tenantId: tenant1.tenantId,
+      mode: "system",
+      reason: "test builds the system-mode source of the unchecked system db",
+    });
+    return createUncheckedSystemDb(systemDb).scopedTo(tenant1.tenantId);
+  }
+
+  test("reads own and system rows, never another tenant's", async () => {
+    const insertedAt = Temporal.Now.instant();
+    await seedRow(testDb.db, table, {
+      name: "ScopedTo-own",
+      tenantId: tenant1.tenantId,
+      version: 1,
+      insertedAt,
+    });
+    await seedRow(testDb.db, table, {
+      name: "ScopedTo-other",
+      tenantId: tenant2.tenantId,
+      version: 1,
+      insertedAt,
+    });
+    await seedRow(testDb.db, table, {
+      name: "ScopedTo-system",
+      tenantId: SYSTEM_TENANT_ID,
+      version: 1,
+      insertedAt,
+    });
+
+    const rows = await scopedToTenant1().selectMany(table);
+
+    const names = rows
+      .map((row) => String(row!["name"]))
+      .filter((name) => name.startsWith("ScopedTo-"))
+      .sort();
+    expect(names).toEqual(["ScopedTo-own", "ScopedTo-system"]);
+  });
+
+  test("pins inserts to the tenant", async () => {
+    const row = await scopedToTenant1().insertOne(table, {
+      name: "ScopedTo-insert",
+      tenantId: tenant2.tenantId,
+    });
+
+    expect(row!["tenantId"]).toBe(tenant1.tenantId);
   });
 });
 

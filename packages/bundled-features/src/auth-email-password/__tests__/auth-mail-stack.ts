@@ -1,5 +1,5 @@
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
+import { createRendererMailHtmlFeature } from "../../renderer-mail-html/index.ts";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature.ts";
 import { createTemplateResolverFeature } from "../../template-resolver/feature.ts";

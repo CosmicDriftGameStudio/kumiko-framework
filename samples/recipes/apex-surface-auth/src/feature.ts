@@ -84,7 +84,7 @@ import { createTenantFeature } from "@cosmicdrift/kumiko-bundled-features/tenant
 import { createUserFeature } from "@cosmicdrift/kumiko-bundled-features/user";
 import { createUserDataRightsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
+import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-mail-html";
 
 export type ApexAccountAppOptions = {
   /** HMAC secret for the deletion verify token. */

@@ -19,6 +19,7 @@ import {
   declaredUnsafeRawRunners,
   hasGrant,
   personalDataGates,
+  scopeTenantDbToTenant,
   withoutExecutorManagedWrites,
   withUnsafeRawGrant,
 } from "./tenant-db-runner-binding.ts";
@@ -116,6 +117,15 @@ function buildUncheckedSystemDb(
         });
       }
       return db;
+    },
+
+    scopedTo(tenantId) {
+      if (tenantId !== db.tenantId) {
+        throw new AccessDeniedError({
+          message: `systemScope() tenant self-check failed: expected "${db.tenantId}", got "${tenantId}"`,
+        });
+      }
+      return scopeTenantDbToTenant(db, tenantId);
     },
 
     // Fails closed on any mismatch rather than silently dropping rows.

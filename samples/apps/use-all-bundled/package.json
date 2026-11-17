@@ -22,8 +22,6 @@
     "@cosmicdrift/kumiko-renderer": "workspace:*",
     "@cosmicdrift/kumiko-document-designer": "workspace:*",
     "@cosmicdrift/kumiko-framework": "workspace:*",
-    "@cosmicdrift/kumiko-renderer-mail-html": "workspace:*",
-    "@cosmicdrift/kumiko-renderer-puppeteer-client": "workspace:*",
     "@cosmicdrift/kumiko-server-runtime": "workspace:*",
     "@cosmicdrift/kumiko-types": "workspace:*",
     "react": "^19.3.1",

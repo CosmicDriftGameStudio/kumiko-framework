@@ -3,11 +3,11 @@ import { AccessDeniedError, InternalError } from "../../errors/index.ts";
 import { testTenantId } from "../../seeding/seed-users.ts";
 import type { DbRunner } from "../connection.ts";
 import { defineUnmanagedTable } from "../entity-table-meta.ts";
-import { scopeTenantDbToTenant } from "../scope-tenant-db-to-tenant.ts";
 import {
   acknowledgeConventionCrossTenant,
   createTenantDb,
   createUncheckedSystemDb,
+  scopeTenantDbToTenant,
   withUnsafeRawGrant,
 } from "../tenant-db.ts";
 import { tenantDbRunner, tenantDbWriteRunner } from "../tenant-db-runner.ts";
@@ -101,6 +101,24 @@ describe("TenantDb with writesDeniedReason", () => {
     );
     expect(() => tenantDbWriteRunner(scoped, "write")).toThrow(/writes are not available/);
     expect(queries).toEqual([]);
+  });
+
+  test("narrows a system-mode db to the target tenant", async () => {
+    queries.length = 0;
+    const systemDb = createTenantDb({
+      db: recordingRunner(),
+      tenantId,
+      mode: "system",
+      reason: "test builds the system-mode source that scopeTenantDbToTenant narrows",
+    });
+    const target = testTenantId(2);
+    const scoped = scopeTenantDbToTenant(systemDb, target);
+
+    expect(scoped.mode).toBe("tenant");
+    expect(scoped.tenantId).toBe(target);
+    await scoped.selectMany(noteTable, {});
+    expect(queries.length).toBe(1);
+    expect(queries[0]).toContain("tenant_id");
   });
 
   test("a TenantDb without the grant keeps its write runner", () => {

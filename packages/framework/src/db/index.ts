@@ -139,7 +139,6 @@ export {
   outsideRowLevelSecurityScope,
 } from "./row-level-security-scope.ts";
 export { tableExists } from "./schema-inspection.ts";
-export { scopeTenantDbToTenant } from "./scope-tenant-db-to-tenant.ts";
 export {
   buildBaseColumns,
   buildEntityTable,
@@ -170,6 +169,7 @@ export {
   hasOutsideTransactionDb,
   requireOutsideTransactionDb,
   requireSystemDb,
+  scopeTenantDbToTenant,
 } from "./tenant-db.ts";
 export { createTenantDb, type PublicCreateTenantDbOptions } from "./public-tenant-db.ts";
 export { runInOwnTransaction } from "./tenant-db-scoped-rebind.ts";

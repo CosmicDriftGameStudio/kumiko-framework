@@ -13,7 +13,7 @@ import {
 import { loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
-import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
+import { createRendererMailHtmlFeature } from "../../renderer-mail-html/index.ts";
 import { expectSuccess, seedRowViaEventStore, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,

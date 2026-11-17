@@ -1,7 +1,7 @@
 ---
 status: reference
 verified: 2026-11-17
-evidence: "packages/types/src/handlers.ts, packages/types/src/handler-context-facets.ts, packages/types/src/handler-context-services.ts, packages/types/src/config.ts"
+evidence: "packages/framework/src/db/tenant-db-system-db.ts, packages/types/src/handlers.ts, packages/types/src/handler-context-facets.ts, packages/types/src/handler-context-services.ts, packages/types/src/config.ts"
 ---
 
 # Handler context and embedded fields
@@ -33,7 +33,7 @@ flowchart LR
 | Namespace | Members | Use it for |
 |---|---|---|
 | `ctx.db` | TenantDb methods, `outsideTransaction` | rows of the caller's tenant, inside or outside the handler transaction |
-| `ctx.systemDb` | `assertTenantMatch`, `assertRowsTenant`, `acknowledgeCrossTenant`, `unsafeRaw` | `r.systemScope()` features only |
+| `ctx.systemDb` | `scopedTo`, `assertTenantMatch`, `assertRowsTenant`, `acknowledgeCrossTenant`, `unsafeRaw` | `r.systemScope()` features only |
 | `ctx.crossTenantReads` | `selectMany`, `fetchOne`, `count` | read-only access to other tenants, only with an `escapeHatch` grant |
 | `ctx.events` | `append`, `unsafeAppend`, `tryAppend`, `fetchForWriting`, `load`, `loadWithSnapshot`, `snapshot`, `archive`, `restore`, `isArchived`, `streamVersion` | event streams of the feature |
 | `ctx.dispatch` | `query`, `write`, `queryAs`, `writeAs`, `queryAsMember`, `queryProjection` | calling other handlers |
@@ -193,14 +193,20 @@ another tenant's rows.
 explicit instead of optional convention. It is populated whenever
 `r.systemScope()` is set on the calling feature; check for `undefined` before
 use, since a handler on a tenant-scoped feature never receives it. It offers
-four methods. `assertTenantMatch` and `acknowledgeCrossTenant` return the same
-`TenantDb` that `ctx.db` would give you, so the query calls after them are
-unchanged; `assertRowsTenant` returns the rows it checked, and `unsafeRaw`
-returns a raw runner:
+five methods. `scopedTo` returns a tenant-mode `TenantDb`; `assertTenantMatch`
+and `acknowledgeCrossTenant` return the unfiltered system-mode `TenantDb`;
+`assertRowsTenant` returns the rows it checked, and `unsafeRaw` returns a raw
+runner:
 
+- **`scopedTo(tenantId)`** throws `AccessDeniedError` like `assertTenantMatch`,
+  then returns a tenant-mode `TenantDb` for that tenant on the same
+  transaction: reads are filtered to the own tenant plus system rows, writes
+  are pinned to the tenant, and there is no `unsafeRaw` or `global()`. This is
+  the default for handlers that only work inside the caller's own tenant.
 - **`assertTenantMatch(tenantId)`** — throws `AccessDeniedError` unless
-  `tenantId` is exactly the caller's own tenant, then returns the checked
-  `TenantDb`. Pass the tenant id the handler is about to touch: a
+  `tenantId` is exactly the caller's own tenant, then returns the unfiltered
+  system-mode `TenantDb` (only needed for writes with a foreign or system
+  tenant id). Pass the tenant id the handler is about to touch: a
   client-supplied or looked-up target (rejects a cross-tenant attempt), or —
   when the handler only ever operates on the caller's own scope — the
   caller's own tenant id from the session, which routes the handler through

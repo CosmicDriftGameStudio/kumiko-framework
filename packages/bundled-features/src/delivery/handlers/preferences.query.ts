@@ -24,14 +24,14 @@ export const preferencesQuery = defineQueryHandler({
   description:
     "Returns the calling user's notification preference rows for their own tenant; use it to show which notification types and channels that user has enabled or muted.",
   handler: async (query, ctx) => {
-    // delivery runs in system-scope, so ctx.db is not auto-tenant-filtered —
-    // userId alone is not tenant-unique, so a userId-only filter here leaked preferences cross-tenant.
+    // delivery runs in system-scope; scopedTo returns a tenant-filtered db, and the WHERE on
+    // tenantId + userId additionally excludes the system-tenant rows.
     if (!ctx.systemDb) {
       throw new InternalError({
         message: "preferences: ctx.systemDb missing on a system-scoped handler",
       });
     }
-    const db = ctx.systemDb.assertTenantMatch(query.user.tenantId);
+    const db = ctx.systemDb.scopedTo(query.user.tenantId);
 
     const rows = await selectMany(db, notificationPreferencesTable, {
       tenantId: query.user.tenantId,

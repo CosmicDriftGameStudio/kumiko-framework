@@ -2,7 +2,7 @@ import { TemplateResolverHandlers } from "@cosmicdrift/kumiko-bundled-features/t
 import type { useDispatcher } from "@cosmicdrift/kumiko-renderer";
 import type { Translate } from "@cosmicdrift/kumiko-renderer/headless";
 import { uploadFileRef } from "@cosmicdrift/kumiko-renderer/web";
-import { RendererPuppeteerClientQueries } from "@cosmicdrift/kumiko-renderer-puppeteer-client/qualified-names";
+import { RendererPuppeteerClientQueries } from "@cosmicdrift/kumiko-bundled-features/renderer-puppeteer-client/qualified-names";
 import { describeError, isAlreadyActive } from "./errors.ts";
 import {
   type Draft,

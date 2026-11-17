@@ -38,7 +38,7 @@ import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
-import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
+import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-mail-html";
 import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import type { TenantId } from "@cosmicdrift/kumiko-types/identifiers";

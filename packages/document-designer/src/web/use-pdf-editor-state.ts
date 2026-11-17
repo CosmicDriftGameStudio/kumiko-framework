@@ -4,7 +4,7 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import { useQuery, useUserRoles } from "@cosmicdrift/kumiko-renderer";
 import type { Translate } from "@cosmicdrift/kumiko-renderer/headless";
-import { RendererPuppeteerClientQueries } from "@cosmicdrift/kumiko-renderer-puppeteer-client/qualified-names";
+import { RendererPuppeteerClientQueries } from "@cosmicdrift/kumiko-bundled-features/renderer-puppeteer-client/qualified-names";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { EditorMode } from "./editor-header.tsx";
 import type { LayoutSourceView } from "./layout-types.ts";
