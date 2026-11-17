@@ -14,21 +14,19 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import type { ComponentType, ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import type { Dispatcher } from "../../headless/index.ts";
+import { isRecord } from "../../headless/is-record.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
-import {
-  type ButtonProps,  type DataTableProps,
-  PrimitivesProvider,
-} from "../../primitives.tsx";
+import { type ButtonProps, type DataTableProps, PrimitivesProvider } from "../../primitives.tsx";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import { NavProvider } from "../nav.tsx";
-import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 
 const PARENT_QN = "campaigns:query:campaign:list";
 const CHILD_QN = "campaigns:query:campaign-post:list";
 
-type QueryCall = { readonly qn: string; readonly payload: Record<string, unknown> };
+type QueryCall = { readonly qn: string; readonly payload: Readonly<Record<string, unknown>> };
 
 let queryCalls: QueryCall[] = [];
 let writeIsSuccess = true;
@@ -37,7 +35,7 @@ function callsFor(qn: string): readonly QueryCall[] {
   return queryCalls.filter((c) => c.qn === qn);
 }
 
-function parentIdOf(payload: Record<string, unknown>): string {
+function parentIdOf(payload: Readonly<Record<string, unknown>>): string {
   const filter = payload["filter"] as { readonly value?: unknown } | undefined;
   return String(filter?.value ?? "");
 }
@@ -58,7 +56,8 @@ function stubDispatcher(): Dispatcher {
       }
       return { isSuccess: true, data: {} };
     },
-    query: async (qn: string, payload: Record<string, unknown>) => {
+    query: async (qn: string, payload: unknown) => {
+      if (!isRecord(payload)) throw new Error("expected a record payload");
       queryCalls.push({ qn, payload });
       if (qn === CHILD_QN) {
         const parent = parentIdOf(payload);

@@ -19,12 +19,12 @@ import type { Dispatcher, RuntimeRenderer } from "../../headless/index.ts";
 import { REFERENCE_LIST_LOOKUP_LIMIT } from "../../hooks/reference-limits.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
-import {type DataTableProps, PrimitivesProvider } from "../../primitives.tsx";
+import { type DataTableProps, PrimitivesProvider } from "../../primitives.tsx";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import type { NavApi } from "../nav.tsx";
 import { NavProvider } from "../nav.tsx";
-import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 
 function systemReferenceId(referenceKey: string): string {
   const label = SYSTEM_REFERENCE_LABELS[referenceKey];
@@ -138,7 +138,12 @@ function stubDispatcher(): Dispatcher {
           failedDirectoryCalls += 1;
           return {
             isSuccess: false,
-            error: { code: "access_denied", message: "denied" },
+            error: {
+              code: "access_denied",
+              httpStatus: 403,
+              i18nKey: "errors.access_denied",
+              message: "denied",
+            },
           };
         }
         return {

@@ -39,21 +39,12 @@ function testPrimitives(): CorePrimitives {
     Button: testButton,
     Banner: passChildren,
     Field: passChildren,
-    Input: noop,
     DataTable: testDataTable,
-    Form: noop,
     Section: passChildren,
     Card: passChildren,
     Grid: passChildren,
     GridCell: passChildren,
     Text: testText,
-    Heading: noop,
-    Dialog: noop,
-    Modal: noop,
-    Lightbox: noop,
-    ConfigSourceBadge: noop,
-    ConfigCascadeView: noop,
-    Link: noop,
   });
 }
 

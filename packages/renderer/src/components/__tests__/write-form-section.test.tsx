@@ -19,11 +19,16 @@ import {
   type ButtonProps,
   type CardProps,
   type CorePrimitives,
+  type InputProps,
   PrimitivesProvider,
   type SectionProps,
 } from "../../primitives.tsx";
+import {
+  createMockDispatcher,
+  createStubPrimitives,
+  type MockWriteHandler,
+} from "../../testing.ts";
 import { WriteFormSection } from "../write-form-section.tsx";
-import { createMockDispatcher, createStubPrimitives, type MockBatchHandler, type MockQueryHandler, type MockWriteHandler } from "../../testing.ts";
 
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 const noop = () => {};
@@ -34,18 +39,15 @@ const testButton: ComponentType<ButtonProps> = ({ children, onClick, testId, dis
   </button>
 );
 
-const testInput: ComponentType<{
-  name?: string;
-  value?: unknown;
-  onChange?: (v: unknown) => void;
-}> = ({ name = "field", value, onChange }) => (
-  <input
-    aria-label={name}
-    data-testid={`input-${name}`}
-    value={typeof value === "string" ? value : ""}
-    onChange={(e) => onChange?.(e.target.value)}
-  />
-);
+const testInput: ComponentType<InputProps> = (props) =>
+  props.kind === "text" ? (
+    <input
+      aria-label={props.name}
+      data-testid={`input-${props.name}`}
+      value={props.value}
+      onChange={(e) => props.onChange(e.target.value)}
+    />
+  ) : null;
 
 const testBanner: ComponentType<BannerProps> = ({ children, testId }) => (
   <div data-testid={testId}>{children}</div>
@@ -96,20 +98,10 @@ function testPrimitives(): CorePrimitives {
     Banner: testBanner,
     Field: passChildren,
     Input: testInput,
-    DataTable: noop,
-    Form: noop,
     Section: testSection,
     Card: testCard,
     Grid: passChildren,
     GridCell: passChildren,
-    Text: noop,
-    Heading: noop,
-    Dialog: noop,
-    Modal: noop,
-    Lightbox: noop,
-    ConfigSourceBadge: noop,
-    ConfigCascadeView: noop,
-    Link: noop,
   });
 }
 

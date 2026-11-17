@@ -7,12 +7,12 @@ import { fireEvent, render, screen as rtlScreen, waitFor } from "@testing-librar
 import type { ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import { UserRolesProvider } from "../../context/user-roles-context.tsx";
-import type { Dispatcher } from "../../headless/index.ts";
+import type { Command, Dispatcher } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
-import { type CorePrimitives, PrimitivesProvider } from "../../primitives.tsx";
-import { SecretsEditBody } from "../secrets-edit-body.tsx";
+import { type InputProps, PrimitivesProvider } from "../../primitives.tsx";
 import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
+import { SecretsEditBody } from "../secrets-edit-body.tsx";
 
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 
@@ -56,17 +56,14 @@ const testPrimitives = createStubPrimitives({
     <section data-testid={`section-${title}`}>{children}</section>
   ),
   Field: passChildren,
-  Input: ({
-    testId,
-    value,
-    onChange,
-  }: {
-    testId?: string;
-    value?: string;
-    onChange?: (v: string) => void;
-  }) => (
-    <input data-testid={testId} value={value ?? ""} onChange={(e) => onChange?.(e.target.value)} />
-  ),
+  Input: (props: InputProps) =>
+    props.kind === "password" ? (
+      <input
+        data-testid={props.testId}
+        value={props.value}
+        onChange={(e) => props.onChange(e.target.value)}
+      />
+    ) : null,
   Text: passChildren,
   Grid: passChildren,
   Dialog: () => null,
@@ -95,18 +92,21 @@ const screenDef: SecretsEditScreenDefinition = {
   ],
 };
 
-function recordingDispatcher(batches: unknown[][]): Dispatcher {
+function recordingDispatcher(batches: (readonly Command[])[]): Dispatcher {
   return createMockDispatcher({
     write: async () => ({ isSuccess: true, data: null }),
-    batch: async (commands: unknown[]) => {
+    batch: async (commands: readonly Command[]) => {
       batches.push(commands);
-      return { isSuccess: true, data: [] };
+      return { isSuccess: true, results: [] };
     },
     query: async () => ({ isSuccess: true, data: [] }),
   });
 }
 
-function renderBody(roles: readonly string[] | undefined, batches: unknown[][] = []): void {
+function renderBody(
+  roles: readonly string[] | undefined,
+  batches: (readonly Command[])[] = [],
+): void {
   render(
     <LocaleProvider
       resolver={createStaticLocaleResolver({ locale: "en-US" })}
@@ -156,7 +156,7 @@ describe("SecretsEditBody writeRoles visibility", () => {
   });
 
   test("submit sends set commands only for visible fields", async () => {
-    const batches: unknown[][] = [];
+    const batches: (readonly Command[])[] = [];
     renderBody(["TenantAdmin"], batches);
 
     const input = await rtlScreen.findByTestId("secret-input-stripe-open");

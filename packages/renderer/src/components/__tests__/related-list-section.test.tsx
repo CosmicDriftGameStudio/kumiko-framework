@@ -20,8 +20,8 @@ import {
   PrimitivesProvider,
   type SectionProps,
 } from "../../primitives.tsx";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 import { RelatedListSection } from "../related-list-section.tsx";
-import { createMockDispatcher, createStubPrimitives, type MockBatchHandler, type MockQueryHandler, type MockWriteHandler } from "../../testing.ts";
 
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 const noop = () => {};
@@ -78,24 +78,14 @@ const testBanner = ({ children, testId }: { children?: ReactNode; testId?: strin
 
 function testPrimitives(): CorePrimitives {
   return createStubPrimitives({
-    Button: noop,
     Banner: testBanner,
     Field: passChildren,
     Input: testInput,
     DataTable: testDataTable,
-    Form: noop,
     Section: testSection,
     Card: passChildren,
     Grid: passChildren,
     GridCell: passChildren,
-    Text: noop,
-    Heading: noop,
-    Dialog: noop,
-    Modal: noop,
-    Lightbox: noop,
-    ConfigSourceBadge: noop,
-    ConfigCascadeView: noop,
-    Link: noop,
   });
 }
 

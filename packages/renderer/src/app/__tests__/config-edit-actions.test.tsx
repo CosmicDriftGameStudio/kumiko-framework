@@ -4,10 +4,7 @@ import { fireEvent, render, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import { LocaleProvider } from "../../i18n.tsx";
-import {
-  type ButtonProps,  type FieldProps,
-  PrimitivesProvider,
-} from "../../primitives.tsx";
+import { type ButtonProps, type FieldProps, PrimitivesProvider } from "../../primitives.tsx";
 import { createStubPrimitives } from "../../testing.ts";
 import { createMockDispatcher, type MockWriteHandler } from "../../web/__tests__/test-utils.tsx";
 import { ConfigEditActionRow } from "../config-edit-action-row.tsx";
@@ -71,7 +68,7 @@ const resolver = {
   subscribe: () => () => {},
 };
 
-function renderRow(dirty: boolean, write: (...args: unknown[]) => Promise<unknown>) {
+function renderRow(dirty: boolean, write: MockWriteHandler) {
   return render(
     <LocaleProvider resolver={resolver}>
       <DispatcherProvider
@@ -89,7 +86,10 @@ function renderRow(dirty: boolean, write: (...args: unknown[]) => Promise<unknow
 
 describe("ConfigEditActionRow", () => {
   test("a click calls the handler with an empty payload and shows the success message", async () => {
-    const write = mock<MockWriteHandler>(async (..._args: unknown[]) => ({ isSuccess: true, data: {} }));
+    const write = mock<MockWriteHandler>(async (..._args: unknown[]) => ({
+      isSuccess: true,
+      data: {},
+    }));
     const view = renderRow(false, write);
     fireEvent.click(view.getByTestId("config-edit-action-send-test-button"));
     await waitFor(() =>
@@ -120,7 +120,10 @@ describe("ConfigEditActionRow", () => {
   });
 
   test("the button is disabled with a save-first hint while the form is dirty", () => {
-    const write = mock<MockWriteHandler>(async (..._args: unknown[]) => ({ isSuccess: true, data: {} }));
+    const write = mock<MockWriteHandler>(async (..._args: unknown[]) => ({
+      isSuccess: true,
+      data: {},
+    }));
     const view = renderRow(true, write);
     const button = view.getByTestId("config-edit-action-send-test-button") as HTMLButtonElement;
     expect(button.disabled).toBe(true);

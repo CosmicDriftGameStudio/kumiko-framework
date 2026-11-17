@@ -14,15 +14,16 @@ import {
   type ButtonProps,
   type CardProps,
   type FormProps,
+  type InputProps,
   PrimitivesProvider,
   type SectionProps,
 } from "../../primitives.tsx";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 import { AppFeaturesProvider } from "../app-features-context.tsx";
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import type { NavApi } from "../nav.tsx";
 import { NavProvider } from "../nav.tsx";
-import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
@@ -44,17 +45,14 @@ const TestButton: ComponentType<ButtonProps> = ({ children, onClick, testId, dis
   </button>
 );
 
-const TestInput: ComponentType<{
-  name?: string;
-  value?: unknown;
-  onChange?: (v: unknown) => void;
-}> = ({ name = "field", value, onChange }) => (
-  <input
-    aria-label={name}
-    value={typeof value === "string" ? value : ""}
-    onChange={(e) => onChange?.(e.target.value)}
-  />
-);
+const TestInput: ComponentType<InputProps> = (props) =>
+  props.kind === "text" ? (
+    <input
+      aria-label={props.name}
+      value={props.value}
+      onChange={(e) => props.onChange(e.target.value)}
+    />
+  ) : null;
 
 // Section testId already carries the section title, so the two writeForm
 // submit buttons are reachable through their own section.

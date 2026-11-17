@@ -19,7 +19,11 @@ import {
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import {
   type BannerProps,
+  type ButtonProps,
   type CorePrimitives,
+  type FieldProps,
+  type FormProps,
+  type InputProps,
   PrimitivesProvider,
   type SectionProps,
   type TextProps,
@@ -31,34 +35,21 @@ type Values = { name: string };
 
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 
-const noop = () => {};
-
 const renderSection: ComponentType<SectionProps> = ({ testId, children }) => (
   <div data-testid={testId}>{children}</div>
 );
 
-const testButton: ComponentType<{
-  children?: ReactNode;
-  onClick?: () => void;
-  testId?: string;
-  type?: "button" | "submit";
-  disabled?: boolean;
-}> = ({ children, onClick, testId, type, disabled }) => (
+const testButton: ComponentType<ButtonProps> = ({ children, onClick, testId, type, disabled }) => (
   <button type={type ?? "button"} data-testid={testId} onClick={onClick} disabled={disabled}>
     {children}
   </button>
 );
 
-const testForm: ComponentType<{
-  children?: ReactNode;
-  actions?: ReactNode;
-  secondaryActions?: ReactNode;
-  onSubmit?: () => void;
-}> = ({ children, actions, secondaryActions, onSubmit }) => (
+const testForm: ComponentType<FormProps> = ({ children, actions, secondaryActions, onSubmit }) => (
   <form
     onSubmit={(e) => {
       e.preventDefault();
-      onSubmit?.();
+      onSubmit();
     }}
   >
     {children}
@@ -67,24 +58,17 @@ const testForm: ComponentType<{
   </form>
 );
 
-const testInput: ComponentType<{
-  name?: string;
-  value?: unknown;
-  onChange?: (v: unknown) => void;
-}> = ({ name = "field", value, onChange }) => (
-  <input
-    aria-label={name}
-    data-testid={`input-${name}`}
-    value={typeof value === "string" ? value : ""}
-    onChange={(e) => onChange?.(e.target.value)}
-  />
-);
+const testInput: ComponentType<InputProps> = (props) =>
+  props.kind === "text" ? (
+    <input
+      aria-label={props.name}
+      data-testid={`input-${props.name}`}
+      value={props.value}
+      onChange={(e) => props.onChange(e.target.value)}
+    />
+  ) : null;
 
-const testField: ComponentType<{
-  id: string;
-  issues?: readonly unknown[];
-  children?: ReactNode;
-}> = ({ id, issues, children }) => (
+const testField: ComponentType<FieldProps> = ({ id, issues, children }) => (
   <div>
     {issues !== undefined && issues.length > 0 ? <span data-testid={`field-issue-${id}`} /> : null}
     {children}
@@ -105,20 +89,12 @@ function testPrimitives(): CorePrimitives {
     Banner: testBanner,
     Field: testField,
     Input: testInput,
-    DataTable: noop,
     Form: testForm,
     Section: renderSection,
     Card: passChildren,
     Grid: passChildren,
     GridCell: passChildren,
     Text: testText,
-    Heading: noop,
-    Dialog: noop,
-    Modal: noop,
-    Lightbox: noop,
-    ConfigSourceBadge: noop,
-    ConfigCascadeView: noop,
-    Link: noop,
   });
 }
 

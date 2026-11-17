@@ -19,7 +19,7 @@ function renderExtensionSection<TValues extends FormValues, TCtx>(
 ): ReactNode {
   const { props, state, form, draft, sections } = model.engine;
   const { hideSectionTitles } = props;
-  const { Card, FillContainer } = state.primitives;
+  const { Card } = state.primitives;
   const anchorId = sectionNavAnchorId(model.titles.sectionNavItems, sectionIndex);
   const mount = (
     <ExtensionSectionMount
@@ -72,7 +72,8 @@ function renderRelatedListSection<TValues extends FormValues, TCtx>(
   { model, sectionIndex, sectionActionsEl }: SectionRenderContext<TValues, TCtx>,
   section: RelatedListSectionModel,
 ): ReactNode {
-  const { props, form, sections } = model.engine;
+  const { props, form, sections, state } = model.engine;
+  const { FillContainer } = state.primitives;
   const { hideSectionTitles, fillScreenHeight, refreshToken, onRelatedListDrawerAction } = props;
   // parentId is the displayed record's id — without it there's no
   // parent row whose related rows could be queried.
@@ -108,10 +109,7 @@ function renderRelatedListSection<TValues extends FormValues, TCtx>(
   // Tabs mode: the table runs full-bleed under the tab strip (board
   // layout); the toolbar buttons live in the list's own toolbar.
   return hideSectionTitles === true ? (
-    <FillContainer
-      key={section.title}
-      {...(fillScreenHeight === true && { grow: true })}
-    >
+    <FillContainer key={section.title} {...(fillScreenHeight === true && { grow: true })}>
       {mount}
     </FillContainer>
   ) : (
@@ -268,11 +266,7 @@ function withSectionPresentation<TValues extends FormValues, TCtx>(
     section.kind === "fields" && section.id !== undefined
       ? props.afterSection?.(section.id, form.snapshot.values)
       : undefined;
-  if (
-    section.after === undefined &&
-    sectionTail === undefined &&
-    narrowClass === undefined
-  ) {
+  if (section.after === undefined && sectionTail === undefined && narrowClass === undefined) {
     return node;
   }
   return (

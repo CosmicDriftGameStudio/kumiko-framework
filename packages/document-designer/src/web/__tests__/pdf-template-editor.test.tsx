@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { RendererPuppeteerClientQueries } from "@cosmicdrift/kumiko-bundled-features/renderer-puppeteer-client/qualified-names";
 import {
   TemplateResolverHandlers,
   TemplateResolverQueries,
@@ -21,18 +22,21 @@ import {
   UserRolesProvider,
   useScreenFocus,
 } from "@cosmicdrift/kumiko-renderer";
-import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
+import type { Dispatcher, QueryResult } from "@cosmicdrift/kumiko-renderer/headless";
+import {
+  createMockDispatcher,
+  type MockQueryHandler,
+  type MockWriteHandler,
+} from "@cosmicdrift/kumiko-renderer/testing";
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
-import { RendererPuppeteerClientQueries } from "@cosmicdrift/kumiko-bundled-features/renderer-puppeteer-client/qualified-names";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { documentDesignerClient } from "../client-plugin.tsx";
 import {
-  BRANDING_QUERY_QN,
   BRANDING_FEATURE_NAME,
+  BRANDING_QUERY_QN,
   TEMPLATE_IMPORT_CLIENT_ACTION,
 } from "../constants.ts";
 import { PdfTemplateEditor } from "../pdf-template-editor.tsx";
-import { createMockDispatcher } from "@cosmicdrift/kumiko-renderer/testing";
 
 const translations = mergeTranslations(
   mergeTranslations(kumikoDefaultTranslations, textBlocksClient().translations ?? {}),
@@ -118,7 +122,7 @@ function createFakeDispatcher(options: FakeOptions): {
 } {
   const writes: Call[] = [];
   const queries: string[] = [];
-  const failure = {
+  const failure: QueryResult = {
     isSuccess: false,
     error: {
       code: "unknown_query",
@@ -127,7 +131,7 @@ function createFakeDispatcher(options: FakeOptions): {
       message: "unknown query",
     },
   };
-  const query = async (type: string, payload: unknown) => {
+  const query: MockQueryHandler = async (type, payload) => {
     queries.push(type);
     switch (type) {
       case TemplateResolverQueries.list: {
@@ -202,7 +206,7 @@ function createFakeDispatcher(options: FakeOptions): {
         return failure;
     }
   };
-  const write = async (type: string, payload: unknown) => {
+  const write: MockWriteHandler = async (type, payload) => {
     writes.push({ type, payload });
     return { isSuccess: true, data: { id: "saved", slug: SLUG, isNew: false } };
   };

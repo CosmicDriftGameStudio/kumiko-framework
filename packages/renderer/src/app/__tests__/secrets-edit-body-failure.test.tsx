@@ -10,9 +10,9 @@ import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import type { Dispatcher } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
-import { type CorePrimitives, PrimitivesProvider } from "../../primitives.tsx";
+import { type InputProps, PrimitivesProvider } from "../../primitives.tsx";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 import { SecretsEditBody } from "../secrets-edit-body.tsx";
-import { createMockDispatcher, createStubPrimitives, type MockBatchHandler } from "../../testing.ts";
 
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 
@@ -57,30 +57,16 @@ const testPrimitives = createStubPrimitives({
     </form>
   ),
   Section: passChildren,
-  Field: ({ children, appendix }: { children?: ReactNode; appendix?: ReactNode }) => (
-    <div>
-      {children}
-      {appendix}
-    </div>
-  ),
-  Input: ({
-    testId,
-    value,
-    onChange,
-    disabled,
-  }: {
-    testId?: string;
-    value?: string;
-    onChange?: (v: string) => void;
-    disabled?: boolean;
-  }) => (
-    <input
-      data-testid={testId}
-      value={value ?? ""}
-      disabled={disabled}
-      onChange={(e) => onChange?.(e.target.value)}
-    />
-  ),
+  Field: passChildren,
+  Input: (props: InputProps) =>
+    props.kind === "password" ? (
+      <input
+        data-testid={props.testId}
+        value={props.value}
+        disabled={props.disabled}
+        onChange={(e) => props.onChange(e.target.value)}
+      />
+    ) : null,
   Text: passChildren,
   Grid: passChildren,
   Dialog: () => null,
@@ -95,7 +81,7 @@ const screenDef: SecretsEditScreenDefinition = {
 } as unknown as SecretsEditScreenDefinition;
 
 function rejectingDispatcher(): Dispatcher {
-  const reject: MockBatchHandler = async (): Promise<never> => {
+  const reject = async (): Promise<never> => {
     throw new Error("network down");
   };
   return createMockDispatcher({

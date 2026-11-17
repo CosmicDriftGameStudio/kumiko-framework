@@ -7,19 +7,20 @@ import type { ActionFormScreenDefinition } from "@cosmicdrift/kumiko-framework/u
 import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import { type ComponentType, type ReactNode, useState } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
-import type { Dispatcher } from "../../headless/index.ts";
+import type { Dispatcher, WriteResult } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import {
-  type ButtonProps,  type FieldProps,
+  type ButtonProps,
+  type FieldProps,
   type FormProps,
   type InputProps,
   PrimitivesProvider,
 } from "../../primitives.tsx";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import { type NavApi, NavProvider, type NavTarget, useNavigateWithInitialValues } from "../nav.tsx";
-import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
@@ -88,7 +89,7 @@ type Write = { readonly type: string; readonly payload: unknown };
 
 function makeDispatcher(
   writes: Write[],
-  respond: () => unknown,
+  respond: () => WriteResult,
   queries: Write[] = [],
 ): Dispatcher {
   return createMockDispatcher({
@@ -172,7 +173,7 @@ function App({
 }
 
 function mount(
-  respond: () => unknown = () => ({ isSuccess: true, data: {} }),
+  respond: () => WriteResult = () => ({ isSuccess: true, data: {} }),
   screenDef: ActionFormScreenDefinition = screen,
   initialValues: Record<string, string> = { subject: "Hello" },
 ): {
@@ -263,7 +264,10 @@ describe("actionForm submitThrough", () => {
 });
 
 describe("actionForm submitThrough response data", () => {
-  const wrapperResponse = { isSuccess: true, data: { id: "rec-7", count: 917, actionId: "a1" } };
+  const wrapperResponse: WriteResult = {
+    isSuccess: true,
+    data: { id: "rec-7", count: 917, actionId: "a1" },
+  };
 
   test("the redirect reads its id from the wrapper handler's data", async () => {
     const { opener, view } = mount(() => wrapperResponse, {
