@@ -223,7 +223,7 @@ const capGateFeature = defineFeature("capgate", (r) => {
 // Setup
 // =============================================================================
 
-const { table: capCounterTable } = createEntityExecutor("cap-counter", capCounterEntity);
+const { table: capCounterTable } = createEntityExecutor(capCounterEntity);
 
 let stack: TestStack;
 let db: DbConnection;

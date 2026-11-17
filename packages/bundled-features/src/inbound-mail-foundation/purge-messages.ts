@@ -25,6 +25,8 @@ export interface PurgeInboundMessagesArgs {
   readonly archive: (messageId: string) => Promise<void>;
   readonly deleteBodyObject?: ((bodyRef: string) => Promise<void>) | undefined;
   readonly deleteAttachments?: ((messageId: string) => Promise<void>) | undefined;
+  // Opt-in, default off: without it the archived stream stays readable, as before record keys.
+  readonly eraseRecordKey?: boolean;
 }
 
 export interface PurgeInboundMessagesResult {
@@ -36,8 +38,8 @@ export interface PurgeInboundMessagesResult {
 // Archive first, delete the row last and strictly by the archived ids: a crash in between leaves an
 // archived stream the next run finishes, and a row is never deleted while its stream could replay.
 // A row whose body or attachment delete fails stays, otherwise the only reference to the object is lost.
-// The message's record key is erased before the row is deleted, because the row is the only pointer
-// to the id; erasing again is idempotent.
+// With eraseRecordKey the message's key is erased before the row is deleted, because the row is the
+// only pointer to the id; erasing again is idempotent.
 export async function purgeInboundMessages(
   args: PurgeInboundMessagesArgs,
 ): Promise<PurgeInboundMessagesResult> {
@@ -52,7 +54,9 @@ export async function purgeInboundMessages(
         bodyObjectsDeleted++;
       }
       await args.deleteAttachments?.(row.id);
-      await eraseInboundMessageKey(row.id, MESSAGE_PURGE_ERASE_REASON);
+      if (args.eraseRecordKey === true) {
+        await eraseInboundMessageKey(row.id, MESSAGE_PURGE_ERASE_REASON);
+      }
     } catch {
       failedIds.push(row.id);
       continue;

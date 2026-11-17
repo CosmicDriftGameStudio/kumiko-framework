@@ -71,7 +71,6 @@ export function createCapCounterFeature() {
   return defineFeature(
     CAP_COUNTER_FEATURE,
     (r) => {
-      r.adoptsBundledLists();
       r.describe(
         "Tracks per-tenant usage against configurable limits using two complementary storage models: calendar-period counters (one projection row per tenant/capName/period, reset implicitly by period rollover) and rolling-window counters (append-only event stream, no projection). Use `enforceCap` / `enforceRollingCap` (or the `withCapEnforcement` / `withRollingCapEnforcement` handler wrappers) in your write-handlers to check limits with soft-warn and hard-block tolerances; call `enforceCapAndMaybeNotify` when you also want to trigger a delivery notification on soft-threshold hits.",
       );
@@ -80,7 +79,7 @@ export function createCapCounterFeature() {
         category: "operations",
         recommended: false,
       });
-      r.entity({ name: "cap-counter", ...capCounterEntity });
+      r.entity(capCounterEntity);
       r.storeTable(capReservationsTableMeta, {
         reason: "coordination.cap_reservation_ledger",
       });
@@ -113,6 +112,7 @@ export function createCapCounterFeature() {
           escapeHatch: {
             reason:
               "SystemAdmin quota operator view lists usage counters of every tenant to see who consumes which cap",
+            grants: ["crossTenantReads"],
           },
           description:
             "Lists usage-counter rows across all tenants with cap name, current value, period start and soft-warn timestamp; use it as the operator view of who is consuming which quota.",

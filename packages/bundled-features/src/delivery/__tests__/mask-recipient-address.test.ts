@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { PII_CIPHERTEXT_PREFIX } from "@cosmicdrift/kumiko-framework/crypto";
-import { maskRecipientAddress } from "../mask-recipient-address.ts";
+import { maskRecipientAddress, maskRecipientAddressOnce } from "../mask-recipient-address.ts";
 
 describe("maskRecipientAddress", () => {
   test("null stays null", () => {
@@ -41,5 +41,18 @@ describe("maskRecipientAddress", () => {
   test("a value with several @ or an empty local part is not treated as an email", () => {
     expect(maskRecipientAddress("a@b@example.com")).toBe("***.com");
     expect(maskRecipientAddress("@example.com")).toBe("***.com");
+  });
+});
+
+describe("maskRecipientAddressOnce", () => {
+  test("masks a full address and leaves null alone", () => {
+    expect(maskRecipientAddressOnce("jane.doe@example.com")).toBe("j***@example.com");
+    expect(maskRecipientAddressOnce(null)).toBeNull();
+  });
+
+  test("is idempotent for every masked form", () => {
+    for (const address of ["j***@example.com", "***", "***1234", "https://hooks.slack.com/***"]) {
+      expect(maskRecipientAddressOnce(address)).toBe(address);
+    }
   });
 });

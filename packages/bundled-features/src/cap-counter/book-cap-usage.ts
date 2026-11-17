@@ -22,7 +22,7 @@ import {
 } from "./constants.ts";
 import { capCounterEntity } from "./entity.ts";
 
-const { table, executor } = createEntityExecutor("cap-counter", capCounterEntity);
+const { table, executor } = createEntityExecutor(capCounterEntity);
 
 // periodStartIso feeds the aggregate id and Temporal.Instant.from(); a non-instant string would
 // silently fork a counter row on update and throw a RangeError (500) on create.

@@ -10,7 +10,7 @@ import { runProjectionsForEvent } from "@cosmicdrift/kumiko-framework/pipeline";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { DELIVERY_ATTEMPT_EVENT, DELIVERY_CHANNEL_EXTENSION } from "./constants.ts";
 import { deliveryAttemptSchema } from "./events.ts";
-import { maskRecipientAddress } from "./mask-recipient-address.ts";
+import { maskRecipientAddress, maskRecipientAddressOnce } from "./mask-recipient-address.ts";
 import { type DeliveryLogEntry, isDeliveryChannelPlugin } from "./types.ts";
 
 // Unknown channels count as personal: masking is the fail-closed default.
@@ -29,6 +29,27 @@ function loggedAddress(registry: Registry, entry: DeliveryLogEntry): string | nu
   return addressIsConnectionName(registry, entry.channel)
     ? entry.recipientAddress
     : maskRecipientAddress(entry.recipientAddress);
+}
+
+// Projection-side counterpart of loggedAddress: legacy events were appended with the full address.
+export function rememberConnectionNameChannel(
+  connectionNameChannels: Set<string>,
+  channelName: string,
+  channelOptions: unknown,
+): void {
+  if (isDeliveryChannelPlugin(channelOptions) && channelOptions.addressKind === "connection-name") {
+    connectionNameChannels.add(channelName);
+  }
+}
+
+export function projectedAttemptAddress(
+  connectionNameChannels: ReadonlySet<string>,
+  channel: string,
+  recipientAddress: string | null,
+): string | null {
+  return connectionNameChannels.has(channel)
+    ? recipientAddress
+    : maskRecipientAddressOnce(recipientAddress);
 }
 
 // Shared append + inline-projection write (low-level append() does not

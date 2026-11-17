@@ -23,7 +23,7 @@ export type DeliverSignatureLink = (
 ) => Promise<void>;
 
 export type SignatureOptions = {
-  /** keepFor: how long requests and signers are kept, counted from creation (hard delete). unfinishedKeepFor: signers of declined, expired, failed or cancelled requests are anonymized this long after the request's last change. Both in data-retention keepFor syntax. */
+  /** keepFor: how long requests and signers are kept, counted from creation (hard delete). unfinishedKeepFor (optional, no default; without it nothing is anonymized): signers of declined, expired, failed or cancelled requests are anonymized this long after the request's last change. Both in data-retention keepFor syntax. */
   readonly retention: SignatureRetention;
   /** HMAC secret of the signing links. Without it every link is rejected. */
   readonly linkSecret: string;

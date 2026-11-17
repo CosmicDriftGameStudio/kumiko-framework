@@ -79,7 +79,7 @@ const innerSendHandler: WriteHandlerDef = {
 
 const PERIOD = "2026-07-01T00:00:00Z";
 
-const { table: capCounterTable } = createEntityExecutor("cap-counter", capCounterEntity);
+const { table: capCounterTable } = createEntityExecutor(capCounterEntity);
 
 const wrappedCalendar = withCapEnforcement(innerSendHandler, () => ({
   capName: "newsletter-cap",
@@ -193,13 +193,13 @@ const nestedAtomicCaller: WriteHandlerDef = {
 const ATOMIC_NESTED_QN = "newsletter:write:atomic-slot-nested";
 
 const commitProbeEntity = createEntity({
+  name: "commit-probe",
   table: "cap_commit_probes",
   fields: {
     label: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
 const { table: commitProbeTable, executor: commitProbeExecutor } = createEntityExecutor(
-  "commit-probe",
   commitProbeEntity,
 );
 // The handler succeeds; the deferred trigger created in beforeAll rejects the row only at COMMIT.
@@ -297,7 +297,7 @@ const newsletterFeature = defineFeature("newsletter", (r) => {
   r.writeHandler(nestedAtomicCaller);
   r.writeHandler(wrappedCommitFailing);
   r.writeHandler(wrappedPoolSlot);
-  r.entity({ name: "commit-probe", ...commitProbeEntity });
+  r.entity(commitProbeEntity);
   r.writeHandler(bookOutsideTxThenFailHandler);
   r.writeHandler(bookCapUsageInTxHandler);
   r.writeHandler(bookCapUsageOutsideTxHandler);

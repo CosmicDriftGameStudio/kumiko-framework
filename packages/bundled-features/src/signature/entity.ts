@@ -39,7 +39,7 @@ export const DEFAULT_SIGNATURE_RETENTION_KEEP_FOR = "10y";
 
 export type SignatureRetention = {
   readonly keepFor: string;
-  readonly unfinishedKeepFor: string;
+  readonly unfinishedKeepFor?: string;
 };
 
 // A signer has no user account, so the signer row itself is the crypto-shredding subject for the

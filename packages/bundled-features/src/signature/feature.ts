@@ -49,7 +49,10 @@ import {
 
 export function createSignatureFeature(opts: SignatureOptions): FeatureDefinition {
   // Fails the boot on a malformed spec instead of the first nightly run; the instant is irrelevant.
-  computeCutoff(opts.retention.unfinishedKeepFor, Temporal.Instant.fromEpochMilliseconds(0));
+  const unfinishedKeepFor = opts.retention.unfinishedKeepFor;
+  if (unfinishedKeepFor !== undefined) {
+    computeCutoff(unfinishedKeepFor, Temporal.Instant.fromEpochMilliseconds(0));
+  }
   const signedInAccess = opts.access ?? DEFAULT_SIGNATURE_ACCESS;
   const requestEntity = createSignatureRequestEntity(opts.retention, opts.hostEntities);
   const requestExecutor = createSignatureRequestExecutor(opts.hostEntities);
@@ -132,13 +135,15 @@ export function createSignatureFeature(opts: SignatureOptions): FeatureDefinitio
       handler: (_payload, ctx) => sweepSignatureRequests(ctx),
     });
 
-    r.job({
-      name: "erase-unfinished-signers",
-      trigger: { cron: "17 3 * * *" },
-      perTenant: true,
-      concurrency: "skip",
-      handler: (_payload, ctx) => eraseSignersOfUnfinishedRequests(ctx, opts.retention),
-    });
+    if (unfinishedKeepFor !== undefined) {
+      r.job({
+        name: "erase-unfinished-signers",
+        trigger: { cron: "17 3 * * *" },
+        perTenant: true,
+        concurrency: "skip",
+        handler: (_payload, ctx) => eraseSignersOfUnfinishedRequests(ctx, unfinishedKeepFor),
+      });
+    }
 
     r.screen(createSignatureListScreen(signedInAccess));
     r.screen(createSignatureDetailScreen(signedInAccess));

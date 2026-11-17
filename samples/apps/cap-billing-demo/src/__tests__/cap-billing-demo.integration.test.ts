@@ -16,7 +16,7 @@ import {
   SubscriptionStatuses,
   subscriptionsProjectionTable,
 } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
-import { capCountersTable } from "@cosmicdrift/kumiko-bundled-features/cap-counter";
+import { capCounterEntity } from "@cosmicdrift/kumiko-bundled-features/cap-counter";
 import {
   ConfigHandlers,
   type ConfigResolver,
@@ -31,9 +31,8 @@ import {
   tenantSecretsTable,
 } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { createTenantFeature } from "@cosmicdrift/kumiko-bundled-features/tenant";
-import { configureBlindIndexKey } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { createEntityExecutor, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
@@ -41,7 +40,6 @@ import {
   createMutableMasterKeyProvider,
   createTestEnvelopeCipher,
   type MutableMasterKeyProvider,
-  resetBlindIndexKeyForTests,
   resetTestTables,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -80,9 +78,9 @@ function webhookProvidersFeature() {
   });
 }
 
+const { table: capCounterTable } = createEntityExecutor(capCounterEntity);
+
 beforeAll(async () => {
-  // The pro tier books a per-sender row, which is stored only as an HMAC under this key.
-  configureBlindIndexKey(randomBytes(32).toString("base64"));
   const encryption = createTestEnvelopeCipher(testEncryptionKey);
   resolver = createConfigResolver({ cipher: encryption });
 
@@ -121,12 +119,11 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await stack.cleanup();
-  resetBlindIndexKeyForTests();
 });
 
 beforeEach(async () => {
   await resetTestTables(db, [
-    capCountersTable,
+    capCounterTable,
     eventsTable,
     configValuesTable,
     subscriptionsProjectionTable,
@@ -277,33 +274,6 @@ describe("cap-billing-demo: pro tenant (limit=100)", () => {
     expect(inbox).toHaveLength(12);
     // Drift pin: no warning on pro for the first 12 sends.
     expect(inbox.every((m) => !m.subject.startsWith("[Cap Warning]"))).toBe(true);
-  });
-
-  test("pro: one sender is blocked at its share while a second sender of the tenant still sends", async () => {
-    const sender = adminFor(2102);
-    const secondSender = createTestUser({
-      id: 21021,
-      tenantId: sender.tenantId,
-      roles: ["TenantAdmin", "SystemAdmin"],
-    });
-    clearInbox(sender.tenantId);
-    await selectInMemoryMail(sender);
-    await setTier(sender, "pro");
-
-    // Share 0.25 of 100 = 25, burstable hard at 25 x 1.2 = 30 sends per sender.
-    for (let i = 1; i <= 30; i++) {
-      await sendNewsletter(sender, `recipient-${i}@x.de`, i);
-    }
-    const error = await stack.http.writeErr(
-      NEWSLETTER_SEND_QN,
-      { to: "blocked@x.de", subject: "Blocked", html: "<p>n/a</p>" },
-      sender,
-    );
-    expect(error.code).toBe("cap_exceeded");
-    expect(error.httpStatus).toBe(429);
-
-    await sendNewsletter(secondSender, "other@x.de", 31);
-    expect(inboxOf(sender)).toHaveLength(31);
   });
 });
 

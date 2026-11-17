@@ -196,7 +196,7 @@ afterAll(async () => {
 // which month — just need a stable iso-string so `increment` +
 // `readCounter` hit the same aggregate.
 const PERIOD = "2026-05-01T00:00:00Z";
-const { table: capCounterTable } = createEntityExecutor("cap-counter", capCounterEntity);
+const { table: capCounterTable } = createEntityExecutor(capCounterEntity);
 
 beforeEach(async () => {
   await resetTestTables(db, [capCounterTable, eventsTable]);

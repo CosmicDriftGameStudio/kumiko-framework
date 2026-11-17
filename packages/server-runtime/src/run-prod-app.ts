@@ -87,7 +87,7 @@ import type { MailBootOption } from "./boot-options/mail-option.ts";
 import type { PreviewLoginOption } from "./boot-options/preview-login-option.ts";
 import type { SignalsOption } from "./boot-options/process-signals.ts";
 import { prodKmsModeDefault } from "./boot-options/prod-boot-defaults.ts";
-import type { SearchBootOption } from "./boot-options/search-option.ts";
+import type { SearchOption } from "./boot-options/search-option.ts";
 import type { ProdSeedsConfig } from "./boot-options/seed-shortcuts.ts";
 import type { SystemWireDeps } from "./extra-routes-deps.ts";
 import { installProcessLogger, uninstallProcessLogger } from "./process-logger.ts";
@@ -466,8 +466,13 @@ export type AppRuntimeOptions = {
   /** Meilisearch for the search adapter from MEILI_URL and MEILI_MASTER_KEY, both required. Replaces a
    *  `searchAdapter` in `extraContext`; setting both aborts the boot.
    *  @example
-   *  search: { provider: "meili-env" } */
-  readonly search?: SearchBootOption;
+   *  search: { provider: "meili-env" }
+   *
+   *  `"none"`: the app has no search backend in any process (no `searchAdapter` in `extraContext`),
+   *  so no search docs can be orphaned and the stream-tenant backfill runs without a reindex. Unset:
+   *  a process without a search adapter defers the backfill of searchable entities to one that has
+   *  it. Combining `"none"` with a `searchAdapter` fails the boot. Must match the worker process. */
+  readonly search?: SearchOption;
   /** Billing: `subscription-stripe` and/or `subscription-paddle` plus one tier-syncing webhook
    *  route. Needs `billing-foundation` and `tier-engine`. See `BillingBootOption`.
    *  @example

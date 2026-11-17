@@ -6,7 +6,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/crypto";
 import {
   countWhere,
-  createTenantDb,
   selectMany,
   table,
   tableExists,
@@ -22,6 +21,7 @@ import {
   eventsTable,
   isStreamArchived,
 } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import type { DbConnection } from "@cosmicdrift/kumiko-types/db-connection";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import {

@@ -16,8 +16,10 @@ import {
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
+  bridgeStub,
   createSystemUser,
   type EntityId,
+  type JobContext,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { append, loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
@@ -67,6 +69,8 @@ import { fileRefStorageDestroyHook, fileRefTenantDestroyHook } from "../hooks.ts
 import { createFilesTenantDataFeature } from "../index.ts";
 
 const SET_PROFILE = "compliance-profiles:write:set-profile";
+
+const SWEEP_JOB = "files-tenant-data:job:sweep-orphaned-derivatives";
 
 const fileRefCrud = createEventStoreExecutor(fileRefsTable, fileRefEntity, {
   entityName: "fileRef",
@@ -192,6 +196,58 @@ async function driveDestructionToCompletion(
   }
   return status;
 }
+
+describe("files-tenant-data :: job registration", () => {
+  test("registers a handler under files-tenant-data:job:sweep-orphaned-derivatives — the name jobs:write:trigger dispatches by — that actually runs the sweep", async () => {
+    const job = stack.registry.getJob(SWEEP_JOB);
+    expect(job).toBeDefined();
+    expect(job?.trigger).toEqual({ manual: true });
+
+    await seedTenant(tenantA);
+    const original = buildStorageKey(tenantA.tenantId, "fileRef", 1, "attachment", "a.jpg", "u1");
+    const lastDot = original.lastIndexOf(".");
+    const orphan = `${original.slice(0, lastDot)}.thumb-0123456789abcdef${original.slice(lastDot)}`;
+    await provider.write(orphan, new Uint8Array([1]));
+
+    const infoLines: string[] = [];
+    const log: JobContext["obs"]["log"] = {
+      info(message: string) {
+        infoLines.push(message);
+      },
+      warn() {},
+      error() {},
+      debug() {},
+      child() {
+        return log;
+      },
+    };
+    const ctx: JobContext = {
+      db: createTenantDb({
+        db: stack.db,
+        tenantId: tenantA.tenantId,
+        mode: "tenant",
+        grants: {
+          unsafeRaw: job?.escapeHatch,
+        },
+      }),
+      registry: stack.registry,
+      systemUser: tenantA,
+      triggeredBy: null,
+      attempt: 1,
+      finalAttempt: true,
+      defer: (delayMs) => ({ kind: "job-deferral", delayMs }),
+      canDefer: false,
+      ...bridgeStub({ services: { _fileProviderResolver: async () => provider }, log: log }),
+    };
+
+    await job?.handler({}, ctx);
+
+    expect(await provider.exists(orphan)).toBe(false);
+    expect(infoLines.some((line) => line.includes("[files-tenant-data:sweep] complete"))).toBe(
+      true,
+    );
+  });
+});
 
 describe("files-tenant-data :: tenant destroy", () => {
   test("purges fileRef rows and wipes every storage key under the tenant prefix, leaving other tenants untouched", async () => {

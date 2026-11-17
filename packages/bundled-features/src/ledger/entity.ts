@@ -7,6 +7,7 @@ import {
   createSelectField,
   createTextField,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { deriveTransactionSystemLinks } from "./transaction-event-upcast.ts";
 import { ACCOUNT_TYPES, SCHEDULE_INTERVALS, TRANSACTION_STATUS } from "./web/constants.ts";
 
 // account — a node in the chart of accounts. Event-sourced (create/update/list/
@@ -60,6 +61,8 @@ export const accountEntity = createEntity({
 export const transactionEntity = createEntity({
   name: "transaction",
   table: "read_ledger_transactions",
+  eventVersion: 2,
+  eventMigrations: [deriveTransactionSystemLinks],
   description:
     "One journal entry: a booking date, a narration, an optional display reference, system links to the reversed entry (reversesTransactionId) and to a schedule period (scheduleId, period), an optional period for manual bookings, an optional caller key (sourceRef) unique per tenant, a draft/posted status and the embedded posting lines of accountId plus signed minor-unit amount that must sum to zero; posted entries are immutable and corrected only by a reversing entry.",
   fields: {

@@ -17,8 +17,6 @@ Mails land in an **in-memory transport** (`mail-transport-inmemory`).
 There's no real SMTP server — perfect for the demo, no Mailpit/Mailcrab
 needed. The inbox is read via a helper function.
 
-**Sender share:** on the pro tier one sender (user) of the tenant may use a quarter of the budget (`PRO_SENDER_SHARE`, 25 of 100, hard-blocked at 25 x 1.2 = 30 with the burstable profile), so a single user cannot exhaust the tenant cap. The sender is stored only as an HMAC under `KUMIKO_BLIND_INDEX_KEY`, so the app needs that key configured, and forgetting the user deletes the sender rows.
-
 ## Architecture in 4 layers
 
 ```

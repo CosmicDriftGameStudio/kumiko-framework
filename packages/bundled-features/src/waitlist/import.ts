@@ -39,9 +39,14 @@ export function waitlistImportId(sourceKey: string): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
 }
 
+// The version nibble marks ids minted by waitlistImportId; legacy row ids are random UUIDs.
+export function isWaitlistImportId(id: string): boolean {
+  return id[14] === "5";
+}
+
 // The live submit schema caps these fields; an imported value above the cap would be
 // stored but could never pass a later update through the same payload schema.
-function waitlistImportEntryWithinLimits(entry: WaitlistImportEntry): boolean {
+export function waitlistImportEntryWithinLimits(entry: WaitlistImportEntry): boolean {
   const limited: ReadonlyArray<readonly [string | undefined, number]> = [
     [entry.name, WAITLIST_FIELD_LIMITS.name],
     [entry.email, WAITLIST_FIELD_LIMITS.email],

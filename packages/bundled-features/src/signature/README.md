@@ -24,7 +24,7 @@ the `files` feature. Order of signatures is free.
 
 | Option             | Default                                      | Effect                                                                                                                                                                    |
 | ------------------ | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `retention`        | required                                     | `{ keepFor, unfinishedKeepFor }`; keepFor counts from creation and hard-deletes, see Retention below                                                                      |
+| `retention`        | required                                     | `{ keepFor, unfinishedKeepFor? }`; keepFor counts from creation, `unfinishedKeepFor` is opt-in, see below                                                                    |
 | `hostEntities`     | required                                     | Entity names a request may belong to (`hostType`); registered entities without their own `parentRef`. A user sees a request only while its host row is readable to them   |
 | `linkSecret`       | required                                     | HMAC secret of the links; empty rejects every link                                                                                                                        |
 | `deliverLink`      | required                                     | `(ctx, delivery)`: sends the link to the signer (mail) inside `issue-link`'s transaction; `delivery.issuedBy` is the issuing user. The token is never in a handler result |
@@ -41,7 +41,7 @@ refuses a document the caller cannot open through `GET /files/:id`.
 
 ## Retention
 
-`keepFor` counts from creation and hard-deletes requests and signers. `unfinishedKeepFor`: the signers of declined, expired, failed or cancelled requests are anonymized this long after the request's last change, by the job `erase-unfinished-signers` (daily). Completed requests keep `keepFor`.
+`keepFor` counts from creation and hard-deletes requests and signers. `unfinishedKeepFor` (optional; without it the job is not registered and nothing is anonymized): the signers of declined, expired, failed or cancelled requests are anonymized this long after the request's last change, by the job `erase-unfinished-signers` (daily). Completed requests keep `keepFor`.
 
 ## Handlers
 

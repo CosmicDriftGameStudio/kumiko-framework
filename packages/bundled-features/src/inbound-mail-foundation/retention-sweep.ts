@@ -71,6 +71,8 @@ export interface InboundRetentionArgs {
   readonly deleteBodyObject?: (bodyRef: string) => Promise<void>;
   /** Removes the fileRefs bound to an expired mail (its attachments); wired by the job. */
   readonly deleteAttachments?: (messageId: string) => Promise<void>;
+  /** Opt-in, default off: also erases each purged mail's record key. */
+  readonly eraseRecordKeys?: boolean;
 }
 
 export interface InboundRetentionReport {
@@ -159,6 +161,7 @@ async function purgeExpiredMessages(
         }),
       deleteBodyObject: args.deleteBodyObject,
       deleteAttachments: args.deleteAttachments,
+      eraseRecordKey: args.eraseRecordKeys === true,
     });
     messagesPurged += purged.purgedIds.length;
     bodyObjectsDeleted += purged.bodyObjectsDeleted;

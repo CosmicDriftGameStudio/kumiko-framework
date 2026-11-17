@@ -3,6 +3,16 @@ import * as z from "zod";
 
 export type SearchBootOption = { readonly provider: "meili-env"; readonly indexPrefix?: string };
 
+/** Declares that the app has no search backend in any of its processes. */
+export type SearchBackendDeclaration = "none";
+
+/** Value of the `search` boot option: a provider that builds the adapter, or `"none"`. */
+export type SearchOption = SearchBootOption | SearchBackendDeclaration;
+
+export function searchProviderOf(option: SearchOption | undefined): SearchBootOption | undefined {
+  return typeof option === "object" ? option : undefined;
+}
+
 export const meiliEnvSchema = z.object({
   MEILI_URL: z.string().url().describe('Meilisearch URL; required with search "meili-env".'),
   MEILI_MASTER_KEY: z

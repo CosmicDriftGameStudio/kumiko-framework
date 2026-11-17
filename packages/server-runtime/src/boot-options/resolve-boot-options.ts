@@ -23,7 +23,7 @@ import {
 import { type KmsMode, type ResolvedKmsMode, resolveKmsMode } from "./kms-mode.ts";
 import { CHANNEL_EMAIL_FEATURE, type MailBootOption, resolveMailOption } from "./mail-option.ts";
 import { assertPreviewLoginKey, type PreviewLoginOption } from "./preview-login-option.ts";
-import { resolveSearchOption, type SearchBootOption } from "./search-option.ts";
+import { resolveSearchOption, type SearchOption, searchProviderOf } from "./search-option.ts";
 import { type DbSeedFn, type ProdSeedsConfig, resolveSeedShortcuts } from "./seed-shortcuts.ts";
 import { stackBootWarnings } from "./stack-boot-requirements.ts";
 
@@ -32,7 +32,7 @@ export type BootOptionFields = {
   readonly mail?: MailBootOption;
   readonly kmsMode?: KmsMode;
   readonly fileStorage?: FileStorageBootOption;
-  readonly search?: SearchBootOption;
+  readonly search?: SearchOption;
   readonly billing?: BillingBootOption;
   readonly featureToggles?: boolean;
   readonly demoMode?: DemoModeOption;
@@ -259,8 +259,9 @@ export async function resolveBootOptionWiring(
       });
   const customSeeds = isSeedFnList(seeds) ? seeds : (seeds.run ?? []);
 
-  const searchAdapter = options.search
-    ? await resolveSearchOption(options.search, envSource)
+  const searchProvider = searchProviderOf(options.search);
+  const searchAdapter = searchProvider
+    ? await resolveSearchOption(searchProvider, envSource)
     : undefined;
 
   // Last: it may open a KMS pool, which nothing above should leak on a throw.

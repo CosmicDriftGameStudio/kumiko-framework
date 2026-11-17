@@ -75,7 +75,9 @@
   "bin": {
     "kumiko-build": "./bin/kumiko-build.ts",
     "kumiko-dev": "./bin/kumiko-dev.ts",
-    "kumiko-schema": "./bin/kumiko-schema.ts"
+    "kumiko-init-deploy": "./bin/kumiko-init-deploy.ts",
+    "kumiko-schema": "./bin/kumiko-schema.ts",
+    "kumiko-upgrade": "./bin/kumiko-upgrade.ts"
   },
   "dependencies": {
     "@cosmicdrift/kumiko-bundled-features": "workspace:*",

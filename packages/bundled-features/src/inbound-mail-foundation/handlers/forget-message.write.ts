@@ -49,6 +49,7 @@ export function createForgetMessageHandler({ memberRoles, adminRoles }: InboundM
         db: ctx.db,
         tenantId: event.user.tenantId,
         rows: [row],
+        eraseRecordKey: true,
         archive: (id) =>
           ctx.events.archive(id, {
             aggregateType: INBOUND_MESSAGE_AGGREGATE_TYPE,

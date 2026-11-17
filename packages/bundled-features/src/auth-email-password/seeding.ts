@@ -15,11 +15,15 @@
 import {
   configuredBlindIndexKey,
   configuredPiiSubjectKms,
+  decryptPiiFieldValues,
+  type LocalKeyKmsAdapter,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
+  createSystemUser,
   type SessionUser,
+  SYSTEM_TENANT_ID,
   SYSTEM_USER_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -36,9 +40,13 @@ import {
   seedTenantMembership,
 } from "../tenant/seeding.ts";
 // kumiko-lint-ignore cross-feature-import signup create-only guard reads the user projection by email
-import { userTable } from "../user/schema/user.ts";
+import { USER_STATUS, userTable } from "../user/schema/user.ts";
 // kumiko-lint-ignore cross-feature-import auth-tests need user+tenant seed-helpers
-import { seedUser } from "../user/seeding.ts";
+import {
+  reconcileSeededUserEmailVerified,
+  rewriteSeededUserEmail,
+  seedUser,
+} from "../user/seeding.ts";
 
 const log = createFallbackLogger("auth-email-password-seeding");
 
@@ -259,6 +267,94 @@ export async function seedAdmin(db: DbRunner, options: SeedAdminOptions): Promis
   return { id: userId };
 }
 
+// seedAdmin's idempotency check is a plain fetchOne(email), which the query
+// layer rewrites into `(email = $plaintext OR email_bidx = $hmac)` once a
+// blind-index key is configured. Under KMS encryption `email` holds per-row
+// ciphertext, so only the bidx arm can ever match, and it misses whenever a
+// row's `email_bidx` is NULL (written before the key existed, or after a
+// subject-key erase), was computed with a since-rotated key, or was computed
+// over an email stored with upper case. seedAdmin then inserts a second row
+// for an email that already has an account; neither unique index catches it.
+//
+// The boot-seed lookups below therefore fall back to a decrypt scan. Keep it
+// off the login/signup hot path: seedUser/seedAdmin/provisionSignupAccount
+// also run on every real self-signup request.
+
+type ActiveUserRow = {
+  readonly id: string;
+  readonly email: string;
+  readonly insertedAt: { readonly epochNanoseconds: bigint };
+};
+
+function compareInsertedAt(a: ActiveUserRow["insertedAt"], b: ActiveUserRow["insertedAt"]): number {
+  // selectMany<ActiveUserRow> is an unchecked row-shape claim. A codec that
+  // yields another type would make both comparisons false and silently fall
+  // back to id order, which can crown the younger duplicate as survivor.
+  if (typeof a.epochNanoseconds !== "bigint" || typeof b.epochNanoseconds !== "bigint") {
+    throw new Error("compareInsertedAt: user.insertedAt is not a Temporal.Instant");
+  }
+  if (a.epochNanoseconds < b.epochNanoseconds) return -1;
+  if (a.epochNanoseconds > b.epochNanoseconds) return 1;
+  return 0;
+}
+
+/** Oldest row wins, tie-broken by id — the same rule a manual duplicate
+ *  cleanup would apply, so this guard and any later cleanup never disagree
+ *  on which row is the survivor. */
+function pickCanonicalUserId(rows: readonly ActiveUserRow[]): string {
+  const sorted = [...rows].sort((a, b) => {
+    const byTime = compareInsertedAt(a.insertedAt, b.insertedAt);
+    return byTime !== 0 ? byTime : a.id.localeCompare(b.id);
+  });
+  const first = sorted[0];
+  if (first === undefined) throw new Error("pickCanonicalUserId: empty group");
+  return first.id;
+}
+
+async function findExistingUserIdForEmail(
+  db: DbRunner,
+  kms: LocalKeyKmsAdapter,
+  email: string,
+): Promise<string | undefined> {
+  // ponytail: decrypts every active user row to compare emails. Fine at
+  // boot-seed scale (tens of accounts, once per boot); if the user table
+  // grows past a few thousand rows, narrow this to rows whose email_bidx is
+  // NULL or doesn't match the expected HMAC — only those need decrypting.
+  const wanted = normalizeEmail(email);
+  const rows = await selectMany<ActiveUserRow>(db, userTable, {
+    isDeleted: false,
+    status: { ne: USER_STATUS.Deleted },
+  });
+  const matches: ActiveUserRow[] = [];
+  let undecryptableRows = 0;
+  for (const row of rows) {
+    // Case-folded: rows stored before emails were normalized keep their upper
+    // case; they are repaired to lower case by rewriteSeededUserEmail.
+    // One undecryptable foreign row (missing key row, ciphertext from another
+    // KMS store) must not abort the boot seed: the account we look for is
+    // decryptable by definition.
+    let decrypted: Record<string, unknown>;
+    try {
+      decrypted = await decryptPiiFieldValues({ email: row.email }, ["email"], kms, {
+        requestId: "seed-admin-guarded",
+      });
+    } catch {
+      undecryptableRows += 1;
+      continue;
+    }
+    const storedEmail = decrypted["email"];
+    if (typeof storedEmail === "string" && normalizeEmail(storedEmail) === wanted) {
+      matches.push(row);
+    }
+  }
+  if (undecryptableRows > 0) {
+    log.warn(
+      `seedAdminGuarded: skipped ${undecryptableRows} user row(s) whose email could not be decrypted`,
+    );
+  }
+  return matches.length === 0 ? undefined : pickCanonicalUserId(matches);
+}
+
 // A self-registered, unverified account may squat the seed email before the
 // first boot. Granting roles to it (or marking it verified) would hand the
 // attacker the admin. An explicit caller guard (bootstrap seed: passwordless
@@ -300,26 +396,72 @@ async function seedAdminWithOwnershipCheck(
 }
 
 /**
- * Boot-seed variant of seedAdmin that checks ownership of an existing account (verified or seed
- * password) before granting to it, and aborts under a PII KMS without a blind-index key.
+ * Boot-seed variant of seedAdmin that survives a blind-index miss on an
+ * otherwise-existing account (see the lookup comment above): it finds the
+ * canonical row by decrypt scan, repairs its blind index and lower-cases its
+ * email, and checks ownership before granting to it. Aborts under a PII KMS
+ * without a blind-index key. Not for the self-signup hot path.
+ *
+ * No indexed fetchOne fast path on purpose: a hit there only proves SOME row
+ * matches, never that it is the canonical one: a stale row's bidx can go NULL
+ * while a later duplicate's stays valid, so the seed would never converge on
+ * the oldest row.
  */
 export async function seedAdminGuarded(
   db: DbRunner,
   options: SeedAdminOptions,
   mayGrantToExisting?: (row: Record<string, unknown>) => boolean,
 ): Promise<{ id: string }> {
+  const kms = configuredPiiSubjectKms();
+  if (kms === undefined) return seedAdminWithOwnershipCheck(db, options, mayGrantToExisting);
+
   // Without a bidx key every row seeded here gets a NULL email_bidx, which
   // neither seedAdmin's lookup nor the partial unique index can ever see.
-  if (configuredPiiSubjectKms() !== undefined && configuredBlindIndexKey() === undefined) {
+  if (configuredBlindIndexKey() === undefined) {
     throw new Error(
       "seedAdminGuarded: a PII KMS is configured but no blind-index key — the email lookup would be blind and the seed would insert a duplicate admin. Configure KUMIKO_BLIND_INDEX_KEY.",
     );
   }
-  return seedAdminWithOwnershipCheck(db, options, mayGrantToExisting);
+
+  const email = normalizeEmail(options.email);
+  const existingId = await findExistingUserIdForEmail(db, kms, email);
+  if (existingId === undefined) return seedAdmin(db, options);
+
+  const byOption = options.by === undefined ? {} : { by: options.by };
+  const by = options.by ?? createSystemUser(SYSTEM_TENANT_ID);
+  const existingRow = await fetchOne(db, userTable, { id: existingId });
+  if (existingRow) {
+    // Re-write the email so email_bidx is recomputed; without it the account
+    // stays unfindable for login and every boot re-scans the whole table.
+    await rewriteSeededUserEmail(db, existingRow, email, by);
+    const refreshed = (await fetchOne(db, userTable, { id: existingId })) ?? existingRow;
+    if (!(await mayGrantToExistingAccount(refreshed, options, mayGrantToExisting))) {
+      if (!mayGrantToExisting) warnSeedSkippedForUnprovenAccount();
+      return { id: existingId };
+    }
+    if (options.emailVerified === true) {
+      await reconcileSeededUserEmailVerified(db, refreshed, by);
+    }
+  }
+  for (const m of options.memberships) {
+    await seedTenant(db, { id: m.tenantId, key: m.tenantKey, name: m.tenantName, ...byOption });
+    await seedTenantMembership(db, {
+      userId: existingId,
+      tenantId: m.tenantId,
+      roles: m.roles,
+      ...byOption,
+    });
+  }
+  return { id: existingId };
 }
 
 async function findExistingUserRowForEmail(db: DbRunner, email: string) {
-  return fetchOne(db, userTable, { email: normalizeEmail(email), isDeleted: false });
+  const kms = configuredPiiSubjectKms();
+  if (kms === undefined) {
+    return fetchOne(db, userTable, { email: normalizeEmail(email), isDeleted: false });
+  }
+  const existingId = await findExistingUserIdForEmail(db, kms, email);
+  return existingId === undefined ? undefined : fetchOne(db, userTable, { id: existingId });
 }
 
 function hasPassword(row: Record<string, unknown>): boolean {

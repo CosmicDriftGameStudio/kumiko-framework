@@ -1,7 +1,7 @@
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { BRANDING_CSS_FEATURE } from "../constants.ts";
-import { readBranding, readCustomCss } from "../keys.ts";
+import { readBrandingWithLegacyFallback, readCustomCssWithLegacyFallback } from "../legacy-fallback.ts";
 
 // Public branding read for the server-render path. Anonymous-capable: the
 // render route reaches this via internal app.fetch with X-Tenant = host-
@@ -24,11 +24,11 @@ export function createBrandingTokensQuery(opts: { readonly allowCustomCss: boole
     description:
       "Reads the tenant's public branding values for rendered pages, mail and PDFs, adding the raw custom CSS only when the app opted in and the per-tenant CSS toggle is on; anonymous callers may read it because it dresses public pages.",
     handler: async (_query, ctx) => {
-      const base = await readBranding(ctx.config);
+      const base = await readBrandingWithLegacyFallback(ctx);
       if (!opts.allowCustomCss || !ctx.config || !(await ctx.hasFeature(BRANDING_CSS_FEATURE))) {
         return base;
       }
-      return { ...base, customCss: await readCustomCss(ctx.config) };
+      return { ...base, customCss: await readCustomCssWithLegacyFallback(ctx) };
     },
   });
 }

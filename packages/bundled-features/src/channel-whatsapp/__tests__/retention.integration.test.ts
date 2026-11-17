@@ -50,6 +50,7 @@ import { createInMemoryMeta } from "../testing.ts";
 const PHONE_NUMBER_ID = "109876543210";
 const SENDER = "4915100000001";
 const RECIPIENT = "4915100000002";
+const RETENTION_DAYS = 30;
 
 let stack: TestStack;
 let wamidCounter = 0;
@@ -83,7 +84,10 @@ beforeAll(async () => {
       createTenantFeature(),
       createComplianceProfilesFeature(),
       createTenantLifecycleFeature(),
-      createChannelWhatsappFeature({ transport: createInMemoryMeta().transport }),
+      createChannelWhatsappFeature({
+        transport: createInMemoryMeta().transport,
+        eventRetentionDays: RETENTION_DAYS,
+      }),
     ],
     masterKeyProvider,
   });
@@ -154,6 +158,7 @@ async function readStatus(admin: ReturnType<typeof adminFor>, wamid: string) {
 function retentionAt(admin: ReturnType<typeof adminFor>, offsetDays: number) {
   return runWhatsappRetention({
     db: createTenantDb({ db: stack.db, tenantId: admin.tenantId, mode: "tenant" }),
+    retentionDays: RETENTION_DAYS,
     now: getTemporal()
       .Now.instant()
       .add({ hours: offsetDays * 24 }),
@@ -161,6 +166,24 @@ function retentionAt(admin: ReturnType<typeof adminFor>, offsetDays: number) {
 }
 
 describe("channel-whatsapp retention", () => {
+  test("without eventRetentionDays no retention job is registered", () => {
+    expect(Object.keys(createChannelWhatsappFeature({}).jobs)).not.toContain(
+      "whatsapp-event-retention",
+    );
+  });
+
+  test("with eventRetentionDays the retention job is registered", () => {
+    expect(
+      Object.keys(createChannelWhatsappFeature({ eventRetentionDays: RETENTION_DAYS }).jobs),
+    ).toContain("whatsapp-event-retention");
+  });
+
+  test("a non-positive eventRetentionDays fails the boot", () => {
+    expect(() => createChannelWhatsappFeature({ eventRetentionDays: 0 })).toThrow(
+      "eventRetentionDays",
+    );
+  });
+
   test("retention keeps streams younger than 30 days readable", async () => {
     const admin = adminFor(9201);
     const wamid = nextWamid();

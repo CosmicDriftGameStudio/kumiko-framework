@@ -25,7 +25,6 @@ import {
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import {
   createEventStoreExecutor,
-  createTenantDb,
   fetchOne,
   insertOne,
   selectMany,
@@ -38,6 +37,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createEsOperationsTable, esOperationsTable } from "@cosmicdrift/kumiko-framework/es-ops";
 import { append, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { SEARCH_CONSUMER_NAME } from "@cosmicdrift/kumiko-framework/pipeline";
 import { TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";

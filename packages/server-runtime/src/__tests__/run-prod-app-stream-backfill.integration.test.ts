@@ -21,7 +21,6 @@ import { createUserFeature, userEntity } from "@cosmicdrift/kumiko-bundled-featu
 import {
   createDbConnection,
   createEventStoreExecutor,
-  createTenantDb,
   type DbConnection,
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
@@ -38,6 +37,7 @@ import {
   createEventsTable,
   eventsTable,
 } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   createEventConsumerStateTable,
   createProjectionStateTable,

@@ -10,7 +10,7 @@ function pgTypeOf(table: unknown, dbName: string): string | undefined {
 
 describe("capCounterEntity — DDL", () => {
   test("value column is bigint, not double precision", () => {
-    const table = buildEntityTable("cap-counter", capCounterEntity);
+    const table = buildEntityTable(capCounterEntity);
     expect(pgTypeOf(table, "value")).toBe("bigint");
   });
 

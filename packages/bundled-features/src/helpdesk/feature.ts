@@ -27,6 +27,13 @@ import { createSendReplyMailHandler } from "./handlers/send-reply-mail.write.ts"
 import { createSendTestHandler } from "./handlers/send-test.write.ts";
 import { createSubmitHandler } from "./handlers/submit.write.ts";
 import { createHelpdeskI18n } from "./i18n.ts";
+import { carryOverLegacyContactConfig } from "./legacy-contact-config.ts";
+import { runLegacyContactRetention } from "./legacy-contact-retention.ts";
+import {
+  LEGACY_CONTACT_REQUEST_ENTITY,
+  legacyContactDeleteHook,
+  legacyContactExportHook,
+} from "./legacy-contact-user-data.ts";
 import { TELEGRAM_FEATURE } from "./lib.ts";
 import {
   HELPDESK_ACKNOWLEDGEMENT_VARIABLES,
@@ -182,6 +189,36 @@ export function createHelpdeskFeature(opts: HelpdeskOptions): FeatureDefinition 
       entity: "helpdesk-request",
       export: helpdeskExportHook,
       delete: helpdeskDeleteHook,
+    });
+    // Requests stored before the rename to helpdesk sit inert under the former aggregate and tables.
+    r.applyExtension({
+      name: EXT_USER_DATA,
+      entity: LEGACY_CONTACT_REQUEST_ENTITY,
+      export: legacyContactExportHook,
+      delete: legacyContactDeleteHook,
+    });
+    r.job({
+      // A literal, not LEGACY_CONTACT_CONFIG_JOB: the feature-AST extractor only reads string literals.
+      name: "legacy-contact-config",
+      trigger: { manual: true },
+      runOnBoot: true,
+      concurrency: "skip",
+      escapeHatch: {
+        reason:
+          "the job has no tenant scope and reads the system-tenant config rows stored under the former contact keys through crossTenantReads, then writes them to the helpdesk keys via config:write:set as SystemAdmin",
+        grants: ["crossTenantReads", "systemIdentity"],
+      },
+      handler: async (_payload, ctx) => {
+        const carriedOver = await carryOverLegacyContactConfig(ctx);
+        ctx.obs.log.info("helpdesk: carried over former contact config", { carriedOver });
+      },
+    });
+    r.job({
+      name: "legacy-contact-retention",
+      trigger: { maintenance: true },
+      irreversibleWithoutEntryHandler: "high-risk-or-cron-pipeline",
+      concurrency: "skip",
+      handler: async (_payload, ctx) => runLegacyContactRetention(keepFor, ctx),
     });
     // Replies are exported nested under their request and erased with it (helpdeskDeleteHook).
     r.applyExtension({

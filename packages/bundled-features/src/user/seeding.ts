@@ -10,6 +10,7 @@
 // search-index) would see the seed. The executor path emits the event and
 // writes the projection row in one transaction.
 
+import { computeBlindIndex, configuredBlindIndexKey } from "@cosmicdrift/kumiko-framework/crypto";
 import {
   createEventStoreExecutor,
   type DbRunner,
@@ -137,6 +138,58 @@ export async function reconcileSeededUserEmailVerified(
   if (!result.isSuccess && result.error.code !== VERSION_CONFLICT_CODE) {
     throw new Error(
       `reconcileSeededUserEmailVerified failed: ${result.error.code} — ${JSON.stringify(result.error.details ?? {})}`,
+    );
+  }
+}
+
+// Re-writes `email` through the executor so the PII write pipeline recomputes
+// `email_bidx`. Repairs rows whose blind index is NULL or stale (written before
+// the key existed, key rotated, subject-key erased, stored with upper case),
+// which would otherwise stay invisible to every `fetchOne(userTable, { email })` lookup.
+export async function rewriteSeededUserEmail(
+  db: DbRunner,
+  existingRow: Record<string, unknown>,
+  email: string,
+  by: SessionUser,
+): Promise<void> {
+  const id = existingRow["id"];
+  if (typeof id !== "string") {
+    throw new Error("rewriteSeededUserEmail: existing user row has no string id");
+  }
+  const version = existingRow["version"];
+  if (typeof version !== "number") {
+    throw new Error("rewriteSeededUserEmail: existing user row has no numeric version");
+  }
+  // Every executor.update appends a user:updated event; skip when the stored
+  // blind index already matches so repeated boots do not grow the stream.
+  // Queried by the bidx column itself: fetchOne does not return it, and an
+  // `email` condition would also match a plaintext row with a blank index.
+  const blindIndexKey = configuredBlindIndexKey();
+  if (blindIndexKey !== undefined) {
+    const indexed = await fetchOne(db, userTable, {
+      id,
+      emailBidx: computeBlindIndex(blindIndexKey, email),
+    });
+    // skip: the stored blind index already matches, a rewrite would only append a no-op event.
+    if (indexed) return;
+  }
+  const tdb = createTenantDb({
+    db,
+    tenantId: by.tenantId,
+    mode: "system",
+    reason: "User is tenant-agnostic, seeding writes it through a system-mode handle",
+  });
+  const result = await userExecutor.update({ id, version, changes: { email } }, by, tdb);
+  // version_conflict: a concurrent write already changed the row — fine for a seed helper.
+  // unique_violation: a duplicate row already holds the blind index; the repair
+  // has to wait for a manual duplicate cleanup.
+  if (
+    !result.isSuccess &&
+    result.error.code !== VERSION_CONFLICT_CODE &&
+    result.error.code !== "unique_violation"
+  ) {
+    throw new Error(
+      `rewriteSeededUserEmail failed: ${result.error.code} — ${JSON.stringify(result.error.details ?? {})}`,
     );
   }
 }

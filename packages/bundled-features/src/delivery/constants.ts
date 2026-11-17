@@ -44,5 +44,6 @@ export const deliveryPriorityRank: Record<NotifyPriority, number> = {
 };
 
 export const DeliveryJobs = {
+  render: qn(DELIVERY_FEATURE, QnTypes.job, DeliveryJobNames.render),
   send: qn(DELIVERY_FEATURE, QnTypes.job, DeliveryJobNames.send),
 } as const;

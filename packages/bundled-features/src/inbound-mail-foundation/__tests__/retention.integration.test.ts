@@ -170,8 +170,15 @@ describe("retention: inbound messages", () => {
 });
 
 describe("retention: record key of a purged mail", () => {
-  test("a mail purged by retention is unreadable in the event log", async () => {
-    const admin = adminFor(5004);
+  test.each([
+    { eraseRecordKeys: true, adminNumber: 5004, expectedOldFrom: PII_ERASED_SENTINEL },
+    { eraseRecordKeys: false, adminNumber: 5104, expectedOldFrom: "sender@example.com" },
+  ])("purged mail with eraseRecordKeys=$eraseRecordKeys reads as $expectedOldFrom in the event log", async ({
+    eraseRecordKeys,
+    adminNumber,
+    expectedOldFrom,
+  }) => {
+    const admin = adminFor(adminNumber);
     const accountId = await connectSharedAccount(admin);
     await ingest(accountId, admin, "uid-old", "2024-01-01T10:00:00Z");
     await ingest(accountId, admin, "uid-young", "2026-07-01T10:00:00Z");
@@ -181,6 +188,7 @@ describe("retention: record key of a purged mail", () => {
       tenantId: admin.tenantId,
       now: getTemporal().Instant.from("2026-07-13T00:00:00Z"),
       seenRetentionDays: 100000,
+      eraseRecordKeys,
     });
 
     const kms = configuredPiiSubjectKms();
@@ -201,7 +209,7 @@ describe("retention: record key of a purged mail", () => {
       );
       return decrypted["from"];
     };
-    expect(await fromOf("uid-old")).toBe(PII_ERASED_SENTINEL);
+    expect(await fromOf("uid-old")).toBe(expectedOldFrom);
     expect(await fromOf("uid-young")).toBe("sender@example.com");
   });
 });

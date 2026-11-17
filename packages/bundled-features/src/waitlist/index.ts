@@ -6,6 +6,18 @@ export {
   type WaitlistImportOutcome,
   waitlistImportId,
 } from "./import.ts";
+export {
+  DEFAULT_IMPORT_LOCALE,
+  DEFAULT_LEGACY_SOURCE_TABLE,
+  isLegacyWaitlistSource,
+  LEGACY_WAITLIST_SOURCES,
+  type LegacyWaitlistMigrateOptions,
+  type LegacyWaitlistMigrateReport,
+  type LegacyWaitlistSource,
+  migrateLegacyWaitlist,
+  offlotLegacyTable,
+  publicstatusLegacyTable,
+} from "./legacy-migrate.ts";
 export type { WaitlistInviteOptions, WaitlistOptions } from "./options.ts";
 export { type WaitlistSubmitInput, WaitlistSubmitSchema } from "./payloads.ts";
 export {

@@ -19,6 +19,11 @@ export {
   tenantTable,
 } from "./schema/tenant.ts";
 export {
+  backfillTenantStreamTenants,
+  type TenantStreamBackfillDeps,
+  type TenantStreamBackfillResult,
+} from "./stream-tenant-backfill.ts";
+export {
   OWNER_INVITE_ROLE_OPTIONS,
   TENANT_FEATURE,
   TenantErrors,

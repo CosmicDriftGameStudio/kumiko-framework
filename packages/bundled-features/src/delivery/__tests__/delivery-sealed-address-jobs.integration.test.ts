@@ -15,7 +15,8 @@ import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
 import { DELIVERY_CHANNEL_EXTENSION, DeliveryJobs } from "../constants.ts";
 import { collectChannels, createDeliveryService } from "../delivery-service.ts";
 import { sealJobContent } from "../job-content-seal.ts";
-import { deliverySendJob } from "../jobs.ts";
+import { deliveryRenderJob, deliverySendJob } from "../jobs.ts";
+import { sealRecipientAddress } from "../recipient-address-seal.ts";
 import { deliveryAttemptsTable } from "../tables.ts";
 import type { ChannelResult } from "../types.ts";
 import { type ChatHarness, setupChatHarness, tenantAdmin } from "./chat-channel-harness.ts";
@@ -264,6 +265,68 @@ describe("delivery job payload shape", () => {
     };
     const { ctx } = jobContext(recordingRunner([]), cipher);
     await expect(deliverySendJob({ ...base, content, sealedContent: "x" }, ctx)).rejects.toThrow();
+    await expect(deliverySendJob(base, ctx)).rejects.toThrow();
+  });
+});
+
+// Jobs queued by earlier versions are still in Redis at deploy time and must not fail.
+describe("delivery jobs queued before the single sealed send job", () => {
+  const legacyBase = (attemptId: string) => ({
+    channelName: CHANNEL,
+    tenantId: tenantAdmin.tenantId,
+    recipientId: null,
+    notificationType: "app:notify:sealed-legacy",
+    deliveryAttemptId: attemptId,
+    priority: "normal",
+    message: { notificationType: "app:notify:sealed-legacy", title: "Legacy" },
+  });
+
+  test("a legacy plaintext-address send payload still sends, with and without a cipher", async () => {
+    sentTo.length = 0;
+    await deliverySendJob(
+      { ...legacyBase("00000000-0000-4000-8000-0000000000e1"), address: ADDRESS },
+      jobContext(recordingRunner([]), cipher).ctx,
+    );
+    await deliverySendJob(
+      { ...legacyBase("00000000-0000-4000-8000-0000000000e2"), address: ADDRESS },
+      jobContext(recordingRunner([]), undefined).ctx,
+    );
+    expect(sentTo).toEqual([ADDRESS, ADDRESS]);
+  });
+
+  test("a legacy sealedAddress send payload opens with the cipher", async () => {
+    sentTo.length = 0;
+    const seal = await sealRecipientAddress(ADDRESS, tenantAdmin.tenantId, cipher);
+    await deliverySendJob(
+      { ...legacyBase("00000000-0000-4000-8000-0000000000e4"), ...seal },
+      jobContext(recordingRunner([]), cipher).ctx,
+    );
+    expect(sentTo).toEqual([ADDRESS]);
+  });
+
+  test("a legacy render payload renders and dispatches a send job carrying the rendered message", async () => {
+    sentTo.length = 0;
+    const dispatched: Dispatched[] = [];
+    const seal = await sealRecipientAddress(ADDRESS, tenantAdmin.tenantId, cipher);
+    const { ctx } = jobContext(recordingRunner(dispatched), cipher);
+    await deliveryRenderJob({ ...legacyBase("00000000-0000-4000-8000-0000000000e5"), ...seal }, ctx);
+
+    const sendJob = dispatched[0];
+    if (!sendJob) throw new Error("send job not dispatched");
+    expect(sendJob.name).toBe(DeliveryJobs.send);
+    expect(JSON.stringify(sendJob.payload)).not.toContain(ADDRESS);
+    expect(sendJob.payload["rendered"]).toMatchObject({ html: "<p>x</p>", subject: "x" });
+
+    await deliverySendJob(sendJob.payload, ctx);
+    expect(sentTo).toEqual([ADDRESS]);
+  });
+
+  test("a legacy payload with both address and sealedAddress, or neither, is rejected", async () => {
+    const base = legacyBase("00000000-0000-4000-8000-0000000000e6");
+    const { ctx } = jobContext(recordingRunner([]), cipher);
+    await expect(
+      deliverySendJob({ ...base, address: ADDRESS, sealedAddress: "x" }, ctx),
+    ).rejects.toThrow();
     await expect(deliverySendJob(base, ctx)).rejects.toThrow();
   });
 });

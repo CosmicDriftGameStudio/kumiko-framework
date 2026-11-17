@@ -1,14 +1,21 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { deleteMany, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { type SessionUser, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
+import { rebuildProjection } from "@cosmicdrift/kumiko-framework/pipeline";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
-import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { seedRow, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+import { type TestStack, unsafePushTables } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { TenantHandlers } from "../../tenant/web/constants.ts";
 import { waitlistEntryTable } from "../entity.ts";
-import { importWaitlistEntry } from "../import.ts";
+import { importWaitlistEntry, waitlistImportId } from "../import.ts";
+import {
+  migrateLegacyWaitlist,
+  offlotLegacyTable,
+  publicstatusLegacyTable,
+} from "../legacy-migrate.ts";
+import { platformActor, waitlistExecutor } from "../lib.ts";
 import { WAITLIST_FIELD_LIMITS, WAITLIST_STATUS, WaitlistHandlers } from "../web/constants.ts";
 import {
   acceptInviteAsNewUser,
@@ -326,17 +333,230 @@ describe("waitlist adminLocale option", () => {
   });
 });
 
-describe("waitlist import", () => {
+describe("legacy waitlist migration", () => {
   let stack: TestStack;
+  const OFFLOT_TABLE = "legacy_offlot_waitlist";
+  const PUBLICSTATUS_TABLE = "legacy_publicstatus_waitlist";
+  const offlotTable = offlotLegacyTable(OFFLOT_TABLE);
+  const publicstatusTable = publicstatusLegacyTable(PUBLICSTATUS_TABLE);
+  // Fresh ids per test: the event store outlives the table reset and a derived entry id would collide.
+  let offlotId = "";
+  let publicstatusId = "";
 
   beforeAll(async () => {
     stack = await createWaitlistTestStack({});
+    await unsafePushTables(stack.db, { offlotTable, publicstatusTable });
   });
   afterAll(async () => {
     await stack.cleanup();
   });
   beforeEach(async () => {
     await resetWaitlistTestState(stack);
+    offlotId = crypto.randomUUID();
+    publicstatusId = crypto.randomUUID();
+    await deleteMany(stack.db, offlotTable, {});
+    await deleteMany(stack.db, publicstatusTable, {});
+    await seedRow(stack.db, offlotTable, {
+      id: offlotId,
+      name: "Dealer Dan",
+      email: "Dan@Dealer.example",
+      dealership: "Dan Motors",
+      city: "Valencia",
+      stock: "11-30",
+      country: "ES",
+      locale: "es",
+      status: "invited",
+      submittedAt: Temporal.Instant.from("2026-08-01T10:00:00Z"),
+      invitedAt: Temporal.Instant.from("2026-08-02T10:00:00Z"),
+      invitedBy: "admin-1",
+      notes: "call back",
+    });
+    await seedRow(stack.db, publicstatusTable, {
+      id: publicstatusId,
+      email: "lead@apex.example",
+      createdAt: Temporal.Instant.from("2026-07-01T08:00:00Z"),
+    });
+  });
+
+  const offlotOptions = {
+    from: "offlot",
+    dryRun: false,
+    sourceTable: OFFLOT_TABLE,
+    defaultLocale: "en",
+  } as const;
+  const publicstatusOptions = {
+    from: "publicstatus",
+    dryRun: false,
+    sourceTable: PUBLICSTATUS_TABLE,
+    defaultLocale: "de",
+  } as const;
+
+  test("dry run reports what would be created and writes nothing", async () => {
+    const report = await migrateLegacyWaitlist(stack.db, { ...offlotOptions, dryRun: true });
+    expect(report).toEqual({ read: 1, created: 1, skipped: 0, unreadable: 0, archivedStreams: 0 });
+    expect(await rowsOf(stack)).toHaveLength(0);
+  });
+
+  test("dry run counts the legacy stream it would archive and archives nothing", async () => {
+    const legacyStream = await waitlistExecutor.create(
+      {
+        id: offlotId,
+        name: "Dealer Dan",
+        email: "dan@dealer.example",
+        locale: "es",
+        status: WAITLIST_STATUS.Invited,
+        submittedAt: Temporal.Instant.from("2026-08-01T10:00:00Z"),
+      },
+      platformActor(),
+      createTenantDb({
+        db: stack.db,
+        tenantId: SYSTEM_TENANT_ID,
+        mode: "system",
+        reason: "test reads system-tenant waitlist rows",
+      }),
+    );
+    expect(legacyStream.isSuccess).toBe(true);
+
+    const dry = await migrateLegacyWaitlist(stack.db, { ...offlotOptions, dryRun: true });
+    expect(dry).toEqual({ read: 1, created: 1, skipped: 0, unreadable: 0, archivedStreams: 1 });
+
+    const real = await migrateLegacyWaitlist(stack.db, offlotOptions);
+    expect(real).toEqual({ read: 1, created: 1, skipped: 0, unreadable: 0, archivedStreams: 1 });
+  });
+
+  test("offlot rows land in the FW entity; the second run writes nothing", async () => {
+    const first = await migrateLegacyWaitlist(stack.db, offlotOptions);
+    expect(first).toEqual({ read: 1, created: 1, skipped: 0, unreadable: 0, archivedStreams: 0 });
+
+    const [entry] = await rowsOf(stack);
+    expect(entry?.["name"]).toBe("Dealer Dan");
+    expect(entry?.["email"]).toBe("dan@dealer.example");
+    expect(entry?.["company"]).toBe("Dan Motors");
+    expect(entry?.["locale"]).toBe("es");
+    expect(entry?.["status"]).toBe(WAITLIST_STATUS.Invited);
+    expect(entry?.["invitedBy"]).toBe("admin-1");
+    expect(String(entry?.["message"])).toBe(
+      "City: Valencia\nStock: 11-30\nCountry: ES\nNotes: call back",
+    );
+    expect(String(entry?.["submittedAt"])).toContain("2026-08-01T10:00:00");
+
+    const second = await migrateLegacyWaitlist(stack.db, offlotOptions);
+    expect(second).toEqual({ read: 1, created: 0, skipped: 1, unreadable: 0, archivedStreams: 0 });
+    expect(await rowsOf(stack)).toHaveLength(1);
+  });
+
+  test("publicstatus rows become pending entries with the default locale; re-run is a no-op", async () => {
+    const first = await migrateLegacyWaitlist(stack.db, publicstatusOptions);
+    expect(first).toEqual({ read: 1, created: 1, skipped: 0, unreadable: 0, archivedStreams: 0 });
+    const [entry] = await rowsOf(stack);
+    expect(entry?.["email"]).toBe("lead@apex.example");
+    expect(entry?.["name"]).toBe("lead");
+    expect(entry?.["locale"]).toBe("de");
+    expect(entry?.["status"]).toBe(WAITLIST_STATUS.Pending);
+
+    const second = await migrateLegacyWaitlist(stack.db, publicstatusOptions);
+    expect(second).toEqual({ read: 1, created: 0, skipped: 1, unreadable: 0, archivedStreams: 0 });
+    expect(await rowsOf(stack)).toHaveLength(1);
+  });
+
+  test("a row without a readable status is counted unreadable and not imported", async () => {
+    await seedRow(stack.db, offlotTable, {
+      id: crypto.randomUUID(),
+      name: "Odd",
+      email: "odd@example.com",
+      locale: "en",
+      status: "archived",
+      submittedAt: Temporal.Instant.from("2026-08-03T10:00:00Z"),
+    });
+    const report = await migrateLegacyWaitlist(stack.db, offlotOptions);
+    expect(report).toEqual({ read: 2, created: 1, skipped: 0, unreadable: 1, archivedStreams: 0 });
+  });
+
+  test("a row with a value above the live field limit is counted unreadable and not imported", async () => {
+    await seedRow(stack.db, offlotTable, {
+      id: crypto.randomUUID(),
+      name: "Verbose",
+      email: "verbose@example.com",
+      locale: "en",
+      status: WAITLIST_STATUS.Pending,
+      notes: "n".repeat(WAITLIST_FIELD_LIMITS.message + 1),
+      submittedAt: Temporal.Instant.from("2026-08-04T10:00:00Z"),
+    });
+    const report = await migrateLegacyWaitlist(stack.db, offlotOptions);
+    expect(report).toEqual({ read: 2, created: 1, skipped: 0, unreadable: 1, archivedStreams: 0 });
+    expect((await rowsOf(stack)).map((row) => row["name"])).not.toContain("Verbose");
+  });
+
+  test("a rebuild after the migration does not replay the legacy event stream next to the new entry", async () => {
+    const legacyStream = await waitlistExecutor.create(
+      {
+        id: offlotId,
+        name: "Dealer Dan",
+        email: "dan@dealer.example",
+        locale: "es",
+        status: WAITLIST_STATUS.Invited,
+        submittedAt: Temporal.Instant.from("2026-08-01T10:00:00Z"),
+      },
+      platformActor(),
+      createTenantDb({
+        db: stack.db,
+        tenantId: SYSTEM_TENANT_ID,
+        mode: "system",
+        reason: "test reads system-tenant waitlist rows",
+      }),
+    );
+    expect(legacyStream.isSuccess).toBe(true);
+
+    const report = await migrateLegacyWaitlist(stack.db, offlotOptions);
+    expect(report).toEqual({ read: 1, created: 1, skipped: 0, unreadable: 0, archivedStreams: 1 });
+
+    await rebuildProjection("waitlist:projection:waitlist-entry-entity", {
+      db: stack.db,
+      registry: stack.registry,
+    });
+    const ids = (await rowsOf(stack)).map((row) => row["id"]);
+    // Earlier tests' streams outlive the table reset and replay too, so assert on this entry only.
+    expect(ids).toContain(waitlistImportId(`offlot:${offlotId}`));
+    expect(ids).not.toContain(offlotId);
+
+    const second = await migrateLegacyWaitlist(stack.db, offlotOptions);
+    expect(second).toEqual({ read: 1, created: 0, skipped: 1, unreadable: 0, archivedStreams: 0 });
+  });
+
+  test("migrating from the entity table itself skips entries a previous run imported", async () => {
+    const legacyStream = await waitlistExecutor.create(
+      {
+        id: offlotId,
+        name: "Dealer Dan",
+        email: "dan@dealer.example",
+        locale: "es",
+        status: WAITLIST_STATUS.Invited,
+        submittedAt: Temporal.Instant.from("2026-08-01T10:00:00Z"),
+      },
+      platformActor(),
+      createTenantDb({
+        db: stack.db,
+        tenantId: SYSTEM_TENANT_ID,
+        mode: "system",
+        reason: "test reads system-tenant waitlist rows",
+      }),
+    );
+    expect(legacyStream.isSuccess).toBe(true);
+    await migrateLegacyWaitlist(stack.db, offlotOptions);
+    const importedId = waitlistImportId(`offlot:${offlotId}`);
+
+    const fromEntityTable = await migrateLegacyWaitlist(stack.db, {
+      ...offlotOptions,
+      sourceTable: waitlistEntryTable.tableName,
+    });
+    expect(fromEntityTable.created).toBe(0);
+    expect(fromEntityTable.archivedStreams).toBe(0);
+
+    await rebuildProjection("waitlist:projection:waitlist-entry-entity", {
+      db: stack.db,
+      registry: stack.registry,
+    });
+    expect((await rowsOf(stack)).map((row) => row["id"])).toContain(importedId);
   });
 
   test("importWaitlistEntry keeps the same source key on one id", async () => {

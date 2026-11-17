@@ -8,20 +8,18 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 
-import {
-  createEventStoreExecutor,
-  createTenantDb,
-  selectMany,
-} from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { JobContext, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { bridgeStub } from "@cosmicdrift/kumiko-framework/engine";
 import {
   buildStorageKey,
+  createFilesFeature,
   createInMemoryFileProvider,
   fileRefEntity,
   fileRefsTable,
   type InMemoryFileProvider,
 } from "@cosmicdrift/kumiko-framework/files";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { createTestEnvelopeCipher, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -33,7 +31,6 @@ import {
 import { createConfigFeature } from "../../config/index.ts";
 import { createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";
-import { createFilesFeature } from "../../files/index.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.ts";
 import { TenantHandlers } from "../../tenant/web/constants.ts";

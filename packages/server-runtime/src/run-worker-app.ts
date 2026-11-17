@@ -45,6 +45,7 @@ import { startPiiEventBackfillOnBoot } from "./boot/pii-event-backfill-on-boot.t
 import { recordAppStartedOnBoot } from "./boot/record-app-started-on-boot.ts";
 import { startSearchReindexOnBoot } from "./boot/search-reindex-on-boot.ts";
 import { withEnvDefaults } from "./boot/shared-boot-steps.ts";
+import { runStreamTenantBackfillOnBoot } from "./boot/stream-tenant-backfill-on-boot.ts";
 import type { DatabaseWaitClock } from "./boot/wait-for-database.ts";
 import {
   bootWorkerProcess,
@@ -65,7 +66,7 @@ import {
   type BootOptionWiring,
   resolveBootOptionWiring,
 } from "./boot-options/resolve-boot-options.ts";
-import type { SearchBootOption } from "./boot-options/search-option.ts";
+import type { SearchOption } from "./boot-options/search-option.ts";
 import { assertStackBootRequirements } from "./boot-options/stack-boot-requirements.ts";
 import {
   makeDispatchSystemQuery,
@@ -165,8 +166,8 @@ export type RunWorkerAppOptions = {
   readonly mail?: MailBootOption;
   /** Same as RunProdAppOptions["fileStorage"]: mounts the file providers the worker's file jobs use. */
   readonly fileStorage?: FileStorageBootOption;
-  /** Same as RunProdAppOptions["search"]: the worker's search consumer indexes into the same Meilisearch. */
-  readonly search?: SearchBootOption;
+  /** Same as RunProdAppOptions["search"]: the worker's search consumer indexes into the same Meilisearch; `"none"` must match the API process. */
+  readonly search?: SearchOption;
   /** Same as RunProdAppOptions["kmsMode"], including the production default; cannot be combined with `kms` / `blindIndexKey` / `allowPlaintextPii`. */
   readonly kmsMode?: KmsMode;
   /** Same as RunProdAppOptions["billing"]: mounts the configured subscription providers so the registry matches the API. The webhook route belongs to the API process. */
@@ -252,6 +253,23 @@ function withWiredBootOptions(
   };
 }
 
+// Runs before the metrics port opens and before start() consumes jobs: a worker must not process
+// events of a feature whose streams still sit on the wrong tenant.
+async function backfillThenStartMetrics(
+  boot: Extract<WorkerBootResult, { kind: "booted" }>,
+  options: RunWorkerAppOptions,
+): Promise<ReturnType<typeof startWorkerMetricsServer> | undefined> {
+  await runStreamTenantBackfillOnBoot({
+    db: boot.db,
+    registry: boot.registry,
+    extraContext: boot.extraContext,
+    processName: "runWorkerApp",
+    ...(options.search === "none" && { search: options.search }),
+    ...(options.databaseWait && { databaseWait: options.databaseWait }),
+  });
+  return options.metrics ? startWorkerMetricsServer(options.metrics, boot.entrypoint) : undefined;
+}
+
 async function runWireComponents(
   options: RunWorkerAppOptions,
   boot: Extract<WorkerBootResult, { kind: "booted" }>,
@@ -307,9 +325,7 @@ export async function runWorkerApp(rawOptions: RunWorkerAppOptions): Promise<Wor
   // hook, so a failing start() does not leak the listener.
   let metricsServer: ReturnType<typeof startWorkerMetricsServer> | undefined;
   try {
-    metricsServer = options.metrics
-      ? startWorkerMetricsServer(options.metrics, boot.entrypoint)
-      : undefined;
+    metricsServer = await backfillThenStartMetrics(boot, options);
     await entrypoint.start();
   } catch (error) {
     // The boot failure is the actionable error; a close failure on a

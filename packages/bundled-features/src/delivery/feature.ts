@@ -7,6 +7,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { ConsumerLagError } from "@cosmicdrift/kumiko-framework/pipeline";
 import type * as z from "zod";
+import { projectedAttemptAddress, rememberConnectionNameChannel } from "./attempt-log.ts";
 import { resolveAttemptLogRetentionDays, runAttemptLogRetention } from "./attempt-log-retention.ts";
 import {
   DELIVERY_ATTEMPT_ADDRESS_ERASED_EVENT,
@@ -36,7 +37,7 @@ import {
 import { unsubscribePageChromeQuery } from "./handlers/unsubscribe-page-chrome.query.ts";
 import { unsubscribeUserWrite } from "./handlers/unsubscribe-user.write.ts";
 import { DELIVERY_I18N } from "./i18n.ts";
-import { deliverySendJob } from "./jobs.ts";
+import { deliveryRenderJob, deliverySendJob } from "./jobs.ts";
 import type { DeliveryFeatureOptions } from "./options.ts";
 import {
   deliveryAttemptsTable,
@@ -112,6 +113,7 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
     // drain needed in tests. Chosen over a MultiStreamProjection because
     // delivery-log is a hot read-path for admin/audit UIs that expect
     // read-your-own-write semantics.
+    const connectionNameChannels = new Set<string>();
     r.projection({
       name: "delivery-log",
       source: "deliveryAttempt",
@@ -119,6 +121,12 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
       apply: {
         [DELIVERY_ATTEMPT_EVENT]: async (event, tx) => {
           const p = event.payload as z.infer<typeof deliveryAttemptSchema>; // @cast-boundary engine-payload
+          // Events written before write-time masking carry the full address; mask on rebuild.
+          const projectedAddress = projectedAttemptAddress(
+            connectionNameChannels,
+            p.channel,
+            p.recipientAddress,
+          );
           // PK = aggregateId. An async attempt accrues multiple events on one
           // stream (queued → sent/failed): the first INSERTs, later events
           // UPDATE the same row. Events arrive in version order, so the last
@@ -132,7 +140,7 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
               notificationType: p.notificationType,
               channel: p.channel,
               recipientId: p.recipientId,
-              recipientAddress: p.recipientAddress,
+              recipientAddress: projectedAddress,
               status: p.status,
               error: p.error,
               priority: p.priority,
@@ -142,7 +150,7 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
             {
               status: p.status,
               error: p.error,
-              recipientAddress: p.recipientAddress,
+              recipientAddress: projectedAddress,
               confirmed: p.confirmed ?? null,
             },
           );
@@ -158,7 +166,20 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
       },
     });
 
-    r.extendsRegistrar(DELIVERY_CHANNEL_EXTENSION, {});
+    // Connection-name channels address a configured connection, not a person, so they stay unmasked.
+    r.extendsRegistrar(DELIVERY_CHANNEL_EXTENSION, {
+      onRegister: (channelName, channelOptions) =>
+        rememberConnectionNameChannel(connectionNameChannels, channelName, channelOptions),
+    });
+
+    // Only drains render jobs queued before the single send job existed; nothing dispatches it anymore.
+    r.job({
+      name: DeliveryJobNames.render,
+      trigger: { manual: true },
+      retries: 3,
+      backoff: "exponential",
+      handler: deliveryRenderJob,
+    });
 
     // One job for queued-mode channels: it renders (when the channel has render()) and sends.
     // Dispatched explicitly from the delivery-service, hence manual trigger.

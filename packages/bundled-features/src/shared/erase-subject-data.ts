@@ -8,7 +8,6 @@ import {
   purgeSearchDocumentsForSubject,
   type SearchAdapter,
 } from "@cosmicdrift/kumiko-framework/search";
-import { forgetCapCounterSubject } from "../cap-counter/index.ts";
 import { purgeFilesReachingSubject } from "./purge-files-reaching-subject.ts";
 
 // The one erasure order both Art.-17 entries share (forget-subject, user-data-rights cleanup).
@@ -19,14 +18,16 @@ export async function eraseSubjectData(
   args: Omit<Parameters<typeof purgeFilesReachingSubject>[0], "subjectKey"> & {
     readonly searchAdapter: SearchAdapter | undefined;
     readonly eraseRows: () => Promise<void>;
+    // Opt-in, default off: only then are the record keys of owned rows returned for erasure.
+    readonly eraseOwnedRecordKeys?: boolean;
   },
 ): Promise<readonly OwnedRecordSubject[]> {
-  const { searchAdapter, eraseRows, ...fileArgs } = args;
+  const { searchAdapter, eraseRows, eraseOwnedRecordKeys, ...fileArgs } = args;
   const subjectKey = subjectIdToKey(args.subject);
   // Before eraseRows: a forget hook may delete the row, while its created event still
   // holds the ownerless-phase ciphertext under the row's record key.
   const ownedRecordSubjects =
-    args.subject.kind === "user"
+    eraseOwnedRecordKeys === true && args.subject.kind === "user"
       ? await recordSubjectsOwnedByUser(args.db, args.registry.features, args.subject.userId)
       : [];
   if (searchAdapter) {
@@ -42,7 +43,5 @@ export async function eraseSubjectData(
   await eraseRows();
   // The deterministic HMAC would stay equality-matchable until the next rebuild.
   await nullBlindIndexesForSubject(args.db, args.registry.features, subjectKey);
-  // Subject usage rows are keyed by an HMAC of the subject key and would stay linkable.
-  await forgetCapCounterSubject(args.db, args.registry.features, subjectKey);
   return ownedRecordSubjects;
 }

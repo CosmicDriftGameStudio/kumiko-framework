@@ -1,7 +1,6 @@
 import { PII_ERASED_SENTINEL } from "@cosmicdrift/kumiko-framework/crypto";
 import type { JobContext } from "@cosmicdrift/kumiko-framework/engine";
 import { computeCutoff } from "../data-retention/index.ts";
-import type { SignatureRetention } from "./entity.ts";
 import { isPastInstant, listSigners, type SignerRow } from "./lib.ts";
 import { forEachRequestPageWithStatus } from "./sweep.ts";
 import { ANONYMIZED_SIGNER_NAME, eraseSignerRows, signerEraseContext } from "./user-data.ts";
@@ -27,9 +26,9 @@ function isErasedSigner(signer: SignerRow): boolean {
 // ponytail: scans every unfinished request daily; mark erased requests if that list grows large.
 export async function eraseSignersOfUnfinishedRequests(
   ctx: JobContext,
-  retention: SignatureRetention,
+  unfinishedKeepFor: string,
 ): Promise<void> {
-  const cutoff = computeCutoff(retention.unfinishedKeepFor, ctx.tz.now());
+  const cutoff = computeCutoff(unfinishedKeepFor, ctx.tz.now());
   const eraseCtx = signerEraseContext(ctx, ctx.systemUser);
   for (const status of UNFINISHED_REQUEST_STATUSES) {
     await forEachRequestPageWithStatus(ctx, status, async (requests) => {

@@ -17,7 +17,6 @@ import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import {
   type CHANNEL_WHATSAPP_FEATURE,
-  WHATSAPP_EVENT_RETENTION_DAYS,
   WHATSAPP_RETENTION_CURSOR_ENTITY,
 } from "./constants.ts";
 import { WHATSAPP_MESSAGE_AGGREGATE_TYPE, WHATSAPP_STATUS_AGGREGATE_TYPE } from "./events.ts";
@@ -151,9 +150,10 @@ async function eraseWhatsappStreamKeys(
 export async function runWhatsappRetention(args: {
   readonly db: TenantDb;
   readonly now: Temporal.Instant;
+  readonly retentionDays: number;
 }): Promise<{ readonly streamsErased: number }> {
   const streamsErased = await eraseWhatsappStreamKeys(args.db, {
-    cutoff: args.now.subtract({ hours: WHATSAPP_EVENT_RETENTION_DAYS * 24 }),
+    cutoff: args.now.subtract({ hours: args.retentionDays * 24 }),
     eraseReason: RETENTION_ERASE_REASON,
   });
   return { streamsErased };
@@ -171,6 +171,7 @@ export async function whatsappTenantDestroyHook(ctx: TenantDataHookCtx): Promise
 
 export function registerWhatsappRetention(
   r: FeatureRegistrar<typeof CHANNEL_WHATSAPP_FEATURE>,
+  eventRetentionDays: number | undefined,
 ): void {
   r.storeTable(whatsappRetentionCursorTable, {
     reason: "read_side.whatsapp_retention_cursors_direct_write",
@@ -180,6 +181,7 @@ export function registerWhatsappRetention(
     entity: WHATSAPP_RETENTION_CURSOR_ENTITY,
     destroy: whatsappTenantDestroyHook,
   });
+  if (eventRetentionDays === undefined) return;
   r.job({
     name: "whatsapp-event-retention",
     trigger: { maintenance: true },
@@ -187,7 +189,11 @@ export function registerWhatsappRetention(
     irreversibleWithoutEntryHandler: "high-risk-or-cron-pipeline",
     concurrency: "skip",
     handler: async (_payload, ctx) => {
-      await runWhatsappRetention({ db: ctx.db, now: ctx.tz.now() });
+      await runWhatsappRetention({
+        db: ctx.db,
+        now: ctx.tz.now(),
+        retentionDays: eventRetentionDays,
+      });
     },
   });
 }

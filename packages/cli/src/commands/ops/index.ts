@@ -1,6 +1,7 @@
 import type { CliCommand, CliCommandContext } from "../types";
 import { backfillPiiOp } from "./backfill-pii";
 import { seedNewOp, seedStatusOp } from "./seed";
+import { waitlistMigrateOp } from "./waitlist-migrate";
 
 export type OpsSubcommand = {
   readonly id: string;
@@ -12,6 +13,7 @@ export const OPS_SUBCOMMANDS: ReadonlyArray<OpsSubcommand> = [
   backfillPiiOp,
   seedNewOp,
   seedStatusOp,
+  waitlistMigrateOp,
 ];
 
 function opsUsage(): string {
@@ -20,7 +22,7 @@ function opsUsage(): string {
 
 export const opsCommand: CliCommand = {
   id: "ops",
-  description: "One-off operations on an existing app (backfill-pii, seed:new, seed:status)",
+  description: "One-off operations on an existing app (backfill-pii, seed:new, seed:status, waitlist-migrate)",
   help: `Subcommands:\n${opsUsage()}`,
   run: async (ctx) => {
     const sub = OPS_SUBCOMMANDS.find((op) => op.id === ctx.argv[0]);
