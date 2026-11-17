@@ -11,7 +11,7 @@ import {
 import { FieldChangeStatus } from "../constants.ts";
 import type { fieldChangeRequestExecutor } from "../executor.ts";
 import { decideFieldChangePayloadSchema } from "../schemas.ts";
-import { isPendingRequest, loadPendingRequest } from "./decide-change.ts";
+import { isPendingRequest, loadPendingRequest, requesterIdOf } from "./decide-change.ts";
 
 export function createRejectChangeHandler(
   access: AccessRule,
@@ -30,7 +30,7 @@ export function createRejectChangeHandler(
       if (!isPendingRequest(pending)) return pending;
       const { request, fieldName, field } = pending;
 
-      const isRequester = request["modifiedById"] === event.user.id;
+      const isRequester = requesterIdOf(request) === event.user.id;
       if (!userCanApproveField(event.user, field) && !isRequester) {
         return writeFailure(
           new AccessDeniedError({

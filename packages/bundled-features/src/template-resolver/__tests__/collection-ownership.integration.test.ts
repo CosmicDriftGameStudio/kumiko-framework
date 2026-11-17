@@ -363,7 +363,7 @@ describe("with a PII key service :: the owner reads their entry back as plaintex
     slug: "encrypted",
     locale: "de",
     title: "Verschlüsselt",
-    folder: "Kunden",
+    folder: "kunden",
     content: "<p>Viele Grüße, A</p>",
     contentFormat: "html" as const,
   };
@@ -413,7 +413,7 @@ describe("with a PII key service :: the owner reads their entry back as plaintex
     const leaver = createTestUser({ id: 17, roles: ["Agent"] });
     await stack.http.writeOk(
       SIGNATURES_SET,
-      { ...encryptedSignature, slug: "leaver", title: "Signatur Dr. Weber", folder: "Weber" },
+      { ...encryptedSignature, slug: "leaver", title: "Signatur Dr. Weber", folder: "weber" },
       leaver,
     );
     await configuredPiiSubjectKms()?.eraseKey(

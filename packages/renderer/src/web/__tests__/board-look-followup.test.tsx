@@ -84,13 +84,13 @@ describe("HeaderActionPinned hideOnListScreens", () => {
   test("a phone record screen keeps it", () => {
     setViewportWidth(PHONE);
     renderPinned("projectionDetail");
-    expect(screen.getByTestId("ai-trigger")).toBeTruthy();
+    screen.getByTestId("ai-trigger");
   });
 
   test("desktop keeps it on a list screen", () => {
     setViewportWidth(DESKTOP);
     renderPinned("entityList");
-    expect(screen.getByTestId("ai-trigger")).toBeTruthy();
+    screen.getByTestId("ai-trigger");
   });
 });
 
@@ -156,7 +156,7 @@ describe("stand-in list", () => {
         <LockedHeaderScope standInScreenId="tasks:screen:other">{list}</LockedHeaderScope>
       </PageHeaderSlotProvider>,
     );
-    expect(screen.getByText("Foo")).toBeTruthy();
+    screen.getByText("Foo");
     expect(document.querySelector("[data-testid$='pager-status']")).toBeNull();
     expect(document.querySelector("[data-testid$='count-footer']")).toBeNull();
   });
@@ -213,7 +213,7 @@ describe("card footer link (F9)", () => {
       const footer = screen.getByTestId("row-u1-card-buttons");
       const links = screen.getByTestId("card-links-u1");
       expect(links.parentElement?.className).toContain("ml-auto");
-      expect(within(footer).getByText("Ask AI")).toBeTruthy();
+      within(footer).getByText("Ask AI");
     });
   });
 });

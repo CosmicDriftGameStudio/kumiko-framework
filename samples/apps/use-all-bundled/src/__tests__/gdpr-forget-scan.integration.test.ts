@@ -6,12 +6,16 @@
 // adapter is never configured for any tenant), so nothing would be indexed to find.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { UserDataRightsHandlers } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
+import {
+  UserDataRightsHandlers,
+  updateUserLifecycle,
+} from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import { type KumikoServerHandle, runDevApp } from "@cosmicdrift/kumiko-dev-server";
 import { seedTenant } from "@cosmicdrift/kumiko-dev-server/testing";
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import type { InProcessSeededTenant } from "@cosmicdrift/kumiko-testing";
 import { PLAYWRIGHT_DEMO_ENV } from "@cosmicdrift/kumiko-testing/e2e/constants";
 import { devAppOptions } from "../app/dev-app-options";
@@ -44,10 +48,12 @@ beforeAll(async () => {
     stylesheet: false,
   });
   tenant = await seedTenant(handle.stack, { persist: true });
+  // The storage provider selection is platform-level: only a SystemAdmin may write it.
+  const operator = await tenant.addUser([ROLES.SystemAdmin]);
   await handle.stack.http.writeOk(
     "config:write:set",
     { key: "file-foundation:config:provider", value: "inmemory" },
-    tenant.admin.session,
+    operator.session,
   );
 });
 
@@ -191,24 +197,22 @@ describe("GDPR forget leaves no trace", () => {
     expect(controlTables).toContain("public.read_demo_notes");
     expect(controlTables).toContain("public.kumiko_events");
 
-    // Tenant admin shortens the grace period through the regular compliance override so the
-    // operator run executes now instead of in 30 days.
-    await http.writeOk(
-      "compliance-profiles:write:set-profile",
-      {
-        profileKey: "eu-dsgvo",
-        override: JSON.stringify({ userRights: { gracePeriod: { days: 0 } } }),
-      },
-      tenant.admin.session,
-    );
     await http.writeOk("user-data-rights:write:request-deletion", {}, victim.session);
+    // No tenant profile can shorten the grace period below its 7-day floor, so the window is
+    // closed through the lifecycle write the handlers use instead of an override.
+    await updateUserLifecycle(handle.stack.db, victim.session.id, {
+      gracePeriodEnd: getTemporal().Now.instant().subtract({ minutes: 1 }),
+    });
 
     const forget = await handle.stack.dispatcher.write(
       UserDataRightsHandlers.runForgetCleanup,
       {},
       createSystemUser(SYSTEM_TENANT_ID),
     );
-    expect(forget.isSuccess).toBe(true);
+    expect(forget).toMatchObject({
+      isSuccess: true,
+      data: { processedUserIds: [victim.session.id], errorCount: 0 },
+    });
 
     const after = {
       tables: await scanTables(marker),

@@ -78,8 +78,8 @@ describe("multiSelect optionsAvailabilityQuery", () => {
     await waitFor(() => screen.getByTestId("combobox-kumiko-edit-roles"));
     await user.click(screen.getByTestId("combobox-kumiko-edit-roles"));
     await waitFor(() => expect(screen.queryByText("TenantAdmin")).toBeNull());
-    expect(screen.getByText("User")).toBeDefined();
-    expect(screen.getByText("Admin")).toBeDefined();
+    screen.getByText("User");
+    screen.getByText("Admin");
   });
 
   test("checkbox grid drops the disabled option too", async () => {
@@ -91,8 +91,8 @@ describe("multiSelect optionsAvailabilityQuery", () => {
     );
 
     await waitFor(() => expect(screen.queryByText("TenantAdmin")).toBeNull());
-    expect(screen.getByText("User")).toBeDefined();
-    expect(screen.getByText("Admin")).toBeDefined();
+    screen.getByText("User");
+    screen.getByText("Admin");
   });
 
   test("a failing query leaves every static option", async () => {
@@ -106,8 +106,8 @@ describe("multiSelect optionsAvailabilityQuery", () => {
       </DispatcherProvider>,
     );
 
-    await waitFor(() => expect(screen.getByText("User")).toBeDefined());
-    expect(screen.getByText("TenantAdmin")).toBeDefined();
+    await waitFor(() => screen.getByText("User"));
+    screen.getByText("TenantAdmin");
   });
 
   test("a prefilled value on a disabled option stays listed, disabled", async () => {
@@ -132,7 +132,7 @@ describe("multiSelect optionsAvailabilityQuery", () => {
       </DispatcherProvider>,
     );
 
-    await waitFor(() => expect(screen.getByText("Admin")).toBeDefined());
+    await waitFor(() => screen.getByText("Admin"));
     const held = screen.getByRole("checkbox", { name: "TenantAdmin" });
     expect(held.getAttribute("aria-checked")).toBe("true");
     expect(held.hasAttribute("disabled")).toBe(true);
@@ -153,7 +153,7 @@ describe("multiSelect optionsAvailabilityQuery", () => {
       </DispatcherProvider>,
     );
 
-    await waitFor(() => expect(screen.getByText("TenantAdmin")).toBeDefined());
+    await waitFor(() => screen.getByText("TenantAdmin"));
     expect(queried).not.toContain(AVAILABILITY_QUERY);
   });
 });

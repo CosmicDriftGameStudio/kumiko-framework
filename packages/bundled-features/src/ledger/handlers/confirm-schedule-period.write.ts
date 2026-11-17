@@ -1,7 +1,7 @@
-import type {
-  AccessRule,
-  WriteHandlerDef,
-  WriteResult,
+import {
+  type AccessRule,
+  defineWriteHandler,
+  type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
@@ -12,10 +12,7 @@ import {
   transactionTable,
 } from "../executor.ts";
 import { findReversedIds, isoMonth } from "../recurring.ts";
-import {
-  type ConfirmSchedulePeriodPayload,
-  confirmSchedulePeriodPayloadSchema,
-} from "../schemas.ts";
+import { confirmSchedulePeriodPayloadSchema } from "../schemas.ts";
 import { readSubjectReference } from "../subject-reference.ts";
 import { DEFAULT_LEDGER_ACCESS } from "../web/constants.ts";
 
@@ -32,17 +29,15 @@ const CONFIRM_PERIOD_LOCK_NAMESPACE = 0x6c637370;
 // leaves the period re-confirmable. Referential integrity (both accounts must
 // exist) mirrors create-transaction because a schedule could name a bogus
 // account that the generic CRUD create does not check.
-export function createConfirmSchedulePeriodHandler(
-  access: AccessRule = DEFAULT_LEDGER_ACCESS,
-): WriteHandlerDef {
-  return {
+export function createConfirmSchedulePeriodHandler(access: AccessRule = DEFAULT_LEDGER_ACCESS) {
+  return defineWriteHandler({
     name: "confirm-schedule-period",
     schema: confirmSchedulePeriodPayloadSchema,
     access,
     description:
       "Turns one month of a recurring schedule into a posted balanced entry between its debit and credit account, returning the existing booking instead when that period is already booked and not reversed; use it to move a forecast period into the actual books.",
-    handler: async (event, ctx) => {
-      const payload = event.payload as ConfirmSchedulePeriodPayload; // @cast-boundary engine-payload
+    handler: async (event, ctx): Promise<WriteResult<unknown>> => {
+      const payload = event.payload;
 
       const schedule = await scheduleExecutor.detail(
         { id: payload.scheduleId },
@@ -126,7 +121,7 @@ export function createConfirmSchedulePeriodHandler(
         data: { ...created.data, alreadyBooked: false as const },
       };
     },
-  };
+  });
 }
 
-export const confirmSchedulePeriodHandler: WriteHandlerDef = createConfirmSchedulePeriodHandler();
+export const confirmSchedulePeriodHandler = createConfirmSchedulePeriodHandler();

@@ -69,7 +69,7 @@ or {
     register_diagnostic(span=$classes, message="Design-bearing Tailwind classes (palette colours, arbitrary colours, shadow) belong in widgets and theme tokens (--color-status-*), not in screen code.", severity="error")
   },
   JsxAttribute(name=`className`, initializer=$classes) where {
-    $classes <: r"\"flex flex-col gap-[246]\"",
+    $classes <: r"=\"flex flex-col gap-[246]\"",
     register_diagnostic(span=$classes, message="Vertical flex with gap in app code: use Stack (gap sm|md|lg = gap-2|gap-4|gap-6) from @cosmicdrift/kumiko-renderer/web.", severity="warn")
   },
   JsFunctionDeclaration(id=$name) where {

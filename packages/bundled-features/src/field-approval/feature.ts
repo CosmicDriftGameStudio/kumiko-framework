@@ -14,6 +14,7 @@ import { createApproveChangeHandler } from "./handlers/approve-change.write.ts";
 import { createPendingChangesQuery } from "./handlers/pending-changes.query.ts";
 import { createRejectChangeHandler } from "./handlers/reject-change.write.ts";
 import { createRequestChangeHandler } from "./handlers/request-change.write.ts";
+import { FIELD_APPROVAL_I18N } from "./i18n.ts";
 
 function registerFieldApproval(
   r: FeatureRegistrar<typeof FIELD_APPROVAL_FEATURE_NAME>,
@@ -29,6 +30,7 @@ function registerFieldApproval(
     recommended: false,
   });
 
+  r.translations({ keys: FIELD_APPROVAL_I18N });
   r.entity(createFieldChangeRequestEntity(parents));
   const requestExecutor = createFieldChangeRequestExecutor(parents);
   r.writeHandler(createRequestChangeHandler(access, requestExecutor));

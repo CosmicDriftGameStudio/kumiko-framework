@@ -71,13 +71,13 @@ describe("template overview cells", () => {
       ...baseRow,
       title: "moneyHorse:template.creditSchedule.title",
     });
-    expect(screen.getByText("Credit repayment schedule")).toBeTruthy();
+    screen.getByText("Credit repayment schedule");
     expect(screen.queryByText("moneyHorse:template.creditSchedule.title")).toBeNull();
   });
 
   test("a plain title is shown unchanged", () => {
     renderCell(TitleCell as never, { ...baseRow, title: "Rechnung Hausverwaltung" });
-    expect(screen.getByText("Rechnung Hausverwaltung")).toBeTruthy();
+    screen.getByText("Rechnung Hausverwaltung");
   });
 
   test("a variant row names its base, a base row does not", () => {
@@ -90,7 +90,7 @@ describe("template overview cells", () => {
     expect(screen.getByTestId("document-designer-variant-of").textContent).toBe(
       "Variant of money-horse:credit-schedule",
     );
-    expect(screen.getByText("Möbliert")).toBeTruthy();
+    screen.getByText("Möbliert");
   });
 
   test("a base row shows no variant label", () => {
@@ -104,7 +104,7 @@ describe("template overview cells", () => {
       title: "T",
       overriddenBy: { active: 1, total: 2 },
     });
-    expect(screen.getByText("1 of 2 tenants")).toBeTruthy();
+    screen.getByText("1 of 2 tenants");
   });
 
   test("the overridden-by cell shows the tenants count without a tenant total", () => {
@@ -113,7 +113,7 @@ describe("template overview cells", () => {
       title: "T",
       overriddenBy: { active: 3, total: null },
     });
-    expect(screen.getByText("3 tenants")).toBeTruthy();
+    screen.getByText("3 tenants");
   });
 
   test("the overridden-by cell shows a placeholder when the row has no count", () => {

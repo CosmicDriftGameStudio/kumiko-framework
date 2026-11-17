@@ -94,7 +94,7 @@ describe("select optionsQuery on a configEdit screen", () => {
       ),
     );
     await user.click(screen.getByTestId("combobox-kumiko-edit-model"));
-    expect(await screen.findByText("Model B (smart)")).toBeDefined();
+    await screen.findByText("Model B (smart)");
   });
 
   test("a stored value missing from the result stays visible as its raw value", async () => {

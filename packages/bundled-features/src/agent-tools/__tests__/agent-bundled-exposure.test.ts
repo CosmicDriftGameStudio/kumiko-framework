@@ -66,7 +66,7 @@ const CASES: readonly ExposureCase[] = [
     feature: userDataRights,
     kind: "write",
     handlerName: "request-deletion-by-email",
-    expose: true,
+    expose: false,
     risk: "high",
   },
   { feature: mfa, kind: "write", handlerName: "enable-confirm", expose: true, risk: "high" },

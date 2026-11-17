@@ -2,7 +2,7 @@
 // providers that switch plans in-app (previewPlanSwitch + applyPlanSwitch).
 // Only registered when `createBillingFoundationFeature` gets a `catalog`.
 
-import type { QueryHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { isNonEmptyStringArray } from "../checkout-core.ts";
@@ -21,22 +21,21 @@ export type PlanSwitchPreviewResult = {
   };
 };
 
-export function createPlanSwitchPreviewQuery(catalog: BillingPlanCatalog): QueryHandlerDef {
+export function createPlanSwitchPreviewQuery(catalog: BillingPlanCatalog) {
   const plans = catalog.plans;
   if (!isNonEmptyStringArray(plans)) {
     throw new Error("plan-switch-preview: catalog.plans must not be empty");
   }
   const schema = z.object({ tier: z.enum(plans) }).strict();
 
-  return {
+  return defineQueryHandler({
     name: "plan-switch-preview",
     description:
       "Previews what switching the existing subscription to another plan tier costs right now (amount due, tax, credit, effective date) plus the target plan's recurring price. Only for providers that switch plans in-app.",
     schema,
     access: { roles: purchaseRolesOf(catalog) },
     handler: async (query, ctx): Promise<PlanSwitchPreviewResult> => {
-      // @cast-boundary engine-payload — dispatcher-zod-validated payload
-      const { tier } = query.payload as { tier: string };
+      const { tier } = query.payload;
       const prepared = await preparePlanSwitch(ctx, catalog, tier, "plan-switch-preview");
       const { plugin } = prepared.provider;
       if (!plugin.previewPlanSwitch || !plugin.applyPlanSwitch) {
@@ -61,5 +60,5 @@ export function createPlanSwitchPreviewQuery(catalog: BillingPlanCatalog): Query
         },
       };
     },
-  };
+  });
 }

@@ -181,7 +181,7 @@ describe("KumikoScreen / projectionDetail", () => {
       </DispatcherProvider>,
     );
 
-    expect(screen.getByTestId("kumiko-screen-projection-detail-missing-id")).toBeTruthy();
+    screen.getByTestId("kumiko-screen-projection-detail-missing-id");
 
     // Screen skips the record entirely without entityId, but useQuery's
     // effect still fired (unconditional hook call) — settle it so its async
@@ -203,7 +203,7 @@ describe("KumikoScreen / projectionDetail", () => {
       </DispatcherProvider>,
     );
 
-    expect(await waitFor(() => screen.getByTestId("kumiko-screen-record-missing"))).toBeTruthy();
+    await waitFor(() => screen.getByTestId("kumiko-screen-record-missing"));
   });
 
   describe("record not found: back button", () => {
@@ -1426,7 +1426,7 @@ describe("KumikoScreen / projectionDetail actions drawer-kind", () => {
     // container so they don't collide with the outer screen's own
     // render-edit-form/field-userId testids.
     const drawer = () => within(screen.getByTestId("toolbar-drawer-add-note"));
-    await waitFor(() => expect(drawer().getByTestId("field-note")).toBeTruthy());
+    await waitFor(() => drawer().getByTestId("field-note"));
     const userIdInput = drawer().getByTestId("field-userId").querySelector("input");
     if (userIdInput === null) throw new Error("expected an <input> inside field-userId");
     expect(userIdInput.value).toBe("user-42");
@@ -1515,7 +1515,7 @@ describe("KumikoScreen / projectionDetail relatedList rowActions drawer-kind", (
     const paymentIdInput = within(drawer).getByTestId("field-paymentId").querySelector("input");
     if (paymentIdInput === null) throw new Error("expected an <input> inside field-paymentId");
     expect(paymentIdInput.value).toBe("pay-1");
-    expect(screen.getByTestId("row-pay-1")).toBeTruthy();
+    screen.getByTestId("row-pay-1");
     const queriesBeforeSubmit = paymentsQueryCount;
 
     const noteInput = within(drawer).getByTestId("field-note").querySelector("input");

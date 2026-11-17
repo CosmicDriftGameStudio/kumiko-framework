@@ -29,7 +29,7 @@ describe("ui/Avatar", () => {
     );
     // happy-dom never loads images, so AvatarImage never reaches "loaded" —
     // this only exercises the unloaded state, not an actual load failure.
-    expect(screen.getByText("FB")).toBeTruthy();
+    screen.getByText("FB");
     expect(document.querySelector('[data-slot="avatar-fallback"]')).not.toBeNull();
     expect(document.querySelector('[data-slot="avatar-image"]')).toBeNull();
   });
@@ -41,7 +41,7 @@ describe("ui/Avatar", () => {
         <AvatarBadge data-testid="badge">!</AvatarBadge>
       </Avatar>,
     );
-    expect(screen.getByTestId("badge")).toBeTruthy();
+    screen.getByTestId("badge");
     expect(document.querySelector('[data-slot="avatar-badge"]')).not.toBeNull();
   });
 
@@ -57,7 +57,7 @@ describe("ui/Avatar", () => {
         <AvatarGroupCount data-testid="count">+3</AvatarGroupCount>
       </AvatarGroup>,
     );
-    expect(screen.getByTestId("group")).toBeTruthy();
+    screen.getByTestId("group");
     expect(screen.getByTestId("count").textContent).toBe("+3");
     expect(document.querySelector('[data-slot="avatar-group"]')).not.toBeNull();
     expect(document.querySelector('[data-slot="avatar-group-count"]')).not.toBeNull();

@@ -49,8 +49,8 @@ describe("named filter empty state with a params query", () => {
         })}
       </DispatcherProvider>,
     );
-    expect(screen.getByText("empty.title")).toBeTruthy();
-    expect(screen.getByText("empty.desc")).toBeTruthy();
+    screen.getByText("empty.title");
+    screen.getByText("empty.desc");
     expect(asked).toEqual([]);
   });
 
@@ -73,8 +73,8 @@ describe("named filter empty state with a params query", () => {
         })}
       </DispatcherProvider>,
     );
-    await waitFor(() => expect(screen.getByText("empty.next|name=Meier,date=08.11.")).toBeTruthy());
-    expect(screen.getByText("empty.title")).toBeTruthy();
+    await waitFor(() => screen.getByText("empty.next|name=Meier,date=08.11."));
+    screen.getByText("empty.title");
     expect(asked[0]).toBe("dunning:query:next");
   });
 
@@ -93,7 +93,7 @@ describe("named filter empty state with a params query", () => {
         })}
       </DispatcherProvider>,
     );
-    expect(screen.getByText("empty.title")).toBeTruthy();
+    screen.getByText("empty.title");
     expect(screen.queryByText(/empty.next/)).toBeNull();
   });
 });

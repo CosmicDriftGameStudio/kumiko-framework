@@ -140,7 +140,7 @@ describe("leave guard", () => {
     typeTitle("draft");
     fireEvent.click(screen.getByTestId("link-list"));
 
-    await waitFor(() => expect(screen.getByTestId("leave-guard-dialog")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("leave-guard-dialog"));
     expect(window.location.pathname).toBe("/tasks");
 
     fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
@@ -153,7 +153,7 @@ describe("leave guard", () => {
     typeTitle("draft");
     fireEvent.click(screen.getByTestId("go-list"));
 
-    await waitFor(() => expect(screen.getByTestId("leave-guard-dialog")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("leave-guard-dialog"));
     fireEvent.click(screen.getByRole("button", { name: "Discard" }));
     await waitFor(() => expect(window.location.pathname).toBe("/list"));
   });
@@ -184,7 +184,7 @@ describe("leave guard", () => {
       window.dispatchEvent(new PopStateEvent("popstate"));
     });
 
-    await waitFor(() => expect(screen.getByTestId("leave-guard-dialog")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("leave-guard-dialog"));
     expect(window.location.pathname).toBe("/tasks");
 
     fireEvent.click(screen.getByRole("button", { name: "Discard" }));
@@ -201,7 +201,7 @@ describe("leave guard", () => {
       window.history.replaceState(null, "", "/previous");
       window.dispatchEvent(new PopStateEvent("popstate"));
     });
-    await waitFor(() => expect(screen.getByTestId("leave-guard-dialog")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("leave-guard-dialog"));
     const lengthWithDialog = window.history.length;
 
     act(() => {
@@ -210,7 +210,7 @@ describe("leave guard", () => {
     });
     expect(window.location.pathname).toBe("/tasks");
     expect(window.history.length).toBe(lengthWithDialog);
-    expect(screen.getByTestId("leave-guard-dialog")).toBeTruthy();
+    screen.getByTestId("leave-guard-dialog");
 
     const back = mock(() => {
       window.history.replaceState(null, "", "/previous");
@@ -232,14 +232,14 @@ describe("leave guard", () => {
     renderHarness(dispatcherWriting("success"));
     typeTitle("draft");
     fireEvent.click(screen.getByTestId("go-list"));
-    await waitFor(() => expect(screen.getByTestId("leave-guard-dialog")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("leave-guard-dialog"));
     fireEvent.click(screen.getByRole("button", { name: "Discard" }));
     await waitFor(() => expect(window.location.pathname).toBe("/list"));
     const lengthBefore = window.history.length;
 
     window.history.back();
 
-    await waitFor(() => expect(screen.getByTestId("leave-guard-dialog")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("leave-guard-dialog"));
     await waitFor(() => expect(window.location.pathname).toBe("/list"));
     expect(window.history.length).toBe(lengthBefore);
 
@@ -429,7 +429,7 @@ describe("leave guard with an extension section that saves host values itself", 
     fireEvent.click(screen.getByTestId("patch-host"));
     fireEvent.click(screen.getByTestId("save-other-and-leave"));
 
-    await waitFor(() => expect(screen.getByTestId("leave-guard-dialog")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("leave-guard-dialog"));
     expect(window.location.pathname).toBe("/tasks");
   });
 
@@ -467,7 +467,7 @@ describe("leave guard with an extension section that saves host values itself", 
     fireEvent.click(screen.getByTestId("patch-host"));
     fireEvent.click(screen.getByTestId("save-and-leave"));
 
-    await waitFor(() => expect(screen.getByTestId("leave-guard-dialog")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("leave-guard-dialog"));
     expect(window.location.pathname).toBe("/tasks");
   });
 
@@ -476,7 +476,7 @@ describe("leave guard with an extension section that saves host values itself", 
     fireEvent.click(screen.getByTestId("patch-host"));
     fireEvent.click(screen.getByTestId("leave-without-mark"));
 
-    await waitFor(() => expect(screen.getByTestId("leave-guard-dialog")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("leave-guard-dialog"));
     expect(window.location.pathname).toBe("/tasks");
   });
 
@@ -494,7 +494,7 @@ describe("leave guard with an extension section that saves host values itself", 
     typeTitle("changed");
     fireEvent.click(screen.getByTestId("footer-leave-without-mark"));
 
-    await waitFor(() => expect(screen.getByTestId("leave-guard-dialog")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("leave-guard-dialog"));
     expect(window.location.pathname).toBe("/tasks");
   });
 });
@@ -556,7 +556,7 @@ describe("leave guard on projectionDetail tabs", () => {
     fireEvent.change(input, { target: { value: "unsent note" } });
 
     fireEvent.mouseDown(screen.getByRole("tab", { name: "Session" }), { button: 0 });
-    await waitFor(() => expect(screen.getByTestId("leave-guard-dialog")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("leave-guard-dialog"));
     expect(setSearchParams).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Discard" }));
@@ -610,7 +610,7 @@ describe("leave guard on setSearchParams-based navigation", () => {
     typeTitle("draft");
     fireEvent.click(screen.getByTestId("go-with-return"));
 
-    await waitFor(() => expect(screen.getByTestId("leave-guard-dialog")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("leave-guard-dialog"));
     expect(window.location.pathname + window.location.search).toBe("/tasks");
 
     fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
@@ -624,7 +624,7 @@ describe("leave guard on setSearchParams-based navigation", () => {
     renderWithReturnButton();
     typeTitle("draft");
     fireEvent.click(screen.getByTestId("go-with-return"));
-    await waitFor(() => expect(screen.getByTestId("leave-guard-dialog")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("leave-guard-dialog"));
 
     fireEvent.click(screen.getByRole("button", { name: "Discard" }));
     await waitFor(() => expect(window.location.pathname).toBe("/list"));
@@ -707,7 +707,7 @@ describe("leave guard during an upload", () => {
       await waitFor(() => expect(uploadStarted).toBe(true));
 
       fireEvent.click(screen.getByTestId("go-list"));
-      await waitFor(() => expect(screen.getByTestId("leave-guard-dialog")).toBeTruthy());
+      await waitFor(() => screen.getByTestId("leave-guard-dialog"));
       expect(window.location.pathname).toBe("/tasks");
 
       fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));

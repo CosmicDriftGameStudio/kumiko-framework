@@ -56,17 +56,14 @@ export function createMockDispatcher(options: MockDispatcherOptions = {}): MockD
 
   // TData/TChunk exist only at the type level: the handler decides the payload, the
   // test asserts on it. The overload states the generic contract without a cast.
+  // The implementations forward arguments unchanged so a spy handler records exactly the caller's arguments.
   function write<TData = unknown>(
     type: string,
     payload: unknown,
     opts?: WriteOpts,
   ): Promise<WriteResult<TData>>;
-  async function write(
-    type: string,
-    payload: unknown,
-    opts?: WriteOpts,
-  ): Promise<WriteResult<unknown>> {
-    return writeHandler(type, payload, opts);
+  async function write(...args: Parameters<MockWriteHandler>): Promise<WriteResult<unknown>> {
+    return writeHandler(...args);
   }
 
   function query<TData = unknown>(
@@ -74,12 +71,8 @@ export function createMockDispatcher(options: MockDispatcherOptions = {}): MockD
     payload: unknown,
     opts?: QueryOpts,
   ): Promise<QueryResult<TData>>;
-  async function query(
-    type: string,
-    payload: unknown,
-    opts?: QueryOpts,
-  ): Promise<QueryResult<unknown>> {
-    return queryHandler(type, payload, opts);
+  async function query(...args: Parameters<MockQueryHandler>): Promise<QueryResult<unknown>> {
+    return queryHandler(...args);
   }
 
   function stream<TChunk = unknown>(
@@ -88,18 +81,16 @@ export function createMockDispatcher(options: MockDispatcherOptions = {}): MockD
     opts?: StreamOpts,
   ): AsyncGenerator<TChunk, void, undefined>;
   function stream(
-    type: string,
-    payload: unknown,
-    opts?: StreamOpts,
+    ...args: Parameters<MockStreamHandler>
   ): AsyncGenerator<unknown, void, undefined> {
-    return streamHandler(type, payload, opts);
+    return streamHandler(...args);
   }
 
   return {
     write,
     query,
-    batch: async (commands, opts) =>
-      options.batch ? options.batch(commands, opts) : { isSuccess: true, results: [] },
+    batch: async (...args: Parameters<MockBatchHandler>) =>
+      options.batch ? options.batch(...args) : { isSuccess: true, results: [] },
     stream,
     statusStore: createStore<DispatcherStatus>(options.initialStatus ?? "online"),
     pendingWrites: () => [],

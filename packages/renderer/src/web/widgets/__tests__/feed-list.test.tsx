@@ -11,13 +11,13 @@ describe("FeedList", () => {
   test("renders one list item per row with primary text", () => {
     render(<FeedList rows={rows} testId="feed" />);
     expect(screen.getAllByRole("listitem")).toHaveLength(2);
-    expect(screen.getByText("First row")).toBeTruthy();
-    expect(screen.getByText("Second row")).toBeTruthy();
+    screen.getByText("First row");
+    screen.getByText("Second row");
   });
 
   test("renders trailing content only when defined", () => {
     render(<FeedList rows={rows} testId="feed" />);
-    expect(screen.getByText("3 min")).toBeTruthy();
+    screen.getByText("3 min");
     const items = screen.getAllByRole("listitem");
     expect(items[0]?.textContent).toContain("3 min");
     expect(items[1]?.textContent).not.toContain("min");
@@ -26,6 +26,6 @@ describe("FeedList", () => {
   test("renders the empty state when there are no rows", () => {
     render(<FeedList rows={[]} testId="feed" emptyContent={<p>Nothing here</p>} />);
     expect(screen.queryAllByRole("listitem")).toHaveLength(0);
-    expect(screen.getByText("Nothing here")).toBeTruthy();
+    screen.getByText("Nothing here");
   });
 });

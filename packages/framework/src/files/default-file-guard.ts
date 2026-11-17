@@ -4,12 +4,11 @@ import type { RecordReadCheck } from "./record-read-check.ts";
 
 export const DEFAULT_PRIVILEGED_ROLES = ["TenantAdmin", "Admin", "SystemAdmin"] as const;
 
-// Default guard: on attached files, allow the uploader or a privileged role,
-// and for reads also everyone who may read the record. Delete stays with the
-// uploader and privileged roles: reading a record is no right to remove its
-// files. Pending uploads (entityType set, record not yet created) are the
-// uploader's own until bound; so are uploads without an entityType, which no
-// record can ever claim.
+// Default guard: the uploader and a privileged role get every file, attached, pending or
+// unclaimed; on a record-only entity type the privileged role gets no shortcut and the record
+// decides. For reads, the unclaimed-upload readers also get uploads no record can claim, and
+// everyone who may read the record gets its attached files. Delete stays with the uploader and
+// privileged roles: reading a record is no right to remove its files.
 export function createDefaultGuard(
   privilegedRoles: readonly string[],
   canReadRecord: RecordReadCheck | undefined,

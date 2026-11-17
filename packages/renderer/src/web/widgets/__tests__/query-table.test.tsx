@@ -35,9 +35,9 @@ describe("QueryTable", () => {
       <QueryTable query="tenant:query:tenant:list" columns={COLUMNS} testId="tbl" />,
       dispatcher,
     );
-    await waitFor(() => expect(screen.getByText("Acme")).toBeTruthy());
-    expect(screen.getByText("Beta GmbH")).toBeTruthy();
-    expect(screen.getByText("Name")).toBeTruthy();
+    await waitFor(() => screen.getByText("Acme"));
+    screen.getByText("Beta GmbH");
+    screen.getByText("Name");
   });
 
   test("row click provides the clicked row", async () => {
@@ -52,7 +52,7 @@ describe("QueryTable", () => {
       <QueryTable query="tenant:query:tenant:list" columns={COLUMNS} onRowClick={onRowClick} />,
       dispatcher,
     );
-    await waitFor(() => expect(screen.getByText("Acme")).toBeTruthy());
+    await waitFor(() => screen.getByText("Acme"));
     fireEvent.click(screen.getByText("Acme"));
     expect(onRowClick).toHaveBeenCalledTimes(1);
     expect(onRowClick.mock.calls[0]?.[0]?.id).toBe("t1");
@@ -81,9 +81,9 @@ describe("QueryTable", () => {
       <QueryTable query="tenant:query:tenant:list" columns={COLUMNS} testId="tbl" />,
       dispatcher,
     );
-    await waitFor(() => expect(screen.getByRole("button")).toBeTruthy());
+    await waitFor(() => screen.getByRole("button"));
     fireEvent.click(screen.getByRole("button"));
-    await waitFor(() => expect(screen.getByText("Acme")).toBeTruthy());
+    await waitFor(() => screen.getByText("Acme"));
     expect(calls).toBe(2);
   });
 
@@ -99,7 +99,7 @@ describe("QueryTable", () => {
       />,
       dispatcher,
     );
-    await waitFor(() => expect(screen.getByText("Keine Tenants")).toBeTruthy());
+    await waitFor(() => screen.getByText("Keine Tenants"));
     expect(container.querySelectorAll("tbody tr").length).toBe(0);
   });
 
@@ -118,6 +118,6 @@ describe("QueryTable", () => {
       />,
       dispatcher,
     );
-    await waitFor(() => expect(screen.getByText("Nested")).toBeTruthy());
+    await waitFor(() => screen.getByText("Nested"));
   });
 });

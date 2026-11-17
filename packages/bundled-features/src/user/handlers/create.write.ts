@@ -6,7 +6,6 @@ import {
 import {
   AccessDeniedError,
   ConflictError,
-  InternalError,
   type WriteErrorInfo,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
@@ -54,10 +53,8 @@ export const createWrite = defineWriteHandler({
   access: { roles: ["system", "SystemAdmin"] },
   description:
     "Creates a tenant-agnostic identity record from email, display name, optional locale, timezone and global roles, refusing an email that a live user already holds; the auth features and SystemAdmins use it to onboard a person.",
+  systemScope: true,
   handler: async (event, ctx) => {
-    if (!ctx.systemDb) {
-      throw new InternalError({ message: "user:create requires r.systemScope()" });
-    }
     const db = ctx.systemDb.acknowledgeCrossTenant(
       "user rows are tenant-agnostic identity records; uniqueness check and create need no tenant filter",
     );

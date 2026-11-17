@@ -84,7 +84,7 @@ describe("reference optionsQuery", () => {
     await waitFor(() => screen.getByTestId("render-edit-form"));
     await user.click(screen.getByTestId("combobox-kumiko-edit-leaseId"));
 
-    expect(await screen.findByText("Max Nachmieter · WE-12 · Haus Ahornweg")).toBeDefined();
+    await screen.findByText("Max Nachmieter · WE-12 · Haus Ahornweg");
     // The entity's own list handler is never asked for this field — that is
     // the whole point, its rows have no readable column.
     expect(dispatcher.queried).not.toContain("deposits:query:lease:list");
@@ -159,7 +159,7 @@ describe("reference optionsQuery", () => {
     });
     await user.click(cell);
 
-    expect(await screen.findByText("Max Nachmieter · WE-12 · Haus Ahornweg")).toBeDefined();
+    await screen.findByText("Max Nachmieter · WE-12 · Haus Ahornweg");
     expect(dispatcher.queried).toContain("deposits:query:lease:options");
     expect(dispatcher.queried).not.toContain("deposits:query:lease:list");
   });

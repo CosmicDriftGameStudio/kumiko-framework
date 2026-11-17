@@ -72,7 +72,7 @@ describe("KumikoScreen", () => {
       </DispatcherProvider>,
     );
 
-    expect(screen.getByTestId("render-edit-form")).toBeTruthy();
+    screen.getByTestId("render-edit-form");
     const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
     expect(titleInput).toBeTruthy();
     fireEvent.change(titleInput, { target: { value: "New Task" } });
@@ -111,9 +111,9 @@ describe("KumikoScreen", () => {
       </DispatcherProvider>,
     );
 
-    expect(screen.getByTestId("action-form-header-slot")).toBeTruthy();
-    expect(screen.getByTestId("action-form-footer-slot")).toBeTruthy();
-    expect(screen.getByTestId("render-edit-submit")).toBeTruthy();
+    screen.getByTestId("action-form-header-slot");
+    screen.getByTestId("action-form-footer-slot");
+    screen.getByTestId("render-edit-submit");
   });
 
   // actionForm submitStyle reaches the submit button.
@@ -799,7 +799,7 @@ describe("KumikoScreen", () => {
         />
       </DispatcherProvider>,
     );
-    expect(screen.getByTestId("render-edit-cancel")).toBeTruthy();
+    screen.getByTestId("render-edit-cancel");
   });
 
   test("actionForm with cancelTarget=false: NO cancel button despite redirect", () => {
@@ -1046,7 +1046,7 @@ describe("KumikoScreen", () => {
       </DispatcherProvider>,
     );
     fireEvent.click(screen.getByTestId("open-payout"));
-    await waitFor(() => expect(screen.getByTestId("field-iban")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("field-iban"));
     expect(inputValue("iban")).toBe("DE-from-agent");
     expect(inputValue("secret")).toBe("");
     expect(searchParamWrites).toEqual([]);

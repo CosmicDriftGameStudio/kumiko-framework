@@ -22,8 +22,9 @@
 // prefer start-plan-checkout/switch-plan over calling this handler with a
 // hand-picked priceId.
 
-import type { HandlerContext, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { defineWriteHandler, type HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
 import {
   assertCheckoutAllowed,
@@ -34,7 +35,6 @@ import {
 } from "../checkout-core.ts";
 import {
   assertValidOrderItem,
-  type ConsentPayload,
   consentCheckoutFields,
   consentPayloadSchema,
   prepareConsent,
@@ -65,18 +65,13 @@ const createCheckoutSessionSchema = z.object({
    *  instead of a recurring subscription. Defaults to `"subscription"`. */
   mode: z.enum(["subscription", "payment"]).optional(),
 });
-type CreateCheckoutSessionPayload = z.infer<typeof createCheckoutSessionSchema> & {
-  readonly consent?: ConsentPayload;
-};
 
-export function createCheckoutSessionHandler(
-  options: ResolvedBillingFoundationOptions,
-): WriteHandlerDef {
+export function createCheckoutSessionHandler(options: ResolvedBillingFoundationOptions) {
   const consumerProtection = options.consumerProtection;
   const schema = consumerProtection
     ? createCheckoutSessionSchema.extend({ consent: consentPayloadSchema.optional() }).strict()
     : createCheckoutSessionSchema;
-  return {
+  return defineWriteHandler({
     name: "create-checkout-session",
     description:
       'Opens a hosted checkout page at the named subscription provider for the caller\'s tenant and returns its URL; use it when a tenant admin wants to make a one-off payment (mode: "payment") or subscribe to a price already known to be valid. Redirect URLs must share the configured baseUrl origin. Prefer billing-foundation:write:start-plan-checkout / :switch-plan for catalog-driven plan purchases.',
@@ -86,8 +81,7 @@ export function createCheckoutSessionHandler(
     access: { roles: ["TenantAdmin", "SystemAdmin"] },
     rateLimit: CHECKOUT_START_RATE_LIMIT,
     handler: async (event, ctx) => {
-      // @cast-boundary engine-payload — dispatcher-zod-validated payload
-      const payload = event.payload as CreateCheckoutSessionPayload;
+      const payload = event.payload;
 
       const openOptions = {
         baseUrl: options.baseUrl,
@@ -124,7 +118,7 @@ export function createCheckoutSessionHandler(
       const consent = await prepareConsent(
         ctx,
         consumerProtection,
-        payload.consent,
+        consentPayloadSchema.optional().parse(propertyOf(payload, "consent")),
         mode,
         payload.providerName,
       );
@@ -145,7 +139,7 @@ export function createCheckoutSessionHandler(
         data: { url: result.url, providerName: result.providerName },
       };
     },
-  };
+  });
 }
 
 // The price is part of the consent record, so it must be known before the

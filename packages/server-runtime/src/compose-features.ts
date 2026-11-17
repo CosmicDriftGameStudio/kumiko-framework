@@ -121,22 +121,7 @@ export function composeFeatures(
   ];
   for (const f of bundled) composedBundledInstances.add(f);
   const bundledNames = new Set(bundled.map((f) => f.name));
-  const filteredApp: FeatureDefinition[] = [];
-  for (const f of dedupedAppFeatures) {
-    if (bundledNames.has(f.name)) {
-      // The toggle takes no options, so the app copy is identical. Apps still
-      // need it in APP_FEATURES: the schema CLI and tests compose without
-      // authOptions.signup and only get it from there.
-      if (f.name === AUTH_SELF_REGISTRATION_FEATURE) continue;
-      if (composedBundledInstances.has(f)) continue;
-      // biome-ignore lint/suspicious/noConsole: boot-time UX warning
-      console.warn(
-        `[composeFeatures] "${f.name}" already auto-mounted via includeBundled — dropping the explicit copy from APP_FEATURES. Remove it from run-config.ts to silence this warning.`,
-      );
-      continue;
-    }
-    filteredApp.push(f);
-  }
+  const filteredApp = dropBundledDuplicates(dedupedAppFeatures, bundledNames);
   const names = new Set(filteredApp.map((f) => f.name));
   // Without it, tenant destroy leaves fileRef rows and stored binaries behind.
   const needsFilesTenantData =
@@ -156,6 +141,29 @@ export function composeFeatures(
   for (const feature of composed)
     if (bundledNames.has(feature.name)) composedBundledInstances.add(feature);
   return composed;
+}
+
+function dropBundledDuplicates(
+  appFeatures: readonly FeatureDefinition[],
+  bundledNames: ReadonlySet<string>,
+): FeatureDefinition[] {
+  const filteredApp: FeatureDefinition[] = [];
+  for (const f of appFeatures) {
+    if (bundledNames.has(f.name)) {
+      // The toggle takes no options, so the app copy is identical. Apps still
+      // need it in APP_FEATURES: the schema CLI and tests compose without
+      // authOptions.signup and only get it from there.
+      if (f.name === AUTH_SELF_REGISTRATION_FEATURE) continue;
+      if (composedBundledInstances.has(f)) continue;
+      // biome-ignore lint/suspicious/noConsole: boot-time UX warning
+      console.warn(
+        `[composeFeatures] "${f.name}" already auto-mounted via includeBundled — dropping the explicit copy from APP_FEATURES. Remove it from run-config.ts to silence this warning.`,
+      );
+      continue;
+    }
+    filteredApp.push(f);
+  }
+  return filteredApp;
 }
 
 // auth-email-password declares its mails as stored templates, and the boot seed

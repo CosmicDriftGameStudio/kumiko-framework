@@ -1,4 +1,4 @@
-import { type DbRunner, requireSystemDb, type TenantDb } from "@cosmicdrift/kumiko-framework/db";
+import type { DbRunner, TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
   type FeatureRegistrar,
@@ -36,14 +36,16 @@ export function registerTenantCreatedSeedHook(
       const tenantId = parseTenantId(result.data["id"]);
       // skip: defensive guard; the tenant entity always has a uuid id.
       if (tenantId === null) return;
-      // tenant is r.systemScope(), so a missing systemDb is a wiring error, not a skip.
       // Event-store paths need the raw connection; TenantDb has no execute.
-      const rawDb = requireSystemDb(ctx, "tenant-created seed hook").unsafeRaw(options.reason);
+      // Self-signup fires this from auth-email-password, which is not r.systemScope(), so there
+      // is no systemDb; seedTenant has already pinned ctx.db to the new tenant in system mode.
+      const rawDb = ctx.systemDb ? ctx.systemDb.unsafeRaw(options.reason) : ctx.db.unsafeRaw();
       const tenantDb = createTenantDb({
         db: rawDb,
         tenantId,
         mode: "system",
-        reason: options.reason,
+        reason:
+          "tenant-created seed writes into the new tenant's own streams from the creating request",
       });
       await options.seed({
         tenantId,

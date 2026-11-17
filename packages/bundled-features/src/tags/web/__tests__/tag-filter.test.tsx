@@ -91,7 +91,7 @@ describe("TagFilter", () => {
         <TagFilter entityName="note" screenId="note-list" />
       </Wrapper>,
     );
-    expect(screen.getByTestId("tag-filter-open")).toBeTruthy();
+    screen.getByTestId("tag-filter-open");
     expect(screen.queryByTestId("tag-chip")).toBeNull();
     expect(screen.queryByTestId("tag-filter-clear")).toBeNull();
   });
@@ -108,8 +108,8 @@ describe("TagFilter", () => {
     // urgent (t1) is assigned to n1 → list narrows to that id set
     expect(setFilterSpy).toHaveBeenCalledWith("id", ["n1"]);
     // the active selection is visible as a chip + a clear affordance
-    expect(screen.getByText("urgent")).toBeTruthy();
-    expect(screen.getByTestId("tag-filter-clear")).toBeTruthy();
+    screen.getByText("urgent");
+    screen.getByTestId("tag-filter-clear");
   });
 
   test("clear → drops the filter and the chip", () => {

@@ -30,19 +30,22 @@ export const findForAuthQuery = defineQueryHandler({
     ),
   access: { roles: access.system },
   agent: { expose: false },
+  systemScope: true,
   handler: async (query, ctx) => {
     // Soft-deleted rows can now share an email with a live row (the partial
     // bidx unique index covers live rows only), so the email arm must resolve
     // the live identity; every email-arm caller already rejects isDeleted
     // rows after the fetch, so this only removes rows that would be discarded anyway.
-    const where: { email: string; isDeleted: false } | { id: string } =
-      query.payload.email !== undefined
-        ? { email: query.payload.email, isDeleted: false }
-        : { id: query.payload.id as string }; // @cast-boundary engine-payload
-
-    if (!ctx.systemDb) {
-      throw new InternalError({ message: "user:find-for-auth requires r.systemScope()" });
+    const { email, id } = query.payload;
+    let where: { email: string; isDeleted: false } | { id: string };
+    if (email !== undefined) {
+      where = { email, isDeleted: false };
+    } else if (id !== undefined) {
+      where = { id };
+    } else {
+      throw new InternalError({ message: "user:find-for-auth: schema must guarantee email or id" });
     }
+
     const db = ctx.systemDb.acknowledgeCrossTenant(
       "identity resolution for auth is intentionally cross-tenant",
     );

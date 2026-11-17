@@ -33,7 +33,7 @@ const linkEntity = createEntity({
   parentRef: {
     entityTypeField: "entityType",
     entityIdField: "entityId",
-    allowedTypes: ["host"],
+    allowedTypes: ["host", "folder"],
   },
 });
 const hostEntity = createEntity({
@@ -41,6 +41,11 @@ const hostEntity = createEntity({
   table: "read_gate_hosts",
   fields: { name: text(), scan: createFileField() },
   access: { read: { Reader: "all" } },
+});
+const folderEntity = createEntity({
+  name: "folder",
+  table: "read_gate_folders",
+  fields: { name: text() },
 });
 const gatedEntity = createEntity({
   name: "document",
@@ -57,6 +62,7 @@ const entities = new Map<string, EntityDefinition>([
   ["document", gatedEntity],
   ["link", linkEntity],
   ["host", hostEntity],
+  ["folder", folderEntity],
   ["fileRef", fileRefEntity],
 ]);
 const gatedTable = buildEntityTable(gatedEntity);

@@ -33,7 +33,7 @@ import { tenantDirectoryQuery } from "./handlers/tenant-directory.query.ts";
 import { disableWrite, enableWrite } from "./handlers/toggle-enabled.write.ts";
 import { updateWrite } from "./handlers/update.write.ts";
 import { updateMemberRolesWrite } from "./handlers/update-member-roles.write.ts";
-import { TENANT_I18N } from "./i18n.ts";
+import { TENANT_HANDLER_I18N, TENANT_I18N } from "./i18n.ts";
 import { tenantInvitationEntity } from "./invitation-table.ts";
 import { tenantMembershipEntity } from "./membership-table.ts";
 import { tenantEntity } from "./schema/tenant.ts";
@@ -230,6 +230,7 @@ export function createTenantFeature(options?: TenantFeatureOptions): FeatureDefi
     });
 
     r.translations({ keys: TENANT_I18N });
+    r.translations({ keys: TENANT_HANDLER_I18N });
 
     return { handlers, queries };
   });

@@ -56,7 +56,7 @@ describe("file cell viewInDrawer", () => {
     const viewButton = await screen.findByTestId(`file-view-${PDF_ID}`);
     expect(screen.queryByTestId(`file-view-drawer-${PDF_ID}`)).toBeNull();
     fireEvent.click(viewButton);
-    await waitFor(() => expect(screen.getByTestId(`file-view-drawer-${PDF_ID}`)).toBeTruthy());
+    await waitFor(() => screen.getByTestId(`file-view-drawer-${PDF_ID}`));
   });
 
   test("View and the drawer's controls do not open the clicked row", async () => {

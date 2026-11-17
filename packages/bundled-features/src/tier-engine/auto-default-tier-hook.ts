@@ -1,7 +1,7 @@
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import type { FeatureRegistrar } from "@cosmicdrift/kumiko-framework/engine";
 import { getStreamVersion } from "@cosmicdrift/kumiko-framework/event-store";
-import { registerTenantCreatedSeedHook } from "../shared/tenant-created-seed-hook.ts";
+import { registerTenantCreatedSeedHook } from "../shared/index.ts";
 import { tierAssignmentAggregateId } from "./aggregate-id.ts";
 import { tierAssignmentEntity } from "./entity.ts";
 import { tierAssignmentTable } from "./table.ts";

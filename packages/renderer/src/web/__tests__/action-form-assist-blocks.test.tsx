@@ -308,7 +308,7 @@ describe("actionForm summary.paramsFromLoad", () => {
         </NavProvider>
       </DispatcherProvider>,
     );
-    expect(await screen.findByText("Reply to Marta")).toBeDefined();
+    await screen.findByText("Reply to Marta");
   });
 });
 

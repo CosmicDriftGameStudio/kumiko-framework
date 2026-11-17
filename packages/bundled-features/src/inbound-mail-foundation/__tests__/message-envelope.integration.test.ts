@@ -1,5 +1,5 @@
 // loadInboundMessageEnvelope decrypts one mail for server-side consumers with the visibility of
-// message:content, plus the system user, and hides mails whose tenant key was erased.
+// message:content, plus the system user, and hides mails whose record key was erased.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { configuredPiiSubjectKms } from "@cosmicdrift/kumiko-framework/crypto";
@@ -12,6 +12,7 @@ import {
 } from "@cosmicdrift/kumiko-testing/helpers";
 import { resetInboundInMemory, seedInboundMessage } from "../../inbound-provider-inmemory/index.ts";
 import { inboundMessageAggregateId } from "../aggregate-id.ts";
+import { INBOUND_MESSAGE_AGGREGATE_TYPE } from "../events.ts";
 import { loadInboundMessageEnvelope } from "../handlers/message-envelope.ts";
 import { InboundMailFoundationHandlers } from "../index.ts";
 import {
@@ -109,7 +110,7 @@ describe("loadInboundMessageEnvelope", () => {
     expect(asSystem?.from).toBe("sender@example.com");
   });
 
-  test("an erased tenant key hides the mail", async () => {
+  test("an erased record key hides the mail", async () => {
     const admin = adminFor(6904);
     const accountId = await connectInMemoryAccount(env.stack, admin);
     await seedInboundMessage(accountId, rawMsg({ providerMessageId: "env-erase" }));
@@ -119,7 +120,11 @@ describe("loadInboundMessageEnvelope", () => {
     const kms = configuredPiiSubjectKms();
     if (!kms) throw new Error("expected a configured PII-subject KMS in this test stack");
     await kms.eraseKey(
-      { kind: "tenant", tenantId: admin.tenantId },
+      {
+        kind: "record",
+        entity: INBOUND_MESSAGE_AGGREGATE_TYPE,
+        id: inboundMessageAggregateId(accountId, "env-erase"),
+      },
       { requestId: "test:envelope-erase", eraseReason: "test" },
     );
 

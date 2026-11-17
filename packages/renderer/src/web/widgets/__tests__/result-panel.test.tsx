@@ -22,7 +22,7 @@ describe("ResultTable", () => {
     );
     expect(container.querySelector(".rounded-lg.border.bg-card")).toBeTruthy();
     expect(container.querySelector("thead.bg-muted")).toBeTruthy();
-    expect(screen.getByText("2026")).toBeTruthy();
+    screen.getByText("2026");
   });
 
   test("without card, no wrapper (bare default)", () => {
@@ -53,7 +53,7 @@ describe("ResultTable", () => {
     expect(totalRow?.querySelector("td[colspan]")?.textContent).toBe("Total");
     expect(totalRow?.querySelectorAll("td")[1]?.textContent).toBe("300");
     expect(totalRow?.className).toContain("font-semibold");
-    expect(screen.getByText("Subtotal")).toBeTruthy();
+    screen.getByText("Subtotal");
   });
 
   test("single-column table: footer value still renders (not dropped)", () => {
@@ -74,8 +74,8 @@ describe("ResultTable", () => {
     // set to 0, since there's only one column to span.
     expect(totalRow?.querySelectorAll("td")).toHaveLength(1);
     expect(totalRow?.querySelector("td")?.hasAttribute("colspan")).toBe(false);
-    expect(screen.getByText("Total")).toBeTruthy();
-    expect(screen.getByText("300")).toBeTruthy();
+    screen.getByText("Total");
+    screen.getByText("300");
   });
 });
 
@@ -97,7 +97,7 @@ describe("ComparisonTable", () => {
     );
     expect(container.querySelector(".rounded-lg.border.bg-card")).toBeTruthy();
     expect(container.querySelector("thead.bg-muted")).toBeTruthy();
-    expect(screen.getByText("A-Zins")).toBeTruthy();
+    screen.getByText("A-Zins");
   });
 
   test("without card, no wrapper (bare default)", () => {

@@ -108,7 +108,7 @@ describe("InfinityList: live resync on the first stream open", () => {
 
     renderList(dispatcher, createEventSourceLiveEvents());
     await flushPromises();
-    expect(screen.getByText("Mail (ungelesen)")).toBeTruthy();
+    screen.getByText("Mail (ungelesen)");
     expect(queryCount).toBe(1);
 
     backingSubject = "Mail (gelesen)";
@@ -118,7 +118,7 @@ describe("InfinityList: live resync on the first stream open", () => {
     await advanceLiveDebounce();
 
     expect(queryCount).toBe(2);
-    expect(screen.getByText("Mail (gelesen)")).toBeTruthy();
+    screen.getByText("Mail (gelesen)");
     expect(screen.queryByText("Mail (ungelesen)")).toBeNull();
   });
 
@@ -157,11 +157,11 @@ describe("InfinityList: live resync on the first stream open", () => {
 
     resolvers[1]?.(pageOf("Frisch"));
     await flushPromises();
-    expect(screen.getByText("Frisch")).toBeTruthy();
+    screen.getByText("Frisch");
 
     resolvers[0]?.(pageOf("Veraltet"));
     await flushPromises();
-    expect(screen.getByText("Frisch")).toBeTruthy();
+    screen.getByText("Frisch");
     expect(screen.queryByText("Veraltet")).toBeNull();
   });
 
@@ -207,6 +207,6 @@ describe("InfinityList: live resync on the first stream open", () => {
     resolvers[0]?.(pageOf("Erste Seite"));
     await flushPromises();
 
-    expect(screen.getByText("Erste Seite")).toBeTruthy();
+    screen.getByText("Erste Seite");
   });
 });

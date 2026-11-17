@@ -178,7 +178,7 @@ describe("managed-pages :: Cache + Security-Header", () => {
     expect(res.headers.get("cache-control")).toBe("public, max-age=60, must-revalidate");
     expect(res.headers.get("etag")).toBeTruthy();
     expect(res.headers.get("content-security-policy")).toContain("script-src 'none'");
-    expect(res.headers.get("content-security-policy")).toContain("form-action 'self'");
+    expect(res.headers.get("content-security-policy")).toContain("form-action 'none'");
     expect(res.headers.get("x-content-type-options")).toBe("nosniff");
   });
 
@@ -515,7 +515,7 @@ describe("managed-pages :: page field rules on every write path", () => {
   test("create rejects a slug that is not kebab-case", async () => {
     const error = await stack.http.writeErr(
       "managed-pages:write:page:create",
-      { slug: "Foo Bar", lang: "en", title: "x", body: null },
+      { slug: "Foo Bar", lang: "en", title: "x", body: "x" },
       tenantAdmin,
     );
     expectErrorIncludes(error, "slug");
@@ -524,7 +524,7 @@ describe("managed-pages :: page field rules on every write path", () => {
   test("create rejects a malformed lang", async () => {
     const error = await stack.http.writeErr(
       "managed-pages:write:page:create",
-      { slug: "valid-lang", lang: "xx_YY", title: "x", body: null },
+      { slug: "valid-lang", lang: "xx_YY", title: "x", body: "x" },
       tenantAdmin,
     );
     expectErrorIncludes(error, "lang");
@@ -533,7 +533,7 @@ describe("managed-pages :: page field rules on every write path", () => {
   test("create rejects a non-https ogImage", async () => {
     const error = await stack.http.writeErr(
       "managed-pages:write:page:create",
-      { slug: "og-js", lang: "en", title: "x", body: null, ogImage: "javascript:alert(1)" },
+      { slug: "og-js", lang: "en", title: "x", body: "x", ogImage: "javascript:alert(1)" },
       tenantAdmin,
     );
     expectErrorIncludes(error, "ogImage");
@@ -546,7 +546,7 @@ describe("managed-pages :: page field rules on every write path", () => {
         slug: "og-ok",
         lang: "en",
         title: "x",
-        body: null,
+        body: "x",
         ogImage: "https://cdn.example.com/og.png",
       },
       tenantAdmin,

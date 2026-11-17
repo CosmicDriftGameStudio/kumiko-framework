@@ -319,7 +319,7 @@ describe("RenderEdit — controlled mode", () => {
     expect(write).not.toHaveBeenCalled();
     // Field-level error, not a form-wide summary banner.
     expect(screen.queryByTestId("render-edit-form-error")).toBeNull();
-    expect(screen.getByTestId("field-title-errors")).toBeTruthy();
+    screen.getByTestId("field-title-errors");
   });
 
   test("without onChange/onControlsReady, existing single-field-per-keystroke behaviour is unchanged", () => {
@@ -535,7 +535,7 @@ describe("RenderEdit — FieldConditions react to extension patch()", () => {
     act(() => {
       fireEvent.click(screen.getByTestId("decode-hit"));
     });
-    expect(screen.getByTestId("field-trim")).toBeTruthy();
+    screen.getByTestId("field-trim");
     expect(isDisabled("field-vin")).toBe(true);
 
     act(() => {
@@ -582,7 +582,7 @@ describe("RenderEdit — FieldConditions react to extension patch()", () => {
     });
 
     expect(write).not.toHaveBeenCalled();
-    expect(screen.getByTestId("field-trim-errors")).toBeTruthy();
+    screen.getByTestId("field-trim-errors");
   });
 });
 
@@ -652,7 +652,7 @@ describe("RenderEdit wizard mode", () => {
       </DispatcherProvider>,
     );
 
-    expect(screen.getByTestId("field-title")).toBeTruthy();
+    screen.getByTestId("field-title");
     expect(screen.getByTestId("field-count").closest("[hidden]")).not.toBeNull();
     expect(screen.getByTestId("render-edit-wizard-step-label").textContent).toContain("1");
   });
@@ -721,8 +721,8 @@ describe("RenderEdit wizard mode", () => {
       await Promise.resolve();
     });
 
-    expect(screen.getByTestId("field-title-errors")).toBeTruthy();
-    expect(screen.getByTestId("field-title")).toBeTruthy();
+    screen.getByTestId("field-title-errors");
+    screen.getByTestId("field-title");
     expect(screen.getByTestId("field-count").closest("[hidden]")).not.toBeNull();
   });
 
@@ -756,8 +756,8 @@ describe("RenderEdit wizard mode", () => {
     });
 
     expect(screen.getByTestId("field-title").closest("[hidden]")).not.toBeNull();
-    expect(screen.getByTestId("field-count")).toBeTruthy();
-    expect(screen.getByTestId("render-edit-submit")).toBeTruthy();
+    screen.getByTestId("field-count");
+    screen.getByTestId("render-edit-submit");
     expect(screen.queryByTestId("render-edit-wizard-next")).toBeNull();
   });
 
@@ -789,7 +789,7 @@ describe("RenderEdit wizard mode", () => {
       fireEvent.submit(form);
       await Promise.resolve();
     });
-    expect(screen.getByTestId("field-count")).toBeTruthy();
+    screen.getByTestId("field-count");
 
     fireEvent.click(screen.getByTestId("render-edit-wizard-back"));
 
@@ -861,7 +861,7 @@ describe("RenderEdit wizard mode", () => {
       await Promise.resolve();
     });
 
-    expect(screen.getByTestId("field-count")).toBeTruthy();
+    screen.getByTestId("field-count");
     expect(screen.queryByTestId("render-edit-wizard-next")).toBeNull();
   });
 
@@ -909,7 +909,7 @@ describe("RenderEdit wizard mode", () => {
     });
 
     // Landed directly on Details, skipping the hidden "Company-only" step.
-    expect(screen.getByTestId("field-count")).toBeTruthy();
+    screen.getByTestId("field-count");
     expect(screen.queryByTestId("render-edit-wizard-next")).toBeNull();
   });
 
@@ -959,8 +959,8 @@ describe("RenderEdit wizard mode", () => {
     });
 
     // Jumped back to the step that owns `title`, where the server error lives.
-    expect(screen.getByTestId("field-title")).toBeTruthy();
-    expect(screen.getByTestId("field-title-errors")).toBeTruthy();
+    screen.getByTestId("field-title");
+    screen.getByTestId("field-title-errors");
     expect(screen.getByTestId("field-count").closest("[hidden]")).not.toBeNull();
     // The field itself shows the error — no redundant top-level banner.
     expect(screen.queryByTestId("render-edit-form-error")).toBeNull();
@@ -1008,7 +1008,7 @@ describe("RenderEdit wizard mode", () => {
       await Promise.resolve();
     });
 
-    expect(screen.getByTestId("render-edit-form-error")).toBeTruthy();
+    screen.getByTestId("render-edit-form-error");
   });
 
   test("a server root issue without a field shows once, in the banner", async () => {
@@ -1101,10 +1101,10 @@ describe("RenderEdit wizard mode", () => {
       </DispatcherProvider>,
     );
 
-    expect(screen.getByTestId("composed-cf")).toBeTruthy();
+    screen.getByTestId("composed-cf");
 
     fireEvent.click(screen.getByTestId("render-edit-wizard-next"));
-    expect(screen.getByTestId("field-title")).toBeTruthy();
+    screen.getByTestId("field-title");
     // Step 1's extension section stayed mounted (hidden), not unmounted.
     expect(screen.getByTestId("composed-cf").closest("[hidden]")).not.toBeNull();
 

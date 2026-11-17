@@ -59,7 +59,8 @@ describe("demo tasks feature uses r.crud", () => {
 
   test("the rendered feature file calls r.crud instead of the define*Handler helpers", () => {
     const source = renderDemoTasksFeatureFile();
-    expect(source).toContain('r.crud("task", taskEntity');
+    expect(source).toContain("r.crud(taskEntity, {");
+    expect(source).toContain('name: "task",');
     expect(source).not.toContain("defineEntityCreateHandler");
   });
 });

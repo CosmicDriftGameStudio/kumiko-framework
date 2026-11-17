@@ -113,8 +113,8 @@ describe("behind-filter on a list that does not fill its height (F4)", () => {
     expect(screen.queryByTestId("facet-__namedFilter")).toBeNull();
     expect(screen.queryByTestId("facet-kind")).toBeNull();
     fireEvent.click(toggle);
-    expect(screen.getByTestId("facet-__namedFilter")).toBeTruthy();
-    expect(screen.getByTestId("facet-kind")).toBeTruthy();
+    screen.getByTestId("facet-__namedFilter");
+    screen.getByTestId("facet-kind");
   });
 });
 
@@ -152,8 +152,8 @@ describe("named filter hideEmpty (F5)", () => {
   test("the select menu leaves out an entry at 0 but keeps All", async () => {
     render(<FacetFilter facet={facet} selected={[]} onChange={() => {}} />);
     await userEvent.setup().click(screen.getByTestId("facet-__namedFilter"));
-    expect(await screen.findByTestId("facet-__namedFilter-todo")).toBeTruthy();
-    expect(screen.getByTestId("facet-__namedFilter-all")).toBeTruthy();
+    await screen.findByTestId("facet-__namedFilter-todo");
+    screen.getByTestId("facet-__namedFilter-all");
     expect(screen.queryByTestId("facet-__namedFilter-done")).toBeNull();
   });
 
@@ -185,7 +185,7 @@ describe("empty list inside a card frame (F6)", () => {
       <DataTable columns={[NAME_COLUMN]} rows={[]} frame="card" testId="t" />,
     );
     expect(document.querySelector("th")).toBeNull();
-    expect(screen.getByTestId("t-empty")).toBeTruthy();
+    screen.getByTestId("t-empty");
     unmount();
     setViewportWidth(1280);
     render(<DataTable columns={[NAME_COLUMN]} rows={[]} testId="plain" />);
@@ -215,19 +215,19 @@ describe("hint narrowField (F7)", () => {
     const { unmount } = render(
       <DataTable columns={[hintColumn]} rows={rowWith("Remind")} testId="c" />,
     );
-    expect(screen.getByText("Remind")).toBeTruthy();
+    screen.getByText("Remind");
     expect(screen.queryByText("Send the reminder letter today")).toBeNull();
     unmount();
     setViewportWidth(1280);
     render(<DataTable columns={[hintColumn]} rows={rowWith("Remind")} testId="t" />);
-    expect(screen.getByText("Send the reminder letter today")).toBeTruthy();
+    screen.getByText("Send the reminder letter today");
     expect(screen.queryByText("Remind")).toBeNull();
   });
 
   test("an empty short sentence falls back to the column value on the card", () => {
     setViewportWidth(500);
     render(<DataTable columns={[hintColumn]} rows={rowWith("")} testId="c" />);
-    expect(screen.getByText("Send the reminder letter today")).toBeTruthy();
+    screen.getByText("Send the reminder letter today");
   });
 });
 
@@ -249,14 +249,14 @@ describe("step narrowTitle (F8)", () => {
   test("below sm the short title replaces the title", () => {
     setViewportWidth(500);
     renderStep();
-    expect(screen.getByText("Remind")).toBeTruthy();
+    screen.getByText("Remind");
     expect(screen.queryByText("Send the first reminder")).toBeNull();
   });
 
   test("from sm the full title shows", () => {
     setViewportWidth(1280);
     renderStep();
-    expect(screen.getByText("Send the first reminder")).toBeTruthy();
+    screen.getByText("Send the first reminder");
     expect(screen.queryByText("Remind")).toBeNull();
   });
 });

@@ -1,5 +1,4 @@
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { fileContextForTenant } from "../../file-foundation/index.ts";
 import {
@@ -29,13 +28,9 @@ export const unsubscribePageChromeQuery = defineQueryHandler({
   agent: { expose: false },
   description:
     "Returns the tenant's mail brand row and footer resolved for one locale, or null without a mail renderer; dispatched by the signed unsubscribe route or by createUnsubscribePageChromeReader for a tenant the app resolved server-side, to dress its pages like the mail; not meant for UI callers.",
+  systemScope: true,
   handler: async (query, ctx): Promise<MailChrome | null> => {
     const { tenantId } = query.user;
-    if (!ctx.systemDb) {
-      throw new InternalError({
-        message: "unsubscribePageChrome: ctx.systemDb missing on a system-scoped handler",
-      });
-    }
     const plugin = mailChromePlugin(collectRendererPlugins(ctx.registry));
     if (plugin?.readMailChrome === undefined) return null;
     return plugin.readMailChrome(

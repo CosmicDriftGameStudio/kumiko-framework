@@ -37,9 +37,9 @@ installFetchMock();
 describe("MfaVerifyScreen", () => {
   test("rendert Titel + Code-Feld + Submit-Button (de)", () => {
     void renderScreen(<MfaVerifyScreen challengeToken="challenge-1" />);
-    expect(screen.getByText("Two-factor verification")).toBeTruthy();
-    expect(screen.getByLabelText(/^Code/)).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Verify" })).toBeTruthy();
+    screen.getByText("Two-factor verification");
+    screen.getByLabelText(/^Code/);
+    screen.getByRole("button", { name: "Verify" });
   });
 
   test("richtiger Code → ruft session.refresh() + onSuccess()", async () => {
@@ -81,7 +81,7 @@ describe("MfaVerifyScreen", () => {
     fireEvent.change(screen.getByLabelText(/^Code/), { target: { value: "000000" } });
 
     await waitFor(() => {
-      expect(screen.getByText("Invalid code. Please try again.")).toBeTruthy();
+      screen.getByText("Invalid code. Please try again.");
     });
     const input = screen.getByLabelText(/^Code/);
     expect(input).toHaveProperty("value", "");
@@ -107,7 +107,7 @@ describe("MfaVerifyScreen", () => {
     fireEvent.change(screen.getByLabelText(/^Code/), { target: { value: "123 456" } });
 
     await waitFor(() => {
-      expect(screen.getByText("Invalid code. Please try again.")).toBeTruthy();
+      screen.getByText("Invalid code. Please try again.");
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toMatchObject({

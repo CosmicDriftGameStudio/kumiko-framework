@@ -51,6 +51,6 @@ describe("DocumentTiptapEditor rebuild", () => {
       const editable = document.querySelector("#region-footer");
       expect(editable?.textContent).toBe("Nordlicht Immobilien GmbH");
     });
-    expect(screen.getByRole("button", { name: "Bold" })).toBeDefined();
+    screen.getByRole("button", { name: "Bold" });
   });
 });

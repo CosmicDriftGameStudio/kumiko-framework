@@ -34,10 +34,10 @@ function renderCards(value: string, changes: string[]): void {
 describe("select radioVariant=card", () => {
   test("renders a labelled radiogroup with title and description per option", () => {
     renderCards("same", []);
-    expect(screen.getByRole("radiogroup")).toBeTruthy();
+    screen.getByRole("radiogroup");
     expect(screen.getAllByRole("radio")).toHaveLength(3);
-    expect(screen.getByText("Bestehenden Kontakt aktualisieren.")).toBeTruthy();
-    expect(screen.getByText("Für eine andere Person.")).toBeTruthy();
+    screen.getByText("Bestehenden Kontakt aktualisieren.");
+    screen.getByText("Für eine andere Person.");
     expect(screen.getByText("Überspringen").parentElement?.children).toHaveLength(1);
   });
 
@@ -82,8 +82,8 @@ describe("select radioVariant=card", () => {
         />
       </Field>,
     );
-    expect(screen.getByText("Für eine andere Person.")).toBeTruthy();
-    expect(screen.getByTestId("radio-list-decision")).toBeTruthy();
+    screen.getByText("Für eine andere Person.");
+    screen.getByTestId("radio-list-decision");
     expect(screen.queryByTestId("segmented-decision")).toBeNull();
   });
 });

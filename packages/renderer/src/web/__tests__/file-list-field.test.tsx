@@ -67,7 +67,7 @@ describe("FileListField (images/files edit widget)", () => {
   test("no unsupported banner; empty state plus an add tile", () => {
     renderField(imagesField());
     expect(screen.queryByText("This field type can't be edited here yet.")).toBeNull();
-    expect(screen.getByText("No files yet.")).toBeDefined();
+    screen.getByText("No files yet.");
     expect(document.querySelectorAll('input[type="file"]').length).toBe(1);
   });
 
@@ -168,7 +168,7 @@ describe("FileListField (images/files edit widget)", () => {
 
   test("files fields render file tiles without an image preview", () => {
     renderField(imagesField({ field: "docs", type: "files", value: [ID_A] }));
-    expect(screen.getByText("File attached")).toBeDefined();
+    screen.getByText("File attached");
     expect(document.querySelector("img")).toBeNull();
   });
 });

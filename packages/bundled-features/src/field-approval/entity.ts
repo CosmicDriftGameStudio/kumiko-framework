@@ -14,7 +14,7 @@ const STATUS_OPTIONS = [
 ] as const;
 
 // field-change-request — event-sourced, host-agnostic request row keyed by
-// (entityType, entityId, fieldName). The requester is `modifiedById`: every
+// (entityType, entityId, fieldName). The requester is `modifiedById`, or `insertedById` while the row was only created (requesterIdOf): every
 // request writes the row and every decision moves the status off pending, so
 // the last writer of a pending row is the one who filed it.
 function buildFieldChangeRequestEntity(parentRef: ParentRefDef | undefined) {

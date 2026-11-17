@@ -63,7 +63,7 @@ export function createDataRetentionFeature(): FeatureDefinition {
       category: "compliance",
       recommended: false,
     });
-    r.entity({ ...tenantRetentionOverrideEntity, name: "tenant-retention-override" });
+    r.entity(tenantRetentionOverrideEntity);
 
     // Cross-feature API for the forget flow and cleanup job
     r.exposesApi("retention.policyFor");

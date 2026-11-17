@@ -15,7 +15,7 @@ describe("SectionNavLayout", () => {
         <section id="billing">Billing body</section>
       </SectionNavLayout>,
     );
-    expect(screen.getByText("Intro body")).toBeTruthy();
+    screen.getByText("Intro body");
     expect(screen.getByTestId("form-section-nav-intro").getAttribute("aria-current")).toBe("true");
     expect(screen.getByTestId("form-section-nav-billing").getAttribute("aria-current")).toBeNull();
   });

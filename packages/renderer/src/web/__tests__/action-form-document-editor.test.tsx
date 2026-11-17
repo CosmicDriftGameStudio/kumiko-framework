@@ -83,7 +83,7 @@ function renderForm(
 describe("actionForm field editor document", () => {
   test("renders the registered document editor instead of a textarea", () => {
     renderForm(form, { document: FakeDocumentEditor });
-    expect(screen.getByTestId("fake-document-editor")).toBeTruthy();
+    screen.getByTestId("fake-document-editor");
     expect(document.querySelector("textarea")).toBeNull();
   });
 
@@ -161,7 +161,7 @@ describe("document field with aiAssist", () => {
       </DispatcherProvider>,
     );
 
-    expect(screen.getByTestId("fake-document-editor")).toBeTruthy();
+    screen.getByTestId("fake-document-editor");
     fireEvent.click(screen.getByTestId("field-ai-chip-body-0"));
     await waitFor(() => expect(seen.at(-1)).toBe("<p>Dear &lt;you&gt;,</p><p>second<br>line</p>"));
   });

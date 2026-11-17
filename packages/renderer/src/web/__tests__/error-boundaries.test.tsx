@@ -86,7 +86,7 @@ describe("renderer error boundaries", () => {
     const fallback = await screen.findByTestId(SCREEN_ERROR_FALLBACK_TEST_ID);
     expect(fallback.textContent).toContain("probe:screen:boom");
     expect(fallback.textContent).toContain("kaputt-im-render");
-    expect(screen.getByTestId("shell-nav")).toBeTruthy();
+    screen.getByTestId("shell-nav");
     expect(
       errorSpy.mock.calls.some(
         (call) => String(call[0]).includes("screen error boundary") && call[1] instanceof Error,
@@ -95,7 +95,7 @@ describe("renderer error boundaries", () => {
 
     boomShouldThrow = false;
     fireEvent.click(screen.getByTestId(`${SCREEN_ERROR_FALLBACK_TEST_ID}-reset`));
-    expect(await screen.findByTestId("boom-recovered")).toBeTruthy();
+    await screen.findByTestId("boom-recovered");
     expect(screen.queryByTestId(SCREEN_ERROR_FALLBACK_TEST_ID)).toBeNull();
   });
 
@@ -148,7 +148,7 @@ describe("renderer error boundaries", () => {
 
     const fallback = await screen.findByTestId(SCREEN_ERROR_FALLBACK_TEST_ID);
     expect(fallback.textContent).toContain("kaputt-im-render");
-    expect(screen.getByTestId("shell-nav")).toBeTruthy();
+    screen.getByTestId("shell-nav");
     expect(screen.queryByTestId(ROOT_ERROR_FALLBACK_TEST_ID)).toBeNull();
     expect(
       errorSpy.mock.calls.some(
@@ -174,9 +174,9 @@ describe("renderer error boundaries", () => {
       window.dispatchEvent(new PopStateEvent("popstate"));
     });
 
-    await waitFor(() => expect(screen.getByTestId("calm-mounted")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("calm-mounted"));
     expect(screen.queryByTestId(SCREEN_ERROR_FALLBACK_TEST_ID)).toBeNull();
-    expect(screen.getByTestId("shell-nav")).toBeTruthy();
+    screen.getByTestId("shell-nav");
   });
 
   test("an error above the screen (provider) is caught by the root boundary without needing providers", async () => {
@@ -188,7 +188,7 @@ describe("renderer error boundaries", () => {
       ],
     });
 
-    expect(await screen.findByTestId(ROOT_ERROR_FALLBACK_TEST_ID)).toBeTruthy();
+    await screen.findByTestId(ROOT_ERROR_FALLBACK_TEST_ID);
     expect(
       errorSpy.mock.calls.some(
         (call) => String(call[0]).includes("root error boundary") && call[1] instanceof Error,

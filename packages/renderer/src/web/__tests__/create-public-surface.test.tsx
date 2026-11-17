@@ -79,7 +79,7 @@ describe("createPublicSurface", () => {
         { path: "/signup", component: <div data-testid="signup">signup</div> },
       ],
     });
-    expect(screen.getByTestId("login")).toBeTruthy();
+    screen.getByTestId("login");
     expect(screen.queryByTestId("signup")).toBeNull();
   });
 
@@ -91,7 +91,7 @@ describe("createPublicSurface", () => {
       routes: [{ path: "/login", component: <div data-testid="login">login</div> }],
       fallback: <div data-testid="fallback">fallback</div>,
     });
-    expect(screen.getByTestId("fallback")).toBeTruthy();
+    screen.getByTestId("fallback");
     expect(screen.queryByTestId("login")).toBeNull();
   });
 
@@ -114,7 +114,7 @@ describe("createPublicSurface", () => {
       dispatcher: dispatcher(),
       routes: [{ path: "/login", component: <div data-testid="login">login</div> }],
     });
-    expect(screen.getByTestId("login")).toBeTruthy();
+    screen.getByTestId("login");
     expect(document.body.textContent).not.toContain("secret");
     expect(document.body.textContent).not.toContain("topology");
   });

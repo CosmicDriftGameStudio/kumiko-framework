@@ -73,6 +73,6 @@ describe("managed-pages :: custom wrapLayout receives escaped parts", () => {
 
   test("the response CSP forbids foreign form targets", async () => {
     const res = await stack.app.request("http://c.example.com/p/about");
-    expect(res.headers.get("content-security-policy")).toContain("form-action 'self'");
+    expect(res.headers.get("content-security-policy")).toContain("form-action 'none'");
   });
 });

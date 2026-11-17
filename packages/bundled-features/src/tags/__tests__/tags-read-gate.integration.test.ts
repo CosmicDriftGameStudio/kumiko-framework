@@ -372,7 +372,7 @@ describe("tags read-gate — ownership narrows further, it does not replace the 
 });
 
 describe("tags read-gate — delete-tag cascade", () => {
-  test("deleting a tag also detaches assignments on hosts the deleting caller cannot read", async () => {
+  test("deleting a tag refuses while a host the deleting caller cannot read still carries it", async () => {
     const doomed = await stack.http.writeOk<{ id: string }>(
       TagsHandlers.createTag,
       { name: "Doomed" },
@@ -389,12 +389,14 @@ describe("tags read-gate — delete-tag cascade", () => {
       userB,
     );
 
-    await stack.http.writeOk(TagsHandlers.deleteTag, { id: doomed.id }, userA);
+    const refused = await stack.http.writeErr(TagsHandlers.deleteTag, { id: doomed.id }, userA);
+    expect(refused.httpStatus).toBe(422);
+    expect(refused.details).toMatchObject({ reason: "tag_in_use_on_hidden_records" });
 
     const remaining = await asRawClient(stack.db).unsafe<{ n: number }>(
       "SELECT count(*)::int AS n FROM read_tag_assignments WHERE tag_id = $1 AND is_deleted = FALSE",
       [doomed.id],
     );
-    expect(remaining[0]?.n).toBe(0);
+    expect(remaining[0]?.n).toBe(2);
   });
 });

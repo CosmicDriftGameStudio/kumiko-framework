@@ -6,7 +6,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { AccessDeniedError, FrameworkReasons } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { requireSystemDb } from "../../shared/index.ts";
 import { tierAssignmentTable } from "../../tier-engine/index.ts";
 import type { CapSpec, CapUsageWithMeta } from "../types.ts";
 import { computeFraction, computeTone, computeUnclampedFraction } from "../web/usage-math.ts";
@@ -23,8 +22,9 @@ export function createCapsUsageQuery(
       "Returns the calling user's own tenant's configured caps with used amount, tier limit and utilisation fraction; use it to answer how close a tenant is to its quota (only SystemAdmin may target another tenant via tenantId).",
     schema: z.object({ tenantId: z.string().min(1).optional() }),
     access: { roles: usageRoles },
+    systemScope: true,
     handler: async (query, ctx) => {
-      const systemDb = requireSystemDb(ctx, "cap-overview:query:caps:usage");
+      const { systemDb } = ctx;
       const override = query.payload.tenantId;
       if (override !== undefined && !mayOverrideTenant(query.user)) {
         throw new AccessDeniedError({

@@ -164,6 +164,7 @@ export function createHistoryVerbs(
         runner,
         streamTenant,
       );
+      if (events.length === 0) return null;
       const entries: EntityHistoryEntry[] = [];
       for (const event of events) {
         const verb = parseAutoVerb(event, entity);
@@ -205,7 +206,9 @@ export function createHistoryVerbs(
       const streamTenant = ctx.streamTenantFor(user, requestedStreamTenant);
       const runner = tenantDbRunnerForTable(db, table);
       const events = await upcastEntityEvents(
-        await loadAggregateTypeAsOf(runner, entityName, streamTenant, payload.asOf),
+        await loadAggregateTypeAsOf(runner, entityName, streamTenant, payload.asOf, {
+          aggregateIds: payload.ids?.map(String),
+        }),
         db,
         runner,
         streamTenant,

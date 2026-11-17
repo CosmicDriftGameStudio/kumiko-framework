@@ -1,4 +1,8 @@
-import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  type AccessRule,
+  defineWriteHandler,
+  type WriteResult,
+} from "@cosmicdrift/kumiko-framework/engine";
 import {
   NotFoundError,
   VERSION_CONFLICT_CODE,
@@ -8,7 +12,7 @@ import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { denyUnlessJoinRowParentVisible } from "../../shared/index.ts";
 import { tagAssignmentAggregateId } from "../aggregate-id.ts";
 import { type TagAssignmentExecutor, tagExecutor } from "../executor.ts";
-import { type AssignTagPayload, assignTagPayloadSchema } from "../schemas.ts";
+import { assignTagPayloadSchema } from "../schemas.ts";
 import { TAG_LOCK_NAMESPACE } from "../web/constants.ts";
 
 // assign-tag — links a tag to a host entity by (entityType, entityId). The
@@ -35,15 +39,15 @@ import { TAG_LOCK_NAMESPACE } from "../web/constants.ts";
 export function createAssignTagHandler(
   access: AccessRule,
   assignmentExecutor: TagAssignmentExecutor,
-): WriteHandlerDef {
-  return {
+) {
+  return defineWriteHandler({
     name: "assign-tag",
     schema: assignTagPayloadSchema,
     access,
     description:
       "Attaches an existing catalog tag to one host entity addressed by its type and id, reporting success when the tag was already attached; use it to tag a record, not to create the tag.",
-    handler: async (event, ctx) => {
-      const payload = event.payload as AssignTagPayload; // @cast-boundary engine-payload
+    handler: async (event, ctx): Promise<WriteResult<unknown>> => {
+      const payload = event.payload;
       const denied = await denyUnlessJoinRowParentVisible(
         ctx.registry,
         "tag-assignment",
@@ -107,5 +111,5 @@ export function createAssignTagHandler(
       if (created.error.code !== VERSION_CONFLICT_CODE) return created;
       return { isSuccess: true as const, data: { id } };
     },
-  };
+  });
 }

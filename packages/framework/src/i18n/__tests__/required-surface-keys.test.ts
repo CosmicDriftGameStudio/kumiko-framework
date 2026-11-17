@@ -376,7 +376,7 @@ describe("requiredKeysFromScreen — board-gap labels", () => {
 });
 
 describe("handlerTranslationKeys", () => {
-  const feature = defineFeature("Order Desk", (r) => {
+  const feature = defineFeature("orderDesk", (r) => {
     r.writeHandler({
       name: "order:approve",
       schema: z.object({ id: z.string(), note: z.string() }),
@@ -397,7 +397,7 @@ describe("handlerTranslationKeys", () => {
     const [queryQn] = [...registry.getAllQueryHandlers().keys()];
     if (writeQn === undefined || queryQn === undefined) throw new Error("handlers not registered");
 
-    const keys = handlerTranslationKeys("Order Desk", {
+    const keys = handlerTranslationKeys("orderDesk", {
       writes: {
         "order:approve": {
           title: { en: "Approve order" },

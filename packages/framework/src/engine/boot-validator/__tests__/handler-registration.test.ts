@@ -181,7 +181,7 @@ test("throws when a stream handler has no access rule", () => {
         handler: async function* () {},
       });
     }),
-  ).toThrow(/requires schema \+ handler \+ options\.access/);
+  ).toThrow(/r\.streamHandler\(\{ name: "chat:complete" \}\) requires an access rule/);
 });
 
 test("object-form streamHandler with access rule passes boot", () => {

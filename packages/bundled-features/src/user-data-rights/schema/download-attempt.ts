@@ -10,7 +10,7 @@ import {
 // to detect brute-force probing and anomalies such as many invalid attempts from one IP.
 // Successful downloads are recorded in download-token.lastUsedAt instead.
 export const downloadAttemptEntity = createEntity({
-  name: "downloadAttempt",
+  name: "download-attempt",
   table: "read_download_attempts",
   idType: "uuid",
   description:

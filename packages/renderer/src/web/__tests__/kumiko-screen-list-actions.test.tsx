@@ -62,8 +62,8 @@ describe("KumikoScreen", () => {
       expect(screen.queryByTestId("field-note")).toBeNull();
 
       await user.click(screen.getByTestId("render-list-toolbar-action-add-note"));
-      expect(screen.getByTestId("render-edit-form")).toBeTruthy();
-      expect(screen.getByTestId("field-note")).toBeTruthy();
+      screen.getByTestId("render-edit-form");
+      screen.getByTestId("field-note");
     });
 
     test("Successful submit calls the actionForm's handler, closes the Drawer, and reloads the list", async () => {
@@ -90,7 +90,7 @@ describe("KumikoScreen", () => {
       );
       await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
       await user.click(screen.getByTestId("render-list-toolbar-action-add-note"));
-      expect(screen.getByTestId("render-edit-form")).toBeTruthy();
+      screen.getByTestId("render-edit-form");
       const queryCallsBeforeSubmit = queryCallCount;
 
       // field-note's testId sits on the Field wrapper (label + errors +
@@ -137,7 +137,7 @@ describe("KumikoScreen", () => {
       const button = screen.getByTestId("render-list-toolbar-action-add-note");
       await user.click(button);
 
-      expect(screen.getByTestId("kumiko-toolbar-drawer-access-denied")).toBeTruthy();
+      screen.getByTestId("kumiko-toolbar-drawer-access-denied");
       expect(screen.queryByTestId("field-note")).toBeNull();
     });
   });
@@ -218,7 +218,7 @@ describe("KumikoScreen", () => {
       expect(screen.queryByTestId("field-title")).toBeNull();
 
       await user.click(screen.getByTestId("row-r1-action-add-note"));
-      expect(screen.getByTestId("render-edit-form")).toBeTruthy();
+      screen.getByTestId("render-edit-form");
       const titleInput = screen.getByTestId("field-title").querySelector("input");
       if (titleInput === null) throw new Error("expected an <input> inside field-title");
       expect(titleInput.value).toBe("Alpha");
@@ -248,7 +248,7 @@ describe("KumikoScreen", () => {
       await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
 
       await user.click(screen.getByTestId("row-r1-action-add-note-mapped"));
-      expect(screen.getByTestId("render-edit-form")).toBeTruthy();
+      screen.getByTestId("render-edit-form");
       const noteInput = screen.getByTestId("field-note").querySelector("input");
       if (noteInput === null) throw new Error("expected an <input> inside field-note");
       expect(noteInput.value).toBe("Alpha");
@@ -281,7 +281,7 @@ describe("KumikoScreen", () => {
       await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
 
       await user.click(screen.getByTestId("row-r1-action-reveal"));
-      expect(screen.getByTestId("render-edit-form")).toBeTruthy();
+      screen.getByTestId("render-edit-form");
       const secretInput = screen.getByTestId("field-secret").querySelector("input");
       if (secretInput === null) throw new Error("expected an <input> inside field-secret");
       expect(secretInput.value).toBe("");
@@ -329,7 +329,7 @@ describe("KumikoScreen", () => {
       );
       await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
       await user.click(screen.getByTestId("row-r1-action-add-note"));
-      expect(screen.getByTestId("render-edit-form")).toBeTruthy();
+      screen.getByTestId("render-edit-form");
       const queryCallsBeforeSubmit = getQueryCallCount();
 
       const noteInput = screen.getByTestId("field-note").querySelector("input");

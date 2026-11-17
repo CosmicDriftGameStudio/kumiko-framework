@@ -88,7 +88,7 @@ function mockDecryptFetch(
     requestedCiphertexts?.push(body.ciphertext);
     const plaintext = ciphertextToPlaintext[body.ciphertext];
     if (plaintext === undefined) {
-      throw new Error(`mockDecryptFetch: no plaintext mapped for ciphertext "${body.ciphertext}"`);
+      return new Response(JSON.stringify({ message: "not found" }), { status: 404 });
     }
     return new Response(JSON.stringify({ plaintext }), { status: 200 });
   }) as typeof fetch;

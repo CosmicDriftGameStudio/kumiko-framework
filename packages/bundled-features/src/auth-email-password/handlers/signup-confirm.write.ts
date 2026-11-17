@@ -46,7 +46,6 @@ import {
 import { tenantTable } from "../../tenant/schema/tenant.ts";
 import { invalidSignupToken, signupEmailAlreadyRegistered } from "../errors.ts";
 import { passwordSchema } from "../password-policy.ts";
-// kumiko-lint-ignore cross-feature-import provisioning needs cross-feature seeding helpers
 import { INITIAL_SIGNUP_ROLES, provisionSignupAccount } from "../seeding.ts";
 import {
   burnSignupToken,

@@ -4,7 +4,6 @@ import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine
 import * as z from "zod";
 import { auditEventIdSchema, createEntityNounKeyResolver, loadAuditEvent } from "./audit-events.ts";
 import { createAuditPayloadFilter } from "./audit-payload-visibility.ts";
-import { requireAuditSystemDb } from "./audit-system-db.ts";
 import { allTenantsCondition, assertMayReadAllTenants } from "./resolve-audit-tenant.ts";
 
 export const detailsAllTenantsQuery = defineQueryHandler({
@@ -13,12 +12,12 @@ export const detailsAllTenantsQuery = defineQueryHandler({
     "Returns one audit-trail event of any tenant by its event-store id, with full payload, metadata and tenantId; SystemAdmin only, system-tenant events are not included.",
   schema: z.object({ id: auditEventIdSchema }),
   access: { roles: access.systemAdmin },
+  systemScope: true,
   handler: async (query, ctx) => {
     assertMayReadAllTenants(query.user);
-    const db = requireAuditSystemDb(
-      ctx.systemDb,
-      "audit:query:details-all-tenants",
-    ).acknowledgeCrossTenant("SystemAdmin reads one audit event of any tenant");
+    const db = ctx.systemDb.acknowledgeCrossTenant(
+      "SystemAdmin reads one audit event of any tenant",
+    );
     return loadAuditEvent(
       db,
       { tenantId: allTenantsCondition(undefined), id: BigInt(query.payload.id) },

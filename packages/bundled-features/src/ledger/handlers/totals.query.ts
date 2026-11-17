@@ -1,4 +1,4 @@
-import type { AccessRule, QueryHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { type AccessRule, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import type { WhereObject } from "@cosmicdrift/kumiko-types/where-clause-types";
 import * as z from "zod";
 import { transactionTable } from "../executor.ts";
@@ -56,17 +56,15 @@ function compareNullsFirst(a: string | null, b: string | null): number {
 }
 
 // ponytail: sums posted rows of the requested subjects per request (indexed, one query); add a postings projection when measured latency on large ledgers demands it (see docs/reference/decisions.md).
-export function createSubjectTotalsHandler(
-  access: AccessRule = DEFAULT_LEDGER_ACCESS,
-): QueryHandlerDef {
-  return {
+export function createSubjectTotalsHandler(access: AccessRule = DEFAULT_LEDGER_ACCESS) {
+  return defineQueryHandler({
     name: "report:subject-totals",
     schema: subjectTotalsSchema,
     access,
     description:
       "Returns net signed posting totals per subject, account and optionally period for up to 500 subjects in one call (posted entries only, Storno pairs net out); use it for rent balances, direct-debit previews or any per-contract saldo instead of paging transactions.",
     handler: async (query, ctx) => {
-      const input = subjectTotalsSchema.parse(query);
+      const input = query.payload;
       const where: WhereObject = {
         tenantId: ctx.user.tenantId,
         status: POSTED,
@@ -103,20 +101,18 @@ export function createSubjectTotalsHandler(
         );
       return { rows };
     },
-  };
+  });
 }
 
-export function createScheduleActualsHandler(
-  access: AccessRule = DEFAULT_LEDGER_ACCESS,
-): QueryHandlerDef {
-  return {
+export function createScheduleActualsHandler(access: AccessRule = DEFAULT_LEDGER_ACCESS) {
+  return defineQueryHandler({
     name: "schedule-actuals",
     schema: scheduleActualsSchema,
     access,
     description:
       "Returns the posted entries (including Storno entries) booked against the given schedules and optional period range in one call, shaped for mergeScheduleActuals; use it to show forecast versus actual for standing orders without paging the journal.",
     handler: async (query, ctx) => {
-      const input = scheduleActualsSchema.parse(query);
+      const input = query.payload;
       const where: WhereObject = {
         tenantId: ctx.user.tenantId,
         status: POSTED,
@@ -142,5 +138,5 @@ export function createScheduleActualsHandler(
         );
       return { rows };
     },
-  };
+  });
 }

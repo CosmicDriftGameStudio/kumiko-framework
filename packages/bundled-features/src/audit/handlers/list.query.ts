@@ -22,7 +22,6 @@ import {
   technicalEntriesFilterSchema,
 } from "./audit-events.ts";
 import { createAuditPayloadFilter } from "./audit-payload-visibility.ts";
-import { requireAuditSystemDb } from "./audit-system-db.ts";
 import { resolveAuditScopeFilter } from "./resolve-audit-tenant.ts";
 
 export const listQuery = defineQueryHandler({
@@ -37,6 +36,7 @@ export const listQuery = defineQueryHandler({
     })
     .refine(AUDIT_DATE_RANGE_CHECK.isValid, AUDIT_DATE_RANGE_CHECK.params),
   access: { roles: access.admin },
+  systemScope: true,
   handler: async (query, ctx) => {
     const p = query.payload;
     const scopeFilter = resolveAuditScopeFilter(query.user, p.scope);
@@ -51,9 +51,7 @@ export const listQuery = defineQueryHandler({
       },
       direction,
     );
-    const db = requireAuditSystemDb(ctx.systemDb, "audit:query:list").assertTenantMatch(
-      query.user.tenantId,
-    );
+    const db = ctx.systemDb.assertTenantMatch(query.user.tenantId);
     return listAuditEvents(
       db,
       where,

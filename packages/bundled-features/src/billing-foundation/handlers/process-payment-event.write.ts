@@ -16,10 +16,14 @@ import {
   configuredPiiSubjectKms,
   encryptPiiFieldValues,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { defineWriteHandler, type WriteResult } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { paymentAggregateId } from "../aggregate-id.ts";
-import { findCheckoutOpened, IgnoredEventReasons } from "../checkout-ledger.ts";
+import {
+  findCheckoutOpened,
+  type IgnoredEventReason,
+  IgnoredEventReasons,
+} from "../checkout-ledger.ts";
 import { PAYMENT_PII_FIELDS, paymentEntity } from "../entities.ts";
 import {
   PAYMENT_AGGREGATE_TYPE,
@@ -39,19 +43,25 @@ export const processPaymentEventSchema = z.object({
   priceId: z.string().min(1).max(200),
   quantity: z.number().int().positive().optional(),
 });
-type ProcessPaymentEventPayload = z.infer<typeof processPaymentEventSchema>;
+
+type ProcessPaymentEventData =
+  | { readonly duplicate: boolean; readonly paymentAggregateId: string }
+  | {
+      readonly ignored: true;
+      readonly reason: IgnoredEventReason;
+      readonly paymentAggregateId: string;
+    };
 
 // SystemAdmin-only: this handler is called exclusively by the programmatic
 // webhook-handler (with an internal SystemUser), never directly by the
 // tenant-admin.
-export const processPaymentEventHandler: WriteHandlerDef = {
+export const processPaymentEventHandler = defineWriteHandler({
   name: "process-payment-event",
   agent: { expose: false },
   schema: processPaymentEventSchema,
   access: { roles: ["SystemAdmin"] },
-  handler: async (event, ctx) => {
-    // @cast-boundary engine-payload — dispatcher-zod-validated payload
-    const payload = event.payload as ProcessPaymentEventPayload;
+  handler: async (event, ctx): Promise<WriteResult<ProcessPaymentEventData>> => {
+    const payload = event.payload;
     const tenantId = event.user.tenantId;
     const aggId = paymentAggregateId(tenantId);
 
@@ -143,4 +153,4 @@ export const processPaymentEventHandler: WriteHandlerDef = {
       data: { duplicate: false as const, paymentAggregateId: aggId },
     };
   },
-};
+});

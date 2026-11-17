@@ -1,6 +1,8 @@
+import { handlerFieldLabelKey, handlerTitleKey } from "@cosmicdrift/kumiko-framework/engine";
 import { ACTION_FORM_ENTITY } from "@cosmicdrift/kumiko-framework/ui-types";
 import { fieldLabelKey } from "@cosmicdrift/kumiko-renderer/headless";
 import {
+  InboundMailFoundationHandlers as H,
   INBOUND_MAIL_FOUNDATION_FEATURE,
   InboundMailAccountStatuses,
   InboundMailConnectErrors,
@@ -24,6 +26,11 @@ const formFieldKey = (field: string): string =>
 
 export const INBOUND_MAIL_FOUNDATION_I18N: Readonly<Record<string, { readonly en: string }>> = {
   ...INBOUND_PROBE_I18N,
+  [handlerTitleKey(H.disconnectAccount)]: { en: "Disconnect mailbox" },
+  [handlerFieldLabelKey(H.disconnectAccount, "accountId")]: { en: "Mailbox" },
+  [handlerFieldLabelKey(H.disconnectAccount, "reason")]: { en: "Reason" },
+  [handlerTitleKey(H.forgetMessage)]: { en: "Delete imported mail" },
+  [handlerFieldLabelKey(H.forgetMessage, "messageId")]: { en: "Mail" },
   [`screen:${MAIL_ACCOUNT_LIST_SCREEN_ID}.title`]: { en: "Mailboxes" },
   [`screen:${MY_MAIL_ACCOUNT_LIST_SCREEN_ID}.title`]: { en: "Your mailboxes" },
   [`screen:${MAIL_ACCOUNT_EDIT_SCREEN_ID}.title`]: { en: "Edit mailbox" },

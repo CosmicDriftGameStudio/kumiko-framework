@@ -20,6 +20,7 @@ const FIXTURE_CASES: ReadonlyArray<{
   { name: "unsafe-raw", rewrites: 2, manual: 0 },
   { name: "system-identity", rewrites: 4, manual: 0 },
   { name: "global-writes", rewrites: 2, manual: 0 },
+  { name: "read-step-all-tenants", rewrites: 1, manual: 0 },
   { name: "already-granted", rewrites: 0, manual: 0 },
   { name: "extension-untouched", rewrites: 0, manual: 0 },
   { name: "manual-no-signal", rewrites: 0, manual: 1 },

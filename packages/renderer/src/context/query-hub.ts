@@ -88,7 +88,7 @@ export function selectQueryData<TData>(
         ? state.data[resultField]
         : undefined;
   if (value === undefined || value === null) return null;
-  return value as TData;
+  return value as TData; // @cast-boundary engine-payload: hub caches untyped query results shared by hooks with different TData
 }
 
 export function createQueryHub(dispatcher: Dispatcher, pools: QueryPools): QueryHub {

@@ -69,6 +69,7 @@ Listet Tickets, neueste zuerst.
 | `sortDirection` | "asc" \| "desc" | nein | `asc` oder `desc`. |
 | `offset` | integer | nein | Anzahl der zu überspringenden Zeilen. Nutze besser `cursor` zum Blättern. |
 | `totalCount` | boolean | nein | Mit `true` bekommst du zusätzlich `total`, die Anzahl der passenden Zeilen. |
+| `fields` | array of string | nein | Nur diese gespeicherten Felder liefern. Die Zeilen enthalten dann `id`, `version` und die genannten Felder; abgeleitete Felder werden nicht berechnet. Ein unbekannter Name scheitert mit `unknown_field`. |
 | `includeDeleted` | boolean | nein | Mit `true` sind gelöschte Zeilen enthalten. Nur für Entitäten mit Soft Delete. |
 | `onlyDeleted` | boolean | nein | Mit `true` kommen nur gelöschte Zeilen zurück. Nur für Entitäten mit Soft Delete, nicht zusammen mit `includeDeleted`. |
 | `filter` | object | nein | Ein Feldfilter mit `field`, `op` und `value`. `op` ist einer von `eq`, `ne`, `lt`, `gt`, `lte`, `gte`, `in`. |

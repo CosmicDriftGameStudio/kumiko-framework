@@ -6,19 +6,19 @@ import { type PageRow, pagesTable } from "../table.ts";
 // Public read of all published pages for a tenant, used to discover URLs for
 // sitemap.xml/llms.txt (see the seo feature). Unlike by-slug, which fetches one
 // slug's content, this lists all published slugs (sorted by slug and lang, capped) in one query, filtered in SQL
-// with `published = true`; drafts never appear, and only slug/title/updatedAt are
+// with `published = true`; drafts never appear, and only slug/lang/title and the last-change instant are
 // returned because discovery does not require body content.
 // Anonymous access is explicit in roles, matching text-content's by-tenant.
 // Bounds the anonymous discovery read; a larger site would need a sitemap index.
 const MAX_LISTED_PUBLISHED_PAGES = 5_000;
 
-type PublishedPageRow = Pick<PageRow, "slug" | "lang" | "title" | "updatedAt">;
+type PublishedPageRow = Pick<PageRow, "slug" | "lang" | "title" | "insertedAt" | "modifiedAt">;
 
 export type PublishedPageSummary = {
   readonly slug: string;
   readonly lang: string;
   readonly title: string;
-  readonly updatedAt: Date;
+  readonly updatedAt: string;
 };
 
 export const byTenantPublishedQuery = defineQueryHandler({
@@ -36,7 +36,7 @@ export const byTenantPublishedQuery = defineQueryHandler({
         pagesTable,
         { tenantId: tenantId, published: true },
         {
-          fields: ["slug", "lang", "title", "updatedAt"],
+          fields: ["slug", "lang", "title", "insertedAt", "modifiedAt"],
           orderBy: [{ col: "slug" }, { col: "lang" }],
           limit: MAX_LISTED_PUBLISHED_PAGES,
         },
@@ -47,7 +47,7 @@ export const byTenantPublishedQuery = defineQueryHandler({
         slug: row.slug,
         lang: row.lang,
         title: row.title,
-        updatedAt: row.updatedAt,
+        updatedAt: (row.modifiedAt ?? row.insertedAt).toString(),
       })),
     };
   },

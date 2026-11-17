@@ -5,7 +5,7 @@ import {
   configuredPiiSubjectKms,
   decryptPiiFieldValues,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import type { HandlerContext, QueryHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { defineQueryHandler, type HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
 import { INBOUND_MESSAGE_PII_FIELDS } from "../entities.ts";
@@ -86,8 +86,8 @@ export async function loadInboundMessageContent(
   };
 }
 
-export function createMessageContentQuery({ memberRoles }: InboundMailRoles): QueryHandlerDef {
-  return {
+export function createMessageContentQuery({ memberRoles }: InboundMailRoles) {
+  return defineQueryHandler({
     name: "message:content",
     schema: messageContentSchema,
     access: { roles: [...memberRoles] },
@@ -95,8 +95,8 @@ export function createMessageContentQuery({ memberRoles }: InboundMailRoles): Qu
     description:
       "Returns the full decrypted text, the attachment file ids, the skipped attachments and the content state (complete, snippet or unavailable) of one received mail, or null when it does not exist or belongs to a personal mailbox the caller may not see; use it to read a mail beyond its snippet.",
     handler: async (query, ctx) => {
-      const { messageId } = messageContentSchema.parse(query.payload);
+      const { messageId } = query.payload;
       return loadInboundMessageContent(ctx, messageId);
     },
-  };
+  });
 }

@@ -442,15 +442,22 @@ export async function loadAggregateTypeAsOf(
   aggregateType: string,
   tenantId: TenantId,
   asOf: Temporal.Instant,
+  options?: { readonly aggregateIds?: readonly string[] | undefined },
 ): Promise<readonly StoredEvent[]> {
   if (aggregateType === "") {
     throw new Error("loadAggregateTypeAsOf: aggregateType must be a non-empty string");
   }
+  const aggregateIds = options?.aggregateIds;
   return inEventStreamScope(tenantId, async () => {
     const rows = await selectMany<SelectedEvent>(
       db,
       eventsTable,
-      { tenantId, aggregateType, createdAt: { lte: asOf } },
+      {
+        tenantId,
+        aggregateType,
+        createdAt: { lte: asOf },
+        ...(aggregateIds !== undefined && { aggregateId: { in: aggregateIds } }),
+      },
       {
         orderBy: [
           { col: "aggregateId", direction: "asc" },

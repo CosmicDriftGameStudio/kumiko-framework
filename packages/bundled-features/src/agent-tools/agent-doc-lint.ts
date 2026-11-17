@@ -184,11 +184,9 @@ function agentVisibleInputFieldNames(schema: z.ZodType): readonly string[] {
 function translationGapsOfFeature(
   feature: FeatureDefinition,
   coveredHandlerQns: ReadonlySet<string>,
+  translated: ReadonlySet<string>,
 ): readonly AgentDocGap[] {
   const gaps: AgentDocGap[] = [];
-  // The client resolves translation keys verbatim (no feature prefix), so only
-  // fully spelled-out keys count.
-  const translated = new Set(Object.keys(feature.translations ?? {}));
   for (const [name, def] of Object.entries(feature.writeHandlers ?? {})) {
     if (!resolveAgentExposure(def, "write").expose) continue;
     if (feature.handlerEntityMappings?.[name] !== undefined) continue;
@@ -252,12 +250,22 @@ export function findApiDocHandlerGaps(
   return [...gaps].sort((a, b) => compareByCodePoint(a.qn, b.qn));
 }
 
+// The client merges every feature's translations verbatim (no feature prefix), so a
+// fully spelled-out key counts from whichever feature registers it: an app labels the
+// handlers a bundled feature derives from its config, e.g. template-resolver's `<id>-set`.
+function verbatimTranslationKeys(features: readonly FeatureDefinition[]): ReadonlySet<string> {
+  return new Set(features.flatMap((feature) => Object.keys(feature.translations ?? {})));
+}
+
 // Kept out of findAgentDocGaps because the agent-manifest guard reports those gaps separately; `kumiko agent lint` fails on both.
 export function findHandlerTranslationGaps(
   features: readonly FeatureDefinition[],
 ): readonly AgentDocGap[] {
   const coveredHandlerQns = actionFormHandlerQns(features);
-  const gaps = features.flatMap((feature) => translationGapsOfFeature(feature, coveredHandlerQns));
+  const translated = verbatimTranslationKeys(features);
+  const gaps = features.flatMap((feature) =>
+    translationGapsOfFeature(feature, coveredHandlerQns, translated),
+  );
   return [...gaps].sort((a, b) => compareByCodePoint(a.qn, b.qn));
 }
 

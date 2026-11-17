@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { asRawClient, configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
-import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { createTestUser, testUserId } from "@cosmicdrift/kumiko-framework/seeding";
 import { createTestEnvelopeCipher, expectErrorIncludes } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -85,7 +85,7 @@ beforeEach(async () => {
 
 describe("session auto-revoke on MFA state changes", () => {
   test("enable-confirm revokes every OTHER session but keeps the caller's", async () => {
-    const userId = "revoke-enable-1";
+    const userId = testUserId(901);
     const currentSid = await sessionCallbacks.sessionCreator(createTestUser({ id: userId }), {
       ip: "127.0.0.1",
       userAgent: "test",
@@ -114,7 +114,7 @@ describe("session auto-revoke on MFA state changes", () => {
   });
 
   test("disable revokes every OTHER session but keeps the caller's", async () => {
-    const userId = "revoke-disable-1";
+    const userId = testUserId(902);
     const setupUser = createTestUser({ id: userId });
     const start = await stack.http.writeOk<{ setupToken: string; otpauthUri: string }>(
       AuthMfaHandlers.enableStart,
@@ -150,7 +150,7 @@ describe("session auto-revoke on MFA state changes", () => {
   });
 
   test("regenerate-recovery revokes every OTHER session but keeps the caller's", async () => {
-    const userId = "revoke-regenerate-1";
+    const userId = testUserId(903);
     const setupUser = createTestUser({ id: userId });
     const start = await stack.http.writeOk<{ setupToken: string; otpauthUri: string }>(
       AuthMfaHandlers.enableStart,
@@ -186,7 +186,7 @@ describe("session auto-revoke on MFA state changes", () => {
   });
 
   test("a failed disable attempt does NOT revoke any session", async () => {
-    const userId = "revoke-fail-1";
+    const userId = testUserId(904);
     const setupUser = createTestUser({ id: userId });
     const start = await stack.http.writeOk<{ setupToken: string; otpauthUri: string }>(
       AuthMfaHandlers.enableStart,

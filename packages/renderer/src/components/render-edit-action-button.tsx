@@ -42,6 +42,13 @@ export function RenderEditActionConfirmDialog({
   );
 }
 
+// `display: "link"` wins over a plain style; only a danger style keeps its look.
+function actionButtonVariant(action: RenderEditAction) {
+  return action.display === "link" && action.style !== "danger"
+    ? ("link" as const)
+    : (action.style ?? "secondary");
+}
+
 // One header action + its own busy/confirm state — same pattern as
 // render-list.tsx's ToolbarActionView (each RenderEditAction is
 // independently bound by the caller, there is no shared trigger pipeline
@@ -85,9 +92,7 @@ export function RenderEditActionButton({
     }
   };
 
-  // `display: "link"` wins over a plain style; only a danger style keeps its look.
-  const variant =
-    action.display === "link" && action.style !== "danger" ? "link" : (action.style ?? "secondary");
+  const variant = actionButtonVariant(action);
   const showIconOnly = iconOnly && action.icon !== undefined;
   const buttonClassName = [
     !showIconOnly && size !== undefined ? COMPACT_TAP_CLASSES : undefined,

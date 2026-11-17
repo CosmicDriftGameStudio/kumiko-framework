@@ -172,6 +172,26 @@ function warnAboutBootOptions(
   }
 }
 
+function wireBillingOption(
+  billingOption: BillingBootOption,
+  mounted: ReadonlySet<string>,
+  envSource: Record<string, string | undefined>,
+): ReturnType<typeof resolveBillingOption> {
+  requireFeatures(
+    mounted,
+    "billing",
+    [BILLING_FOUNDATION_FEATURE, TIER_ENGINE_FEATURE],
+    "Mount createBillingFoundationFeature() and createTierEngineFeature(), or composeSaasStack from @cosmicdrift/kumiko-dev-server/compose-stacks.",
+  );
+  if (billingOption.stripe) {
+    rejectDoubleMount(mounted, "billing.stripe", SUBSCRIPTION_STRIPE_FEATURE);
+  }
+  if (billingOption.paddle) {
+    rejectDoubleMount(mounted, "billing.paddle", SUBSCRIPTION_PADDLE_FEATURE);
+  }
+  return resolveBillingOption(billingOption, envSource);
+}
+
 /** Runs after the env is validated and KEK slots are decrypted, before any
  *  connection: every misconfiguration of the new options fails here. */
 export async function resolveBootOptionWiring(
@@ -214,19 +234,7 @@ export async function resolveBootOptionWiring(
   }
 
   if (options.billing) {
-    requireFeatures(
-      mounted,
-      "billing",
-      [BILLING_FOUNDATION_FEATURE, TIER_ENGINE_FEATURE],
-      "Mount createBillingFoundationFeature() and createTierEngineFeature(), or composeSaasStack from @cosmicdrift/kumiko-dev-server/compose-stacks.",
-    );
-    if (options.billing.stripe) {
-      rejectDoubleMount(mounted, "billing.stripe", SUBSCRIPTION_STRIPE_FEATURE);
-    }
-    if (options.billing.paddle) {
-      rejectDoubleMount(mounted, "billing.paddle", SUBSCRIPTION_PADDLE_FEATURE);
-    }
-    const billing = resolveBillingOption(options.billing, envSource);
+    const billing = wireBillingOption(options.billing, mounted, envSource);
     features.push(...billing.features);
     extraRoutes.push(billing.route);
   }

@@ -18,7 +18,7 @@ describe("cap-counter store tables — DDL", () => {
       { name: "cap_name", pgType: "text", notNull: true },
       { name: "period_start", pgType: "timestamptz", notNull: true },
       { name: "subject_hash", pgType: "text", notNull: true },
-      { name: "value", pgType: "bigint", notNull: true },
+      { name: "value", pgType: "bigint", notNull: true, bigintJsMode: "number" },
       { name: "last_soft_warned_at", pgType: "timestamptz", notNull: false },
     ]);
     expect(capCountersTableMeta.compositePrimaryKey).toMatchObject({

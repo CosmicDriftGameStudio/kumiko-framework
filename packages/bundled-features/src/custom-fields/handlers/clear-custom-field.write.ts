@@ -1,4 +1,4 @@
-import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { failNotFound, failUnprocessable } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { parentRowIsVisible } from "../../shared/index.ts";
@@ -33,8 +33,8 @@ const CLEAR_CUSTOM_FIELD_REASON =
  *  access control incomplete. */
 export function createClearCustomFieldHandler(
   roles: readonly string[] = DEFAULT_VALUE_WRITE_ROLES,
-): WriteHandlerDef {
-  return {
+) {
+  return defineWriteHandler({
     name: "clear-custom-field",
     schema: clearCustomFieldPayloadSchema,
     access: { roles },
@@ -45,7 +45,7 @@ export function createClearCustomFieldHandler(
       reason: CLEAR_CUSTOM_FIELD_REASON,
     },
     handler: async (event, ctx) => {
-      const payload = event.payload as ClearCustomFieldPayload; // @cast-boundary engine-payload
+      const payload = event.payload;
       if (!isCustomFieldsHost(ctx.registry, payload.entityName)) {
         return failUnprocessable("custom_fields_entity_not_wired", {
           entityName: payload.entityName,
@@ -98,5 +98,5 @@ export function createClearCustomFieldHandler(
         data: { entityName: payload.entityName, entityId: payload.entityId },
       };
     },
-  };
+  });
 }

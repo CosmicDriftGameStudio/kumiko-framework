@@ -207,7 +207,7 @@ describe("RenderEdit — submit path", () => {
     fireEvent.change(rtlScreen.getByLabelText(/name/i), { target: { value: "Ferdinand" } });
     fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
 
-    await waitFor(() => expect(rtlScreen.getByTestId("render-edit-form-error")).toBeTruthy());
+    await waitFor(() => rtlScreen.getByTestId("render-edit-form-error"));
     // LocaleProvider resolves i18nKey → human copy; pin the error code via onSubmit.
     expect(rtlScreen.getByTestId("render-edit-form-error-key").textContent?.length).toBeGreaterThan(
       0,
@@ -240,7 +240,7 @@ describe("RenderEdit — submit path", () => {
     );
     fireEvent.change(rtlScreen.getByLabelText(/name/i), { target: { value: "Ferdinand" } });
     fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
-    await waitFor(() => expect(rtlScreen.getByTestId("render-edit-form-error-key")).toBeTruthy());
+    await waitFor(() => rtlScreen.getByTestId("render-edit-form-error-key"));
     return rtlScreen.getByTestId("render-edit-form-error-key").textContent;
   }
 
@@ -475,7 +475,7 @@ describe("RenderEdit — custom actions", () => {
     renderEdit(oneFieldScreen, { actions });
 
     fireEvent.click(rtlScreen.getByTestId("render-edit-action-boom"));
-    await waitFor(() => expect(rtlScreen.getByTestId("render-edit-action-error")).toBeTruthy());
+    await waitFor(() => rtlScreen.getByTestId("render-edit-action-error"));
     expect(rtlScreen.getByTestId("render-edit-action-error").textContent).toContain(
       "action exploded",
     );
@@ -537,7 +537,7 @@ describe("RenderEdit — writeCommand path", () => {
     fireEvent.change(rtlScreen.getByLabelText(/name/i), { target: { value: "Ada" } });
     fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
 
-    await waitFor(() => expect(rtlScreen.getByTestId("render-edit-form-error")).toBeTruthy());
+    await waitFor(() => rtlScreen.getByTestId("render-edit-form-error"));
     expect(submitted?.isSuccess).toBe(false);
   });
   test("failed writeCommand with field issues suppresses the form-error banner", async () => {
@@ -595,7 +595,7 @@ describe("RenderEdit — errors clear on user input", () => {
     });
     fireEvent.change(rtlScreen.getByLabelText(/name/i), { target: { value: "Ada" } });
     fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
-    await waitFor(() => expect(rtlScreen.getByTestId("render-edit-form-error")).toBeTruthy());
+    await waitFor(() => rtlScreen.getByTestId("render-edit-form-error"));
     expect(rtlScreen.getAllByTestId(/^field-issue-/)).toHaveLength(1);
   }
 
@@ -613,7 +613,7 @@ describe("RenderEdit — errors clear on user input", () => {
 
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(rtlScreen.getByTestId("render-edit-form-error")).toBeTruthy();
+    rtlScreen.getByTestId("render-edit-form-error");
     expect(rtlScreen.getAllByTestId(/^field-issue-/)).toHaveLength(1);
   });
 
@@ -623,6 +623,6 @@ describe("RenderEdit — errors clear on user input", () => {
     fireEvent.change(rtlScreen.getByLabelText(/name/i), { target: { value: "Adal" } });
 
     await waitFor(() => expect(rtlScreen.queryAllByTestId(/^field-issue-/)).toHaveLength(0));
-    expect(rtlScreen.getByTestId("render-edit-form-error")).toBeTruthy();
+    rtlScreen.getByTestId("render-edit-form-error");
   });
 });

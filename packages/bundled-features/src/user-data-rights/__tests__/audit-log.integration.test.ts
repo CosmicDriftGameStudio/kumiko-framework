@@ -171,7 +171,7 @@ describe("my-audit-log without an ambient Temporal global", () => {
           payload: { limit: 50, from: "2020-01-01T00:00:00Z", to: "2030-01-01T00:00:00Z" },
           user: alice,
         } as Parameters<typeof myAuditLogQuery.handler>[0],
-        { db: { unsafeRaw: () => stack.db } } as unknown as Parameters<
+        { db: { unsafeRawAllTenants: () => stack.db } } as unknown as Parameters<
           typeof myAuditLogQuery.handler
         >[1],
       );

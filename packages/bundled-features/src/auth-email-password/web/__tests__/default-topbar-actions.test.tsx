@@ -22,7 +22,7 @@ function renderActions(ui: ReactElement) {
 describe("DefaultTopbarActions", () => {
   test("renders the user menu by default", () => {
     renderActions(<DefaultTopbarActions />);
-    expect(screen.getByRole("button", { name: /Test User/ })).toBeTruthy();
+    screen.getByRole("button", { name: /Test User/ });
   });
 
   test("userMenu false omits the user menu", () => {
@@ -32,6 +32,6 @@ describe("DefaultTopbarActions", () => {
 
   test("themeToggleTestId is forwarded to the theme toggle", () => {
     renderActions(<DefaultTopbarActions themeToggleTestId="theme-toggle" />);
-    expect(screen.getByTestId("theme-toggle")).toBeTruthy();
+    screen.getByTestId("theme-toggle");
   });
 });

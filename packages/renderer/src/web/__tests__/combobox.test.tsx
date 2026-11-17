@@ -25,7 +25,7 @@ describe("ComboboxInput (Tier 2.1c)", () => {
         placeholder="Pick one"
       />,
     );
-    expect(screen.getByText("Pick one")).toBeTruthy();
+    screen.getByText("Pick one");
   });
 
   test("single-mode: Trigger shows the label of the selected value", () => {
@@ -41,7 +41,7 @@ describe("ComboboxInput (Tier 2.1c)", () => {
         ]}
       />,
     );
-    expect(screen.getByText("Beta")).toBeTruthy();
+    screen.getByText("Beta");
   });
 
   test("single-mode: a long label stays on one line, truncated, with the full text as title", () => {
@@ -109,7 +109,7 @@ describe("ComboboxInput (Tier 2.1c)", () => {
         placeholder="Pick tags"
       />,
     );
-    expect(screen.getByText("Pick tags")).toBeTruthy();
+    screen.getByText("Pick tags");
   });
 
   test("multi-mode: existing values render as tags with label", () => {
@@ -127,8 +127,8 @@ describe("ComboboxInput (Tier 2.1c)", () => {
         multiple
       />,
     );
-    expect(screen.getByText("Alpha")).toBeTruthy();
-    expect(screen.getByText("Beta")).toBeTruthy();
+    screen.getByText("Alpha");
+    screen.getByText("Beta");
     // Gamma is not selected, so it does not appear as a tag in the trigger.
     expect(screen.queryByText("Gamma")).toBeNull();
   });
@@ -211,7 +211,7 @@ describe("ComboboxInput (Tier 2.1c)", () => {
         loading
       />,
     );
-    expect(screen.getByTestId("combobox-combo")).toBeTruthy();
+    screen.getByTestId("combobox-combo");
   });
 
   // Test real search behavior without fake timers, which conflict with RTL's

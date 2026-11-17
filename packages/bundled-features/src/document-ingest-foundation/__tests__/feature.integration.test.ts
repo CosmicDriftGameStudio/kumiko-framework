@@ -275,8 +275,9 @@ beforeEach(async () => {
   providerAProcessed.length = 0;
   providerBProcessed.length = 0;
   stack.events.reset();
+  // No RESTART IDENTITY: event-triggered job ids embed the event id, and a reused id would dedupe the next test's job.
   await asRawClient(stack.db).unsafe(
-    `TRUNCATE kumiko_events, kumiko_event_consumers, file_refs, read_document_extracts RESTART IDENTITY CASCADE`,
+    `TRUNCATE kumiko_events, kumiko_event_consumers, file_refs, read_document_extracts CASCADE`,
   );
   await stack.eventDispatcher?.ensureRegistered();
 });

@@ -27,6 +27,7 @@ import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createTestDb,
   createTestRedis,
+  pushEntityProjectionTables,
   type TestDb,
   type TestRedis,
 } from "@cosmicdrift/kumiko-testing/stack";
@@ -63,6 +64,7 @@ afterEach(() => {
 describe("lane-routing sample", () => {
   test("order.create fans out to render-receipt + send-confirmation on the worker lane", async () => {
     const registry = createRegistry([createLaneRoutingFeature()]);
+    await pushEntityProjectionTables(testDb, registry);
     const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;
     const entry = createAllInOneEntrypoint({
       rowLevelSecurity: "off",

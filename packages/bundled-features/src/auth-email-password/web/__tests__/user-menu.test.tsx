@@ -21,8 +21,8 @@ describe("UserMenu", () => {
     });
     renderWithProviders(<UserMenu />, { session });
     // Avatar = "AW", Display-Name "Alice Wonder"
-    expect(screen.getByText("AW")).toBeTruthy();
-    expect(screen.getByText("Alice Wonder")).toBeTruthy();
+    screen.getByText("AW");
+    screen.getByText("Alice Wonder");
   });
   test("falls back to email-based initials when displayName empty", () => {
     const session = makeSessionApi({
@@ -30,7 +30,7 @@ describe("UserMenu", () => {
     });
     renderWithProviders(<UserMenu />, { session });
     // Trimming "" leaves displayName empty, so it falls back to the email's first 2 chars.
-    expect(screen.getByText("BO")).toBeTruthy();
+    screen.getByText("BO");
   });
   test("no displayName → dropdown label shows the email exactly once (not duplicated)", async () => {
     const user = userEvent.setup();
@@ -43,15 +43,15 @@ describe("UserMenu", () => {
     // getByText throws if the email appears more than once inside the
     // dropdown panel — displayName falls back to the email, so without the
     // hasName guard the second (redundant) email line would duplicate it.
-    expect(menu.getByText("bob@example.com")).toBeTruthy();
+    menu.getByText("bob@example.com");
   });
   test("opens dropdown on click and shows logout button", async () => {
     const user = userEvent.setup();
     const session = makeSessionApi();
     renderWithProviders(<UserMenu />, { session });
     await user.click(screen.getByRole("button", { name: /Test User/ }));
-    expect(screen.getByText("Sign out")).toBeTruthy();
-    expect(screen.getByText("user@example.com")).toBeTruthy();
+    screen.getByText("Sign out");
+    screen.getByText("user@example.com");
   });
   test("logout-click triggers session.logout", async () => {
     const user = userEvent.setup();
@@ -81,10 +81,10 @@ describe("UserMenu", () => {
       { session },
     );
     // Unlike the pill, the row displays both the name and email directly.
-    expect(screen.getByText("Alice Wonder")).toBeTruthy();
-    expect(screen.getByText("alice@example.com")).toBeTruthy();
+    screen.getByText("Alice Wonder");
+    screen.getByText("alice@example.com");
     await user.click(screen.getByRole("button", { name: /Alice Wonder/ }));
-    expect(screen.getByText("Sign out")).toBeTruthy();
+    screen.getByText("Sign out");
   });
 
   test("sidebar variant: tenant and theme controls live inside the menu, not beside the row", async () => {
@@ -118,6 +118,6 @@ describe("UserMenu", () => {
     await user.click(screen.getByRole("button", { name: /Test User/ }));
     await user.click(screen.getByText("Beta"));
     expect(switchTenant).toHaveBeenCalledWith("tenant-2");
-    expect(screen.getByText(/theme/)).toBeTruthy();
+    screen.getByText(/theme/);
   });
 });

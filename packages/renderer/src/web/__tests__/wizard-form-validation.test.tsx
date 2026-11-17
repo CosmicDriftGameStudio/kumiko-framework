@@ -54,7 +54,7 @@ describe("entityEdit wizard — presence validation on Next", () => {
     await userEvent.click(screen.getByTestId("render-edit-wizard-next"));
 
     expect(screen.getByTestId("render-edit-wizard-step-label").textContent).toContain("1");
-    expect(screen.getByTestId("field-fullName-errors")).toBeTruthy();
+    screen.getByTestId("field-fullName-errors");
     // Step 2's field stays mounted but hidden — the transition was blocked.
     expect(screen.getByTestId("field-email").closest("[hidden]")).not.toBeNull();
   });
@@ -102,7 +102,7 @@ describe("entityEdit wizard — presence validation on Next", () => {
     await userEvent.click(screen.getByTestId("render-edit-submit"));
 
     expect(screen.getByTestId("render-edit-wizard-step-label").textContent).toContain("2");
-    expect(screen.getByTestId("field-email-errors")).toBeTruthy();
+    screen.getByTestId("field-email-errors");
   });
 
   // `fieldset[disabled]` also excludes its descendants' controls from a real

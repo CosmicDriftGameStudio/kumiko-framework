@@ -15,6 +15,7 @@ import { discardDraftWrite } from "./handlers/discard.write.ts";
 import { getDraftQuery } from "./handlers/get.query.ts";
 import { listDraftsQuery } from "./handlers/list.query.ts";
 import { saveDraftWrite } from "./handlers/save.write.ts";
+import { FORM_DRAFT_I18N } from "./i18n.ts";
 import { formDraftDeleteHook, formDraftExportHook } from "./user-data-hooks.ts";
 import { FORM_DRAFT_FEATURE_NAME } from "./web/constants.ts";
 
@@ -37,6 +38,7 @@ function registerFormDraft(r: FeatureRegistrar<typeof FORM_DRAFT_FEATURE_NAME>):
   // every app that mounts form-draft without config, which is a breaking
   // change no minor/patch release should introduce silently.
   r.optionalRequires({ features: ["config"] });
+  r.translations({ keys: FORM_DRAFT_I18N });
   r.entity(formDraftEntity);
   r.applyExtension({
     name: EXT_USER_DATA,

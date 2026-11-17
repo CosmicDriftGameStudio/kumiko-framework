@@ -307,7 +307,7 @@ describe("infraRef, visibility and app jobs", () => {
     expect(ci).toMatch(
       /\n {2}integration:\n {4}if: contains\(fromJSON\('\["pull_request","merge_group"\]'\), github\.event_name\)\n/,
     );
-    expect(ci).not.toContain("needs:");
+    expect(ci).not.toMatch(/^\s+needs:/m);
   });
 
   test("e2eShards and e2eChromiumFull render the e2e inputs, the defaults do not", () => {

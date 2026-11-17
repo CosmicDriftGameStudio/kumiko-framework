@@ -14,6 +14,7 @@ export const AUDIT_EVENT_STANCES: Readonly<Record<string, AuditEventStance>> = {
   [ESCAPE_HATCH_USED_EVENT]: TECHNICAL_EVENT,
   "delivery:event:attempt": TECHNICAL_EVENT,
   "delivery:event:attempt-address-erased": TECHNICAL_EVENT,
+  "delivery:event:address-unsubscribed": TECHNICAL_EVENT,
   "inbound-mail-foundation:event:inbound-message-received": TECHNICAL_EVENT,
   "inbound-mail-foundation:event:inbound-message-content-fetched": TECHNICAL_EVENT,
   "channel-whatsapp:event:message-received": TECHNICAL_EVENT,

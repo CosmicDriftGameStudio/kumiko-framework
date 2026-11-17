@@ -21,10 +21,10 @@ describe("LoginScreen", () => {
 
   test("renders translated title + email + password labels (de)", () => {
     renderWithProviders(<LoginScreen />);
-    expect(screen.getByRole("heading", { name: "Sign in" })).toBeTruthy();
-    expect(screen.getByLabelText(/^Email/)).toBeTruthy();
-    expect(screen.getByLabelText(/^Password/)).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Sign in" })).toBeTruthy();
+    screen.getByRole("heading", { name: "Sign in" });
+    screen.getByLabelText(/^Email/);
+    screen.getByLabelText(/^Password/);
+    screen.getByRole("button", { name: "Sign in" });
   });
 
   test("submit calls session.login with form values", async () => {
@@ -96,7 +96,7 @@ describe("LoginScreen", () => {
     fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
 
     await waitFor(() => {
-      expect(screen.getByRole("alert")).toBeTruthy();
+      screen.getByRole("alert");
       expect(screen.getByRole("alert").textContent).toBe("Invalid email or password.");
     });
   });
@@ -175,7 +175,7 @@ describe("LoginScreen", () => {
       });
       fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
       await waitFor(() => {
-        expect(screen.getByRole("alert")).toBeTruthy();
+        screen.getByRole("alert");
       });
     }
 
@@ -195,7 +195,7 @@ describe("LoginScreen", () => {
       // No resend trigger is available before submission
       expect(screen.queryByRole("button", { name: /erneut senden/i })).toBeNull();
       await loginUntilEmailNotVerified();
-      expect(screen.getByRole("button", { name: "Send verification email again" })).toBeTruthy();
+      screen.getByRole("button", { name: "Send verification email again" });
     });
 
     test("click → calls requestEmailVerification with form email and shows success banner", async () => {
@@ -210,7 +210,7 @@ describe("LoginScreen", () => {
       });
       // A banner with variant="info" has no role, so find it by text
       await waitFor(() => {
-        expect(screen.getByText("We've sent you a new verification email.")).toBeTruthy();
+        screen.getByText("We've sent you a new verification email.");
       });
       // The error banner (role=alert) is gone, and the success banner is present
       expect(screen.queryByRole("alert")).toBeNull();
@@ -248,7 +248,7 @@ describe("LoginScreen", () => {
     test("Email change after failure → resend button disappears (anti-typo trap)", async () => {
       renderWithProviders(<LoginScreen />, { session: unverifiedSession() });
       await loginUntilEmailNotVerified();
-      expect(screen.getByRole("button", { name: "Send verification email again" })).toBeTruthy();
+      screen.getByRole("button", { name: "Send verification email again" });
 
       // The user corrects the email input — the resend button must no longer be
       // visible, preventing a silent send to a mistyped address

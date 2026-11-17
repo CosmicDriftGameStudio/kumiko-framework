@@ -298,9 +298,9 @@ describe("MailEditor", () => {
       "There is no version for English yet. Recipients with language en get the German version.",
     );
     expect(screen.getByTestId("mail-copy-locale").textContent).toBe("Copy from German");
-    expect(screen.getByTestId("mail-create-blank")).toBeTruthy();
+    screen.getByTestId("mail-create-blank");
     expect(screen.queryByTestId("mail-subject")).toBeNull();
-    expect(screen.getByTestId("mail-sender")).toBeTruthy();
+    screen.getByTestId("mail-sender");
     // The placeholder rail comes from the validate query, which settles independently
     // of the missing-locale canvas, so it has to be awaited on its own.
     expect(
@@ -525,7 +525,7 @@ describe("MailEditor", () => {
     );
     if (english === undefined) throw new Error("en option not found");
     fireEvent.click(english);
-    expect(await screen.findByText("Unsaved changes")).toBeTruthy();
+    await screen.findByText("Unsaved changes");
   });
 
   test("discarding in the own locale dialog does not trigger the global leave confirmation", async () => {
@@ -654,15 +654,13 @@ describe("MailEditor", () => {
   test("a template without attachments says so instead of offering the checkbox", async () => {
     renderEditor(fakeDispatcher("draft", [], validation, { ...preview, attachments: [] }));
     await openPreview();
-    expect(await screen.findByTestId("mail-test-no-attachments")).toBeTruthy();
+    await screen.findByTestId("mail-test-no-attachments");
     expect(document.getElementById("mail-test-attachments")).toBeNull();
   });
 
   test("the sender hint names the platform for a platform-sent mail and the tenant's email sending, with a link, for a tenant-routed one", async () => {
     renderEditor(fakeDispatcher("draft", []));
-    expect(
-      await screen.findByText("The address comes from the platform's mail delivery."),
-    ).toBeTruthy();
+    await screen.findByText("The address comes from the platform's mail delivery.");
     cleanup();
 
     const navigated: unknown[] = [];
@@ -674,11 +672,7 @@ describe("MailEditor", () => {
       ),
       recordingNav,
     );
-    expect(
-      await screen.findByText(
-        /The address comes from your organization's email sending settings\./,
-      ),
-    ).toBeTruthy();
+    await screen.findByText(/The address comes from your organization's email sending settings\./);
     const link = await screen.findByTestId("mail-sender-settings-link");
     expect(link.textContent).toBe("Open email sending");
     fireEvent.click(link);
@@ -686,11 +680,7 @@ describe("MailEditor", () => {
     cleanup();
 
     renderEditor(withTenantTransportUsage(fakeDispatcher("draft", [])));
-    expect(
-      await screen.findByText(
-        /The address comes from your organization's email sending settings\./,
-      ),
-    ).toBeTruthy();
+    await screen.findByText(/The address comes from your organization's email sending settings\./);
     expect(screen.queryByTestId("mail-sender-settings-link")).toBeNull();
   });
 
@@ -853,9 +843,7 @@ describe("MailEditor", () => {
     const noAddress = { canSend: false, reason: "no_address" };
     renderEditor(fakeDispatcher("draft", [], validation, preview, STORED_META, noAddress));
     await openPreview();
-    expect(
-      await screen.findByText("No email address is stored for you, so no test mail can be sent."),
-    ).toBeTruthy();
+    await screen.findByText("No email address is stored for you, so no test mail can be sent.");
     expect((screen.getByTestId("mail-test-send") as HTMLButtonElement).disabled).toBe(true);
     const footer = screen.getByTestId("mail-editor-footer-message").textContent;
     expect(footer).toContain("Publishing is blocked");
@@ -874,9 +862,7 @@ describe("MailEditor", () => {
     renderEditor(fakeDispatcher("draft", []));
     const upload = await screen.findByTestId("mail-resource-upload-open");
     expect((upload as HTMLButtonElement).disabled).toBe(true);
-    expect(
-      screen.getByText("Uploads need the files feature, which this app has not mounted."),
-    ).toBeTruthy();
+    screen.getByText("Uploads need the files feature, which this app has not mounted.");
     cleanup();
 
     renderEditor(fakeDispatcher("draft", []), (children) => (

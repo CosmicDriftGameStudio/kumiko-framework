@@ -57,3 +57,8 @@ export async function loadPendingRequest(
 export function isPendingRequest(value: PendingRequest | WriteFailure): value is PendingRequest {
   return !("isSuccess" in value);
 }
+
+// A first request creates the row, which stamps only insertedById; a re-filed request updates it.
+export function requesterIdOf(request: Readonly<Record<string, unknown>>): unknown {
+  return request["modifiedById"] ?? request["insertedById"];
+}

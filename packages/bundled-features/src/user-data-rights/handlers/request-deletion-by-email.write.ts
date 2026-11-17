@@ -66,7 +66,7 @@ export function createRequestDeletionByEmailHandler(opts: RequestDeletionByEmail
     description:
       "Mails an account-deletion verification link to the given address, for a user who wants to be erased but can no longer log in; it answers identically whether or not the address belongs to an active account and never returns the link.",
     // Mails a deletion link to any address the caller names.
-    agent: { risk: "high" },
+    agent: { expose: false, risk: "high" },
     // Defense in depth against email probing on the anonymous endpoint.
     rateLimit: { per: "ip+handler", limit: 10, windowSeconds: 60 },
     tenantlessAnonymous: true,

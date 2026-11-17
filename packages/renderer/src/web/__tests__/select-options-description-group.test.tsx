@@ -44,9 +44,9 @@ describe("ComboboxInput description and group", () => {
         defaultOpen
       />,
     );
-    expect(await screen.findByText("Cloud")).toBeTruthy();
-    expect(screen.getByText("Local")).toBeTruthy();
-    expect(screen.getByText("Runs on your hardware")).toBeTruthy();
+    await screen.findByText("Cloud");
+    screen.getByText("Local");
+    screen.getByText("Runs on your hardware");
     expect(screen.getByTestId("combobox-combo").textContent).toBe("Alpha");
   });
 
@@ -65,7 +65,7 @@ describe("ComboboxInput description and group", () => {
     await act(async () => {
       fireEvent.change(searchInput, { target: { value: "hardware" } });
     });
-    expect(screen.getByText("Beta")).toBeTruthy();
+    screen.getByText("Beta");
     expect(screen.queryByText("Alpha")).toBeNull();
     expect(screen.queryByText("Gamma")).toBeNull();
   });
@@ -98,7 +98,7 @@ describe("select Input presentation with description or group", () => {
 
   test("without description or group two short options stay segmented", () => {
     render(<Input kind="select" id="s" name="s" value="x" onChange={() => {}} options={plain} />);
-    expect(screen.getByTestId("segmented-s")).toBeTruthy();
+    screen.getByTestId("segmented-s");
   });
 
   test("display radio with a description renders the radio list, not the segmented control", () => {
@@ -117,7 +117,7 @@ describe("select Input presentation with description or group", () => {
       />,
     );
     expect(screen.queryByTestId("segmented-s")).toBeNull();
-    expect(screen.getByTestId("radio-list-s")).toBeTruthy();
+    screen.getByTestId("radio-list-s");
   });
 
   test("the heuristic also switches to the radio list when an option has a group", () => {
@@ -135,7 +135,7 @@ describe("select Input presentation with description or group", () => {
       />,
     );
     expect(screen.queryByTestId("segmented-s")).toBeNull();
-    expect(screen.getByTestId("radio-list-s")).toBeTruthy();
+    screen.getByTestId("radio-list-s");
   });
 
   test("display dropdown stays a dropdown despite descriptions", () => {
@@ -153,7 +153,7 @@ describe("select Input presentation with description or group", () => {
         ]}
       />,
     );
-    expect(screen.getByTestId("combobox-s")).toBeTruthy();
+    screen.getByTestId("combobox-s");
     expect(screen.queryByTestId("radio-list-s")).toBeNull();
   });
 
@@ -177,8 +177,8 @@ describe("select Input presentation with description or group", () => {
     expect(document.getElementById(describedBy ?? "")?.textContent).toBe("First of the cloud");
     expect(screen.getByTestId("radio-list-s-b").getAttribute("aria-describedby")).not.toBeNull();
     expect(screen.getByTestId("radio-list-s-c").getAttribute("aria-describedby")).toBeNull();
-    expect(screen.getByTestId("radio-list-s-group-Cloud")).toBeTruthy();
-    expect(screen.getByTestId("radio-list-s-group-Local")).toBeTruthy();
+    screen.getByTestId("radio-list-s-group-Cloud");
+    screen.getByTestId("radio-list-s-group-Local");
     // Ungrouped first, then Cloud, then Local — the DOM order drives native arrow navigation.
     expect(
       within(group)
@@ -199,6 +199,6 @@ describe("select Input presentation with description or group", () => {
         options={OPTIONS}
       />,
     );
-    expect(screen.getByText("Runs on your hardware")).toBeTruthy();
+    screen.getByText("Runs on your hardware");
   });
 });

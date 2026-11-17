@@ -382,11 +382,16 @@ describe("validateBoot — PII annotations", () => {
         }),
       );
     });
-    validateBoot([feature]);
-    const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
-      String(args[0]).includes('targets reference "employee"'),
-    );
-    expect(matchingWarn).toBeDefined();
+    const { warnings } = validateBoot([feature]);
+    expect(warnings.filter((warning) => warning.kind === "pii/owner-not-user-reference")).toEqual([
+      {
+        kind: "pii/owner-not-user-reference",
+        feature: "test",
+        message: expect.stringContaining(
+          '[Feature test] personal.of "employeeId" on entity "personalNote" targets reference "employee"',
+        ),
+      },
+    ]);
   });
 
   test("PII-name heuristic warns when a non-text email field has no pii annotation", () => {
@@ -400,11 +405,16 @@ describe("validateBoot — PII annotations", () => {
         }),
       );
     });
-    validateBoot([feature]);
-    const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
-      String(args[0]).includes("PII-typical name"),
-    );
-    expect(matchingWarn).toBeDefined();
+    const { warnings } = validateBoot([feature]);
+    expect(warnings.filter((warning) => warning.kind === "pii/unannotated-personal-name")).toEqual([
+      {
+        kind: "pii/unannotated-personal-name",
+        feature: "test",
+        message: expect.stringContaining(
+          '[Feature test] Field "email" on entity "thing" has a PII-typical name',
+        ),
+      },
+    ]);
   });
 
   test("user-content-name heuristic warns when body field has no userOwned annotation", () => {
@@ -418,11 +428,16 @@ describe("validateBoot — PII annotations", () => {
         }),
       );
     });
-    validateBoot([feature]);
-    const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
-      String(args[0]).includes("user-content-typical name"),
-    );
-    expect(matchingWarn).toBeDefined();
+    const { warnings } = validateBoot([feature]);
+    expect(warnings.filter((warning) => warning.kind === "pii/unannotated-personal-name")).toEqual([
+      {
+        kind: "pii/unannotated-personal-name",
+        feature: "test",
+        message: expect.stringContaining(
+          '[Feature test] Field "body" on entity "thing" has a user-content-typical name',
+        ),
+      },
+    ]);
   });
 
   test("user-reference-name heuristic warns when authorId field has no subjectRef annotation", () => {
@@ -436,11 +451,16 @@ describe("validateBoot — PII annotations", () => {
         }),
       );
     });
-    validateBoot([feature]);
-    const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
-      String(args[0]).includes("user-reference-typical name"),
-    );
-    expect(matchingWarn).toBeDefined();
+    const { warnings } = validateBoot([feature]);
+    expect(warnings.filter((warning) => warning.kind === "pii/unannotated-personal-name")).toEqual([
+      {
+        kind: "pii/unannotated-personal-name",
+        feature: "test",
+        message: expect.stringContaining(
+          '[Feature test] Field "authorId" on entity "thing" has a user-reference-typical name',
+        ),
+      },
+    ]);
   });
 
   test("subjectRef: true on authorId field silences user-reference-name heuristic warning", () => {
@@ -626,8 +646,18 @@ describe("validateBoot — PII annotations", () => {
       ["files", createFilesField()],
       ["images", createImagesField()],
     ] as const)("warns for an unannotated %s field", (_type, field) => {
-      bootWithField(field);
-      expect(fileFieldWarning()).toBeDefined();
+      const { warnings } = bootWithField(field);
+      expect(
+        warnings.filter((warning) => warning.kind === "pii/unannotated-personal-name"),
+      ).toEqual([
+        {
+          kind: "pii/unannotated-personal-name",
+          feature: "test",
+          message: expect.stringContaining(
+            '[Feature test] File field "pdfFile" on entity "statement" has no personal annotation',
+          ),
+        },
+      ]);
     });
 
     test("personal annotation silences the warning", () => {

@@ -15,7 +15,7 @@
 // tenant/handlers/memberships.query.ts and active-tenant-ids.query.ts for
 // the same reason. A human SystemAdmin can still dispatch this directly.
 
-import { SYSTEM_ROLE, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { defineWriteHandler, SYSTEM_ROLE } from "@cosmicdrift/kumiko-framework/engine";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { findProviderPlugin } from "../checkout-core.ts";
@@ -37,7 +37,7 @@ function snapshotEventTime(): Temporal.Instant {
     .subtract({ seconds: SYNC_SNAPSHOT_EVENT_TIME_MARGIN_SECONDS });
 }
 
-export const syncSubscriptionHandler: WriteHandlerDef = {
+export const syncSubscriptionHandler = defineWriteHandler({
   name: "sync-subscription",
   agent: { expose: false },
   transaction: "perCommand",
@@ -86,4 +86,4 @@ export const syncSubscriptionHandler: WriteHandlerDef = {
       snapshotEventAtIso: snapshotEventTime().toString(),
     });
   },
-};
+});

@@ -5,8 +5,12 @@ import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { type FeatureDefinition, qn, toKebab } from "@cosmicdrift/kumiko-framework/engine";
 import { createBillingFoundationFeature } from "../../billing-foundation/index.ts";
+import { createFieldApprovalFeature } from "../../field-approval/index.ts";
+import { createFoldersFeature } from "../../folders/index.ts";
 import { createHelpdeskFeature } from "../../helpdesk/index.ts";
+import { createNotesHistoryFeature } from "../../notes-history/index.ts";
 import { createPersonalAccessTokensFeature } from "../../personal-access-tokens/index.ts";
+import { createTagsFeature } from "../../tags/index.ts";
 import { AUDIT_EVENT_STANCES, TECHNICAL_EVENT } from "../event-classification.ts";
 import { AUDIT_I18N } from "../web/i18n.ts";
 
@@ -32,6 +36,10 @@ const FACTORIES_NEEDING_OPTIONS: ReadonlySet<string> = new Set([
   "metrics/createSystemMetricsFeature",
   "file-provider-s3/createFileProviderS3NamedEnvFeature",
   "subscription-mollie/createSubscriptionMollieFeature",
+  "field-approval/createFieldApprovalFeature",
+  "notes-history/createNotesHistoryFeature",
+  "tags/createTagsFeature",
+  "folders/createFoldersFeature",
 ]);
 
 async function zeroArgBundledFeatures(): Promise<{
@@ -72,6 +80,10 @@ const featuresWithOptions: readonly FeatureDefinition[] = [
   }),
   createPersonalAccessTokensFeature({ scopes: {} }),
   createHelpdeskFeature({ appName: "Acme" }),
+  createFieldApprovalFeature({ parents: ["note"] }),
+  createNotesHistoryFeature({ parents: ["note"] }),
+  createTagsFeature({ parents: ["note"] }),
+  createFoldersFeature({ parents: ["note"] }),
 ];
 
 const eventTypes: readonly string[] = [

@@ -75,7 +75,7 @@ describe("DataTable server groups", () => {
     renderTable({ serverGroups: serverGroups([open, done]) });
     expect(screen.getByTestId("row-group-open-toggle").getAttribute("aria-expanded")).toBe("true");
     expect(screen.getByTestId("row-group-done-toggle").getAttribute("aria-expanded")).toBe("false");
-    expect(screen.getByText("Rent")).toBeDefined();
+    screen.getByText("Rent");
     expect(screen.queryByTestId("row-group-done-load-more")).toBeNull();
   });
 
@@ -124,7 +124,7 @@ describe("DataTable server groups", () => {
 describe("DataTable totals row", () => {
   test("a footer row renders each measure under its column", () => {
     renderTable({ totals: { measures: [{ field: "amount", kind: "sum", value: 980 }] } });
-    expect(screen.getByTestId("list-totals")).toBeDefined();
+    screen.getByTestId("list-totals");
     expect(screen.getByTestId("list-totals-amount").textContent).toContain("980");
   });
 });

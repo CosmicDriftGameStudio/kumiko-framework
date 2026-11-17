@@ -112,7 +112,7 @@ import { ${camel}TranslationKeys } from "./i18n";
 import { ${camel}ItemEntity } from "./schema";
 
 export const ${camel}Feature = defineFeature(${constName(name)}, (r) => {
-  r.entity({ name: "${name}-item", ...${camel}ItemEntity });
+  r.entity(${camel}ItemEntity);
 
   // Deklarativer List-Screen — CRUD-Query kommt aus der Entity.
   // Für query-getriebene Tabellen: type "projectionList"; für
@@ -161,6 +161,7 @@ function renderEntity(name: string): string {
 import { createEntity, createTextField } from "@cosmicdrift/kumiko-framework/engine";
 
 export const ${camel}ItemEntity = createEntity({
+  name: "${name}-item",
   fields: {
     title: createTextField({
       required: true,

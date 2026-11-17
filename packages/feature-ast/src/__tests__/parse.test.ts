@@ -446,6 +446,35 @@ defineFeature("f", (r) => {
     });
   });
 
+  test("reads `{ ...ref, name }` as a raw-ref definition that overrides the referenced name", () => {
+    const result = parseInline(`
+const helpEntity = createEntity({ name: "help", fields: {} });
+defineFeature("f", (r) => {
+  r.entity({ ...helpEntity, name: "helpdesk-request" });
+});
+`);
+
+    expect(result.errors).toEqual([]);
+    expect(result.patterns[0]).toMatchObject({
+      kind: "entity",
+      entityName: "helpdesk-request",
+      definition: { __raw: "helpEntity" },
+      overridesName: true,
+    });
+  });
+
+  test("reads the name of an inline createEntity call when it is a const", () => {
+    const result = parseInline(`
+const NOTE = "note";
+defineFeature("f", (r) => {
+  r.entity(createEntity({ name: NOTE, fields: {} }));
+});
+`);
+
+    expect(result.errors).toEqual([]);
+    expect(result.patterns[0]).toMatchObject({ kind: "entity", entityName: "note" });
+  });
+
   test("keeps a factory call reference inside a nested property as a raw-ref sentinel", () => {
     const result = parseInline(`
 function buildFields() {

@@ -85,7 +85,7 @@ describe("KumikoScreen / configEdit", () => {
 
     // While the query is pending, ConfigEditBody renders the loading banner
     // rather than a form or a prematurely empty field.
-    expect(screen.getByTestId("kumiko-screen-loading")).toBeTruthy();
+    screen.getByTestId("kumiko-screen-loading");
 
     // Cleanup: resolve the query so the useEffect subscriber can unmount
     // cleanly without an open-handle warning.
@@ -355,7 +355,7 @@ describe("KumikoScreen / configEdit", () => {
         },
       });
 
-      await waitFor(() => expect(screen.getByTestId("render-edit-form-error")).toBeTruthy());
+      await waitFor(() => screen.getByTestId("render-edit-form-error"));
       expect(screen.getByTestId("field-secondName").textContent).not.toContain("Invalid format.");
     });
   });
@@ -645,7 +645,7 @@ describe("KumikoScreen / configEdit", () => {
 
     // open → panel renders all levels incl. the inactive default value
     await user.click(toggle);
-    await waitFor(() => expect(screen.getByText("fallback")).toBeTruthy());
+    await waitFor(() => screen.getByText("fallback"));
 
     // close → panel gone again
     await user.click(toggle);
@@ -671,7 +671,7 @@ describe("KumikoScreen / configEdit", () => {
     const siteInput = screen.getByTestId("field-siteName").querySelector("input");
     if (!siteInput) throw new Error("site name input not found");
     await user.type(siteInput, "!");
-    await waitFor(() => expect(screen.getByTestId("field-siteName-changed")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("field-siteName-changed"));
     expect(screen.queryByTestId("field-maxUploadMb-changed")).toBeNull();
   });
 
@@ -768,14 +768,14 @@ describe("KumikoScreen / configEdit", () => {
     await user.click(screen.getByTestId("render-edit-submit"));
 
     await waitFor(() => screen.getByTestId("kumiko-screen-error"));
-    expect(screen.getByTestId("render-edit-form")).toBeTruthy();
+    screen.getByTestId("render-edit-form");
     const uploadInput = screen.getByTestId("field-maxUploadMb").querySelector("input");
     if (!uploadInput) throw new Error("expected maxUploadMb input");
     await user.clear(uploadInput);
     await user.type(uploadInput, "30");
     expect(uploadInput.value).toBe("30");
     expect(siteInput.value).toBe("Other");
-    expect(screen.getByTestId("kumiko-screen-retry")).toBeTruthy();
+    screen.getByTestId("kumiko-screen-retry");
   });
 });
 
@@ -951,7 +951,7 @@ describe("KumikoScreen / configEdit write-only secret keys", () => {
     await user.clear(input);
     await user.click(screen.getByTestId("render-edit-submit"));
 
-    await waitFor(() => expect(screen.getByTestId("render-edit-submit")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-submit"));
     expect(batchSpy).not.toHaveBeenCalled();
   });
 

@@ -318,6 +318,7 @@ beforeEach(async () => {
   await stack.db.unsafe?.(
     `TRUNCATE kumiko_events, kumiko_snapshots, kumiko_event_consumers, handover_run, handover_photo, handover_note, handover_bundle, handover_campaign, handover_channel_text, handover_link_a, handover_link_b, handover_memo, handover_stay_memo, handover_prefixed_child, handover_prefixed_grandchild, file_refs RESTART IDENTITY CASCADE`,
   );
+  await stack.eventDispatcher?.ensureRegistered();
 });
 
 async function seedRun(tenantId: TenantId, name: string): Promise<string> {

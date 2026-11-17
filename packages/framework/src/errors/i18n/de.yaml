@@ -57,6 +57,19 @@ field_access_denied:
     (siehe [Permissions](/en/guides/field-level-permissions/)) oder fordere die
     nötige Rolle an.
 
+field_approval_required:
+  endUser: |
+    Für dieses Feld braucht es die Freigabe einer zweiten Person.
+    Reiche die Änderung als Antrag ein; jemand mit Freigaberolle übernimmt sie.
+  developer: |
+    `AccessDeniedError` beim Field-Approval-Check des Executors: eine direkte
+    Änderung an einem Feld mit `access.approve` durch einen Benutzer ohne
+    Freigaberolle.
+
+    `details.entity` und `details.fields` nennen die betroffenen Felder.
+    Reiche die Änderung über den `request-change`-Handler von field-approval
+    ein; siehe `createFieldApprovalFeature`.
+
 delete_restricted:
   endUser: |
     Dieser Eintrag kann nicht gelöscht werden weil andere Datensätze noch

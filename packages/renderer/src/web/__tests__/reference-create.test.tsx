@@ -180,11 +180,9 @@ describe("Reference-field create-in-place", () => {
 
     await waitFor(() => expect(dispatcher.writes.length).toBe(1));
     await waitFor(() => expect(screen.queryByTestId("field-name")).toBeNull());
-    expect(
-      await screen.findByText(
-        "Record was created but could not be selected automatically. Please select it manually.",
-      ),
-    ).toBeTruthy();
+    await screen.findByText(
+      "Record was created but could not be selected automatically. Please select it manually.",
+    );
     expect(screen.getByTestId("combobox-kumiko-edit-assignee").textContent).not.toContain(
       "widget-1",
     );

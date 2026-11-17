@@ -9,6 +9,7 @@ import {
 import { FIELD_CHANGE_REQUEST_ENTITY_NAME } from "../../field-approval.ts";
 import type { FieldDefinition } from "../../types/fields.ts";
 import type { FeatureDefinition } from "../../types/index.ts";
+import { BootRuleViolation } from "../boot-rule.ts";
 import { validateFieldApproval } from "../field-approval.ts";
 
 const text = () =>
@@ -47,6 +48,16 @@ function check(
   validateFieldApproval(fa, new Map(features.map((f) => [f.name, f] as const)), undefined);
 }
 
+function ruleIdOfThrown(fn: () => void): string {
+  try {
+    fn();
+  } catch (error) {
+    if (error instanceof BootRuleViolation) return error.rule.id;
+    throw error;
+  }
+  throw new Error("expected function to throw");
+}
+
 const gatedText = (access: { write?: readonly string[]; approve: readonly string[] }) =>
   createTextField({ maxLength: 34, personal: false, reason: "technical_reference", access });
 
@@ -58,17 +69,19 @@ describe("validateFieldApproval", () => {
   });
 
   test("rejects empty approve", () => {
-    expect(() => check(gatedText({ approve: [] }))).toThrow("field-approval/approve-roles-empty");
+    expect(ruleIdOfThrown(() => check(gatedText({ approve: [] })))).toBe(
+      "field-approval/approve-roles-empty",
+    );
   });
 
   test("rejects an approve role outside write", () => {
-    expect(() => check(gatedText({ approve: ["Accountant"], write: ["PM"] }))).toThrow(
+    expect(ruleIdOfThrown(() => check(gatedText({ approve: ["Accountant"], write: ["PM"] })))).toBe(
       "field-approval/approve-outside-write",
     );
   });
 
   test("rejects approve without access.write", () => {
-    expect(() => check(gatedText({ approve: ["Accountant"] }))).toThrow(
+    expect(ruleIdOfThrown(() => check(gatedText({ approve: ["Accountant"] })))).toBe(
       "field-approval/needs-write",
     );
   });
@@ -81,7 +94,7 @@ describe("validateFieldApproval", () => {
       encrypted: true,
       access: { approve: ["Accountant"], write: ["Accountant"] },
     });
-    expect(() => check(encrypted)).toThrow("field-approval/secret-field");
+    expect(ruleIdOfThrown(() => check(encrypted))).toBe("field-approval/secret-field");
   });
 
   test("accepts approve on a subject-encrypted field", () => {
@@ -95,27 +108,35 @@ describe("validateFieldApproval", () => {
   });
 
   test("rejects approve on a non-scalar field", () => {
-    expect(() => check(createMoneyField({ access: { approve: ["Accountant"] } }))).toThrow(
-      "field-approval/field-type",
-    );
+    expect(
+      ruleIdOfThrown(() => check(createMoneyField({ access: { approve: ["Accountant"] } }))),
+    ).toBe("field-approval/field-type");
   });
 
   test("rejects approve on an embedded sub-field", () => {
     const embedded = createEmbeddedField({
       iban: { type: "text", access: { approve: ["Accountant"] } },
     });
-    expect(() => check(embedded)).toThrow("field-approval/embedded-sub-field");
+    expect(ruleIdOfThrown(() => check(embedded))).toBe("field-approval/embedded-sub-field");
   });
 
   test("rejects approve without the request entity", () => {
-    expect(() =>
-      check(gatedText({ approve: ["Accountant"], write: ["Accountant"] }), { requests: undefined }),
-    ).toThrow("field-approval/needs-feature");
+    expect(
+      ruleIdOfThrown(() =>
+        check(gatedText({ approve: ["Accountant"], write: ["Accountant"] }), {
+          requests: undefined,
+        }),
+      ),
+    ).toBe("field-approval/needs-feature");
   });
 
   test("rejects approve when the host is not among the parents", () => {
-    expect(() =>
-      check(gatedText({ approve: ["Accountant"], write: ["Accountant"] }), { requests: ["other"] }),
-    ).toThrow("field-approval/needs-feature");
+    expect(
+      ruleIdOfThrown(() =>
+        check(gatedText({ approve: ["Accountant"], write: ["Accountant"] }), {
+          requests: ["other"],
+        }),
+      ),
+    ).toBe("field-approval/needs-feature");
   });
 });

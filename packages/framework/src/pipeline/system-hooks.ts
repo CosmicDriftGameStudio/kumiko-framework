@@ -792,7 +792,7 @@ export function createSseBroadcastEventConsumer(sseBroker: SseBroker): EventCons
 //   "tenant-membership.updated" / "tenant-membership.deleted" — role change
 //     or member removal. updated takes userId from payload.changes, else from
 //     the live membership row (an update only carries the changed fields, e.g.
-//     { roles }); deleted takes it from payload.previous, the whole row.
+//     { roles }); deleted takes it from payload.previous, the row's plaintext columns.
 //     tenantMembershipEntity declares no encrypted/PII fields, so userId is
 //     plaintext — no KMS decrypt step. update-member-roles writes with
 //     streamTenantId = the target tenant, so stream tenant and row tenant are

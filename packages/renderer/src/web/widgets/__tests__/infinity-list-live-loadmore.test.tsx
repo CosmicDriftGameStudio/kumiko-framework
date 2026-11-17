@@ -79,7 +79,7 @@ describe("InfinityList: live refresh racing a load-more", () => {
     await flushPromises();
     resolvers[0]?.(success([{ id: "m1", subject: "Mail (ungelesen)" }], "c1"));
     await flushPromises();
-    expect(screen.getByText("Mail (ungelesen)")).toBeTruthy();
+    screen.getByText("Mail (ungelesen)");
 
     act(() =>
       emit?.({
@@ -111,8 +111,8 @@ describe("InfinityList: live refresh racing a load-more", () => {
     resolvers[3]?.(success([{ id: "m1", subject: "Mail (gelesen)" }], "c1"));
     await flushPromises();
 
-    expect(screen.getByText("Older mail")).toBeTruthy();
-    expect(screen.getByText("Mail (gelesen)")).toBeTruthy();
+    screen.getByText("Older mail");
+    screen.getByText("Mail (gelesen)");
     expect(screen.queryByText("Mail (ungelesen)")).toBeNull();
   });
 
@@ -175,7 +175,7 @@ describe("InfinityList: live refresh racing a load-more", () => {
     calls[2]?.resolve(success([{ id: "m2", subject: "New filter row" }], null));
     await flushPromises();
     expect(screen.queryByText("Old filter row")).toBeNull();
-    expect(screen.getByText("New filter row")).toBeTruthy();
+    screen.getByText("New filter row");
   });
 
   test("a live event of the new payload that arrives while the old payload's refresh is running is refreshed right away instead of parked behind it", async () => {
@@ -239,6 +239,6 @@ describe("InfinityList: live refresh racing a load-more", () => {
     expect(screen.queryByText("Old filter row")).toBeNull();
     calls[3]?.resolve(success([{ id: "m1", subject: "New filter row (live)" }], null));
     await flushPromises();
-    expect(screen.getByText("New filter row (live)")).toBeTruthy();
+    screen.getByText("New filter row (live)");
   });
 });

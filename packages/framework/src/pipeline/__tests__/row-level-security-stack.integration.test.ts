@@ -58,7 +58,7 @@ const tenantFeature = defineFeature("rlsstack", (r) => {
       name: "list-all-tenants",
       schema: listAllSchema,
       access: { roles: ["Admin"] },
-      escapeHatch: { reason: CROSS_TENANT_REASON, grants: ["systemIdentity"] },
+      escapeHatch: { reason: CROSS_TENANT_REASON, grants: ["unsafeRaw"] },
       perform: stepsPipeline<z.infer<typeof listAllSchema>, { labels: string[] }>(({ r: step }) => [
         step.step.read.findMany("items", {
           table: itemsTable,

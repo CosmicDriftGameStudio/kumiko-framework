@@ -91,7 +91,7 @@ import { recordCheckoutOpenedHandler } from "./handlers/record-checkout-opened.w
 import { createStartPlanCheckoutHandler } from "./handlers/start-plan-checkout.write.ts";
 import { createSwitchPlanHandler } from "./handlers/switch-plan.write.ts";
 import { syncSubscriptionHandler } from "./handlers/sync-subscription.write.ts";
-import { BILLING_FOUNDATION_I18N } from "./i18n.ts";
+import { BILLING_FOUNDATION_HANDLER_I18N, BILLING_FOUNDATION_I18N } from "./i18n.ts";
 import {
   applyInvoicePaid,
   applyInvoicePaymentFailed,
@@ -104,6 +104,7 @@ import {
 } from "./projection.ts";
 import { createBillingPlansScreen } from "./screens.ts";
 import { registerScrubRawPayloadHeadersJob } from "./scrub-raw-payload-headers.ts";
+import { registerSyncSubscriptionsJob } from "./sync-subscriptions-job.ts";
 import {
   PAYMENT_TENANT_DESTROY_ARCHIVE_REASON,
   paymentTenantDestroyHook,
@@ -112,11 +113,7 @@ import {
 } from "./tenant-destroy-hook.ts";
 import type { BillingFoundationOptions, ResolvedBillingFoundationOptions } from "./types.ts";
 import { validateOptions } from "./validate-options.ts";
-import {
-  BILLING_FOUNDATION_FEATURE,
-  SUBSCRIPTION_PROVIDER_EXTENSION,
-  SubscriptionFoundationHandlers,
-} from "./web/constants.ts";
+import { BILLING_FOUNDATION_FEATURE, SUBSCRIPTION_PROVIDER_EXTENSION } from "./web/constants.ts";
 
 export function createBillingFoundationFeature<TTier extends string = string>(
   options: BillingFoundationOptions<TTier> = {},
@@ -244,6 +241,7 @@ export function createBillingFoundationFeature<TTier extends string = string>(
       // fire from create-checkout-session even without a catalog — register
       // unconditionally rather than splitting the i18n surface by option.
       r.translations({ keys: BILLING_FOUNDATION_I18N });
+      r.translations({ keys: BILLING_FOUNDATION_HANDLER_I18N });
       if (widened.consumerProtection) {
         registerConsumerProtection(r, widened, widened.consumerProtection);
       }
@@ -260,30 +258,7 @@ export function createBillingFoundationFeature<TTier extends string = string>(
         r.screen(createBillingPlansScreen(catalog.viewRoles));
       }
 
-      // Daily drift sync in the maintenance window: catches provider-side changes that never
-      // reached us as a webhook; a found change appends a state event and the
-      // subscription-tier-sync job takes the tier along. Not on boot, so a deploy does not
-      // fire one provider call per tenant. Registered unconditionally, same reasoning as the
-      // sync-subscription write-handler above.
-      r.job({
-        name: "sync-subscriptions",
-        trigger: { maintenance: true },
-        perTenant: true,
-        handler: async (_payload, ctx) => {
-          const result = await ctx.dispatch.write(
-            SubscriptionFoundationHandlers.syncSubscription,
-            {},
-          );
-          if (!result.isSuccess) {
-            throw new Error(
-              `billing-foundation:sync-subscriptions: sync-subscription write failed: ${JSON.stringify(result.error)}`,
-            );
-          }
-          ctx.obs.log.info(
-            `[billing-foundation:sync-subscriptions] ${JSON.stringify(result.data)}`,
-          );
-        },
-      });
+      registerSyncSubscriptionsJob(r);
       registerScrubRawPayloadHeadersJob(r);
       r.applyExtension({
         name: EXT_TENANT_DATA,

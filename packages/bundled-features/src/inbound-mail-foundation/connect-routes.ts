@@ -95,6 +95,49 @@ function connectRoleRefusal(
   return undefined;
 }
 
+function browserBindingRefusal(c: Context, expectedBinding: string): Response | undefined {
+  const bindingCookie = getCookie(c, OAUTH_BROWSER_BINDING_COOKIE);
+  if (bindingCookie !== undefined && oauthBrowserBinding(bindingCookie) === expectedBinding) {
+    return undefined;
+  }
+  return errorJson(
+    c,
+    403,
+    "state_browser_mismatch",
+    `${INBOUND_MAIL_FOUNDATION_FEATURE}: this connect flow was started in another browser; start it again here`,
+  );
+}
+
+type OAuthFlow = NonNullable<ReturnType<typeof resolveInboundProviderForKey>["oauth"]>;
+
+function oauthFlowOrRefusal(
+  c: Context,
+  providerCtx: InboundMailContext,
+  providerKey: string,
+): OAuthFlow | Response {
+  let plugin: ReturnType<typeof resolveInboundProviderForKey>;
+  try {
+    plugin = resolveInboundProviderForKey(providerCtx, providerKey);
+  } catch (e) {
+    return errorJson(c, 404, "provider_not_registered", e instanceof Error ? e.message : String(e));
+  }
+  if (!plugin.oauth) return errorJson(c, 400, "provider_has_no_oauth_flow", providerKey);
+  return plugin.oauth;
+}
+
+function connectSuccessResponse(
+  c: Context,
+  successRedirectUrl: string | undefined,
+  accountId: string,
+): Response {
+  if (successRedirectUrl) {
+    const target = new URL(successRedirectUrl);
+    target.searchParams.set("accountId", accountId);
+    return c.redirect(target.toString(), 302);
+  }
+  return c.json({ connected: true, accountId }, 200);
+}
+
 export type InboundMailConnectRoutesOptions = {
   /** HMAC-secret for the state param (deploy-time env — `scope:"system"`
    *  secrets don't exist in secrets-v1). */
@@ -208,18 +251,8 @@ export function createInboundMailConnectRoutes(
       deps: SignatureExtraRouteDeps,
     ): Promise<Response> => {
       const { code, state } = verified;
-      const bindingCookie = getCookie(c, OAUTH_BROWSER_BINDING_COOKIE);
-      if (
-        bindingCookie === undefined ||
-        oauthBrowserBinding(bindingCookie) !== state.browserBinding
-      ) {
-        return errorJson(
-          c,
-          403,
-          "state_browser_mismatch",
-          `${INBOUND_MAIL_FOUNDATION_FEATURE}: this connect flow was started in another browser; start it again here`,
-        );
-      }
+      const bindingRefusal = browserBindingRefusal(c, state.browserBinding);
+      if (bindingRefusal) return bindingRefusal;
       // Checked before exchangeCode/connectAccount: the code is single-use and
       // an account created without a persistable refresh token is an orphan.
       // `deps.secrets` is optional on SignatureExtraRouteDeps.
@@ -238,24 +271,12 @@ export function createInboundMailConnectRoutes(
         ...(options.metricsFor && { metricsFor: options.metricsFor }),
       };
 
-      let plugin: ReturnType<typeof resolveInboundProviderForKey>;
-      try {
-        plugin = resolveInboundProviderForKey(providerCtx, state.providerKey);
-      } catch (e) {
-        return errorJson(
-          c,
-          404,
-          "provider_not_registered",
-          e instanceof Error ? e.message : String(e),
-        );
-      }
-      if (!plugin.oauth) {
-        return errorJson(c, 400, "provider_has_no_oauth_flow", state.providerKey);
-      }
+      const oauth = oauthFlowOrRefusal(c, providerCtx, state.providerKey);
+      if (oauth instanceof Response) return oauth;
 
-      let tokens: Awaited<ReturnType<NonNullable<typeof plugin.oauth>["exchangeCode"]>>;
+      let tokens: Awaited<ReturnType<OAuthFlow["exchangeCode"]>>;
       try {
-        tokens = await plugin.oauth.exchangeCode(providerCtx, {
+        tokens = await oauth.exchangeCode(providerCtx, {
           code,
           redirectUri: options.callbackUrl,
         });
@@ -328,12 +349,7 @@ export function createInboundMailConnectRoutes(
         payload: { accountId },
       });
 
-      if (options.successRedirectUrl) {
-        const target = new URL(options.successRedirectUrl);
-        target.searchParams.set("accountId", accountId);
-        return c.redirect(target.toString(), 302);
-      }
-      return c.json({ connected: true, accountId }, 200);
+      return connectSuccessResponse(c, options.successRedirectUrl, accountId);
     },
   });
 

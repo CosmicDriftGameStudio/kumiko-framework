@@ -11,7 +11,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { normalizeEmail, requireSystemDb, sendBestEffort } from "../../shared/index.ts";
+import { normalizeEmail, sendBestEffort } from "../../shared/index.ts";
 import { platformActor, waitlistDb, waitlistExecutor } from "../lib.ts";
 import {
   resolveWaitlistMailLocale,
@@ -107,7 +107,9 @@ export function createSubmitHandler(opts: WaitlistOptions) {
     name: "submit",
     schema: WaitlistSubmitSchema,
     access: { roles: ["anonymous"], personalData: "public-intake", anySignedIn: true },
+    systemScope: true,
     rateLimit: opts.rateLimit ?? DEFAULT_SUBMIT_RATE_LIMIT,
+    agent: { expose: false },
     tenantlessAnonymous: true,
     // An empty array means "disabled"; boot validation rejects an empty additionalRateLimits.
     ...(emailRateLimits.length > 0 && { additionalRateLimits: emailRateLimits }),
@@ -119,7 +121,7 @@ export function createSubmitHandler(opts: WaitlistOptions) {
       if (isHoneypotFilled(payload)) return SUBMITTED;
 
       const email = normalizeEmail(payload.email);
-      const systemDb = requireSystemDb(ctx, "waitlist:submit");
+      const { systemDb } = ctx;
       const adminRecipient = await resolveAdminRecipient(opts, ctx, systemDb, event.user.tenantId);
       await acquireNamespacedAdvisoryLock(
         systemDb.unsafeRaw(SUBMIT_LOCK_REASON),

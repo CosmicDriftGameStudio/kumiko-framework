@@ -103,12 +103,12 @@ describe("projectionList rowDecoration", () => {
   test("one call with the page ids and params merges fields, tone stripe and collisions into the rows", async () => {
     const { query, calls } = mockQueries(ORDER_ROWS, decorateOrders, LIST_QUERY);
     renderProjection(query);
-    await waitFor(() => expect(screen.getByText("Call customer")).toBeTruthy());
+    await waitFor(() => screen.getByText("Call customer"));
 
     const decorationCalls = calls.filter((call) => call.type === DECORATION_QUERY);
     expect(decorationCalls).toHaveLength(1);
     expect(decorationCalls[0]?.payload).toEqual({ scope: "mine", ids: ["o1", "o2"] });
-    expect(screen.getByText("today")).toBeTruthy();
+    screen.getByText("today");
     expect(screen.getByText("Order 1").closest("tr")?.className).toContain("--color-status-bad");
     expect(screen.getByText("Order 2").closest("tr")?.className).toContain("--color-status-ok");
     expect(screen.getByTestId("cell-o1-stage").textContent).toBe("overdue");
@@ -123,7 +123,7 @@ describe("projectionList rowDecoration", () => {
     );
     renderProjection(query);
     await waitFor(() => expect(calls.some((call) => call.type === DECORATION_QUERY)).toBe(true));
-    await waitFor(() => expect(screen.getByText("Order 1")).toBeTruthy());
+    await waitFor(() => screen.getByText("Order 1"));
     expect(screen.getAllByText("raw")).toHaveLength(2);
     expect(screen.queryByText("decoration down")).toBeNull();
     expect(screen.queryByText("Call customer")).toBeNull();
@@ -139,9 +139,9 @@ describe("entityList rowDecoration", () => {
       "shop:query:task:list",
     );
     renderEntity(query);
-    await waitFor(() => expect(screen.getByText("In review")).toBeTruthy());
+    await waitFor(() => screen.getByText("In review"));
 
-    expect(screen.getByText("Stage")).toBeTruthy();
+    screen.getByText("Stage");
     expect(screen.getByText("Write report").closest("tr")?.className).toContain(
       "--color-status-warn",
     );

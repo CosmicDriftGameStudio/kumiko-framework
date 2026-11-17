@@ -5,9 +5,9 @@
 
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import {
+  defineWriteHandler,
   type SessionUser,
   SYSTEM_USER_ID,
-  type WriteHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { failNotFound, failUnprocessable } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
@@ -45,7 +45,6 @@ export const updateAccountSchema = z
     reason: z.string().min(1).max(100).optional(),
   })
   .strict();
-type UpdateAccountPayload = z.infer<typeof updateAccountSchema>;
 
 const SYSTEM_FALLBACK_REASON = "system";
 
@@ -54,16 +53,15 @@ export function auditReasonFor(user: SessionUser, requestedReason: string | unde
   return user.roles.includes(ROLES.SystemAdmin) ? "system_admin" : "tenant_admin";
 }
 
-export function createUpdateAccountHandler({ adminRoles }: InboundMailRoles): WriteHandlerDef {
-  return {
+export function createUpdateAccountHandler({ adminRoles }: InboundMailRoles) {
+  return defineWriteHandler({
     name: "update-account",
     schema: updateAccountSchema,
     access: { roles: accessRolesOf(InboundMailFoundationHandlers.updateAccount, adminRoles) },
     description:
       "Renames a connected mailbox (display name) as a new snapshot with an audit reason, rejecting any change to an already disconnected mailbox; status, error and watch state are reserved for the system identity.",
     handler: async (event, ctx) => {
-      // @cast-boundary engine-payload — dispatcher-zod-validated payload
-      const payload = event.payload as UpdateAccountPayload;
+      const payload = event.payload;
 
       // Status, error and watch state are machine signals of the supervisor and the OAuth refresh; an admin
       // setting them could hide an auth error or fake an active mailbox.
@@ -112,5 +110,5 @@ export function createUpdateAccountHandler({ adminRoles }: InboundMailRoles): Wr
 
       return { isSuccess: true as const, data: { accountId: payload.accountId } };
     },
-  };
+  });
 }

@@ -1,7 +1,7 @@
 ---
 status: reference
 verified: 2026-11-17
-evidence: "packages/framework/src/db/tenant-db-system-db.ts, packages/types/src/handlers.ts, packages/types/src/handler-context-facets.ts, packages/types/src/handler-context-services.ts, packages/types/src/config.ts"
+evidence: "packages/framework/src/db/tenant-db-system-db.ts, packages/framework/src/engine/define-handler.ts, packages/types/src/handlers.ts, packages/types/src/handler-context-facets.ts, packages/types/src/handler-context-services.ts, packages/types/src/config.ts"
 ---
 
 # Handler context and embedded fields
@@ -189,10 +189,15 @@ work (platform admin screens, cross-tenant jobs) but is easy to get wrong —
 a handler that forgets its own tenant self-check silently reads or writes
 another tenant's rows.
 
-`HandlerContext.systemDb?: UncheckedSystemDb` exists to make that self-check
-explicit instead of optional convention. It is populated whenever
-`r.systemScope()` is set on the calling feature; check for `undefined` before
-use, since a handler on a tenant-scoped feature never receives it. It offers
+`HandlerContext.systemDb?: UncheckedSystemDb` makes that self-check explicit
+instead of convention. The field is set when the calling feature sets
+`r.systemScope()`. A handler that declares `systemScope: true` with
+`defineWriteHandler`/`defineQueryHandler` gets a `SystemScopeHandlerContext`,
+where `ctx.systemDb` is not optional. Boot rejects the marker in a feature
+without `r.systemScope()`. If the handler runs without `systemDb` (no db
+wired), the dispatch throws with the handler name. Jobs, hooks and helpers that
+take a general `HandlerContext` keep checking with
+`requireSystemDb(ctx, name)`. `systemDb` offers
 five methods. `scopedTo` returns a tenant-mode `TenantDb`; `assertTenantMatch`
 and `acknowledgeCrossTenant` return the unfiltered system-mode `TenantDb`;
 `assertRowsTenant` returns the rows it checked, and `unsafeRaw` returns a raw
@@ -236,9 +241,7 @@ two-branch shape: a `SystemAdmin` update is cross-tenant by design, while a
 tenant-scoped `Admin` must be checked against the row being edited.
 
 ```ts illustration
-if (!ctx.systemDb) {
-  throw new InternalError({ message: "requires ctx.systemDb — is r.systemScope() set?" });
-}
+// handler declared with systemScope: true, so ctx.systemDb is present
 
 if (event.user.roles.includes("SystemAdmin")) {
   const db = ctx.systemDb.acknowledgeCrossTenant("SystemAdmin is platform-wide by design");

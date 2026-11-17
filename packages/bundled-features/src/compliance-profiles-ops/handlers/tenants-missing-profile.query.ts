@@ -2,7 +2,6 @@ import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import { defineQueryHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { tenantComplianceProfileTable } from "../../compliance-profiles/index.ts";
-import { requireSystemDb } from "../../shared/index.ts";
 import { decryptTenantNames, tenantTable } from "../../tenant/index.ts";
 
 // SystemAdmin platform-wide counterpart to needs-profile.
@@ -20,10 +19,11 @@ export const tenantsMissingProfileQuery = defineQueryHandler({
   name: "tenants-missing-profile",
   schema: z.object({}),
   access: { roles: [ROLES.SystemAdmin] },
+  systemScope: true,
   description:
     "Lists every enabled tenant that has never selected a compliance profile, for the platform operator sweeping the whole installation; needs-profile answers the same question but only for the caller's own tenant.",
   handler: async (_query, ctx): Promise<TenantsMissingProfileResponse> => {
-    const systemDb = requireSystemDb(ctx, "compliance-profiles-ops:tenants-missing-profile");
+    const { systemDb } = ctx;
     const db = systemDb.acknowledgeCrossTenant(
       "platform operator scans every tenant for a missing compliance-profile selection",
     );

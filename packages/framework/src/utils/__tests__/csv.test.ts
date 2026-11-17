@@ -12,6 +12,7 @@ describe("parseCsv", () => {
       'say "hi"',
     ]);
     expect(parseCsv('a,"b,c",d', comma).records[0]?.cells).toEqual(["a", "b,c", "d"]);
+    expect(parseCsv('a|"b|c"|d', { delimiter: "|" }).records[0]?.cells).toEqual(["a", "b|c", "d"]);
   });
 
   test("keeps a multi-line quoted cell as one cell and counts lines", () => {

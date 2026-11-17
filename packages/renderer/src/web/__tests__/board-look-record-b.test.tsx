@@ -81,11 +81,11 @@ describe("header actions", () => {
   test("a destructive action is an item of the overflow menu, not a head button", async () => {
     render(<Bar />);
     expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Approve" })).toBeTruthy();
+    screen.getByRole("button", { name: "Approve" });
     await userEvent
       .setup()
       .click(screen.getByTestId("kumiko-screen-projection-detail-actions-overflow"));
-    expect(await screen.findByText("Delete")).toBeTruthy();
+    await screen.findByText("Delete");
   });
 });
 
@@ -155,15 +155,19 @@ describe("configEdit compact", () => {
     );
     await waitFor(() => screen.getByTestId("render-edit-form"));
     const compact = screen.getByTestId("config-edit-compact");
-    expect(screen.getByTestId("render-edit-form").firstElementChild?.className).toContain(
-      "max-w-[940px]",
-    );
+    const cappedColumn = screen
+      .getByTestId("render-edit-form")
+      .querySelector('[class~="max-w-[940px]"]');
+    expect(cappedColumn).not.toBeNull();
+    expect(cappedColumn?.className).toContain("mx-0");
+    expect(cappedColumn?.textContent).toContain("Basics");
     expect(compact.querySelector("svg.pointer-events-none")).toBeNull();
     expect(compact.className).toContain("h-full");
     // The save bar is pinned below the capped column: full width, separator line, not inside the cap.
     const bar = screen.getByTestId("render-edit-form-unsaved").closest(".border-t");
     expect(bar).not.toBeNull();
     expect(bar?.closest("form")?.firstElementChild?.contains(bar as Node)).toBe(false);
+    expect(cappedColumn?.contains(bar)).toBe(false);
     expect(screen.queryByTestId("config-cascade")).toBeNull();
     expect(document.querySelector("[data-testid$='-accent']")).toBeNull();
   });

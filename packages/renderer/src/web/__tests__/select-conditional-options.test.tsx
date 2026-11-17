@@ -46,7 +46,7 @@ describe("RenderEdit select conditionalOptions", () => {
     await act(async () => {
       fireEvent.click(screen.getByTestId("combobox-kumiko-edit-interval"));
     });
-    expect(await screen.findByTestId("combobox-kumiko-edit-interval-option-300")).toBeTruthy();
+    await screen.findByTestId("combobox-kumiko-edit-interval-option-300");
     expect(screen.queryByTestId("combobox-kumiko-edit-interval-option-3600")).toBeNull();
 
     await act(async () => {
@@ -59,6 +59,6 @@ describe("RenderEdit select conditionalOptions", () => {
       fireEvent.click(screen.getByTestId("combobox-kumiko-edit-interval"));
     });
 
-    expect(await screen.findByTestId("combobox-kumiko-edit-interval-option-3600")).toBeTruthy();
+    await screen.findByTestId("combobox-kumiko-edit-interval-option-3600");
   });
 });

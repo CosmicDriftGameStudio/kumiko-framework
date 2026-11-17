@@ -12,7 +12,6 @@ import {
   type TenantExistenceProvider,
   type TenantResolverProvider,
 } from "../auth-foundation/index.ts";
-import { requireSystemDb } from "../shared/index.ts";
 import {
   HOST_HEADER_MAX_LENGTH,
   HOST_ROUTING_FEATURE,
@@ -116,8 +115,9 @@ const tenantKeyExistsQuery = defineQueryHandler({
   agent: { expose: false },
   description:
     "Anonymous existence check for a tenant key, backing the unknown-tenant 404 of the host-routing hostDispatch. Returns only { exists }.",
+  systemScope: true,
   handler: async (query, ctx) => {
-    const systemDb = requireSystemDb(ctx, "host-routing:query:tenant-key-exists");
+    const { systemDb } = ctx;
     const db = systemDb.acknowledgeCrossTenant(
       "tenant-key existence check for the host-routing 404 — publicly observable via the 404 itself",
     );
@@ -135,8 +135,9 @@ function hostTenantExistsQueryFor(options: HostRoutingOptions) {
     agent: { expose: false },
     description:
       "Anonymous host check backing the unknown-host 404 of the host-routing hostDispatch in tenantBy resolver mode. Returns only { exists }.",
+    systemScope: true,
     handler: async (query, ctx) => {
-      const systemDb = requireSystemDb(ctx, "host-routing:query:host-tenant-exists");
+      const { systemDb } = ctx;
       const hostname = normalizeHostname(query.payload.host);
       if (hostname === null) return { exists: false };
       const db = systemDb.acknowledgeCrossTenant(

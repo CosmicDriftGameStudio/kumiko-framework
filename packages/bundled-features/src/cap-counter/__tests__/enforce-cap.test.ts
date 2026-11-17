@@ -1,13 +1,13 @@
-// Pure unit tests for the enforce-cap helpers. Mocks ctx.db's
-// select-chains via tiny in-memory stubs so we hit every branch
-// without spinning up the test-stack — the real event-store +
-// dispatcher integration is exercised in cap-counter.integration.ts.
+// Pure unit tests for the enforce-cap helpers. ctx.db is a stub that serves the counter row, so
+// every threshold branch runs without the test stack; the store-table path against Postgres is
+// exercised in cap-counter.integration.test.ts.
 
 import { describe, expect, mock, test } from "bun:test";
 // Temporal: rely on the global ambient declaration from temporal-spec.
 // The framework polyfill is loaded by setupTestStack, but pure unit
 // tests (no stack) need a manual polyfill — vitest.setup.ts does that.
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import type { CalendarCapCounter } from "../book-cap-usage.ts";
 import {
   assertBelowHardCap,
   CAP_TOLERANCES,
@@ -18,39 +18,12 @@ import {
   enforceCapAndMaybeNotify,
 } from "../enforce-cap.ts";
 
-// Test-mock: ctx.db exposes TenantDb-style selectMany (production path)
-// plus legacy drizzle .select().from().where() chain stubs.
-
-function makeMockDb(rows: unknown[]) {
-  // Honors the event `type` filter; every other filter is ignored.
-  const selectMany = async (
-    _table: unknown,
-    where?: { type?: string },
-    options?: { limit?: number },
-  ) => {
-    const matching =
-      where?.type === undefined
-        ? rows
-        : rows.filter((row) => (row as { type?: string }).type === where.type);
-    return options?.limit !== undefined ? matching.slice(0, options.limit) : matching;
-  };
-  return {
-    unsafe: async () => rows,
-    selectMany,
-    begin: async <T>(fn: (tx: unknown) => Promise<T>) =>
-      fn({ unsafe: async () => rows, selectMany, begin: async () => undefined }),
-    select: () => ({
-      from: () => ({
-        where: Object.assign(async () => rows, {
-          // calendar path also chains .limit(1) after .where()
-          limit: async () => rows,
-        }),
-      }),
-    }),
-  };
+// enforceCap reads the counter row through TenantDb.fetchOne; the stub serves the one seeded row.
+function makeMockDb(rows: readonly CalendarCapCounter[]) {
+  return { fetchOne: async () => rows[0] };
 }
 
-function stubCalendarCtx(rows: { value: number; lastSoftWarnedAt: unknown }[]) {
+function stubCalendarCtx(rows: readonly CalendarCapCounter[]) {
   const ctx = {
     db: makeMockDb(rows),
     user: { tenantId: "tenant-test" },
@@ -101,7 +74,9 @@ describe("enforceCap — burstable profile (mails / tokens)", () => {
   });
 
   test("value past soft, already warned → soft-hit, crossed=false (no re-notification)", async () => {
-    const ctx = stubCalendarCtx([{ value: 1150, lastSoftWarnedAt: "2026-05-15T12:00:00Z" }]);
+    const ctx = stubCalendarCtx([
+      { value: 1150, lastSoftWarnedAt: Temporal.Instant.from("2026-05-15T12:00:00Z") },
+    ]);
     const result = await enforceCap(ctx, opts);
     expect(result.state).toBe("soft-hit");
     if (result.state === "soft-hit") {
@@ -221,7 +196,9 @@ describe("enforceCapAndMaybeNotify — calendar", () => {
   // scenario 6 instead of a mock-ctx test here.
 
   test("soft-hit, crossed=false (already warned) → notifier not called again", async () => {
-    const ctx = stubCalendarCtx([{ value: 1150, lastSoftWarnedAt: "2026-05-15T12:00:00Z" }]);
+    const ctx = stubCalendarCtx([
+      { value: 1150, lastSoftWarnedAt: Temporal.Instant.from("2026-05-15T12:00:00Z") },
+    ]);
     const notify = mock();
     const result = await enforceCapAndMaybeNotify(ctx, { ...baseOpts, notify });
     expect(result.state).toBe("soft-hit");

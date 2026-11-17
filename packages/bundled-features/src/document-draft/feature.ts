@@ -12,7 +12,7 @@ import { createFinalizeHandler } from "./handlers/finalize.write.ts";
 import { createPatchHandler } from "./handlers/patch.write.ts";
 import { createReviseHandler } from "./handlers/revise.write.ts";
 import { createSaveHandler } from "./handlers/save.write.ts";
-import { DOCUMENT_DRAFT_I18N } from "./i18n.ts";
+import { DOCUMENT_DRAFT_HANDLER_I18N, DOCUMENT_DRAFT_I18N } from "./i18n.ts";
 import { DEFAULT_DOCUMENT_DRAFT_ACCESS } from "./lib.ts";
 import type { DocumentDraftOptions } from "./options.ts";
 import { createDocumentDraftEditorScreen } from "./screens/editor-screen.ts";
@@ -32,6 +32,7 @@ export function createDocumentDraftFeature(opts: DocumentDraftOptions): FeatureD
       features: ["files", "template-resolver", "user-data-rights", "renderer-puppeteer-client"],
     });
     r.translations({ keys: DOCUMENT_DRAFT_I18N });
+    r.translations({ keys: DOCUMENT_DRAFT_HANDLER_I18N });
 
     r.entity(entity);
 

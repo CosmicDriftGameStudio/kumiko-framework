@@ -172,7 +172,7 @@ describe("NotificationBell", () => {
         </LiveEventsProvider>
       </DispatcherProvider>,
     );
-    expect(screen.getByRole("button", { name: "Assistant" })).toBeTruthy();
+    screen.getByRole("button", { name: "Assistant" });
     expect(screen.queryByRole("button", { name: /Notifications/ })).toBeNull();
   });
 
@@ -208,8 +208,8 @@ describe("NotificationBell", () => {
     const navigated: unknown[] = [];
     mount("channel-in-app", makeDispatcher(calls, { count: 1 }), makeLive().subscriber, navigated);
     fireEvent.click(await screen.findByRole("button", { name: "Notifications, 1 unread" }));
-    expect(await screen.findByText("Printer is down")).toBeTruthy();
-    expect(screen.getByText("Welcome")).toBeTruthy();
+    await screen.findByText("Printer is down");
+    screen.getByText("Welcome");
 
     fireEvent.click(screen.getByText("Ticket assigned"));
     await waitFor(() => expect(navigated).toEqual([{ screenId: "detail", entityId: "t-7" }]));
@@ -275,7 +275,7 @@ describe("NotificationBell", () => {
     });
 
     expect(screen.queryByText("Stale older row")).toBeNull();
-    expect(screen.getByRole("button", { name: "Load more" })).toBeTruthy();
+    screen.getByRole("button", { name: "Load more" });
   });
 
   test("a delivered signal refetches the count", async () => {
@@ -287,7 +287,7 @@ describe("NotificationBell", () => {
 
     unread.count = 4;
     act(() => live.emit("channel-in-app:event:delivered"));
-    expect(await screen.findByRole("button", { name: "Notifications, 4 unread" })).toBeTruthy();
+    await screen.findByRole("button", { name: "Notifications, 4 unread" });
   });
 });
 
@@ -325,7 +325,7 @@ describe("NotificationBell in the overflow menu", () => {
     fireEvent.click(screen.getByTestId("shell-header-overflow-trigger"));
     fireEvent.click(await screen.findByTestId("notification-bell-menu-item"));
 
-    expect(await screen.findByText("Printer is down")).toBeTruthy();
+    await screen.findByText("Printer is down");
     expect(screen.getByTestId("shell-header-overflow").hasAttribute("hidden")).toBe(true);
 
     fireEvent.click(screen.getByText("Ticket assigned"));
@@ -384,7 +384,7 @@ describe("NotificationBell in the overflow menu", () => {
       },
     );
     fireEvent.click(screen.getByTestId("shell-header-overflow-trigger"));
-    expect(screen.getByTestId("notification-bell-menu-item")).toBeTruthy();
+    screen.getByTestId("notification-bell-menu-item");
     expect(screen.getByTestId("shell-header-overflow").querySelector("hr")).toBeNull();
   });
 

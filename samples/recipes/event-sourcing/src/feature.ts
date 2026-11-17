@@ -25,6 +25,7 @@ import {
   incrementCounter,
   insertOne,
   insertProjectedEntityRow,
+  patchProjectedEntityRow,
   updateMany,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -175,16 +176,29 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
   });
 
   // A domain event on the invoice stream writes a row of another entity; the helper fills
-  // tenant, version and the insert audit columns from the event.
+  // tenant, version and the insert audit columns from the event. A repeated payment updates
+  // the one receipt.
   const receiptApply: ProjectionDefinition["apply"] = {
     [paid.name]: async (event, tx) => {
       const p = typedPayload(event, paid);
+      const rowId = receiptIdOf(event);
+      const amountLabel = String(p.amountCents);
+      if (await fetchOne(tx, receiptTable, { id: rowId })) {
+        await patchProjectedEntityRow(
+          tx,
+          { entityName: "showcase-receipt", entity: receiptEntity, table: receiptTable },
+          event,
+          rowId,
+          { amountLabel },
+        );
+        return;
+      }
       await insertProjectedEntityRow(
         tx,
         { entityName: "showcase-receipt", entity: receiptEntity, table: receiptTable },
         event,
-        receiptIdOf(event),
-        { invoiceId: event.aggregateId, amountLabel: String(p.amountCents) },
+        rowId,
+        { invoiceId: event.aggregateId, amountLabel },
       );
     },
   };

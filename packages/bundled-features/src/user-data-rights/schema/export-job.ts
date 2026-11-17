@@ -58,7 +58,7 @@ const EXPORT_JOB_STATUS_OPTIONS = [
 // job-run logger, and audit events for the DPO). Serial IDs are only reliable
 // within one process; UUIDs remain stable across processes.
 export const exportJobEntity = createEntity({
-  name: "exportJob",
+  name: "export-job",
   table: "read_export_jobs",
   idType: "uuid",
   description:

@@ -141,12 +141,12 @@ describe("RenderList createPlacement", () => {
   test("toolbar: a compact header keeps the only create button", () => {
     renderList(true, "toolbar");
     expect(rtlScreen.getAllByTestId("render-list-create")).toHaveLength(1);
-    expect(within(rtlScreen.getByRole("banner")).getByTestId("render-list-create")).toBeTruthy();
+    within(rtlScreen.getByRole("banner")).getByTestId("render-list-create");
   });
 
   test("header (default): the create button stays in the header", () => {
     renderList(false, "header");
-    expect(within(rtlScreen.getByRole("banner")).getByTestId("render-list-create")).toBeTruthy();
+    within(rtlScreen.getByRole("banner")).getByTestId("render-list-create");
     expect(
       within(rtlScreen.getByTestId("toolbar-end")).queryByTestId("render-list-create"),
     ).toBeNull();
@@ -165,9 +165,7 @@ describe("RenderList toolbarActionsPlacement", () => {
 
   test("toolbar: below md the action stays in the header", () => {
     renderList(true, "header", { toolbarActionsPlacement: "toolbar" }, true);
-    expect(
-      within(rtlScreen.getByRole("banner")).getByTestId("render-list-toolbar-action-new-contract"),
-    ).toBeTruthy();
+    within(rtlScreen.getByRole("banner")).getByTestId("render-list-toolbar-action-new-contract");
     expect(
       within(rtlScreen.getByTestId("toolbar-end")).queryByTestId(
         "render-list-toolbar-action-new-contract",
@@ -190,8 +188,6 @@ describe("RenderList toolbarActionsPlacement", () => {
 
   test("header (default): a primary action stands in the header", () => {
     renderList(false, "header", {}, true);
-    expect(
-      within(rtlScreen.getByRole("banner")).getByTestId("render-list-toolbar-action-new-contract"),
-    ).toBeTruthy();
+    within(rtlScreen.getByRole("banner")).getByTestId("render-list-toolbar-action-new-contract");
   });
 });

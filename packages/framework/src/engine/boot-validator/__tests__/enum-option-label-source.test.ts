@@ -29,7 +29,11 @@ function screenFeature(renderer: object) {
       createEntity({
         name: "order",
         fields: {
-          status: createSelectField({ options: ["open", "done"] as const, default: "open" }),
+          status: createSelectField({
+            options: ["open", "done"] as const,
+            default: "open",
+            sortable: true,
+          }),
           note: createTextField({ personal: false, reason: "test_fixture" }),
         },
       }),
@@ -39,6 +43,7 @@ function screenFeature(renderer: object) {
       type: "entityList",
       entity: "order",
       columns: [{ field: "status", renderer }],
+      defaultSort: { field: "status", direction: "asc" },
     } as never);
   });
 }

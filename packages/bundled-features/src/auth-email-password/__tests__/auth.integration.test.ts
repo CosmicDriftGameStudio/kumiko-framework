@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
+import { UNKNOWN_CLIENT_IP } from "@cosmicdrift/kumiko-framework/api";
 import {
   configureBlindIndexKey,
   configurePiiSubjectKms,
@@ -77,6 +78,8 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await resetTestTables(stack.db, [userTable, tenantMembershipsTable, eventsTable]);
+  // stack.http.raw has no socket address, so every login shares the "unknown" IP bucket.
+  await stack.redis.redis.del(`kumiko:rl:ip+handler:${UNKNOWN_CLIENT_IP}:${AuthHandlers.login}`);
 });
 
 // Helper: seed a full login-ready user (user row + membership).

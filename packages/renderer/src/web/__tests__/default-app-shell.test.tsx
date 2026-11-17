@@ -47,7 +47,7 @@ describe("DefaultAppShell user-prop forwarding", () => {
         <div>content</div>
       </DefaultAppShell>,
     );
-    expect(screen.getByText("Public")).toBeTruthy();
+    screen.getByText("Public");
     expect(screen.queryByText("Sysadmin")).toBeNull();
   });
 
@@ -61,8 +61,8 @@ describe("DefaultAppShell user-prop forwarding", () => {
         <div>content</div>
       </DefaultAppShell>,
     );
-    expect(screen.getByText("Public")).toBeTruthy();
-    expect(screen.getByText("Sysadmin")).toBeTruthy();
+    screen.getByText("Public");
+    screen.getByText("Sysadmin");
   });
 });
 
@@ -118,7 +118,7 @@ describe("DefaultAppShell wires user.roles into children for screen-level access
         </DefaultAppShell>
       </DispatcherProvider>,
     );
-    expect(screen.getByTestId("kumiko-screen-access-denied")).toBeTruthy();
+    screen.getByTestId("kumiko-screen-access-denied");
   });
 
   test("user prop with matching role → role-gated screen child renders", () => {

@@ -87,7 +87,7 @@ describe("CustomFieldsFormSection", () => {
     );
 
     // Only `component`-entity fields are rendered (incident's rootCause filtered out).
-    expect(screen.getByTestId("custom-fields-form-section")).toBeTruthy();
+    screen.getByTestId("custom-fields-form-section");
     const vendorInput = document.getElementById("custom-field-vendor") as HTMLInputElement;
     const tierInput = document.getElementById("custom-field-tier") as HTMLInputElement;
     expect(vendorInput).toBeTruthy();
@@ -406,7 +406,7 @@ describe("CustomFieldsFormSection — composed mode", () => {
         </ExtensionFormRegistryProvider>
       </Wrapper>,
     );
-    expect(screen.getByTestId("custom-fields-form-section")).toBeTruthy();
+    screen.getByTestId("custom-fields-form-section");
     // The inputs remain available, but composed mode omits the standalone Save button because
     // the main form provides the Save action.
     expect(screen.queryByTestId("custom-fields-form-save")).toBeNull();

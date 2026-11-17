@@ -1,7 +1,6 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { requireSystemDb } from "../../shared/index.ts";
 import { decryptTenantNames, tenantTable } from "../../tenant/index.ts";
 
 type TenantRow = { readonly id: string; readonly name: string };
@@ -12,8 +11,9 @@ export const tenantOptionsQuery = defineQueryHandler({
     "Returns all tenants as id/name option pairs sorted by name; use it to populate the tenant picker of a platform-wide overview.",
   schema: z.object({}),
   access: { roles: ["SystemAdmin"] },
+  systemScope: true,
   handler: async (_query, ctx) => {
-    const systemDb = requireSystemDb(ctx, "cap-overview:query:tenant-options");
+    const { systemDb } = ctx;
     const db = systemDb.acknowledgeCrossTenant(
       "cap-overview:tenant-options — SystemAdmin dashboard tenant-filter options",
     );

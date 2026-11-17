@@ -11,7 +11,6 @@ import { UnprocessableError, ValidationError } from "@cosmicdrift/kumiko-framewo
 import type { SearchAdapter } from "@cosmicdrift/kumiko-framework/search";
 import * as z from "zod";
 import { subscriptionsProjectionTable } from "../../billing-foundation/index.ts";
-import { requireSystemDb } from "../../shared/index.ts";
 import { decryptTenantNames, tenantTable } from "../../tenant/index.ts";
 import { tierAssignmentTable } from "../../tier-engine/index.ts";
 import type { CapSpec, CapSpecLimitContext, CapSpecLimitTenant, CapUsage } from "../types.ts";
@@ -211,13 +210,14 @@ export function createTenantCapsListQuery(caps: readonly CapSpec[], listCaps: re
         .optional(),
     }),
     access: { roles: ["SystemAdmin"] },
+    systemScope: true,
     escapeHatch: {
       reason:
         "cap-overview:tenant-caps:list — grants app-owned CapSpec.usage()/usageBatch() providers raw SQL for aggregates TenantDb has no typed helper for (e.g. a SUM)",
       grants: ["unsafeRaw"],
     },
     handler: async (query, ctx) => {
-      const systemDb = requireSystemDb(ctx, "cap-overview:query:tenant-caps:list");
+      const { systemDb } = ctx;
       const db = systemDb.acknowledgeCrossTenant(
         "cap-overview:tenant-caps:list — SystemAdmin platform-wide tenant overview",
       );

@@ -88,7 +88,7 @@ describe("RenderList — column-renderer registry", () => {
         { ColorSwatch },
       ),
     );
-    expect(screen.getByTestId("swatch")).toBeTruthy();
+    screen.getByTestId("swatch");
     expect(screen.getByTestId("swatch-value").textContent).toBe("#abcdef");
     expect(screen.getByTestId("swatch-field").textContent).toBe("color");
     expect(screen.getByTestId("swatch-row-title").textContent).toBe("Alpha");

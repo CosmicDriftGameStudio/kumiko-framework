@@ -36,7 +36,7 @@ import { createAssignTagHandler } from "./handlers/assign-tag.write.ts";
 import { createCreateTagHandler } from "./handlers/create-tag.write.ts";
 import { createDeleteTagHandler } from "./handlers/delete-tag.write.ts";
 import { createRemoveTagHandler } from "./handlers/remove-tag.write.ts";
-import { TAGS_FEATURE_I18N } from "./i18n.ts";
+import { TAGS_FEATURE_I18N, TAGS_HANDLER_I18N } from "./i18n.ts";
 import { rejectInvalidTagColorChange } from "./schemas.ts";
 import { createTagEditScreen, createTagListScreen } from "./screens.ts";
 import { DEFAULT_TAG_ACCESS, TAGS_FEATURE_NAME } from "./web/constants.ts";
@@ -114,6 +114,7 @@ function registerTags(
   r.screen(createTagListScreen(access));
   r.screen(createTagEditScreen(access));
   r.translations({ keys: TAGS_FEATURE_I18N });
+  r.translations({ keys: TAGS_HANDLER_I18N });
 }
 
 export type TagsFeatureOptions = {

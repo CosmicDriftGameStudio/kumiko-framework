@@ -11,8 +11,10 @@ import { envSchema } from "./env-schema";
 
 const out = { log: (l: string) => console.log(l), err: (l: string) => console.error(l) };
 
-// exitCode instead of process.exit(): in an initContainer stderr is a pipe and exit() drops unflushed lines.
-process.exitCode = await runStandaloneCli(Bun.argv.slice(2), process.env.INIT_CWD ?? process.cwd(), out, {
+const cwd = process.env.INIT_CWD ?? process.cwd();
+
+// exitCode, not exit(): in an initContainer stderr is a pipe and exit() drops unflushed lines.
+process.exitCode = await runStandaloneCli(Bun.argv.slice(2), cwd, out, {
   features: FEATURES,
   envSchema,
   ...(appConfig.rowLevelSecurity && { rowLevelSecurity: appConfig.rowLevelSecurity }),

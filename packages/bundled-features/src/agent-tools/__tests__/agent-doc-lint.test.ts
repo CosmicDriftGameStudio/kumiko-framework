@@ -476,6 +476,31 @@ describe("findAgentDocGaps — handler-without-translation", () => {
     expect(gaps).toHaveLength(1);
   });
 
+  test("fully spelled-out keys from another feature close the gap, as on the client", () => {
+    const labels = defineFeature("app-labels", (r) => {
+      r.translations({
+        keys: {
+          "tr-demo:write:do-x:title": { en: "Do X" },
+          "tr-demo:write:do-x:field:vehicleId": { en: "Vehicle" },
+        },
+      });
+    });
+    expect(translationGaps([exposedHandlerFeature({}), labels])).toEqual([]);
+  });
+
+  test("unprefixed keys from another feature do not count", () => {
+    const labels = defineFeature("app-labels", (r) => {
+      r.translations({
+        keys: {
+          "write:do-x:title": { en: "Do X" },
+          "write:do-x:field:vehicleId": { en: "Vehicle" },
+        },
+      });
+    });
+    const gaps = translationGaps([exposedHandlerFeature({}), labels]);
+    expect(gaps.map((gap) => gap.qn)).toEqual(["tr-demo:write:do-x"]);
+  });
+
   test("system-only input fields need no label", () => {
     const feature = defineFeature("tr-demo", (r) => {
       r.writeHandler({

@@ -8,7 +8,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { mapWithConcurrency } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
-import { decryptStoredPii, KMS_POOL_CONCURRENCY, requireSystemDb } from "../../shared/index.ts";
+import { decryptStoredPii, KMS_POOL_CONCURRENCY } from "../../shared/index.ts";
 import { userTable } from "../../user/index.ts";
 import { tenantMembershipsTable } from "../membership-table.ts";
 import { isSystemAdmin } from "./is-system-admin.ts";
@@ -51,11 +51,12 @@ export const memberDirectoryQuery = definePagedQueryHandler({
     ids: z.array(z.string().min(1)).max(MAX_LIST_LIMIT).optional(),
   }),
   access: { roles: access.admin },
+  systemScope: true,
   description:
     "Lists users as id/label pairs for resolving user references to display names: the caller's own tenant members for an admin, every user for a SystemAdmin; carries no email or role data.",
   agent: { expose: false },
   handler: async (query, ctx) => {
-    const systemDb = requireSystemDb(ctx, "tenant:query:member-directory");
+    const { systemDb } = ctx;
     const { limit, search, ids } = query.payload;
     if (ids?.length === 0) return { rows: [], nextCursor: null };
     // Without a search the first `limit` rows are enough; with one, every

@@ -6,14 +6,14 @@ import {
   configuredPiiSubjectKms,
   decryptPiiFieldValues,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import { type QueryHandlerDef, SYSTEM_ROLE } from "@cosmicdrift/kumiko-framework/engine";
+import { defineQueryHandler, SYSTEM_ROLE } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { SUBSCRIPTION_PII_FIELDS } from "../entities.ts";
 import { subscriptionsProjectionTable } from "../projection.ts";
 
 const listSchema = z.object({}).strict();
 
-export const listSubscriptionsQuery: QueryHandlerDef = {
+export const listSubscriptionsQuery = defineQueryHandler({
   name: "subscription:list",
   description:
     "Returns the tenant's subscription rows with provider, status, tier and current period end (provider ids decrypted); use it to answer what plan a tenant is on and until when.",
@@ -34,4 +34,4 @@ export const listSubscriptionsQuery: QueryHandlerDef = {
     );
     return { rows: decryptedRows };
   },
-};
+});

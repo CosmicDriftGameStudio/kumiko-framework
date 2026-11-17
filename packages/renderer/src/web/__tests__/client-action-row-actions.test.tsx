@@ -67,7 +67,7 @@ async function renderList(
       </ToastActionNotifier>
     </ToastProvider>,
   );
-  await waitFor(() => expect(screen.getByText("ada@example.com")).toBeTruthy());
+  await waitFor(() => screen.getByText("ada@example.com"));
 }
 
 beforeEach(() => {
@@ -86,7 +86,7 @@ describe("clientAction row actions", () => {
 
     fireEvent.click(screen.getByTestId("row-u1-action-send-reset"));
 
-    expect(await screen.findByText("admin:toast:reset-sent")).toBeTruthy();
+    await screen.findByText("admin:toast:reset-sent");
     expect(handler).toHaveBeenCalledTimes(1);
     expect(handler.mock.calls[0]?.[0]).toEqual({ id: "u1" });
     await waitFor(() => expect(queryCalls).toBeGreaterThan(queriesBefore));
@@ -112,8 +112,8 @@ describe("clientAction row actions", () => {
 
     fireEvent.click(screen.getByTestId("row-u1-action-send-reset"));
 
-    expect(await screen.findByText("admin:error:no-mailbox")).toBeTruthy();
-    expect(screen.getByText("Action failed")).toBeTruthy();
+    await screen.findByText("admin:error:no-mailbox");
+    screen.getByText("Action failed");
     expect(queryCalls).toBe(queriesBefore);
   });
 
@@ -131,7 +131,7 @@ describe("clientAction row actions", () => {
 
       fireEvent.click(screen.getByTestId("row-u1-action-send-reset"));
 
-      expect(await screen.findByText("This action is not available in this app.")).toBeTruthy();
+      await screen.findByText("This action is not available in this app.");
       expect(consoleError.mock.calls.flat().join(" ")).toContain("admin:not-registered");
     });
 
@@ -144,7 +144,7 @@ describe("clientAction row actions", () => {
 
       fireEvent.click(screen.getByTestId("row-u1-action-send-reset"));
 
-      expect(await screen.findByText("The action could not be completed.")).toBeTruthy();
+      await screen.findByText("The action could not be completed.");
       expect(screen.queryByText("socket closed")).toBeNull();
     });
   });
@@ -158,7 +158,7 @@ describe("clientAction row actions", () => {
     });
 
     fireEvent.click(screen.getByTestId("row-u1-action-send-reset"));
-    expect(await screen.findByText("admin:confirm:send-reset")).toBeTruthy();
+    await screen.findByText("admin:confirm:send-reset");
     expect(handler).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByTestId("row-u1-action-send-reset-dialog-confirm"));

@@ -74,13 +74,13 @@ function Probe({ contentFormat }: { readonly contentFormat?: ContentEditorFormat
 describe("useContentEditor", () => {
   test("no editor registered for the format → falls back to the textarea", () => {
     render(<Probe contentFormat="plain" />, { wrapper: Wrapper });
-    expect(screen.getByTestId("ca-textarea")).toBeTruthy();
+    screen.getByTestId("ca-textarea");
     expect(screen.getByTestId("ca-textarea").id).toBe(CONTENT_EDITOR_ELEMENT_ID);
   });
 
   test("undefined contentFormat behaves like plain", () => {
     render(<Probe />, { wrapper: Wrapper });
-    expect(screen.getByTestId("ca-textarea")).toBeTruthy();
+    screen.getByTestId("ca-textarea");
   });
 
   test("an app-registered editor for the format wins over the textarea fallback", () => {
@@ -101,7 +101,7 @@ describe("useContentEditor", () => {
       </ContentEditorsProvider>,
       { wrapper: Wrapper },
     );
-    expect(screen.getByTestId("ca-textarea")).toBeTruthy();
+    screen.getByTestId("ca-textarea");
     expect(screen.queryByTestId("ca-document")).toBeNull();
   });
 });

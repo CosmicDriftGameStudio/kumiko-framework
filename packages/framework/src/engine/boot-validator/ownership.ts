@@ -2,6 +2,7 @@ import type { EmbeddedSubFieldDef, FieldDefinition } from "@cosmicdrift/kumiko-t
 import type { ClaimKeyDefinition } from "@cosmicdrift/kumiko-types/handlers";
 import { buildEntityTable } from "../../db/table-builder.ts";
 import {
+  type FromRule,
   type OwnershipMap,
   type OwnershipRule,
   type SqlFragment,
@@ -249,7 +250,7 @@ export function canValidateRoles(
   return false;
 }
 
-export function checkOwnershipMap(args: {
+type OwnershipMapCheckArgs = {
   // Present only for entity-level maps; a fromParent rule needs the entity own fields.
   readonly entityFields?: Readonly<Record<string, FieldDefinition>>;
   readonly map: OwnershipMap;
@@ -260,7 +261,60 @@ export function checkOwnershipMap(args: {
   readonly featureName: string;
   readonly probe?: WhereRuleProbe;
   readonly path: AccessPath;
-}): void {
+};
+
+function checkWhereRuleAllowed(
+  rule: WhereRule,
+  roleName: string,
+  args: OwnershipMapCheckArgs,
+): void {
+  if (args.path === "write") {
+    throw bootRuleError(OWNERSHIP_RULES.whereOnWritePath, {
+      message: buildWhereOnWritePathMessage(roleName, args.scope, args.featureName),
+    });
+  }
+  if (args.path === "fieldRead") {
+    throw bootRuleError(OWNERSHIP_RULES.whereOnFieldRead, {
+      message: buildWhereOnFieldReadMessage(roleName, args.scope, args.featureName),
+    });
+  }
+  probeWhereRule(rule, roleName, args.probe, args.scope, args.featureName);
+}
+
+function checkFromRuleRefs(rule: FromRule, roleName: string, args: OwnershipMapCheckArgs): void {
+  // Claim-existence is cross-feature: only the whole-app corpus can tell a
+  // typo from a claim declared in a feature this caller did not mount.
+  if (rule.refKind === "claim" && args.allClaimKeys) {
+    // refPath is the qualified claim name ("feature:shortName").
+    const claim = args.allClaimKeys.get(rule.refPath);
+    if (!claim) {
+      const known = [...args.allClaimKeys.keys()].sort().join(", ") || "(none)";
+      throw bootRuleError(OWNERSHIP_RULES.unknownClaim, {
+        message:
+          `[Kumiko Ownership] ${args.scope} references unknown claim "${rule.refPath}" ` +
+          `(role: "${roleName}", feature: "${args.featureName}"). ` +
+          `Declare it via r.claimKey("...", { type: "..." }) in the owning feature. ` +
+          `Known claims: ${known}`,
+      });
+    }
+    // String-compatible columns accept string and string[] claims equally
+    // (array → inArray). For other claim types we rely on the author
+    // knowing the row-column shape; we can't introspect PG types without
+    // the schema built. This is a best-effort ref-existence check.
+  }
+
+  if (!args.columnNames.has(rule.column)) {
+    const known = [...args.columnNames].sort().join(", ");
+    throw bootRuleError(OWNERSHIP_RULES.unknownColumn, {
+      message:
+        `[Kumiko Ownership] ${args.scope} references column "${rule.column}" ` +
+        `which does not exist on the entity (role: "${roleName}", feature: ` +
+        `"${args.featureName}"). Available columns: ${known}`,
+    });
+  }
+}
+
+export function checkOwnershipMap(args: OwnershipMapCheckArgs): void {
   for (const [roleName, rawRule] of Object.entries(args.map)) {
     // Role-existence check — typos like `{"Admi": "all"}` where no handler
     // or other map mentions "Admi" would otherwise silently grant nothing.
@@ -275,17 +329,7 @@ export function checkOwnershipMap(args: {
     const rule = rawRule as OwnershipRule;
     if (rule === "all") continue;
     if (rule.kind === "where") {
-      if (args.path === "write") {
-        throw bootRuleError(OWNERSHIP_RULES.whereOnWritePath, {
-          message: buildWhereOnWritePathMessage(roleName, args.scope, args.featureName),
-        });
-      }
-      if (args.path === "fieldRead") {
-        throw bootRuleError(OWNERSHIP_RULES.whereOnFieldRead, {
-          message: buildWhereOnFieldReadMessage(roleName, args.scope, args.featureName),
-        });
-      }
-      probeWhereRule(rule, roleName, args.probe, args.scope, args.featureName);
+      checkWhereRuleAllowed(rule, roleName, args);
       continue; // escape hatch — feature author owns the SQL
     }
 
@@ -301,37 +345,7 @@ export function checkOwnershipMap(args: {
       continue;
     }
 
-    // FromRule — validate ref + column.
-    // Claim-existence is cross-feature: only the whole-app corpus can tell a
-    // typo from a claim declared in a feature this caller did not mount.
-    if (rule.refKind === "claim" && args.allClaimKeys) {
-      // refPath is the qualified claim name ("feature:shortName").
-      const claim = args.allClaimKeys.get(rule.refPath);
-      if (!claim) {
-        const known = [...args.allClaimKeys.keys()].sort().join(", ") || "(none)";
-        throw bootRuleError(OWNERSHIP_RULES.unknownClaim, {
-          message:
-            `[Kumiko Ownership] ${args.scope} references unknown claim "${rule.refPath}" ` +
-            `(role: "${roleName}", feature: "${args.featureName}"). ` +
-            `Declare it via r.claimKey("...", { type: "..." }) in the owning feature. ` +
-            `Known claims: ${known}`,
-        });
-      }
-      // String-compatible columns accept string and string[] claims equally
-      // (array → inArray). For other claim types we rely on the author
-      // knowing the row-column shape; we can't introspect PG types without
-      // the schema built. This is a best-effort ref-existence check.
-    }
-
-    if (!args.columnNames.has(rule.column)) {
-      const known = [...args.columnNames].sort().join(", ");
-      throw bootRuleError(OWNERSHIP_RULES.unknownColumn, {
-        message:
-          `[Kumiko Ownership] ${args.scope} references column "${rule.column}" ` +
-          `which does not exist on the entity (role: "${roleName}", feature: ` +
-          `"${args.featureName}"). Available columns: ${known}`,
-      });
-    }
+    checkFromRuleRefs(rule, roleName, args);
   }
 }
 

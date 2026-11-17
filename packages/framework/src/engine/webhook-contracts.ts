@@ -96,7 +96,7 @@ function fieldShape(
   );
 }
 
-// Update carries `changes` and the old values of the changed keys; delete carries the whole row;
+// Update carries `changes` and the old values of the changed keys; delete carries the row's plaintext columns;
 // create appends the flat fields without `id`. Receivers need the id, so the contract carries it
 // on the top level; `toEntityWebhookPayload` takes it from the event's aggregate id.
 function payloadFor(

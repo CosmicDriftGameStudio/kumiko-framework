@@ -17,7 +17,7 @@ import {
   decryptPiiFieldValues,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
-import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { subscriptionAggregateId } from "../aggregate-id.ts";
 import { portalReturnUrl, resolveProviderPlugin } from "../checkout-core.ts";
@@ -28,8 +28,8 @@ import type { BillingFoundationOptions } from "../types.ts";
 
 const createPortalSessionSchema = z.object({}).strict();
 
-export function createPortalSessionHandler(options: BillingFoundationOptions): WriteHandlerDef {
-  return {
+export function createPortalSessionHandler(options: BillingFoundationOptions) {
+  return defineWriteHandler({
     name: "create-portal-session",
     description:
       "Returns a hosted billing-portal URL at the provider that already holds the tenant's subscription; use it when a tenant admin wants to change payment method, see invoices or cancel.",
@@ -76,7 +76,7 @@ export function createPortalSessionHandler(options: BillingFoundationOptions): W
         data: { url: result.url, providerName },
       };
     },
-  };
+  });
 }
 
 // resolveProviderPlugin's "not registered" message talks about checkout

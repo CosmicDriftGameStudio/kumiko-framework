@@ -693,7 +693,7 @@ describe("KumikoScreen / projectionDetail — record header + metrics band", () 
     );
 
     const form = await waitFor(() => screen.getByTestId("render-edit-form"));
-    expect(screen.getByTestId("render-edit-form-scroll")).toBeTruthy();
+    screen.getByTestId("render-edit-form-scroll");
     // The head card (headerRegion) stays; only the form-level card is gone.
     expect(form.closest("[data-slot=card]")).toBeNull();
     expect(screen.queryByText(/unsaved/i)).toBeNull();
@@ -904,7 +904,7 @@ describe("KumikoScreen / projectionDetail — metric tiles render through the Me
     // Only the Metric primitive assigns a testid to the tile itself — the
     // naked-Text fallback below only labels the -label/-value nodes. This
     // is red against the pre-fix code (naked Text, no tile testid).
-    expect(screen.getByTestId("kumiko-screen-projection-detail-metric-balance")).toBeTruthy();
+    screen.getByTestId("kumiko-screen-projection-detail-metric-balance");
     expect(
       screen.getByTestId("kumiko-screen-projection-detail-metric-balance-value").textContent,
     ).toBe("120");
@@ -1198,11 +1198,11 @@ describe("KumikoScreen / projectionDetail — unchanged for a solon-shaped scree
     expect(screen.queryByTestId("kumiko-screen-projection-detail-tabs")).toBeNull();
     // Contrast for the tabs-mode "form title suppressed" test above — outside
     // tabs mode (hideSectionTitles unset) the form's own title still renders.
-    expect(screen.getByTestId("render-edit-form-title")).toBeTruthy();
+    screen.getByTestId("render-edit-form-title");
     // Contrast for the tabs-mode "no Section wrapper" test above — a stacked
     // (non-tabs) relatedList section has a visible title, so it keeps its
     // own Section card.
-    expect(screen.getByTestId("related-list-Payments")).toBeTruthy();
+    screen.getByTestId("related-list-Payments");
   });
 });
 

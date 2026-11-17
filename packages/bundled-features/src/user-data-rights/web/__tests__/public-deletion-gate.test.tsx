@@ -57,7 +57,7 @@ describe("makePublicDeletionGate", () => {
         <div data-testid="app">APP</div>
       </Gate>,
     );
-    expect(ui.getByText(/Request account deletion/)).toBeTruthy();
+    ui.getByText(/Request account deletion/);
     expect(ui.queryByTestId("app")).toBeNull();
   });
 
@@ -69,7 +69,7 @@ describe("makePublicDeletionGate", () => {
         <div data-testid="app">APP</div>
       </Gate>,
     );
-    expect(ui.getByText(/Confirm account deletion/)).toBeTruthy();
+    ui.getByText(/Confirm account deletion/);
     expect(ui.queryByTestId("app")).toBeNull();
   });
 
@@ -81,7 +81,7 @@ describe("makePublicDeletionGate", () => {
         <div data-testid="app">APP</div>
       </Gate>,
     );
-    expect(ui.getByText(/Cancel account deletion/)).toBeTruthy();
+    ui.getByText(/Cancel account deletion/);
     expect(ui.queryByTestId("app")).toBeNull();
   });
 
@@ -93,7 +93,7 @@ describe("makePublicDeletionGate", () => {
         <div data-testid="app">APP</div>
       </Gate>,
     );
-    expect(ui.getByTestId("app")).toBeTruthy();
+    ui.getByTestId("app");
   });
 
   test("other path → children pass through, no deletion screen", () => {
@@ -104,7 +104,7 @@ describe("makePublicDeletionGate", () => {
         <div data-testid="app">APP</div>
       </Gate>,
     );
-    expect(ui.getByTestId("app")).toBeTruthy();
+    ui.getByTestId("app");
     expect(ui.queryByText(/Request account deletion/)).toBeNull();
   });
 
@@ -120,6 +120,6 @@ describe("makePublicDeletionGate", () => {
       </Gate>,
     );
     const shell = ui.getByTestId("shell");
-    expect(within(shell).getByText(/Request account deletion/)).toBeTruthy();
+    within(shell).getByText(/Request account deletion/);
   });
 });

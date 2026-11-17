@@ -140,8 +140,8 @@ describe("projectionDetail footerActions on a phone", () => {
   test("both actions stay in the footer instead of a more-menu", async () => {
     setViewportWidth(500);
     renderDetail(definition);
-    await waitFor(() => expect(screen.getByTestId("render-edit-action-approve")).toBeTruthy());
-    expect(screen.getByTestId("render-edit-action-decline")).toBeTruthy();
+    await waitFor(() => screen.getByTestId("render-edit-action-approve"));
+    screen.getByTestId("render-edit-action-decline");
   });
 
   test("the hint stands in the footer on a wide screen", async () => {
@@ -173,12 +173,12 @@ describe("projectionDetail steps options", () => {
 
   test("visibleWhen hides the whole panel while the condition fails", async () => {
     renderDetail(stepsScreen({ visibleWhen: { field: "state", eq: "done" } }));
-    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-form"));
     expect(screen.queryByTestId("kumiko-screen-projection-detail-steps")).toBeNull();
   });
 
   test("visibleWhen keeps the panel while the condition holds", async () => {
     renderDetail(stepsScreen({ visibleWhen: { field: "state", eq: "open" } }));
-    expect(await screen.findByTestId("kumiko-screen-projection-detail-steps")).toBeTruthy();
+    await screen.findByTestId("kumiko-screen-projection-detail-steps");
   });
 });

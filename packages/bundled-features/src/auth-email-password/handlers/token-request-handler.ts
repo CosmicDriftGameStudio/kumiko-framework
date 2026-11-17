@@ -96,6 +96,8 @@ export function createTokenRequestHandler<TName extends string, TSuccessKind ext
     name: spec.handlerName,
     schema: RequestTokenSchema,
     access: { roles: ["anonymous"] },
+    // Pre-auth flows: the caller has no session, so the agent can never run them for a user.
+    agent: { expose: false },
     rateLimit: { per: "ip+handler", limit: 10, windowSeconds: 60 },
     additionalRateLimits: AUTH_EMAIL_PAYLOAD_RATE_LIMITS,
     escapeHatch: {

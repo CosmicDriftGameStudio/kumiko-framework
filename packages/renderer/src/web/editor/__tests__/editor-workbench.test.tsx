@@ -47,8 +47,8 @@ afterEach(cleanup);
 describe("EditorWorkbench", () => {
   test("opens in edit mode with the edit pane, its rail and its info text", () => {
     mount(CLEAN);
-    expect(screen.getByTestId("edit-pane")).toBeDefined();
-    expect(screen.getByTestId("edit-rail")).toBeDefined();
+    screen.getByTestId("edit-pane");
+    screen.getByTestId("edit-rail");
     expect(screen.getByTestId("wb-info").textContent).toContain("Edit info");
     expect(screen.queryByTestId("preview-pane")).toBeNull();
   });
@@ -56,8 +56,8 @@ describe("EditorWorkbench", () => {
   test("the mode switch swaps pane, rail and info text together", () => {
     mount(CLEAN);
     fireEvent.click(screen.getByRole("button", { name: "Preview" }));
-    expect(screen.getByTestId("preview-pane")).toBeDefined();
-    expect(screen.getByTestId("preview-rail")).toBeDefined();
+    screen.getByTestId("preview-pane");
+    screen.getByTestId("preview-rail");
     expect(screen.getByTestId("wb-info").textContent).toContain("Preview info");
     expect(screen.queryByTestId("edit-pane")).toBeNull();
   });

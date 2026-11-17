@@ -99,9 +99,11 @@ export function makeDefaultAuthPagesGate(
   options: DefaultAuthPagesOptions = {},
 ): ComponentType<{ readonly children: ReactNode }> {
   const paths = makeAuthPaths(options.paths);
-  return ({ children }) => (
+  const gate: ComponentType<{ readonly children: ReactNode }> = ({ children }) => (
     <DefaultAuthPagesGateView paths={paths}>{children}</DefaultAuthPagesGateView>
   );
+  Object.defineProperty(gate, "name", { value: "DefaultAuthPagesGate" });
+  return gate;
 }
 
 export const DefaultAuthPagesGate = makeDefaultAuthPagesGate();

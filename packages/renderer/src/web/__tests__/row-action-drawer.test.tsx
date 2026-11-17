@@ -84,7 +84,7 @@ async function openDrawer(schema: FeatureSchema, dispatcher: Dispatcher) {
   );
   await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
   await user.click(screen.getByTestId("row-r1-action-add-note"));
-  await waitFor(() => expect(screen.getByTestId(DRAWER_TEST_ID)).toBeTruthy());
+  await waitFor(() => screen.getByTestId(DRAWER_TEST_ID));
   return user;
 }
 
@@ -110,8 +110,8 @@ describe("rowActions kind:'drawer'", () => {
   test("opens the drawer with the form while the list stays mounted behind it", async () => {
     await openDrawer(drawerSchema, makeDispatcher());
 
-    expect(screen.getByTestId("row-r1")).toBeTruthy();
-    expect(drawer().getByTestId("field-note")).toBeTruthy();
+    screen.getByTestId("row-r1");
+    drawer().getByTestId("field-note");
   });
 
   test("header, scrolling body and footer are siblings; the form has no title of its own", async () => {
@@ -128,11 +128,11 @@ describe("rowActions kind:'drawer'", () => {
     expect(scroll.contains(footer)).toBe(false);
     expect(scroll.className).toContain("overflow-y-auto");
     expect(footer.className).not.toContain("overflow");
-    expect(within(header).getByText("actions.addNote")).toBeTruthy();
+    within(header).getByText("actions.addNote");
     expect(screen.queryByTestId("render-edit-form-title")).toBeNull();
-    expect(within(scroll).getByTestId("render-edit-form-subtitle")).toBeTruthy();
+    within(scroll).getByTestId("render-edit-form-subtitle");
     expect(within(footer).queryByTestId("render-edit-cancel")).toBeNull();
-    expect(within(footer).getByTestId("render-edit-submit")).toBeTruthy();
+    within(footer).getByTestId("render-edit-submit");
   });
 
   test("title and subtitle override the label and interpolate {param} from the row prefill", async () => {
@@ -157,10 +157,10 @@ describe("rowActions kind:'drawer'", () => {
     );
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
     await user.click(screen.getByTestId("row-r1-action-add-note"));
-    await waitFor(() => expect(screen.getByTestId(DRAWER_TEST_ID)).toBeTruthy());
+    await waitFor(() => screen.getByTestId(DRAWER_TEST_ID));
 
     const header = screen.getByTestId(`${DRAWER_TEST_ID}-header`);
-    expect(within(header).getByText("Note for Alpha")).toBeTruthy();
+    within(header).getByText("Note for Alpha");
     expect(within(header).queryByText("actions.addNote")).toBeNull();
     expect(screen.getByTestId(`${DRAWER_TEST_ID}-subtitle`).textContent).toBe("Row Alpha selected");
   });
@@ -199,14 +199,14 @@ describe("rowActions kind:'drawer'", () => {
       await close(user);
 
       const dialog = await screen.findByTestId("drawer-discard-dialog");
-      expect(within(dialog).getByText("Discard changes?")).toBeTruthy();
-      expect(within(dialog).getByText("Your input in this form will be lost.")).toBeTruthy();
+      within(dialog).getByText("Discard changes?");
+      within(dialog).getByText("Your input in this form will be lost.");
       expect(document.activeElement).toBe(screen.getByTestId("drawer-discard-dialog-cancel"));
 
       await user.click(within(dialog).getByText("Keep editing"));
 
       await waitFor(() => expect(screen.queryByTestId("drawer-discard-dialog")).toBeNull());
-      expect(screen.getByTestId(DRAWER_TEST_ID)).toBeTruthy();
+      screen.getByTestId(DRAWER_TEST_ID);
       expect(readNote()).toBe("draft text");
     });
   }
@@ -234,7 +234,7 @@ describe("rowActions kind:'drawer'", () => {
     await waitFor(() => expect(screen.queryByTestId(DRAWER_TEST_ID)).toBeNull());
 
     await user.click(screen.getByTestId("row-r1-action-add-note"));
-    await waitFor(() => expect(screen.getByTestId(DRAWER_TEST_ID)).toBeTruthy());
+    await waitFor(() => screen.getByTestId(DRAWER_TEST_ID));
     await user.click(drawer().getByLabelText("Close"));
 
     await waitFor(() => expect(screen.queryByTestId(DRAWER_TEST_ID)).toBeNull());
@@ -350,7 +350,7 @@ describe("rowActions without kind:'drawer'", () => {
         </DispatcherProvider>
       </NavProvider>,
     );
-    await waitFor(() => expect(screen.getByTestId("row-r1-action-add-note")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("row-r1-action-add-note"));
 
     await user.click(screen.getByTestId("row-r1-action-add-note"));
 
@@ -374,7 +374,7 @@ describe("rowActions without kind:'drawer'", () => {
         />
       </DispatcherProvider>,
     );
-    await waitFor(() => expect(screen.getByTestId("row-r1-action-add-note")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("row-r1-action-add-note"));
 
     await user.click(screen.getByTestId("row-r1-action-add-note"));
 

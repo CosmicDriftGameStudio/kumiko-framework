@@ -10,7 +10,6 @@ import {
 import { ValidationError } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
-import { requireSystemDb } from "../shared/index.ts";
 import { runMetric } from "./compute.ts";
 import {
   metricFilterPayloadShape,
@@ -114,8 +113,9 @@ function createSystemMetricQuery(
     description: metric.description,
     schema: systemPayloadSchema(metric),
     access: { roles: access.systemAdmin },
+    systemScope: true,
     handler: (query, ctx) => {
-      const systemDb = requireSystemDb(ctx, `${METRICS_SYSTEM_FEATURE}:query:${metric.id}`);
+      const { systemDb } = ctx;
       const { tenantId } = query.payload;
       if (tenantId !== undefined && !metricHasTenantColumn(metric)) {
         throw new ValidationError({

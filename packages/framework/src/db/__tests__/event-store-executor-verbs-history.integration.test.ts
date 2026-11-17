@@ -91,6 +91,7 @@ const verbFeature = defineFeature("verbhist", (r) => {
     name: "ticket:delete",
     schema: idPayload,
     handler: async (event, ctx) => exec.delete({ id: event.payload.id }, event.user, ctx.db),
+    agent: { risk: "high" },
     access,
   });
   r.queryHandler({

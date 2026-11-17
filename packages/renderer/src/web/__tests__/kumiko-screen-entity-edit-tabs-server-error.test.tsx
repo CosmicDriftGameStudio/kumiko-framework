@@ -78,7 +78,7 @@ describe("KumikoScreen: entityEdit tabs mode — server validation error on an u
     );
 
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
-    expect(screen.getByTestId("render-edit-form")).toBeTruthy();
+    screen.getByTestId("render-edit-form");
     expect(screen.getByTestId("field-count").closest("[hidden]")).not.toBeNull();
 
     await act(async () => {
@@ -87,7 +87,7 @@ describe("KumikoScreen: entityEdit tabs mode — server validation error on an u
     });
 
     expect(screen.getByTestId("field-count").closest("[hidden]")).toBeNull();
-    expect(screen.getByTestId("field-count-errors")).toBeTruthy();
+    screen.getByTestId("field-count-errors");
     expect(screen.queryByTestId("render-edit-form-error")).toBeNull();
   });
 });

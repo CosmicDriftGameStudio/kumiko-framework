@@ -158,7 +158,7 @@ r.job({
 
 Pitfalls:
 
-- `ctx.crossTenantReads` is `undefined` without the grant. It is also `undefined` during member resolution and inside an agent tool call, including nested dispatches, so a tool call never reads across tenants.
+- `ctx.crossTenantReads` is `undefined` without the grant. It is also `undefined` during member resolution and inside an agent tool call, including nested dispatches, so a tool call never reads across tenants. For `define*` handlers that declare the grant the field is typed as present; without it the call ends at entry with `access_denied` or `internal_error`.
 - `grants: ["crossTenantReads"]` does not unlock `ctx.db.unsafeRaw()`. The reverse holds: an `unsafeRaw` grant implies `crossTenantReads`, because the raw runner reads everything anyway.
 - Every call is reported as `cross-tenant-read`. The audit log keeps one entry per report window and handler; the metric counts each call.
 - An `escapeHatch` without `grants` unlocks every grant. Name the grants you need.

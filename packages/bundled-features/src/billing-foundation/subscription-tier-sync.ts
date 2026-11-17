@@ -23,7 +23,7 @@ import {
   type TenantId,
   type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
+import { InternalError, VERSION_CONFLICT_CODE } from "@cosmicdrift/kumiko-framework/errors";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
 import { subscriptionAggregateId } from "./aggregate-id.ts";
@@ -146,10 +146,17 @@ function findTierAssignment(
 export function createSubscriptionTierSync<TTier extends string>(
   deps: SubscriptionTierSyncDeps<TTier>,
 ) {
+  // Two syncs of one tenant can run at once: the webhook's own sync and the event job, or the
+  // jobs of two subscription events. A version_conflict on the assignment write means the other
+  // one wrote first; one fresh read decides again (unchanged, manual grant kept, or a write on
+  // the current version). This is optimistic concurrency, not a retry of a failed call.
   async function runTierSync(
     tenantId: TenantId,
     routeDeps: Pick<SignatureExtraRouteDeps, "dispatchSystemQuery" | "dispatchSystemWrite">,
+    afterVersionConflict = false,
   ): Promise<SyncOutcome<TTier>> {
+    const decidesAgain = (code: string | undefined): boolean =>
+      code === VERSION_CONFLICT_CODE && !afterVersionConflict;
     try {
       const subscriptionId = subscriptionAggregateId(tenantId);
       const subscriptionRows = asRows(
@@ -188,6 +195,7 @@ export function createSubscriptionTierSync<TTier extends string>(
           tenantId,
         });
         if (!created.isSuccess) {
+          if (decidesAgain(created.error?.code)) return runTierSync(tenantId, routeDeps, true);
           return {
             error: {
               code: "tier_sync_failed",
@@ -219,6 +227,7 @@ export function createSubscriptionTierSync<TTier extends string>(
         tenantId,
       });
       if (!result.isSuccess) {
+        if (decidesAgain(result.error?.code)) return runTierSync(tenantId, routeDeps, true);
         return {
           error: {
             code: "tier_sync_failed",

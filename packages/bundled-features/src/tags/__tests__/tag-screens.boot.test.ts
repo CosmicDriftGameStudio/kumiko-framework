@@ -1,16 +1,37 @@
 import { describe, expect, test } from "bun:test";
-import { validateBoot } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createEntity,
+  createTextField,
+  defineFeature,
+  validateBoot,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { createTagsFeature } from "../feature.ts";
 import { TAGS_EDIT_SCREEN_ID, TAGS_SCREEN_ID } from "../web/constants.ts";
 
 // QN convention: entityList loads tags:query:tag:list; entityEdit loads
 // tags:query:tag:detail and saves via tags:write:tag:{create,update,delete}.
 
+const noteEntity = createEntity({
+  name: "note",
+  table: "tag_screens_test_notes",
+  fields: {
+    title: createTextField({
+      required: true,
+      maxLength: 64,
+      personal: false,
+      reason: "technical_reference",
+    }),
+  },
+});
+const noteFixtureFeature = defineFeature("tag-screens-test-note-fixture", (r) => {
+  r.entity(noteEntity);
+});
+
 describe("tags catalog screens (entityList + entityEdit)", () => {
   const feature = createTagsFeature({ parents: ["note"] });
 
   test("boot-validates with declarative tag-list + tag-edit", () => {
-    expect(() => validateBoot([feature])).not.toThrow();
+    expect(() => validateBoot([noteFixtureFeature, feature])).not.toThrow();
   });
 
   test("tag-list is entityList gated by default tag roles", () => {

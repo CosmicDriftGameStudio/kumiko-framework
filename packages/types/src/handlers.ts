@@ -110,10 +110,11 @@ export const ESCAPE_HATCH_GRANTS = [
 
 export type EscapeHatchGrant = (typeof ESCAPE_HATCH_GRANTS)[number];
 
-// `grants` lists what the declaration unlocks.
-export type EscapeHatchDeclaration = {
+// `grants` lists what the declaration unlocks. defineWriteHandler/defineQueryHandler infer TGrant from
+// the literal list to type ctx.crossTenantReads; everywhere else it stays the full union.
+export type EscapeHatchDeclaration<TGrant extends EscapeHatchGrant = EscapeHatchGrant> = {
   readonly reason: string;
-  readonly grants: readonly [EscapeHatchGrant, ...EscapeHatchGrant[]];
+  readonly grants: readonly [TGrant, ...TGrant[]];
 };
 
 export function isEscapeHatchGrant(value: unknown): value is EscapeHatchGrant {
@@ -678,10 +679,10 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = {
   // only for system handlers (isSystem is a runtime-only registry lookup),
   // so a system handler must reach for `systemDb` below.
   readonly db: HandlerDb;
-  // Only present for r.systemScope() handlers. Non-system handlers never
-  // receive this — reach for `db` instead, which is fail-closed for them.
+  // Present for r.systemScope() handlers; non-optional on SystemScopeHandlerContext (handler declares systemScope: true). Non-system handlers never receive it — reach for db instead.
   readonly systemDb?: UncheckedSystemDb;
   // Present only when the handler's escapeHatch grants crossTenantReads or unsafeRaw; every call is audited as cross-tenant-read.
+  // Non-optional on GrantedHandlerContext (a define*-handler lists crossTenantReads in its grants). Agent tool calls and resolved members never receive it.
   readonly crossTenantReads?: CrossTenantReads;
   readonly registry: Registry;
   /** The active SessionUser for the handler call, exposed as a convenience
@@ -757,6 +758,32 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = {
   readonly lifecycle: HandlerLifecycle;
   readonly tenants: HandlerTenants;
 };
+
+// Context of a handler that declares `systemScope: true`. defineWriteHandler/defineQueryHandler
+// check at dispatch that systemDb is present, and boot rejects the marker outside an
+// r.systemScope() feature, so the field is guaranteed rather than optional.
+export type SystemScopeHandlerContext<TMap extends object = KumikoEventTypeMap> =
+  HandlerContext<TMap> & { readonly systemDb: UncheckedSystemDb };
+
+// Maps a define*-handler's inferred grant list onto its context; defineWriteHandler/defineQueryHandler
+// check at dispatch that the field is present. A list the compiler only knows as the full
+// EscapeHatchGrant union (a shared EscapeHatchDeclaration, explicit type arguments) proves nothing, so
+// the field stays optional there. unsafeRaw also wires crossTenantReads at runtime but is not mapped:
+// its handlers read through ctx.db.unsafeRaw(), which is always on the type.
+export type GrantedHandlerContext<
+  TContext extends { readonly crossTenantReads?: CrossTenantReads },
+  TGrant extends EscapeHatchGrant,
+> = [EscapeHatchGrant] extends [TGrant]
+  ? TContext
+  : ["crossTenantReads"] extends [TGrant]
+    ? TContext & { readonly crossTenantReads: CrossTenantReads }
+    : TContext;
+
+export function hasCrossTenantReads<
+  TContext extends { readonly crossTenantReads?: CrossTenantReads },
+>(ctx: TContext): ctx is TContext & { readonly crossTenantReads: CrossTenantReads } {
+  return ctx.crossTenantReads !== undefined;
+}
 
 // Job execution: db + registry + systemUser + logging guaranteed, plus a
 // write path into the same dispatcher pipeline write-handlers use.
@@ -1345,6 +1372,8 @@ export type WriteHandlerDef = {
    *  payload (e.g. `(p) => p.files.length`). Replaces the options' `cost`; results below 1 count as 1. */
   readonly rateLimitCost?: (payload: unknown) => number;
   readonly escapeHatch?: EscapeHatchDeclaration;
+  /** Declared via `systemScope: true` on defineWriteHandler; boot requires the owning feature to call r.systemScope(). */
+  readonly systemScope?: true;
   /** Reserves before the handler transaction opens. Reached through a nested ctx.dispatch.write the
    *  reservation cannot run, so the dispatcher rejects it unless the top-level batch reserved it. */
   readonly reserveBeforeTransaction?: PreTransactionReservation;
@@ -1429,6 +1458,8 @@ export type QueryHandlerDef = {
   // they can still switch identity to SYSTEM via ctx.dispatch.queryAs — this opts
   // in, same contract as WriteHandlerDef.escapeHatch.
   readonly escapeHatch?: EscapeHatchDeclaration;
+  /** Declared via `systemScope: true` on defineQueryHandler; boot requires the owning feature to call r.systemScope(). */
+  readonly systemScope?: true;
 };
 
 export type StreamHandlerDef = {

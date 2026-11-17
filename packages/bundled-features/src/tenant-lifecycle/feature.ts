@@ -42,6 +42,7 @@ import {
 } from "./events.ts";
 import { cancelDestructionWrite } from "./handlers/cancel-destruction.write.ts";
 import { requestDestructionWrite } from "./handlers/request-destruction.write.ts";
+import { TENANT_LIFECYCLE_I18N } from "./i18n.ts";
 import {
   COMPLIANCE_PROFILE_ENTITY_NAME,
   complianceProfileTenantDestroyHook,
@@ -169,6 +170,7 @@ export function createTenantLifecycleFeature(): FeatureDefinition {
       piiFields: "none",
     });
 
+    r.translations({ keys: TENANT_LIFECYCLE_I18N });
     r.writeHandler(requestDestructionWrite);
     r.writeHandler(cancelDestructionWrite);
 

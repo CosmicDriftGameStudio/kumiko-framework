@@ -10,7 +10,7 @@ import { createInviteHandler } from "./handlers/invite.write.ts";
 import { listQuery } from "./handlers/list.query.ts";
 import { rejectHandler } from "./handlers/reject.write.ts";
 import { createSubmitHandler } from "./handlers/submit.write.ts";
-import { WAITLIST_I18N } from "./i18n.ts";
+import { WAITLIST_HANDLER_I18N, WAITLIST_I18N } from "./i18n.ts";
 import { adminAccess } from "./lib.ts";
 import { linkWaitlistOnSignup, WAITLIST_MEMBERSHIP_CREATED_EVENT } from "./link-on-signup.ts";
 import {
@@ -39,6 +39,7 @@ export function createWaitlistFeature(opts: WaitlistOptions = {}): FeatureDefini
     r.systemScope();
     r.requires({ features: ["tenant", "auth-email-password", "user-data-rights"] });
     r.translations({ keys: WAITLIST_I18N });
+    r.translations({ keys: WAITLIST_HANDLER_I18N });
 
     r.notification({
       name: "confirmation",

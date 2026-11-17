@@ -1,3 +1,5 @@
+import { handlerTranslationKeys } from "@cosmicdrift/kumiko-framework/engine";
+
 type LocalizedString = { readonly en: string; readonly de: string };
 
 export const DOCUMENT_DRAFT_I18N: Readonly<Record<string, LocalizedString>> = {
@@ -20,3 +22,37 @@ export const DOCUMENT_DRAFT_I18N: Readonly<Record<string, LocalizedString>> = {
     de: "Die Operation {op} ist bei einem Entwurf nicht erlaubt: nur der Text ist änderbar.",
   },
 };
+
+export const DOCUMENT_DRAFT_HANDLER_I18N = handlerTranslationKeys("document-draft", {
+  writes: {
+    discard: {
+      title: { en: "Discard draft", de: "Entwurf verwerfen" },
+      fields: {
+        id: { en: "Draft", de: "Entwurf" },
+        base: { en: "Draft version", de: "Entwurfsversion" },
+      },
+    },
+    finalize: {
+      title: { en: "Finalize draft", de: "Entwurf abschließen" },
+      fields: {
+        id: { en: "Draft", de: "Entwurf" },
+        base: { en: "Draft version", de: "Entwurfsversion" },
+      },
+    },
+    patch: {
+      title: { en: "Edit draft text", de: "Entwurfstext ändern" },
+      fields: {
+        id: { en: "Draft", de: "Entwurf" },
+        base: { en: "Draft version", de: "Entwurfsversion" },
+        ops: { en: "Changes", de: "Änderungen" },
+      },
+    },
+    revise: {
+      title: { en: "Reopen draft", de: "Entwurf wieder öffnen" },
+      fields: {
+        id: { en: "Draft", de: "Entwurf" },
+        base: { en: "Draft version", de: "Entwurfsversion" },
+      },
+    },
+  },
+});

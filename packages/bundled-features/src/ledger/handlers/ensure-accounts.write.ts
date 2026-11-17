@@ -1,4 +1,4 @@
-import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { type AccessRule, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { ConflictError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { accountExecutor, accountTable } from "../executor.ts";
@@ -8,17 +8,15 @@ import { DEFAULT_LEDGER_ACCESS } from "../web/constants.ts";
 // pg_advisory_xact_lock namespace (int4): 'lena' as ASCII, disjoint from the other ledger lock keys.
 const ENSURE_ACCOUNTS_LOCK_NAMESPACE = 0x6c656e61;
 
-export function createEnsureAccountsHandler(
-  access: AccessRule = DEFAULT_LEDGER_ACCESS,
-): WriteHandlerDef {
-  return {
+export function createEnsureAccountsHandler(access: AccessRule = DEFAULT_LEDGER_ACCESS) {
+  return defineWriteHandler({
     name: "ensure-accounts",
     schema: ensureAccountsPayloadSchema,
     access,
     description:
       "Creates the chart-of-accounts entries named by code that do not exist yet and returns the id for every requested code, failing with a conflict when an existing code has a different type; use it to set up an app's fixed accounts idempotently instead of listing and creating them one by one.",
     handler: async (event, ctx) => {
-      const payload = ensureAccountsPayloadSchema.parse(event.payload);
+      const payload = event.payload;
 
       // Fixed lock order across callers prevents deadlocks on overlapping code sets.
       const requested = [...payload.accounts].sort((a, b) => a.code.localeCompare(b.code));
@@ -60,5 +58,5 @@ export function createEnsureAccountsHandler(
       }
       return { isSuccess: true, data: { accounts: ids } };
     },
-  };
+  });
 }

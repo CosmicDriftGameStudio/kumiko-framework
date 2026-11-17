@@ -1,8 +1,6 @@
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { type AccessLogDetails, accessLogTable } from "../access-log.ts";
-import { AuditQueries } from "../web/constants.ts";
-import { requireAuditSystemDb } from "./audit-system-db.ts";
 
 const DEFAULT_LIMIT = 50;
 
@@ -29,12 +27,11 @@ export const accessLogQuery = defineQueryHandler({
     limit: z.number().int().min(1).max(100).optional(),
   }),
   access: { roles: access.admin },
+  systemScope: true,
   handler: async (query, ctx) => {
     const p = query.payload;
     const limit = p.limit ?? DEFAULT_LIMIT;
-    const db = requireAuditSystemDb(ctx.systemDb, AuditQueries.accessLog).assertTenantMatch(
-      query.user.tenantId,
-    );
+    const db = ctx.systemDb.assertTenantMatch(query.user.tenantId);
     const where = {
       tenantId: query.user.tenantId,
       ...(p.subjectType !== undefined && { subjectType: p.subjectType }),

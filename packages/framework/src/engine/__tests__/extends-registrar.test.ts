@@ -50,7 +50,7 @@ describe("extendsRegistrar", () => {
     expect(consumer.extensionUsages[0]).toEqual({
       extensionName: "tags",
       entityName: "vehicle",
-      options: undefined,
+      options: {},
     });
     expect(consumer.extensionUsages[1]).toEqual({
       extensionName: "customFields",
@@ -74,7 +74,7 @@ describe("extendsRegistrar", () => {
     createRegistry([ext, consumer]);
 
     expect(onRegister).toHaveBeenCalledTimes(1);
-    expect(onRegister).toHaveBeenCalledWith("vehicle", undefined);
+    expect(onRegister).toHaveBeenCalledWith("vehicle", {});
   });
 
   test("registry throws on duplicate extension name", () => {

@@ -22,6 +22,7 @@ import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import {
   type BannerProps,
   type CardProps,
+  type EmptyStateProps,
   type FormProps,
   PrimitivesProvider,
 } from "../../primitives.tsx";
@@ -47,6 +48,19 @@ const TestCard: ComponentType<CardProps> = ({ children, testId }) => (
   <div data-testid={testId}>{children}</div>
 );
 
+const TestEmptyState: ComponentType<EmptyStateProps> = ({
+  title,
+  description,
+  actions,
+  testId,
+}) => (
+  <div data-testid={testId}>
+    {title}
+    {description}
+    {actions}
+  </div>
+);
+
 const testPrimitives = createStubPrimitives({
   Button: noop,
   Banner: TestBanner,
@@ -56,6 +70,7 @@ const testPrimitives = createStubPrimitives({
   Form: FormWithActions,
   Section: passChildren,
   Card: TestCard,
+  EmptyState: TestEmptyState,
   Grid: passChildren,
   GridCell: passChildren,
   Text: passChildren,
@@ -146,7 +161,7 @@ describe("projectionDetail singleton", () => {
       queries,
     });
 
-    await waitFor(() => expect(getByTestId("form-body")).toBeTruthy());
+    await waitFor(() => getByTestId("form-body"));
     expect(queryByTestId("kumiko-screen-projection-detail-missing-id")).toBeNull();
     expect(queries).toEqual([{ type: "app:query:me", payload: {} }]);
   });
@@ -155,9 +170,7 @@ describe("projectionDetail singleton", () => {
     const queries: Array<{ type: string; payload: unknown }> = [];
     const { getByTestId } = renderScreen({ screen: meScreen(), queries });
 
-    await waitFor(() =>
-      expect(getByTestId("kumiko-screen-projection-detail-missing-id")).toBeTruthy(),
-    );
+    await waitFor(() => getByTestId("kumiko-screen-projection-detail-missing-id"));
   });
 
   test("singleton ignores a stray path id — the query never receives it", async () => {
@@ -168,7 +181,7 @@ describe("projectionDetail singleton", () => {
       queries,
     });
 
-    await waitFor(() => expect(getByTestId("form-body")).toBeTruthy());
+    await waitFor(() => getByTestId("form-body"));
     expect(queries).toEqual([{ type: "app:query:me", payload: {} }]);
   });
 

@@ -72,7 +72,7 @@ describe("actionForm money field currency source", () => {
       </DispatcherProvider>,
     );
 
-    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-form"));
     await typeText("field-amount", "12.50");
     await typeText("field-note", "paid");
     await userEvent.setup().click(screen.getByTestId("render-edit-submit"));
@@ -110,7 +110,7 @@ describe("actionForm money field currency source", () => {
     const call = writeCalls[0];
     if (call === undefined) throw new Error("expected one write call");
     expect((call.payload as { amount?: unknown }).amount).toEqual({
-      amount: 7,
+      amount: 700,
       currency: "GBP",
     });
   });
@@ -133,7 +133,7 @@ describe("actionForm money field currency source", () => {
       </DispatcherProvider>,
     );
 
-    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-form"));
     expect(configPayloads).toEqual([{ keys: ["tenant-settings:config:currency"] }]);
   });
 
@@ -154,9 +154,7 @@ describe("actionForm money field currency source", () => {
         <KumikoScreen schema={makeSchema({ kind: "tenant" })} qn="billing:screen:invoice-pay" />
       </DispatcherProvider>,
     );
-    await waitFor(() =>
-      expect(screen.getByTestId("kumiko-screen-currency-unresolved")).toBeTruthy(),
-    );
+    await waitFor(() => screen.getByTestId("kumiko-screen-currency-unresolved"));
     expect(screen.queryByTestId("render-edit-form")).toBeNull();
     unmount();
 
@@ -166,9 +164,7 @@ describe("actionForm money field currency source", () => {
         <KumikoScreen schema={makeSchema({ kind: "tenant" })} qn="billing:screen:invoice-pay" />
       </DispatcherProvider>,
     );
-    await waitFor(() =>
-      expect(screen.getByTestId("kumiko-screen-currency-unresolved")).toBeTruthy(),
-    );
+    await waitFor(() => screen.getByTestId("kumiko-screen-currency-unresolved"));
     expect(screen.queryByTestId("render-edit-form")).toBeNull();
   });
 
@@ -190,7 +186,7 @@ describe("actionForm money field currency source", () => {
       </DispatcherProvider>,
     );
 
-    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-form"));
     expect(queriedTypes).not.toContain("config:query:values");
   });
 });
@@ -235,7 +231,7 @@ describe("secretMint money field currency source", () => {
       </DispatcherProvider>,
     );
 
-    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-form"));
     await typeText("field-amount", "3");
     await typeText("field-note", "mint it");
     await userEvent.setup().click(screen.getByTestId("render-edit-submit"));
@@ -245,7 +241,7 @@ describe("secretMint money field currency source", () => {
     if (mintCall === undefined) throw new Error("expected a mint write call");
     expect(mintCall.type).toBe("billing:write:credit:mint");
     expect((mintCall.payload as { amount?: unknown }).amount).toEqual({
-      amount: 3,
+      amount: 300,
       currency: "CHF",
     });
 

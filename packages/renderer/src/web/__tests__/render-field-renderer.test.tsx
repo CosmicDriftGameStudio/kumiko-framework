@@ -90,7 +90,7 @@ describe("RenderField — field.renderer on a readOnly head field", () => {
       ),
     );
 
-    expect(screen.getByTestId("status-badge")).toBeTruthy();
+    screen.getByTestId("status-badge");
     expect(screen.getByTestId("status-badge-value").textContent).toBe("shipped");
     expect(screen.getByTestId("status-badge-field").textContent).toBe("status");
     expect(screen.getByTestId("status-badge-row-title").textContent).toBe("Alpha");

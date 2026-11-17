@@ -84,4 +84,10 @@ export const HANDLER_DECLARATION_RULES = {
       "A write handler with beforeTransactionWhenNested does not declare reserveBeforeTransaction, because a nested run would run unreserved.",
     fix: "Remove reserveBeforeTransaction or beforeTransactionWhenNested.",
   },
+  systemScopeWithoutFeatureScope: {
+    id: "handler/system-scope-without-feature-system-scope",
+    summary:
+      "A handler that declares systemScope: true belongs to a feature that calls r.systemScope().",
+    fix: "Call r.systemScope() in the owning feature or remove systemScope from the handler.",
+  },
 } as const satisfies BootRuleTable;

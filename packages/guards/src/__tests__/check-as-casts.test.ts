@@ -32,9 +32,9 @@ function boundarySite(file: string, line: number, boundaryReason?: string): Test
   };
 }
 
-function castIn(code: string) {
+function castIn(code: string, filePath = "packages/framework/src/x/cast.ts") {
   const project = new Project({ useInMemoryFileSystem: true });
-  const sf = project.createSourceFile("packages/framework/src/x/cast.ts", code);
+  const sf = project.createSourceFile(filePath, code);
   return sf.getFirstDescendantByKindOrThrow(SyntaxKind.AsExpression);
 }
 
@@ -53,6 +53,29 @@ describe("As-Casts Audit", () => {
     const cast = castIn(
       "declare const result: { data: unknown };\n// @cast-boundary db-row\nexport const y = result.data as Record<string, unknown>;",
     );
+    expect(categorize(cast)).toBe("legit-boundary");
+  });
+});
+
+describe("engine-payload casts in handlers", () => {
+  const code =
+    "declare const event: { payload: unknown };\n// @cast-boundary engine-payload\nexport const y = event.payload as { a: string };";
+
+  test("event.payload drilling in a *.write.ts handler is a violation", () => {
+    const cast = castIn(code, "packages/x/src/features/t/handlers/save.write.ts");
+    expect(categorize(cast)).toBe("suspect-general");
+  });
+
+  test("query.payload drilling in a *.query.ts handler is a violation", () => {
+    const cast = castIn(
+      code.replaceAll("event", "query"),
+      "packages/x/src/features/t/handlers/list.query.ts",
+    );
+    expect(categorize(cast)).toBe("suspect-general");
+  });
+
+  test("the same cast in a projection stays a legit boundary", () => {
+    const cast = castIn(code, "packages/x/src/features/t/projections/p.ts");
     expect(categorize(cast)).toBe("legit-boundary");
   });
 });

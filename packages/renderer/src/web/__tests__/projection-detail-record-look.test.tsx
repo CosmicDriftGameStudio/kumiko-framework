@@ -214,8 +214,8 @@ describe("groups and section hint of a stacked record page", () => {
       },
     ]);
     await screen.findByText("Golf");
-    expect(screen.getByTestId("section-Data-group-0")).toBeTruthy();
-    expect(screen.getByText("Vehicle")).toBeTruthy();
+    screen.getByTestId("section-Data-group-0");
+    screen.getByText("Vehicle");
     expect(document.querySelector("[data-facts]")).not.toBeNull();
   });
 

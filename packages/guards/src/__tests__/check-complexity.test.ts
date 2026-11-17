@@ -20,13 +20,13 @@ const BUDGET_TAG = ["kumiko-lint-ignore", "complexity-budget"].join(" ");
 const tempDir = mkdtempSync(path.join(tmpdir(), "check-complexity-"));
 afterAll(() => rmSync(tempDir, { recursive: true, force: true }));
 
-function functionWithComplexity(complexity: number, tagged: boolean): string {
+function functionWithComplexity(complexity: number, tagged: boolean, name = "big"): string {
   const branches = Array.from(
     { length: complexity - 1 },
     (_, i) => `  if (x === ${i}) return ${i};`,
   );
   const tag = tagged ? `// ${BUDGET_TAG} fixture\n` : "";
-  return `${tag}export function big(x: number): number {\n${branches.join("\n")}\n  return -1;\n}\n`;
+  return `${tag}export function ${name}(x: number): number {\n${branches.join("\n")}\n  return -1;\n}\n`;
 }
 
 function analyseFixture(
@@ -46,16 +46,25 @@ function analyseFixture(
   return analyse([sf], ROOTS, compareBaseline, { ratchet }).violations;
 }
 
+// The budget tag keeps a function out of the hotspot count, so the frozen count of 1 needs
+// an untagged hotspot next to it; without it the baseline itself is stale.
+const BASELINED_HOTSPOT = functionWithComplexity(HARD_COMPLEXITY_CAP, false, "frozen");
+
 describe("Complexity guard hard cap", () => {
   test("a tagged, baselined function above the cap is still a violation", () => {
-    const violations = analyseFixture(functionWithComplexity(HARD_COMPLEXITY_CAP + 1, true), true);
+    const violations = analyseFixture(
+      functionWithComplexity(HARD_COMPLEXITY_CAP + 1, true) + BASELINED_HOTSPOT,
+      true,
+    );
     expect(violations).toHaveLength(1);
     expect(violations[0]).toMatchObject({ file: FILE, neverFrozen: true });
     expect(violations[0]?.message).toContain(`complexity ${HARD_COMPLEXITY_CAP + 1}`);
   });
 
   test("a tagged, baselined function exactly at the cap passes", () => {
-    expect(analyseFixture(functionWithComplexity(HARD_COMPLEXITY_CAP, true), true)).toEqual([]);
+    expect(
+      analyseFixture(functionWithComplexity(HARD_COMPLEXITY_CAP, true) + BASELINED_HOTSPOT, true),
+    ).toEqual([]);
   });
 
   test("an untagged function above the cap fails even when the baseline covers its hotspot", () => {

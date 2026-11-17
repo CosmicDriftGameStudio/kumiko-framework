@@ -211,7 +211,7 @@ const BOUNDARY_MARKER_RE = /\/[/*]\s*@cast-boundary(?:\s+([\w-]+))?/;
 // reasons; extend if needed and rename consumers if applicable.
 export const KNOWN_BOUNDARY_REASONS = [
   // Pipeline / Engine
-  "engine-payload", // dispatch-Result, event.payload, Hook-Context drilling
+  "engine-payload", // dispatch-Result, Hook-Context drilling
   "engine-bridge", // public-API typed fn → erased internal storage (defineFeature builder)
   "error-details", // DispatcherError.details / FieldIssue inspection
   "zod-issue", // ZodIssue-internal shape (path, code, params)
@@ -341,11 +341,22 @@ export function getFileDefaultReason(filePath: string): BoundaryReason | null {
   return null;
 }
 
+const HANDLER_FILE_RE = /\/handlers\/(?:.*\/)?[^/]+\.(?:write|query)\.ts$/;
+const HANDLER_PAYLOAD_SOURCE_RE = /^(?:event|query)\.payload\b/;
+
+// Write/query handlers get a typed payload from their schema; drilling into the raw
+// payload with a boundary cast hides a missing schema field. Projections stay exempt.
+export function isPayloadCastInHandler(cast: AsExpression): boolean {
+  if (extractBoundaryReason(cast) !== "engine-payload") return false;
+  if (!HANDLER_FILE_RE.test(cast.getSourceFile().getFilePath())) return false;
+  return HANDLER_PAYLOAD_SOURCE_RE.test(cast.getExpression().getText());
+}
+
 export function categorize(cast: AsExpression): Category {
   if (isConstAssertion(cast)) return "legit-const";
   if (isBridgeInner(cast) || isBridgeOuter(cast)) return "legit-bridge";
   if (looksLikeBrandConstruction(cast)) return "legit-brand";
-  if (hasBoundaryMarker(cast)) return "legit-boundary";
+  if (hasBoundaryMarker(cast) && !isPayloadCastInHandler(cast)) return "legit-boundary";
   if (isTypingLossMarkerCast(cast)) return "legit-boundary";
   if (getFileDefaultReason(cast.getSourceFile().getFilePath()) !== null) return "legit-boundary";
   if (isParseCast(cast)) return "suspect-parse";

@@ -252,7 +252,7 @@ describe("entityEdit redirect", () => {
       </DispatcherProvider>,
     );
 
-    await waitFor(() => expect(screen.getByTestId("field-name")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("field-name"));
     fillNameAndSubmit();
 
     await waitFor(() => expect(navigated).toEqual([{ screenId: "product-detail" }]));
@@ -291,7 +291,7 @@ describe("entityEdit redirect", () => {
       </DispatcherProvider>,
     );
 
-    await waitFor(() => expect(screen.getByTestId("field-name")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("field-name"));
     fillNameAndSubmit();
 
     await waitFor(() => expect(navigated).toEqual([{ screenId: "statement-upload-list" }]));
@@ -323,7 +323,7 @@ describe("entityEdit redirect", () => {
       </DispatcherProvider>,
     );
 
-    await waitFor(() => expect(screen.getByTestId("field-name")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("field-name"));
     fillNameAndSubmit();
 
     await waitFor(() => expect(navigated).toEqual([{ screenId: "product-list" }]));
@@ -360,7 +360,7 @@ describe("entityEdit redirect", () => {
       </DispatcherProvider>,
     );
 
-    await waitFor(() => expect(screen.getByTestId("field-name")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("field-name"));
     // userEvent instead of fireEvent: the Radix dialog fires async state updates.
     await user.click(screen.getByTestId("render-edit-delete"));
     await user.click(screen.getByTestId("render-edit-delete-dialog-confirm"));
@@ -406,7 +406,7 @@ describe("entityEdit redirect", () => {
       </DispatcherProvider>,
     );
 
-    await waitFor(() => expect(screen.getByTestId("field-name")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("field-name"));
     fillNameAndSubmit();
 
     await waitFor(() =>
@@ -448,7 +448,7 @@ describe("entityEdit redirect", () => {
       </DispatcherProvider>,
     );
 
-    await waitFor(() => expect(screen.getByTestId("field-name")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("field-name"));
     fillNameAndSubmit();
 
     await waitFor(() =>
@@ -490,7 +490,7 @@ describe("entityEdit redirect", () => {
       </DispatcherProvider>,
     );
 
-    await waitFor(() => expect(screen.getByTestId("field-name")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("field-name"));
     fillNameAndSubmit();
 
     await waitFor(() =>

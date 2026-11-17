@@ -1,3 +1,5 @@
+import { handlerTranslationKeys } from "@cosmicdrift/kumiko-framework/engine";
+
 type LocalizedString = { readonly en: string };
 
 export const TENANT_I18N: Readonly<Record<string, LocalizedString>> = {
@@ -75,3 +77,22 @@ export const TENANT_I18N: Readonly<Record<string, LocalizedString>> = {
   "tenant:entity:tenant:field:isEnabled:option:true": { en: "Yes" },
   "tenant:entity:tenant:field:isEnabled:option:false": { en: "No" },
 };
+
+export const TENANT_HANDLER_I18N = handlerTranslationKeys("tenant", {
+  writes: {
+    "add-member": {
+      title: { en: "Add member" },
+      fields: { userId: { en: "User" }, tenantId: { en: "Tenant" }, roles: { en: "Roles" } },
+    },
+    "cancel-invitation": {
+      title: { en: "Cancel invitation" },
+      fields: { invitationId: { en: "Invitation" } },
+    },
+    disable: { title: { en: "Disable tenant" }, fields: { id: { en: "Tenant" } } },
+    enable: { title: { en: "Enable tenant" }, fields: { id: { en: "Tenant" } } },
+    "remove-member": {
+      title: { en: "Remove member" },
+      fields: { userId: { en: "User" }, tenantId: { en: "Tenant" } },
+    },
+  },
+});

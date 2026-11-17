@@ -41,7 +41,7 @@ import {
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import { createTzContext, getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { TODO_CREATE_QN, TODO_LIST_QN } from "../feature";
@@ -188,6 +188,7 @@ describe("user-data-rights-demo :: end-to-end DSGVO-Story", () => {
       services: { extensions: {} },
       lifecycle: {},
       obs: { log: { warn() {} } },
+      tz: createTzContext(),
     } as unknown as JobContext);
     const cronRow = (await asRawClient(stack.db).unsafe(
       `SELECT status FROM read_users WHERE id = $1`,

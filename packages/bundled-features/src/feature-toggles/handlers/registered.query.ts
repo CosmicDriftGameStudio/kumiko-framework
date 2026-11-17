@@ -1,6 +1,5 @@
 import { defineQueryHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { requireSystemDb } from "../../shared/index.ts";
 import { globalFeatureStateTable } from "../global-feature-state-table.ts";
 import { FEATURE_TOGGLE_CROSS_TENANT_REASON } from "../web/constants.ts";
 
@@ -24,10 +23,9 @@ export const registeredQuery = defineQueryHandler({
     "Lists every registered feature with whether it is toggleable, its default, its explicit override, its dependencies and its effective on/off state; use it as the full feature inventory.",
   schema: z.object({}),
   access: { roles: ["SystemAdmin"] },
+  systemScope: true,
   handler: async (_event, ctx) => {
-    // ctx.systemDb is populated for r.systemScope() handlers only (feature.ts
-    // declares it) — guarded instead of asserted, see set.write.ts Guard 0.5.
-    const systemDb = requireSystemDb(ctx, "feature-toggles:registered-query");
+    const { systemDb } = ctx;
     const db = systemDb.acknowledgeCrossTenant(FEATURE_TOGGLE_CROSS_TENANT_REASON);
 
     type OverrideRow = { featureName: string; enabled: boolean };

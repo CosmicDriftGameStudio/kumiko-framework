@@ -91,7 +91,7 @@ describe("list bulk form action", () => {
     for (const id of ["p1", "p2", "p4"]) fireEvent.click(screen.getByTestId(`row-${id}-select`));
     fireEvent.click(screen.getByTestId("bulk-action-swap-company"));
 
-    await waitFor(() => expect(screen.getByTestId("kumiko-edit-propertyIds-count")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("kumiko-edit-propertyIds-count"));
     expect(screen.getByTestId("kumiko-edit-propertyIds-count").textContent).toBe("3 selected");
 
     fireEvent.change(document.querySelector("#kumiko-edit-company") as HTMLInputElement, {

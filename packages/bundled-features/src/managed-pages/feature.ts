@@ -23,6 +23,7 @@ import { bySlugQuery } from "./handlers/by-slug.query.ts";
 import { byTenantPublishedQuery } from "./handlers/by-tenant-published.query.ts";
 import { pageCrudQueries, pageCrudWrites } from "./handlers/page-crud.ts";
 import { setWrite } from "./handlers/set.write.ts";
+import { MANAGED_PAGES_HANDLER_I18N } from "./i18n.ts";
 import { renderPageBody } from "./render-page-body.ts";
 import { pageEditScreen, pageListScreen } from "./screens/page-screens.ts";
 import { pageEntity } from "./table.ts";
@@ -183,6 +184,7 @@ export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDef
     r.screen(pageEditScreen);
 
     r.translations({ keys: MANAGED_PAGES_I18N });
+    r.translations({ keys: MANAGED_PAGES_HANDLER_I18N });
 
     r.httpRoute({
       method: "GET",

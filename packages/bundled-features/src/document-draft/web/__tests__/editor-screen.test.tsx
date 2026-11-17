@@ -143,7 +143,7 @@ describe("document draft editor", () => {
       variables: { rent: 85000 },
       variableSchema: { rent: { type: "money" } },
     });
-    expect(await screen.findByText("£850.00")).toBeTruthy();
+    await screen.findByText("£850.00");
     expect(screen.queryByText("85000")).toBeNull();
   });
 
@@ -158,10 +158,10 @@ describe("document draft editor", () => {
         steps: { type: "list", item: { validFrom: { type: "date", label: "Valid from" } } },
       },
     });
-    expect(await screen.findByText("£850.00")).toBeTruthy();
-    expect(screen.getByText("End of lease")).toBeTruthy();
-    expect(screen.getByText("Company name")).toBeTruthy();
-    expect(screen.getByText("Valid from")).toBeTruthy();
+    await screen.findByText("£850.00");
+    screen.getByText("End of lease");
+    screen.getByText("Company name");
+    screen.getByText("Valid from");
     expect(screen.queryByText("validFrom")).toBeNull();
     expect(screen.queryByText("endDate")).toBeNull();
     expect(screen.queryByText("tenantName")).toBeNull();
@@ -169,7 +169,7 @@ describe("document draft editor", () => {
 
   test("a draft equal to its template says so instead of listing deviations", async () => {
     mountEditor({ ...OPEN_DRAFT, deviations: [{ change: "same", content: "<p>Intro</p>" }] });
-    expect(await screen.findByText("The draft matches the template.")).toBeTruthy();
+    await screen.findByText("The draft matches the template.");
     expect(screen.queryByTestId("document-draft-workbench-rail-deviation")).toBeNull();
   });
 

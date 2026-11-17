@@ -1,11 +1,11 @@
-import { isSystemTenant, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { defineWriteHandler, isSystemTenant } from "@cosmicdrift/kumiko-framework/engine";
 import { failUnprocessable } from "@cosmicdrift/kumiko-framework/errors";
 import { fieldDefinitionAggregateId } from "../aggregate-id.ts";
 import { countTenantFieldDefinitions } from "../db/queries/quota.ts";
 import { isCustomFieldsHost } from "../lib/custom-fields-host.ts";
 import { defineOrResurrectFieldDefinition } from "../lib/define-or-resurrect.ts";
 import { buildFieldDefinitionColumns } from "../lib/field-definition-row.ts";
-import { type DefineFieldPayload, defineFieldPayloadSchema } from "../schemas.ts";
+import { defineFieldPayloadSchema } from "../schemas.ts";
 import { DEFAULT_FIELD_DEFINITION_WRITE_ROLES } from "../web/constants.ts";
 
 // define-tenant-field: the tenant is taken from event.user.tenantId, never from the payload.
@@ -25,11 +25,9 @@ export interface DefineTenantFieldOptions {
 const DEFINE_TENANT_FIELD_REASON =
   "counts custom field definitions with an explicit tenant_id = caller tenant via raw SQL with read retry";
 
-export function createDefineTenantFieldHandler(
-  opts: DefineTenantFieldOptions = {},
-): WriteHandlerDef {
+export function createDefineTenantFieldHandler(opts: DefineTenantFieldOptions = {}) {
   const limit = opts.fieldDefinitionLimitPerTenant;
-  return {
+  return defineWriteHandler({
     name: "define-tenant-field",
     schema: defineFieldPayloadSchema,
     access: { roles: opts.roles ?? DEFAULT_FIELD_DEFINITION_WRITE_ROLES },
@@ -40,7 +38,7 @@ export function createDefineTenantFieldHandler(
       reason: DEFINE_TENANT_FIELD_REASON,
     },
     handler: async (event, ctx) => {
-      const payload = event.payload as DefineFieldPayload; // @cast-boundary engine-payload
+      const payload = event.payload;
       if (!isCustomFieldsHost(ctx.registry, payload.entityName)) {
         return failUnprocessable("custom_fields_entity_not_wired", {
           entityName: payload.entityName,
@@ -79,5 +77,5 @@ export function createDefineTenantFieldHandler(
         ctx.db,
       );
     },
-  };
+  });
 }

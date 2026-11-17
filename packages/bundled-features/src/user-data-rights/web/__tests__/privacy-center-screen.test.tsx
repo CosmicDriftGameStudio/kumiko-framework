@@ -151,7 +151,7 @@ describe("ExportSection", () => {
   test("idle: Intro + Request button, translated text (no raw keys)", async () => {
     const { view } = renderExportSection({});
     await waitForMount(view);
-    expect(view.getByTestId("privacy-export-request")).toBeTruthy();
+    view.getByTestId("privacy-export-request");
     expect(view.container.textContent).not.toContain("userDataRights.privacyCenter");
   });
 
@@ -163,7 +163,7 @@ describe("ExportSection", () => {
       },
     });
     await waitForDownloadReady(view);
-    expect(view.getByTestId("privacy-export-download")).toBeTruthy();
+    view.getByTestId("privacy-export-download");
     const ready = view.getByTestId("privacy-export-ready");
     expect(ready.textContent).toContain("2026-07-11");
     expect(ready.textContent).not.toContain("T00:00");
@@ -174,8 +174,8 @@ describe("ExportSection", () => {
       exportStatus: { hasJob: true, job: { id: "job-9", status: EXPORT_JOB_STATUS.Failed } },
     });
     await waitForTestId(view, "privacy-export-failed");
-    expect(view.getByTestId("privacy-export-failed")).toBeTruthy();
-    expect(view.getByTestId("privacy-export-request")).toBeTruthy();
+    view.getByTestId("privacy-export-failed");
+    view.getByTestId("privacy-export-request");
   });
 
   test("export pending: in-progress banner, no request button", async () => {
@@ -183,7 +183,7 @@ describe("ExportSection", () => {
       exportStatus: { hasJob: true, job: { id: "job-1", status: EXPORT_JOB_STATUS.Pending } },
     });
     await waitForTestId(view, "privacy-export-pending");
-    expect(view.getByTestId("privacy-export-pending")).toBeTruthy();
+    view.getByTestId("privacy-export-pending");
     expect(view.queryByTestId("privacy-export-request")).toBeNull();
   });
 

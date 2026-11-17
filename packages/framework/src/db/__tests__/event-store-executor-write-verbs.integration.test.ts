@@ -923,21 +923,31 @@ describe("event-store-executor write-verbs — version_conflict reports the real
   const crud = createEventStoreExecutor(staleVersionTable, staleVersionEntity, {
     entityName: "esWriteStaleVersion",
   });
-  let competingAppend: (() => Promise<void>) | undefined;
+  type RaceStep = "encrypt" | "decrypt";
+  let competingAppend: { readonly step: RaceStep; readonly run: () => Promise<void> } | undefined;
+
+  async function runCompetingAppendAt(step: RaceStep): Promise<void> {
+    const race = competingAppend;
+    if (race === undefined || race.step !== step) return;
+    competingAppend = undefined;
+    await race.run();
+  }
 
   beforeAll(async () => {
     await unsafeCreateEntityTable(testDb.db, staleVersionEntity, "esWriteStaleVersion");
     const cipher = createTestEnvelopeCipher(
       Buffer.from("a]bJm#kP9xQ2@wN!vL$hR5yT8eU0iO3f").toString("base64"),
     );
-    // The verb encrypts `previous` after reading the stream version and before
-    // appending, so a write landing here is a deterministic lost race.
+    // A write landing between the verb's stream-version read and its append is a deterministic
+    // lost race. Update and restore encrypt `previous` in that window; delete keeps `previous`
+    // in plaintext, so its only crypto call there is the snapshot decrypt.
     configureEntityFieldEncryption({
-      decrypt: (stored, scope) => cipher.decrypt(stored, scope),
+      decrypt: async (stored, scope) => {
+        await runCompetingAppendAt("decrypt");
+        return cipher.decrypt(stored, scope);
+      },
       encrypt: async (plaintext, scope) => {
-        const race = competingAppend;
-        competingAppend = undefined;
-        await race?.();
+        await runCompetingAppendAt("encrypt");
         return cipher.encrypt(plaintext, scope);
       },
     });
@@ -954,24 +964,27 @@ describe("event-store-executor write-verbs — version_conflict reports the real
     );
   });
 
-  function armCompetingAppend(id: EntityId, predecessorVersion: number): void {
-    competingAppend = async () => {
-      await append(testDb.db, {
-        aggregateId: String(id),
-        aggregateType: "esWriteStaleVersion",
-        tenantId: admin.tenantId,
-        expectedVersion: predecessorVersion,
-        type: "esWriteStaleVersion.competing",
-        payload: {},
-        metadata: buildEventMetadata(admin),
-      });
+  function armCompetingAppend(id: EntityId, predecessorVersion: number, step: RaceStep): void {
+    competingAppend = {
+      step,
+      run: async () => {
+        await append(testDb.db, {
+          aggregateId: String(id),
+          aggregateType: "esWriteStaleVersion",
+          tenantId: admin.tenantId,
+          expectedVersion: predecessorVersion,
+          type: "esWriteStaleVersion.competing",
+          payload: {},
+          metadata: buildEventMetadata(admin),
+        });
+      },
     };
   }
 
   test("update: expected = version read, current = version after the competing append", async () => {
     const created = await crud.create({ secret: "s" }, admin, tdb);
     if (!created.isSuccess) throw new Error("setup failed");
-    armCompetingAppend(created.data.id, 1);
+    armCompetingAppend(created.data.id, 1, "encrypt");
 
     const result = await crud.update(
       { id: created.data.id, version: 1, changes: { secret: "changed" } },
@@ -987,7 +1000,7 @@ describe("event-store-executor write-verbs — version_conflict reports the real
   test("delete: expected = version read, current = version after the competing append", async () => {
     const created = await crud.create({ secret: "s" }, admin, tdb);
     if (!created.isSuccess) throw new Error("setup failed");
-    armCompetingAppend(created.data.id, 1);
+    armCompetingAppend(created.data.id, 1, "decrypt");
 
     const result = await crud.delete({ id: created.data.id }, admin, tdb);
     expect(result.isSuccess).toBe(false);
@@ -1001,7 +1014,7 @@ describe("event-store-executor write-verbs — version_conflict reports the real
     if (!created.isSuccess) throw new Error("setup failed");
     const deleted = await crud.delete({ id: created.data.id }, admin, tdb);
     if (!deleted.isSuccess) throw new Error("setup failed");
-    armCompetingAppend(created.data.id, 2);
+    armCompetingAppend(created.data.id, 2, "encrypt");
 
     const result = await crud.restore({ id: created.data.id }, admin, tdb);
     expect(result.isSuccess).toBe(false);

@@ -135,7 +135,7 @@ describe("returnTo — singleton entityEdit ignores it", () => {
     window.history.replaceState(null, "", "/settings-edit?returnTo=home");
     render(<App appSchema={schema} dispatcher={dispatcher} />);
 
-    await waitFor(() => expect(screen.getByTestId("field-title")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("field-title"));
     const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
     fireEvent.change(titleInput, { target: { value: "Saved title" } });
     await waitFor(() => {

@@ -317,7 +317,7 @@ describe("event-store-executor — sensitive fields", () => {
     expect(event.payload.previous).toEqual({ firstName: "old-parent" });
   });
 
-  test("delete event carries ciphertext in previous", async () => {
+  test("delete event keeps plaintext columns and drops sensitive ones from previous", async () => {
     const created = await crud.create(
       { email: "d@test.de", passwordHash: "pw", apiToken: "tk" },
       adminUser,
@@ -333,10 +333,9 @@ describe("event-store-executor — sensitive fields", () => {
     const event = await lastEvent<SensitivePrevious>();
     expect(event.type).toBe("esExecSensitive.deleted");
     expect(event.payload.previous.email).toBe("d@test.de");
-    expect(event.payload.previous.passwordHash).toBeDefined();
-    expect(event.payload.previous.passwordHash).not.toBe("pw");
-    expect(event.payload.previous.apiToken).toBeDefined();
-    expect(event.payload.previous.apiToken).not.toBe("tk");
+    expect(event.payload.previous).not.toHaveProperty("passwordHash");
+    expect(event.payload.previous).not.toHaveProperty("apiToken");
+    expect(event.payload.previous).toMatchObject({ id: created.data.id });
   });
 
   test("restore event carries ciphertext in previous", async () => {
@@ -663,7 +662,7 @@ describe("event-store-executor — encrypted fields", () => {
     expect(rows[0]?.payload.previous).not.toHaveProperty("secretNote");
   });
 
-  test("delete's persisted event carries ciphertext (not plaintext) for an encrypted field in `previous`", async () => {
+  test("delete's persisted event leaves an encrypted field out of `previous`", async () => {
     const created = await crud.create(
       { email: "del-enc@test.de", secretNote: "delete-plaintext-note" },
       adminUser,
@@ -676,10 +675,11 @@ describe("event-store-executor — encrypted fields", () => {
 
     const rows = (await asRawClient(testDb.db).unsafe(
       `SELECT payload FROM kumiko_events WHERE type = 'esExecEncrypted.deleted' ORDER BY id DESC LIMIT 1`,
-    )) as Array<{ payload: { previous?: { secretNote?: string } } }>;
-    const storedPrevious = rows[0]?.payload.previous?.secretNote;
-    expect(storedPrevious).toBeDefined();
-    expect(storedPrevious).not.toBe("delete-plaintext-note");
+    )) as Array<{ payload: { previous?: Record<string, unknown> } }>;
+    expect(rows[0]?.payload.previous).toBeDefined();
+    expect(rows[0]?.payload.previous?.["email"]).toBe("del-enc@test.de");
+    expect(rows[0]?.payload.previous).not.toHaveProperty("secretNote");
+    expect(JSON.stringify(rows[0]?.payload)).not.toContain("delete-plaintext-note");
   });
 
   test("restore returns plaintext (data + previous) for an encrypted field, not ciphertext (725/2)", async () => {
@@ -1071,7 +1071,7 @@ describe("event-store-executor — restore re-encrypts pii in previous", () => {
     "erased subject (%s): update fails without a writePurpose, erasure update stores the sentinel in previous",
     async (keyState) => {
       const id = await createPreKmsRowWithErasedSubject(keyState);
-      const changes = { secretNote: "after-erasure" };
+      const changes = { email: "after-erasure@test.de" };
 
       await expect(
         kmsCrud.update({ id, changes }, adminUser, tdb, { skipOptimisticLock: true }),
@@ -1109,7 +1109,7 @@ describe("event-store-executor — restore re-encrypts pii in previous", () => {
   );
 
   test.each(KEY_STATES)(
-    "erased subject (%s): forget succeeds on a pre-KMS plaintext row and removes it",
+    "erased subject (%s): forget succeeds on a pre-KMS plaintext row, removes it and stores no personal field",
     async (keyState) => {
       const id = await createPreKmsRowWithErasedSubject(keyState);
 
@@ -1121,9 +1121,48 @@ describe("event-store-executor — restore re-encrypts pii in previous", () => {
       )) as Array<{ id: unknown }>;
       expect(rows).toHaveLength(0);
       const previous = await loadStoredPrevious("esExecPiiSoft.forgotten", id);
-      expect(previous["email"]).toBe(PII_ERASED_SENTINEL);
+      expect(previous).not.toHaveProperty("email");
     },
   );
+
+  test.each(KEY_STATES)(
+    "erased subject (%s): delete without a writePurpose succeeds and stores no personal field",
+    async (keyState) => {
+      const id = await createPreKmsRowWithErasedSubject(keyState);
+
+      const deleted = await kmsCrud.delete({ id }, adminUser, tdb);
+
+      expect(deleted.isSuccess).toBe(true);
+      const previous = await loadStoredPrevious("esExecPiiSoft.deleted", id);
+      expect(previous).not.toHaveProperty("email");
+      await expectRestoreRefusedAndNothingStored(id);
+    },
+  );
+
+  test("forget of a KMS row stores no personal field and no ciphertext in previous", async () => {
+    const created = await kmsCrud.create(
+      {
+        email: "forget-kms@test.de",
+        secretNote: "forget-kms-note",
+        ownerId: adminUser.id,
+        ownerSecret: "forget-kms-owner-secret",
+      },
+      adminUser,
+      tdb,
+    );
+    if (!created.isSuccess) throw new Error("create failed");
+
+    const forgotten = await kmsCrud.forget({ id: created.data.id }, adminUser, tdb);
+    if (!forgotten.isSuccess) throw new Error("forget failed");
+
+    const previous = await loadStoredPrevious("esExecPiiSoft.forgotten", created.data.id);
+    expect(previous).not.toHaveProperty("email");
+    expect(previous).not.toHaveProperty("secretNote");
+    expect(previous).not.toHaveProperty("ownerSecret");
+    expect(previous).toHaveProperty("id");
+    expect(previous).toHaveProperty("isDeleted");
+    expect(JSON.stringify(previous)).not.toContain(PII_CIPHERTEXT_PREFIX);
+  });
 
   test.each(KEY_STATES)(
     "erased subject (%s): after an erasure delete, restore stays refused",

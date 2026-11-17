@@ -36,7 +36,17 @@ const joinEntity = createEntity({
   parentRef: {
     entityTypeField: "entityType",
     entityIdField: "entityId",
-    allowedTypes: ["host", "other", "third"],
+    allowedTypes: [
+      "host",
+      "other",
+      "third",
+      "dropped",
+      "kept",
+      "global-host",
+      "readable-host",
+      "reference-host",
+      "where-host",
+    ],
   },
 });
 

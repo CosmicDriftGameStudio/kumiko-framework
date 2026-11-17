@@ -5,10 +5,10 @@
 
 import { requireSecretsContext } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import {
+  defineWriteHandler,
   type HandlerContext,
   SYSTEM_ROLE,
   SYSTEM_USER_ID,
-  type WriteHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
   AccessDeniedError,
@@ -84,11 +84,8 @@ async function appendMailAccountReactivation(
   return true;
 }
 
-export function createReactivateAccountHandler({
-  memberRoles,
-  adminRoles,
-}: InboundMailRoles): WriteHandlerDef {
-  return {
+export function createReactivateAccountHandler({ memberRoles, adminRoles }: InboundMailRoles) {
+  return defineWriteHandler({
     name: "reactivate-account",
     schema: reactivateAccountSchema,
     // Members: the owner re-arms a personal mailbox; mayReactivateMailbox keeps shared ones to admins.
@@ -98,7 +95,7 @@ export function createReactivateAccountHandler({
     description:
       "Brings a disconnected, interrupted or sign-in-failed mailbox back to active under its existing accountId, so cursor, seen messages and threads survive; the caller replaces the credential in the same flow.",
     handler: async (event, ctx) => {
-      const payload = reactivateAccountSchema.parse(event.payload);
+      const payload = event.payload;
       const accountStreamVersion = await ctx.events.streamVersion(payload.accountId);
       const current = await loadCurrentMailAccountPayload(ctx, payload.accountId);
       if (!current) return failNotFound("mail-account", payload.accountId);
@@ -133,5 +130,5 @@ export function createReactivateAccountHandler({
       );
       return { isSuccess: true as const, data: { accountId: payload.accountId, changed } };
     },
-  };
+  });
 }

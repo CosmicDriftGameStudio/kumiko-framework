@@ -19,7 +19,7 @@ import {
 // is dynamic. Zod validation in the set-profile handler ensures schema
 // conformity.
 export const tenantComplianceProfileEntity = createEntity({
-  name: "tenantComplianceProfile",
+  name: "tenant-compliance-profile",
   table: "read_tenant_compliance_profiles",
   fields: {
     profileKey: createSelectField({

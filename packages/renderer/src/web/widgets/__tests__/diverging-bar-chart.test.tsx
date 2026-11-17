@@ -25,6 +25,6 @@ describe("DivergingBarChart", () => {
     ]);
     expect(rows[0]?.textContent).toContain("-0.8 pt");
     expect(rows[1]?.textContent).toContain("+0.5 pt");
-    expect(screen.getByRole("img", { name: "Drivers" })).toBeTruthy();
+    screen.getByRole("img", { name: "Drivers" });
   });
 });

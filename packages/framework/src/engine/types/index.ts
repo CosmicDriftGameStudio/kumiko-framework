@@ -32,6 +32,7 @@ export type {
   QueryEvent,
   ReservationContext,
   SessionUser,
+  SystemScopeHandlerContext,
 } from "@cosmicdrift/kumiko-types/handlers";
 // Domain-identifier type aliases — see identifiers.ts for rationale.
 export type { TenantId } from "@cosmicdrift/kumiko-types/identifiers";

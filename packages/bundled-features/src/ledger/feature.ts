@@ -36,6 +36,7 @@ import {
   createScheduleActualsHandler,
   createSubjectTotalsHandler,
 } from "./handlers/totals.query.ts";
+import { LEDGER_I18N } from "./i18n.ts";
 import { requireScheduleSubjectPair } from "./schedule-subject-pair.ts";
 import { DEFAULT_LEDGER_ACCESS, LEDGER_FEATURE_NAME } from "./web/constants.ts";
 
@@ -57,6 +58,7 @@ function registerLedger(
     category: "data",
     recommended: false,
   });
+  r.translations({ keys: LEDGER_I18N });
 
   if (toggleable !== undefined) r.toggleable(toggleable);
 

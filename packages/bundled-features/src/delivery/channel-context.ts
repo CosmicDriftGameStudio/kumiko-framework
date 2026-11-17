@@ -1,8 +1,9 @@
 import type { SseBroker } from "@cosmicdrift/kumiko-framework/api";
-import { createTenantDb, type DbConnection, type TenantDb } from "@cosmicdrift/kumiko-framework/db";
+import type { DbConnection, TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { ConfigAccessor, Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { type FileContext, FileObjectMissingError } from "@cosmicdrift/kumiko-framework/files";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import {
@@ -154,7 +155,7 @@ export function buildChannelContext(
   idempotencyKey?: string,
 ): ChannelContext {
   return {
-    db: createTenantDb({ db, tenantId }),
+    db: createTenantDb({ db, tenantId, mode: "tenant" }),
     registry,
     sseBroker,
     tenantId,

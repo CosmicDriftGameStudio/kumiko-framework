@@ -59,12 +59,12 @@ describe("DefaultAuthPagesGate", () => {
   test("/forgot-password shows the framework screen", () => {
     const ui = renderAt("/forgot-password");
     expect(ui.queryByTestId("app")).toBeNull();
-    expect(ui.getByLabelText(/^Email/)).toBeTruthy();
+    ui.getByLabelText(/^Email/);
   });
 
   test("/unlock-account without token requests, with token confirms", () => {
     const request = renderAt("/unlock-account");
-    expect(request.getByLabelText(/^Email/)).toBeTruthy();
+    request.getByLabelText(/^Email/);
     request.unmount();
     const confirm = renderAt("/unlock-account?token=abc");
     expect(confirm.queryByLabelText(/^Email/)).toBeNull();
@@ -72,7 +72,7 @@ describe("DefaultAuthPagesGate", () => {
   });
 
   test("/reset-password needs a token, otherwise the app renders", () => {
-    expect(renderAt("/reset-password").getByTestId("app")).toBeTruthy();
+    renderAt("/reset-password").getByTestId("app");
   });
 
   test("an app mounted under a base path matches the auth pages below it", () => {
@@ -81,15 +81,15 @@ describe("DefaultAuthPagesGate", () => {
     unlock.unmount();
     const forgot = renderAt("/admin/forgot-password", "/admin");
     expect(forgot.queryByTestId("app")).toBeNull();
-    expect(forgot.getByLabelText(/^Email/)).toBeTruthy();
+    forgot.getByLabelText(/^Email/);
   });
 
   test("under a base path the unprefixed auth paths belong to the host, not the app", () => {
-    expect(renderAt("/forgot-password", "/admin").getByTestId("app")).toBeTruthy();
+    renderAt("/forgot-password", "/admin").getByTestId("app");
   });
 
   test("other paths pass through", () => {
-    expect(renderAt("/dashboard").getByTestId("app")).toBeTruthy();
+    renderAt("/dashboard").getByTestId("app");
   });
 
   test("an app gate listed before emailPasswordClient wins on the same path", () => {
@@ -107,7 +107,7 @@ describe("DefaultAuthPagesGate", () => {
       </AppForgotGate>
     );
     const { getByTestId, queryByLabelText } = render(stacked);
-    expect(getByTestId("app-forgot")).toBeTruthy();
+    getByTestId("app-forgot");
     expect(queryByLabelText(/^Email/)).toBeNull();
   });
 
@@ -127,12 +127,12 @@ describe("DefaultAuthPagesGate", () => {
   test("/signup without a dispatcher shows the form", () => {
     const ui = renderAt("/signup");
     expect(ui.queryByTestId("app")).toBeNull();
-    expect(ui.getByLabelText(/^Email/)).toBeTruthy();
+    ui.getByLabelText(/^Email/);
   });
 
   test("/signup with an open registration status shows the form", async () => {
     const ui = renderAt("/signup", undefined, { dispatcher: signupStatusDispatcher(true) });
-    expect(await ui.findByLabelText(/^Email/)).toBeTruthy();
+    await ui.findByLabelText(/^Email/);
     expect(ui.queryByTestId("app")).toBeNull();
   });
 
@@ -149,13 +149,13 @@ describe("DefaultAuthPagesGate", () => {
       }),
     });
     const ui = renderAt("/signup", undefined, { dispatcher: failing });
-    expect(await ui.findByTestId("app")).toBeTruthy();
+    await ui.findByTestId("app");
   });
 
   test("/signup with a session cookie falls through to the app", () => {
     setCsrfCookie("x");
     try {
-      expect(renderAt("/signup").getByTestId("app")).toBeTruthy();
+      renderAt("/signup").getByTestId("app");
     } finally {
       clearCsrfCookie();
     }
@@ -167,7 +167,7 @@ describe("DefaultAuthPagesGate", () => {
     expect(custom.queryByTestId("app")).toBeNull();
     custom.unmount();
     const plain = renderAt("/reset-password?token=abc", undefined, { gate });
-    expect(plain.getByTestId("app")).toBeTruthy();
+    plain.getByTestId("app");
   });
 
   test("a function path is resolved with the current locale", () => {

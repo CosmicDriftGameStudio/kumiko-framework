@@ -22,6 +22,7 @@ import { deleteSystemFieldHandler } from "./handlers/delete-system-field.write.t
 import { createDeleteTenantFieldHandler } from "./handlers/delete-tenant-field.write.ts";
 import { createSetCustomFieldHandler } from "./handlers/set-custom-field.write.ts";
 import { createUpdateTenantFieldHandler } from "./handlers/update-tenant-field.write.ts";
+import { CUSTOM_FIELDS_I18N } from "./i18n.ts";
 import { customFieldsHostTableName } from "./lib/custom-fields-host.ts";
 import {
   applyCustomFieldCleared,
@@ -51,6 +52,7 @@ function registerCustomFields(
     category: "data",
     recommended: false,
   });
+  r.translations({ keys: CUSTOM_FIELDS_I18N });
   r.entity(fieldDefinitionEntity);
 
   // Event types — qualified as "custom-fields:event:<short-name>".

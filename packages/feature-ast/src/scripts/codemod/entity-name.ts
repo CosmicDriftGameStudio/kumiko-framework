@@ -190,6 +190,37 @@ function createEntityLiteralOf(call: CallExpression): ObjectLiteralExpression | 
   return arg !== undefined && Node.isObjectLiteralExpression(arg) ? arg : undefined;
 }
 
+function resolveCallCarrier(
+  call: CallExpression,
+  usageFile: SourceFile,
+  depth: number,
+): NameCarrier | undefined {
+  if (calleeNameOf(call) === CREATE_ENTITY) {
+    const literal = createEntityLiteralOf(call);
+    return literal === undefined ? undefined : { literal, isCreateEntityArgument: true };
+  }
+  const returned = returnedExpressionOf(call);
+  return returned === undefined ? undefined : resolveNameCarrier(returned, usageFile, depth + 1);
+}
+
+function resolveIdentifierCarrier(
+  identifier: Node,
+  usageFile: SourceFile,
+  depth: number,
+): NameCarrier | undefined {
+  for (const declaration of declarationsOf(identifier)) {
+    if (!Node.isVariableDeclaration(declaration)) continue;
+    const initializer = declaration.getInitializer();
+    if (initializer === undefined) continue;
+    const carrier = resolveNameCarrier(initializer, usageFile, depth + 1);
+    if (carrier === undefined) continue;
+    const isSameFileConst =
+      isConstDeclaration(declaration) && carrier.literal.getSourceFile() === usageFile;
+    if (carrier.isCreateEntityArgument || isSameFileConst) return carrier;
+  }
+  return undefined;
+}
+
 // The literal an entity expression ends up at: through imports, aliases, `as`/`satisfies` and
 // single-return factories. A plain object literal only counts as a const of the same file.
 function resolveNameCarrier(
@@ -202,26 +233,9 @@ function resolveNameCarrier(
   if (Node.isObjectLiteralExpression(node)) {
     return { literal: node, isCreateEntityArgument: false };
   }
-  if (Node.isCallExpression(node)) {
-    if (calleeNameOf(node) === CREATE_ENTITY) {
-      const literal = createEntityLiteralOf(node);
-      return literal === undefined ? undefined : { literal, isCreateEntityArgument: true };
-    }
-    const returned = returnedExpressionOf(node);
-    return returned === undefined ? undefined : resolveNameCarrier(returned, usageFile, depth + 1);
-  }
+  if (Node.isCallExpression(node)) return resolveCallCarrier(node, usageFile, depth);
   if (!Node.isIdentifier(node)) return undefined;
-  for (const declaration of declarationsOf(node)) {
-    if (!Node.isVariableDeclaration(declaration)) continue;
-    const initializer = declaration.getInitializer();
-    if (initializer === undefined) continue;
-    const carrier = resolveNameCarrier(initializer, usageFile, depth + 1);
-    if (carrier === undefined) continue;
-    const isSameFileConst =
-      isConstDeclaration(declaration) && carrier.literal.getSourceFile() === usageFile;
-    if (carrier.isCreateEntityArgument || isSameFileConst) return carrier;
-  }
-  return undefined;
+  return resolveIdentifierCarrier(node, usageFile, depth);
 }
 
 // Whether the carrier, which sits at module level or in the call, can name `expression` itself.

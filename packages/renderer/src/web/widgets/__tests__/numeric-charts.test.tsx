@@ -47,12 +47,12 @@ describe("NumericLineChart", () => {
 
   test("draws one path per series, formatted x ticks and the reference line with its label", () => {
     renderChart();
-    expect(screen.getByTestId("numeric-line-property")).toBeTruthy();
-    expect(screen.getByTestId("numeric-line-etf")).toBeTruthy();
-    expect(screen.getByText("0 y")).toBeTruthy();
-    expect(screen.getByText("20 y")).toBeTruthy();
-    expect(screen.getByTestId("numeric-reference-x")).toBeTruthy();
-    expect(screen.getByText("Sale")).toBeTruthy();
+    screen.getByTestId("numeric-line-property");
+    screen.getByTestId("numeric-line-etf");
+    screen.getByText("0 y");
+    screen.getByText("20 y");
+    screen.getByTestId("numeric-reference-x");
+    screen.getByText("Sale");
   });
 
   test("a pointer move shows the tooltip for the nearest x and leaving hides it", () => {
@@ -88,8 +88,8 @@ describe("SignedBarChart", () => {
     expect(screen.getByTestId("signed-bar-loss").getAttribute("data-sign")).toBe("negative");
     expect(screen.getByTestId("signed-bar-gain").getAttribute("data-sign")).toBe("positive");
     expect(screen.getByTestId("signed-bar-loss").textContent).toContain("-200 EUR");
-    expect(screen.getByTestId("signed-bar-zero-line")).toBeTruthy();
-    expect(screen.getByText("Year 1")).toBeTruthy();
+    screen.getByTestId("signed-bar-zero-line");
+    screen.getByText("Year 1");
   });
 });
 
@@ -109,9 +109,9 @@ describe("HistogramChart", () => {
       />,
     );
     expect(screen.getAllByTestId("histogram-bin")).toHaveLength(3);
-    expect(screen.getByTestId("histogram-reference-line")).toBeTruthy();
-    expect(screen.getByText("Breakeven")).toBeTruthy();
-    expect(screen.getByText("0 runs")).toBeTruthy();
-    expect(screen.getByText("40 runs")).toBeTruthy();
+    screen.getByTestId("histogram-reference-line");
+    screen.getByText("Breakeven");
+    screen.getByText("0 runs");
+    screen.getByText("40 runs");
   });
 });

@@ -25,9 +25,9 @@ function fillEmail(value: string): void {
 describe("SignupScreen", () => {
   test("rendert title + email-input + submit-button (de)", () => {
     renderWithProviders(<SignupScreen />);
-    expect(screen.getByText("Create account")).toBeTruthy();
+    screen.getByText("Create account");
     expect(document.getElementById("signup-email")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Send activation link" })).toBeTruthy();
+    screen.getByRole("button", { name: "Send activation link" });
   });
 
   test("submit calls /api/auth/signup-request with the email", async () => {
@@ -55,9 +55,9 @@ describe("SignupScreen", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send activation link" }));
 
     await waitFor(() => {
-      expect(screen.getByText("Email sent")).toBeTruthy();
+      screen.getByText("Email sent");
     });
-    expect(screen.getByRole("button", { name: /Send email again/i })).toBeTruthy();
+    screen.getByRole("button", { name: /Send email again/i });
   });
 
   test("rate_limited with retryAfterSeconds → interpolated minutes", async () => {
@@ -101,17 +101,17 @@ describe("SignupScreen registration status", () => {
 
   test("enabled: the form shows", async () => {
     renderWithProviders(<SignupScreen />, { dispatcher: statusDispatcher(true) });
-    expect(await screen.findByRole("button", { name: "Send activation link" })).toBeTruthy();
+    await screen.findByRole("button", { name: "Send activation link" });
   });
 
   test("disabled: closed notice and login link, no form, nothing is sent", async () => {
     const fetchMock = mock(async () => new Response(null, { status: 200 }));
     globalThis.fetch = fetchMock as unknown as typeof fetch;
     renderWithProviders(<SignupScreen />, { dispatcher: statusDispatcher(false) });
-    expect(await screen.findByText("Sign-up is currently by invitation only.")).toBeTruthy();
+    await screen.findByText("Sign-up is currently by invitation only.");
     expect(document.getElementById("signup-email")).toBeNull();
     expect(screen.queryByRole("button", { name: "Send activation link" })).toBeNull();
-    expect(screen.getByRole("link", { name: /Already have an account/ })).toBeTruthy();
+    screen.getByRole("link", { name: /Already have an account/ });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });

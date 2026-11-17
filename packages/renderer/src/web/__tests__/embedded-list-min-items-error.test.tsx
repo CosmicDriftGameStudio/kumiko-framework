@@ -68,7 +68,7 @@ async function submit(dispatcher: Dispatcher, addRow: boolean): Promise<void> {
       </NavProvider>
     </DispatcherProvider>,
   );
-  await waitFor(() => expect(screen.getByTestId("field-lines")).toBeDefined());
+  await waitFor(() => screen.getByTestId("field-lines"));
   if (addRow) {
     const addButton = container.querySelector('[data-testid$="empty-add"]');
     if (addButton === null) throw new Error("no add-row button");

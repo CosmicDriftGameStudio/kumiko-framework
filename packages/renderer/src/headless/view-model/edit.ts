@@ -323,6 +323,40 @@ function contextDocumentHints(
   return names.length > 0 ? { contextDocumentFields: names } : {};
 }
 
+type NormalizedAiAssist = NonNullable<NormalizedEditField["aiAssist"]>;
+type NormalizedBadge = NonNullable<NormalizedEditField["badge"]>;
+
+function translateAiAssist(
+  aiAssist: NormalizedAiAssist,
+  translate: Translate,
+): NonNullable<EditFieldViewModel["aiAssist"]> {
+  return {
+    query: aiAssist.query,
+    resultField: aiAssist.resultField,
+    ...(aiAssist.noteField !== undefined && { noteField: aiAssist.noteField }),
+    ...(aiAssist.contextFields !== undefined && { contextFields: aiAssist.contextFields }),
+    ...(aiAssist.autoRun !== undefined && { autoRun: aiAssist.autoRun }),
+    ...(aiAssist.chips !== undefined && {
+      chips: aiAssist.chips.map((chip) => ({ ...chip, label: translate(chip.label) })),
+    }),
+    ...(aiAssist.prompt !== undefined && {
+      prompt: {
+        param: aiAssist.prompt.param,
+        ...(aiAssist.prompt.placeholder !== undefined && {
+          placeholder: translate(aiAssist.prompt.placeholder),
+        }),
+      },
+    }),
+  };
+}
+
+function translateBadge(
+  badge: NormalizedBadge,
+  translate: Translate,
+): NonNullable<EditFieldViewModel["badge"]> {
+  return "label" in badge ? { label: translate(badge.label), tone: badge.tone } : badge;
+}
+
 function deriveFieldAffixHints(
   normalized: NormalizedEditField,
   translate: Translate,
@@ -339,42 +373,13 @@ function deriveFieldAffixHints(
       fillAction: { ...normalized.fillAction, label: translate(normalized.fillAction.label) },
     }),
     ...(normalized.aiAssist !== undefined && {
-      aiAssist: {
-        query: normalized.aiAssist.query,
-        resultField: normalized.aiAssist.resultField,
-        ...(normalized.aiAssist.noteField !== undefined && {
-          noteField: normalized.aiAssist.noteField,
-        }),
-        ...(normalized.aiAssist.contextFields !== undefined && {
-          contextFields: normalized.aiAssist.contextFields,
-        }),
-        ...(normalized.aiAssist.autoRun !== undefined && {
-          autoRun: normalized.aiAssist.autoRun,
-        }),
-        ...(normalized.aiAssist.chips !== undefined && {
-          chips: normalized.aiAssist.chips.map((chip) => ({
-            ...chip,
-            label: translate(chip.label),
-          })),
-        }),
-        ...(normalized.aiAssist.prompt !== undefined && {
-          prompt: {
-            param: normalized.aiAssist.prompt.param,
-            ...(normalized.aiAssist.prompt.placeholder !== undefined && {
-              placeholder: translate(normalized.aiAssist.prompt.placeholder),
-            }),
-          },
-        }),
-      },
+      aiAssist: translateAiAssist(normalized.aiAssist, translate),
     }),
     ...(normalized.editor !== undefined && { editor: normalized.editor }),
     ...(normalized.valueChips !== undefined && { valueChips: normalized.valueChips }),
     ...(normalized.concealed === true && { concealed: true as const }),
     ...(normalized.badge !== undefined && {
-      badge:
-        "label" in normalized.badge
-          ? { label: translate(normalized.badge.label), tone: normalized.badge.tone }
-          : normalized.badge,
+      badge: translateBadge(normalized.badge, translate),
     }),
     ...(normalized.hintField !== undefined && { hintField: normalized.hintField }),
     ...(normalized.hideOnNarrow === true && { hideOnNarrow: true as const }),
@@ -863,10 +868,7 @@ export function computeEditViewModel<
         // A real non-text field (e.g. a `reference` with `multiple`) keeps its own
         // type and hints, as documented on EditFieldSpec.refEntity; the shim's
         // pseudo-entity only ever declares "text".
-        const declaredRefTarget =
-          normalized.refEntity !== undefined && fieldDef.type === "text"
-            ? parseRefTarget(normalized.refEntity, featureName)
-            : undefined;
+        const declaredRefTarget = resolveDeclaredRefTarget(normalized, fieldDef, featureName);
         const effectiveType = declaredRefTarget !== undefined ? "reference" : fieldDef.type;
         const textEntity = screen.fieldTextEntities?.[normalized.field] ?? screen.entity;
         const label = resolveFieldText(
@@ -881,7 +883,7 @@ export function computeEditViewModel<
         // through the stack beats translating at the boundary.
         const lockedByDerivation = isLockedByDerivation(derivation, values, normalized.field);
         const readOnly =
-          (mode === "update" && excludedFields.has(normalized.field)) ||
+          isReadOnlyByMode(mode, excludedFields, normalized.field) ||
           lockedByDerivation ||
           evalCondition(normalized.readOnly, false, values);
         // `required` on the field-spec overrides the entity-default. A
@@ -936,8 +938,7 @@ export function computeEditViewModel<
           visible,
           readOnly,
           required,
-          ...(normalized.span !== undefined && { span: normalized.span }),
-          ...(normalized.renderer !== undefined && { renderer: normalized.renderer }),
+          ...declaredSpanAndRenderer(normalized),
           ...selectHints,
           ...textHints,
           ...dateHints,
@@ -1012,6 +1013,33 @@ export function computeEditViewModel<
     id,
     sections,
     ...(screen.slots && { slots: screen.slots }),
+  };
+}
+
+function resolveDeclaredRefTarget(
+  normalized: NormalizedEditField,
+  fieldDef: EntityFieldDef,
+  featureName: string,
+) {
+  return normalized.refEntity !== undefined && fieldDef.type === "text"
+    ? parseRefTarget(normalized.refEntity, featureName)
+    : undefined;
+}
+
+function isReadOnlyByMode(
+  mode: EditFormMode | undefined,
+  excludedFields: ReadonlySet<string>,
+  field: string,
+): boolean {
+  return mode === "update" && excludedFields.has(field);
+}
+
+function declaredSpanAndRenderer(
+  normalized: NormalizedEditField,
+): Pick<EditFieldViewModel, "span" | "renderer"> {
+  return {
+    ...(normalized.span !== undefined && { span: normalized.span }),
+    ...(normalized.renderer !== undefined && { renderer: normalized.renderer }),
   };
 }
 

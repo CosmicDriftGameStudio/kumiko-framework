@@ -200,7 +200,7 @@ afterEach(cleanup);
 describe("entityEdit writeOnly field", () => {
   test("a set value shows the masked marker first, then the keep-placeholder after Replace", async () => {
     mountEdit(SET_RECORD);
-    expect(await screen.findByText("•••••••••• set")).toBeDefined();
+    await screen.findByText("•••••••••• set");
     expect(capturedInputs["apiKey"]).toBeUndefined();
     await openReplace();
     await waitFor(() => {
@@ -229,7 +229,7 @@ describe("entityEdit writeOnly field", () => {
       expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
     });
     // The value is "set" again, so the masked marker returns.
-    expect(await screen.findByText("•••••••••• set")).toBeDefined();
+    await screen.findByText("•••••••••• set");
     const changes = await submitAndReadChanges();
     expect(Object.hasOwn(changes, "apiKey")).toBe(false);
   });

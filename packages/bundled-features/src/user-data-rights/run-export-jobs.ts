@@ -27,6 +27,7 @@ import type {
   EscapeHatchAuditSink,
   Registry,
   TenantId,
+  UserDataStorageProvider,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -41,7 +42,11 @@ import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { resolveProfileForTenant } from "../compliance-profiles/index.ts";
 import { decryptStoredUserEmail } from "../shared/index.ts";
 import { userTable } from "../user/index.ts";
-import { selectExportJobsForStorageCleanup } from "./db/queries/export-jobs.ts";
+import {
+  type ExportBundleRef,
+  selectExportJobsForStorageCleanup,
+} from "./db/queries/export-jobs.ts";
+import { isExportSubjectErased, selectErasedExportSubjects } from "./lib/export-subject-erased.ts";
 import { runUserExport, type UserExportBundle } from "./run-user-export.ts";
 import { exportDownloadTokenEntity, exportDownloadTokensTable } from "./schema/download-token.ts";
 import { EXPORT_JOB_STATUS, exportJobEntity, exportJobsTable } from "./schema/export-job.ts";
@@ -62,6 +67,9 @@ export const EXPORT_CLEANUP_LAST_RUN_TIMESTAMP_METRIC = "export_cleanup_last_run
 const crud = createEventStoreExecutor(exportJobsTable, exportJobEntity, {
   entityName: "export-job",
 });
+
+// errorMessage of a job ended because its user was erased (forget run or worker check).
+export const EXPORT_JOB_ERROR_USER_ERASED = "cancelled: user erased";
 
 // Separate event-store executor for download tokens. `crud.create` emits
 // `exportDownloadToken.created` and synchronously updates
@@ -323,7 +331,7 @@ type ProcessOutcome =
       bytesWritten: number;
     }
   | { kind: "failed"; error: ExportJobError }
-  | { kind: "skipped" }; // another worker won the claim
+  | { kind: "skipped" }; // another worker won the claim, or the user was erased (no mail)
 
 async function processJob(args: {
   db: DbConnection;
@@ -342,6 +350,12 @@ async function processJob(args: {
   // is tenant-agnostic. System mode bypasses the automatic tenant filter while
   // `requestedFromTenantId` preserves the stream identity.
   const tdb = systemTenantDb(db, job.requestedFromTenantId);
+
+  // The forget run fails the jobs it sees; this catches one requested while that run was in flight.
+  if (await isExportSubjectErased(db, job.userId)) {
+    await failExportJob(db, job, now, EXPORT_JOB_ERROR_USER_ERASED);
+    return { kind: "skipped" };
+  }
 
   // Claim with a version check so a concurrent worker causes a conflict.
   // Persist downloadStorageKey during the claim: if the worker crashes after
@@ -390,6 +404,19 @@ async function processJob(args: {
     await writeProvider.writeStream(storageKey, tracker.stream, {
       mimeType: "application/zip",
     });
+
+    // A forget run may have erased the user while the ZIP was written. Delete by the in-memory key:
+    // a parallel storage-cleanup pass may already have cleared the key on the job row.
+    if (await isExportSubjectErased(db, job.userId)) {
+      await writeProvider.delete(storageKey);
+      await failExportJob(
+        db,
+        { ...job, version: job.version + 1 },
+        now,
+        EXPORT_JOB_ERROR_USER_ERASED,
+      );
+      return { kind: "skipped" };
+    }
 
     // Create the token before the done transition: if token creation fails, the
     // job is still running and the catch path marks it failed (monotonic status).
@@ -477,6 +504,21 @@ async function processJob(args: {
     return { kind: "done", tokenPlain, expiresAt, bytesWritten: tracker.bytes };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
+    // A forget run that landed between the second check and the done flip: end the job as erased,
+    // send no failure mail and expire a token that was already issued. The orphaned ZIP goes with
+    // the cleanup pass of this run (failed job with key).
+    if (await isExportSubjectErased(db, job.userId).catch(() => false)) {
+      await expireExportToken(db, job, now);
+      await failExportJob(
+        db,
+        { ...job, version: job.version + 1 },
+        now,
+        EXPORT_JOB_ERROR_USER_ERASED,
+      ).catch(() => {
+        /* swallow: the forget run may have ended the job already */
+      });
+      return { kind: "skipped" };
+    }
     // Failure handling is best-effort. If the failure transition also fails, the
     // job remains running and stale detection will recover it on a later run.
     await crud
@@ -564,7 +606,7 @@ async function storageCleanupPass(args: {
 
   // Done jobs are cleaned after expiresAt plus the tenant's grace period
   // (default 24h after expiry, so re-downloads after a dropped connection still
-  // work). Failed jobs with a persisted downloadStorageKey are orphaned ZIPs:
+  // work), or at once when their user was erased. Failed jobs with a persisted downloadStorageKey are orphaned ZIPs:
   // the worker wrote the ZIP but failed before the done flip, so no token was
   // ever issued and no user has seen it. They are removed immediately, without
   // grace: the right to erasure outweighs forensics here, and the job's
@@ -577,6 +619,13 @@ async function storageCleanupPass(args: {
   );
 
   const cleaned: string[] = [];
+  const erasedUserIds = await selectErasedExportSubjects(db, [
+    ...new Set(
+      candidates
+        .filter((c) => c.status === EXPORT_JOB_STATUS.Done && c.downloadStorageKey)
+        .map((c) => c.userId),
+    ),
+  ]);
   // Candidates past their due-instant, keyed by that instant — used below to
   // report how far cleanup has fallen behind if a candidate is still standing
   // (delete threw, or the version-checked null-out lost a race) once the pass
@@ -588,22 +637,26 @@ async function storageCleanupPass(args: {
     for (const c of candidates) {
       if (!c.downloadStorageKey) continue;
 
-      // Done jobs need the expiresAt+grace check. Failed jobs pass straight
-      // through (no user path, so clean up immediately).
+      // Done jobs need the expiresAt+grace check unless their user was erased: that bundle goes
+      // at once. Failed jobs pass straight through (no user path, so clean up immediately).
       if (c.status === EXPORT_JOB_STATUS.Done) {
-        if (!c.expiresAt) continue;
-        // Count the candidate as overdue (lower bound, grace unknown) before the
-        // throwing profile lookup, so a failing pass still shows a backlog.
-        overdueDoneCleanupAfterMs.set(c.id, c.expiresAt.epochMilliseconds);
-        const profile = await profileFor(c.requestedFromTenantId);
-        const cleanupAfter =
-          c.expiresAt.epochMilliseconds +
-          profile.profile.userRights.exportStorageCleanupGraceHours * 60 * 60 * 1000;
-        if (now.epochMilliseconds < cleanupAfter) {
-          overdueDoneCleanupAfterMs.delete(c.id);
-          continue;
+        if (erasedUserIds.has(c.userId)) {
+          overdueDoneCleanupAfterMs.set(c.id, now.epochMilliseconds);
+        } else {
+          if (!c.expiresAt) continue;
+          // Count the candidate as overdue (lower bound, grace unknown) before the
+          // throwing profile lookup, so a failing pass still shows a backlog.
+          overdueDoneCleanupAfterMs.set(c.id, c.expiresAt.epochMilliseconds);
+          const profile = await profileFor(c.requestedFromTenantId);
+          const cleanupAfter =
+            c.expiresAt.epochMilliseconds +
+            profile.profile.userRights.exportStorageCleanupGraceHours * 60 * 60 * 1000;
+          if (now.epochMilliseconds < cleanupAfter) {
+            overdueDoneCleanupAfterMs.delete(c.id);
+            continue;
+          }
+          overdueDoneCleanupAfterMs.set(c.id, cleanupAfter);
         }
-        overdueDoneCleanupAfterMs.set(c.id, cleanupAfter);
       } else {
         const failedAt = c.completedAt ?? c.startedAt;
         if (failedAt) overdueDoneCleanupAfterMs.set(c.id, failedAt.epochMilliseconds);
@@ -613,19 +666,16 @@ async function storageCleanupPass(args: {
         const provider = await buildStorageProvider(c.requestedFromTenantId);
         await provider.delete(c.downloadStorageKey);
       } catch {
-        // best-effort; if the storage delete fails, retry on the next pass
+        // best-effort; a failed storage delete retries on the next pass
         continue;
       }
-      const result = await crud.update(
-        {
-          id: c.id,
-          version: c.version,
-          changes: { downloadStorageKey: null },
-        },
-        createSystemUser(c.requestedFromTenantId),
-        systemTenantDb(db, c.requestedFromTenantId),
-      );
-      if (result.isSuccess) cleaned.push(c.id);
+      const keyCleared = await clearExportBundleKey(db, {
+        id: c.id,
+        version: c.version,
+        requestedFromTenantId: c.requestedFromTenantId,
+        downloadStorageKey: c.downloadStorageKey,
+      });
+      if (keyCleared) cleaned.push(c.id);
     }
     passCompleted = true;
   } finally {
@@ -691,17 +741,76 @@ function reportCleanupLastRun(metrics: MetricsHandle | undefined, now: Instant):
   }
 }
 
+const EXPORT_JOB_SYSTEM_DB_REASON =
+  "export jobs run per user across tenants, requestedFromTenantId keeps the stream identity";
+
 // `crud.update` requires a TenantDb for event-store stream lookup. Export jobs are tenant-agnostic
 // (one job per userId), so system mode bypasses the automatic tenant filter while
 // `requestedFromTenantId` preserves stream identity and keeps the stream counter consistent.
-function systemTenantDb(db: DbConnection, tenantId: TenantId) {
-  return createTenantDb({
-    db,
-    tenantId,
-    mode: "system",
-    reason:
-      "export jobs run per user across tenants, requestedFromTenantId keeps the stream identity",
-  });
+function systemTenantDb(db: DbRunner, tenantId: TenantId) {
+  return createTenantDb({ db, tenantId, mode: "system", reason: EXPORT_JOB_SYSTEM_DB_REASON });
+}
+
+// Version-checked like the claim: false when another writer moved the job first.
+export async function failExportJob(
+  db: DbRunner,
+  job: Pick<JobRow, "id" | "version" | "requestedFromTenantId">,
+  now: Instant,
+  errorMessage: string,
+): Promise<boolean> {
+  const result = await crud.update(
+    {
+      id: job.id,
+      version: job.version,
+      changes: { status: EXPORT_JOB_STATUS.Failed, completedAt: now, errorMessage },
+    },
+    createSystemUser(job.requestedFromTenantId),
+    systemTenantDb(db, job.requestedFromTenantId),
+  );
+  return result.isSuccess;
+}
+
+// Storage first, key second: a crash in between leaves a key to an absent object, which the
+// next (idempotent) delete tolerates; the reverse order would orphan the ZIP with no key left
+// pointing at it. Throws when the storage delete fails, so each caller picks skip or rollback.
+// Takes a DbRunner so the forget run can null the key inside its per-user sub-transaction.
+export async function deleteExportBundle(
+  db: DbRunner,
+  bundle: ExportBundleRef,
+  provider: Pick<UserDataStorageProvider, "delete">,
+): Promise<boolean> {
+  await provider.delete(bundle.downloadStorageKey);
+  return clearExportBundleKey(db, bundle);
+}
+
+// Version-checked: false when another writer moved the job first. Update errors propagate.
+async function clearExportBundleKey(db: DbRunner, bundle: ExportBundleRef): Promise<boolean> {
+  const result = await crud.update(
+    { id: bundle.id, version: bundle.version, changes: { downloadStorageKey: null } },
+    createSystemUser(bundle.requestedFromTenantId),
+    systemTenantDb(db, bundle.requestedFromTenantId),
+  );
+  return result.isSuccess;
+}
+
+// Expires instead of deleting: an eventless read-side delete collides with projection rebuilds.
+// Best-effort, since download-by-token answers notFound for an erased user regardless.
+async function expireExportToken(db: DbConnection, job: JobRow, now: Instant): Promise<void> {
+  try {
+    const tokenRow = await fetchOne<{ id: string; version: number }>(
+      db,
+      exportDownloadTokensTable,
+      { jobId: job.id },
+    );
+    if (!tokenRow) return;
+    await tokenCrud.update(
+      { id: tokenRow.id, version: tokenRow.version, changes: { expiresAt: now } },
+      createSystemUser(job.requestedFromTenantId),
+      systemTenantDb(db, job.requestedFromTenantId),
+    );
+  } catch {
+    /* swallow: see above */
+  }
 }
 
 function buildExportStorageKey(job: JobRow): string {

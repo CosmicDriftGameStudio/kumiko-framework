@@ -281,6 +281,35 @@ describe("render → parse roundtrip — unresolved references (raw-ref sentinel
   });
 });
 
+describe("render → parse roundtrip — `{ ...ref, name }` entity override", () => {
+  const cases = [
+    { label: "name only", spread: `{ ...eventEntity, name: "other" }` },
+    {
+      label: "name and backingTable",
+      spread: `{ ...eventEntity, name: "other", backingTable: t }`,
+    },
+  ];
+
+  for (const { label, spread } of cases) {
+    test(`${label} renders as the same form and parses back identically`, () => {
+      const source = `${EVENT_ENTITY_DECLARATION}
+defineFeature("f", (r) => {
+  r.entity(${spread});
+});
+`;
+      const initial = parse(source);
+      expect(initial.patterns[0]).toMatchObject({ kind: "entity", overridesName: true });
+      const rendered = renderFeatureFile({
+        featureName: initial.featureName ?? "",
+        patterns: initial.patterns,
+      });
+      expect(rendered).toContain(`r.entity(${spread});`);
+      const reparsed = parse(`${EVENT_ENTITY_DECLARATION}\n${rendered}`);
+      expect(reparsed.patterns.map(stripLocations)).toEqual(initial.patterns.map(stripLocations));
+    });
+  }
+});
+
 describe("render idempotence", () => {
   test("rendered file → parse → render === rendered file", () => {
     const initial = parse(STATIC_FEATURE);

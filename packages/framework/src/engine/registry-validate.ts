@@ -6,21 +6,16 @@ import {
 } from "@cosmicdrift/kumiko-types/fields";
 import type { EventPiiFields, EventUpcastFn, NameOrRef } from "@cosmicdrift/kumiko-types/handlers";
 import { isRateLimitDisabled } from "@cosmicdrift/kumiko-types/handlers";
-import type {
-  PostDeleteHookFn,
-  PostSaveHookFn,
-  PreDeleteHookFn,
-  PreSaveHookFn,
-} from "@cosmicdrift/kumiko-types/hooks";
 import { parseTenantId } from "@cosmicdrift/kumiko-types/identifiers";
+import type { ProjectionDefinition } from "@cosmicdrift/kumiko-types/projection";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { configureEventPiiCatalog } from "../crypto/event-pii.ts";
 import { extractTableName } from "../db/dialect.ts";
 import { hasSearchablePlaintext, isSensitiveLabelField } from "../db/entity-field-encryption.ts";
 import { entityReadsSystemRows } from "../db/entity-table-meta.ts";
 import { type EntityLifecycleVerb, entityEventName } from "../db/event-store-executor-context.ts";
+import { tableNameOf } from "../db/table-introspection.ts";
 import { resolveMaxPerTenant } from "../jobs/max-per-tenant.ts";
-import { bindHookEscapeHatchGrant } from "../pipeline/system-identity-switch.ts";
 import { resolveName } from "./handler-helpers.ts";
 import { HookPhases } from "./hook-helpers.ts";
 import { parseRefTargetEntityName } from "./parse-ref-target.ts";
@@ -125,102 +120,6 @@ export function validateExtensionSelectors(state: RegistryState): void {
         `extensionSelector("${extensionName}") points at unknown config key ` +
           `"${qualifiedKey}" — no mounted feature declares it.`,
       );
-    }
-  }
-}
-
-// Process extension usages: call onRegister, apply extendSchema, register hooks.
-export function applyExtensionUsages(state: RegistryState): void {
-  // Process extension usages: call onRegister, apply extendSchema, register hooks
-  for (const usage of state.extensionUsages) {
-    const ext = state.extensionMap.get(usage.extensionName);
-    if (!ext) continue;
-
-    if (ext.onRegister) {
-      ext.onRegister(usage.entityName, usage.options);
-    }
-
-    // extendSchema: merge extra fields into entity definition
-    if (ext.extendSchema) {
-      const entity = state.entityMap.get(usage.entityName);
-      if (entity) {
-        const extraFields = ext.extendSchema(usage.entityName);
-        const merged = { ...entity, fields: { ...entity.fields, ...extraFields } };
-        state.entityMap.set(usage.entityName, merged);
-      }
-    }
-
-    // Extension hooks → entity hooks (fire for all writes on the entity).
-    // Extensions default to afterCommit phase (same default as r.hook).
-    //
-    // Owner "*" = always-enabled, not gated by feature-toggles. Extensions
-    // are plumbing (e.g. ownership) — the feature that declared them might
-    // itself be toggleable, but the extension-hook is conceptually part of
-    // the entity's invariants. If future requirements need extension hooks
-    // to also be gated, store the registering-feature on
-    // RegistrarExtensionRegistration and use that here.
-    const extOwner = "*";
-    // Unlike export/forget hooks (escapeHatch on r.applyExtension(...)), these
-    // entity-lifecycle wrappers (postSave/preDelete/postDelete/preSave) have no
-    // escapeHatch declaration site, so SYSTEM stays denied here (system-identity-switch.ts).
-    if (ext.hooks) {
-      if (ext.hooks.postSave) {
-        const wrapped = bindHookEscapeHatchGrant(
-          ext.hooks.postSave,
-          `postSave hook of extension "${usage.extensionName}"`,
-          undefined,
-        ) as PostSaveHookFn; // @cast-boundary engine-bridge
-        const existing = state.entityPostSaveHooks.get(usage.entityName) ?? [];
-        existing.push({
-          fn: wrapped,
-          phase: HookPhases.afterCommit,
-          featureName: extOwner,
-        });
-        state.entityPostSaveHooks.set(usage.entityName, existing);
-      }
-      if (ext.hooks.preDelete) {
-        const wrapped = bindHookEscapeHatchGrant(
-          ext.hooks.preDelete,
-          `preDelete hook of extension "${usage.extensionName}"`,
-          undefined,
-        ) as PreDeleteHookFn; // @cast-boundary engine-bridge
-        const existing = state.entityPreDeleteHooks.get(usage.entityName) ?? [];
-        existing.push({
-          fn: wrapped,
-          phase: HookPhases.afterCommit,
-          featureName: extOwner,
-        });
-        state.entityPreDeleteHooks.set(usage.entityName, existing);
-      }
-      if (ext.hooks.postDelete) {
-        const wrapped = bindHookEscapeHatchGrant(
-          ext.hooks.postDelete,
-          `postDelete hook of extension "${usage.extensionName}"`,
-          undefined,
-        ) as PostDeleteHookFn; // @cast-boundary engine-bridge
-        const existing = state.entityPostDeleteHooks.get(usage.entityName) ?? [];
-        existing.push({
-          fn: wrapped,
-          phase: HookPhases.afterCommit,
-          featureName: extOwner,
-        });
-        state.entityPostDeleteHooks.set(usage.entityName, existing);
-      }
-      // preSave on extensions: store as handler hook for all CRUD handlers of this entity
-      if (ext.hooks.preSave) {
-        const wrapped = bindHookEscapeHatchGrant(
-          ext.hooks.preSave,
-          `preSave hook of extension "${usage.extensionName}"`,
-          undefined,
-        ) as PreSaveHookFn; // @cast-boundary engine-bridge
-        for (const qualifiedHandler of state.writeHandlerMap.keys()) {
-          if (state.handlerEntityMap.get(qualifiedHandler) === usage.entityName) {
-            const existing = state.preSaveHooks.get(qualifiedHandler) ?? [];
-            existing.push({ fn: wrapped, featureName: extOwner });
-            state.preSaveHooks.set(qualifiedHandler, existing);
-          }
-        }
-      }
     }
   }
 }
@@ -373,7 +272,7 @@ export function buildImplicitProjections(
       );
       const implicitTableName = extractTableName(implicit.table);
       const explicitOnSameTable = [...state.projectionMap.values()].filter(
-        (p) => p.isImplicit !== true && extractTableName(p.table) === implicitTableName,
+        (p) => p.isImplicit !== true && tableNameOf(p.table) === implicitTableName,
       );
       const extensionApplyKeys = new Set(
         (feature.entityProjectionExtensions?.[entityName] ?? []).flatMap((ext) =>
@@ -412,6 +311,59 @@ export function buildIncomingRelations(state: RegistryState): void {
   }
 }
 
+type FeatureQueryHandler = NonNullable<FeatureDefinition["queryHandlers"]>[string];
+
+function assertFieldAccessWriteHandlersEntityMapped(
+  state: RegistryState,
+  feature: FeatureDefinition,
+): void {
+  for (const handlerName of Object.keys(feature.writeHandlers ?? {})) {
+    const qualified = qualify(feature.name, "write", handlerName);
+    if (!state.handlerEntityMap.has(qualified)) {
+      throw new Error(
+        `Write handler "${qualified}" is not mapped to any entity, but feature "${feature.name}" has field-level access rules. ` +
+          `Name must follow "entity:verb" convention (e.g. "user:create") or use create/update/delete on a matching entity.`,
+      );
+    }
+  }
+}
+
+function assertQueryHandlerEntityBinding(
+  state: RegistryState,
+  feature: FeatureDefinition,
+  handlerName: string,
+  handler: FeatureQueryHandler,
+  restrictions: { hasFieldAccess: boolean; hasReadRestrictions: boolean },
+): void {
+  const qualified = qualify(feature.name, "query", handlerName);
+  if (handler.resultEntity !== undefined && !state.entityMap.has(handler.resultEntity)) {
+    throw new Error(
+      `Query handler "${qualified}" resultEntity "${handler.resultEntity}" is not a registered entity.`,
+    );
+  }
+  if (handlerName.includes(":")) {
+    // Query handlers with a colon must resolve (typo protection).
+    const isEntityMapped = state.handlerEntityMap.has(qualified);
+    if (restrictions.hasFieldAccess && !isEntityMapped) {
+      throw new Error(
+        `Query handler "${qualified}" looks entity-bound but no matching entity exists. ` +
+          `Either fix the entity name, or use a name without colons for standalone queries.`,
+      );
+    }
+    if (isEntityMapped) return;
+  }
+  if (
+    restrictions.hasReadRestrictions &&
+    handler.resultEntity === undefined &&
+    handler.unfilteredResult === undefined
+  ) {
+    throw new Error(
+      `Query handler "${qualified}" returns data of feature "${feature.name}", whose entities have read-restricted or writeOnly fields, but declares no resultEntity. ` +
+        `Set resultEntity to the entity whose rows it returns, or unfilteredResult: { reason } when it returns no entity rows.`,
+    );
+  }
+}
+
 export function validateFieldAccessHandlersAreEntityMapped(
   state: RegistryState,
   features: readonly FeatureDefinition[],
@@ -419,49 +371,17 @@ export function validateFieldAccessHandlersAreEntityMapped(
   // Validate: handlers in features with field-access rules must be entity-mapped.
   // Without entity mapping, field-level access checks are silently skipped (security gap).
   for (const feature of features) {
-    const hasFieldAccess = hasFieldAccessRules(feature);
-    const hasReadRestrictions = hasReadRestrictedFields(feature);
+    const restrictions = {
+      hasFieldAccess: hasFieldAccessRules(feature),
+      hasReadRestrictions: hasReadRestrictedFields(feature),
+    };
 
-    if (hasFieldAccess) {
-      for (const handlerName of Object.keys(feature.writeHandlers ?? {})) {
-        const qualified = qualify(feature.name, "write", handlerName);
-        if (!state.handlerEntityMap.has(qualified)) {
-          throw new Error(
-            `Write handler "${qualified}" is not mapped to any entity, but feature "${feature.name}" has field-level access rules. ` +
-              `Name must follow "entity:verb" convention (e.g. "user:create") or use create/update/delete on a matching entity.`,
-          );
-        }
-      }
+    if (restrictions.hasFieldAccess) {
+      assertFieldAccessWriteHandlersEntityMapped(state, feature);
     }
 
     for (const [handlerName, handler] of Object.entries(feature.queryHandlers ?? {})) {
-      const qualified = qualify(feature.name, "query", handlerName);
-      if (handler.resultEntity !== undefined && !state.entityMap.has(handler.resultEntity)) {
-        throw new Error(
-          `Query handler "${qualified}" resultEntity "${handler.resultEntity}" is not a registered entity.`,
-        );
-      }
-      if (handlerName.includes(":")) {
-        // Query handlers with a colon must resolve (typo protection).
-        const isEntityMapped = state.handlerEntityMap.has(qualified);
-        if (hasFieldAccess && !isEntityMapped) {
-          throw new Error(
-            `Query handler "${qualified}" looks entity-bound but no matching entity exists. ` +
-              `Either fix the entity name, or use a name without colons for standalone queries.`,
-          );
-        }
-        if (isEntityMapped) continue;
-      }
-      if (
-        hasReadRestrictions &&
-        handler.resultEntity === undefined &&
-        handler.unfilteredResult === undefined
-      ) {
-        throw new Error(
-          `Query handler "${qualified}" returns data of feature "${feature.name}", whose entities have read-restricted or writeOnly fields, but declares no resultEntity. ` +
-            `Set resultEntity to the entity whose rows it returns, or unfilteredResult: { reason } when it returns no entity rows.`,
-        );
-      }
+      assertQueryHandlerEntityBinding(state, feature, handlerName, handler, restrictions);
     }
   }
 }
@@ -653,6 +573,68 @@ export function buildEventUpcasterChains(
   }
 }
 
+function collectValidProjectionEventTypes(
+  state: RegistryState,
+  projDef: ProjectionDefinition,
+  rebuildSources: readonly string[],
+): Set<string> {
+  const validEventTypes = new Set<string>();
+  // An extension source may be a stream whose events the executor writes under a
+  // name that is no registered entity (document-extract); its auto-verbs count.
+  const extensionSources = projDef.extraSources ?? [];
+  for (const src of rebuildSources) {
+    if (state.entityMap.has(src) || extensionSources.includes(src)) {
+      for (const verb of ENTITY_LIFECYCLE_VERBS) validEventTypes.add(`${src}.${verb}`);
+      for (const verb of Object.keys(state.entityMap.get(src)?.verbs ?? {}))
+        validEventTypes.add(`${src}.${verb}`);
+    }
+  }
+  // Domain events are valid apply-keys for any projection. They arrive via
+  // ctx.events.append on a specific aggregate — the runtime matches by event
+  // type, so a projection can observe domain events whose aggregate matches
+  // one of its declared sources.
+  for (const domainEvt of state.eventMap.keys()) validEventTypes.add(domainEvt);
+  return validEventTypes;
+}
+
+// In events-only mode, at least one apply-key MUST be a domain-event —
+// otherwise the source is simply a typo (no events will ever fire).
+function assertEventsOnlySourceHasDomainEventApplyKey(
+  state: RegistryState,
+  projName: string,
+  projDef: ProjectionDefinition,
+  sources: readonly string[],
+): void {
+  const hasAnyDomainEvent = Object.keys(projDef.apply).some((k) => state.eventMap.has(k));
+  if (hasAnyDomainEvent) return;
+  const unregistered = sources.filter((src) => !state.entityMap.has(src));
+  throw new Error(
+    `Projection "${projName}" declares source(s) [${unregistered.join(", ")}] that are not registered entities, ` +
+      `and has no domain-event apply-keys. This is either a typo or a missing r.defineEvent registration. ` +
+      `Events-only projections need at least one apply-key from r.defineEvent; ` +
+      `CRUD-style projections need r.entity({ name: "${unregistered[0]}", ... }).`,
+  );
+}
+
+function assertApplyKeysAreValidEventTypes(
+  projName: string,
+  projDef: ProjectionDefinition,
+  sources: readonly string[],
+  validEventTypes: ReadonlySet<string>,
+): void {
+  for (const applyKey of Object.keys(projDef.apply)) {
+    if (!validEventTypes.has(applyKey)) {
+      throw new Error(
+        `Projection "${projName}" has an apply handler for "${applyKey}" but no such event ` +
+          `type exists for its source(s) [${sources.join(", ")}]. ` +
+          `Valid types: ${[...validEventTypes].join(", ")}. ` +
+          `Check for a typo — auto-verbs follow "<entity>.<verb>"; ` +
+          `domain events follow "<feature>:event:<short-name>" (see r.defineEvent).`,
+      );
+    }
+  }
+}
+
 export function validateProjectionApplyKeys(state: RegistryState): void {
   // Validate: every projection's source must reference a registered entity.
   // A typo ("unti" instead of "unit") would otherwise be a silent no-op —
@@ -664,13 +646,11 @@ export function validateProjectionApplyKeys(state: RegistryState): void {
   // CRUD types per source entity PLUS every domain event registered via
   // r.defineEvent — an apply-handler for a domain event is how a projection
   // reacts to ctx.events.append writes on the same aggregate stream.
-  const allDomainEventNames = new Set(state.eventMap.keys());
   for (const [projName, projDef] of state.projectionMap) {
     const sources = Array.isArray(projDef.source) ? projDef.source : [projDef.source];
     // extraSources (r.extendEntityProjection) sit in the rebuild filter, so
     // their auto-verbs are legitimately observable apply-keys too.
     const rebuildSources = [...sources, ...(projDef.extraSources ?? [])];
-    const validEventTypes = new Set<string>();
     // Two source-modes are legal:
     //
     //  (a) Registered entity (r.entity({ name: src, ... })) — the "normal" case:
@@ -687,48 +667,13 @@ export function validateProjectionApplyKeys(state: RegistryState): void {
     //      or `jobRun` (BullMQ-callback-driven lifecycle, no executor).
     //      A "Shape-Anchor"-entity is no longer needed for this case.
     const isEventsOnlySource = !sources.every((src) => state.entityMap.has(src));
-    // An extension source may be a stream whose events the executor writes under a
-    // name that is no registered entity (document-extract); its auto-verbs count.
-    const extensionSources = projDef.extraSources ?? [];
-    for (const src of rebuildSources) {
-      if (state.entityMap.has(src) || extensionSources.includes(src)) {
-        for (const verb of ENTITY_LIFECYCLE_VERBS) validEventTypes.add(`${src}.${verb}`);
-        for (const verb of Object.keys(state.entityMap.get(src)?.verbs ?? {}))
-          validEventTypes.add(`${src}.${verb}`);
-      }
-    }
-    // Domain events are valid apply-keys for any projection. They arrive via
-    // ctx.events.append on a specific aggregate — the runtime matches by event
-    // type, so a projection can observe domain events whose aggregate matches
-    // one of its declared sources.
-    for (const domainEvt of allDomainEventNames) validEventTypes.add(domainEvt);
+    const validEventTypes = collectValidProjectionEventTypes(state, projDef, rebuildSources);
 
-    // In events-only mode, at least one apply-key MUST be a domain-event —
-    // otherwise the source is simply a typo (no events will ever fire).
     if (isEventsOnlySource) {
-      const hasAnyDomainEvent = Object.keys(projDef.apply).some((k) => allDomainEventNames.has(k));
-      if (!hasAnyDomainEvent) {
-        const unregistered = sources.filter((src) => !state.entityMap.has(src));
-        throw new Error(
-          `Projection "${projName}" declares source(s) [${unregistered.join(", ")}] that are not registered entities, ` +
-            `and has no domain-event apply-keys. This is either a typo or a missing r.defineEvent registration. ` +
-            `Events-only projections need at least one apply-key from r.defineEvent; ` +
-            `CRUD-style projections need r.entity({ name: "${unregistered[0]}", ... }).`,
-        );
-      }
+      assertEventsOnlySourceHasDomainEventApplyKey(state, projName, projDef, sources);
     }
 
-    for (const applyKey of Object.keys(projDef.apply)) {
-      if (!validEventTypes.has(applyKey)) {
-        throw new Error(
-          `Projection "${projName}" has an apply handler for "${applyKey}" but no such event ` +
-            `type exists for its source(s) [${sources.join(", ")}]. ` +
-            `Valid types: ${[...validEventTypes].join(", ")}. ` +
-            `Check for a typo — auto-verbs follow "<entity>.<verb>"; ` +
-            `domain events follow "<feature>:event:<short-name>" (see r.defineEvent).`,
-        );
-      }
-    }
+    assertApplyKeysAreValidEventTypes(projName, projDef, sources, validEventTypes);
   }
 }
 

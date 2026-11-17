@@ -61,7 +61,7 @@ describe("DataTable sortOptions", () => {
           testId="t"
         />,
       );
-      expect(within(screen.getByTestId("t-sort")).getByText("Customer")).toBeTruthy();
+      within(screen.getByTestId("t-sort")).getByText("Customer");
     });
   });
 });
@@ -279,7 +279,7 @@ describe("DataTable card buttons", () => {
         />,
       );
       const buttons = screen.getByTestId("row-r1-card-buttons");
-      expect(within(buttons).getByText("Pay")).toBeTruthy();
+      within(buttons).getByText("Pay");
       expect(within(buttons).queryByText("Hidden")).toBeNull();
       fireEvent.click(within(buttons).getByText("Pay"));
       expect(onTrigger).toHaveBeenCalledTimes(1);
@@ -381,7 +381,7 @@ describe("StepBar stacked", () => {
     const list = screen.getByTestId("stages");
     expect(list.tagName).toBe("OL");
     expect(list.querySelectorAll("li")).toHaveLength(2);
-    expect(within(list).getByText("21 Aug")).toBeTruthy();
+    within(list).getByText("21 Aug");
   });
 });
 
@@ -402,7 +402,7 @@ describe("DataTable showOnNarrowOnly and plainSentence", () => {
   test("the column shows on the cards", () => {
     atViewportWidth(500, () => {
       render(<DataTable columns={narrowOnlyColumns} rows={rentRows} testId="phone" />);
-      expect(screen.getByText("890 EUR cold")).toBeTruthy();
+      screen.getByText("890 EUR cold");
     });
   });
 
@@ -437,7 +437,7 @@ describe("DataTable showOnNarrowOnly and plainSentence", () => {
   test("cards drop the reason and its toggle", () => {
     atViewportWidth(500, () => {
       render(<DataTable columns={reasonHint(false)} rows={hintRows} testId="cards" />);
-      expect(screen.getByText("Ship it")).toBeTruthy();
+      screen.getByText("Ship it");
       expect(screen.queryByRole("button", { name: "Why?" })).toBeNull();
       expect(screen.queryByText("Paid")).toBeNull();
     });
@@ -481,7 +481,7 @@ describe("DataTable hint reason box", () => {
   test("opens the reason box with its title on rows flagged open", () => {
     render(<DataTable columns={reasonColumns} rows={reasonRows} />);
     expect(screen.getAllByText(/14 days overdue\./)).toHaveLength(1);
-    expect(screen.getByText("Rule 10")).toBeTruthy();
+    screen.getByText("Rule 10");
     expect(screen.queryByText(/Asked twice\./)).toBeNull();
   });
 });
@@ -577,7 +577,7 @@ describe("DataTable rowActionMode menu", () => {
   test("the table puts every action in the kebab", () => {
     atViewportWidth(1280, () => {
       render(<DataTable columns={COLUMNS} rows={ROWS} rowActions={actions} rowActionMode="menu" />);
-      expect(screen.getByTestId("row-r1-actions-menu")).toBeTruthy();
+      screen.getByTestId("row-r1-actions-menu");
       expect(screen.queryByTestId("row-r1-action-open")).toBeNull();
     });
   });
@@ -600,7 +600,7 @@ describe("DataTable rowActionMode menu", () => {
   test("a phone card without a row target keeps its kebab", () => {
     atViewportWidth(500, () => {
       render(<DataTable columns={COLUMNS} rows={ROWS} rowActions={actions} rowActionMode="menu" />);
-      expect(screen.getByTestId("row-r1-actions-menu")).toBeTruthy();
+      screen.getByTestId("row-r1-actions-menu");
     });
   });
 });

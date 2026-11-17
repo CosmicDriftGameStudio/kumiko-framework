@@ -225,6 +225,23 @@ the union of all roles and sort in the body.
 Accordingly, the payload carries **no** `kind`; `kind`, `ownership` and `access` come from the
 declaration. Two collections may use the same `kind` with different rules.
 
+The AI assistant names a `<id>-set` call by its title and field labels, and `kumiko agent lint` fails
+without them. The feature cannot ship them because it never knows the ids, so the app registers them in
+its own feature, next to the nav labels:
+
+```typescript
+r.translations({
+  keys: handlerTranslationKeys(TEMPLATE_RESOLVER_FEATURE, {
+    writes: {
+      "reply-snippets-set": {
+        title: { en: "Save reply snippet", de: "Textbaustein speichern" },
+        fields: { slug: { en: "Identifier", de: "Kennung" }, /* locale, title, content, folder, createOnly, tenantIdOverride */ },
+      },
+    },
+  }),
+});
+```
+
 `textBlocksClient()` automatically serves every declared collection: one folder tree per collection,
 including SSE refresh, and an editor target with the `collectionId`. The app passes nothing through for this.
 

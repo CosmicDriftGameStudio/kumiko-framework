@@ -574,7 +574,7 @@ describe("textBlocksClient — plain contentFormat editor wiring", () => {
     // A typo in the registry key or a field rename on contentCollections
     // silently falls back to variables={[]} — no chip renders, no red test.
     // The rail lists the same variable, so pin the chip in the editor's insert-variable bar.
-    expect(screen.getByText("{{customerName}}", { selector: "button" })).toBeTruthy();
+    screen.getByText("{{customerName}}", { selector: "button" });
   });
 });
 
@@ -610,7 +610,7 @@ describe("textBlocksClient — findContentFormat resolves collectionId to the re
     // array-vs-record drift on the schema) resolves contentFormat to
     // undefined, and useContentEditor's own fallback silently swaps in the
     // plain textarea instead — no red test without this assertion.
-    expect(screen.getByTestId("document-stub-editor")).toBeTruthy();
+    screen.getByTestId("document-stub-editor");
     expect(document.getElementById(CONTENT_EDITOR_ELEMENT_ID)).toBeNull();
   });
 });
@@ -646,13 +646,13 @@ describe("textBlocksClient — document editor block set follows the collection 
 
   test("a document-pdf collection offers Page break and no Button block", async () => {
     renderEditorFor("pdfDocs");
-    expect(await screen.findByRole("button", { name: "Page break" })).toBeTruthy();
+    await screen.findByRole("button", { name: "Page break" });
     expect(screen.queryByRole("button", { name: "Button" })).toBeNull();
   });
 
   test("a mail collection offers the Button block and no Page break", async () => {
     renderEditorFor("mailDocs");
-    expect(await screen.findByRole("button", { name: "Button" })).toBeTruthy();
+    await screen.findByRole("button", { name: "Button" });
     expect(screen.queryByRole("button", { name: "Page break" })).toBeNull();
   });
 });

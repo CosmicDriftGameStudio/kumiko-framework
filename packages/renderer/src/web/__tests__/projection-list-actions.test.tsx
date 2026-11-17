@@ -69,7 +69,7 @@ describe("projectionList writeHandler-Actions", () => {
         <KumikoScreen schema={schema} qn="status:screen:maintenance-list" />
       </DispatcherProvider>,
     );
-    await waitFor(() => expect(screen.getByText("DB-Upgrade")).toBeTruthy());
+    await waitFor(() => screen.getByText("DB-Upgrade"));
 
     fireEvent.click(screen.getByRole("button", { name: "status:action:start" }));
     await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
@@ -87,7 +87,7 @@ describe("projectionList writeHandler-Actions", () => {
         <KumikoScreen schema={schema} qn="status:screen:maintenance-list" />
       </DispatcherProvider>,
     );
-    await waitFor(() => expect(screen.getByText("DB-Upgrade")).toBeTruthy());
+    await waitFor(() => screen.getByText("DB-Upgrade"));
 
     fireEvent.click(screen.getByRole("button", { name: "status:action:sync" }));
     await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
@@ -104,7 +104,7 @@ describe("projectionList writeHandler-Actions", () => {
       error: {
         code: "internal_error",
         httpStatus: 500,
-        i18nKey: "errors.internal",
+        i18nKey: "status.errors.maintenance-start-failed",
         message: "maintenance start failed",
       },
     }));
@@ -116,10 +116,10 @@ describe("projectionList writeHandler-Actions", () => {
         </DispatcherProvider>
       </ToastProvider>,
     );
-    await waitFor(() => expect(screen.getByText("DB-Upgrade")).toBeTruthy());
+    await waitFor(() => screen.getByText("DB-Upgrade"));
 
     fireEvent.click(screen.getByRole("button", { name: "status:action:start" }));
-    expect(await screen.findByText("maintenance start failed")).toBeTruthy();
+    await screen.findByText("maintenance start failed");
   });
 
   test("Toolbar-Action error is surfaced as a toast, not swallowed", async () => {
@@ -128,7 +128,7 @@ describe("projectionList writeHandler-Actions", () => {
       error: {
         code: "internal_error",
         httpStatus: 500,
-        i18nKey: "errors.internal",
+        i18nKey: "status.errors.maintenance-sync-failed",
         message: "maintenance sync failed",
       },
     }));
@@ -140,10 +140,10 @@ describe("projectionList writeHandler-Actions", () => {
         </DispatcherProvider>
       </ToastProvider>,
     );
-    await waitFor(() => expect(screen.getByText("DB-Upgrade")).toBeTruthy());
+    await waitFor(() => screen.getByText("DB-Upgrade"));
 
     fireEvent.click(screen.getByRole("button", { name: "status:action:sync" }));
-    expect(await screen.findByText("maintenance sync failed")).toBeTruthy();
+    await screen.findByText("maintenance sync failed");
   });
 });
 
@@ -195,11 +195,11 @@ describe("projectionList toolbarActions drawer-kind", () => {
         <KumikoScreen schema={drawerSchema} qn="status:screen:maintenance-list" />
       </DispatcherProvider>,
     );
-    await waitFor(() => expect(screen.getByText("DB-Upgrade")).toBeTruthy());
+    await waitFor(() => screen.getByText("DB-Upgrade"));
     expect(screen.queryByTestId("field-note")).toBeNull();
 
     fireEvent.click(screen.getByTestId("render-list-toolbar-action-add-note"));
-    expect(screen.getByTestId("render-edit-form")).toBeTruthy();
+    screen.getByTestId("render-edit-form");
     const queryCallsBeforeSubmit = queryCallCount;
 
     const noteInput = screen.getByTestId("field-note").querySelector("input");
@@ -264,11 +264,11 @@ describe("projectionList rowActions drawer-kind", () => {
         <KumikoScreen schema={drawerSchema} qn="status:screen:maintenance-list" />
       </DispatcherProvider>,
     );
-    await waitFor(() => expect(screen.getByText("DB-Upgrade")).toBeTruthy());
+    await waitFor(() => screen.getByText("DB-Upgrade"));
     expect(screen.queryByTestId("field-name")).toBeNull();
 
     fireEvent.click(screen.getByTestId("row-m1-action-add-note"));
-    expect(screen.getByTestId("render-edit-form")).toBeTruthy();
+    screen.getByTestId("render-edit-form");
     const nameInput = screen.getByTestId("field-name").querySelector("input");
     if (nameInput === null) throw new Error("expected an <input> inside field-name");
     expect(nameInput.value).toBe("DB-Upgrade");

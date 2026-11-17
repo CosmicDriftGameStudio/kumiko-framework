@@ -1,4 +1,4 @@
-import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import {
   AccessDeniedError,
   failNotFound,
@@ -16,11 +16,8 @@ export const forgetMessageSchema = z.object({ messageId: z.uuid() });
 
 const FORGET_REASON = "forgotten_by_user";
 
-export function createForgetMessageHandler({
-  memberRoles,
-  adminRoles,
-}: InboundMailRoles): WriteHandlerDef {
-  return {
+export function createForgetMessageHandler({ memberRoles, adminRoles }: InboundMailRoles) {
+  return defineWriteHandler({
     name: "forget-message",
     schema: forgetMessageSchema,
     access: { roles: [...memberRoles] },
@@ -28,7 +25,7 @@ export function createForgetMessageHandler({
     description:
       "Permanently removes one imported mail: the read row, the stored original and its attachment files; the mail cannot be restored and a later sync does not import it again. The owner of a personal mailbox or, for a shared one, an admin may call it; a mail of someone else's personal mailbox is reported as not found.",
     handler: async (event, ctx) => {
-      const { messageId } = forgetMessageSchema.parse(event.payload);
+      const { messageId } = event.payload;
       const [row] = await ctx.db.selectMany<{
         readonly id: string;
         readonly bodyRef: string | null;
@@ -75,5 +72,5 @@ export function createForgetMessageHandler({
       }
       return { isSuccess: true as const, data: { forgotten: true as const } };
     },
-  };
+  });
 }

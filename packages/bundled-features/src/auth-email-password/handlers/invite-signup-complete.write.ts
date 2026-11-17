@@ -45,7 +45,6 @@ import {
   type PendingInvitation,
 } from "../invite-consumption.ts";
 import { passwordSchema } from "../password-policy.ts";
-// kumiko-lint-ignore cross-feature-import provisioning needs cross-feature seeding helpers
 import { seedUserWithPassword } from "../seeding.ts";
 import { gateEnforceMfa, type LoginHandlerOptions, type LoginResult } from "./login.write.ts";
 

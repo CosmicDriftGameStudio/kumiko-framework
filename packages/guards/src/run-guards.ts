@@ -48,6 +48,7 @@ import { guard as testEnvWrites } from "./guard-test-env-writes";
 import { guard as testEsRowWrites } from "./guard-test-es-row-writes";
 import { guard as testTemplateDrift } from "./guard-test-template-drift";
 import { guard as testTimeouts } from "./guard-test-timeouts";
+import { guard as weakAssertions } from "./guard-weak-assertions";
 import { guard as writeHandlerQns } from "./guard-write-handler-qns";
 
 export const GUARDS = [
@@ -80,6 +81,7 @@ export const GUARDS = [
   securityPluginSuppression,
   handlerDefinitions,
   featureImportCycles,
+  weakAssertions,
 ];
 
 export const GUARD_FLAGS = [

@@ -63,7 +63,7 @@ export function createReadinessFeature(options: ReadinessFeatureOptions = {}) {
       r.optionalRequires({ features: ["user"] });
 
       r.translations({ keys: READINESS_I18N });
-      r.entity({ ...probeRunEntity, name: "probe-run" });
+      r.entity(probeRunEntity);
       r.writeHandler(runProbesWrite);
       r.job({
         name: "run-probes",

@@ -144,7 +144,7 @@ describe("session-ended signal through SessionProvider and auth gate", () => {
 
     act(() => signal.notify());
 
-    await waitFor(() => expect(screen.getByText(SESSION_ENDED_TEXT)).toBeTruthy());
+    await waitFor(() => screen.getByText(SESSION_ENDED_TEXT));
     expect(screen.queryByTestId("protected")).toBeNull();
   });
 
@@ -154,7 +154,7 @@ describe("session-ended signal through SessionProvider and auth gate", () => {
     ) as unknown as typeof fetch;
     const signal = createSessionEndedSignal();
     renderApp(signal);
-    await waitFor(() => expect(screen.getByLabelText(/password/i)).toBeTruthy());
+    await waitFor(() => screen.getByLabelText(/password/i));
 
     act(() => signal.notify());
 
@@ -170,8 +170,8 @@ describe("session-ended signal through SessionProvider and auth gate", () => {
 
     act(() => signal.notify());
 
-    await waitFor(() => expect(screen.getByText(SESSION_ENDED_TEXT)).toBeTruthy());
-    expect(screen.getByRole("dialog")).toBeTruthy();
+    await waitFor(() => screen.getByText(SESSION_ENDED_TEXT));
+    screen.getByRole("dialog");
     expect(draftValue()).toBe("half typed");
   });
 

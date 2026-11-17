@@ -81,13 +81,13 @@ describe("actionForm preview", () => {
     typeInto("note", "ignored: not a preview field");
     typeInto("status", "blocked");
 
-    await waitFor(() => expect(screen.getByTestId("action-form-preview")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("action-form-preview"));
     expect(queries).toEqual([
       { type: "tasks:query:set-status-preview", payload: { status: "blocked" } },
     ]);
     expect(screen.getByTestId("action-form-preview-fact-0").textContent).toBe("Affected tasks: 2");
-    expect(screen.getByText("Quarterly VAT filing")).toBeTruthy();
-    expect(screen.getByText("Prepare audit")).toBeTruthy();
+    screen.getByText("Quarterly VAT filing");
+    screen.getByText("Prepare audit");
   });
 
   test("an empty list under facts shows no empty state, a list-only preview keeps it", async () => {
@@ -99,15 +99,15 @@ describe("actionForm preview", () => {
     });
     const { unmount } = renderForm(dispatcher);
     typeInto("status", "blocked");
-    await waitFor(() => expect(screen.getByTestId("action-form-preview-fact-0")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("action-form-preview-fact-0"));
     expect(screen.queryByText(/no[- ]entries/i)).toBeNull();
     unmount();
 
     const { facts: _facts, ...listOnly } = form.preview ?? { query: "" };
     renderForm(dispatcher, { ...form, preview: listOnly });
     typeInto("status", "blocked");
-    await waitFor(() => expect(screen.getByTestId("action-form-preview")).toBeTruthy());
-    expect(screen.getByText(/no[- ]entries/i)).toBeTruthy();
+    await waitFor(() => screen.getByTestId("action-form-preview"));
+    screen.getByText(/no[- ]entries/i);
   });
 
   test("an emptied optional field is left out of the preview payload", async () => {
@@ -186,12 +186,12 @@ describe("actionForm preview", () => {
     });
 
     typeInto("status", "blocked");
-    await waitFor(() => expect(screen.getByTestId("action-form-preview")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("action-form-preview"));
     expect(screen.getByTestId("action-form-preview-fact-0").textContent).toBe("Total: €1,234.50");
     const due = screen.getByTestId("action-form-preview-fact-1").textContent ?? "";
     expect(due).not.toContain("2026-11-30");
     expect(due).toContain("2026");
-    expect(screen.getByText("€12.50")).toBeTruthy();
+    screen.getByText("€12.50");
   });
 
   test("a failing preview query shows a hint and does not block the submit", async () => {
@@ -214,7 +214,7 @@ describe("actionForm preview", () => {
     renderForm(dispatcher);
 
     typeInto("status", "blocked");
-    await waitFor(() => expect(screen.getByTestId("action-form-preview-error")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("action-form-preview-error"));
     expect(screen.getByTestId("action-form-preview-error").textContent).toContain(
       "Preview is unavailable",
     );

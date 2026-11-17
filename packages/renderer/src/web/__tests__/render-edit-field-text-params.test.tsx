@@ -44,6 +44,6 @@ describe("fieldLabels and fieldDescriptions with params", () => {
     expect(screen.queryByText("note.help")).toBeNull();
     fireEvent.change(screen.getByLabelText(/price/i), { target: { value: "15" } });
     expect(screen.getByTestId("field-note").textContent).toContain("Note for 15");
-    expect(screen.getByText("note.help")).toBeTruthy();
+    screen.getByText("note.help");
   });
 });

@@ -222,7 +222,7 @@ function renderListScreen(withExpandableRow = true): void {
 
 async function mountedParentList(): Promise<void> {
   await waitFor(() => {
-    expect(screen.getByTestId("row-campaign-1")).toBeDefined();
+    screen.getByTestId("row-campaign-1");
   });
 }
 
@@ -248,7 +248,7 @@ describe("entityList expandableRow", () => {
     fireEvent.click(screen.getByTestId("toggle-campaign-1"));
 
     await waitFor(() => {
-      expect(screen.getByTestId("action-post-of-campaign-1-mark-posted")).toBeDefined();
+      screen.getByTestId("action-post-of-campaign-1-mark-posted");
     });
     expect(callsFor(CHILD_QN)).toHaveLength(1);
     expect(parentIdOf(callsFor(CHILD_QN)[0]?.payload ?? {})).toBe("campaign-1");
@@ -263,13 +263,13 @@ describe("entityList expandableRow", () => {
     fireEvent.click(screen.getByTestId("toggle-campaign-1"));
     fireEvent.click(screen.getByTestId("toggle-campaign-2"));
     await waitFor(() => {
-      expect(screen.getByTestId("action-post-of-campaign-2-mark-posted")).toBeDefined();
+      screen.getByTestId("action-post-of-campaign-2-mark-posted");
     });
-    expect(screen.getByTestId("expansion-campaign-1")).toBeDefined();
+    screen.getByTestId("expansion-campaign-1");
 
     fireEvent.click(screen.getByTestId("toggle-campaign-1"));
     expect(screen.queryByTestId("expansion-campaign-1")).toBeNull();
-    expect(screen.getByTestId("expansion-campaign-2")).toBeDefined();
+    screen.getByTestId("expansion-campaign-2");
   });
 
   test("a successful sub-list write refetches the sub-list and the parent list", async () => {

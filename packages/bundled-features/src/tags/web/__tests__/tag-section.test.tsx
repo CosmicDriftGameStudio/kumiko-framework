@@ -128,11 +128,11 @@ describe("TagSection", () => {
       </Wrapper>,
     );
 
-    expect(screen.getByTestId("tags-section")).toBeTruthy();
+    screen.getByTestId("tags-section");
     // assigned → chip shown; unassigned t2 is not rendered (it lives in the picker)
-    expect(screen.getByText("important")).toBeTruthy();
+    screen.getByText("important");
     expect(screen.queryByText("project-x")).toBeNull();
-    expect(screen.getByTestId("tags-section-edit")).toBeTruthy();
+    screen.getByTestId("tags-section-edit");
   });
 
   test("no assigned tags → renders no chips, just the Edit-tags button", () => {
@@ -146,7 +146,7 @@ describe("TagSection", () => {
     );
 
     expect(screen.queryByTestId("tag-chip")).toBeNull();
-    expect(screen.getByTestId("tags-section-edit")).toBeTruthy();
+    screen.getByTestId("tags-section-edit");
   });
 
   test("picker selection dispatches assign for additions, remove for removals", async () => {
@@ -207,7 +207,7 @@ describe("TagSection", () => {
     // t2 assigns OK, t3 fails — the loop stops, but refetch must still run so
     // the UI reflects the t2 write that already succeeded server-side.
     fireEvent.click(screen.getByTestId("picker-add-t2-t3"));
-    await waitFor(() => expect(screen.getByTestId("tags-section-action-error")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("tags-section-action-error"));
 
     expect(catalogRefetch).toHaveBeenCalled();
     expect(assignmentsRefetch).toHaveBeenCalled();
@@ -225,7 +225,7 @@ describe("TagSection", () => {
         <TagSection entityName="note" entityId={null} />
       </Wrapper>,
     );
-    expect(screen.getByTestId("tags-section-create-mode")).toBeTruthy();
+    screen.getByTestId("tags-section-create-mode");
     expect(screen.queryByTestId("tags-section")).toBeNull();
   });
 });

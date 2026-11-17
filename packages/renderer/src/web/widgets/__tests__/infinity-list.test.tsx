@@ -138,7 +138,7 @@ describe("InfinityList", () => {
       />
     );
     const { rerender } = renderWithDispatcher(view("inbox:query:message:list"), dispatcher);
-    await waitFor(() => expect(screen.getByText("Hallo")).toBeTruthy());
+    await waitFor(() => screen.getByText("Hallo"));
     const hint = screen.getByText("Nicht gefunden?");
     expect(screen.getByTestId("inbox").lastElementChild).toBe(hint);
     rerender(
@@ -146,7 +146,7 @@ describe("InfinityList", () => {
         {view("inbox:query:message:search")}
       </DispatcherProvider>,
     );
-    await waitFor(() => expect(screen.getByText("Leer")).toBeTruthy());
+    await waitFor(() => screen.getByText("Leer"));
     expect(screen.queryByText("Nicht gefunden?")).toBeNull();
   });
 
@@ -158,7 +158,7 @@ describe("InfinityList", () => {
       }),
     });
     renderWithDispatcher(list("inbox:query:message:list"), dispatcher);
-    await waitFor(() => expect(screen.getByText("Hallo")).toBeTruthy());
+    await waitFor(() => screen.getByText("Hallo"));
   });
 
   test("loads the next page as soon as the sentinel becomes visible", async () => {
@@ -179,10 +179,10 @@ describe("InfinityList", () => {
       },
     });
     renderWithDispatcher(list("inbox:query:message:list"), dispatcher);
-    await waitFor(() => expect(screen.getByText("Erste")).toBeTruthy());
+    await waitFor(() => screen.getByText("Erste"));
     await fireIntersect();
-    await waitFor(() => expect(screen.getByText("Zweite")).toBeTruthy());
-    expect(screen.getByText("Erste")).toBeTruthy();
+    await waitFor(() => screen.getByText("Zweite"));
+    screen.getByText("Erste");
     expect(calls).toBe(2);
   });
 
@@ -218,9 +218,9 @@ describe("InfinityList", () => {
       },
     });
     renderWithDispatcher(list("inbox:query:message:list"), dispatcher);
-    await waitFor(() => expect(screen.getByText("Zweite")).toBeTruthy());
+    await waitFor(() => screen.getByText("Zweite"));
     await fireIntersect();
-    await waitFor(() => expect(screen.getByText("Dritte")).toBeTruthy());
+    await waitFor(() => screen.getByText("Dritte"));
     expect(screen.getAllByText("Zweite")).toHaveLength(1);
   });
 
@@ -247,9 +247,9 @@ describe("InfinityList", () => {
       },
     });
     renderWithDispatcher(list("inbox:query:message:list"), dispatcher);
-    await waitFor(() => expect(screen.getByRole("button")).toBeTruthy());
+    await waitFor(() => screen.getByRole("button"));
     fireEvent.click(screen.getByRole("button"));
-    await waitFor(() => expect(screen.getByText("Hallo")).toBeTruthy());
+    await waitFor(() => screen.getByText("Hallo"));
     expect(calls).toBe(2);
   });
 
@@ -271,7 +271,7 @@ describe("InfinityList", () => {
       />,
       dispatcher,
     );
-    await waitFor(() => expect(screen.getByText("Keine Nachrichten")).toBeTruthy());
+    await waitFor(() => screen.getByText("Keine Nachrichten"));
   });
 
   // A fast payload change (e.g. two keystrokes in a search field)
@@ -302,7 +302,7 @@ describe("InfinityList", () => {
       isSuccess: true,
       data: { rows: [{ id: "m2", subject: "Bob-Treffer" }], nextCursor: null },
     });
-    await waitFor(() => expect(screen.getByText("Bob-Treffer")).toBeTruthy());
+    await waitFor(() => screen.getByText("Bob-Treffer"));
 
     // "Bo" (first, slower) resolves late — must be discarded, not overwrite the display.
     resolvers[0]?.({
@@ -311,7 +311,7 @@ describe("InfinityList", () => {
     });
     await waitFor(() => {
       expect(screen.queryByText("Bo-Treffer")).toBeNull();
-      expect(screen.getByText("Bob-Treffer")).toBeTruthy();
+      screen.getByText("Bob-Treffer");
     });
   });
 
@@ -369,9 +369,9 @@ describe("InfinityList", () => {
         fake.subscriber,
       );
 
-      await waitFor(() => expect(screen.getByText("Alt-1")).toBeTruthy());
+      await waitFor(() => screen.getByText("Alt-1"));
       await fireIntersect();
-      await waitFor(() => expect(screen.getByText("Alt-2")).toBeTruthy());
+      await waitFor(() => screen.getByText("Alt-2"));
       expect(calls.length).toBe(2);
 
       act(() => {
@@ -384,9 +384,9 @@ describe("InfinityList", () => {
         });
       });
 
-      await waitFor(() => expect(screen.getByText("Neu")).toBeTruthy(), liveWait);
-      expect(screen.getByText("Alt-1")).toBeTruthy();
-      expect(screen.getByText("Alt-2")).toBeTruthy();
+      await waitFor(() => screen.getByText("Neu"), liveWait);
+      screen.getByText("Alt-1");
+      screen.getByText("Alt-2");
       expect(screen.getAllByText("Alt-1").length).toBe(1);
 
       // The live refresh only requests the first page — no cursor in the payload.
@@ -425,8 +425,8 @@ describe("InfinityList", () => {
 
       renderWithLive(list("inbox:query:message:list", true), dispatcher, fake.subscriber);
 
-      await waitFor(() => expect(screen.getByText("Erste")).toBeTruthy());
-      expect(screen.getByText("Zweite")).toBeTruthy();
+      await waitFor(() => screen.getByText("Erste"));
+      screen.getByText("Zweite");
 
       act(() => {
         fake.inject("message.deleted", {
@@ -439,7 +439,7 @@ describe("InfinityList", () => {
       });
 
       await waitFor(() => expect(screen.queryByText("Erste")).toBeNull(), liveWait);
-      expect(screen.getByText("Zweite")).toBeTruthy();
+      screen.getByText("Zweite");
     });
 
     // A row that was never part of page 1 (it lives on an already-loaded
@@ -489,9 +489,9 @@ describe("InfinityList", () => {
         fake.subscriber,
       );
 
-      await waitFor(() => expect(screen.getByText("Erste")).toBeTruthy());
+      await waitFor(() => screen.getByText("Erste"));
       await fireIntersect();
-      await waitFor(() => expect(screen.getByText("Zweite")).toBeTruthy());
+      await waitFor(() => screen.getByText("Zweite"));
       expect(calls.length).toBe(2);
 
       act(() => {
@@ -504,9 +504,9 @@ describe("InfinityList", () => {
         });
       });
 
-      await waitFor(() => expect(screen.getByText("Neu")).toBeTruthy(), liveWait);
+      await waitFor(() => screen.getByText("Neu"), liveWait);
       expect(screen.queryByText("Erste")).toBeNull();
-      expect(screen.getByText("Zweite")).toBeTruthy();
+      screen.getByText("Zweite");
     });
 
     function messageEvent(
@@ -529,14 +529,14 @@ describe("InfinityList", () => {
       });
       const fake = makeFakeLiveEvents();
       renderWithLive(list("inbox:query:message:list", true), dispatcher, fake.subscriber);
-      await waitFor(() => expect(screen.getByText("Alt")).toBeTruthy());
+      await waitFor(() => screen.getByText("Alt"));
 
       act(() => {
         for (const id of ["a", "b", "c", "d", "e"])
           fake.inject("message.updated", messageEvent(id));
       });
 
-      await waitFor(() => expect(screen.getByText("Neu")).toBeTruthy(), liveWait);
+      await waitFor(() => screen.getByText("Neu"), liveWait);
       expect(calls).toBe(2);
     });
 
@@ -559,7 +559,7 @@ describe("InfinityList", () => {
       });
       const fake = makeFakeLiveEvents();
       renderWithLive(list("inbox:query:message:list", true), dispatcher, fake.subscriber);
-      await waitFor(() => expect(screen.getByText("v1")).toBeTruthy());
+      await waitFor(() => screen.getByText("v1"));
 
       act(() => fake.inject("message.updated", messageEvent("a")));
       await waitFor(() => expect(calls).toBe(2), liveWait);
@@ -567,7 +567,7 @@ describe("InfinityList", () => {
       act(() => fake.inject("message.updated", messageEvent("b")));
       act(() => releaseRefresh());
 
-      await waitFor(() => expect(screen.getByText("v3")).toBeTruthy(), liveWait);
+      await waitFor(() => screen.getByText("v3"), liveWait);
       expect(calls).toBe(3);
     });
 
@@ -598,7 +598,7 @@ describe("InfinityList", () => {
         fake.subscriber,
       );
 
-      await waitFor(() => expect(screen.getByText("Hallo")).toBeTruthy());
+      await waitFor(() => screen.getByText("Hallo"));
 
       fake.inject("message.created", {
         id: "m2",
@@ -640,7 +640,7 @@ describe("InfinityList", () => {
         fake.subscriber,
       );
 
-      await waitFor(() => expect(screen.getByText("Hallo")).toBeTruthy());
+      await waitFor(() => screen.getByText("Hallo"));
 
       fake.inject("note.created", {
         id: "n1",
@@ -696,7 +696,7 @@ describe("InfinityList", () => {
         });
       });
 
-      await waitFor(() => expect(screen.getByText("Hallo")).toBeTruthy());
+      await waitFor(() => screen.getByText("Hallo"));
     });
   });
 });
@@ -758,7 +758,7 @@ describe("InfinityList selection position", () => {
   test("stays silent without a selection or for a row that is not loaded", async () => {
     const seen: InfinityListSelection[] = [];
     const view = renderWithDispatcher(selectionList(null, seen), threeRows);
-    await waitFor(() => expect(screen.getByText("Drei")).toBeTruthy());
+    await waitFor(() => screen.getByText("Drei"));
     view.rerender(
       <DispatcherProvider dispatcher={threeRows}>
         {selectionList("missing", seen)}

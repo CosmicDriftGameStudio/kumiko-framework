@@ -133,7 +133,7 @@ describe("RenderEdit wizard draft", () => {
       </DispatcherProvider>,
     );
 
-    await waitFor(() => expect(screen.getByTestId("field-count")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("field-count"));
     expect(screen.getByTestId("field-title").closest("[hidden]")).not.toBeNull();
     expect(screen.getByTestId("render-edit-wizard-step-label").textContent).toContain("2");
 
@@ -428,7 +428,7 @@ describe("RenderEdit wizard draft", () => {
       fireEvent.submit(form);
       await Promise.resolve();
     });
-    expect(screen.getByTestId("field-count")).toBeTruthy();
+    screen.getByTestId("field-count");
     expect(store.current).not.toBeNull();
 
     await act(async () => {
@@ -520,7 +520,7 @@ describe("RenderEdit wizard draft", () => {
       await Promise.resolve();
     });
 
-    expect(screen.getByTestId("field-count")).toBeTruthy();
+    screen.getByTestId("field-count");
     expect(calls.some((c) => c.startsWith("form-draft:"))).toBe(false);
   });
 
@@ -605,7 +605,7 @@ describe("RenderEdit wizard draft", () => {
     // draftId) — the bug is specifically about a patch() AFTER that, with no
     // further Next/Back to piggyback a save on.
     fireEvent.click(screen.getByTestId("render-edit-wizard-next"));
-    expect(screen.getByTestId("field-count")).toBeTruthy();
+    screen.getByTestId("field-count");
 
     act(() => {
       controls?.patch({ count: 7 });
@@ -777,7 +777,7 @@ describe("RenderEdit wizard draft", () => {
     );
 
     fireEvent.click(screen.getByTestId("render-edit-wizard-next"));
-    expect(screen.getByTestId("field-count")).toBeTruthy();
+    screen.getByTestId("field-count");
 
     // Arms the debounce, then unmounts well inside the 500ms window — before
     // the timer could ever fire on its own.
@@ -813,7 +813,7 @@ describe("RenderEdit wizard draft", () => {
     );
 
     fireEvent.click(screen.getByTestId("render-edit-wizard-next"));
-    expect(screen.getByTestId("field-count")).toBeTruthy();
+    screen.getByTestId("field-count");
 
     // patch() arms a 500ms debounced draft save, then submit fires well
     // inside that window — before the timer could ever run on its own.
@@ -915,11 +915,11 @@ describe("RenderEdit wizard draft", () => {
       </DispatcherProvider>,
     );
 
-    expect(screen.getByTestId("field-title")).toBeTruthy();
+    screen.getByTestId("field-title");
     fireEvent.click(screen.getByTestId("render-edit-wizard-next"));
 
     // Navigated despite the empty required `title` field.
-    expect(screen.getByTestId("field-count")).toBeTruthy();
+    screen.getByTestId("field-count");
     expect(screen.getByTestId("field-title").closest("[hidden]")).not.toBeNull();
     // No validate() ran (no field error painted) and no write fired
     // (neither a form-draft:write:save nor an order:create).
@@ -1151,7 +1151,7 @@ describe("RenderEdit create-mode draftId", () => {
       </DispatcherProvider>,
     );
 
-    await waitFor(() => expect(screen.getByTestId("render-edit-draft-picker")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-draft-picker"));
     // No silent adopt: the form stays pristine until the user picks.
     const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
     expect(titleInput.value).toBe("");
@@ -1187,7 +1187,7 @@ describe("RenderEdit create-mode draftId", () => {
       </DispatcherProvider>,
     );
 
-    await waitFor(() => expect(screen.getByTestId("render-edit-draft-picker")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-draft-picker"));
     fireEvent.click(screen.getByTestId("render-edit-draft-start-new"));
     expect(screen.queryByTestId("render-edit-draft-picker")).toBeNull();
 
@@ -1236,7 +1236,7 @@ describe("RenderEdit create-mode draftId", () => {
       </DispatcherProvider>,
     );
 
-    await waitFor(() => expect(screen.getByTestId("render-edit-draft-picker")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-draft-picker"));
     // Multiple candidates keep the plural banner copy.
     expect(screen.getByTestId("render-edit-draft-picker").textContent).toContain(
       "Found multiple open drafts",
@@ -1281,7 +1281,7 @@ describe("RenderEdit create-mode draftId", () => {
       </DispatcherProvider>,
     );
 
-    await waitFor(() => expect(screen.getByTestId("render-edit-draft-picker")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-draft-picker"));
 
     // The user ignores the picker and starts a genuinely new record instead.
     const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
@@ -1346,7 +1346,7 @@ describe("RenderEdit create-mode draftId", () => {
 
     // The lone open draft (`other-session`) shows in the picker on mount —
     // the user explicitly picks it (no silent cross-tab auto-adopt).
-    await waitFor(() => expect(screen.getByTestId("render-edit-draft-picker")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-draft-picker"));
     fireEvent.click(screen.getByTestId(`render-edit-draft-pick-${screenDef.id}:new:other-session`));
     await waitFor(() => {
       const titleInput = screen

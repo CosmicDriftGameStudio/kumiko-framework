@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { PAT_TOKEN_PREFIX } from "@cosmicdrift/kumiko-framework/api";
 import { fieldOptionLabelKey } from "@cosmicdrift/kumiko-renderer/headless";
-import { EXT_TOKEN_VERIFIER } from "../../auth-foundation/index.ts";
+import { EXT_CREDENTIAL_REVOKER, EXT_TOKEN_VERIFIER } from "../../auth-foundation/index.ts";
 import { createConfigFeature } from "../../config/index.ts";
 import { createPersonalAccessTokensFeature } from "../feature.ts";
 import { patScopeOptionTranslations } from "../i18n.ts";
@@ -50,11 +50,19 @@ describe("createPersonalAccessTokensFeature toggleable-option (tier-gating)", ()
 describe("createPersonalAccessTokensFeature — tokenVerifier registration", () => {
   test('registers via r.applyExtension({ name: EXT_TOKEN_VERIFIER, entity: "pat", ... }) instead of a patResolver field', () => {
     const feature = createPersonalAccessTokensFeature({ scopes: {} });
-    expect(feature.extensionUsages).toHaveLength(1);
-    const [usage] = feature.extensionUsages;
-    expect(usage?.extensionName).toBe(EXT_TOKEN_VERIFIER);
-    expect(usage?.entityName).toBe("pat");
-    expect(usage?.options).toMatchObject({ shape: { kind: "prefix", prefix: PAT_TOKEN_PREFIX } });
+    expect(feature.extensionUsages).toHaveLength(2);
+    const verifier = feature.extensionUsages.find(
+      (usage) => usage.extensionName === EXT_TOKEN_VERIFIER,
+    );
+    expect(verifier?.entityName).toBe("pat");
+    expect(verifier?.options).toMatchObject({
+      shape: { kind: "prefix", prefix: PAT_TOKEN_PREFIX },
+    });
+    const revoker = feature.extensionUsages.find(
+      (usage) => usage.extensionName === EXT_CREDENTIAL_REVOKER,
+    );
+    expect(revoker?.entityName).toBe("personal-access-tokens");
+    expect(typeof revoker?.options?.["revokeAllForUser"]).toBe("function");
   });
 
   test("requires auth-foundation (owner of EXT_TOKEN_VERIFIER)", () => {

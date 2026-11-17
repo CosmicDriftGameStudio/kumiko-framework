@@ -7,7 +7,6 @@ import {
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { requireSystemDb } from "../../shared/index.ts";
 import { tenantEntity, tenantTable } from "../schema/tenant.ts";
 
 const crud = createEventStoreExecutor(tenantTable, tenantEntity, { entityName: "tenant" });
@@ -23,10 +22,11 @@ export const updateWrite = defineWriteHandler({
     changes: z.object({ name: z.string().min(1).max(200).optional() }),
   }),
   access: { roles: access.admin },
+  systemScope: true,
   description:
     "Renames a tenant against the version the caller read; a TenantAdmin or Admin may only rename their own tenant, a SystemAdmin any of them.",
   handler: async (event, ctx) => {
-    const systemDb = requireSystemDb(ctx, "tenant:write:update");
+    const { systemDb } = ctx;
 
     // TenantAdmin and Admin are tenant-scoped and must not touch another tenant's row —
     // SystemAdmin is the platform-wide role and stays cross-tenant by design.

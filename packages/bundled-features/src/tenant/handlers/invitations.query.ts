@@ -2,7 +2,7 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { mapWithConcurrency } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
-import { decryptStoredPii, KMS_POOL_CONCURRENCY, requireSystemDb } from "../../shared/index.ts";
+import { decryptStoredPii, KMS_POOL_CONCURRENCY } from "../../shared/index.ts";
 import { INVITATION_STATUS, tenantInvitationsTable } from "../invitation-table.ts";
 
 // Pending invitations for the current tenant, admin-only, filtered to
@@ -16,12 +16,13 @@ export const invitationsQuery = defineQueryHandler({
   name: "invitations",
   schema: z.object({}),
   access: { roles: access.admin },
+  systemScope: true,
   description:
     "Lists the still-pending invitations of the caller's own tenant with their email and inviter decrypted; accepted, cancelled and expired ones are left out.",
   // Decrypted invitee and inviter email.
   agent: { risk: "high" },
   handler: async (query, ctx) => {
-    const systemDb = requireSystemDb(ctx, "tenant:query:invitations");
+    const { systemDb } = ctx;
     const db = systemDb.assertTenantMatch(query.user.tenantId);
     const rows = await selectMany<Record<string, unknown>>(db, tenantInvitationsTable, {
       tenantId: query.user.tenantId,

@@ -1,9 +1,13 @@
-import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  type AccessRule,
+  defineWriteHandler,
+  type WriteResult,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { denyUnlessJoinRowParentVisible } from "../../shared/index.ts";
 import { folderAssignmentAggregateId } from "../aggregate-id.ts";
 import { type FolderAssignmentExecutor, folderExecutor } from "../executor.ts";
-import { type SetFolderPayload, setFolderPayloadSchema } from "../schemas.ts";
+import { setFolderPayloadSchema } from "../schemas.ts";
 import { FOLDER_LOCK_NAMESPACE } from "../web/constants.ts";
 
 // set-folder — files a host entity into one folder; the assignment id ignores folderId, so another folder MOVES it.
@@ -16,15 +20,15 @@ import { FOLDER_LOCK_NAMESPACE } from "../web/constants.ts";
 export function createSetFolderHandler(
   access: AccessRule,
   assignmentExecutor: FolderAssignmentExecutor,
-): WriteHandlerDef {
-  return {
+) {
+  return defineWriteHandler({
     name: "set-folder",
     schema: setFolderPayloadSchema,
     access,
     description:
       "Files a host entity into one existing folder and moves it out of whatever folder it was in, since an entity belongs to at most one folder; use it for both the first filing and every later move.",
-    handler: async (event, ctx) => {
-      const payload = event.payload as SetFolderPayload; // @cast-boundary engine-payload
+    handler: async (event, ctx): Promise<WriteResult<unknown>> => {
+      const payload = event.payload;
       const denied = await denyUnlessJoinRowParentVisible(
         ctx.registry,
         "folder-assignment",
@@ -81,5 +85,5 @@ export function createSetFolderHandler(
         ctx.db,
       );
     },
-  };
+  });
 }

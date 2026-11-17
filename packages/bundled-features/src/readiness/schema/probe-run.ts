@@ -48,7 +48,7 @@ export type ProbeResultRow = {
 export type ProbeRunResults = { readonly rows: readonly ProbeResultRow[] };
 
 export const probeRunEntity = createEntity({
-  name: "probeRun",
+  name: "probe-run",
   table: "read_readiness_probe_runs",
   idType: "uuid",
   description:

@@ -174,7 +174,7 @@ describe("field prefix, suffix and fillAction", () => {
 
     await userEvent.setup().click(screen.getByTestId("field-fill-slug"));
 
-    await waitFor(() => expect(screen.getByTestId("field-fill-error-slug")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("field-fill-error-slug"));
     expect(slugInput().value).toBe("");
   });
 
@@ -183,7 +183,7 @@ describe("field prefix, suffix and fillAction", () => {
 
     await userEvent.setup().click(screen.getByTestId("field-fill-slug"));
 
-    await waitFor(() => expect(screen.getByTestId("field-fill-error-slug")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("field-fill-error-slug"));
     expect(slugInput().value).toBe("");
   });
 
@@ -193,7 +193,7 @@ describe("field prefix, suffix and fillAction", () => {
 
     await userEvent.setup().click(screen.getByTestId("field-fill-weight"));
 
-    await waitFor(() => expect(screen.getByTestId("field-fill-error-weight")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("field-fill-error-weight"));
   });
 
   test("the button is inert while the query runs and a later success clears the error", async () => {

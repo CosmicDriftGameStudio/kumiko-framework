@@ -24,7 +24,6 @@ import { createTenantHandoverFeature } from "../tenant-handover/feature.ts";
 import { createTenantLifecycleFeature } from "../tenant-lifecycle/feature.ts";
 import { createTierEngineFeature } from "../tier-engine/feature.ts";
 import { createUserFeature } from "../user/feature.ts";
-import { createUserDataRightsFeature } from "../user-data-rights/feature.ts";
 
 const TYPED_EXTENSION_POINTS = [
   "userData",
@@ -54,6 +53,7 @@ const TYPED_EXTENSION_POINTS = [
   "assignableRole",
   "emailAppTransport",
   "tenantDestructionHold",
+  "credentialRevoker",
 ] as const satisfies readonly (keyof KumikoExtensionOptionsMap)[];
 
 const UNTYPED_BY_DESIGN: Record<string, string> = {
@@ -81,7 +81,6 @@ const DECLARING_FEATURE_DIRS = [
   "tenant-lifecycle",
   "tier-engine",
   "user",
-  "user-data-rights",
 ].sort();
 
 // Scans bundled-features source (excluding tests) for real `r.extendsRegistrar(`
@@ -126,7 +125,6 @@ function allRegistrarExtensionNames(): readonly string[] {
     createTenantLifecycleFeature(),
     createTierEngineFeature(),
     createUserFeature(),
-    createUserDataRightsFeature(),
   ];
   const names = new Set<string>();
   for (const feature of features) {

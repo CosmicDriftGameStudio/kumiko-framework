@@ -13,7 +13,7 @@ export const documentExtractExecutor = createEventStoreExecutor(
   { entityName: DOCUMENT_EXTRACT_AGGREGATE_TYPE },
 );
 
-// forget() re-encrypts `previous` with the live record key, so the key is erased after it;
+// The row and earlier events hold ciphertext under the record key and forget() reads the row with it, so the key is erased after it;
 // without a mounted KMS nothing is encrypted per record and this is a no-op.
 export async function eraseDocumentExtractKey(id: string, eraseReason: string): Promise<void> {
   await configuredPiiSubjectKms()?.eraseKey(

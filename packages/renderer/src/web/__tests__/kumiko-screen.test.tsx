@@ -62,7 +62,7 @@ describe("KumikoScreen", () => {
         <KumikoScreen schema={schema} qn="tasks:screen:ghost" />
       </DispatcherProvider>,
     );
-    expect(screen.getByTestId("kumiko-screen-not-found")).toBeTruthy();
+    screen.getByTestId("kumiko-screen-not-found");
   });
 
   test("unknown qn → home button from HomeScreenProvider navigates to the start page", () => {
@@ -94,7 +94,7 @@ describe("KumikoScreen", () => {
         <KumikoScreen schema={schema} qn="tasks:screen:task-list-restricted" />
       </DispatcherProvider>,
     );
-    expect(screen.getByTestId("kumiko-screen-access-denied")).toBeTruthy();
+    screen.getByTestId("kumiko-screen-access-denied");
   });
 
   test("role-gated screen, user without matching role → access-denied placeholder", () => {
@@ -105,7 +105,7 @@ describe("KumikoScreen", () => {
         </UserRolesProvider>
       </DispatcherProvider>,
     );
-    expect(screen.getByTestId("kumiko-screen-access-denied")).toBeTruthy();
+    screen.getByTestId("kumiko-screen-access-denied");
   });
 
   test("role-gated screen, user with matching role → renders normally", async () => {
@@ -118,7 +118,7 @@ describe("KumikoScreen", () => {
     );
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
     expect(screen.queryByTestId("kumiko-screen-access-denied")).toBeNull();
-    expect(screen.getByTestId("render-list-table-toolbar")).toBeTruthy();
+    screen.getByTestId("render-list-table-toolbar");
   });
 
   test("entityEdit → renders RenderEdit form for the screen's entity", () => {
@@ -127,10 +127,10 @@ describe("KumikoScreen", () => {
         <KumikoScreen schema={schema} qn="tasks:screen:task-edit" />
       </DispatcherProvider>,
     );
-    expect(screen.getByTestId("render-edit-form")).toBeTruthy();
-    expect(screen.getByTestId("field-title")).toBeTruthy();
-    expect(screen.getByTestId("field-count")).toBeTruthy();
-    expect(screen.getByTestId("field-done")).toBeTruthy();
+    screen.getByTestId("render-edit-form");
+    screen.getByTestId("field-title");
+    screen.getByTestId("field-count");
+    screen.getByTestId("field-done");
   });
 
   test("entityList → fires useQuery with derived query QN and renders RenderList", async () => {
@@ -156,7 +156,7 @@ describe("KumikoScreen", () => {
     );
 
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
-    expect(screen.getByTestId("render-list-table")).toBeTruthy();
+    screen.getByTestId("render-list-table");
     expect(screen.getByTestId("cell-r1-title").textContent).toBe("hello");
     // Derived query QN matches the server-side qualification rule.
     expect(seenTypes).toEqual(["tasks:query:task:list"]);
@@ -256,7 +256,7 @@ describe("KumikoScreen", () => {
         <KumikoScreen schema={brokenSchema} qn="tasks:screen:broken" />
       </DispatcherProvider>,
     );
-    expect(screen.getByTestId("kumiko-screen-entity-missing")).toBeTruthy();
+    screen.getByTestId("kumiko-screen-entity-missing");
   });
 
   test("entityEdit with entityId → loads detail, pre-fills form, submits update with {id,version,changes}", async () => {
@@ -280,7 +280,7 @@ describe("KumikoScreen", () => {
 
     // First wait for loading to finish, then assert the form contains the loaded values.
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
-    expect(screen.getByTestId("render-edit-form")).toBeTruthy();
+    screen.getByTestId("render-edit-form");
     const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
     expect(titleInput.value).toBe("loaded-title");
 
@@ -411,7 +411,7 @@ describe("KumikoScreen", () => {
     // (Presence/FocusScope/DismissableLayer); fireEvent would leave them outside act()
     // and produce roughly 26 warnings.
     await user.click(screen.getByTestId("render-edit-delete"));
-    expect(screen.getByTestId("render-edit-delete-dialog")).toBeTruthy();
+    screen.getByTestId("render-edit-delete-dialog");
     expect(writeCalls.length).toBe(0);
 
     await user.click(screen.getByTestId("render-edit-delete-dialog-confirm"));
@@ -743,7 +743,7 @@ describe("KumikoScreen", () => {
         </DispatcherProvider>,
       );
       await act(async () => {});
-      expect(screen.getByText("Alpha")).toBeTruthy();
+      screen.getByText("Alpha");
       expect(screen.queryByTestId("kumiko-screen-error")).toBeNull();
 
       emitLive();
@@ -751,9 +751,9 @@ describe("KumikoScreen", () => {
         jest.advanceTimersByTime(LIVE_REFETCH_COALESCE_MS);
       });
 
-      expect(screen.getByTestId("kumiko-screen-error")).toBeTruthy();
-      expect(screen.getByTestId("kumiko-screen-retry")).toBeTruthy();
-      expect(screen.getByText("Alpha")).toBeTruthy();
+      screen.getByTestId("kumiko-screen-error");
+      screen.getByTestId("kumiko-screen-retry");
+      screen.getByText("Alpha");
     } finally {
       jest.useRealTimers();
     }
@@ -850,13 +850,13 @@ describe("KumikoScreen", () => {
     };
 
     const adaptive = await mount();
-    expect(screen.getByTestId("row-r1-action-open")).toBeTruthy();
+    screen.getByTestId("row-r1-action-open");
     expect(screen.queryByTestId("row-r1-action-archive")).toBeNull();
     adaptive.unmount();
 
     await mount("inline");
-    expect(screen.getByTestId("row-r1-action-archive")).toBeTruthy();
-    expect(screen.getByTestId("row-r1-action-purge")).toBeTruthy();
+    screen.getByTestId("row-r1-action-archive");
+    screen.getByTestId("row-r1-action-purge");
   });
 
   // dispatcher.write does not throw: a failure result was previously discarded, so
@@ -916,13 +916,13 @@ describe("KumikoScreen", () => {
 
     // The danger style requires a confirmation dialog.
     await user.click(screen.getByTestId("row-r1-action-delete"));
-    expect(await screen.findByTestId("row-r1-action-delete-dialog")).toBeTruthy();
+    await screen.findByTestId("row-r1-action-delete-dialog");
 
     await user.click(screen.getByTestId("row-r1-action-delete-dialog-confirm"));
 
     // The dialog closes, but the error text must remain visible.
     await waitFor(() => expect(screen.queryByTestId("row-r1-action-delete-dialog")).toBeNull());
-    expect(await screen.findByText("Version conflict for entity r1")).toBeTruthy();
+    await screen.findByText("Version conflict for entity r1");
   });
 
   // The hit branch of dispatcherErrorText: a known i18nKey with parameters puts the
@@ -990,7 +990,7 @@ describe("KumikoScreen", () => {
     await user.click(screen.getByTestId("row-r1-action-delete"));
     await user.click(screen.getByTestId("row-r1-action-delete-dialog-confirm"));
 
-    expect(await screen.findByText("Too short (at least 5 characters).")).toBeTruthy();
+    await screen.findByText("Too short (at least 5 characters).");
     expect(screen.queryByText("raw fallback — must NOT appear")).toBeNull();
   });
 

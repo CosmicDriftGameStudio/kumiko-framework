@@ -61,7 +61,10 @@ import type { FileStorageBootOption } from "./boot-options/file-storage-option.t
 import type { KmsMode } from "./boot-options/kms-mode.ts";
 import type { MailBootOption } from "./boot-options/mail-option.ts";
 import { prodKmsModeDefault } from "./boot-options/prod-boot-defaults.ts";
-import { resolveBootOptionWiring } from "./boot-options/resolve-boot-options.ts";
+import {
+  type BootOptionWiring,
+  resolveBootOptionWiring,
+} from "./boot-options/resolve-boot-options.ts";
 import type { SearchBootOption } from "./boot-options/search-option.ts";
 import { assertStackBootRequirements } from "./boot-options/stack-boot-requirements.ts";
 import {
@@ -234,6 +237,40 @@ function wireHookDb(db: DbConnection, options: RunWorkerAppOptions): DbConnectio
   return appHookScopedRunner(db, options.rowLevelSecurity ?? DEFAULT_ROW_LEVEL_SECURITY_MODE);
 }
 
+function withWiredBootOptions(
+  options: RunWorkerAppOptions,
+  wiring: BootOptionWiring,
+): Parameters<typeof bootWorkerProcess>[0] {
+  return {
+    ...options,
+    features: [...options.features, ...wiring.features],
+    ...(wiring.kms.kms && { kms: wiring.kms.kms }),
+    ...(wiring.kms.blindIndexKey !== undefined && { blindIndexKey: wiring.kms.blindIndexKey }),
+    ...(wiring.kms.allowPlaintextPii !== undefined && {
+      allowPlaintextPii: wiring.kms.allowPlaintextPii,
+    }),
+  };
+}
+
+async function runWireComponents(
+  options: RunWorkerAppOptions,
+  boot: Extract<WorkerBootResult, { kind: "booted" }>,
+): Promise<void> {
+  if (!options.wireComponents) return;
+  const { db, redis, registry, entrypoint } = boot;
+  await options.wireComponents({
+    db: wireHookDb(db, options),
+    redis,
+    registry,
+    filesForTenant: makeFilesForTenant(entrypoint.context),
+    metricsFor: createMetricsForFactory(entrypoint.observability.meter),
+    dispatchSystemWrite: makeDispatchSystemWrite(entrypoint.dispatcher),
+    dispatchSystemQuery: makeDispatchSystemQuery(entrypoint.dispatcher),
+    lifecycle: entrypoint.lifecycle,
+    ...(boot.secrets && { secrets: boot.secrets }),
+  });
+}
+
 export async function runWorkerApp(rawOptions: RunWorkerAppOptions): Promise<WorkerAppHandle> {
   assertSeedModeNotInProduction();
   const kmsMode = prodKmsModeDefault(rawOptions, rawOptions.envSource ?? process.env);
@@ -248,23 +285,11 @@ export async function runWorkerApp(rawOptions: RunWorkerAppOptions): Promise<Wor
   const envSource = withEnvDefaults(wiring.envDefaults, resolvedEnvSource);
   let boot: WorkerBootResult;
   try {
-    boot = await bootWorkerProcess(
-      {
-        ...options,
-        features: [...options.features, ...wiring.features],
-        ...(wiring.kms.kms && { kms: wiring.kms.kms }),
-        ...(wiring.kms.blindIndexKey !== undefined && { blindIndexKey: wiring.kms.blindIndexKey }),
-        ...(wiring.kms.allowPlaintextPii !== undefined && {
-          allowPlaintextPii: wiring.kms.allowPlaintextPii,
-        }),
-      },
-      envSource,
-      {
-        processName: "runWorkerApp",
-        ...(wiring.featureToggles && { featureToggles: wiring.featureToggles }),
-        ...(wiring.searchAdapter && { searchAdapter: wiring.searchAdapter }),
-      },
-    );
+    boot = await bootWorkerProcess(withWiredBootOptions(options, wiring), envSource, {
+      processName: "runWorkerApp",
+      ...(wiring.featureToggles && { featureToggles: wiring.featureToggles }),
+      ...(wiring.searchAdapter && { searchAdapter: wiring.searchAdapter }),
+    });
   } catch (error) {
     await wiring.kms.close().catch(() => {});
     throw error;
@@ -320,19 +345,7 @@ export async function runWorkerApp(rawOptions: RunWorkerAppOptions): Promise<Wor
     envSource,
   });
 
-  if (options.wireComponents) {
-    await options.wireComponents({
-      db: wireHookDb(db, options),
-      redis,
-      registry,
-      filesForTenant: makeFilesForTenant(entrypoint.context),
-      metricsFor: createMetricsForFactory(entrypoint.observability.meter),
-      dispatchSystemWrite: makeDispatchSystemWrite(entrypoint.dispatcher),
-      dispatchSystemQuery: makeDispatchSystemQuery(entrypoint.dispatcher),
-      lifecycle: entrypoint.lifecycle,
-      ...(boot.secrets && { secrets: boot.secrets }),
-    });
-  }
+  await runWireComponents(options, boot);
 
   let shuttingDown = false;
   const shutdown = async (signal: string) => {

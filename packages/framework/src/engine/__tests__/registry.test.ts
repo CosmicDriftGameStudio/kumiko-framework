@@ -216,17 +216,17 @@ describe("getAllStreamHandlers", () => {
 });
 
 describe("double-qualified handler names", () => {
-  test("createRegistry throws at boot when a query handler's short name is already fully-qualified", () => {
-    const feature = defineFeature("registry-test-ai-orch", (r) => {
-      r.queryHandler({
-        name: "registry-test-ai-orch:query:duplicate-candidates",
-        schema: z.object({}),
-        handler: async () => ({}),
-        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
-      });
-    });
-
-    expect(() => createRegistry([feature])).toThrow(/double-qualification/);
+  test("a query handler whose short name is already fully-qualified throws at definition", () => {
+    expect(() =>
+      defineFeature("registry-test-ai-orch", (r) => {
+        r.queryHandler({
+          name: "registry-test-ai-orch:query:duplicate-candidates",
+          schema: z.object({}),
+          handler: async () => ({}),
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        });
+      }),
+    ).toThrow(/double-qualification/);
   });
 
   test("createRegistry allows a sub-structured short name whose entity prefix merely resembles the feature name", () => {

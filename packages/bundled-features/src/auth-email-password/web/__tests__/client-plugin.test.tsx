@@ -54,7 +54,7 @@ describe("emailPasswordClient — authShell", () => {
         <ForgotPasswordScreen />
       </Provider>,
     );
-    expect(ui.getByTestId("brand-shell")).toBeTruthy();
+    ui.getByTestId("brand-shell");
   });
 
   test("without authShell there is no provider", () => {

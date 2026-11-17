@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import type { Project } from "ts-morph";
 import { transformEntityNames } from "../scripts/codemod/entity-name.ts";
@@ -13,9 +13,18 @@ function projectOf(files: readonly string[]): Project {
   return project;
 }
 
+// Every fixture imports the framework engine; one program for all fixtures, built and checked
+// once at load, keeps each test to the transform instead of a multi-second program build.
+const FIXTURE_PROJECT = projectOf(
+  readdirSync(FIXTURES_DIR, { recursive: true, encoding: "utf-8" })
+    .filter((entry) => entry.endsWith(".ts"))
+    .map((entry) => join(FIXTURES_DIR, entry)),
+);
+FIXTURE_PROJECT.getProgram().compilerObject.getTypeChecker();
+
 function runFixture(name: string) {
   const file = join(FIXTURES_DIR, `${name}.input.ts`);
-  const results = transformEntityNames(projectOf([file]), [file]);
+  const results = transformEntityNames(FIXTURE_PROJECT, [file]);
   const result = results.get(resolve(file));
   return {
     input: readFileSync(file, "utf8"),
@@ -53,7 +62,7 @@ describe("entity-name codemod fixtures", () => {
 
     it(`${name}: a second run on the expected file changes nothing`, () => {
       const file = join(FIXTURES_DIR, `${name}.expected.ts`);
-      const results = transformEntityNames(projectOf([file]), [file]);
+      const results = transformEntityNames(FIXTURE_PROJECT, [file]);
       const second = results.get(resolve(file));
 
       expect(second?.output).toBe(readFileSync(file, "utf8"));
@@ -69,10 +78,7 @@ describe("entity-name codemod across files", () => {
   const featureFile = join(dir, "feature.ts");
 
   it("writes the name into the entity file and drops it at the use in another file", () => {
-    const results = transformEntityNames(projectOf([entityFile, featureFile]), [
-      entityFile,
-      featureFile,
-    ]);
+    const results = transformEntityNames(FIXTURE_PROJECT, [entityFile, featureFile]);
 
     expect(results.get(resolve(entityFile))?.output).toBe(
       readFileSync(join(dir, "expected", "entity.ts"), "utf8"),

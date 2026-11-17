@@ -1,6 +1,5 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { deliveryAttemptsTable } from "../tables.ts";
@@ -14,10 +13,8 @@ export const attemptsByKeysQuery = defineQueryHandler({
   access: { roles: access.systemAdmin },
   description:
     "Returns the delivery attempts (channel, status, error code, time, recipient id, never an address) recorded for notify() calls made with one of the given idempotency keys, across all tenants; use it to show whether a notification a feature sent under a known key arrived.",
+  systemScope: true,
   handler: async (query, ctx) => {
-    if (!ctx.systemDb) {
-      throw new InternalError({ message: "attempts-by-keys requires ctx.systemDb" });
-    }
     const db = ctx.systemDb.acknowledgeCrossTenant(
       "SystemAdmin reads delivery attempts of a notification across tenants",
     );

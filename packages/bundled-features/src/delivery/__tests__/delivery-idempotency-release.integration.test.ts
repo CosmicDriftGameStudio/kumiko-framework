@@ -13,6 +13,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -114,7 +115,11 @@ async function buildStack(withJobs: boolean): Promise<TestStack> {
       idemProbeFeature,
     ],
     ...(withJobs && { jobs: { consumerLane: "worker" } }),
-    extraContext: (deps) => createDeliveryTestContext(deps, { idempotencyRedis: deps.redis }),
+    extraContext: (deps) =>
+      createDeliveryTestContext(deps, {
+        idempotencyRedis: deps.redis,
+        addressCipher: createTestEnvelopeCipher(),
+      }),
   });
   await unsafePushTables(stack.db, { deliveryAttemptsTable });
   return stack;
@@ -228,6 +233,7 @@ describe("inline path (no job runner)", () => {
       channels: collectChannels(stack.registry),
       idempotencyRedis: stack.redis.redis,
       log: throwingErrorLogger,
+      addressCipher: createTestEnvelopeCipher(),
     });
     const brokenQueue: NotifyJobDispatcher = {
       dispatch: async () => {

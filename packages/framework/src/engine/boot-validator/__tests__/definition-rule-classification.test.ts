@@ -54,15 +54,15 @@ describe("definition layer rules", () => {
     );
   });
 
-  test("registrar: positional call of an object-form method", () => {
+  test("feature: r.requires with a positional string", () => {
     expectRule(
       () =>
         defineFeature("demo", (r) => {
           // @ts-expect-error untyped JS callers pass strings
           r.requires("other");
         }),
-      "registrar/options-object-required",
-      "r.requires() takes one options object",
+      "feature/requires-needs-features",
+      "r.requires() needs { features: string[] }",
     );
   });
 

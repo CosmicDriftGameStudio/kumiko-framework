@@ -118,8 +118,8 @@ describe("Input kind=file — folder picker through the primitive", () => {
         onFilesPicked={(files) => picked.push(files)}
       />,
     );
-    expect(getByText("Choose folder")).toBeTruthy();
-    expect(getByTestId("studio-folder-pick")).toBeTruthy();
+    getByText("Choose folder");
+    getByTestId("studio-folder-pick");
     const input = getByTestId("studio-folder-input");
     expect(input.hasAttribute("webkitdirectory")).toBe(true);
     const file = new File(["x"], "a.txt");
@@ -205,9 +205,9 @@ describe("FileUploadInput — translated labels", () => {
     const { getByRole, getByText } = render(
       <FileUploadInput kind="file" id="doc" value={FILE_ID} onChange={noop} />,
     );
-    expect(getByRole("button", { name: "Change" })).toBeDefined();
-    expect(getByRole("button", { name: "Remove" })).toBeDefined();
-    expect(getByText("File attached")).toBeDefined();
+    getByRole("button", { name: "Change" });
+    getByRole("button", { name: "Remove" });
+    getByText("File attached");
   });
 });
 
@@ -310,7 +310,7 @@ describe("FileUploadInput — upload failure", () => {
     const input = container.querySelector('input[type="file"]');
     if (input === null) throw new Error("file input missing");
     fireEvent.change(input, { target: { files: [new File(["x"], "a.txt")] } });
-    expect(await findByText("File is too large")).toBeDefined();
+    await findByText("File is too large");
     expect(queryByText(rawServerMessage, { exact: false })).toBeNull();
   });
 });

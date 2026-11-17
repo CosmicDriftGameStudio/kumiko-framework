@@ -35,45 +35,45 @@ describe("StackedAreaChart window", () => {
     render(<StackedAreaChart {...props} />);
     expect(screen.queryByTestId("area-range")).toBeNull();
     expect(screen.queryByTestId("area-brush")).toBeNull();
-    expect(screen.getByText("2026-01")).toBeTruthy();
-    expect(screen.getByText("2028-12")).toBeTruthy();
+    screen.getByText("2026-01");
+    screen.getByText("2028-12");
   });
 
   test("uncontrolled ranges render their own switch that changes the visible window", () => {
     render(<StackedAreaChart {...props} ranges={ranges} />);
-    expect(screen.getByText("2026-07")).toBeTruthy();
-    expect(screen.getByText("2027-07")).toBeTruthy();
+    screen.getByText("2026-07");
+    screen.getByText("2027-07");
     const rangeSwitch = screen.getByTestId("area-range");
     fireEvent.click(within(rangeSwitch).getByRole("button", { name: "Max" }));
-    expect(screen.getByText("2026-01")).toBeTruthy();
-    expect(screen.getByText("2028-12")).toBeTruthy();
+    screen.getByText("2026-01");
+    screen.getByText("2028-12");
   });
 
   test("the brush moves the window by keyboard, deselects the switch and a range click resets it", () => {
     render(<StackedAreaChart {...props} ranges={ranges} brush />);
-    expect(screen.getByTestId("area-brush")).toBeTruthy();
+    screen.getByTestId("area-brush");
     const [startHandle, endHandle] = screen.getAllByRole("slider");
     expect(startHandle?.getAttribute("aria-label")).toBe("Window start");
     expect(endHandle?.getAttribute("aria-label")).toBe("Window end");
     expect(startHandle?.getAttribute("aria-valuenow")).toBe("6");
     if (startHandle === undefined) throw new Error("start handle missing");
     fireEvent.keyDown(startHandle, { key: "ArrowRight" });
-    expect(screen.getByText("2026-08")).toBeTruthy();
+    screen.getByText("2026-08");
     const rangeSwitch = screen.getByTestId("area-range");
     for (const button of within(rangeSwitch).getAllByRole("button")) {
       expect(button.getAttribute("aria-pressed")).toBe("false");
     }
     fireEvent.click(within(rangeSwitch).getByRole("button", { name: "1 year" }));
-    expect(screen.getByText("2026-07")).toBeTruthy();
-    expect(screen.getByText("2027-07")).toBeTruthy();
+    screen.getByText("2026-07");
+    screen.getByText("2027-07");
   });
 
   test("brush without ranges starts at today and uses the custom handle labels", () => {
     render(<StackedAreaChart {...props} brush brushLabels={{ start: "Von", end: "Bis" }} />);
-    expect(screen.getByText("2026-07")).toBeTruthy();
-    expect(screen.getByText("2028-12")).toBeTruthy();
-    expect(screen.getByRole("slider", { name: "Von" })).toBeTruthy();
-    expect(screen.getByRole("slider", { name: "Bis" })).toBeTruthy();
+    screen.getByText("2026-07");
+    screen.getByText("2028-12");
+    screen.getByRole("slider", { name: "Von" });
+    screen.getByRole("slider", { name: "Bis" });
     expect(screen.queryByTestId("area-range")).toBeNull();
   });
 
@@ -122,8 +122,8 @@ describe("StackedAreaChart date format, start window, y scale and marker legend"
     render(<StackedAreaChart {...formatProps} ranges={ranges} />);
     expect(screen.getAllByText("D 01.07")).toHaveLength(2);
     fireEvent.click(within(screen.getByTestId("area-range")).getByRole("button", { name: "Max" }));
-    expect(screen.getByText("M 2026-01")).toBeTruthy();
-    expect(screen.getByText("M 2028-12")).toBeTruthy();
+    screen.getByText("M 2026-01");
+    screen.getByText("M 2028-12");
   });
 
   test("marker times follow the visible window and dateFormat overrides it", () => {
@@ -135,14 +135,14 @@ describe("StackedAreaChart date format, start window, y scale and marker legend"
 
   test("initialWindow from-today starts at today without an active pill; a range click switches", () => {
     render(<StackedAreaChart {...props} ranges={ranges} initialWindow="from-today" />);
-    expect(screen.getByText("2026-07")).toBeTruthy();
-    expect(screen.getByText("2028-12")).toBeTruthy();
+    screen.getByText("2026-07");
+    screen.getByText("2028-12");
     const rangeSwitch = screen.getByTestId("area-range");
     for (const button of within(rangeSwitch).getAllByRole("button")) {
       expect(button.getAttribute("aria-pressed")).toBe("false");
     }
     fireEvent.click(within(rangeSwitch).getByRole("button", { name: "1 year" }));
-    expect(screen.getByText("2027-07")).toBeTruthy();
+    screen.getByText("2027-07");
   });
 
   test("the y scale tops out at the finer step: 1.1 million gives 1.2 million", () => {
@@ -164,15 +164,15 @@ describe("StackedAreaChart date format, start window, y scale and marker legend"
         showLegendTotals={false}
       />,
     );
-    expect(screen.getByText("1200000")).toBeTruthy();
-    expect(screen.getByText("600000")).toBeTruthy();
+    screen.getByText("1200000");
+    screen.getByText("600000");
     expect(screen.queryByText("2000000")).toBeNull();
   });
 
   test("a window with smaller values lowers the y ticks", () => {
     render(<StackedAreaChart {...props} brush />);
-    expect(screen.getByText("50")).toBeTruthy();
-    expect(screen.getByText("25")).toBeTruthy();
+    screen.getByText("50");
+    screen.getByText("25");
   });
 
   test("markerLegend legend replaces the numbered list by unnumbered pins and legend entries", () => {
@@ -185,7 +185,7 @@ describe("StackedAreaChart date format, start window, y scale and marker legend"
     expect(screen.getByTestId("chart-legend-marker-Extra-var(--c-extra)").textContent).toBe(
       "Extra",
     );
-    expect(screen.getByTestId("chart-legend-marker-Ende-var(--c-end)")).toBeTruthy();
+    screen.getByTestId("chart-legend-marker-Ende-var(--c-end)");
     expect(screen.getAllByTestId(/^chart-legend-marker-/)).toHaveLength(2);
   });
 });

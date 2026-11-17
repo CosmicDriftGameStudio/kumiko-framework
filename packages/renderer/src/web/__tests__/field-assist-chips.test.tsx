@@ -134,7 +134,7 @@ describe("aiAssist", () => {
 
     await userEvent.setup().click(screen.getByTestId("field-ai-chip-note-0"));
 
-    await waitFor(() => expect(screen.getByTestId("field-ai-error-note")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("field-ai-error-note"));
     expect(screen.getByTestId("field-ai-chip-note-0").hasAttribute("disabled")).toBe(false);
     expect(noteInput().value).toBe("hi there");
   });
@@ -154,7 +154,7 @@ describe("aiAssist", () => {
 
     await userEvent.setup().click(screen.getByTestId("field-ai-chip-note-0"));
 
-    await waitFor(() => expect(screen.getByTestId("field-ai-error-note")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("field-ai-error-note"));
     expect(noteInput().value).toBe("hi there");
   });
 });
@@ -232,8 +232,8 @@ describe("RelatedPhotoGrid", () => {
         testId="grid"
       />,
     );
-    expect(screen.getByText("Front")).toBeTruthy();
-    expect(screen.getByText("Back")).toBeTruthy();
+    screen.getByText("Front");
+    screen.getByText("Back");
     expect(screen.getAllByRole("button", { name: "Remove" })).toHaveLength(1);
     await userEvent.setup().click(screen.getByRole("button", { name: "Remove" }));
     expect(triggered).toEqual(["a"]);

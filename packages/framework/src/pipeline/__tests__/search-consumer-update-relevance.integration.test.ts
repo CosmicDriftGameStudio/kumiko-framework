@@ -119,7 +119,7 @@ describe("search consumer: update relevance", () => {
 
   test("an entity with a search payload extension reindexes on every update", async () => {
     const created = await stack.http.writeOk<Written>(
-      "update-relevance:write:memoExt:create",
+      "update-relevance:write:memo-ext:create",
       { label: "gamma-memo", status: "open" },
       admin,
     );
@@ -130,7 +130,7 @@ describe("search consumer: update relevance", () => {
     expect(await hitIds("gamma-memo", "memoExt")).toHaveLength(0);
 
     await stack.http.writeOk<Written>(
-      "update-relevance:write:memoExt:update",
+      "update-relevance:write:memo-ext:update",
       { id: created.id, version: created.data.version, changes: { status: "closed" } },
       admin,
     );

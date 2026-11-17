@@ -470,7 +470,12 @@ describe("template-resolver :: resource-remove and upserts", () => {
     const foreignFileRefId = (
       await stack.http.writeOk<UploadResult>(
         TemplateResolverHandlers.resourceUpload,
-        { sourceFileRefId: await uploadPng(systemAdmin, await png(16)) },
+        {
+          sourceFileRefId: await uploadPng(systemAdmin, await png(16)),
+          templateId: await createSystemTemplate("res-upsert-foreign"),
+          key: "logo",
+          tenantIdOverride: SYSTEM_TENANT_ID,
+        },
         systemAdmin,
       )
     ).fileRefId;

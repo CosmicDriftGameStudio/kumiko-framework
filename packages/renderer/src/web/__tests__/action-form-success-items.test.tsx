@@ -57,7 +57,7 @@ function renderUpload(
 }
 
 async function submit(): Promise<void> {
-  await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+  await waitFor(() => screen.getByTestId("render-edit-form"));
   const input = screen.getByTestId("field-name").querySelector("input");
   if (!input) throw new Error("expected a name input");
   const user = userEvent.setup();
@@ -75,7 +75,7 @@ describe("actionForm successItems", () => {
     });
     await submit();
 
-    await waitFor(() => expect(screen.getByTestId("action-form-success-items")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("action-form-success-items"));
     expect(screen.getByTestId("action-form-success-item-0").textContent).toContain(
       "a.pdf is in the inbox now.",
     );
@@ -99,7 +99,7 @@ describe("actionForm successItems", () => {
       navigate,
     );
     await submit();
-    await waitFor(() => expect(screen.getByTestId("action-form-success-item-1-link")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("action-form-success-item-1-link"));
 
     expect(screen.getByTestId("action-form-success-item-1-link").textContent).toBe("Open");
     await userEvent.setup().click(screen.getByTestId("action-form-success-item-1-link"));
@@ -114,7 +114,7 @@ describe("actionForm successItems", () => {
     renderUpload(UPLOAD, { results: [{ label: "a.pdf" }, { commandId: "c-9" }] });
     await submit();
 
-    await waitFor(() => expect(screen.getByTestId("action-form-success-item-0")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("action-form-success-item-0"));
     expect(screen.queryByTestId("action-form-success-item-0-link")).toBeNull();
     expect(screen.queryByTestId("action-form-success-item-1")).toBeNull();
   });
@@ -123,7 +123,7 @@ describe("actionForm successItems", () => {
     renderUpload(UPLOAD, { results: [] });
     await submit();
 
-    await waitFor(() => expect(screen.getByTestId("action-form-success-text")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("action-form-success-text"));
     expect(screen.queryByTestId("action-form-success-items")).toBeNull();
   });
 });

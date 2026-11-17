@@ -447,6 +447,7 @@ const entitySchema = z
     entityName: z.string(),
     definition: entityDefinitionSchema,
     backingTable: passthroughSchema<RawRefSentinel>().optional(),
+    overridesName: z.literal(true).optional(),
   })
   .strict();
 

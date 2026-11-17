@@ -142,7 +142,7 @@ describe("AiTextField", () => {
 
     fireEvent.change(screen.getByTestId("title-input"), { target: { value: "hi " } });
     await waitFor(() => expect(screen.queryByRole("button")).toBeNull(), { timeout: 1000 });
-    expect(screen.getByTestId("title-input")).toBeTruthy();
+    screen.getByTestId("title-input");
   });
 
   test("correct action: opens dialog, runs immediately, apply calls onChange with the result", async () => {

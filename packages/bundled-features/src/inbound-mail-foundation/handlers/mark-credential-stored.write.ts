@@ -2,7 +2,7 @@
 // so the wake from connect-account can fire before the credential exists. This re-emits the
 // unchanged active state with a fresh event, which the wake consumer turns into a sync.
 
-import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { failNotFound } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { InboundMailAccountStatuses } from "../constants.ts";
@@ -17,7 +17,7 @@ export const CREDENTIAL_STORED_AUDIT_REASON = "credential_stored";
 
 export const markCredentialStoredSchema = z.object({ accountId: z.uuid() });
 
-export const markCredentialStoredHandler: WriteHandlerDef = {
+export const markCredentialStoredHandler = defineWriteHandler({
   name: "mark-credential-stored",
   schema: markCredentialStoredSchema,
   access: { roles: ["SystemAdmin"] },
@@ -25,7 +25,7 @@ export const markCredentialStoredHandler: WriteHandlerDef = {
   description:
     "Signals that the credential of an active mailbox was stored after the account was created, so the first sync can start right away.",
   handler: async (event, ctx) => {
-    const payload = markCredentialStoredSchema.parse(event.payload);
+    const payload = event.payload;
     const accountStreamVersion = await ctx.events.streamVersion(payload.accountId);
     const current = await loadCurrentMailAccountPayload(ctx, payload.accountId);
     if (!current) return failNotFound("mail-account", payload.accountId);
@@ -46,4 +46,4 @@ export const markCredentialStoredHandler: WriteHandlerDef = {
     });
     return { isSuccess: true as const, data: { accountId: payload.accountId, marked: true } };
   },
-};
+});

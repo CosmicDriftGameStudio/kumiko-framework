@@ -1,9 +1,9 @@
-import { isSystemTenant, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { defineWriteHandler, isSystemTenant } from "@cosmicdrift/kumiko-framework/engine";
 import { failNotFound, failUnprocessable } from "@cosmicdrift/kumiko-framework/errors";
 import { fieldDefinitionAggregateId } from "../aggregate-id.ts";
 import { fieldDefinitionExecutor } from "../executor.ts";
 import { buildFieldDefinitionColumns } from "../lib/field-definition-row.ts";
-import { fieldTypeSchema, type UpdateFieldPayload, updateFieldPayloadSchema } from "../schemas.ts";
+import { fieldTypeSchema, updateFieldPayloadSchema } from "../schemas.ts";
 import { DEFAULT_FIELD_DEFINITION_WRITE_ROLES } from "../web/constants.ts";
 
 // update-tenant-field: a TenantAdmin replaces the state of an existing field
@@ -37,17 +37,15 @@ export interface UpdateTenantFieldOptions {
   readonly roles?: readonly string[];
 }
 
-export function createUpdateTenantFieldHandler(
-  opts: UpdateTenantFieldOptions = {},
-): WriteHandlerDef {
-  return {
+export function createUpdateTenantFieldHandler(opts: UpdateTenantFieldOptions = {}) {
+  return defineWriteHandler({
     name: "update-tenant-field",
     schema: updateFieldPayloadSchema,
     access: { roles: opts.roles ?? DEFAULT_FIELD_DEFINITION_WRITE_ROLES },
     description:
       "Replaces a tenant-owned custom-field definition with a complete new spec; serializedField.type may be omitted, in which case the stored type applies, and a different type is refused. Use it to relabel or re-constrain an existing field rather than to create or remove one.",
     handler: async (event, ctx) => {
-      const payload = event.payload as UpdateFieldPayload; // @cast-boundary engine-payload
+      const payload = event.payload;
       const tenantId = event.user.tenantId;
 
       if (isSystemTenant(tenantId)) {
@@ -101,5 +99,5 @@ export function createUpdateTenantFieldHandler(
         skipOptimisticLock: true,
       });
     },
-  };
+  });
 }

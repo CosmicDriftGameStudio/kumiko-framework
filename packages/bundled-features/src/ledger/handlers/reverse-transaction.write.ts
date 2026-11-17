@@ -1,4 +1,4 @@
-import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { type AccessRule, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import {
   ConflictError,
   NotFoundError,
@@ -8,7 +8,7 @@ import {
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { transactionExecutor, transactionTable } from "../executor.ts";
 import { normalizeLines } from "../reports.ts";
-import { type ReverseTransactionPayload, reverseTransactionPayloadSchema } from "../schemas.ts";
+import { reverseTransactionPayloadSchema } from "../schemas.ts";
 import { readSubjectReference } from "../subject-reference.ts";
 import { DEFAULT_LEDGER_ACCESS } from "../web/constants.ts";
 
@@ -20,10 +20,8 @@ const REVERSE_TRANSACTION_LOCK_NAMESPACE = 0x6c_72_74_78; // 'lrtx'
 // points at the original via reversesTransactionId, leaving the original untouched. This is why
 // transactions need no update/delete: the audit trail stays intact and the
 // mirror entry still satisfies Σ=0 (negating a zero-sum set stays zero-sum).
-export function createReverseTransactionHandler(
-  access: AccessRule = DEFAULT_LEDGER_ACCESS,
-): WriteHandlerDef {
-  return {
+export function createReverseTransactionHandler(access: AccessRule = DEFAULT_LEDGER_ACCESS) {
+  return defineWriteHandler({
     name: "reverse-transaction",
     schema: reverseTransactionPayloadSchema,
     access,
@@ -31,7 +29,7 @@ export function createReverseTransactionHandler(
       "Books the mirror image of a posted journal entry as a new entry linked to the original via reversesTransactionId, refusing entries that are not posted or already reversed; use it as the only way to correct a booking, since entries themselves are immutable.",
     agent: { risk: "high" },
     handler: async (event, ctx) => {
-      const payload = event.payload as ReverseTransactionPayload; // @cast-boundary engine-payload
+      const payload = event.payload;
 
       const original = await transactionExecutor.detail({ id: payload.id }, event.user, ctx.db);
       if (!original) return writeFailure(new NotFoundError("transaction", payload.id));
@@ -106,7 +104,7 @@ export function createReverseTransactionHandler(
         ctx.db,
       );
     },
-  };
+  });
 }
 
-export const reverseTransactionHandler: WriteHandlerDef = createReverseTransactionHandler();
+export const reverseTransactionHandler = createReverseTransactionHandler();

@@ -94,7 +94,7 @@ describe("DataTable", () => {
       />,
     );
     // getByTestId throws if missing — existence assertion is implicit.
-    expect(screen.getByTestId("t-empty")).not.toBeNull();
+    screen.getByTestId("t-empty");
   });
 
   test("empty rows without emptyState translate the default label", async () => {
@@ -128,7 +128,7 @@ describe("DataTable", () => {
         testId="t"
       />,
     );
-    expect(screen.getByTestId("row-r1")).not.toBeNull();
+    screen.getByTestId("row-r1");
     expect(screen.getByTestId("cell-r1-name").textContent).toBe("Alice");
     expect(screen.getByTestId("cell-r1-active").textContent).toBe("Yes");
   });
@@ -171,7 +171,7 @@ describe("DataTable", () => {
       expect(wrapper?.className).not.toContain("border");
       expect(wrapper?.className).not.toContain("rounded-lg");
       expect(wrapper?.className).not.toContain("bg-card");
-      expect(screen.getByTestId("row-r1")).not.toBeNull();
+      screen.getByTestId("row-r1");
     });
   });
 
@@ -383,7 +383,7 @@ describe("DataTable", () => {
           pager={{ page: 1, limit: 50, total: 0, onPageChange: mock() }}
         />,
       );
-      expect(screen.getByTestId("dt-pager")).toBeTruthy();
+      screen.getByTestId("dt-pager");
       expect(screen.getByTestId("dt-pager-status").textContent).toBe("0 of 0");
       expect((screen.getByTestId("dt-pager-prev") as HTMLButtonElement).disabled).toBe(true);
       expect((screen.getByTestId("dt-pager-next") as HTMLButtonElement).disabled).toBe(true);
@@ -516,7 +516,7 @@ describe("DataTable", () => {
         />,
       );
       expect(screen.queryByTestId("dt-scroll")).toBeNull();
-      expect(screen.getByTestId("dt-pager")).not.toBeNull();
+      screen.getByTestId("dt-pager");
     });
 
     test("without a pager, the footer shows the count (singular and plural)", () => {
@@ -627,7 +627,7 @@ describe("DataTable", () => {
           hasMore={false}
         />,
       );
-      expect(screen.getByTestId("dt-sentinel-end")).not.toBeNull();
+      screen.getByTestId("dt-sentinel-end");
       expect(screen.getByTestId("dt-sentinel-end").textContent).toContain("End of list");
     });
 
@@ -671,7 +671,7 @@ describe("DataTable", () => {
           hasMore={false}
         />,
       );
-      expect(screen.getByTestId("dt-sentinel-end")).not.toBeNull();
+      screen.getByTestId("dt-sentinel-end");
     });
 
     test("hasMore=false + de locale: marker comes from i18n instead of being hardcoded", async () => {
@@ -813,7 +813,7 @@ describe("DataTable", () => {
         />,
       );
       await user.click(screen.getByTestId("row-r1-actions-menu"));
-      expect(await screen.findByTestId("row-r1-action-archive")).not.toBeNull();
+      await screen.findByTestId("row-r1-action-archive");
       expect(screen.queryByTestId("row-r1-action-open")).toBeNull();
     });
 
@@ -859,7 +859,7 @@ describe("DataTable", () => {
         />,
       );
       await user.click(screen.getByTestId("row-r1-actions-menu"));
-      expect(await screen.findByTestId("row-r1-action-open")).not.toBeNull();
+      await screen.findByTestId("row-r1-action-open");
     });
 
     test("rowClick action + onRowClick, empty first cell: sr-only link with action label opens the row", async () => {
@@ -1322,15 +1322,15 @@ describe("DataTable", () => {
           getCellTestId={(row, field) => `own-cell-${row.id}-${field}`}
         />,
       );
-      expect(screen.getByTestId("own-row-r1")).not.toBeNull();
-      expect(screen.getByTestId("own-cell-r1-name")).not.toBeNull();
+      screen.getByTestId("own-row-r1");
+      screen.getByTestId("own-cell-r1-name");
       expect(screen.queryByTestId("row-r1")).toBeNull();
     });
 
     test("without overrides, defaults stay row-<id>/cell-<id>-<field>", () => {
       render(<DataTable columns={cols} rows={oneRow} />);
-      expect(screen.getByTestId("row-r1")).not.toBeNull();
-      expect(screen.getByTestId("cell-r1-name")).not.toBeNull();
+      screen.getByTestId("row-r1");
+      screen.getByTestId("cell-r1-name");
     });
   });
 

@@ -40,6 +40,12 @@ export const CAP_TOLERANCES = {
 
 export type CapToleranceProfileName = keyof typeof CAP_TOLERANCES;
 
+// Tolerances are decimal factors; limit * 1.1 is 110.00000000000001 in binary floating point,
+// which would keep a counter of exactly 110 below the soft threshold. Integer math stays exact.
+function capThreshold(limit: number, factor: number): number {
+  return (limit * Math.round(factor * 100)) / 100;
+}
+
 // =============================================================================
 // Enforcement-Result
 // =============================================================================
@@ -73,7 +79,7 @@ export function assertBelowHardCap(
   const tolerance = CAP_TOLERANCES[cap.profile];
   // Validated on every call so a misconfigured period fails deterministically, not only at the limit.
   const resetAt = resolvePeriodEndIso(cap.periodStartIso, cap.periodEndIso);
-  if (valueSeenByLastUnit >= cap.limit * tolerance.hard) {
+  if (valueSeenByLastUnit >= capThreshold(cap.limit, tolerance.hard)) {
     throw new CapExceededError(cap.capName, cap.limit, valueSeenByLastUnit, tolerance, {
       ...(resetAt !== undefined && { resetAt }),
       ...(cap.i18nKey !== undefined && { i18nKey: cap.i18nKey }),
@@ -150,7 +156,7 @@ export async function enforceCap(
   }
 
   const tolerance = CAP_TOLERANCES[options.profile];
-  const softThreshold = options.limit * tolerance.soft;
+  const softThreshold = capThreshold(options.limit, tolerance.soft);
 
   const row = await readCalendarCapCounter(readDb, user.tenantId, {
     capName: options.capName,
@@ -225,7 +231,7 @@ export class CapExceededError extends KumikoError {
             ),
           );
     super({
-      message: `Cap "${capName}" exceeded: current=${currentValue}, limit=${limit}, hard-threshold=${limit * tolerance.hard}. Upgrade tier or wait for next period reset.${resetAt === undefined ? "" : ` Resets at ${resetAt}.`}`,
+      message: `Cap "${capName}" exceeded: current=${currentValue}, limit=${limit}, hard-threshold=${capThreshold(limit, tolerance.hard)}. Upgrade tier or wait for next period reset.${resetAt === undefined ? "" : ` Resets at ${resetAt}.`}`,
       i18nKey: options?.i18nKey ?? "errors.cap.exceeded",
       i18nParams: { capName, limit, currentValue, ...(resetAt !== undefined && { resetAt }) },
       details: {
@@ -387,7 +393,7 @@ export function enforceStockCap(options: {
   readonly limit: number;
   readonly profile: CapToleranceProfileName;
 }): StockCapResult {
-  const hardThreshold = options.limit * CAP_TOLERANCES[options.profile].hard;
+  const hardThreshold = capThreshold(options.limit, CAP_TOLERANCES[options.profile].hard);
   const state = options.current >= hardThreshold ? "exceeded" : "ok";
   return { state, current: options.current, limit: options.limit };
 }

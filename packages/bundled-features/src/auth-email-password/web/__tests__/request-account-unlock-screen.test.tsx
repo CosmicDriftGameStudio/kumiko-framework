@@ -15,9 +15,9 @@ installFetchMock();
 describe("RequestAccountUnlockScreen", () => {
   test("renders title + email input + submit (de)", () => {
     renderWithProviders(<RequestAccountUnlockScreen />);
-    expect(screen.getByText("Unlock account")).toBeTruthy();
-    expect(screen.getByLabelText(/^Email/)).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Request link" })).toBeTruthy();
+    screen.getByText("Unlock account");
+    screen.getByLabelText(/^Email/);
+    screen.getByRole("button", { name: "Request link" });
   });
 
   test("submit posts /api/auth/request-account-unlock with email", async () => {
@@ -51,7 +51,7 @@ describe("RequestAccountUnlockScreen", () => {
     fireEvent.click(screen.getByRole("button", { name: "Request link" }));
 
     await waitFor(() => {
-      expect(screen.getByText("Email sent")).toBeTruthy();
+      screen.getByText("Email sent");
     });
     expect(screen.getByRole("link", { name: /Back to sign in/i }).getAttribute("href")).toBe(
       "/signin",
@@ -109,7 +109,7 @@ describe("RequestAccountUnlockScreen", () => {
       expect(screen.getByRole("alert").textContent).toContain("wrong");
     });
     expect(screen.queryByText("Email sent")).toBeNull();
-    expect(screen.getByLabelText(/^Email/)).toBeTruthy();
+    screen.getByLabelText(/^Email/);
   });
 
   test("fetch throw → unknownError banner", async () => {
@@ -130,6 +130,6 @@ describe("RequestAccountUnlockScreen", () => {
 
   test("custom title prop overrides default", () => {
     renderWithProviders(<RequestAccountUnlockScreen title="Custom Unlock" />);
-    expect(screen.getByText("Custom Unlock")).toBeTruthy();
+    screen.getByText("Custom Unlock");
   });
 });

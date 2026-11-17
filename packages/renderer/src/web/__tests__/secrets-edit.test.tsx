@@ -252,7 +252,7 @@ describe("KumikoScreen / secretsEdit", () => {
     await waitFor(() => screen.getByTestId("secrets-edit-form"));
     await waitFor(() => screen.getByText("Stored: sk_***abc"));
     expect(screen.queryByTestId("secret-not-set-stripe-api-key")).toBeNull();
-    expect(screen.getByTestId("secret-saved-stripe-api-key")).toBeTruthy();
+    screen.getByTestId("secret-saved-stripe-api-key");
   });
 
   test("an unset required secret does not block saving a different secret", async () => {

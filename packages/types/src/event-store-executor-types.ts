@@ -313,8 +313,9 @@ export type EventStoreExecutor<Row extends Record<string, unknown> = Record<stri
     options?: StreamTenantOption & ParentVisibilityGateOption,
   ) => Promise<readonly EntityHistoryEntry[] | null>;
 
+  /** `ids` limits the fold to these aggregates; an empty list returns no rows. */
   listAsOf: (
-    payload: { asOf: Temporal.Instant },
+    payload: { asOf: Temporal.Instant; ids?: readonly EntityId[] | undefined },
     user: SessionUser,
     db: TenantDb,
     options?: StreamTenantOption,

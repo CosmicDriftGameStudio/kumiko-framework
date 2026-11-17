@@ -15,6 +15,7 @@ import type {
   ActionFormRedirect,
   ActionFormScreenDefinition,
   ActionFormSuccessLink,
+  DashboardScreenDefinition,
   EditLayout,
   FieldCondition,
   ProjectionDetailScreenDefinition,
@@ -79,6 +80,80 @@ export type NavigateSourceScreenType =
   | "secretMint"
   | "entityList expandableRow";
 
+type NavigateRowAction = Extract<RowAction, { readonly kind: "navigate" }>;
+
+type NavigateParamsSite = {
+  readonly featureName: string;
+  readonly screenId: string;
+  readonly screenType: NavigateSourceScreenType;
+  readonly actionLabel: "rowAction" | "emptyState action";
+  readonly action: NavigateRowAction;
+  readonly params: RowFieldExtractor;
+};
+
+function navigateTargetDescriptor(action: NavigateRowAction): string {
+  return action.screen !== undefined ? `"${action.screen}"` : `entity "${action.entity}"`;
+}
+
+function validateDashboardNavigateParams(
+  site: NavigateParamsSite,
+  dashboard: DashboardScreenDefinition,
+): void {
+  const { featureName, screenId, screenType, actionLabel, action } = site;
+  const targetDescriptor = navigateTargetDescriptor(action);
+  const { filter, record, timeRange } = dashboard;
+  const readIds = [filter?.id, record?.param, timeRange?.id].filter(
+    (id): id is string => id !== undefined,
+  );
+  if (readIds.length === 0) {
+    throw bootRuleError(SCREEN_ACTION_RULES.navigateParamsDashboardNoReader, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}" sets ` +
+        `params on navigate-target ${targetDescriptor} (dashboard) — target dashboard declares no ` +
+        `filter, time range or record binding — params would be a no-op. Remove the params extractor, or add a \`filter\` (or a \`record\` binding) to the ` +
+        `target dashboard so it has somewhere to read the value from.`,
+    });
+  }
+  const extractedKeys = rowFieldExtractorKeys(site.params);
+  if (!readIds.some((id) => extractedKeys.includes(id))) {
+    const readDescriptor =
+      filter !== undefined && readIds.length === 1
+        ? `filter id is "${filter.id}"`
+        : `URL params are [${readIds.join(", ")}]`;
+    throw bootRuleError(SCREEN_ACTION_RULES.navigateParamsDashboardKeyMismatch, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}" sets ` +
+        `params [${extractedKeys.join(", ")}] on navigate-target ${targetDescriptor} (dashboard) whose ` +
+        `${readDescriptor} — none of the extracted keys match, so the value would stay ` +
+        `unset. Fix the params extractor to produce one of these keys, or remove it.`,
+    });
+  }
+}
+
+function throwNavigateParamsIgnored(
+  site: NavigateParamsSite,
+  targetScreen: ScreenDefinition,
+  screenEntity: string | undefined,
+): never {
+  const { featureName, screenId, screenType, actionLabel, action } = site;
+  const isEntityEditUpdate = targetScreen.type === "entityEdit";
+  const reason = isEntityEditUpdate
+    ? `resolves to UPDATE mode (${
+        action.entityId !== undefined
+          ? `explicit entityId "${action.entityId}"`
+          : `same entity "${screenEntity}" auto-fills row["id"]`
+      })`
+    : `screen type "${targetScreen.type}"`;
+  throw bootRuleError(SCREEN_ACTION_RULES.navigateParamsTargetIgnoresParams, {
+    message:
+      `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}" ` +
+      `sets params on navigate-target ${navigateTargetDescriptor(action)} which ${reason} — only actionForm, ` +
+      `secretMint and entityEdit-create targets read URL search params as initial values. Remove ` +
+      `the params extractor or retarget to an actionForm / secretMint / cross-entity ` +
+      `entityEdit-create screen.`,
+  });
+}
+
 // Navigate rowAction → target-screen params validity. Shared by
 // entityList and projectionList — projectionList has no
 // `screen.entity`, so there's no same-entity row["id"] auto-fill case: any
@@ -108,59 +183,23 @@ export function validateRowActionNavigateParams(
   // .dir/.page/.f.<field>`), not just actionForm/entityEdit-create.
   if (target.screen.type === "entityList" || target.screen.type === "projectionList") return;
 
+  const site: NavigateParamsSite = {
+    featureName,
+    screenId,
+    screenType,
+    actionLabel,
+    action,
+    params: action.params,
+  };
+
   if (target.screen.type === "dashboard") {
-    const targetDescriptor =
-      action.screen !== undefined ? `"${action.screen}"` : `entity "${action.entity}"`;
-    const { filter, record, timeRange } = target.screen;
-    const readIds = [filter?.id, record?.param, timeRange?.id].filter(
-      (id): id is string => id !== undefined,
-    );
-    if (readIds.length === 0) {
-      throw bootRuleError(SCREEN_ACTION_RULES.navigateParamsDashboardNoReader, {
-        message:
-          `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}" sets ` +
-          `params on navigate-target ${targetDescriptor} (dashboard) — target dashboard declares no ` +
-          `filter, time range or record binding — params would be a no-op. Remove the params extractor, or add a \`filter\` (or a \`record\` binding) to the ` +
-          `target dashboard so it has somewhere to read the value from.`,
-      });
-    }
-    const extractedKeys = rowFieldExtractorKeys(action.params);
-    if (!readIds.some((id) => extractedKeys.includes(id))) {
-      const readDescriptor =
-        filter !== undefined && readIds.length === 1
-          ? `filter id is "${filter.id}"`
-          : `URL params are [${readIds.join(", ")}]`;
-      throw bootRuleError(SCREEN_ACTION_RULES.navigateParamsDashboardKeyMismatch, {
-        message:
-          `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}" sets ` +
-          `params [${extractedKeys.join(", ")}] on navigate-target ${targetDescriptor} (dashboard) whose ` +
-          `${readDescriptor} — none of the extracted keys match, so the value would stay ` +
-          `unset. Fix the params extractor to produce one of these keys, or remove it.`,
-      });
-    }
+    validateDashboardNavigateParams(site, target.screen);
     // skip: a read id is present and the extractor's keys cover it — valid dashboard deep-link.
     return;
   }
 
   if (!readsNavigateParamsAsFormPrefill(target.screen, action.entityId, screenEntity)) {
-    const isEntityEditUpdate = target.screen.type === "entityEdit";
-    const reason = isEntityEditUpdate
-      ? `resolves to UPDATE mode (${
-          action.entityId !== undefined
-            ? `explicit entityId "${action.entityId}"`
-            : `same entity "${screenEntity}" auto-fills row["id"]`
-        })`
-      : `screen type "${target.screen.type}"`;
-    const targetDescriptor =
-      action.screen !== undefined ? `"${action.screen}"` : `entity "${action.entity}"`;
-    throw bootRuleError(SCREEN_ACTION_RULES.navigateParamsTargetIgnoresParams, {
-      message:
-        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}" ` +
-        `sets params on navigate-target ${targetDescriptor} which ${reason} — only actionForm, ` +
-        `secretMint and entityEdit-create targets read URL search params as initial values. Remove ` +
-        `the params extractor or retarget to an actionForm / secretMint / cross-entity ` +
-        `entityEdit-create screen.`,
-    });
+    throwNavigateParamsIgnored(site, target.screen, screenEntity);
   }
 
   const formTarget = target.screen;
@@ -217,6 +256,65 @@ export function validateActionHasIcon(
 
 const NO_DERIVED_FIELDS: ReadonlySet<string> = new Set();
 
+type ActionFieldRefSite = {
+  readonly featureName: string;
+  readonly screenId: string;
+  readonly actionKind: "rowAction" | "toolbarAction";
+  readonly actionId: string;
+};
+
+function sortedOrNone(names: Iterable<string>): string {
+  return [...names].sort().join(", ") || "(none)";
+}
+
+function checkExtractorFieldRefs(
+  site: ActionFieldRefSite,
+  label: string,
+  extractor: RowFieldExtractor | undefined,
+  fieldNames: ReadonlySet<string>,
+  rowMeta: ReadonlySet<string>,
+): void {
+  // skip: the extractor is an optional action slot — without it there are
+  // no field references to validate.
+  if (extractor === undefined) {
+    return;
+  }
+  const sources = "pick" in extractor ? extractor.pick : Object.values(extractor.map);
+  for (const source of sources) {
+    if (rowMeta.has(source)) continue;
+    if (!fieldNames.has(source)) {
+      throw bootRuleError(SCREEN_ACTION_RULES.actionUnknownFieldRef, {
+        message:
+          `[Feature ${site.featureName}] Screen "${site.screenId}" ${site.actionKind} "${site.actionId}" ` +
+          `${label} references unknown field "${source}". Known fields: ${sortedOrNone(fieldNames)}.`,
+      });
+    }
+  }
+}
+
+function checkVisibleFieldRef(
+  site: ActionFieldRefSite,
+  visible: FieldCondition | undefined,
+  fieldNames: ReadonlySet<string>,
+  rowMeta: ReadonlySet<string>,
+  derivedFieldNames: ReadonlySet<string>,
+): void {
+  if (
+    visible !== undefined &&
+    typeof visible !== "boolean" &&
+    !rowMeta.has(visible.field) &&
+    !fieldNames.has(visible.field) &&
+    !derivedFieldNames.has(visible.field)
+  ) {
+    const knownWithDerived = sortedOrNone([...fieldNames, ...derivedFieldNames]);
+    throw bootRuleError(SCREEN_ACTION_RULES.actionVisibleUnknownField, {
+      message:
+        `[Feature ${site.featureName}] Screen "${site.screenId}" ${site.actionKind} "${site.actionId}" ` +
+        `visible.field references unknown field "${visible.field}". Known fields: ${knownWithDerived}.`,
+    });
+  }
+}
+
 // Pin an action's declarative field references against the entity
 // fields — a typo in pick/map source fields or visible.field would otherwise
 // silently yield `undefined` in the payload or permanently wrong visibility
@@ -237,6 +335,7 @@ export function validateActionFieldRefs(
   rowMeta: ReadonlySet<string>,
   derivedFieldNames: ReadonlySet<string> = NO_DERIVED_FIELDS,
 ): void {
+  const site: ActionFieldRefSite = { featureName, screenId, actionKind, actionId };
   // ToolbarAction.payload is a STATIC record (no row context) — only real
   // pick/map extractors are checked against the field names.
   const isExtractor = (v: unknown): v is RowFieldExtractor =>
@@ -245,46 +344,14 @@ export function validateActionFieldRefs(
   const params = "params" in action && isExtractor(action.params) ? action.params : undefined;
   const visible: FieldCondition | undefined = "visible" in action ? action.visible : undefined;
   const entityId: string | undefined = "entityId" in action ? action.entityId : undefined;
-  const known = () => [...fieldNames].sort().join(", ") || "(none)";
-  const checkExtractor = (label: string, extractor: RowFieldExtractor | undefined): void => {
-    // skip: the extractor is an optional action slot — without it there are
-    // no field references to validate.
-    if (extractor === undefined) {
-      return;
-    }
-    const sources = "pick" in extractor ? extractor.pick : Object.values(extractor.map);
-    for (const source of sources) {
-      if (rowMeta.has(source)) continue;
-      if (!fieldNames.has(source)) {
-        throw bootRuleError(SCREEN_ACTION_RULES.actionUnknownFieldRef, {
-          message:
-            `[Feature ${featureName}] Screen "${screenId}" ${actionKind} "${actionId}" ` +
-            `${label} references unknown field "${source}". Known fields: ${known()}.`,
-        });
-      }
-    }
-  };
-  checkExtractor("payload", payload);
-  checkExtractor("params", params);
-  if (
-    visible !== undefined &&
-    typeof visible !== "boolean" &&
-    !rowMeta.has(visible.field) &&
-    !fieldNames.has(visible.field) &&
-    !derivedFieldNames.has(visible.field)
-  ) {
-    const knownWithDerived = [...fieldNames, ...derivedFieldNames].sort().join(", ") || "(none)";
-    throw bootRuleError(SCREEN_ACTION_RULES.actionVisibleUnknownField, {
-      message:
-        `[Feature ${featureName}] Screen "${screenId}" ${actionKind} "${actionId}" ` +
-        `visible.field references unknown field "${visible.field}". Known fields: ${knownWithDerived}.`,
-    });
-  }
+  checkExtractorFieldRefs(site, "payload", payload, fieldNames, rowMeta);
+  checkExtractorFieldRefs(site, "params", params, fieldNames, rowMeta);
+  checkVisibleFieldRef(site, visible, fieldNames, rowMeta, derivedFieldNames);
   if (entityId !== undefined && entityId !== "id" && !fieldNames.has(entityId)) {
     throw bootRuleError(SCREEN_ACTION_RULES.actionEntityIdUnknownField, {
       message:
         `[Feature ${featureName}] Screen "${screenId}" ${actionKind} "${actionId}" ` +
-        `entityId references unknown field "${entityId}". Known fields: ${known()}.`,
+        `entityId references unknown field "${entityId}". Known fields: ${sortedOrNone(fieldNames)}.`,
     });
   }
 }

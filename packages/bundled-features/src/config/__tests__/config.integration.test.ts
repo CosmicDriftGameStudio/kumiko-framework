@@ -1230,16 +1230,21 @@ describe("encrypted config", () => {
 type ConfigEventRow = {
   readonly type: string;
   readonly aggregateId: string;
+  readonly tenantId: string;
   readonly payload: Record<string, unknown>;
 };
 
 describe("configValue lifecycle events", () => {
-  // An update event carries only the changed keys, so the stream is found through its created event.
+  // An update event carries only the changed keys, so the stream is found through its created event;
+  // the latest one of the writing tenant, since other tenants set the same key.
   async function eventsOfConfigKey(key: string) {
-    const events = await selectMany<ConfigEventRow>(db, eventsTable, {
-      aggregateType: "config-value",
-    });
-    const created = events.find(
+    const events = await selectMany<ConfigEventRow>(
+      db,
+      eventsTable,
+      { aggregateType: "config-value", tenantId: tenantAdmin.tenantId },
+      { orderBy: [{ col: "id" }] },
+    );
+    const created = events.findLast(
       (e) => e.type === "config-value.created" && (e.payload as { key?: string })?.key === key,
     );
     if (!created) throw new Error(`no created event for ${key}`);

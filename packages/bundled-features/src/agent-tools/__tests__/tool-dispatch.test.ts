@@ -400,12 +400,11 @@ describe("dispatchToolCall — server write tools", () => {
   });
 
   test("detailQn re-read throwing (e.g. a delete) falls back to id/version scalars", async () => {
-    // First query call (pre-write version read) succeeds, second (post-write re-read) throws.
+    // The post-write re-read through the detail handler is the only query; it throws, so the result falls back to the write's scalars.
     let calls = 0;
     const scriptedDispatcher: ToolDispatcher = {
       query: async () => {
         calls += 1;
-        if (calls === 1) return { version: 5 };
         throw new Error("row not found");
       },
       write: async () => ({ isSuccess: true, data: { id: "vendor-1", version: 6 } }),
@@ -414,11 +413,12 @@ describe("dispatchToolCall — server write tools", () => {
       request({
         dispatcher: scriptedDispatcher,
         toolName: "vendor_feature_vendor_approve",
-        input: { id: "vendor-1" },
+        input: { id: "vendor-1", version: 5 },
       }),
     );
 
     expect(result).toEqual({ ok: true, data: { id: "vendor-1", version: 6 } });
+    expect(calls).toBe(1);
   });
 });
 

@@ -178,21 +178,21 @@ describe("actionForm load", () => {
   test("without a record id it shows a hint and runs no query", () => {
     const calls = renderForm({ outcome: { kind: "none" } });
 
-    expect(screen.getByTestId("kumiko-screen-action-form-missing-id")).toBeTruthy();
+    screen.getByTestId("kumiko-screen-action-form-missing-id");
     expect(calls.queries).toHaveLength(0);
   });
 
   test("a failed load query shows the error instead of the form", async () => {
     renderForm({ entityId: "p1", outcome: { kind: "error" } });
 
-    await waitFor(() => expect(screen.getByTestId("kumiko-screen-error")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("kumiko-screen-error"));
     expect(screen.queryByTestId("render-edit-form")).toBeNull();
   });
 
   test("an unknown record shows the not-found state instead of the form", async () => {
     renderForm({ entityId: "gone", outcome: { kind: "none" } });
 
-    await waitFor(() => expect(screen.getByTestId("kumiko-screen-record-missing")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("kumiko-screen-record-missing"));
     expect(screen.queryByTestId("render-edit-form")).toBeNull();
   });
 

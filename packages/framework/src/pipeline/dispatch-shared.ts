@@ -288,6 +288,17 @@ export async function buildHandlerContext(
     hasFeature: authFacet.hasFeature,
   } as HandlerContext; // @cast-boundary engine-bridge
 
+  const phasedContext = restrictHandlerContext(handlerContext, transactionScope, user, phase);
+  finalContext.current = phasedContext;
+  return phasedContext;
+}
+
+function restrictHandlerContext(
+  handlerContext: HandlerContext,
+  transactionScope: HandlerTransactionScope,
+  user: SessionUser,
+  phase: HandlerPhase,
+): HandlerContext {
   const scopedContext =
     transactionScope === "withoutTransaction"
       ? denyEventStoreSurfaces(handlerContext, withoutTransactionDenied)
@@ -297,12 +308,9 @@ export async function buildHandlerContext(
   const memberSafeContext = isMemberResolutionPrincipal(user)
     ? applyMemberResolutionReadOnly(scopedContext)
     : scopedContext;
-  const phasedContext =
-    phase === "reservation" || phase === "beforeTransaction"
-      ? denyTransactionBoundSurfaces(memberSafeContext)
-      : memberSafeContext;
-  finalContext.current = phasedContext;
-  return phasedContext;
+  return phase === "reservation" || phase === "beforeTransaction"
+    ? denyTransactionBoundSurfaces(memberSafeContext)
+    : memberSafeContext;
 }
 
 // The handler-name prefix keeps a handler from reproducing the digests the

@@ -33,7 +33,7 @@ describe("DefaultField hideLabel", () => {
         <input id="f1" />
       </Field>,
     );
-    expect(view.getByLabelText("Maps to")).toBeTruthy();
+    view.getByLabelText("Maps to");
   });
 
   test("without hideLabel, the label remains visible (not sr-only)", () => {
@@ -52,7 +52,7 @@ describe("DefaultField hideLabel", () => {
       </Field>,
     );
     expect(view.getByText("Maps to").closest("label")?.className).toContain("sr-only");
-    expect(view.getByLabelText("Maps to")).toBeTruthy();
+    view.getByLabelText("Maps to");
   });
 });
 
@@ -178,7 +178,7 @@ describe("form-fields.tsx hideLabel pass-through", () => {
     (_name, element) => {
       const view = render(element);
       expect(view.getByText(LABEL).closest("label")?.className).toContain("sr-only");
-      expect(view.getByLabelText(LABEL)).toBeTruthy();
+      view.getByLabelText(LABEL);
     },
   );
 });
@@ -204,6 +204,6 @@ describe("AiTextField hideLabel pass-through", () => {
       </DispatcherProvider>,
     );
     expect(view.getByText(LABEL).closest("label")?.className).toContain("sr-only");
-    expect(view.getByLabelText(LABEL)).toBeTruthy();
+    view.getByLabelText(LABEL);
   });
 });

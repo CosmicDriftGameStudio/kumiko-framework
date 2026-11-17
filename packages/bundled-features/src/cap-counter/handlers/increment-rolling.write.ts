@@ -4,7 +4,7 @@
 // parallel bookings neither collide on the key nor lose an update.
 
 import { sql } from "@cosmicdrift/kumiko-framework/db";
-import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { rollingBucketStart } from "../book-cap-usage.ts";
@@ -18,7 +18,7 @@ const incrementRollingSchema = z.object({
   amount: z.number().int().positive().default(1),
 });
 
-export const incrementRollingCapHandler: WriteHandlerDef = {
+export const incrementRollingCapHandler = defineWriteHandler({
   name: "increment-rolling",
   agent: { expose: false },
   schema: incrementRollingSchema,
@@ -28,7 +28,7 @@ export const incrementRollingCapHandler: WriteHandlerDef = {
   // attached the operation.
   access: { roles: ["SystemAdmin"] },
   handler: async (event, ctx) => {
-    const { capName, amount } = incrementRollingSchema.parse(event.payload);
+    const { capName, amount } = event.payload;
     const now = Temporal.Now.instant();
     const bucketStart = rollingBucketStart(now);
     await ctx.db.upsert(
@@ -47,4 +47,4 @@ export const incrementRollingCapHandler: WriteHandlerDef = {
     });
     return { isSuccess: true, data: { capName, amount, bucketStart: bucketStart.toString() } };
   },
-};
+});

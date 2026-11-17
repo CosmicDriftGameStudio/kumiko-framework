@@ -142,11 +142,13 @@ const cartFeature = defineFeature("f4w", (r) => {
 
   r.writeHandler({
     name: "cart:load-info",
-    schema: z.object({ id: z.uuid(), asOf: z.boolean() }),
+    schema: z.object({ id: z.uuid(), asOf: z.iso.datetime().optional() }),
     handler: async (event, ctx) => {
       const events = await ctx.events.load(event.payload.id, {
         aggregateType: "f4wCart",
-        ...(event.payload.asOf && { asOf: Temporal.Now.instant() }),
+        ...(event.payload.asOf !== undefined && {
+          asOf: Temporal.Instant.from(event.payload.asOf),
+        }),
       });
       return { isSuccess: true as const, data: { types: events.map((e) => e.type) } };
     },
@@ -481,7 +483,7 @@ describe("Runde 3 / C.2a — ctx.events.fetchForWriting", () => {
 
     const info = await stack.http.writeOk<{ types: string[] }>(
       "f4w:write:cart:load-info",
-      { id: created.id, asOf: false },
+      { id: created.id },
       admin,
     );
 
@@ -494,7 +496,7 @@ describe("Runde 3 / C.2a — ctx.events.fetchForWriting", () => {
       { customer: "ivan" },
       admin,
     );
-    await append(stack.db, {
+    const foreign = await append(stack.db, {
       aggregateId: created.id,
       aggregateType: "reservation",
       tenantId: admin.tenantId,
@@ -506,7 +508,7 @@ describe("Runde 3 / C.2a — ctx.events.fetchForWriting", () => {
 
     const info = await stack.http.writeOk<{ types: string[] }>(
       "f4w:write:cart:load-info",
-      { id: created.id, asOf: true },
+      { id: created.id, asOf: foreign.createdAt.toString() },
       admin,
     );
 

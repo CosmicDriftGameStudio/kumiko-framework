@@ -13,7 +13,7 @@ import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { decryptStoredPii } from "../../shared/index.ts";
-import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { tenantMembershipsTable } from "../../tenant/index.ts";
 import { USER_STATUS, userTable } from "../../user/index.ts";
 import { signDeletionCancelToken } from "../deletion-token.ts";
 import {

@@ -50,6 +50,7 @@ import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   buildMultipartBody,
+  createTestEnvelopeCipher,
   patchFileInstanceofForBunTest,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -63,9 +64,9 @@ import * as z from "zod";
 import { createRendererMailHtmlFeature } from "../../renderer-mail-html/index.ts";
 import { renderedPdfEntity, renderedPdfsTable } from "../entity";
 import { createRendererPuppeteerClientFeature } from "../feature";
-import { RendererPuppeteerClientQueries } from "../qualified-names";
 import { AGENT_IMAGES_RESULT_KEY } from "../rasterize";
 import { renderPdfBeforeTransaction, storeRenderedPdf } from "../render-and-store";
+import { RendererPuppeteerClientQueries } from "../web/qualified-names.ts";
 
 const FEATURE = "invoice-pdf";
 const GENERATE = qn(FEATURE, QnTypes.write, "generate");
@@ -286,7 +287,7 @@ beforeAll(async () => {
     files: { storageProvider: provider },
     jobs: { consumerLane: "worker" },
     extraContext: (deps) => ({
-      ...createDeliveryTestContext(deps),
+      ...createDeliveryTestContext(deps, { addressCipher: createTestEnvelopeCipher() }),
       configResolver: resolver,
       configAccessorFactory: createConfigAccessorFactory(deps.registry, resolver),
     }),

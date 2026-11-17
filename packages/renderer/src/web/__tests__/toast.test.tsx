@@ -36,8 +36,8 @@ describe("ToastProvider + useToast", () => {
         <ToastTrigger options={[{ title: "Saved", description: "Changes applied" }]} />
       </ToastProvider>,
     );
-    expect(screen.getByText("Saved")).toBeTruthy();
-    expect(screen.getByText("Changes applied")).toBeTruthy();
+    screen.getByText("Saved");
+    screen.getByText("Changes applied");
   });
 
   test("toast() without description renders only the Title", () => {
@@ -46,7 +46,7 @@ describe("ToastProvider + useToast", () => {
         <ToastTrigger options={[{ title: "Copied" }]} />
       </ToastProvider>,
     );
-    expect(screen.getByText("Copied")).toBeTruthy();
+    screen.getByText("Copied");
   });
 
   test("docsUrl: renders Learn-more link (i18n default) with target=_blank", () => {
@@ -83,7 +83,7 @@ describe("ToastProvider + useToast", () => {
         />
       </ToastProvider>,
     );
-    expect(screen.getByRole("link", { name: /Learn more/i })).toBeTruthy();
+    screen.getByRole("link", { name: /Learn more/i });
   });
 
   test("without docsUrl: no link rendered", () => {
@@ -118,8 +118,8 @@ describe("ToastProvider + useToast", () => {
         <ToastTrigger options={[{ title: "First" }, { title: "Second" }]} />
       </ToastProvider>,
     );
-    expect(screen.getByText("First")).toBeTruthy();
-    expect(screen.getByText("Second")).toBeTruthy();
+    screen.getByText("First");
+    screen.getByText("Second");
   });
 
   test("two toasts in the same tick: separate React keys (counter race regression)", () => {

@@ -132,7 +132,7 @@ describe("RenderEditActionButton", () => {
     });
 
     fireEvent.click(rtlScreen.getByTestId("render-edit-action-archive"));
-    expect(rtlScreen.getByTestId("render-edit-action-archive-dialog")).toBeTruthy();
+    rtlScreen.getByTestId("render-edit-action-archive-dialog");
     expect(rtlScreen.getByTestId("render-edit-action-archive-dialog-description").textContent).toBe(
       "Really archive?",
     );

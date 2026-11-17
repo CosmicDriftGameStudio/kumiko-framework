@@ -56,6 +56,15 @@ const captureInput: ComponentType<InputProps> = (props) => {
   capturedInputList.push(props);
   return null;
 };
+// A re-render with the same record logs every input again; one entry per name and value keeps the last props.
+function renderedFileInputs(): InputProps[] {
+  const byNameAndValue = new Map<string, InputProps>();
+  for (const input of capturedInputList) {
+    if (input.kind !== "file" && input.kind !== "image") continue;
+    byNameAndValue.set(`${input.name}|${JSON.stringify(input.value ?? null)}`, input);
+  }
+  return [...byNameAndValue.values()];
+}
 let capturedEmbeddedList: EmbeddedListInputProps | undefined;
 const captureEmbeddedList: ComponentType<EmbeddedListInputProps> = (props) => {
   capturedEmbeddedList = props;
@@ -266,7 +275,7 @@ describe("entityEdit readOnly view mode", () => {
     expect(screen.queryByTestId("render-edit-submit")).toBeNull();
     expect(screen.queryByTestId("render-edit-discard")).toBeNull();
     expect(screen.queryByTestId("render-edit-delete")).toBeNull();
-    expect(screen.getByTestId("render-edit-cancel")).toBeDefined();
+    screen.getByTestId("render-edit-cancel");
     expect(capturedTitle).toBe("Protocol");
   });
 
@@ -275,12 +284,12 @@ describe("entityEdit readOnly view mode", () => {
     await waitFor(() => {
       expect(capturedEmbeddedList).toBeDefined();
     });
-    const fileInputs = capturedInputList.filter((i) => i.kind === "file" || i.kind === "image");
+    const fileInputs = renderedFileInputs();
     // single file + one stored image; no empty "add" slot is offered in view mode
     expect(fileInputs.length).toBe(2);
     expect(fileInputs.every((i) => i.disabled === true)).toBe(true);
     expect(capturedEmbeddedList?.disabled).toBe(true);
-    expect(screen.getByTestId("render-edit-action-approve")).toBeDefined();
+    screen.getByTestId("render-edit-action-approve");
   });
 
   test("the same fixture is editable when the condition does not hold", async () => {
@@ -293,7 +302,7 @@ describe("entityEdit readOnly view mode", () => {
       expect(capturedEmbeddedList).toBeDefined();
     });
     expect(capturedEmbeddedList?.disabled).toBeFalsy();
-    const fileInputs = capturedInputList.filter((i) => i.kind === "file" || i.kind === "image");
+    const fileInputs = renderedFileInputs();
     expect(fileInputs.length).toBeGreaterThan(2);
     expect(fileInputs.some((i) => i.disabled !== true)).toBe(true);
   });
@@ -308,15 +317,15 @@ describe("entityEdit readOnly view mode", () => {
       expect(capturedInputs["inspector"]).toBeDefined();
     });
     expect(capturedInputs["inspector"]?.disabled).toBeFalsy();
-    expect(screen.getByTestId("render-edit-submit")).toBeDefined();
-    expect(screen.getByTestId("render-edit-delete")).toBeDefined();
+    screen.getByTestId("render-edit-submit");
+    screen.getByTestId("render-edit-delete");
     expect(capturedTitle).toBe("Edit protocol");
   });
 
   test("create ignores the condition", () => {
     mount({ readOnly: true });
     expect(capturedInputs["inspector"]?.disabled).toBeFalsy();
-    expect(screen.getByTestId("render-edit-submit")).toBeDefined();
+    screen.getByTestId("render-edit-submit");
   });
 });
 
@@ -340,7 +349,7 @@ describe("entityEdit view mode from entity.lockedWhen", () => {
       expect(capturedInputs["inspector"]).toBeDefined();
     });
     expect(capturedInputs["inspector"]?.disabled).toBeFalsy();
-    expect(screen.getByTestId("render-edit-submit")).toBeDefined();
+    screen.getByTestId("render-edit-submit");
   });
 
   test("a record without the lock field opens as a view (fail-closed)", async () => {

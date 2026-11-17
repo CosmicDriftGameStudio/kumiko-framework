@@ -757,6 +757,7 @@ describe("Event Sourcing Showcase", () => {
     for (let i = 0; i < 5; i++) {
       await stack.http.writeOk("showcase:write:invoice:pay", { id, amountCents: 100 }, admin);
     }
+    expect(await selectMany(stack.db, receiptTable, { invoiceId: id })).toHaveLength(1);
 
     // 6th call hits the cap. queryOk/writeOk would throw on a non-2xx
     // response, hiding the wire body — go through `write` directly so

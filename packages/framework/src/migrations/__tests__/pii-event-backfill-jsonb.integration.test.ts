@@ -1,6 +1,6 @@
 // Legacy events carry a jsonb personal field as a plaintext object (written before the
 // annotation or before a KMS existed). The backfill serializes and encrypts it under the
-// owner's key, in created, updated and the `previous` of delete events alike.
+// owner's key, in created and updated events.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { resetEventStore, setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
@@ -104,7 +104,7 @@ async function decryptBlob(value: unknown): Promise<unknown> {
 }
 
 describe("runPiiEventBackfill with a jsonb personal field", () => {
-  test("legacy plaintext objects in created, updated and delete-previous events are encrypted under the owner key", async () => {
+  test("legacy plaintext objects in created and updated events are encrypted under the owner key; the delete event carries no blob", async () => {
     const created = await stack.http.writeOk<{ id: string }>(
       "jbf:write:draft:create",
       { ownerId: OWNER_ID, blob: BLOB },
@@ -134,8 +134,7 @@ describe("runPiiEventBackfill with a jsonb personal field", () => {
     expect(await decryptBlob(createdBlob)).toEqual(BLOB);
     const updatedChanges = byType.get("draft.updated")?.["changes"] as Record<string, unknown>;
     expect(await decryptBlob(updatedChanges?.["blob"])).toEqual(updated);
-    const previous = byType.get("draft.deleted")?.["previous"] as Record<string, unknown>;
-    expect(await decryptBlob(previous?.["blob"])).toEqual(updated);
+    expect(byType.get("draft.deleted")?.["previous"]).not.toHaveProperty("blob");
   });
 
   test("a second full pass (new transform version, state dropped) leaves already encrypted events untouched", async () => {

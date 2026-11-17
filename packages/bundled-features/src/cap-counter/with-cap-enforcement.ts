@@ -22,10 +22,14 @@
 // (enforce-cap.ts).
 
 import type {
+  KumikoEventTypeMap,
   ReservationContext,
   WriteEvent,
   WriteHandlerDef,
+  WriteHandlerDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
+import type { BeforeTransactionWhenNested } from "@cosmicdrift/kumiko-types/handlers";
+import type { ZodType } from "zod";
 import { reserveEnforcedCalendarCap } from "./calendar-cap-usage-reservation.ts";
 import type { CapSubject } from "./cap-subject.ts";
 import type { CapToleranceProfileName, SoftHitNotifier } from "./enforce-cap.ts";
@@ -73,18 +77,37 @@ export type CalendarCapResolver = (
  *   3. reserve `amount` (hard-cap check + increment in one short, immediately committed write)
  *   4. the returned release gives the amount back if the transaction does not commit
  */
-export function withCapEnforcement(
+type WithCapEnforcement = {
+  (handler: WriteHandlerDef, capResolver: CalendarCapResolver): WriteHandlerDef;
+  <
+    TName extends string,
+    TSchema extends ZodType,
+    TData,
+    TPrepared,
+    TWhenNested extends BeforeTransactionWhenNested | undefined,
+  >(
+    handler: WriteHandlerDefinition<
+      TName,
+      TSchema,
+      TData,
+      KumikoEventTypeMap,
+      TPrepared,
+      TWhenNested
+    >,
+    capResolver: CalendarCapResolver,
+  ): WriteHandlerDefinition<TName, TSchema, TData, KumikoEventTypeMap, TPrepared, TWhenNested>;
+};
+
+export const withCapEnforcement: WithCapEnforcement = (
   handler: WriteHandlerDef,
   capResolver: CalendarCapResolver,
-): WriteHandlerDef {
-  return {
-    ...handler,
-    reserveBeforeTransaction: chainReservations(
-      handler.reserveBeforeTransaction,
-      async (event, ctx) => {
-        const cap = await capResolver(event, ctx);
-        return reserveEnforcedCalendarCap(ctx, { ...cap, amount: cap.amount ?? 1 });
-      },
-    ),
-  };
-}
+) => ({
+  ...handler,
+  reserveBeforeTransaction: chainReservations(
+    handler.reserveBeforeTransaction,
+    async (event, ctx) => {
+      const cap = await capResolver(event, ctx);
+      return reserveEnforcedCalendarCap(ctx, { ...cap, amount: cap.amount ?? 1 });
+    },
+  ),
+});

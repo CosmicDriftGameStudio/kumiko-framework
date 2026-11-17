@@ -265,7 +265,7 @@ describe("sessionMintingOriginMiddleware", () => {
   test("allowRequestHost: Origin equal to the request host passes", async () => {
     const res = await buildMintingApp({ allowRequestHost: true }).request(
       "http://localhost/api/login",
-      { method: "POST", headers: { Origin: "http://localhost" } },
+      { method: "POST", headers: { Origin: "http://localhost", Host: "localhost" } },
     );
     expect(res.status).toBe(200);
   });

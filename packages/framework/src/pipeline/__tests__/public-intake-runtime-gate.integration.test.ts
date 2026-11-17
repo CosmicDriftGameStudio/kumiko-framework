@@ -893,13 +893,10 @@ describe("public-intake runtime gate", () => {
         type: "intakea:query:anonymous-query-writeas-no-declare",
         payload: { note: "x" },
       });
-      // The handler returns the nested write's failed result as its data.
-      expect(res.status).toBe(200);
-      const body = (await res.json()) as {
-        data: { isSuccess: boolean; error: { details: { reason: string } } };
-      };
-      expect(body.data.isSuccess).toBe(false);
-      expect(body.data.error.details.reason).toBe("public_intake_required");
+      // A returned query failure answers with its own status.
+      expect(res.status).toBe(403);
+      const body = (await res.json()) as { error: { details: { reason: string } } };
+      expect(body.error.details.reason).toBe("public_intake_required");
       expect(await rowCount()).toBe(0);
     });
 

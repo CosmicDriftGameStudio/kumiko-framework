@@ -222,7 +222,7 @@ describe("list search through child rows", () => {
   test("an agent gets no hit through a child whose searchable field it may not read", async () => {
     const ticketId = await createTicket("Invoice question");
     await stack.http.writeOk(
-      "helpdesk:write:secretReply:create",
+      "helpdesk:write:secret-reply:create",
       { ticketId, body: "confidential narwhal note" },
       admin,
     );
@@ -233,7 +233,7 @@ describe("list search through child rows", () => {
   test("an agent gets no hit through a child whose detail handler does not admit its role", async () => {
     const ticketId = await createTicket("Shipping delay");
     await stack.http.writeOk(
-      "helpdesk:write:internalNote:create",
+      "helpdesk:write:internal-note:create",
       { ticketId, body: "ocelot sighting" },
       admin,
     );
@@ -244,7 +244,7 @@ describe("list search through child rows", () => {
   test("a child without a detail handler never matches, even with a list handler", async () => {
     const ticketId = await createTicket("Refund request");
     await stack.http.writeOk(
-      "helpdesk:write:draftNote:create",
+      "helpdesk:write:draft-note:create",
       { ticketId, body: "axolotl draft" },
       admin,
     );

@@ -73,7 +73,7 @@ async function deleteRowsWithoutStream(
       db,
       table,
       {
-        modifiedAt: { lt: cutoff },
+        insertedAt: { lt: cutoff },
         ...(afterId === undefined ? {} : { id: { gt: afterId } }),
       },
       { fields: ["id"], orderBy: { col: "id", direction: "asc" }, limit: ROW_DELETE_BATCH_SIZE },

@@ -78,6 +78,7 @@ export function createSignupRequestHandler(opts: SignupRequestOptions) {
     access: { roles: ["anonymous"] },
     rateLimit: { per: "ip+handler", limit: 10, windowSeconds: 60 },
     additionalRateLimits: AUTH_EMAIL_PAYLOAD_RATE_LIMITS,
+    agent: { expose: false },
     description:
       "Starts magic-link self-registration by mailing a fresh activation link to an address and invalidating any link still outstanding for it; the answer looks the same whether or not the address is already registered.",
     escapeHatch: { reason: HANDOVER_GRANT_VERIFY_REASON, grants: ["unsafeRaw"] },

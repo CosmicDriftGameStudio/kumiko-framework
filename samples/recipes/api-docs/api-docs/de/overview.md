@@ -88,6 +88,7 @@ Listen-Handler enden auf `:list` und akzeptieren diese Felder:
 | `filters` | array of object | Mehrere Feldfilter, je mit `field`, `op` und `value`. `op` ist einer von `eq`, `ne`, `lt`, `gt`, `lte`, `gte`, `in`. |
 | `namedFilter` | string | Name eines vordefinierten Filters der Entität, zum Beispiel einer Arbeitsliste. |
 | `aggregate` | object | Liefert aggregierte Werte statt Zeilen. |
+| `fields` | array of string | Nur diese gespeicherten Felder liefern. Die Zeilen enthalten dann `id`, `version` und die genannten Felder; abgeleitete Felder werden nicht berechnet. Ein unbekannter Name scheitert mit `unknown_field`. |
 
 Die Antwort enthält `rows` und `nextCursor`. Für die nächste Seite sendest du `nextCursor` als `cursor`. Auf der letzten Seite ist `nextCursor` `null`.
 

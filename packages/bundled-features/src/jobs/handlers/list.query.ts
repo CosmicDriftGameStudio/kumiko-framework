@@ -5,7 +5,7 @@ import { mapWithConcurrency } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { WhereObject, WhereOperator } from "@cosmicdrift/kumiko-types/where-clause-types";
 import * as z from "zod";
-import { decryptStoredPii, KMS_POOL_CONCURRENCY, requireSystemDb } from "../../shared/index.ts";
+import { decryptStoredPii, KMS_POOL_CONCURRENCY } from "../../shared/index.ts";
 import { jobRunsTable } from "../job-run-table.ts";
 
 const DEFAULT_PAGE_SIZE = 50;
@@ -159,8 +159,9 @@ export const listQuery = defineQueryHandler({
     totalCount: z.boolean().optional(),
   }),
   access: { roles: ["SystemAdmin"] },
+  systemScope: true,
   handler: async (query, ctx) => {
-    const systemDb = requireSystemDb(ctx, "jobs:query:list");
+    const { systemDb } = ctx;
     const db = systemDb.acknowledgeCrossTenant(
       "cross-tenant job monitoring: SystemAdmin lists job runs of every tenant",
     );

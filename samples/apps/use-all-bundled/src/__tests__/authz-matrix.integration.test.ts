@@ -65,10 +65,13 @@ function errorCode(text: string): string | undefined {
   }
 }
 
-// Session-ending handlers run last per caller: a successful logout with an empty payload
-// or a self-restriction would otherwise turn every later call of that caller into a 401.
+// Session-ending handlers run last per caller: a successful logout with an empty payload,
+// a self-restriction or a tenant admin requesting the destruction of its own tenant would
+// otherwise turn every later call of that caller into a 401.
 const endsOwnSession = (name: string): boolean =>
-  /logout|revoke-all|session:revoke|restrict-account|request-deletion$/.test(name);
+  /logout|revoke-all|session:revoke|restrict-account|request-deletion$|request-destruction$/.test(
+    name,
+  );
 
 function classify(status: number, text = ""): Outcome {
   if (status === 401 || status === 403 || status === 404) return "denied";
@@ -288,9 +291,10 @@ describe("authorization matrix over all bundled handlers", () => {
       return undefined;
     };
 
-    // Fresh admin: the matrix above ends the original attacker session through logout.
-    const freshAdmin = await attacker.addUser([ROLES.TenantAdmin]);
-    const foreign: Caller = { label: "foreign-admin", user: freshAdmin.session };
+    // Fresh tenant: the matrix above logs the attacker admin out and leaves its tenant in
+    // destruction, which answers every later call with 410.
+    const foreignTenant = await seedTenant(handle.stack, { persist: true });
+    const foreign: Caller = { label: "foreign-admin", user: foreignTenant.admin.session };
     const alive = await call("query", "tenant:query:me", {}, foreign);
     expect(alive.status).toBe(200);
     const anonymous: Caller = { label: "anonymous", roles: [ANONYMOUS_ROLE] };
@@ -414,7 +418,10 @@ describe("live signals inside one tenant", () => {
 
   // The stream ends the activity with a config-value change: a role that reads config
   // values must receive it, so reaching it proves everything before it was already filtered.
-  async function adminActivityEndingInReadableSignal(admin: SessionUser): Promise<void> {
+  // The storage provider selection is platform-level, so a SystemAdmin of the tenant writes it.
+  async function adminActivityEndingInReadableSignal(tenant: InProcessSeededTenant): Promise<void> {
+    const admin = tenant.admin.session;
+    const operator = await tenant.addUser([ROLES.SystemAdmin]);
     await handle.stack.http.write("user-data-rights:write:request-export", {}, admin);
     await handle.stack.http.writeOk(
       "tags:write:tag:create",
@@ -424,7 +431,7 @@ describe("live signals inside one tenant", () => {
     await handle.stack.http.writeOk(
       "config:write:set",
       { key: "file-foundation:config:provider", value: "inmemory" },
-      admin,
+      operator.session,
     );
   }
 
@@ -436,7 +443,7 @@ describe("live signals inside one tenant", () => {
     if (!seededMember) throw new Error("seedTenant returned no member");
     const stream = await openSse(await loginCookie(seededMember.email, seededMember.password));
 
-    await adminActivityEndingInReadableSignal(tenant.admin.session);
+    await adminActivityEndingInReadableSignal(tenant);
     await stream.readUntil("event: config-value");
     await stream.close();
 
@@ -460,7 +467,7 @@ describe("live signals inside one tenant", () => {
     const tenant = await seedTenant(handle.stack, { persist: true, users: 1 });
     const stream = await openSse(await loginCookie(tenant.admin.email, tenant.admin.password));
 
-    await adminActivityEndingInReadableSignal(tenant.admin.session);
+    await adminActivityEndingInReadableSignal(tenant);
     await stream.readUntil("event: config-value");
     await stream.close();
 

@@ -22,7 +22,6 @@ import {
   validateDerivedFieldCollisions,
   validateEmbeddedFields,
   validateEncryptedFields,
-  validateEntityIndexes,
   validateEntityVerbs,
   validateExtendSchemaCollisions,
   validateFileFields,
@@ -35,6 +34,7 @@ import {
   validateTransitions,
 } from "./entity-handler.ts";
 import { validateImageVariants } from "./entity-image-variants.ts";
+import { validateEntityIndexes } from "./entity-indexes.ts";
 import {
   validateEntitySelectAvailabilityQuery,
   validateEntitySelectConditionalOptions,
@@ -44,6 +44,7 @@ import {
 import { validateFieldApproval } from "./field-approval.ts";
 import { validateFieldConditions } from "./field-conditions.ts";
 import { validateHandlerFieldReferences } from "./handler-field-references.ts";
+import { validateHandlerSystemScope } from "./handler-system-scope.ts";
 import { validateJobRunAs } from "./job-run-as.ts";
 import { validateNavs } from "./nav.ts";
 import { validateOwnershipRules } from "./ownership.ts";
@@ -182,6 +183,7 @@ const FEATURE_CHECKS: readonly FeatureCheck[] = [
     run: (f, c) => validateOwnershipRules(f, c.allClaimKeys, c.knownRoles),
   },
   { check: "validateJobRunAs", run: (f, c) => validateJobRunAs(f, c.knownRoles) },
+  { check: "validateHandlerSystemScope", run: (f) => validateHandlerSystemScope(f) },
   { check: "validateReadGates", run: (f, c) => validateReadGates(f, c.featureMap) },
   {
     check: "validateFieldApproval",

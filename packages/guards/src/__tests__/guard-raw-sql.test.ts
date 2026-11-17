@@ -392,7 +392,10 @@ describe("raw-sql marker baseline", () => {
     const logSpy = spyOn(console, "log").mockImplementation(() => {});
     try {
       await withRepo({ "src/x.ts": MARKED }, { "src/x.ts::other reason": 1 }, async (root) => {
-        expect((await check.run([root])).violations).toHaveLength(1);
+        const messages = (await check.run([root])).violations.map((violation) => violation.message);
+        expect(messages).toHaveLength(2);
+        expect(messages.filter((message) => message.includes("over baseline"))).toHaveLength(1);
+        expect(messages.filter((message) => message.includes("under baseline"))).toHaveLength(1);
       });
     } finally {
       logSpy.mockRestore();

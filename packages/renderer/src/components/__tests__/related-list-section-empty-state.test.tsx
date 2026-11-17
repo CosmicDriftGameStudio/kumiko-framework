@@ -128,7 +128,7 @@ describe("RelatedListSection emptyState", () => {
     renderEmpty(section, (type, payload) => writes.push({ type, payload }));
 
     await waitFor(() => rtlScreen.getByText("No notifications yet"));
-    expect(rtlScreen.getByText("New ones show up here.")).toBeTruthy();
+    rtlScreen.getByText("New ones show up here.");
 
     fireEvent.click(rtlScreen.getByTestId("render-edit-action-seed"));
     await waitFor(() => expect(writes.length).toBe(1));

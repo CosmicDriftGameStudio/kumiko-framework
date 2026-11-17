@@ -193,11 +193,11 @@ describe("RenderEdit locked state", () => {
       </DispatcherProvider>,
     );
 
-    await waitFor(() => expect(screen.getByTestId("render-edit-draft-picker")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-draft-picker"));
     const pickSecond = screen.getByTestId(`render-edit-draft-pick-${screenDef.id}:new:draft-2`);
     fireEvent.click(pickSecond);
 
-    expect(screen.getByTestId("render-edit-draft-picker")).toBeTruthy();
+    screen.getByTestId("render-edit-draft-picker");
     const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
     expect(titleInput.value).toBe("");
   });
@@ -235,7 +235,7 @@ describe("RenderEdit hideActions (host-driven action bar)", () => {
       </DispatcherProvider>,
     );
 
-    expect(screen.getByTestId("render-edit-submit")).toBeTruthy();
+    screen.getByTestId("render-edit-submit");
   });
 
   test("controls.submit() writes an unchanged, pre-filled form through customSubmit — the built-in button (disabled while unchanged) cannot do this", async () => {
@@ -461,7 +461,7 @@ describe("RenderEdit fields filter", () => {
       </DispatcherProvider>,
     );
 
-    expect(screen.getByTestId("field-title")).toBeTruthy();
+    screen.getByTestId("field-title");
     expect(screen.queryByTestId("field-count")).toBeNull();
     expect(screen.queryByTestId("field-notes")).toBeNull();
   });
@@ -480,7 +480,7 @@ describe("RenderEdit fields filter", () => {
       </DispatcherProvider>,
     );
 
-    expect(screen.getByTestId("section-Basics")).toBeTruthy();
+    screen.getByTestId("section-Basics");
     expect(screen.queryByTestId("section-Extra")).toBeNull();
   });
 
@@ -541,7 +541,7 @@ describe("RenderEdit fields filter", () => {
       </DispatcherProvider>,
     );
 
-    expect(screen.getByTestId("field-notes")).toBeTruthy();
+    screen.getByTestId("field-notes");
 
     const form = screen.getByTestId("render-edit-form");
     await act(async () => {
@@ -550,7 +550,7 @@ describe("RenderEdit fields filter", () => {
     });
 
     expect(write).not.toHaveBeenCalled();
-    expect(screen.getByTestId("field-notes-errors")).toBeTruthy();
+    screen.getByTestId("field-notes-errors");
   });
 
   // `fields` naming only unknown field names (typo, renamed field)
@@ -770,7 +770,7 @@ describe("RenderEdit — slots.header", () => {
       </DispatcherProvider>,
     );
 
-    expect(screen.getByTestId("header-extra")).toBeTruthy();
+    screen.getByTestId("header-extra");
 
     const form = screen.getByTestId("render-edit-form");
     await act(async () => {
@@ -778,7 +778,7 @@ describe("RenderEdit — slots.header", () => {
       await Promise.resolve();
     });
 
-    expect(screen.getByTestId("header-extra")).toBeTruthy();
+    screen.getByTestId("header-extra");
   });
 
   test("header slot renders before a caller-supplied headerRegion", () => {
@@ -898,10 +898,10 @@ describe("RenderEdit — slots.footer", () => {
 
     const primary = screen.getByTestId("render-edit-form-actions");
     const secondary = screen.getByTestId("render-edit-form-actions-secondary");
-    expect(within(primary).getByTestId("footer-extra")).toBeTruthy();
-    expect(within(primary).getByTestId("render-edit-submit")).toBeTruthy();
+    within(primary).getByTestId("footer-extra");
+    within(primary).getByTestId("render-edit-submit");
     expect(within(secondary).queryByTestId("footer-extra")).toBeNull();
-    expect(within(secondary).getByTestId("render-edit-wizard-back")).toBeTruthy();
+    within(secondary).getByTestId("render-edit-wizard-back");
     expect(primary.className).toContain("max-sm:fixed");
   });
 
@@ -924,7 +924,7 @@ describe("RenderEdit — slots.footer", () => {
     expect(screen.getByTestId("footer-extra").getAttribute("data-last")).toBe("true");
 
     const secondary = screen.getByTestId("render-edit-form-actions-secondary");
-    expect(within(secondary).getByTestId("footer-extra")).toBeTruthy();
+    within(secondary).getByTestId("footer-extra");
     expect(
       within(screen.getByTestId("render-edit-form-actions")).queryByTestId("footer-extra"),
     ).toBeNull();
@@ -1062,7 +1062,7 @@ describe("RenderEdit — slots.footer", () => {
     );
 
     expect(screen.queryByTestId("footer-extra")).toBeNull();
-    expect(screen.getByTestId("render-edit-submit")).toBeTruthy();
+    screen.getByTestId("render-edit-submit");
   });
 
   test("a declared but unregistered footer slot on a read-only screen draws no empty footer strip", () => {
@@ -1183,14 +1183,14 @@ describe("RenderEdit tabs mode", () => {
 
     test("create renders no tab for it, but keeps a declared-empty review tab", () => {
       renderTabs(undefined);
-      expect(screen.getByTestId("render-edit-tabs-basics")).toBeTruthy();
+      screen.getByTestId("render-edit-tabs-basics");
       expect(screen.queryByTestId("render-edit-tabs-extra")).toBeNull();
-      expect(screen.getByTestId("render-edit-tabs-review")).toBeTruthy();
+      screen.getByTestId("render-edit-tabs-review");
     });
 
     test("update keeps the tab with the excluded field read-only", () => {
       renderTabs("42");
-      expect(screen.getByTestId("render-edit-tabs-extra")).toBeTruthy();
+      screen.getByTestId("render-edit-tabs-extra");
       const notesInput = screen
         .getByTestId("field-notes")
         .querySelector("input") as HTMLInputElement;
@@ -1211,9 +1211,9 @@ describe("RenderEdit tabs mode", () => {
       </DispatcherProvider>,
     );
 
-    expect(screen.getByTestId("render-edit-tabs")).toBeTruthy();
-    expect(screen.getByTestId("render-edit-tabs-basics")).toBeTruthy();
-    expect(screen.getByTestId("render-edit-tabs-details")).toBeTruthy();
+    screen.getByTestId("render-edit-tabs");
+    screen.getByTestId("render-edit-tabs-basics");
+    screen.getByTestId("render-edit-tabs-details");
     expect(screen.getByTestId("field-title").closest("[hidden]")).toBeNull();
     // Mounted (getBy, not queryBy) but inert — that is what lets one submit
     // carry a tab the user never opened.
@@ -1233,7 +1233,7 @@ describe("RenderEdit tabs mode", () => {
       </DispatcherProvider>,
     );
 
-    expect(screen.getByTestId("render-edit-submit")).toBeTruthy();
+    screen.getByTestId("render-edit-submit");
     expect(screen.queryByTestId("render-edit-wizard-next")).toBeNull();
     expect(screen.queryByTestId("render-edit-wizard-step-label")).toBeNull();
   });
@@ -1397,8 +1397,8 @@ describe("RenderEdit tabs mode", () => {
     });
 
     expect(screen.getByTestId("field-count").closest("[hidden]")).toBeNull();
-    expect(screen.getByTestId("field-count-errors")).toBeTruthy();
-    expect(screen.getByTestId("render-edit-form-error")).toBeTruthy();
+    screen.getByTestId("field-count-errors");
+    screen.getByTestId("render-edit-form-error");
   });
 
   test("a server error whose every issue has a rendered field jumps to that tab and shows no form-level banner", async () => {
@@ -1434,7 +1434,7 @@ describe("RenderEdit tabs mode", () => {
     });
 
     expect(screen.getByTestId("field-count").closest("[hidden]")).toBeNull();
-    expect(screen.getByTestId("field-count-errors")).toBeTruthy();
+    screen.getByTestId("field-count-errors");
     expect(screen.queryByTestId("render-edit-form-error")).toBeNull();
   });
 
@@ -1474,7 +1474,7 @@ describe("RenderEdit tabs mode", () => {
 
     expect(writes).toHaveLength(0);
     expect(screen.getByTestId("field-count").closest("[hidden]")).toBeNull();
-    expect(screen.getByTestId("field-count-errors")).toBeTruthy();
+    screen.getByTestId("field-count-errors");
     expect(screen.getByTestId("field-title").closest("[hidden]")).not.toBeNull();
   });
 
@@ -1597,9 +1597,9 @@ describe("RenderEdit screen form (fillScreenHeight)", () => {
         />
       </DispatcherProvider>,
     );
-    expect(screen.getByText("Basics")).toBeTruthy();
-    expect(screen.getByText("Core order data")).toBeTruthy();
-    expect(screen.getByTestId("field-title-accent")).toBeTruthy();
+    screen.getByText("Basics");
+    screen.getByText("Core order data");
+    screen.getByTestId("field-title-accent");
     expect(screen.queryByTestId("field-count-accent")).toBeNull();
   });
 

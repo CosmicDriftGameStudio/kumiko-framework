@@ -83,7 +83,7 @@ describe("TagManager — loading and errors", () => {
         <TagManager />
       </Wrapper>,
     );
-    expect(screen.getByTestId("tag-manager-loading")).toBeTruthy();
+    screen.getByTestId("tag-manager-loading");
   });
 
   test("shows error banner when catalog query fails", () => {
@@ -93,8 +93,8 @@ describe("TagManager — loading and errors", () => {
         <TagManager />
       </Wrapper>,
     );
-    expect(screen.getByTestId("tag-manager-error")).toBeTruthy();
-    expect(screen.getByText("No tags found.")).toBeTruthy();
+    screen.getByTestId("tag-manager-error");
+    screen.getByText("No tags found.");
   });
 
   test("shows empty banner when catalog has no rows", () => {
@@ -105,7 +105,7 @@ describe("TagManager — loading and errors", () => {
         <TagManager />
       </Wrapper>,
     );
-    expect(screen.getByTestId("tag-manager-empty")).toBeTruthy();
+    screen.getByTestId("tag-manager-empty");
   });
 });
 
@@ -119,9 +119,9 @@ describe("TagManager — catalog CRUD", () => {
         <TagManager />
       </Wrapper>,
     );
-    expect(screen.getByTestId("tag-manager-row-t2")).toBeTruthy();
-    expect(screen.getByText("@note")).toBeTruthy();
-    expect(screen.getByText("1×")).toBeTruthy();
+    screen.getByTestId("tag-manager-row-t2");
+    screen.getByText("@note");
+    screen.getByText("1×");
   });
 
   test("usage count comes from the server group, not from counting loaded rows", () => {
@@ -131,7 +131,7 @@ describe("TagManager — catalog CRUD", () => {
         <TagManager />
       </Wrapper>,
     );
-    expect(screen.getByText("120×")).toBeTruthy();
+    screen.getByText("120×");
   });
 
   test("catalog and usage payloads pass the entity list schema", () => {
@@ -199,7 +199,7 @@ describe("TagManager — catalog CRUD", () => {
       </Wrapper>,
     );
     fireEvent.click(screen.getByTestId("tag-manager-edit-btn-t1"));
-    expect(screen.getByTestId("tag-manager-edit-t1")).toBeTruthy();
+    screen.getByTestId("tag-manager-edit-t1");
 
     fireEvent.change(document.getElementById("tag-edit-name-t1") as HTMLInputElement, {
       target: { value: "renamed" },
@@ -236,7 +236,7 @@ describe("TagManager — catalog CRUD", () => {
       </Wrapper>,
     );
     fireEvent.click(screen.getByTestId("tag-manager-delete-btn-t1"));
-    expect(screen.getByTestId("tag-manager-delete-dialog")).toBeTruthy();
+    screen.getByTestId("tag-manager-delete-dialog");
     fireEvent.click(screen.getByTestId("tag-manager-delete-dialog-confirm"));
 
     await waitFor(() =>
@@ -264,7 +264,7 @@ describe("TagManager — catalog CRUD", () => {
     });
     fireEvent.click(screen.getByTestId("tag-manager-create"));
 
-    await waitFor(() => expect(screen.getByTestId("tag-manager-action-error")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("tag-manager-action-error"));
   });
 });
 
@@ -317,8 +317,8 @@ describe("TagManager — selection mode", () => {
       </Wrapper>,
     );
 
-    expect(screen.getByTestId("tag-manager-row-t1")).toBeTruthy();
-    expect(screen.getByTestId("tag-manager-row-t2")).toBeTruthy();
+    screen.getByTestId("tag-manager-row-t1");
+    screen.getByTestId("tag-manager-row-t2");
     expect(screen.queryByTestId("tag-manager-row-t3")).toBeNull();
     expect(screen.queryByTestId("tag-manager-new-scope")).toBeNull();
 

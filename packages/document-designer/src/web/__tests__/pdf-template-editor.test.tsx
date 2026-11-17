@@ -436,9 +436,7 @@ describe("PdfTemplateEditor", () => {
     renderEditor({ puppeteer: "available", singleOverride: true }, undefined, ["SystemAdmin"]);
     await ready();
 
-    expect(
-      await screen.findByText(/1 of 12 tenants has its own version and does not receive/),
-    ).toBeTruthy();
+    await screen.findByText(/1 of 12 tenants has its own version and does not receive/);
     fireEvent.click(await screen.findByText("Show tenant customisations"));
     const drawer = await screen.findByTestId("document-designer-overrides-drawer");
     await waitFor(() => expect(drawer.textContent).toContain("1 tenant has its own version"));

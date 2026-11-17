@@ -395,7 +395,6 @@ export function fieldToZod(
 //
 // Known limitation: compares against rounded `derived` cells, i.e.
 // "sum-of-rounded" not "round-of-sum".
-// kumiko-lint-ignore complexity-budget currency-equality check on sibling money payloads
 function applyTotalsMatchRefinements(
   entity: EntityDefinition,
   schema: z.ZodObject<Record<string, z.ZodTypeAny>>,

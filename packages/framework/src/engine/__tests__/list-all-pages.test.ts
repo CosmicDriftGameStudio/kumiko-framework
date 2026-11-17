@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { InternalError } from "../../errors/index.ts";
 import { MAX_LIST_LIMIT } from "../entity-handlers.ts";
 import {
+  forEachPage,
   LIST_ALL_PAGES_DEFAULT_MAX_PAGES,
   type ListPage,
   type ListPageRequest,
@@ -28,7 +29,7 @@ describe("listAllPages", () => {
     ]);
     const result = listAllPages(source.fetchPage, { maxPages: 2 });
     await expect(result).rejects.toThrow(InternalError);
-    await expect(result).rejects.toThrow(/more than 2 pages/);
+    await expect(result).rejects.toThrow(/^listAllPages: more than 2 pages/);
     expect(source.requests).toHaveLength(2);
   });
 
@@ -84,6 +85,119 @@ describe("listAllPages", () => {
     const source = pageSource<number>([{ rows: [1], nextCursor: "same" }]);
     await expect(listAllPages(source.fetchPage)).rejects.toBeInstanceOf(InternalError);
     expect(source.requests).toHaveLength(2);
+  });
+});
+
+describe("forEachPage", () => {
+  test("visits every page in order, empty ones included, and resolves undefined after the last", async () => {
+    const source = pageSource<number>([
+      { rows: [1, 2], nextCursor: "c1" },
+      { rows: [], nextCursor: "c2" },
+      { rows: [3], nextCursor: null },
+    ]);
+    const visited: (readonly number[])[] = [];
+    const result = await forEachPage(source.fetchPage, async (rows) => {
+      visited.push(rows);
+    });
+    expect(result).toBeUndefined();
+    expect(visited).toEqual([[1, 2], [], [3]]);
+    expect(source.requests).toEqual([
+      { limit: MAX_LIST_LIMIT },
+      { limit: MAX_LIST_LIMIT, cursor: "c1" },
+      { limit: MAX_LIST_LIMIT, cursor: "c2" },
+    ]);
+  });
+
+  test("a visitor that returns a value stops paging and forEachPage resolves to that value", async () => {
+    const source = pageSource<number>([
+      { rows: [1], nextCursor: "c1" },
+      { rows: [2], nextCursor: "c2" },
+      { rows: [3], nextCursor: null },
+    ]);
+    const visited: (readonly number[])[] = [];
+    const result = await forEachPage(source.fetchPage, async (rows) => {
+      visited.push(rows);
+      if (rows.includes(2)) return "refused";
+    });
+    expect(result).toBe("refused");
+    expect(visited).toEqual([[1], [2]]);
+    expect(source.requests).toHaveLength(2);
+  });
+
+  test("a stop on page maxPages wins over the cap", async () => {
+    const source = pageSource<number>([
+      { rows: [1], nextCursor: "c1" },
+      { rows: [2], nextCursor: "c2" },
+    ]);
+    const result = await forEachPage(
+      source.fetchPage,
+      async (rows) => (rows.includes(2) ? "stopped" : undefined),
+      { maxPages: 2 },
+    );
+    expect(result).toBe("stopped");
+    expect(source.requests).toHaveLength(2);
+  });
+
+  test("throws InternalError after visiting maxPages pages that still have a cursor", async () => {
+    const source = pageSource<number>([
+      { rows: [1], nextCursor: "c1" },
+      { rows: [2], nextCursor: "c2" },
+      { rows: [3], nextCursor: null },
+    ]);
+    const visited: (readonly number[])[] = [];
+    const result = forEachPage(
+      source.fetchPage,
+      async (rows) => {
+        visited.push(rows);
+      },
+      { maxPages: 2 },
+    );
+    await expect(result).rejects.toThrow(InternalError);
+    await expect(result).rejects.toThrow(/^forEachPage: more than 2 pages/);
+    expect(visited).toEqual([[1], [2]]);
+    expect(source.requests).toHaveLength(2);
+  });
+
+  test("rejects a list handler that repeats a cursor after visiting the repeating page", async () => {
+    const source = pageSource<number>([{ rows: [1], nextCursor: "same" }]);
+    const visited: (readonly number[])[] = [];
+    const result = forEachPage(source.fetchPage, async (rows) => {
+      visited.push(rows);
+    });
+    await expect(result).rejects.toThrow(InternalError);
+    await expect(result).rejects.toThrow("forEachPage: list handler repeated cursor same");
+    expect(visited).toEqual([[1], [1]]);
+    expect(source.requests).toHaveLength(2);
+  });
+
+  test("an invalid maxPages throws before the first fetch", async () => {
+    for (const maxPages of [0, 1.5]) {
+      const source = pageSource<number>([{ rows: [1], nextCursor: null }]);
+      let visits = 0;
+      const result = forEachPage(
+        source.fetchPage,
+        async () => {
+          visits += 1;
+        },
+        { maxPages },
+      );
+      await expect(result).rejects.toThrow(InternalError);
+      await expect(result).rejects.toThrow(/^forEachPage: maxPages must be a whole number/);
+      expect(source.requests).toHaveLength(0);
+      expect(visits).toBe(0);
+    }
+  });
+
+  test("an error from the visitor ends paging without fetching the next page", async () => {
+    const source = pageSource<number>([
+      { rows: [1], nextCursor: "c1" },
+      { rows: [2], nextCursor: null },
+    ]);
+    const result = forEachPage(source.fetchPage, async () => {
+      throw new Error("visit failed");
+    });
+    await expect(result).rejects.toThrow("visit failed");
+    expect(source.requests).toHaveLength(1);
   });
 });
 

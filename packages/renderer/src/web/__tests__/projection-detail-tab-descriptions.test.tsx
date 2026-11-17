@@ -1,7 +1,7 @@
 // An explanatory sentence per tab: every kind of section in a projectionDetail with
 // layout.mode "tabs" shows its `description` under the tab strip.
 
-import { describe, expect, test } from "bun:test";
+import { describe, test } from "bun:test";
 import type { ProjectionDetailScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema, NavApi } from "../../index.ts";
@@ -82,23 +82,23 @@ function renderTab(tab: string, dispatcher: Dispatcher): void {
 describe("projectionDetail tabs: description per tab", () => {
   test("a fields tab shows its description", async () => {
     renderTab("overview", dispatcherWithPayments([]));
-    expect(await screen.findByText("Master data of the rental.")).toBeTruthy();
+    await screen.findByText("Master data of the rental.");
   });
 
   test("a groups tab shows its description", async () => {
     renderTab("location", dispatcherWithPayments([]));
     await waitFor(() => screen.getByText("Where the rental is located."));
-    expect(screen.getByText("Address")).toBeTruthy();
+    screen.getByText("Address");
   });
 
   test("a relatedList tab with rows shows its description", async () => {
     renderTab("payments", dispatcherWithPayments([{ id: "p1", amount: 480 }]));
     await waitFor(() => screen.getByText("Everything the tenant paid so far."));
-    expect(screen.getByText("480")).toBeTruthy();
+    screen.getByText("480");
   });
 
   test("an empty relatedList tab still shows its description", async () => {
     renderTab("payments", dispatcherWithPayments([]));
-    expect(await screen.findByText("Everything the tenant paid so far.")).toBeTruthy();
+    await screen.findByText("Everything the tenant paid so far.");
   });
 });

@@ -16,8 +16,8 @@ Test file: [`src/__tests__/feature.integration.test.ts`](../samples/recipes/gold
 ## 1. Entity
 
 [`ticketEntity`](../samples/recipes/golden-path/src/feature.ts) is a
-`createEntity({ table, fields })`. Every text field states whether it holds
-personal data. `r.crud("ticket", ticketEntity, { write, read, verbs })`
+`createEntity({ name, table, fields })`. Every text field states whether it holds
+personal data. `r.crud(ticketEntity, { write, read, verbs })`
 registers the entity
 with its create, list and detail handlers. Each side names its access rule;
 without one, boot stops. The table is a projection of the entity's events, so

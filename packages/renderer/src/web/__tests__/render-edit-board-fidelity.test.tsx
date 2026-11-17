@@ -51,7 +51,7 @@ function renderEdit(entity: EntityDefinition, fields: readonly string[]): void {
 describe("RenderEdit board fidelity", () => {
   test("all fields required: one hint replaces the per-field stars but inputs stay required", () => {
     renderEdit(allRequiredEntity, ["price", "reason"]);
-    expect(screen.getByTestId("render-edit-all-required-hint")).toBeTruthy();
+    screen.getByTestId("render-edit-all-required-hint");
     expect(screen.getByTestId("field-price").textContent).not.toContain("*");
     expect(screen.getByLabelText(/price/i).getAttribute("aria-required")).toBe("true");
   });
@@ -97,7 +97,7 @@ describe("RenderEdit board fidelity", () => {
       },
     } as unknown as EntityDefinition;
     renderEdit(entity, ["accepted", "price"]);
-    expect(screen.getByTestId("render-edit-all-required-hint")).toBeTruthy();
+    screen.getByTestId("render-edit-all-required-hint");
     expect(screen.getByTestId("field-accepted").querySelector("[data-required]")).toBeNull();
   });
 
@@ -178,7 +178,7 @@ describe("RenderEdit board fidelity", () => {
     );
     const intro = screen.getByTestId("render-edit-intro");
     expect(intro.textContent).toContain("Each owner gets a mail.");
-    expect(within(intro).getByTestId("render-edit-all-required-hint")).toBeTruthy();
+    within(intro).getByTestId("render-edit-all-required-hint");
     expect(screen.getAllByTestId("render-edit-all-required-hint")).toHaveLength(1);
     expect(screen.queryByTestId("render-edit-form-subtitle")).toBeNull();
   });

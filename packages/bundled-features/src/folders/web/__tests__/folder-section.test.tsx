@@ -110,7 +110,7 @@ describe("FolderSection", () => {
         <FolderSection entityName="credit" entityId="c-1" />
       </Wrapper>,
     );
-    expect(screen.getByTestId("folder-section-truncated")).toBeTruthy();
+    screen.getByTestId("folder-section-truncated");
   });
 
   test("filters assignments on entityType and entityId server-side", () => {
@@ -141,7 +141,7 @@ describe("FolderSection", () => {
         <FolderSection entityName="credit" entityId="c-1" />
       </StubComboboxWrapper>,
     );
-    expect(screen.getByText("Immobilie / Müller")).toBeTruthy();
+    screen.getByText("Immobilie / Müller");
   });
 
   test("selecting a different folder dispatches set-folder", async () => {
@@ -219,7 +219,7 @@ describe("FolderSection", () => {
         <FolderSection entityName="credit" entityId={null} />
       </Wrapper>,
     );
-    expect(screen.getByTestId("folder-section-create-mode")).toBeTruthy();
+    screen.getByTestId("folder-section-create-mode");
     expect(screen.queryByTestId("folder-section")).toBeNull();
   });
 });

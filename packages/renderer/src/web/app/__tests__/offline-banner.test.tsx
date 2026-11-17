@@ -40,6 +40,6 @@ describe("OfflineBanner", () => {
     act(() => {
       window.dispatchEvent(new Event("offline"));
     });
-    expect(screen.getByText(OFFLINE_TEXT)).toBeDefined();
+    screen.getByText(OFFLINE_TEXT);
   });
 });

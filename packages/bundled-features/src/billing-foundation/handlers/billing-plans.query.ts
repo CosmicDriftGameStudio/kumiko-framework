@@ -2,7 +2,7 @@
 // benefits, the caller's current tier and per-plan action. Only registered
 // when `createBillingFoundationFeature` gets a `catalog`.
 
-import type { HandlerContext, QueryHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { defineQueryHandler, type HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import {
   filterOfferedProviders,
@@ -38,8 +38,8 @@ const billingPlansSchema = z.object({}).strict();
 export function createBillingPlansQuery(
   options: ResolvedBillingFoundationOptions,
   catalog: BillingPlanCatalog,
-): QueryHandlerDef {
-  return {
+) {
+  return defineQueryHandler({
     name: "billing-plans",
     description:
       "Lists the purchasable plans with live price, benefits, the caller's current tier and which action (checkout | switch | current | unavailable | paymentPending) each plan offers, plus the optional price-less contact card. With several live providers it also lists each provider's own plans under `providers`.",
@@ -58,7 +58,7 @@ export function createBillingPlansQuery(
         ),
       };
     },
-  };
+  });
 }
 
 // A tenant with a blocking subscription sees only the provider holding it

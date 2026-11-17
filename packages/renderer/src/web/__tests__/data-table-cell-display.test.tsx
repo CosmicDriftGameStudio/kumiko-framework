@@ -72,7 +72,7 @@ describe("DataTableCell display", () => {
         display="badge"
       />,
     );
-    expect(screen.getByText("Open now")).toBeTruthy();
+    screen.getByText("Open now");
     expect(screen.queryByText("open")).toBeNull();
   });
 
@@ -87,7 +87,7 @@ describe("DataTableCell display", () => {
         display="badge"
       />,
     );
-    expect(screen.getByText("Ada Lovelace")).toBeTruthy();
+    screen.getByText("Ada Lovelace");
     expect(screen.queryByText("uuid-1")).toBeNull();
     unmount();
     render(
@@ -100,7 +100,7 @@ describe("DataTableCell display", () => {
         display="badge"
       />,
     );
-    expect(screen.getByText("March 4, 2026")).toBeTruthy();
+    screen.getByText("March 4, 2026");
   });
 
   test("button draws a linked value as an outline button, not as a text link", () => {
@@ -124,7 +124,7 @@ describe("DataTableCell display", () => {
       <DataTableCell value="Open order" row={{}} field="action" type="string" display="button" />,
     );
     expect(screen.queryByRole("link")).toBeNull();
-    expect(screen.getByText("Open order")).toBeTruthy();
+    screen.getByText("Open order");
   });
 });
 

@@ -116,7 +116,7 @@ describe("FilesDropzoneInput", () => {
       "id-old-1",
       "id-old-2",
     ]);
-    expect(getByText("id-old-1")).toBeTruthy();
+    getByText("id-old-1");
     expect(getAllByTestId("zone-row")).toHaveLength(2);
 
     fireEvent.click(getAllByTestId("zone-remove")[0] as HTMLElement);
@@ -132,7 +132,7 @@ describe("FilesDropzoneInput", () => {
       (async () => new Response(JSON.stringify({ files: [] }))) as unknown as typeof fetch,
     );
     const { getByText, queryByText } = mount(undefined, [fileId]);
-    await waitFor(() => expect(getByText("File no longer available")).toBeTruthy());
+    await waitFor(() => getByText("File no longer available"));
     expect(queryByText("…")).toBeNull();
   });
 
@@ -146,7 +146,7 @@ describe("FilesDropzoneInput", () => {
         )) as unknown as typeof fetch,
     );
     const { getByText, queryByText } = mount(undefined, [fileId]);
-    await waitFor(() => expect(getByText("Mietvertrag.pdf")).toBeTruthy());
+    await waitFor(() => getByText("Mietvertrag.pdf"));
     expect(queryByText(fileId)).toBeNull();
   });
 
@@ -162,7 +162,7 @@ describe("FilesDropzoneInput", () => {
     const { values, resetRef, queryByText, getByText } = mount();
     pick([pdf("a.pdf")]);
     await waitFor(() => expect(values.at(-1)).toHaveLength(1));
-    expect(getByText("a.pdf")).toBeTruthy();
+    getByText("a.pdf");
 
     act(() => resetRef.current());
 
@@ -177,7 +177,7 @@ describe("FilesDropzoneInput", () => {
 
     pick([pdf("huge.pdf")]);
 
-    await waitFor(() => expect(getByText("File is too large")).toBeTruthy());
+    await waitFor(() => getByText("File is too large"));
     expect(queryByText(/12 MB/)).toBeNull();
     expect(values).toEqual([]);
   });
@@ -187,7 +187,7 @@ describe("FilesDropzoneInput", () => {
 
     pick([new File(["x"], "Mietvertrag.docx")]);
 
-    await waitFor(() => expect(getByText("File type not allowed")).toBeTruthy());
+    await waitFor(() => getByText("File type not allowed"));
     expect(requests).toEqual([]);
   });
 
@@ -196,7 +196,7 @@ describe("FilesDropzoneInput", () => {
 
     pick([pdf("a.pdf"), pdf("b.pdf")]);
 
-    await waitFor(() => expect(getByText("At most 1 files")).toBeTruthy());
+    await waitFor(() => getByText("At most 1 files"));
     expect(values.at(-1)).toHaveLength(1);
     expect(requests).toHaveLength(1);
   });

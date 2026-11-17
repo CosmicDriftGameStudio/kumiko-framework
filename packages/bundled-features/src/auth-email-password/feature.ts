@@ -31,6 +31,7 @@ import {
 } from "./handlers/signup-request.write.ts";
 import { createSwitchTenantMfaGateHandler } from "./handlers/switch-tenant-mfa-gate.write.ts";
 import { createVerifyEmailHandler } from "./handlers/verify-email.write.ts";
+import { AUTH_EMAIL_PASSWORD_HANDLER_I18N } from "./i18n.ts";
 import {
   AUTH_MAIL_VARIABLES,
   authMailLocalizedTemplate,
@@ -192,6 +193,7 @@ export function createAuthEmailPasswordFeature(
     if (sendsMagicLinkMail(opts)) r.requires({ features: ["delivery"] });
     r.envSchema(authEmailPasswordEnvSchema);
     r.translations({ keys: AUTH_EMAIL_PASSWORD_MAIL_I18N });
+    r.translations({ keys: AUTH_EMAIL_PASSWORD_HANDLER_I18N });
 
     // Declared unconditionally: apps also issue the activation link from their
     // own flows (issueSignupActivation) without enabling the signup option.

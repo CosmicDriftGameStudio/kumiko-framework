@@ -7,7 +7,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
-import { requireSystemDb } from "../../shared/index.ts";
 import { globalFeatureStateTable } from "../global-feature-state-table.ts";
 import type { GlobalFeatureToggleRuntime } from "../toggle-runtime.ts";
 import {
@@ -43,6 +42,7 @@ export function createSetWriteHandler(getRuntime: (() => GlobalFeatureToggleRunt
     }),
     // Platform-operator action — SystemAdmin only.
     access: { roles: ["SystemAdmin"] },
+    systemScope: true,
     handler: async (event, ctx) => {
       const { featureName, enabled } = event.payload;
 
@@ -57,13 +57,7 @@ export function createSetWriteHandler(getRuntime: (() => GlobalFeatureToggleRunt
         );
       }
 
-      // Guard 0.5: feature-toggles is r.systemScope() (feature.ts), so
-      // ctx.systemDb is always populated by buildHandlerContext for this
-      // handler — the `?` on the type is a HandlerContext-wide optionality,
-      // not a real runtime possibility here. Guard anyway instead of a
-      // non-null assertion: an app that ever un-declares r.systemScope()
-      // gets an actionable error instead of a silent `undefined.acknowledgeCrossTenant`.
-      const systemDb = requireSystemDb(ctx, "feature-toggles:set-handler");
+      const { systemDb } = ctx;
       const db = systemDb.acknowledgeCrossTenant(FEATURE_TOGGLE_CROSS_TENANT_REASON);
 
       // Guard 1: featureName must be a registered feature. Otherwise we'd

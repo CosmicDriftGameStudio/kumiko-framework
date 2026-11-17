@@ -445,6 +445,47 @@ function checkRowFieldsAreColumns(
   }
 }
 
+function checkDashboardListPanelFields(
+  queryHandlers: ReadonlyMap<string, QueryHandlerDef>,
+  featureName: string,
+  screenId: string,
+  panel: DashboardListPanel,
+): void {
+  const usage = `[Feature ${featureName}] Screen "${screenId}" (dashboard) panel "${panel.id}"`;
+  const rowShape = listRowShapeOf(
+    panelOutputSchema(queryHandlers, panel, usage),
+    panel.query,
+    usage,
+  );
+  for (const column of panel.columns) {
+    checkColumnField(
+      rowShape,
+      column,
+      (field) =>
+        `[Feature ${featureName}] Screen "${screenId}" (dashboard) panel "${panel.id}" column "${field}" is not present in query "${panel.query}"'s outputSchema — check for a typo, or set virtual: true on it to mark it a virtual/computed column.`,
+    );
+  }
+  const { rowLink, narrow } = panel;
+  const rowLinkRefs = [
+    { option: "rowLink.paramField", field: rowLink?.paramField },
+    { option: "rowLink.screenField", field: rowLink?.screenField },
+    { option: "rowLink.paramsField", field: rowLink?.paramsField },
+    { option: "narrow.titleField", field: narrow?.titleField },
+    { option: "narrow.field", field: narrow?.field },
+  ].flatMap(({ option, field }) => (field === undefined ? [] : [{ option, field }]));
+  if (rowShape === undefined) {
+    checkRowFieldsAreColumns(featureName, screenId, panel, rowLinkRefs);
+  }
+  for (const { option, field } of [...listGuidanceFieldRefs(panel), ...rowLinkRefs]) {
+    checkFieldExists(
+      rowShape,
+      field,
+      () =>
+        `[Feature ${featureName}] Screen "${screenId}" (dashboard) list-panel "${panel.id}" ${option} references field "${field}" which is not present in query "${panel.query}"'s outputSchema. Check the field name for a typo or add the field to the outputSchema.`,
+    );
+  }
+}
+
 function checkDashboardOutputFields(
   queryHandlers: ReadonlyMap<string, QueryHandlerDef>,
   featureName: string,
@@ -466,39 +507,7 @@ function checkDashboardOutputFields(
         checkDashboardStatPanelFields(queryHandlers, featureName, screenId, stat);
       }
     } else if (panel.kind === "list") {
-      const usage = `[Feature ${featureName}] Screen "${screenId}" (dashboard) panel "${panel.id}"`;
-      const rowShape = listRowShapeOf(
-        panelOutputSchema(queryHandlers, panel, usage),
-        panel.query,
-        usage,
-      );
-      for (const column of panel.columns) {
-        checkColumnField(
-          rowShape,
-          column,
-          (field) =>
-            `[Feature ${featureName}] Screen "${screenId}" (dashboard) panel "${panel.id}" column "${field}" is not present in query "${panel.query}"'s outputSchema — check for a typo, or set virtual: true on it to mark it a virtual/computed column.`,
-        );
-      }
-      const { rowLink, narrow } = panel;
-      const rowLinkRefs = [
-        { option: "rowLink.paramField", field: rowLink?.paramField },
-        { option: "rowLink.screenField", field: rowLink?.screenField },
-        { option: "rowLink.paramsField", field: rowLink?.paramsField },
-        { option: "narrow.titleField", field: narrow?.titleField },
-        { option: "narrow.field", field: narrow?.field },
-      ].flatMap(({ option, field }) => (field === undefined ? [] : [{ option, field }]));
-      if (rowShape === undefined) {
-        checkRowFieldsAreColumns(featureName, screenId, panel, rowLinkRefs);
-      }
-      for (const { option, field } of [...listGuidanceFieldRefs(panel), ...rowLinkRefs]) {
-        checkFieldExists(
-          rowShape,
-          field,
-          () =>
-            `[Feature ${featureName}] Screen "${screenId}" (dashboard) list-panel "${panel.id}" ${option} references field "${field}" which is not present in query "${panel.query}"'s outputSchema. Check the field name for a typo or add the field to the outputSchema.`,
-        );
-      }
+      checkDashboardListPanelFields(queryHandlers, featureName, screenId, panel);
     } else if (panel.kind === "chart" || panel.kind === "feed" || panel.kind === "progress-list") {
       // Fixed query-result contract, no author-declared field names; only resultField is checked.
       panelOutputSchema(

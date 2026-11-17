@@ -123,7 +123,7 @@ describe("TextContentEditor — role-based write-access", () => {
     const Editor = getEditor();
     render(<Editor target={TARGET} onClose={() => {}} />, { wrapper: Wrapper });
 
-    expect(screen.getByText(/Read-only/)).toBeTruthy();
+    screen.getByText(/Read-only/);
     expect(saveButton().hasAttribute("disabled")).toBe(true);
   });
 
@@ -133,7 +133,7 @@ describe("TextContentEditor — role-based write-access", () => {
     const Editor = getEditor();
     render(<Editor target={TARGET} onClose={() => {}} />, { wrapper: Wrapper });
 
-    expect(screen.getByText(/Read-only/)).toBeTruthy();
+    screen.getByText(/Read-only/);
     expect(saveButton().hasAttribute("disabled")).toBe(true);
   });
 
@@ -143,7 +143,7 @@ describe("TextContentEditor — role-based write-access", () => {
     const Editor = getEditor();
     render(<Editor target={TARGET} onClose={() => {}} />, { wrapper: Wrapper });
 
-    expect(screen.getByText(/Read-only/)).toBeTruthy();
+    screen.getByText(/Read-only/);
     expect(saveButton().hasAttribute("disabled")).toBe(true);
   });
 });
@@ -156,8 +156,8 @@ describe("TextContentEditor — en locale", () => {
     render(<Editor target={TARGET} onClose={() => {}} />, { wrapper: EnglishWrapper });
 
     expect(saveButton().textContent).toBe("Save");
-    expect(screen.getByLabelText(/title/i)).toBeTruthy();
-    expect(screen.getByLabelText(/content/i)).toBeTruthy();
+    screen.getByLabelText(/title/i);
+    screen.getByLabelText(/content/i);
   });
 });
 

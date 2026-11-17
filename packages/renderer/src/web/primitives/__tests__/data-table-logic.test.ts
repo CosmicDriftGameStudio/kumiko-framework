@@ -48,7 +48,7 @@ describe("applyFormatSpec", () => {
   });
 
   test("currency: Intl amount in the locale", () => {
-    expect(applyFormatSpec({ format: "currency", currency: "EUR", locale: "de-DE" }, 42)).toBe(
+    expect(applyFormatSpec({ format: "currency", currency: "EUR", locale: "de-DE" }, 4200)).toBe(
       "42,00\u00a0€",
     );
   });
@@ -274,7 +274,7 @@ describe("defaultCellRender", () => {
   });
 
   test("money → { amount, currency } formatted, not [object Object]", () => {
-    const result = defaultCellRender({ amount: 450, currency: "EUR" }, "money");
+    const result = defaultCellRender({ amount: 45000, currency: "EUR" }, "money");
     expect(result).not.toBe("[object Object]");
     expect(result.replace(/[^0-9]/g, "")).toBe("45000");
   });

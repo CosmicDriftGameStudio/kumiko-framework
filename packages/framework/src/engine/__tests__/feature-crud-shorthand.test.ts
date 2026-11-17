@@ -90,7 +90,7 @@ describe("duplicate handler names inside one feature", () => {
         });
       }),
     ).toThrow(
-      /Feature "dup-crud" registers the query handler "task:detail" twice\. r\.crud\("task", \.\.\.\) already registers that name; use a distinct name or drop the "detail" verb from r\.crud\./,
+      /Feature "dup-crud" registers the query handler "task:detail" twice\. r\.crud\(\) for "task" already registers that name; use a distinct name or drop the "detail" verb from r\.crud\./,
     );
   });
 

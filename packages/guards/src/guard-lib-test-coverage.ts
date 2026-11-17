@@ -161,6 +161,66 @@ function exceptionViolation(
   };
 }
 
+function splitTestAndLibFiles(files: readonly SourceFile[]): {
+  testFiles: SourceFile[];
+  libFiles: SourceFile[];
+} {
+  const testFiles: SourceFile[] = [];
+  const libFiles: SourceFile[] = [];
+  for (const sf of files) {
+    if (isTestFile(sf.getFilePath())) testFiles.push(sf);
+    else if (!sf.getFilePath().endsWith(".d.ts") && !isTestSupportFile(sf.getFilePath()))
+      libFiles.push(sf);
+  }
+  return { testFiles, libFiles };
+}
+
+function scanLibFile(
+  sf: SourceFile,
+  testFiles: readonly SourceFile[],
+  violations: GuardViolation[],
+): void {
+  const fileTag = fileIgnoreTagLine(sf, GUARD_SLUG);
+  if (fileTag !== undefined) {
+    const fileProblem = citationProblem(fileTag, testFiles);
+    if (fileProblem !== undefined) {
+      violations.push(exceptionViolation(sf, 1, "this file", fileProblem));
+    }
+    return;
+  }
+  const libPathNoExt = stripExt(sf.getFilePath());
+  const linked = testFiles.filter((t) => testImportsLib(t, libPathNoExt));
+  const untested: Export[] = [];
+  for (const e of exportedCallables(sf)) {
+    if (linked.some((t) => referencesName(t, e.name))) continue;
+    const tagLine = ignoreTagLine(e.node, IGNORE_TAG);
+    if (tagLine === undefined) {
+      untested.push(e);
+      continue;
+    }
+    const problem = citationProblem(tagLine, testFiles);
+    if (problem === undefined) continue;
+    violations.push(exceptionViolation(sf, e.node.getStartLineNumber(), `"${e.name}"`, problem));
+  }
+  if (untested.length === 0) return;
+  if (linked.length === 0) {
+    violations.push({
+      file: sf.getFilePath(),
+      line: 1,
+      message: `No test imports this lib module (${untested.length} exported function(s) untested)`,
+    });
+    return;
+  }
+
+  for (const e of untested) {
+    violations.push({
+      file: sf.getFilePath(),
+      line: e.node.getStartLineNumber(),
+      message: `Exported function "${e.name}" is not referenced by name in any linked test`,
+    });
+  }
+}
+
 export const guard: AstGuard = {
   name: "Lib-Test-Coverage Guard (App-Repos)",
   ignoreTag: IGNORE_TAG,
@@ -172,56 +232,8 @@ export const guard: AstGuard = {
     `A whole file: // ${FILE_IGNORE_TAG_PREFIX} ${GUARD_SLUG} integration-covered via <path/to/x.test.ts> in the leading comment`,
   run(files: readonly SourceFile[]) {
     const violations: GuardViolation[] = [];
-    const testFiles: SourceFile[] = [];
-    const libFiles: SourceFile[] = [];
-    for (const sf of files) {
-      if (isTestFile(sf.getFilePath())) testFiles.push(sf);
-      else if (!sf.getFilePath().endsWith(".d.ts") && !isTestSupportFile(sf.getFilePath()))
-        libFiles.push(sf);
-    }
-    for (const sf of libFiles) {
-      const fileTag = fileIgnoreTagLine(sf, GUARD_SLUG);
-      if (fileTag !== undefined) {
-        const fileProblem = citationProblem(fileTag, testFiles);
-        if (fileProblem !== undefined) {
-          violations.push(exceptionViolation(sf, 1, "this file", fileProblem));
-        }
-        continue;
-      }
-      const libPathNoExt = stripExt(sf.getFilePath());
-      const linked = testFiles.filter((t) => testImportsLib(t, libPathNoExt));
-      const untested: Export[] = [];
-      for (const e of exportedCallables(sf)) {
-        if (linked.some((t) => referencesName(t, e.name))) continue;
-        const tagLine = ignoreTagLine(e.node, IGNORE_TAG);
-        if (tagLine === undefined) {
-          untested.push(e);
-          continue;
-        }
-        const problem = citationProblem(tagLine, testFiles);
-        if (problem === undefined) continue;
-        violations.push(
-          exceptionViolation(sf, e.node.getStartLineNumber(), `"${e.name}"`, problem),
-        );
-      }
-      if (untested.length === 0) continue;
-      if (linked.length === 0) {
-        violations.push({
-          file: sf.getFilePath(),
-          line: 1,
-          message: `No test imports this lib module (${untested.length} exported function(s) untested)`,
-        });
-        continue;
-      }
-
-      for (const e of untested) {
-        violations.push({
-          file: sf.getFilePath(),
-          line: e.node.getStartLineNumber(),
-          message: `Exported function "${e.name}" is not referenced by name in any linked test`,
-        });
-      }
-    }
+    const { testFiles, libFiles } = splitTestAndLibFiles(files);
+    for (const sf of libFiles) scanLibFile(sf, testFiles, violations);
     return { violations };
   },
 };

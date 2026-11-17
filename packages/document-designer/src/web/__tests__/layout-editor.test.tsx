@@ -239,7 +239,7 @@ describe("LayoutEditor", () => {
       within(screen.getByTestId("layout-mjml-tab")).getByRole("button", { name: "Draft" }),
     );
     await screen.findByTestId("document-designer-paper");
-    expect(screen.getByTestId("document-designer-mjml-preview")).toBeDefined();
+    screen.getByTestId("document-designer-mjml-preview");
   });
 
   test("publishing as platform admin saves and then publishes the saved version", async () => {

@@ -187,7 +187,7 @@ describe("generated extension-selector dashboard", () => {
     renderHub(createMockDispatcher({ query: hubQuery({ provider: "smtp" }) }));
 
     await waitFor(() => screen.getByTestId("field-mail-smtp-host"));
-    expect(screen.getByTestId("field-mail-smtp-password")).toBeTruthy();
+    screen.getByTestId("field-mail-smtp-password");
     expect(screen.queryByTestId("field-mail-inmemory-capture")).toBeNull();
     expect(screen.queryByTestId("dashboard-panel-mail-smtp-config")).toBeNull();
   });
@@ -286,7 +286,7 @@ describe("generated extension-selector dashboard", () => {
       }),
     );
     await waitFor(() => screen.getByTestId("field-mail-smtp-password"));
-    expect(screen.getByText("•••••••••• set")).toBeTruthy();
+    screen.getByText("•••••••••• set");
 
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Replace" }));

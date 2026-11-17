@@ -1,11 +1,11 @@
 import { fetchOne, runInSavepointIfSupported } from "@cosmicdrift/kumiko-framework/db";
-import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { type AccessRule, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { ValidationError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { decryptStoredPii, denyUnlessJoinRowParentVisible } from "../../shared/index.ts";
 import { tenantMembershipsTable } from "../../tenant/index.ts";
 import { userTable } from "../../user/index.ts";
 import { type noteEntryExecutor, noteMentionExecutor } from "../executor.ts";
-import { type AddNotePayload, addNotePayloadSchema } from "../schemas.ts";
+import { addNotePayloadSchema } from "../schemas.ts";
 
 const READ_AUTHOR_DISPLAY_NAME_REASON =
   "reads the author's displayName from the global users table inside a savepoint so a missing user feature cannot poison the note transaction";
@@ -22,11 +22,8 @@ const READ_AUTHOR_DISPLAY_NAME_REASON =
 // Both the field names and the `parents` allowlist come from the
 // entity's own `parentRef` declaration, which the read gate reads too —
 // see shared/parent-visibility.ts.
-export function createAddNoteHandler(
-  access: AccessRule,
-  entryExecutor: typeof noteEntryExecutor,
-): WriteHandlerDef {
-  return {
+export function createAddNoteHandler(access: AccessRule, entryExecutor: typeof noteEntryExecutor) {
+  return defineWriteHandler({
     name: "add-note",
     schema: addNotePayloadSchema,
     access,
@@ -37,7 +34,7 @@ export function createAddNoteHandler(
       reason: READ_AUTHOR_DISPLAY_NAME_REASON,
     },
     handler: async (event, ctx) => {
-      const payload = event.payload as AddNotePayload; // @cast-boundary engine-payload
+      const payload = event.payload;
 
       const denied = await denyUnlessJoinRowParentVisible(
         ctx.registry,
@@ -108,5 +105,5 @@ export function createAddNoteHandler(
 
       return created;
     },
-  };
+  });
 }

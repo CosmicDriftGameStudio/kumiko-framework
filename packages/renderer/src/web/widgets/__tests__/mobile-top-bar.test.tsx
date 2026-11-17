@@ -12,9 +12,9 @@ describe("MobileTopBar", () => {
         actions={<button type="button">Menü</button>}
       />,
     );
-    expect(screen.getByText("Posteingang · 1 von 5 offen")).toBeTruthy();
-    expect(screen.getByText("KI an")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Menü" })).toBeTruthy();
+    screen.getByText("Posteingang · 1 von 5 offen");
+    screen.getByText("KI an");
+    screen.getByRole("button", { name: "Menü" });
     expect(screen.queryByTestId("mobile-top-bar-back")).toBeNull();
   });
 

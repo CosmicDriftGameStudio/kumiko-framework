@@ -3,10 +3,12 @@
  * Guard: tests must actually assert something. Flags:
  *   (a) Always-true assertions: expect(true).toBe(true), expect(1).toBe(1),
  *       or a value compared with itself
- *   (b) Test bodies with zero expect() calls
+ *   (b) Test bodies without an assertion (expect(), writeOk/writeErr/queryOk/
+ *       queryErr, assertion helpers, Testing Library getBy and findBy queries)
  *   (c) An existence-only check (toBeDefined/toBeTruthy/not.toBeNull/
  *       not.toBeUndefined) on a writeErr/queryErr result, which always
- *       returns an error object
+ *       returns an error object, or on a Testing Library getBy or findBy
+ *       query, which throws when nothing matches
  *
  * All are silent failures — they count as "passing" but prove nothing. In
  * integration tests this is particularly toxic, since the whole point is to
@@ -34,10 +36,12 @@ const SCAN: ScanSpec = {
   kinds: ["framework", "library", "app"],
 };
 
+type ExistenceViolationKind = "error-existence" | "query-existence";
+
 interface Violation {
   file: string;
   line: number;
-  kind: "tautology" | "no-expect" | "error-existence";
+  kind: "tautology" | "no-expect" | ExistenceViolationKind;
   detail: string;
 }
 
@@ -48,7 +52,7 @@ const TAUTOLOGIES = [
   /^expect\(\s*['"]\w+['"]\s*\)\.toBe\(\s*['"]\w+['"]\s*\)$/,
 ];
 
-function isTestCall(call: CallExpression, aliases: ReadonlyMap<string, string>): boolean {
+export function isTestCall(call: CallExpression, aliases: ReadonlyMap<string, string>): boolean {
   return TEST_CASE_CALLEE.test(
     canonicalCalleeText(declarationBaseCallee(call.getExpression()).getText(), aliases),
   );
@@ -122,15 +126,15 @@ function isErrorResultValue(node: Node, sf: SourceFile): boolean {
   });
 }
 
-function isExpectCall(node: Node): node is CallExpression {
+export function isExpectCall(node: Node): node is CallExpression {
   return node.isKind(SyntaxKind.CallExpression) && node.getExpression().getText() === "expect";
 }
 
-// writeErr/queryErr return an error object or throw, so asserting only that
-// the result exists can never fail.
-function isExistenceOnlyErrorCheck(call: CallExpression, sf: SourceFile): boolean {
+// The single expect() argument when `call` is an existence-only matcher
+// (toBeDefined/toBeTruthy, not.toBeNull/not.toBeUndefined).
+function existenceCheckSubject(call: CallExpression): Node | undefined {
   const matcher = call.getExpression();
-  if (!matcher.isKind(SyntaxKind.PropertyAccessExpression)) return false;
+  if (!matcher.isKind(SyntaxKind.PropertyAccessExpression)) return undefined;
   const target = matcher.getExpression();
   let expectCall: Node;
   if (EXISTENCE_ONLY_MATCHERS.has(matcher.getName())) {
@@ -142,12 +146,68 @@ function isExistenceOnlyErrorCheck(call: CallExpression, sf: SourceFile): boolea
   ) {
     expectCall = target.getExpression();
   } else {
-    return false;
+    return undefined;
   }
-  if (!isExpectCall(expectCall)) return false;
+  if (!isExpectCall(expectCall)) return undefined;
   const args = expectCall.getArguments();
-  const actual = args[0];
-  return args.length === 1 && actual !== undefined && isErrorResultValue(actual, sf);
+  return args.length === 1 ? args[0] : undefined;
+}
+
+// Testing Library queries that throw when nothing matches. queryBy* returns null
+// instead and is deliberately absent; the suffix list keeps repository lookups
+// such as findById out.
+const THROWING_QUERY_NAME =
+  /^(?:get|getAll|find|findAll)By(?:Role|LabelText|PlaceholderText|Text|DisplayValue|AltText|Title|TestId)$/;
+const ASYNC_QUERY_NAME = /^find(?:All)?By/;
+
+function calleeName(call: CallExpression): string | undefined {
+  const callee = call.getExpression();
+  if (callee.isKind(SyntaxKind.Identifier)) return callee.getText();
+  if (callee.isKind(SyntaxKind.PropertyAccessExpression)) return callee.getName();
+  return undefined;
+}
+
+function isThrowingQueryCall(call: CallExpression): boolean {
+  return THROWING_QUERY_NAME.test(calleeName(call) ?? "");
+}
+
+// A findBy* promise only fails the test when something waits for it.
+function isAwaitedOrReturned(call: CallExpression): boolean {
+  let node: Node = call;
+  let parent = node.getParent();
+  while (parent?.isKind(SyntaxKind.ParenthesizedExpression)) {
+    node = parent;
+    parent = node.getParent();
+  }
+  if (parent === undefined) return false;
+  if (parent.isKind(SyntaxKind.AwaitExpression) || parent.isKind(SyntaxKind.ReturnStatement)) {
+    return true;
+  }
+  return parent.isKind(SyntaxKind.ArrowFunction) && parent.getBody() === node;
+}
+
+function isThrowingQueryAssertion(call: CallExpression): boolean {
+  if (!isThrowingQueryCall(call)) return false;
+  return !ASYNC_QUERY_NAME.test(calleeName(call) ?? "") || isAwaitedOrReturned(call);
+}
+
+function isThrowingQueryValue(node: Node): boolean {
+  const inner = node.isKind(SyntaxKind.AwaitExpression) ? node.getExpression() : node;
+  return inner.isKind(SyntaxKind.CallExpression) && isThrowingQueryCall(inner);
+}
+
+// writeErr/queryErr return an error object or throw, and a getBy/findBy query
+// throws when nothing matches, so asserting only that either exists can never fail.
+// Chains such as getByTestId(...).querySelector(...) are real checks and stay allowed.
+function existenceOnlyKind(
+  call: CallExpression,
+  sf: SourceFile,
+): ExistenceViolationKind | undefined {
+  const subject = existenceCheckSubject(call);
+  if (subject === undefined) return undefined;
+  if (isErrorResultValue(subject, sf)) return "error-existence";
+  if (isThrowingQueryValue(subject)) return "query-existence";
+  return undefined;
 }
 
 // Helpers that internally call `expect(...)` and assert something —
@@ -173,11 +233,12 @@ const ASSERTION_API_METHODS = new Set(["writeOk", "writeErr", "queryOk", "queryE
 
 const MAX_HELPER_DEPTH = 3;
 
-function isDirectAssertionCall(call: CallExpression): boolean {
+export function isDirectAssertionCall(call: CallExpression): boolean {
   const expr = call.getExpression();
   const text = expr.getText();
   if (text === "expect" || text.startsWith("expect.")) return true;
   if (ASSERTION_HELPER_NAMES.has(text)) return true;
+  if (isThrowingQueryAssertion(call)) return true;
   if (!expr.isKind(SyntaxKind.PropertyAccessExpression)) return false;
   const name = expr.getName();
   return ASSERTION_API_METHODS.has(name);
@@ -188,7 +249,7 @@ function isDirectAssertionCall(call: CallExpression): boolean {
 // to a declaration in the SAME file (function declaration, or a variable
 // initialized with an arrow/function expression) whose own body asserts —
 // recursively, so a chain of thin wrappers around expect() still counts.
-function resolveSameFileHelper(sf: SourceFile, identifier: Node): Node | undefined {
+export function resolveSameFileHelper(sf: SourceFile, identifier: Node): Node | undefined {
   for (const decl of identifier.getSymbol()?.getDeclarations() ?? []) {
     if (decl.getSourceFile() !== sf) continue;
     if (decl.isKind(SyntaxKind.FunctionDeclaration)) return decl;
@@ -208,7 +269,7 @@ function resolveSameFileHelper(sf: SourceFile, identifier: Node): Node | undefin
 // treated as unproven (violation), a recursive helper never infinite-loops, and
 // a helper first reached at the depth limit is still explored when reached
 // again via a shorter path.
-function bodyHasAssertion(
+export function bodyHasAssertion(
   node: Node,
   sf: SourceFile,
   depth: number,
@@ -246,12 +307,13 @@ function scanFile(sf: SourceFile): Violation[] {
       continue;
     }
 
-    // (c) existence-only check on a writeErr/queryErr result
-    if (isExistenceOnlyErrorCheck(call, sf)) {
+    // (c) existence-only check on an error result or a throwing Testing Library query
+    const existenceKind = existenceOnlyKind(call, sf);
+    if (existenceKind !== undefined) {
       violations.push({
         file: path.relative(ROOT, sf.getFilePath()),
         line: call.getStartLineNumber(),
-        kind: "error-existence",
+        kind: existenceKind,
         detail: text.slice(0, 60),
       });
       continue;
@@ -284,13 +346,15 @@ const VIOLATION_LABELS: Record<Violation["kind"], string> = {
   tautology: "TAUTOLOGY",
   "error-existence":
     "ERROR EXISTS ONLY (writeErr/queryErr always return an error; assert its code or details)",
+  "query-existence":
+    "QUERY EXISTS ONLY (getBy*/findBy* throw when nothing matches; call the query without expect or assert its content)",
   "no-expect": "NO EXPECT",
 };
 
 export const guard: AstGuard = {
   name: "Fake-Test Guard",
   scan: SCAN,
-  hint: "Test without expect(), with a tautology, or an existence-only check on a writeErr/queryErr result — check real behavior, not existence.",
+  hint: "Test without an assertion, with a tautology, or an existence-only check on a writeErr/queryErr result or a getBy*/findBy* query — check real behavior, not existence.",
   run(files) {
     const violations: Array<{ file: string; line: number; message: string }> = [];
     for (const sf of files) {

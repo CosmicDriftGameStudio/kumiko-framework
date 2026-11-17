@@ -101,7 +101,7 @@ async function submitWithNote(): Promise<void> {
 describe("actionForm successMessage", () => {
   test("names the chosen record's label, not its id, after a successful submit", async () => {
     renderScreen(TIER_ACTION_FORM);
-    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-form"));
 
     await submitWithNote();
 
@@ -135,7 +135,7 @@ describe("actionForm successMessage", () => {
       write: async () => ({ isSuccess: true, data: {} }),
     });
     renderScreen(TIER_ACTION_FORM, "ok", crowdedDirectory, { tenantId: "t-250" });
-    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-form"));
 
     await submitWithNote();
 
@@ -148,21 +148,21 @@ describe("actionForm successMessage", () => {
 
   test("shows no message when the handler rejects the submit", async () => {
     renderScreen(TIER_ACTION_FORM, "rejected");
-    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-form"));
 
     await submitWithNote();
 
-    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-form"));
     expect(screen.queryByTestId("action-form-success")).toBeNull();
   });
 
   test("shows no message when the screen declares none", async () => {
     renderScreen({ ...TIER_ACTION_FORM, successMessage: undefined });
-    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-form"));
 
     await submitWithNote();
 
-    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-form"));
     expect(screen.queryByTestId("action-form-success")).toBeNull();
   });
 });

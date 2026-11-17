@@ -86,7 +86,7 @@ describe("chromeless screen panel head", () => {
     renderBoard(
       dashboardWith([{ kind: "screen", id: "site", screen: "site-detail", chromeless: true }]),
     );
-    await waitFor(() => expect(screen.getByTestId("dashboard-panel-site-title")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("dashboard-panel-site-title"));
     expect(screen.getByTestId("dashboard-panel-site-title").textContent).toBe("site-detail");
     expect(screen.getByTestId("dashboard-panel-site-description").textContent).toBe(
       "About this site",
@@ -100,7 +100,7 @@ describe("updated-at stamp", () => {
     renderBoard(
       dashboardWith([{ kind: "screen", id: "site", screen: "site-detail", chromeless: true }]),
     );
-    await waitFor(() => expect(screen.getByTestId("dashboard-panel-site-title")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("dashboard-panel-site-title"));
     expect(screen.queryByTestId("dashboard-board-updated-at")).toBeNull();
   });
 
@@ -116,7 +116,7 @@ describe("updated-at stamp", () => {
         },
       ]),
     );
-    await waitFor(() => expect(screen.getByTestId("dashboard-board-updated-at")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("dashboard-board-updated-at"));
   });
 });
 
@@ -186,7 +186,7 @@ describe("embedded list description", () => {
           </DispatcherProvider>
         </BrowserNav>,
       );
-      await waitFor(() => expect(screen.getByText("Alpha")).toBeTruthy());
+      await waitFor(() => screen.getByText("Alpha"));
       expect(screen.getAllByText("Open tasks")).toHaveLength(1);
       expect(screen.getByTestId("dashboard-panel-tasks-description").textContent).toBe(
         "Open tasks",

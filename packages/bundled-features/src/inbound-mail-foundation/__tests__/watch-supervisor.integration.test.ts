@@ -21,7 +21,6 @@ import {
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   resetPiiSubjectKmsForTests,
-  sleep,
   updateRows,
   waitFor,
 } from "@cosmicdrift/kumiko-testing/helpers";
@@ -712,10 +711,21 @@ describe("watch-supervisor — multi-worker watch coordination", () => {
         expect(isWatching(accountId)).toBe(true);
       });
 
-      // 2.5x the 1s TTL: long enough that a dead heartbeat guarantees the
-      // key expired (1.5x left this indistinguishable from Redis's
-      // second-granularity EX not having rolled over yet).
-      await sleep(2500);
+      // Each heartbeat renew resets the key's PTTL upward. Three observed
+      // resets span more than the 1s TTL, so a dead heartbeat would have let
+      // the key expire before the count is reached.
+      const leaseKey = `test-watch-lease-renew:${accountId}`;
+      let previousPttlMs = -1;
+      let observedRenewals = 0;
+      await waitFor(
+        async () => {
+          const pttlMs = await stack.redis.redis.pttl(leaseKey);
+          if (previousPttlMs >= 0 && pttlMs > previousPttlMs) observedRenewals++;
+          previousPttlMs = pttlMs;
+          expect(observedRenewals).toBeGreaterThanOrEqual(3);
+        },
+        { delays: Array.from({ length: 80 }, () => 50) },
+      );
 
       // Direct probe of the invariant: the lease itself must still be held,
       // independent of B's behavior below (which only infers it indirectly).

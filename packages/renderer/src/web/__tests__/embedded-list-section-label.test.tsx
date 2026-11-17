@@ -64,14 +64,14 @@ function fieldLabel(): HTMLElement {
 describe("embedded list label next to the section title", () => {
   test("is screen-reader only when it equals the section title", async () => {
     mount("demo.section.same");
-    await waitFor(() => expect(screen.getByTestId("field-lines")).toBeDefined());
+    await waitFor(() => screen.getByTestId("field-lines"));
     expect(fieldLabel().textContent).toContain("Positionen");
     expect(fieldLabel().className).toContain("sr-only");
   });
 
   test("stays visible when the section title differs", async () => {
     mount("demo.section.other");
-    await waitFor(() => expect(screen.getByTestId("field-lines")).toBeDefined());
+    await waitFor(() => screen.getByTestId("field-lines"));
     expect(fieldLabel().textContent).toContain("Positionen");
     expect(fieldLabel().className).not.toContain("sr-only");
   });

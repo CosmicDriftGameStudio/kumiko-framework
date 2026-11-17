@@ -1,5 +1,6 @@
 import { validateExtensionPreSaveWiring } from "./boot-validator/entity-handler.ts";
 import { dedupeFeatures } from "./dedupe-features.ts";
+import { applyExtensionUsages } from "./registry-extension-usages.ts";
 import { buildRegistryFacade } from "./registry-facade.ts";
 import {
   populateClaimsAndAuth,
@@ -18,7 +19,6 @@ import {
 import { populateReadModelEntities } from "./registry-read-models.ts";
 import { createInitialState } from "./registry-state.ts";
 import {
-  applyExtensionUsages,
   autoWireSoftDeleteJobs,
   buildEntityEventUpcasterChains,
   buildEventUpcasterChains,

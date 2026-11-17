@@ -21,7 +21,7 @@ import {
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import type { Redis } from "ioredis";
 import * as z from "zod";
-import { decryptStoredPii, requireSystemDb } from "../../shared/index.ts";
+import { decryptStoredPii } from "../../shared/index.ts";
 import { userTable } from "../../user/index.ts";
 import { cancelPendingInvitation } from "../cancel-pending-invitation.ts";
 import { INVITATION_STATUS, tenantInvitationsTable } from "../invitation-table.ts";
@@ -75,11 +75,12 @@ export const removeMemberWrite = defineWriteHandler({
   name: "removeMember",
   schema: z.object({ userId: z.string(), tenantId: z.string() }),
   access: { roles: ["SystemAdmin"] },
+  systemScope: true,
   description:
     "Removes a user's membership in a tenant and signs their sessions in that tenant out, refusing to strip the tenant's last TenantAdmin; use it when someone should lose access to a workspace.",
   agent: { risk: "high" },
   handler: async (event, ctx) => {
-    const systemDb = requireSystemDb(ctx, "tenant:write:removeMember");
+    const { systemDb } = ctx;
     const db = systemDb.acknowledgeCrossTenant("SystemAdmin manages memberships across tenants");
     const streamTenantId = parseTenantId(event.payload.tenantId);
     const existing =

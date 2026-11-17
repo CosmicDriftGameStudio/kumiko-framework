@@ -69,7 +69,7 @@ describe("LanguageSwitcher", () => {
     // The trigger shows the locale code in the DOM. Tailwind only
     // uppercases it visually via CSS, the text node stays lowercase.
     // That is fine, getByText sees the DOM text.
-    expect(screen.getByText("de")).toBeTruthy();
+    screen.getByText("de");
   });
 
   test("chip variant renders a bordered mono chip with the uppercase code and no icon", () => {
@@ -134,8 +134,8 @@ describe("LanguageSwitcher", () => {
     const resolver = makeStatefulResolver("de");
     renderWithResolver(resolver, <LanguageSwitcher locales={locales} testId="lang" />);
     await user.click(screen.getByRole("button", { name: "Sprache" }));
-    expect(screen.getByText("Deutsch")).toBeTruthy();
-    expect(screen.getByText("English")).toBeTruthy();
+    screen.getByText("Deutsch");
+    screen.getByText("English");
   });
 
   test("clicking a locale calls resolver.setLocale", async () => {
@@ -150,7 +150,7 @@ describe("LanguageSwitcher", () => {
   test("trigger accessible name follows the active locale (en → Language)", () => {
     const resolver = makeStatefulResolver("en");
     renderWithResolver(resolver, <LanguageSwitcher locales={locales} testId="lang" />);
-    expect(screen.getByRole("button", { name: "Language" })).toBeTruthy();
+    screen.getByRole("button", { name: "Language" });
   });
 
   test("matches active locale via language-root (de-AT → de)", async () => {
@@ -192,7 +192,7 @@ describe("LanguageSwitcher", () => {
     test("the app root is not aria-hidden while the menu is open", async () => {
       await openInsideLandmarks();
       expect(screen.getByTestId("app-root").getAttribute("aria-hidden")).toBeNull();
-      expect(screen.getByRole("button", { name: "Sprache" })).toBeTruthy();
+      screen.getByRole("button", { name: "Sprache" });
     });
 
     test("the menu is rendered inside the header landmark", async () => {

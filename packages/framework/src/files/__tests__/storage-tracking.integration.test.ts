@@ -114,6 +114,18 @@ async function restoreFile(user: SessionUser, id: string): Promise<void> {
   if (!result.isSuccess) throw new Error(`restore failed: ${JSON.stringify(result)}`);
 }
 
+async function forgetFile(user: SessionUser, id: string): Promise<void> {
+  const executor = createEventStoreExecutor(fileRefsTable, fileRefEntity, {
+    entityName: "fileRef",
+  });
+  const result = await executor.forget(
+    { id },
+    user,
+    createTenantDb({ db: stack.db, tenantId: user.tenantId }),
+  );
+  if (!result.isSuccess) throw new Error(`forget failed: ${JSON.stringify(result)}`);
+}
+
 async function usageFor(tenantId: string): Promise<{ totalBytes: number; fileCount: number }> {
   const [row] = await selectMany(stack.db, tenantStorageUsageTable, { tenantId });
   return row
@@ -169,6 +181,29 @@ describe("tenant-storage-usage MSP", () => {
 
     const usage = await usageFor(admin.tenantId);
     expect(usage).toEqual({ totalBytes: LARGE.length, fileCount: 1 });
+  });
+
+  test("forget of an active file lowers totalBytes and fileCount to zero", async () => {
+    const id = await upload(admin, "a.png", SMALL);
+    await stack.eventDispatcher?.runOnce();
+    expect(await usageFor(admin.tenantId)).toEqual({ totalBytes: SMALL.length, fileCount: 1 });
+
+    await forgetFile(admin, id);
+    await stack.eventDispatcher?.runOnce();
+
+    expect(await usageFor(admin.tenantId)).toEqual({ totalBytes: 0, fileCount: 0 });
+  });
+
+  test("delete then forget subtracts the file once", async () => {
+    const id = await upload(admin, "a.png", SMALL);
+    await stack.eventDispatcher?.runOnce();
+
+    await deleteFile(admin, id);
+    await stack.eventDispatcher?.runOnce();
+    await forgetFile(admin, id);
+    await stack.eventDispatcher?.runOnce();
+
+    expect(await usageFor(admin.tenantId)).toEqual({ totalBytes: 0, fileCount: 0 });
   });
 
   test("restore re-increments after delete — round-trip leaves usage unchanged", async () => {

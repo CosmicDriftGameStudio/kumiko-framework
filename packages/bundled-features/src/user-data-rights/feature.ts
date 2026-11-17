@@ -24,6 +24,7 @@ import { createRequestDeletionByEmailHandler } from "./handlers/request-deletion
 import { requestExportWrite } from "./handlers/request-export.write.ts";
 import { restrictAccountWrite } from "./handlers/restrict-account.write.ts";
 import { createRunForgetCleanupHandler } from "./handlers/run-forget-cleanup.write.ts";
+import { USER_DATA_RIGHTS_HANDLER_I18N } from "./i18n.ts";
 import { type ExportJobWarnings, registerUserDataRightsJobs } from "./jobs.ts";
 import { registerGdprMails } from "./mail-notifications.ts";
 import type { UserDataRightsOptions } from "./options.ts";
@@ -119,9 +120,9 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
       },
     }).tenantModel;
 
-    r.entity({ ...exportJobEntity, name: "export-job" });
-    r.entity({ ...exportDownloadTokenEntity, name: "export-download-token" });
-    r.entity({ ...downloadAttemptEntity, name: "download-attempt" });
+    r.entity(exportJobEntity);
+    r.entity(exportDownloadTokenEntity);
+    r.entity(downloadAttemptEntity);
 
     // The login block for restricted users lives in auth-email-password/login.write.ts.
     r.writeHandler(restrictAccountWrite);
@@ -206,6 +207,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
     });
 
     r.translations({ keys: USER_DATA_RIGHTS_I18N });
+    r.translations({ keys: USER_DATA_RIGHTS_HANDLER_I18N });
     registerGdprMails(r);
 
     r.translations({ keys: PRIVACY_CENTER_TRANSLATIONS });

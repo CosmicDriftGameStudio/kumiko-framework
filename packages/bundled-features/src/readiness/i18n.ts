@@ -1,6 +1,11 @@
+import { handlerFieldLabelKey, handlerTitleKey } from "@cosmicdrift/kumiko-framework/engine";
+import { ReadinessWrites as H } from "./constants.ts";
+
 type LocalizedString = { readonly en: string };
 
 export const READINESS_I18N: Readonly<Record<string, LocalizedString>> = {
+  [handlerTitleKey(H.runProbes)]: { en: "Run system check" },
+  [handlerFieldLabelKey(H.runProbes, "includePaid")]: { en: "Include paid checks" },
   "readiness.area.infrastructure": { en: "Infrastructure" },
   "readiness.area.run": { en: "System check" },
   "readiness.probe.run": { en: "Run of the system check" },

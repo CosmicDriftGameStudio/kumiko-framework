@@ -1,7 +1,7 @@
 // RFC 4180 CSV: a cell with the delimiter, a quote or a line break is quoted, and a quote inside is
 // doubled. Cells are returned verbatim (no trim), so callers trim what they need.
 
-export type CsvDelimiter = "," | ";" | "\t";
+export type CsvDelimiter = "," | ";" | "\t" | "|";
 
 export type CsvRecord = {
   /** Physical line the record starts on; the first line is 1. */

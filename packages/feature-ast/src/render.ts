@@ -223,8 +223,12 @@ function renderDescribe(p: DescribePattern): string {
 function renderEntity(p: EntityPattern): string {
   // A whole-value raw-ref (`eventEntity`) is an entity that already carries its name.
   if (isRawRefSentinel(p.definition)) {
+    const backingTable = p.backingTable ? `, backingTable: ${p.backingTable.__raw}` : "";
+    if (p.overridesName) {
+      return `r.entity({ ...${p.definition.__raw}, name: ${JSON.stringify(p.entityName)}${backingTable} });`;
+    }
     if (!p.backingTable) return `r.entity(${p.definition.__raw});`;
-    return `r.entity({ ...${p.definition.__raw}, backingTable: ${p.backingTable.__raw} });`;
+    return `r.entity({ ...${p.definition.__raw}${backingTable} });`;
   }
   const merged = { name: p.entityName, ...p.definition };
   return `r.entity(${renderValue(merged)});`;

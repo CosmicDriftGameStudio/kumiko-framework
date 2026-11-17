@@ -110,3 +110,38 @@ The analysis spans the whole project root (nearest `biome.json`, `tsconfig.json`
 module resolution), so run it on the directory that holds both the entity declarations and their uses.
 A non-literal name, an entity that does not resolve to a `createEntity` call and extra properties in
 the `r.entity` literal are reported as `manual`.
+
+## define-handler
+
+Handlers typed with the erased `WriteHandlerDef` / `QueryHandlerDef` move to `defineWriteHandler` /
+`defineQueryHandler` (from `@cosmicdrift/kumiko-framework/engine`), so the payload is typed from the
+`schema`. Per candidate the codemod
+
+- wraps the object literal in `defineXHandler(...)` and drops the annotation, for `const x: XHandlerDef = { ... }`
+  and for functions or arrows with return type `XHandlerDef` and a single `return { ... }` / `=> ({ ... })`;
+- drops `event.payload as z.infer<typeof schema>` (also `z.output`, `z.TypeOf` and a same-file alias of
+  them) and the `// @cast-boundary ...` comment above it, and turns `schema.parse(event.payload)` into
+  `event.payload`, when `schema` is the identifier of the handler's own `schema:` property;
+- removes a payload alias, the `z` import and the `XHandlerDef` import specifier when nothing uses them
+  any more, and adds the `defineXHandler` import;
+- removes only the annotation from a function that returns a call to another converted factory of the same file.
+
+A handler is converted only when every use in the project (test files included, they are never rewritten) is
+an argument of `.writeHandler(...)` / `.queryHandler(...)`, an import or re-export, a property read such as
+`x.name`, a return of such a forwarding factory, or the first argument of `withCapEnforcement` /
+`withStockCap`. Otherwise the file stays as it is and the use is reported with file and line, for example a
+handler passed to an app wrapper typed `WriteHandlerDef`, put in an array or stored in an annotated variable.
+
+`kumiko-upgrade --apply` runs it for the release that introduced the typed definitions. By hand:
+
+```bash
+bun node_modules/@cosmicdrift/kumiko-feature-ast/src/scripts/codemod/define-handler.ts <dir> [--check | --dry-run | --write] [--no-format]
+```
+
+Reported as `manual` and left unchanged: a literal that spreads an identifier, property access or call
+(a conditional `...(cond && { ... })` is fine), `satisfies XHandlerDef` and `as XHandlerDef`, several or
+non-literal returns, a dynamic schema (a parameter or local of the factory, or a call that does not start with
+`z.`), an annotated first handler parameter, `excludedFields` and computed keys. A payload cast to a type
+that does not match the schema is kept and reported, the definition itself is converted. Safe to rerun.
+The analysis spans the project root (nearest `biome.json`, `tsconfig.json` there is used for module
+resolution), so run it on the directory that holds the handlers and their uses.

@@ -1,8 +1,17 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { createComplianceProfilesFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
+import {
+  createConfigAccessorFactory,
+  createConfigFeature,
+  createConfigResolver,
+} from "@cosmicdrift/kumiko-bundled-features/config";
 import { createDataRetentionFeature } from "@cosmicdrift/kumiko-bundled-features/data-retention";
+import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
+import { createRendererPuppeteerClientFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-puppeteer-client";
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
+import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
+import { createTenantFeature } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { createUserFeature } from "@cosmicdrift/kumiko-bundled-features/user";
 import { createUserDataRightsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import {
@@ -30,7 +39,39 @@ const SIGNATURE_PNG =
 const provider = createInMemoryFileProvider();
 let stack: TestStack;
 
+const SERVICE_TOKEN = "signature-recipe-service-token";
+const ENV_KEYS = ["PUPPETEER_SERVICE_URL", "PUPPETEER_AUTH_TOKEN", "PUPPETEER_CLIENT_MAX_RETRIES"];
+const savedEnv = new Map<string, string | undefined>();
+
+async function onePagePdf(): Promise<Uint8Array> {
+  const pdf = await PDFDocument.create();
+  pdf.addPage();
+  return pdf.save();
+}
+
+const stubService = Bun.serve({
+  port: 0,
+  async fetch(request) {
+    const { pathname } = new URL(request.url);
+    if (
+      pathname !== "/render" ||
+      request.headers.get("Authorization") !== `Bearer ${SERVICE_TOKEN}`
+    ) {
+      return new Response("unauthorized", { status: 401 });
+    }
+    return new Response((await onePagePdf()).slice(), {
+      headers: { "Content-Type": "application/pdf" },
+    });
+  },
+});
+const STUB_URL = `http://127.0.0.1:${stubService.port}`;
+
 beforeAll(async () => {
+  for (const key of ENV_KEYS) savedEnv.set(key, process.env[key]);
+  process.env["PUPPETEER_SERVICE_URL"] = STUB_URL;
+  process.env["PUPPETEER_AUTH_TOKEN"] = SERVICE_TOKEN;
+  process.env["PUPPETEER_CLIENT_MAX_RETRIES"] = "0";
+  const resolver = createConfigResolver();
   stack = await setupTestStack({
     features: [
       createUserFeature(),
@@ -40,10 +81,19 @@ beforeAll(async () => {
       createComplianceProfilesFeature(),
       createUserDataRightsFeature(),
       createFilesFeature(),
+      createConfigFeature(),
+      createTenantFeature(),
+      createTemplateResolverFeature(),
+      createRendererFoundationFeature(),
+      createRendererPuppeteerClientFeature(),
       leaseFeature,
       signatureFeature,
     ],
     files: { storageProvider: provider },
+    extraContext: (deps) => ({
+      configResolver: resolver,
+      configAccessorFactory: createConfigAccessorFactory(deps.registry, resolver),
+    }),
     jobs: { consumerLane: "worker", getActiveTenantIds: async () => [TENANT] },
     anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID },
   });
@@ -51,6 +101,12 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await stack.cleanup();
+  for (const key of ENV_KEYS) {
+    const saved = savedEnv.get(key);
+    if (saved === undefined) delete process.env[key];
+    else process.env[key] = saved;
+  }
+  await stubService.stop(true);
 });
 
 // The requester uploads the contract: a request needs a document its caller may open.

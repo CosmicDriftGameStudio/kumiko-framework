@@ -51,8 +51,8 @@ describe("UploadZone", () => {
 
     await waitFor(() => expect(onUpload).toHaveBeenCalledTimes(1));
     expect(onUpload).toHaveBeenCalledWith(file);
-    await waitFor(() => expect(screen.getByText("report.pdf")).toBeTruthy());
-    await waitFor(() => expect(screen.getByText("Uploaded")).toBeTruthy());
+    await waitFor(() => screen.getByText("report.pdf"));
+    await waitFor(() => screen.getByText("Uploaded"));
   });
 
   test("shows the error message when onUpload throws", async () => {
@@ -63,8 +63,8 @@ describe("UploadZone", () => {
     const file = new File(["hi"], "huge.pdf", { type: "application/pdf" });
     pick(screen.getByTestId("zone-input"), [file]);
 
-    await waitFor(() => expect(screen.getByText("too_large")).toBeTruthy());
-    expect(screen.getByText("Failed")).toBeTruthy();
+    await waitFor(() => screen.getByText("too_large"));
+    screen.getByText("Failed");
   });
 
   test("multiple=false accepts only the first file", async () => {
@@ -113,8 +113,8 @@ describe("UploadZone", () => {
     const file = new File(["hi"], "dropped.pdf", { type: "application/pdf" });
     fireEvent.drop(screen.getByTestId("zone-dropzone"), { dataTransfer: { files: [file] } });
 
-    await waitFor(() => expect(screen.getByText("dropped.pdf")).toBeTruthy());
-    expect(screen.getByText("File type not allowed")).toBeTruthy();
+    await waitFor(() => screen.getByText("dropped.pdf"));
+    screen.getByText("File type not allowed");
     expect(onUpload).not.toHaveBeenCalled();
   });
 
@@ -159,8 +159,8 @@ describe("UploadZone", () => {
       pick(screen.getByTestId("zone-input"), [a, b]);
 
       await waitFor(() => expect(onUpload).toHaveBeenCalledTimes(2));
-      expect(screen.getByText("a.pdf")).toBeTruthy();
-      expect(screen.getByText("b.pdf")).toBeTruthy();
+      screen.getByText("a.pdf");
+      screen.getByText("b.pdf");
       // Two distinct rows in the DOM (not collapsed onto one shared/undefined
       // React key) proves the ids stayed unique without crypto.randomUUID.
       expect(screen.getAllByTestId("zone-row")).toHaveLength(2);

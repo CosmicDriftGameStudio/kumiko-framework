@@ -119,12 +119,12 @@ describe("projectionDetail query errors", () => {
       </LocaleProvider>,
     );
 
-    await waitFor(() => expect(getByTestId("kumiko-screen-retry")).toBeTruthy());
+    await waitFor(() => getByTestId("kumiko-screen-retry"));
     expect(queryByTestId("form-body")).toBeNull();
 
     fireEvent.click(getByTestId("kumiko-screen-retry"));
 
-    await waitFor(() => expect(getByTestId("form-body")).toBeTruthy());
+    await waitFor(() => getByTestId("form-body"));
     expect(queryByTestId("kumiko-screen-error")).toBeNull();
   });
 });

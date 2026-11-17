@@ -10,7 +10,6 @@ import {
   skipPoisonEvent,
 } from "@cosmicdrift/kumiko-framework/pipeline";
 import * as z from "zod";
-import { requireSystemDb } from "../../shared/index.ts";
 import type { CONSUMER_STATE_ACTIONS } from "../events.ts";
 import {
   CONSUMER_STATE_CHANGED_EVENT_NAME,
@@ -43,10 +42,11 @@ function defineConsumerWrite(
     description,
     schema: consumerTargetSchema,
     access: { roles: ["SystemAdmin"] },
+    systemScope: true,
     // Operator recovery for people only; skip drops an event for good.
     agent: { expose: false },
     handler: async (event, ctx) => {
-      const systemDb = requireSystemDb(ctx, `jobs:write:${name}`);
+      const { systemDb } = ctx;
       const db = systemDb.unsafeRaw(CONSUMER_STATE_REASON);
       let next: Awaited<ReturnType<ConsumerTransition>>;
       try {

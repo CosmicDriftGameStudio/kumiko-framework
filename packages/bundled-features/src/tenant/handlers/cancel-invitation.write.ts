@@ -14,7 +14,6 @@ import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { access, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { requireSystemDb } from "../../shared/index.ts";
 import { cancelPendingInvitation } from "../cancel-pending-invitation.ts";
 import { INVITATION_STATUS, tenantInvitationsTable } from "../invitation-table.ts";
 
@@ -26,10 +25,11 @@ export const cancelInvitationWrite = defineWriteHandler({
   name: "cancel-invitation",
   schema: CancelInvitationSchema,
   access: { roles: access.admin },
+  systemScope: true,
   description:
     "Withdraws a still-pending invitation of the caller's own tenant and invalidates its link, answering successfully as a no-op when it was already accepted, cancelled or expired.",
   handler: async (event, ctx) => {
-    const systemDb = requireSystemDb(ctx, "tenant:write:cancel-invitation");
+    const { systemDb } = ctx;
     const db = systemDb.assertTenantMatch(event.user.tenantId);
     const invitation = await fetchOne(db, tenantInvitationsTable, {
       id: event.payload.invitationId,

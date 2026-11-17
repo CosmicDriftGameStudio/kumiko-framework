@@ -139,7 +139,7 @@ describe("auth gate with loginUrl", () => {
       // No csrf cookie: the session settles unauthenticated without a fetch; act flushes that and the gate effect.
       await act(async () => {});
       expect(replaceMock).not.toHaveBeenCalled();
-      expect(screen.getByLabelText(/password/i)).toBeTruthy();
+      screen.getByLabelText(/password/i);
     },
   );
 
@@ -148,7 +148,7 @@ describe("auth gate with loginUrl", () => {
 
     renderGate({});
 
-    await waitFor(() => expect(screen.getByLabelText(/password/i)).toBeTruthy());
+    await waitFor(() => screen.getByLabelText(/password/i));
     expect(replaceMock).not.toHaveBeenCalled();
   });
 
@@ -218,7 +218,7 @@ describe("auth gate login route and builder", () => {
 
       renderGate({ loginUrl: kind === "string" ? "/en/login" : (locale) => `/${locale}/login` });
 
-      await waitFor(() => expect(screen.getByLabelText(/password/i)).toBeTruthy());
+      await waitFor(() => screen.getByLabelText(/password/i));
       expect(replaceMock).not.toHaveBeenCalled();
     },
   );
@@ -263,7 +263,7 @@ describe("auth gate login route and builder", () => {
     fireEvent.click(await screen.findByRole("button", { name: "setup-mfa" }));
 
     await waitFor(() => expect(replaceMock).toHaveBeenCalledWith("/a/settings?tab=2"));
-    expect(screen.getByTestId("protected")).toBeTruthy();
+    screen.getByTestId("protected");
   });
 
   test("a loginUrl builder returning an invalid URL falls back to the login screen", async () => {
@@ -273,7 +273,7 @@ describe("auth gate login route and builder", () => {
 
     renderGate({ loginUrl: () => "javascript:alert(1)" });
 
-    await waitFor(() => expect(screen.getByLabelText(/password/i)).toBeTruthy());
+    await waitFor(() => screen.getByLabelText(/password/i));
     expect(replaceMock).not.toHaveBeenCalled();
     expect(errorSpy).toHaveBeenCalled();
     errorSpy.mockRestore();
@@ -326,6 +326,6 @@ describe("logout target", () => {
     expect(reloadMock).toHaveBeenCalledTimes(1);
     expect(assignMock).not.toHaveBeenCalled();
     expect(replaceMock).not.toHaveBeenCalled();
-    expect(screen.getByTestId("protected")).toBeTruthy();
+    screen.getByTestId("protected");
   });
 });

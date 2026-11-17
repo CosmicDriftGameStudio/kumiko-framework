@@ -66,8 +66,15 @@ import {
 import { tenantMembershipsTable } from "../tenant/index.ts";
 import { USER_STATUS, userTable } from "../user/index.ts";
 import { buildHookDb } from "./build-hook-db.ts";
+import { selectExportJobsOfUser } from "./db/queries/export-jobs.ts";
 import { selectUsersDueForForgetCleanup } from "./db/queries/forget-cleanup.ts";
 import { updateUserLifecycle } from "./lib/update-user-lifecycle.ts";
+import {
+  deleteExportBundle,
+  EXPORT_JOB_ERROR_USER_ERASED,
+  failExportJob,
+} from "./run-export-jobs.ts";
+import { EXPORT_JOB_STATUS, exportJobEntity } from "./schema/export-job.ts";
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 
@@ -264,6 +271,7 @@ async function forgetDueUsers(args: RunForgetCleanupArgs): Promise<RunForgetClea
       db,
       registry,
       userId: user.id,
+      now,
       hookEntries,
       buildStorageProvider,
       appTenantModel,
@@ -324,6 +332,7 @@ async function processUser(args: {
   db: DbRunner;
   registry: Registry;
   userId: string;
+  now: Instant;
   hookEntries: readonly HookEntry[];
   buildStorageProvider?: (tenantId: TenantId) => Promise<UserDataStorageProvider | undefined>;
   appTenantModel: TenantUserModel;
@@ -333,7 +342,8 @@ async function processUser(args: {
   escapeHatchAuditLog?: Logger;
   actor?: string;
 }): Promise<ProcessUserResult> {
-  const { db, registry, userId, hookEntries, buildStorageProvider, appTenantModel, kms } = args;
+  const { db, registry, userId, now, hookEntries, buildStorageProvider, appTenantModel, kms } =
+    args;
   const errors: ForgetCleanupError[] = [];
   const incomplete: Omit<ForgetCleanupIncomplete, "rolledBack">[] = [];
   let hookCallsAttempted = 0;
@@ -368,6 +378,12 @@ async function processUser(args: {
     hookTenantIds.length > 0 ? hookTenantIds : [SYSTEM_TENANT_ID_FOR_ORPHANS];
 
   // Hooks and the status flip run atomically per user (BEGIN, or SAVEPOINT inside an outer tx).
+  // guard:dup-ok a one-message log callback; only the shape matches other log callbacks
+  const warnMissingStorage = (tenantId: TenantId): void =>
+    // biome-ignore lint/suspicious/noConsole: misconfiguration visibility, same as the fileRef delete hook
+    console.warn(
+      `[user-data-rights:run-forget-cleanup] no file provider resolvable for tenantId=${tenantId} - file binaries and export bundles of userId=${userId} are NOT deleted (rows and keys kept). Mount file-foundation + a file-provider-* feature so erasure can reach the binaries.`,
+    );
   let txSucceeded = false;
   let currentTenantId: TenantId | null = null;
   let currentEntityName: string | null = null;
@@ -380,15 +396,7 @@ async function processUser(args: {
         subject,
         searchAdapter: args.searchAdapter,
         resolveDeleteBytes: resolveForgetFileBytesDeleter(buildStorageProvider),
-        missingStorage: {
-          mode: "skip",
-          // guard:dup-ok a one-message log callback; only the shape matches other log callbacks
-          warn: (tenantId) =>
-            // biome-ignore lint/suspicious/noConsole: misconfiguration visibility, same as the fileRef delete hook
-            console.warn(
-              `[user-data-rights:run-forget-cleanup] no file provider resolvable for tenantId=${tenantId} - file binaries of userId=${userId} are NOT deleted (rows kept). Mount file-foundation + a file-provider-* feature so erasure can reach the binaries.`,
-            ),
-        },
+        missingStorage: { mode: "skip", warn: warnMissingStorage },
         eraseRows: async () => {
           for (const tenantId of tenantList) {
             currentTenantId = tenantId;
@@ -448,6 +456,24 @@ async function processUser(args: {
           }
         },
       });
+
+      // Before the key erase: a failed ZIP delete or an open job that moved on rolls back while
+      // the subject key still exists.
+      currentEntityName = exportJobEntity.name;
+      currentTenantId = null;
+      await eraseExportJobsOfUser({
+        tx,
+        userId,
+        now,
+        buildStorageProvider,
+        warnMissingStorage,
+        onBundleTenant: (tenantId) => {
+          currentTenantId = tenantId;
+        },
+      });
+      // A later KMS or flip failure must not be reported as an export-job failure.
+      currentEntityName = null;
+      currentTenantId = null;
 
       // Crypto-shredding: erase the user's subject key AFTER the shared erasure (eraseSubjectData) and
       // BEFORE the status flip. The KMS is not a tx participant, so ordering
@@ -513,24 +539,71 @@ async function processUser(args: {
   };
 }
 
-// A resolution failure collapses to "no storage" like in the fileRef delete hook; a failing
-// byte delete throws through the sweep so the per-user sub-tx rolls back and the next run retries.
+// A resolution failure collapses to "no storage" like in the fileRef delete hook.
+async function resolveForgetStorageProvider(
+  buildStorageProvider: RunForgetCleanupArgs["buildStorageProvider"],
+  tenantId: TenantId,
+): Promise<UserDataStorageProvider | undefined> {
+  if (!buildStorageProvider) return undefined;
+  try {
+    return await buildStorageProvider(tenantId);
+  } catch {
+    // skip: provider unresolvable (not configured) -> binaries skipped with a warn, like the hook
+    return undefined;
+  }
+}
+
+// A failing byte delete throws through the sweep so the per-user sub-tx rolls back and the next run retries.
 function resolveForgetFileBytesDeleter(
   buildStorageProvider: RunForgetCleanupArgs["buildStorageProvider"],
 ): (tenantId: TenantId) => Promise<DeleteFileBytes | undefined> {
   return async (tenantId) => {
-    if (!buildStorageProvider) return undefined;
-    try {
-      const provider = await buildStorageProvider(tenantId);
-      return (
-        provider &&
-        ((key) => deleteStoredFileAndDerivatives(key, provider, "user-data-rights:forget-cleanup"))
-      );
-    } catch {
-      // skip: provider unresolvable (not configured) -> files skipped with a warn, like the hook
-      return undefined;
-    }
+    const provider = await resolveForgetStorageProvider(buildStorageProvider, tenantId);
+    return (
+      provider &&
+      ((key) => deleteStoredFileAndDerivatives(key, provider, "user-data-rights:forget-cleanup"))
+    );
   };
+}
+
+// Export ZIPs are written by this feature, not by an EXT_USER_DATA owner, and their jobs are
+// tenant-agnostic, so they are erased here rather than in a per-tenant hook. A throw (storage
+// delete failed, key not cleared, open job moved on) rolls back the user's sub-tx like a failing
+// file-binary delete.
+async function eraseExportJobsOfUser(args: {
+  readonly tx: DbRunner;
+  readonly userId: string;
+  readonly now: Instant;
+  readonly buildStorageProvider: RunForgetCleanupArgs["buildStorageProvider"];
+  readonly warnMissingStorage: (tenantId: TenantId) => void;
+  readonly onBundleTenant: (tenantId: TenantId) => void;
+}): Promise<void> {
+  for (const job of await selectExportJobsOfUser(args.tx, args.userId)) {
+    args.onBundleTenant(job.requestedFromTenantId);
+    if (job.status === EXPORT_JOB_STATUS.Pending || job.status === EXPORT_JOB_STATUS.Running) {
+      // A running job keeps its key: the worker loses its done flip on the version and drops the
+      // ZIP, and the storage-cleanup pass deletes whatever is still stored under the key.
+      if (!(await failExportJob(args.tx, job, args.now, EXPORT_JOB_ERROR_USER_ERASED))) {
+        throw new Error(`export job ${job.id} moved on while the forget run ended it`);
+      }
+      continue;
+    }
+    const { downloadStorageKey } = job;
+    if (!downloadStorageKey) continue;
+    const provider = await resolveForgetStorageProvider(
+      args.buildStorageProvider,
+      job.requestedFromTenantId,
+    );
+    if (!provider) {
+      args.warnMissingStorage(job.requestedFromTenantId);
+      continue;
+    }
+    if (!(await deleteExportBundle(args.tx, { ...job, downloadStorageKey }, provider))) {
+      throw new Error(
+        `export bundle of job ${job.id} deleted from storage but downloadStorageKey not cleared`,
+      );
+    }
+  }
 }
 
 // Use a pseudo-tenant for users with no active or historical memberships.

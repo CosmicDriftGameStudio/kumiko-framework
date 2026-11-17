@@ -62,7 +62,7 @@ describe("KumikoScreen: singleton entityEdit", () => {
       </DispatcherProvider>,
     );
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
-    expect(screen.getByTestId("render-edit-form")).toBeTruthy();
+    screen.getByTestId("render-edit-form");
     const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
     expect(titleInput.value).toBe("");
     expect(queryCalls).toEqual([{ type: "tasks:query:task:list", payload: { limit: 1 } }]);
@@ -96,7 +96,7 @@ describe("KumikoScreen: singleton entityEdit", () => {
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull(), {
       timeout: 5000,
     });
-    expect(screen.getByTestId("render-edit-form")).toBeTruthy();
+    screen.getByTestId("render-edit-form");
     const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
     expect(titleInput.value).toBe("loaded-title");
     // Anchor: the id resolved from list(limit:1) reaches the detail query —
@@ -125,7 +125,7 @@ describe("KumikoScreen: singleton entityEdit", () => {
       </DispatcherProvider>,
     );
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
-    expect(screen.getByTestId("kumiko-screen-create-disabled")).toBeTruthy();
+    screen.getByTestId("kumiko-screen-create-disabled");
     expect(screen.queryByTestId("render-edit-form")).toBeNull();
   });
 
@@ -200,7 +200,7 @@ describe("KumikoScreen: singleton entityEdit", () => {
       </DispatcherProvider>,
     );
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
-    await waitFor(() => expect(screen.getByTestId("field-title")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("field-title"));
 
     const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
     fireEvent.change(titleInput, { target: { value: "Created title" } });

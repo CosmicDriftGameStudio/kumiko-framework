@@ -89,13 +89,13 @@ describe("projectionDetail composite tab", () => {
   test("the first tab shows fields, related list and numbered steps together", async () => {
     renderRequest("open");
     await waitFor(() => screen.getByText("A red chair"));
-    expect(await screen.findByText("Oak table")).toBeDefined();
-    expect(screen.getByText("Your stock")).toBeDefined();
-    expect(screen.getByText("How a swap works")).toBeDefined();
-    expect(screen.getByText("Offer sent")).toBeDefined();
-    expect(screen.getByText("Done")).toBeDefined();
-    expect(screen.getByText("Seller knows")).toBeDefined();
-    expect(screen.getByText("Meet up")).toBeDefined();
+    await screen.findByText("Oak table");
+    screen.getByText("Your stock");
+    screen.getByText("How a swap works");
+    screen.getByText("Offer sent");
+    screen.getByText("Done");
+    screen.getByText("Seller knows");
+    screen.getByText("Meet up");
     expect(screen.queryByText("dropped: no title")).toBeNull();
     expect(screen.getByTestId("step-list-step-0").textContent).toContain("1");
     expect(screen.getByTestId("step-list-step-1").textContent).toContain("2");
@@ -122,6 +122,6 @@ describe("projectionDetail composite tab", () => {
 
   test("a ?tab= value pointing at a hidden tab falls back to the first visible one", async () => {
     renderRequest("ended", "chat");
-    expect(await screen.findByText("How a swap works")).toBeDefined();
+    await screen.findByText("How a swap works");
   });
 });

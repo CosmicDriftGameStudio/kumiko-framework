@@ -53,15 +53,15 @@ describe("shell focus mode", () => {
   test("without a focused screen the shell keeps full nav, toggle and header actions", () => {
     render(<Harness initiallyFocused={false} />);
     expect(document.querySelector('[data-kumiko-layout="focus-rail"]')).toBeNull();
-    expect(screen.getByPlaceholderText("Search navigation…")).toBeTruthy();
-    expect(screen.getByText("Global action")).toBeTruthy();
+    screen.getByPlaceholderText("Search navigation…");
+    screen.getByText("Global action");
     expect(screen.getAllByRole("button", { name: "Toggle sidebar" }).length).toBeGreaterThan(0);
   });
 
   test("a focused screen leaves an expanded sidebar expanded", () => {
     render(<Harness />);
     expect(document.querySelector('[data-kumiko-layout="focus-rail"]')).toBeNull();
-    expect(screen.getByPlaceholderText("Search navigation…")).toBeTruthy();
+    screen.getByPlaceholderText("Search navigation…");
   });
 
   test("a sidebar the user collapsed stays collapsed across focused and unfocused screens", () => {
@@ -83,11 +83,11 @@ describe("shell focus mode", () => {
     const rail = document.querySelector('[data-kumiko-layout="focus-rail"]');
     expect(rail).not.toBeNull();
     expect(rail?.querySelectorAll("nav > *").length).toBe(2);
-    expect(screen.getByRole("link", { name: "Posteingang" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Bestand" })).toBeTruthy();
+    screen.getByRole("link", { name: "Posteingang" });
+    screen.getByRole("button", { name: "Bestand" });
     expect(screen.queryByPlaceholderText("Search navigation…")).toBeNull();
     expect(screen.queryByText("Einheiten")).toBeNull();
-    expect(screen.getByText("Global action")).toBeTruthy();
+    screen.getByText("Global action");
     const header = screen.getByRole("banner");
     expect(header.querySelector('button[data-sidebar="trigger"]')).toBeNull();
   });
@@ -97,7 +97,7 @@ describe("shell focus mode", () => {
     render(<Harness />);
     fireEvent.click(screen.getByRole("button", { name: "Bestand" }));
     expect(document.querySelector('[data-kumiko-layout="focus-rail"]')).toBeNull();
-    expect(screen.getByText("Einheiten")).toBeTruthy();
+    screen.getByText("Einheiten");
   });
 
   test("leaving the screen restores the full header", () => {
@@ -106,7 +106,7 @@ describe("shell focus mode", () => {
     expect(document.querySelector('[data-kumiko-layout="focus-rail"]')).not.toBeNull();
     fireEvent.click(screen.getByText("toggle focus"));
     expect(document.querySelector('[data-kumiko-layout="focus-rail"]')).toBeNull();
-    expect(screen.getByText("Global action")).toBeTruthy();
+    screen.getByText("Global action");
   });
 
   test("on mobile widths the focused header hides below md so the screen can bring its own bar", () => {

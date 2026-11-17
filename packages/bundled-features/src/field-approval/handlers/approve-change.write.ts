@@ -15,7 +15,7 @@ import { FieldApprovalReasons, FieldChangeStatus } from "../constants.ts";
 import type { fieldChangeRequestExecutor } from "../executor.ts";
 import { decideFieldChangePayloadSchema } from "../schemas.ts";
 import { openRequestedValue } from "../stored-value.ts";
-import { isPendingRequest, loadPendingRequest } from "./decide-change.ts";
+import { isPendingRequest, loadPendingRequest, requesterIdOf } from "./decide-change.ts";
 
 export function createApproveChangeHandler(
   access: AccessRule,
@@ -43,7 +43,7 @@ export function createApproveChangeHandler(
           }),
         );
       }
-      if (request["modifiedById"] === event.user.id) {
+      if (requesterIdOf(request) === event.user.id) {
         return writeFailure(
           new AccessDeniedError({
             i18nKey: "errors.access.denied",

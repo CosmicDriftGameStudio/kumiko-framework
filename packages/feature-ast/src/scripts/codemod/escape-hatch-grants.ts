@@ -1,9 +1,10 @@
 #!/usr/bin/env bun
 // escape-hatch-grants — `escapeHatch: { reason }` on write and query handlers, hooks and jobs gets
-// the `grants` it needs, read from the definition: `unsafeRaw(` unsafeRaw, `.global(` globalWrites,
-// `crossTenantReads` crossTenantReads, `queryAs(`, `writeAs(`, `createSystemUser(`,
-// `unsafeAllTenants` or `runAs` with SystemAdmin systemIdentity. A declaration without a readable
-// signal is reported as manual. escapeHatch in r.applyExtension options stays `{ reason }`.
+// the `grants` it needs, read from the definition: `unsafeRaw(` or a read step's `unsafeAllTenants`
+// unsafeRaw, `.global(` globalWrites, `crossTenantReads` crossTenantReads, `queryAs(`, `writeAs(`,
+// `createSystemUser(`, any other `unsafeAllTenants` or `runAs` with SystemAdmin systemIdentity. A
+// declaration without a readable signal is reported as manual. escapeHatch in r.applyExtension
+// options stays `{ reason }`.
 //
 // Usage:
 //   bun scripts/codemod/escape-hatch-grants.ts <targetDir...> [--check | --dry-run | --write] [--no-format]
@@ -41,12 +42,18 @@ const DEFINE_HANDLER_CALL = /^define\w*Handler$/;
 const HANDLER_PROPERTIES: readonly string[] = ["handler", "run"];
 const CONTEXT_NAME = "ctx";
 
+// A read step's unsafeAllTenants runs on the unsafeRaw runner, not on a system identity.
+const READ_STEP_ALL_TENANTS = /\.read\.find(?:One|Many)\([^)]*\bunsafeAllTenants\b/g;
+
 const GRANT_SIGNALS: Readonly<Record<EscapeHatchGrant, (text: string) => boolean>> = {
   systemIdentity: (text) =>
-    /\b(queryAs|writeAs|createSystemUser)\(|\bunsafeAllTenants\b/.test(text) ||
+    /\b(queryAs|writeAs|createSystemUser)\(/.test(text) ||
+    /\bunsafeAllTenants\b/.test(text.replace(READ_STEP_ALL_TENANTS, "")) ||
     (/\brunAs\b/.test(text) && /SystemAdmin/.test(text)),
   globalWrites: (text) => /\.global\(/.test(text),
-  unsafeRaw: (text) => /\bunsafeRaw(AllTenants)?\(/.test(text),
+  unsafeRaw: (text) =>
+    /\bunsafeRaw(AllTenants)?\(/.test(text) ||
+    /\.read\.find(?:One|Many)\([^)]*\bunsafeAllTenants\b/.test(text),
   crossTenantReads: (text) => text.includes("crossTenantReads"),
 };
 

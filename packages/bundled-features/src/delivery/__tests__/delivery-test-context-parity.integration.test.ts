@@ -12,7 +12,10 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
-import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  createTestEnvelopeCipher,
+  resetPiiSubjectKmsForTests,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -89,7 +92,10 @@ async function buildStack(jobs: StackJobs, stub: ProviderStub): Promise<TestStac
         masterKeyProvider,
         registry: deps.registry,
       });
-      return { secrets, ...createDeliveryTestContext(deps, { secrets }) };
+      return {
+        secrets,
+        ...createDeliveryTestContext(deps, { secrets, addressCipher: createTestEnvelopeCipher() }),
+      };
     },
   });
   await unsafePushTables(stack.db, {

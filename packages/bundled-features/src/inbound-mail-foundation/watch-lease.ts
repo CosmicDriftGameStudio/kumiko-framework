@@ -92,7 +92,6 @@ export function createWatchLease(deps: {
     }
   }
 
-  // kumiko-lint-ignore complexity-budget yield-point stale-map check after acquire is intentional
   async function acquire(
     account: MailAccountRecord,
     state: WatcherState,

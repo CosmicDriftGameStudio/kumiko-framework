@@ -184,14 +184,14 @@ describe("denied writing members name their namespaced path", () => {
     },
   );
 
-  test("db.outsideTransaction exists in the reservation and is gone in beforeTransaction", async () => {
+  test("db.outsideTransaction exists in the reservation and in beforeTransaction", async () => {
     const target = { namespace: "events", member: "append" } as const;
     await stack.http.writeErr(`${FEATURE}:write:reserve-denied`, target, admin);
     await stack.http.writeErr(`${FEATURE}:write:before-denied`, target, admin);
 
     expect(outsideShapes).toEqual([
       { phase: "reservation", outsideDefined: true },
-      { phase: "beforeTransaction", outsideDefined: false },
+      { phase: "beforeTransaction", outsideDefined: true },
     ]);
   });
 

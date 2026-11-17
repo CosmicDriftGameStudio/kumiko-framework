@@ -14,7 +14,7 @@ the option.
   itself still comes from the `auth` option or `composeFeatures`.
 - **`composeSecurityStack({ includeSessions })`**: `sessions`,
   `crypto-shredding`, `rate-limiting` and `audit`. Needs a KMS decision
-  (`kmsMode`) and fails with `rateLimit: false`.
+  (`kmsMode`; in production it defaults to `"optional"`) and fails with `rateLimit: false`.
 - **`composeGdprStack({ tenantLifecycle, selfService })`**: `data-retention`
   and `compliance-profiles`, optionally `tenant-lifecycle`. `selfService` adds
   `sessions`, `user-data-rights` and `user-profile` (needs `mail`).
@@ -31,9 +31,9 @@ the option.
 | ----------------------------------------------------------------- | ---------------------------------- | ------------------------------- |
 | `composeMailStack`                                                | `mail`                             | a mounted `channel-email`       |
 | `composeFileStack` without providers                              | `fileStorage`                      | a mounted file provider         |
-| `composeGdprStack`                                                | `kmsMode`                          | `kms` or `allowPlaintextPii`    |
+| `composeGdprStack`                                                | `kmsMode`                          | `kms`, `allowPlaintextPii`, or `NODE_ENV=production` (defaults to `"optional"`) |
 | `composeGdprStack({ selfService })`, `composeUserDataRightsStack` | `mail`                             | a mounted `channel-email`       |
-| `composeSecurityStack`                                            | `kmsMode`, `rateLimit` not `false` | `kms` or `allowPlaintextPii`    |
+| `composeSecurityStack`                                            | `kmsMode`, `rateLimit` not `false` | `kms`, `allowPlaintextPii`, or `NODE_ENV=production` (defaults to `"optional"`) |
 | `composeSaasStack({ billing: "stripe" })`                         | `billing` (warning only)           | a mounted subscription provider |
 
 A missing option fails the boot with:
@@ -51,8 +51,8 @@ app can go live before its prices exist.
 1. `src/app.ts` lists the stacks and the boot options they need.
 2. The test boots with `KUMIKO_DRY_RUN_ENV=boot`, which runs the whole
    validation and stops before any DB or Redis connection: with the options
-   the boot passes, without `kmsMode` it fails and names the stacks, and
-   without `billing` it warns.
+   the boot passes, without `kmsMode` it fails outside production and names the stacks (in
+   production it boots with `kmsMode: "optional"`), and without `billing` it warns.
 
 ## Tests
 

@@ -47,6 +47,6 @@ describe("field badge and hint", () => {
 
   test("hintField shows the text under the field", async () => {
     renderScreen({ hintField: "mileageSource" });
-    expect(await screen.findByText("From chat")).not.toBeNull();
+    await screen.findByText("From chat");
   });
 });

@@ -409,6 +409,62 @@ type ChildRelationSearch = NonNullable<
   NonNullable<ReferenceSearchOption>["childRelations"]
 >[number];
 
+function areChildSearchFieldsReadable(
+  relation: ChildRelationSearch,
+  child: EntityDefinition,
+  childTable: Table,
+  user: SessionUser,
+): boolean {
+  return relation.searchableFields.every((searchableField) => {
+    // Embedded entries are named "parent_sub"; the access lives on the parent field.
+    const fieldName =
+      searchableField in child.fields ? searchableField : searchableField.split("_")[0];
+    const field = fieldName === undefined ? undefined : child.fields[fieldName];
+    if (field === undefined) return false;
+    return (
+      buildOwnershipClause(user, normalizeAccessEntry(field.access?.read), childTable).kind ===
+      "pass"
+    );
+  });
+}
+
+async function queryChildParentIds(
+  relation: ChildRelationSearch,
+  child: EntityDefinition,
+  childTable: Table,
+  childTableName: string,
+  db: TenantDb,
+  candidateIds: readonly string[],
+  ownership: Exclude<OwnershipClause, { kind: "empty" }>,
+): Promise<readonly { parentId: string | null }[]> {
+  const params: unknown[] = [...candidateIds];
+  const idPlaceholders = params.map((_, i) => `$${i + 1}`);
+  let tenantClause = "";
+  if (childTable["tenantId"] !== undefined && db.mode === "tenant") {
+    params.push(db.tenantId, SYSTEM_TENANT_ID);
+    tenantClause = ` AND ${quoteIdent(physicalColumnName(childTable, "tenantId"))} IN ($${params.length - 1}, $${params.length})`;
+  }
+  let ownershipClause = "";
+  if (ownership.kind === "sql") {
+    const shifted = shiftParams(
+      { sqlText: ownership.sqlText, params: ownership.params },
+      params.length,
+    );
+    for (const p of shifted.params) params.push(p);
+    ownershipClause = ` AND ${shifted.sqlText}`;
+  }
+  const deletedClause = isSoftDeletedTargetHidden(child, childTable)
+    ? ` AND ${quoteIdent(physicalColumnName(childTable, "isDeleted"))} = FALSE`
+    : "";
+  const fkColumn = quoteIdent(physicalColumnName(childTable, relation.foreignKey));
+  return executeRawQueryRead<{ parentId: string | null }>(
+    tenantDbRunnerForTable(db, childTable),
+    `SELECT DISTINCT ${fkColumn} AS "parentId" FROM ${quoteIdent(childTableName)} ` +
+      `WHERE "id" IN (${idPlaceholders.join(", ")})${tenantClause}${ownershipClause}${deletedClause}`,
+    params,
+  );
+}
+
 // A parent matches when a child row matches the term, but only through a child entity whose detail
 // handler admits the viewer, a child row they could open, and searchable fields they may all read;
 // otherwise searching would probe values they cannot see. The index only names candidates; tenant
@@ -426,17 +482,7 @@ async function resolveChildMatches(
   const childTable =
     referenceSearch?.resolveTable?.(relation.childEntityName) ??
     referenceTargetTable(relation.childEntityName, child);
-  const allFieldsReadable = relation.searchableFields.every((searchableField) => {
-    // Embedded entries are named "parent_sub"; the access lives on the parent field.
-    const fieldName =
-      searchableField in child.fields ? searchableField : searchableField.split("_")[0];
-    const field = fieldName === undefined ? undefined : child.fields[fieldName];
-    if (field === undefined) return false;
-    return (
-      buildOwnershipClause(user, normalizeAccessEntry(field.access?.read), childTable).kind ===
-      "pass"
-    );
-  });
+  const allFieldsReadable = areChildSearchFieldsReadable(relation, child, childTable, user);
   if (!allFieldsReadable) return none;
 
   const childTableName = String(schemaTableName(childTable));
@@ -458,31 +504,14 @@ async function resolveChildMatches(
   if (results.length === 0) return none;
   const truncated = results.length >= MAX_SEARCH_CANDIDATE_IDS;
 
-  const params: unknown[] = results.map((r) => String(r.entityId));
-  const idPlaceholders = params.map((_, i) => `$${i + 1}`);
-  let tenantClause = "";
-  if (childTable["tenantId"] !== undefined && db.mode === "tenant") {
-    params.push(db.tenantId, SYSTEM_TENANT_ID);
-    tenantClause = ` AND ${quoteIdent(physicalColumnName(childTable, "tenantId"))} IN ($${params.length - 1}, $${params.length})`;
-  }
-  let ownershipClause = "";
-  if (ownership.kind === "sql") {
-    const shifted = shiftParams(
-      { sqlText: ownership.sqlText, params: ownership.params },
-      params.length,
-    );
-    for (const p of shifted.params) params.push(p);
-    ownershipClause = ` AND ${shifted.sqlText}`;
-  }
-  const deletedClause = isSoftDeletedTargetHidden(child, childTable)
-    ? ` AND ${quoteIdent(physicalColumnName(childTable, "isDeleted"))} = FALSE`
-    : "";
-  const fkColumn = quoteIdent(physicalColumnName(childTable, relation.foreignKey));
-  const rows = await executeRawQueryRead<{ parentId: string | null }>(
-    tenantDbRunnerForTable(db, childTable),
-    `SELECT DISTINCT ${fkColumn} AS "parentId" FROM ${quoteIdent(childTableName)} ` +
-      `WHERE "id" IN (${idPlaceholders.join(", ")})${tenantClause}${ownershipClause}${deletedClause}`,
-    params,
+  const rows = await queryChildParentIds(
+    relation,
+    child,
+    childTable,
+    childTableName,
+    db,
+    results.map((r) => String(r.entityId)),
+    ownership,
   );
   const ids = rows.flatMap((row) => (row.parentId === null ? [] : [String(row.parentId)]));
   return { match: ids.length === 0 ? undefined : { ownColumn: "id", ids }, truncated };

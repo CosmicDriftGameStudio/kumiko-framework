@@ -446,7 +446,7 @@ describe("DataTable — cards below 768px", () => {
   test("empty state renders the same way in card mode, no card container", () => {
     atViewportWidth(500, () => {
       render(<DataTable columns={COLUMNS} rows={[]} testId="t" />);
-      expect(screen.getByTestId("t-empty")).not.toBeNull();
+      screen.getByTestId("t-empty");
       expect(screen.queryByTestId("t-cards")).toBeNull();
     });
   });
@@ -490,7 +490,7 @@ describe("DataTable — card-mode sort select", () => {
   test("narrow viewport: the bare testId stays resolvable next to -cards", () => {
     atViewportWidth(500, () => {
       render(<DataTable columns={COLUMNS} rows={ROWS} testId="t" />);
-      expect(within(screen.getByTestId("t")).getByTestId("t-cards")).not.toBeNull();
+      within(screen.getByTestId("t")).getByTestId("t-cards");
     });
   });
 
@@ -565,11 +565,11 @@ describe("DataTable — card-mode row menu and hideOnNarrow", () => {
     atViewportWidth(500, () => {
       render(<DataTable columns={columns} rows={ROWS} testId="t" />);
       expect(screen.queryByTestId("cell-u1-role")).toBeNull();
-      expect(screen.getByTestId("cell-u1-email")).not.toBeNull();
+      screen.getByTestId("cell-u1-email");
     });
     atViewportWidth(1024, () => {
       render(<DataTable columns={columns} rows={ROWS} testId="t2" />);
-      expect(screen.getByTestId("cell-u1-role")).not.toBeNull();
+      screen.getByTestId("cell-u1-role");
     });
   });
 
@@ -759,8 +759,8 @@ describe("DataTable cards — link columns", () => {
       );
       const withLinks = screen.getByTestId("row-u1");
       const links = within(withLinks).getByTestId("card-links-u1");
-      expect(within(links).getByTestId("cell-u1-next")).toBeTruthy();
-      expect(within(links).getByTestId("cell-u1-owner")).toBeTruthy();
+      within(links).getByTestId("cell-u1-next");
+      within(links).getByTestId("cell-u1-owner");
       expect(within(withLinks).getAllByTestId("cell-u1-next")).toHaveLength(1);
       expect(
         within(withLinks.querySelector("button") as HTMLElement).queryByText("Call back"),

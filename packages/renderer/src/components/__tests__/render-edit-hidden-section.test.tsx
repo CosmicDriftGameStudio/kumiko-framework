@@ -117,7 +117,7 @@ describe("RenderEdit — section with every field condition-hidden", () => {
 
     const { getByTestId, queryByTestId } = renderEdit(screen);
 
-    expect(getByTestId("section-Visible")).toBeDefined();
+    getByTestId("section-Visible");
     expect(queryByTestId("section-Hidden")).toBeNull();
   });
 });
@@ -138,7 +138,7 @@ describe("RenderEdit — section declared with zero fields", () => {
 
     const { getByTestId, queryByTestId } = renderEdit(screen);
 
-    expect(getByTestId("section-Visible")).toBeDefined();
+    getByTestId("section-Visible");
     expect(queryByTestId("section-Empty")).toBeNull();
   });
 });

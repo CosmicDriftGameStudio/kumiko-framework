@@ -5,7 +5,6 @@ import {
   MAX_LIST_LIMIT,
 } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { requireSystemDb } from "../../shared/index.ts";
 import { decryptTenantNames, takeTenantsMatchingDecryptedName } from "../decrypt-tenant-names.ts";
 import { tenantTable } from "../schema/tenant.ts";
 import { isSystemAdmin } from "./is-system-admin.ts";
@@ -31,11 +30,12 @@ export const tenantDirectoryQuery = definePagedQueryHandler({
     ids: z.array(z.string().min(1)).max(MAX_LIST_LIMIT).optional(),
   }),
   access: { roles: access.admin },
+  systemScope: true,
   description:
     "Lists tenants as id/label pairs for resolving tenant references to display names: the caller's own tenant for an admin, every tenant for a SystemAdmin. A search returns the first `limit` matches in tenant-key order (sorted by label afterwards), not the alphabetically best matches.",
   agent: { expose: false },
   handler: async (query, ctx) => {
-    const systemDb = requireSystemDb(ctx, "tenant:query:tenant-directory");
+    const { systemDb } = ctx;
     const { limit, search, ids } = query.payload;
     if (ids?.length === 0) return { rows: [], nextCursor: null };
     const scanLimit = search === undefined ? limit : SEARCH_SCAN_CAP;

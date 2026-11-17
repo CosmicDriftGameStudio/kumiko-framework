@@ -55,6 +55,18 @@ field_access_denied:
     [Permissions](/en/guides/field-level-permissions/)) or request the required
     role.
 
+field_approval_required:
+  endUser: |
+    This field needs a second person's approval.
+    Submit the change as a request; someone with an approver role applies it.
+  developer: |
+    `AccessDeniedError` from the executor's field-approval check: a direct
+    change to a field with `access.approve` by a user without an approve role.
+
+    `details.entity` and `details.fields` name the gated fields. File the
+    change with the field-approval `request-change` handler instead; see
+    `createFieldApprovalFeature`.
+
 delete_restricted:
   endUser: |
     This entry can't be deleted because other records still reference it.

@@ -92,7 +92,7 @@ describe("NumberField", () => {
   test("renders a label and reports a number on input", () => {
     const onChange = mock();
     render(<NumberField label="Summe" id="sum" name="sum" value={300} onChange={onChange} />);
-    expect(screen.getByText("Summe")).toBeTruthy();
+    screen.getByText("Summe");
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "42" } });
     expect(onChange).toHaveBeenCalledWith(42);
   });
@@ -109,8 +109,8 @@ describe("NumberField", () => {
     const { rerender } = render(
       <MoneyField label="Betrag (€)" id="b" name="b" value={1} onChange={noop} />,
     );
-    expect(screen.getByText("Betrag (€)")).toBeTruthy();
-    expect(screen.getByRole("textbox")).toBeTruthy();
+    screen.getByText("Betrag (€)");
+    screen.getByRole("textbox");
     expect(screen.queryByText("€")).toBeNull(); // The unit belongs in the label; no separate badge
     rerender(<PercentField label="Zins (%)" id="z" name="z" value={1} onChange={noop} />);
     expect(screen.queryByText("%")).toBeNull();
@@ -136,7 +136,7 @@ describe("DetailList emphasize", () => {
 describe("ResultPanel", () => {
   test("empty shows the placeholder, not a list", () => {
     render(<ResultPanel title="Ergebnis" empty emptyText="Werte eingeben" />);
-    expect(screen.getByText("Werte eingeben")).toBeTruthy();
+    screen.getByText("Werte eingeben");
   });
 
   test("filled shows metrics and children", () => {
@@ -145,8 +145,8 @@ describe("ResultPanel", () => {
         <span>extra</span>
       </ResultPanel>,
     );
-    expect(screen.getByText("Rate")).toBeTruthy();
-    expect(screen.getByText("extra")).toBeTruthy();
+    screen.getByText("Rate");
+    screen.getByText("extra");
   });
 });
 
@@ -163,8 +163,8 @@ describe("ResultTable", () => {
         rowKey={(r) => r.name}
       />,
     );
-    expect(screen.getByText("Tranche")).toBeTruthy();
-    expect(screen.getByText("Bank")).toBeTruthy();
+    screen.getByText("Tranche");
+    screen.getByText("Bank");
     expect(screen.getByText("Summe").className).toContain("text-right");
     expect(screen.getByText("300.000 €").className).toContain("tabular-nums");
   });
@@ -187,8 +187,8 @@ describe("Feld-Widgets (Select/Date/Text/Boolean/Textarea)", () => {
         ]}
       />,
     );
-    expect(screen.getByText("Land")).toBeTruthy();
-    expect(screen.getByText("Nordrhein-Westfalen")).toBeTruthy();
+    screen.getByText("Land");
+    screen.getByText("Nordrhein-Westfalen");
   });
 
   test("TextField meldet Eingabe", () => {
@@ -209,7 +209,7 @@ describe("Feld-Widgets (Select/Date/Text/Boolean/Textarea)", () => {
         max="2030-01-01"
       />,
     );
-    expect(screen.getByText("Datum")).toBeTruthy();
+    screen.getByText("Datum");
   });
 
   test("BooleanField meldet Umschalten", () => {
@@ -238,7 +238,7 @@ describe("ResultPanel footer", () => {
         <span>body</span>
       </ResultPanel>,
     );
-    expect(screen.getByRole("button", { name: "Los" })).toBeTruthy();
+    screen.getByRole("button", { name: "Los" });
   });
 });
 
@@ -257,7 +257,7 @@ describe("RangeField", () => {
         onChange={onChange}
       />,
     );
-    expect(screen.getByText("Abruf")).toBeTruthy();
+    screen.getByText("Abruf");
     fireEvent.change(screen.getByRole("slider"), { target: { value: "45" } });
     expect(onChange).toHaveBeenCalledWith(45);
   });
@@ -268,7 +268,7 @@ describe("FileField", () => {
     render(
       <FileField label="Bild" id="f" name="f" value={null} onChange={() => {}} variant="image" />,
     );
-    expect(screen.getByText("Bild")).toBeTruthy();
+    screen.getByText("Bild");
   });
 
   test('variant="image" with a set FileRef shows a preview + Remove button', () => {
@@ -284,7 +284,7 @@ describe("FileField", () => {
     );
     const img = document.querySelector("img") as HTMLImageElement;
     expect(img.src).toContain("/api/files/11111111-2222-4333-8444-555555555555");
-    expect(screen.getByRole("button", { name: "Remove" })).toBeTruthy();
+    screen.getByRole("button", { name: "Remove" });
   });
 
   test("Remove-Button ruft onChange(null)", () => {
@@ -371,7 +371,7 @@ describe("Button size", () => {
 
   test("ariaLabel gives icon-only buttons an accessible name", () => {
     render(<IconBtn />);
-    expect(screen.getByRole("button", { name: "Entfernen" })).toBeTruthy();
+    screen.getByRole("button", { name: "Entfernen" });
   });
 
   test('width="full" stretches the button (w-full)', () => {
@@ -402,8 +402,8 @@ describe("ComparisonTable", () => {
         ]}
       />,
     );
-    expect(screen.getByText("Kennzahl")).toBeTruthy();
-    expect(screen.getByText("A")).toBeTruthy();
+    screen.getByText("Kennzahl");
+    screen.getByText("A");
     // B (850) is cheaper → highlighted (`font-semibold text-primary` span)
     expect(screen.getByText("850 €").className).toContain("text-primary");
     expect(screen.getByText("900 €").className).not.toContain("text-primary");

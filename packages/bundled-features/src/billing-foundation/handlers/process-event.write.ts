@@ -19,7 +19,11 @@ import {
   configuredPiiSubjectKms,
   encryptPiiFieldValues,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import type { HandlerContext, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  defineWriteHandler,
+  type HandlerContext,
+  type WriteResult,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
@@ -432,15 +436,27 @@ function admitProviderEvent(
   return { admitted: true, ...(switchConsentId !== undefined && { consentId: switchConsentId }) };
 }
 
-export function createProcessEventHandler(now: () => Temporal.Instant): WriteHandlerDef {
-  return {
+type ProcessEventData =
+  | {
+      readonly ignored: true;
+      readonly reason: IgnoredEventReason;
+      readonly retry?: true;
+      readonly subscriptionAggregateId: string;
+    }
+  | {
+      readonly duplicate: boolean;
+      readonly stale?: true;
+      readonly subscriptionAggregateId: string;
+    };
+
+export function createProcessEventHandler(now: () => Temporal.Instant) {
+  return defineWriteHandler({
     name: "process-event",
     agent: { expose: false },
     schema: processEventSchema,
     access: { roles: ["SystemAdmin"] },
-    handler: async (event, ctx) => {
-      // @cast-boundary engine-payload — dispatcher-zod-validated payload
-      const payload = event.payload as ProcessEventPayload;
+    handler: async (event, ctx): Promise<WriteResult<ProcessEventData>> => {
+      const payload = event.payload;
       const aggId = subscriptionAggregateId(event.user.tenantId);
       // One locked load serves admission and the append; the stream grows with every opened checkout.
       // The lock comes first so the stream and `current` are both read under it.
@@ -480,5 +496,5 @@ export function createProcessEventHandler(now: () => Temporal.Instant): WriteHan
       );
       return { isSuccess: true as const, data: result };
     },
-  };
+  });
 }

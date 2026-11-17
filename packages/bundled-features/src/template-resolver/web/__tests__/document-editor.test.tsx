@@ -182,7 +182,7 @@ describe("DocumentTiptapEditor toolbar", () => {
       target: { value: "javascript:alert(1)" },
     });
     await click("Insert");
-    expect(await screen.findByRole("alert")).toBeTruthy();
+    await screen.findByRole("alert");
     expect(currentHtml()).not.toContain("<a");
   });
 
@@ -282,7 +282,7 @@ describe("DocumentTiptapEditor asynchronously loaded value", () => {
     // The editor reports its empty document once on mount.
     edits.length = 0;
     fireEvent.click(screen.getByRole("button", { name: "Load entry" }));
-    expect(await screen.findByText("Hallo Welt")).toBeTruthy();
+    await screen.findByText("Hallo Welt");
     expect(edits).toEqual([]);
     expect(currentHtml()).toBe("<p>Hallo Welt</p>");
   });
@@ -298,7 +298,7 @@ describe("DocumentTiptapEditor asynchronously loaded value", () => {
     await screen.findByRole("button", { name: "Bold" });
     edits.length = 0;
     fireEvent.click(screen.getByRole("button", { name: "Load entry" }));
-    expect(await screen.findByText("ab")).toBeTruthy();
+    await screen.findByText("ab");
     expect(edits).toEqual([]);
 
     await click("Divider");
@@ -329,7 +329,7 @@ describe("DocumentContentEditor as a form field", () => {
       </LocaleProvider>,
     );
     await screen.findByRole("button", { name: "Bold" });
-    expect(screen.getByRole("button", { name: "Link" })).toBeTruthy();
+    screen.getByRole("button", { name: "Link" });
     for (const name of ["Placeholder", "Image", "Table", "Button", "Divider", "Repeat", "Steps"]) {
       expect(screen.queryByRole("button", { name })).toBeNull();
     }

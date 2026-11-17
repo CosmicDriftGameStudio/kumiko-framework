@@ -59,7 +59,7 @@ describe("KumikoScreen / secretMint reveal phase with confirm (web primitives)",
       0,
     );
     expect(document.querySelector("[data-slot=card]")).toBeNull();
-    expect(screen.getByTestId("render-edit-submit")).toBeTruthy();
+    screen.getByTestId("render-edit-submit");
   });
 });
 
@@ -139,7 +139,7 @@ describe("KumikoScreen / secretMint submitPrefilled (web primitives)", () => {
       },
       { id: "abc" },
     );
-    expect(screen.getByDisplayValue("abc")).toBeTruthy();
+    screen.getByDisplayValue("abc");
     const submit = screen.getByTestId("render-edit-submit") as HTMLButtonElement;
     expect(submit.disabled).toBe(false);
     fireEvent.click(submit);

@@ -65,9 +65,9 @@ describe("TagsCell", () => {
 
     renderCell("n1");
 
-    expect(screen.getByTestId("tags-cell")).toBeTruthy();
-    expect(screen.getByText("important")).toBeTruthy();
-    expect(screen.getByText("project-x")).toBeTruthy();
+    screen.getByTestId("tags-cell");
+    screen.getByText("important");
+    screen.getByText("project-x");
   });
 
   test("renders nothing when the row has no assigned tags", () => {

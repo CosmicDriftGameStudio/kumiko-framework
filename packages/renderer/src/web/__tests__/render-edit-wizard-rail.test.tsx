@@ -197,7 +197,7 @@ describe("wizard footer", () => {
     expect(screen.queryByTestId("render-edit-wizard-save-close")).toBeNull();
     view.unmount();
     renderWizard(wizardScreen(describedSections, { saveAndCloseOnCreate: true }));
-    expect(screen.getByTestId("render-edit-wizard-save-close")).toBeTruthy();
+    screen.getByTestId("render-edit-wizard-save-close");
   });
 
   test("submitDisabledWhen disables Finish while the condition holds", () => {
@@ -324,12 +324,12 @@ describe("wizard footer: last step", () => {
   test("Save and close stays hidden on the last step by default", () => {
     gotoLastStep();
     expect(screen.queryByTestId("render-edit-wizard-save-close")).toBeNull();
-    expect(screen.getByTestId("render-edit-submit")).toBeTruthy();
+    screen.getByTestId("render-edit-submit");
   });
 
   test("with saveAndCloseOnCreate it sits next to the submit on the last step", () => {
     gotoLastStep({ saveAndCloseOnCreate: true });
-    expect(screen.getByTestId("render-edit-wizard-save-close")).toBeTruthy();
-    expect(screen.getByTestId("render-edit-submit")).toBeTruthy();
+    screen.getByTestId("render-edit-wizard-save-close");
+    screen.getByTestId("render-edit-submit");
   });
 });

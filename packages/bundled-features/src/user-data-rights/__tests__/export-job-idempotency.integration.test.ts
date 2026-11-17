@@ -179,7 +179,7 @@ describe("ExportJob :: Partial-UNIQUE-Index", () => {
     // Once the job is done, the user may start another pending job.
     await updateRowViaEventStore(
       stack.db,
-      { table: exportJobsTable, entity: exportJobEntity, entityName: "exportJob" },
+      { table: exportJobsTable, entity: exportJobEntity, entityName: "export-job" },
       { id: runningJobId },
       { status: EXPORT_JOB_STATUS.Done },
       { tenantId: TENANT_SYSTEM as TenantId },

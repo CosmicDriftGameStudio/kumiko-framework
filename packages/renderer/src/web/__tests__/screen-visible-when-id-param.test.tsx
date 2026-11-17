@@ -65,19 +65,19 @@ function renderDetail(gate: Gate, entityId: string | undefined) {
 describe("screen visibleWhen.idParam", () => {
   test("the gate query receives the route id under idParam", async () => {
     const { gatePayloads } = renderDetail("allowed", "case-42");
-    await waitFor(() => expect(screen.getByText("CASE NAME")).toBeTruthy());
+    await waitFor(() => screen.getByText("CASE NAME"));
     expect(gatePayloads[0]).toEqual({ caseId: "case-42" });
   });
 
   test("a failing gate query (403) shows the unavailable notice, not the record", async () => {
     renderDetail("error", "case-42");
-    await waitFor(() => expect(screen.getByTestId("kumiko-screen-unavailable")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("kumiko-screen-unavailable"));
     expect(screen.queryByText("CASE NAME")).toBeNull();
   });
 
   test("without a route id the gate is not queried and the screen counts as hidden", async () => {
     const { gatePayloads } = renderDetail("allowed", undefined);
-    await waitFor(() => expect(screen.getByTestId("kumiko-screen-unavailable")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("kumiko-screen-unavailable"));
     expect(gatePayloads).toEqual([]);
   });
 });

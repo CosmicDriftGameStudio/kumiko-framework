@@ -239,13 +239,13 @@ describe("defineWebhookEvent", () => {
     expect(register(definition)).toThrow(message);
   });
 
-  test("rejects the positional call form", () => {
+  test("rejects the positional call form by its missing name", () => {
     expect(() =>
       defineFeature("bad", (r) => {
         // @ts-expect-error positional form is not supported
         r.defineWebhookEvent("x-y", "d.", z.object({}), 1);
       }),
-    ).toThrow(/object/);
+    ).toThrow(/defineWebhookEvent: name must be kebab-case, got undefined/);
   });
 });
 

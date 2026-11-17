@@ -29,12 +29,12 @@ describe("StackedAreaChart", () => {
     renderChart({ formatAxisValue: (value) => `axis:${value}` });
     expect(screen.getAllByText(/^axis:/).length).toBe(3);
     expect(screen.queryByText(/^full:0$/)).toBeNull();
-    expect(within(screen.getByTestId("chart-legend-a")).getByText("full:15000")).toBeTruthy();
+    within(screen.getByTestId("chart-legend-a")).getByText("full:15000");
   });
 
   test("y ticks fall back to formatValue without formatAxisValue", () => {
     renderChart();
-    expect(screen.getByText("full:0")).toBeTruthy();
+    screen.getByText("full:0");
   });
 
   test("draws a dashed grid line per y tick", () => {
@@ -90,7 +90,7 @@ describe("StackedAreaChart", () => {
       "1",
       "2",
     ]);
-    expect(screen.getByTestId("chart-legend-marker-Payoff-red")).toBeTruthy();
+    screen.getByTestId("chart-legend-marker-Payoff-red");
   });
 
   test("markerLabels with the default list legend hides the numbered list from @2xl too", () => {
@@ -143,9 +143,9 @@ describe("StackedAreaChart", () => {
       fireEvent.pointerMove(overlay, { pointerType: "mouse", clientX: 200 });
       const card = screen.getByTestId("chart-tooltip");
       expect(card.textContent).toContain("d2028");
-      expect(within(card).getByText("axis:3000")).toBeTruthy();
-      expect(within(card).getByText("Restschuld")).toBeTruthy();
-      expect(within(card).getByText("axis:700")).toBeTruthy();
+      within(card).getByText("axis:3000");
+      within(card).getByText("Restschuld");
+      within(card).getByText("axis:700");
       fireEvent.pointerLeave(overlay, { pointerType: "mouse" });
       expect(screen.queryByTestId("chart-tooltip")).toBeNull();
     });
@@ -214,7 +214,7 @@ describe("StackedAreaChart", () => {
     test("a pointerdown outside the plot closes the card", () => {
       renderChart();
       tap(plotOverlay(), 200);
-      expect(screen.getByTestId("chart-tooltip")).toBeTruthy();
+      screen.getByTestId("chart-tooltip");
       fireEvent.pointerDown(document.body, { pointerType: "touch" });
       expect(screen.queryByTestId("chart-tooltip")).toBeNull();
     });

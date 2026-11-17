@@ -103,7 +103,7 @@ describe("money field currency: { kind: 'tenant' }", () => {
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull(), {
       timeout: 3000,
     });
-    expect(screen.getByTestId("render-edit-form")).toBeTruthy();
+    screen.getByTestId("render-edit-form");
 
     await typeMoney("field-price", "10.00");
     await typeMoney("field-cost", "75.00");
@@ -240,7 +240,7 @@ describe("money field currency: { kind: 'tenant' }", () => {
       </DispatcherProvider>,
     );
 
-    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-form"));
     expect(queriedTypes).not.toContain("config:query:values");
   });
 });

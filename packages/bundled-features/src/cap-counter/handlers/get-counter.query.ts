@@ -1,4 +1,4 @@
-import type { QueryHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { readCalendarCapCounter } from "../book-cap-usage.ts";
 
@@ -10,14 +10,14 @@ const getCounterSchema = z.object({
   periodStartIso: z.iso.datetime({ offset: true }),
 });
 
-export const getCounterQuery: QueryHandlerDef = {
+export const getCounterQuery = defineQueryHandler({
   name: "get-counter",
   description:
     "Returns the calendar-period usage counter of the caller's tenant for one cap name and period start, or null when nothing was counted yet; use it to show remaining quota.",
   schema: getCounterSchema,
   access: { roles: ["TenantAdmin", "SystemAdmin"] },
   handler: async (query, ctx) => {
-    const payload = query.payload as z.infer<typeof getCounterSchema>; // @cast-boundary engine-payload
+    const payload = query.payload;
     const counter = await readCalendarCapCounter(ctx.db, ctx.user.tenantId, payload);
     if (!counter) return null;
     return {
@@ -27,4 +27,4 @@ export const getCounterQuery: QueryHandlerDef = {
       lastSoftWarnedAt: counter.lastSoftWarnedAt,
     };
   },
-};
+});

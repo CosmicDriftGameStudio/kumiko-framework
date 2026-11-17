@@ -198,8 +198,8 @@ describe("WriteFormSection", () => {
     renderWriteForm({ ...untitled, handler: "orders:write:first" }, dispatcher, noop);
     renderWriteForm({ ...untitled, handler: "orders:write:second" }, dispatcher, noop);
 
-    expect(rtlScreen.getByTestId("write-form-orders:write:first")).toBeTruthy();
-    expect(rtlScreen.getByTestId("write-form-orders:write:second")).toBeTruthy();
+    rtlScreen.getByTestId("write-form-orders:write:first");
+    rtlScreen.getByTestId("write-form-orders:write:second");
   });
 
   test("submit dispatches through the section's configured write handler with the entered values", async () => {
@@ -229,7 +229,7 @@ describe("WriteFormSection", () => {
     fireEvent.change(rtlScreen.getByLabelText("note"), { target: { value: "x" } });
     fireEvent.click(rtlScreen.getByTestId("write-form-section-submit"));
 
-    await waitFor(() => expect(rtlScreen.getByTestId("write-form-section-error")).toBeTruthy());
+    await waitFor(() => rtlScreen.getByTestId("write-form-section-error"));
     expect(submittedCount).toBe(0);
   });
 
@@ -276,7 +276,7 @@ describe("WriteFormSection", () => {
     fireEvent.change(rtlScreen.getByLabelText("note"), { target: { value: "x" } });
     fireEvent.click(rtlScreen.getByTestId("write-form-section-submit"));
 
-    await waitFor(() => expect(rtlScreen.getByTestId("write-form-section-error")).toBeTruthy());
+    await waitFor(() => rtlScreen.getByTestId("write-form-section-error"));
   });
 
   test("typing into a field dismisses the error banner", async () => {
@@ -288,7 +288,7 @@ describe("WriteFormSection", () => {
 
     fireEvent.change(rtlScreen.getByLabelText("note"), { target: { value: "x" } });
     fireEvent.click(rtlScreen.getByTestId("write-form-section-submit"));
-    await waitFor(() => expect(rtlScreen.getByTestId("write-form-section-error")).toBeTruthy());
+    await waitFor(() => rtlScreen.getByTestId("write-form-section-error"));
 
     fireEvent.change(rtlScreen.getByLabelText("note"), { target: { value: "xy" } });
 

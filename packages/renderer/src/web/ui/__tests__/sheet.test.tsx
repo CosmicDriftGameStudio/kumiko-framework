@@ -34,10 +34,10 @@ describe("Sheet", () => {
     const content = document.querySelector('[data-slot="sheet-content"]');
     expect(content).not.toBeNull();
     expect(content?.className).toContain(slideClass);
-    expect(screen.getByText("Title")).toBeTruthy();
-    expect(screen.getByText("Description")).toBeTruthy();
-    expect(screen.getByText("Body")).toBeTruthy();
-    expect(screen.getByText("Footer")).toBeTruthy();
+    screen.getByText("Title");
+    screen.getByText("Description");
+    screen.getByText("Body");
+    screen.getByText("Footer");
     expect(document.querySelector('[data-slot="sheet-overlay"]')).not.toBeNull();
     expect(document.querySelector('[data-slot="sheet-header"]')).not.toBeNull();
     expect(document.querySelector('[data-slot="sheet-footer"]')).not.toBeNull();
@@ -94,7 +94,7 @@ describe("Sheet", () => {
       </Sheet>,
     );
     expect(document.querySelector('[data-slot="sheet-trigger"]')).not.toBeNull();
-    expect(screen.getByTestId("sheet-dismiss")).toBeTruthy();
+    screen.getByTestId("sheet-dismiss");
     expect(document.querySelector('[data-slot="sheet-close"]')).not.toBeNull();
   });
 });

@@ -97,7 +97,7 @@ describe("MfaDisableDialog reopening", () => {
     renderWith(<ReopenableDisableDialog />, makeDispatcher([]));
 
     fireEvent.click(screen.getByRole("button", { name: "Use a recovery code instead" }));
-    expect(screen.getByLabelText(/^Recovery code/)).toBeTruthy();
+    screen.getByLabelText(/^Recovery code/);
 
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     await waitFor(() => {
@@ -105,7 +105,7 @@ describe("MfaDisableDialog reopening", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "reopen" }));
 
-    expect(screen.getByLabelText(/^Code from your authenticator app/)).toBeTruthy();
+    screen.getByLabelText(/^Code from your authenticator app/);
     expect(screen.queryByLabelText(/^Recovery code/)).toBeNull();
   });
 });

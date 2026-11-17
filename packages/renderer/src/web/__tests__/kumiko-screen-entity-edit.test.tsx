@@ -50,7 +50,7 @@ describe("KumikoScreen: update-only entityEdit (allowCreate/allowDelete)", () =>
       </DispatcherProvider>,
     );
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
-    expect(screen.getByTestId("render-edit-form")).toBeTruthy();
+    screen.getByTestId("render-edit-form");
     expect(screen.queryByTestId("render-edit-delete")).toBeNull();
   });
 
@@ -97,7 +97,7 @@ describe("KumikoScreen: update-only entityEdit (allowCreate/allowDelete)", () =>
     expect(screen.queryByTestId("render-list-create")).toBeNull();
     hidden.unmount();
     await renderList(listScreen);
-    expect(screen.getByTestId("render-list-create")).toBeTruthy();
+    screen.getByTestId("render-list-create");
   });
 
   test("allowCreate:false → Calling without entityId shows an error banner instead of the Create form", () => {
@@ -106,7 +106,7 @@ describe("KumikoScreen: update-only entityEdit (allowCreate/allowDelete)", () =>
         <KumikoScreen schema={updateOnlySchema} qn="tasks:screen:task-edit" />
       </DispatcherProvider>,
     );
-    expect(screen.getByTestId("kumiko-screen-create-disabled")).toBeTruthy();
+    screen.getByTestId("kumiko-screen-create-disabled");
     expect(screen.queryByTestId("render-edit-form")).toBeNull();
   });
 });
@@ -214,7 +214,7 @@ describe("KumikoScreen: entityEdit header actions", () => {
         <KumikoScreen schema={actionsSchema} qn="tasks:screen:task-edit-actions-3" />
       </DispatcherProvider>,
     );
-    expect(screen.getByTestId("render-edit-form")).toBeTruthy();
+    screen.getByTestId("render-edit-form");
     expect(screen.queryByTestId("render-edit-action-publish")).toBeNull();
     expect(screen.queryByTestId("render-edit-action-archive")).toBeNull();
     expect(screen.queryByTestId("render-edit-action-duplicate")).toBeNull();
@@ -283,7 +283,7 @@ describe("KumikoScreen: entityEdit actions drawer-kind", () => {
 
     fireEvent.click(screen.getByTestId("render-edit-action-add-note"));
     const drawer = () => within(screen.getByTestId("toolbar-drawer-add-note"));
-    await waitFor(() => expect(drawer().getByTestId("field-note")).toBeTruthy());
+    await waitFor(() => drawer().getByTestId("field-note"));
     const titleInput = drawer().getByTestId("field-title").querySelector("input");
     if (titleInput === null) throw new Error("expected an <input> inside field-title");
     expect(titleInput.value).toBe("loaded");

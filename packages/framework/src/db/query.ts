@@ -44,6 +44,7 @@ import { coerceDriverRow } from "./driver-row-coercion.ts";
 import { type PreparedValue, prepareValue } from "./driver-value-preparation.ts";
 import type { EntityTableMeta } from "./entity-table-meta.ts";
 import { executorManagedWriteDenied } from "./executor-managed-tables.ts";
+import type { InnerJoinRow, InnerJoinSpec } from "./inner-join-types.ts";
 import { extractPgError } from "./pg-error.ts";
 import { quoteIdent } from "./sql-identifier.ts";
 import { extractTableInfo, type TableInfo } from "./table-info.ts";
@@ -476,22 +477,6 @@ export async function fetchOne<TRow = AnyRow>(
   const rows = await selectMany<TRow>(db, table, where, { limit: 1 });
   return rows[0];
 }
-
-export type JoinColumnPair = { readonly left: string; readonly right: string };
-
-export type InnerJoinSpec = {
-  readonly left: TableLike;
-  readonly right: TableLike;
-  readonly on: readonly [JoinColumnPair, ...JoinColumnPair[]];
-  readonly leftWhere?: WhereObject;
-  readonly rightWhere?: WhereObject;
-  /** Fields to return per side; default: all columns of `left`, none of `right`. */
-  readonly leftFields?: readonly string[];
-  readonly rightFields?: readonly string[];
-  readonly limit?: number;
-};
-
-export type InnerJoinRow<TLeft, TRight> = { readonly left: TLeft; readonly right: TRight };
 
 const JOIN_LEFT_ALIAS = "l";
 const JOIN_RIGHT_ALIAS = "r";

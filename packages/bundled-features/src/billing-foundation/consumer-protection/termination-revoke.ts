@@ -4,11 +4,7 @@
 // handler checks the token and does the work.
 
 import { hashOpaqueTokenSync, opaqueTokenHashMatches } from "@cosmicdrift/kumiko-framework/crypto";
-import {
-  access,
-  createSystemUser,
-  type WriteHandlerDef,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { access, createSystemUser, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { subscriptionAggregateId } from "../aggregate-id.ts";
@@ -81,8 +77,8 @@ function parseOutcome(data: unknown): RevocationOutcome {
   return parsed.success ? parsed.data.outcome : "invalid";
 }
 
-export function createRevokeContractTerminationHandler(): WriteHandlerDef {
-  return {
+export function createRevokeContractTerminationHandler() {
+  return defineWriteHandler({
     name: "revoke-contract-termination",
     description:
       'Public "this was not me" link of the § 312k receipt mail: takes a public cancellation back until it takes effect; an unknown request and a wrong token answer the same.',
@@ -97,8 +93,7 @@ export function createRevokeContractTerminationHandler(): WriteHandlerDef {
       grants: ["systemIdentity"],
     },
     handler: async (event, ctx) => {
-      // @cast-boundary engine-payload — dispatcher-zod-validated payload
-      const payload = event.payload as z.infer<typeof revokeContractTerminationSchema>;
+      const payload = event.payload;
       const result = await ctx.dispatch.writeAs(
         createSystemUser(payload.tenantId),
         SubscriptionFoundationHandlers.recordContractTerminationRevocation,
@@ -109,21 +104,20 @@ export function createRevokeContractTerminationHandler(): WriteHandlerDef {
         data: { outcome: result.isSuccess ? parseOutcome(result.data) : "invalid" },
       };
     },
-  };
+  });
 }
 
 export function createRecordContractTerminationRevocationHandler(
   options: ResolvedBillingFoundationOptions,
   consumerProtection: ConsumerProtectionOptions,
-): WriteHandlerDef {
-  return {
+) {
+  return defineWriteHandler({
     name: "record-contract-termination-revocation",
     agent: { expose: false },
     schema: recordContractTerminationRevocationSchema,
     access: { roles: access.system },
     handler: async (event, ctx) => {
-      // @cast-boundary engine-payload — dispatcher-zod-validated payload
-      const payload = event.payload as z.infer<typeof recordContractTerminationRevocationSchema>;
+      const payload = event.payload;
       const tenantId = event.user.tenantId;
       // The provider cancel/resume and the stream append must not interleave across declarations of the same subscription.
       await ctx.db.advisoryXactLock(
@@ -198,5 +192,5 @@ export function createRecordContractTerminationRevocationHandler(
       });
       return outcome("revoked");
     },
-  };
+  });
 }

@@ -103,6 +103,7 @@ const WRITE_HANDLER_KEY_KINDS: Record<keyof WriteHandlerDef, KeyClassification> 
   beforeTransactionWhenNested: "opaque",
   transaction: "opaque",
   perform: "opaque",
+  systemScope: "opaque",
 };
 
 const QUERY_HANDLER_KEY_KINDS: Record<keyof QueryHandlerDef, KeyClassification> = {
@@ -119,6 +120,7 @@ const QUERY_HANDLER_KEY_KINDS: Record<keyof QueryHandlerDef, KeyClassification> 
   resultEntity: "opaque",
   unfilteredResult: "opaque",
   escapeHatch: "modeled",
+  systemScope: "opaque",
 };
 
 const STREAM_HANDLER_KEY_KINDS: Record<keyof StreamHandlerDef, KeyClassification> = {

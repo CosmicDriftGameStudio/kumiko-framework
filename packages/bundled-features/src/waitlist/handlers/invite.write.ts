@@ -15,7 +15,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { AuthErrors, AuthHandlers } from "../../auth-email-password/index.ts";
-import { requireSystemDb } from "../../shared/index.ts";
 import { TenantHandlers, tenantTable } from "../../tenant/index.ts";
 import { isOpenWaitlistStatus } from "../entity.ts";
 import {
@@ -136,6 +135,7 @@ export function createInviteHandler(invite: WaitlistInviteOptions = DEFAULT_INVI
     name: "invite",
     schema: WaitlistIdSchema,
     access: adminAccess,
+    systemScope: true,
     description:
       "Invites a pending or already-invited waitlist entry: creates its tenant (or uses the configured shared tenant), mails the entrant a fresh accept link with the configured role and marks the entry invited; rejected entries cannot be invited. The invitee never receives a global role.",
     // Sends an invite link by email, which cannot be recalled.
@@ -143,7 +143,7 @@ export function createInviteHandler(invite: WaitlistInviteOptions = DEFAULT_INVI
     escapeHatch: { grants: ["unsafeRaw"], reason: INVITE_LOCK_REASON },
     handler: async (event, ctx) => {
       const db = waitlistDb(ctx);
-      const systemDb = requireSystemDb(ctx, "waitlist:invite");
+      const { systemDb } = ctx;
       await acquireNamespacedAdvisoryLock(
         systemDb.unsafeRaw(INVITE_LOCK_REASON),
         INVITE_LOCK_NAMESPACE,

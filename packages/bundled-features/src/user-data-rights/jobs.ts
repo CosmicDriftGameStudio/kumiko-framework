@@ -1,7 +1,9 @@
 import {
   createSystemUser,
   type FeatureRegistrar,
+  type JobContext,
   type JobHandlerFn,
+  type Registry,
   SYSTEM_USER_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -38,6 +40,43 @@ const RUN_FORGET_CLEANUP_REASON = "executes overdue Art.17 forget requests acros
 
 export type ExportJobWarnings = { missingExportUrl: boolean };
 
+// Without explicit send*Email options the default templates go out through delivery;
+// the run spans tenants, so each mail needs a notify bound to the recipient's tenant.
+function resolveExportMailers(
+  opts: UserDataRightsOptions,
+  notifyFactory: JobContext["services"]["_notifyFactory"],
+  registry: Registry,
+  exportWarnings: ExportJobWarnings,
+) {
+  const exportNotifyFor =
+    notifyFactory !== undefined && isGdprMailDeliveryAvailable(registry)
+      ? (tenantId: TenantId) => notifyFactory(createSystemUser(tenantId), tenantId)
+      : undefined;
+  const sendExportReadyEmail =
+    opts.sendExportReadyEmail ??
+    (exportNotifyFor && opts.appExportDownloadUrl !== undefined
+      ? makeDefaultExportReadyEmail(exportNotifyFor, opts.mailDefaults)
+      : undefined);
+  const sendExportFailedEmail =
+    opts.sendExportFailedEmail ??
+    (exportNotifyFor
+      ? makeDefaultExportFailedEmail(exportNotifyFor, opts.mailDefaults)
+      : undefined);
+  if (
+    exportNotifyFor &&
+    !opts.sendExportReadyEmail &&
+    opts.appExportDownloadUrl === undefined &&
+    !exportWarnings.missingExportUrl
+  ) {
+    exportWarnings.missingExportUrl = true;
+    // biome-ignore lint/suspicious/noConsole: one-shot operator visibility for misconfig
+    console.warn(
+      "[user-data-rights:run-export-jobs] mail delivery mounted but appExportDownloadUrl unset — default export-ready emails disabled (export-failed + deletion mails still send)",
+    );
+  }
+  return { sendExportReadyEmail, sendExportFailedEmail };
+}
+
 export function registerUserDataRightsJobs(
   r: FeatureRegistrar<"user-data-rights">,
   opts: UserDataRightsOptions,
@@ -72,35 +111,12 @@ export function registerUserDataRightsJobs(
       ? createSafeMetricsHandle(ctx.obs.meter, "user-data-rights")
       : createNoopMetricsHandle();
 
-    // Without explicit send*Email options the default templates go out through delivery;
-    // the run spans tenants, so each mail needs a notify bound to the recipient's tenant.
-    const notifyFactory = ctx.services._notifyFactory;
-    const exportNotifyFor =
-      notifyFactory !== undefined && isGdprMailDeliveryAvailable(exportRegistry)
-        ? (tenantId: TenantId) => notifyFactory(createSystemUser(tenantId), tenantId)
-        : undefined;
-    const sendExportReadyEmail =
-      opts.sendExportReadyEmail ??
-      (exportNotifyFor && opts.appExportDownloadUrl !== undefined
-        ? makeDefaultExportReadyEmail(exportNotifyFor, opts.mailDefaults)
-        : undefined);
-    const sendExportFailedEmail =
-      opts.sendExportFailedEmail ??
-      (exportNotifyFor
-        ? makeDefaultExportFailedEmail(exportNotifyFor, opts.mailDefaults)
-        : undefined);
-    if (
-      exportNotifyFor &&
-      !opts.sendExportReadyEmail &&
-      opts.appExportDownloadUrl === undefined &&
-      !exportWarnings.missingExportUrl
-    ) {
-      exportWarnings.missingExportUrl = true;
-      // biome-ignore lint/suspicious/noConsole: one-shot operator visibility for misconfig
-      console.warn(
-        "[user-data-rights:run-export-jobs] mail delivery mounted but appExportDownloadUrl unset — default export-ready emails disabled (export-failed + deletion mails still send)",
-      );
-    }
+    const { sendExportReadyEmail, sendExportFailedEmail } = resolveExportMailers(
+      opts,
+      ctx.services._notifyFactory,
+      exportRegistry,
+      exportWarnings,
+    );
 
     await runExportJobs({
       db: exportDb,

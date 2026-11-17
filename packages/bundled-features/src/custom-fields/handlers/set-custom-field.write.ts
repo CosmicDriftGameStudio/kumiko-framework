@@ -1,4 +1,4 @@
-import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { failNotFound, failUnprocessable } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { parentRowIsVisible } from "../../shared/index.ts";
@@ -51,10 +51,8 @@ const SET_CUSTOM_FIELD_REASON =
 /** Value writes use app roles instead of the bundle defaults — apps with a
  *  custom role vocabulary (e.g. "Admin"/"Editor") pass their roles here via
  *  createCustomFieldsFeature({ valueWriteRoles }). */
-export function createSetCustomFieldHandler(
-  roles: readonly string[] = DEFAULT_VALUE_WRITE_ROLES,
-): WriteHandlerDef {
-  return {
+export function createSetCustomFieldHandler(roles: readonly string[] = DEFAULT_VALUE_WRITE_ROLES) {
+  return defineWriteHandler({
     name: "set-custom-field",
     schema: setCustomFieldPayloadSchema,
     access: { roles },
@@ -65,7 +63,7 @@ export function createSetCustomFieldHandler(
       reason: SET_CUSTOM_FIELD_REASON,
     },
     handler: async (event, ctx) => {
-      const payload = event.payload as SetCustomFieldPayload; // @cast-boundary engine-payload
+      const payload = event.payload;
       if (!isCustomFieldsHost(ctx.registry, payload.entityName)) {
         return failUnprocessable("custom_fields_entity_not_wired", {
           entityName: payload.entityName,
@@ -136,5 +134,5 @@ export function createSetCustomFieldHandler(
         data: { entityName: payload.entityName, entityId: payload.entityId },
       };
     },
-  };
+  });
 }

@@ -89,6 +89,6 @@ describe("KumikoScreen / configEdit without secrets access", () => {
     await renderWithSecretsResult({ isSuccess: true, data: [{ key: "demo:secret:password" }] });
 
     await waitFor(() => screen.getByTestId("render-edit-form"));
-    expect(screen.getByTestId("field-password")).toBeTruthy();
+    screen.getByTestId("field-password");
   });
 });

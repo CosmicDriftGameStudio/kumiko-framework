@@ -113,12 +113,12 @@ afterAll(async () => {
   await stack.cleanup();
 });
 
-async function freshAdmin(email: string | undefined) {
+async function freshAdmin(email: string | undefined, roles: readonly string[] = ["TenantAdmin"]) {
   nextTenant += 1;
   const admin = createTestUser({
     id: nextTenant,
     tenantId: testTenantId(nextTenant),
-    roles: ["TenantAdmin"],
+    roles: [...roles],
   });
   if (email !== undefined) {
     await seedRowViaEventStore(stack.db, userTable, {
@@ -220,7 +220,7 @@ describe("mail probe", () => {
 
 describe("storage probe", () => {
   test("writes, reads and deletes the test file without leaving a key or file events", async () => {
-    const admin = await freshAdmin(undefined);
+    const admin = await freshAdmin(undefined, ["TenantAdmin", "SystemAdmin"]);
     await select(admin, FILE_PROVIDER_KEY, "inmemory");
     const newEvents = await markEvents(stack);
 
@@ -241,7 +241,7 @@ describe("storage probe", () => {
   });
 
   test("a provider that throws fails the probe", async () => {
-    const admin = await freshAdmin(undefined);
+    const admin = await freshAdmin(undefined, ["TenantAdmin", "SystemAdmin"]);
     await select(admin, FILE_PROVIDER_KEY, "failing");
     failingFilesDeleteCalls = 0;
 

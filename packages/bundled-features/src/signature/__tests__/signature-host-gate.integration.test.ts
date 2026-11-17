@@ -24,7 +24,10 @@ import { PDFDocument } from "pdf-lib";
 import { createAuthFoundationFeature } from "../../auth-foundation/index.ts";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
 import { createDataRetentionFeature } from "../../data-retention/index.ts";
+import { createRendererFoundationFeature } from "../../renderer-foundation/index.ts";
+import { createRendererPuppeteerClientFeature } from "../../renderer-puppeteer-client/feature.ts";
 import { createSessionsFeature } from "../../sessions/index.ts";
+import { createTemplateResolverFeature } from "../../template-resolver/index.ts";
 import { createUserFeature } from "../../user/index.ts";
 import { createUserDataRightsFeature } from "../../user-data-rights/feature.ts";
 import { signatureRequestTable, signatureSignerTable } from "../entity.ts";
@@ -124,6 +127,9 @@ beforeAll(async () => {
       createComplianceProfilesFeature(),
       createUserDataRightsFeature(),
       createFilesFeature(),
+      createTemplateResolverFeature(),
+      createRendererFoundationFeature(),
+      createRendererPuppeteerClientFeature(),
       leaseHostFeature,
       createSignatureFeature({
         retention: { keepFor: "10y", unfinishedKeepFor: "90d" },
@@ -325,10 +331,11 @@ describe("signature :: host gate on handlers", () => {
   });
 
   test("a file the caller cannot read is refused like an unknown file", async () => {
+    // USER_A reads leaseA but not USER_B's unattached upload; a privileged file role would read it.
     const failure = await stack.http.writeErr(
       SignatureHandlers.request,
-      await requestPayload(USER_A, HOST_TYPE, leaseA),
-      ADMIN,
+      await requestPayload(USER_B, HOST_TYPE, leaseA),
+      USER_A,
     );
     expect(failure.httpStatus).toBe(422);
     expect(JSON.stringify(failure)).toContain("document_not_a_pdf");

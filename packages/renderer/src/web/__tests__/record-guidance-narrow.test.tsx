@@ -67,24 +67,24 @@ describe("record guidance on a phone", () => {
     const definition = detailScreen({ summary: { field: "line", narrowField: "shortLine" } });
     setViewportWidth(PHONE_WIDTH);
     renderDetail(definition);
-    await waitFor(() => expect(screen.getByText("Short state.")).toBeTruthy());
+    await waitFor(() => screen.getByText("Short state."));
     expect(screen.queryByText(RECORD.line)).toBeNull();
   });
 
   test("the full summary stays on a wide screen", async () => {
     setViewportWidth(DESKTOP_WIDTH);
     renderDetail(detailScreen({ summary: { field: "line", narrowField: "shortLine" } }));
-    await waitFor(() => expect(screen.getByText(RECORD.line)).toBeTruthy());
+    await waitFor(() => screen.getByText(RECORD.line));
   });
 
   test("narrowLimit shows the first steps and a toggle for the rest", async () => {
     setViewportWidth(PHONE_WIDTH);
     renderDetail(detailScreen({ steps: { field: "steps", narrowLimit: 3 } }));
-    await waitFor(() => expect(screen.getByText("Step a")).toBeTruthy());
+    await waitFor(() => screen.getByText("Step a"));
     expect(screen.queryByText("Step d")).toBeNull();
     const toggle = screen.getByText("2 more steps");
     fireEvent.click(toggle);
-    expect(screen.getByText("Step e")).toBeTruthy();
+    screen.getByText("Step e");
     fireEvent.click(screen.getByText("Show fewer steps"));
     expect(screen.queryByText("Step d")).toBeNull();
   });
@@ -92,7 +92,7 @@ describe("record guidance on a phone", () => {
   test("a single hidden step reads as one step, not 1 steps", async () => {
     setViewportWidth(PHONE_WIDTH);
     renderDetail(detailScreen({ steps: { field: "steps", narrowLimit: 4 } }));
-    await waitFor(() => expect(screen.getByText("1 more step")).toBeTruthy());
+    await waitFor(() => screen.getByText("1 more step"));
   });
 
   test("narrowMoreLabel is the plural base key of the toggle of the rest", async () => {
@@ -103,19 +103,19 @@ describe("record guidance on a phone", () => {
       }),
     );
     // Keys without a bundle entry come back as the key itself: the toggle proves which key was asked.
-    await waitFor(() => expect(screen.getByText("app.steps.more.one")).toBeTruthy());
+    await waitFor(() => screen.getByText("app.steps.more.one"));
   });
 
   test("all steps show on a wide screen", async () => {
     setViewportWidth(DESKTOP_WIDTH);
     renderDetail(detailScreen({ steps: { field: "steps", narrowLimit: 3 } }));
-    await waitFor(() => expect(screen.getByText("Step e")).toBeTruthy());
+    await waitFor(() => screen.getByText("Step e"));
     expect(screen.queryByText("2 more steps")).toBeNull();
   });
 
   test("hideOnNarrow marks the chain as hidden below sm", async () => {
     renderDetail(detailScreen({ progress: { field: "progress", hideOnNarrow: true } }));
-    await waitFor(() => expect(screen.getByTestId("record-progress-0")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("record-progress-0"));
     expect(screen.getByTestId("record-progress-0").closest(".max-sm\\:hidden")).not.toBeNull();
   });
 
@@ -126,7 +126,7 @@ describe("record guidance on a phone", () => {
         steps: { field: "steps" },
       }),
     );
-    await waitFor(() => expect(screen.getByTestId("record-progress-0")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("record-progress-0"));
     expect(screen.getByTestId("record-progress-0").textContent).toContain("Step 2 of 3");
   });
 });

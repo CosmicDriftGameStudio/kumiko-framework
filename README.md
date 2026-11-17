@@ -47,6 +47,7 @@ You write:
 
 ```typescript
 const taskEntity = createEntity({
+  name: "task",
   table: "read_tasks",
   fields: {
     title: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -57,7 +58,7 @@ const taskEntity = createEntity({
 });
 
 export const taskFeature = defineFeature("tasks", (r) => {
-  r.crud("task", taskEntity, {
+  r.crud(taskEntity, {
     write: { access: { roles: ["Admin", "User"] } },
     read: { access: { openToAll: { reason: "any signed-in user may list and view tasks" } } },
   });

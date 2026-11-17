@@ -1,6 +1,6 @@
-import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { type AccessRule, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { tagExecutor } from "../executor.ts";
-import { type CreateTagPayload, createTagPayloadSchema } from "../schemas.ts";
+import { createTagPayloadSchema } from "../schemas.ts";
 import { DEFAULT_TAG_ACCESS } from "../web/constants.ts";
 
 // tag:create — adds a tag to the tenant's catalog. The framework mints a fresh
@@ -10,16 +10,16 @@ import { DEFAULT_TAG_ACCESS } from "../web/constants.ts";
 export function createCreateTagHandler(
   access: AccessRule = DEFAULT_TAG_ACCESS,
   name = "tag:create",
-): WriteHandlerDef {
-  return {
+) {
+  return defineWriteHandler({
     name,
     schema: createTagPayloadSchema,
     access,
     description:
       "Adds a tag to the caller's tenant tag catalog from a flat payload and mints its id; it does not attach the new tag to anything.",
     handler: async (event, ctx) => {
-      const payload = event.payload as CreateTagPayload; // @cast-boundary engine-payload
+      const payload = event.payload;
       return tagExecutor.create(payload, event.user, ctx.db);
     },
-  };
+  });
 }

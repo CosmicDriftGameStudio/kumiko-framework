@@ -13,6 +13,7 @@ import {
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -96,7 +97,11 @@ async function buildStack(withJobs: boolean): Promise<TestStack> {
       probeFeature,
     ],
     ...(withJobs && { jobs: { consumerLane: "worker" } }),
-    extraContext: (deps) => createDeliveryTestContext(deps, { log: recordingLogger }),
+    extraContext: (deps) =>
+      createDeliveryTestContext(deps, {
+        log: recordingLogger,
+        addressCipher: createTestEnvelopeCipher(),
+      }),
   });
   await unsafePushTables(stack.db, { deliveryAttemptsTable });
   return stack;

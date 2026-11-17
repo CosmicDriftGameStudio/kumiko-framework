@@ -125,8 +125,8 @@ describe("dashboard list panel row guidance", () => {
     );
     const sentence = await screen.findByText("Send reminder");
     expect(sentence.closest("[data-hint-tone]")?.getAttribute("data-hint-tone")).toBe("warn");
-    expect(screen.getByText("until Friday")).toBeTruthy();
-    expect(screen.getByText("Nothing open")).toBeTruthy();
+    screen.getByText("until Friday");
+    screen.getByText("Nothing open");
   });
 
   test("the Why toggle reveals the reason without following the row", async () => {
@@ -138,7 +138,7 @@ describe("dashboard list panel row guidance", () => {
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
     expect(screen.queryByText("The invoice is 14 days overdue.")).toBeNull();
     await userEvent.click(toggle);
-    expect(screen.getByText("The invoice is 14 days overdue.")).toBeTruthy();
+    screen.getByText("The invoice is 14 days overdue.");
     expect(toggle.getAttribute("aria-expanded")).toBe("true");
     await userEvent.click(toggle);
     expect(screen.queryByText("The invoice is 14 days overdue.")).toBeNull();
@@ -187,9 +187,9 @@ describe("dashboard text panel with a query", () => {
     renderDashboard(textDashboard([{ kind: "heading", text: "demo:static-heading" }]), {
       "demo:query:tips": () => pending,
     });
-    expect(await screen.findByText("Statische Hilfe")).toBeTruthy();
+    await screen.findByText("Statische Hilfe");
     release(ok({ blocks: [{ kind: "paragraph", text: "Live tip" }] }));
-    await waitFor(() => expect(screen.getByText("Live tip")).toBeTruthy());
+    await waitFor(() => screen.getByText("Live tip"));
     expect(screen.queryByText("Statische Hilfe")).toBeNull();
   });
 
@@ -197,7 +197,7 @@ describe("dashboard text panel with a query", () => {
     renderDashboard(textDashboard(), {
       "demo:query:tips": () => ok({ blocks: [] }),
     });
-    expect(await screen.findByText("Statische Hilfe")).toBeTruthy();
+    await screen.findByText("Statische Hilfe");
   });
 
   test("DashboardI18nText is translated with its params", async () => {
@@ -212,7 +212,7 @@ describe("dashboard text panel with a query", () => {
           ],
         }),
     });
-    expect(await screen.findByText("Hallo Ada")).toBeTruthy();
+    await screen.findByText("Hallo Ada");
   });
 
   test("an invalid block is dropped, the valid ones stay", async () => {
@@ -226,7 +226,7 @@ describe("dashboard text panel with a query", () => {
           ],
         }),
     });
-    expect(await screen.findByText("Valid hint")).toBeTruthy();
+    await screen.findByText("Valid hint");
     expect(screen.queryByText("42")).toBeNull();
   });
 
@@ -234,7 +234,7 @@ describe("dashboard text panel with a query", () => {
     renderDashboard(textDashboard(), {
       "demo:query:tips": () => ok({ blocks: "nope" }),
     });
-    expect(await screen.findByText("Statische Hilfe")).toBeTruthy();
+    await screen.findByText("Statische Hilfe");
   });
 
   test("without static blocks a failing query shows the panel error", async () => {
@@ -249,7 +249,7 @@ describe("dashboard text panel with a query", () => {
         },
       }),
     });
-    expect(await screen.findByText(/konnte nicht geladen werden|could not be loaded/)).toBeTruthy();
+    await screen.findByText(/konnte nicht geladen werden|could not be loaded/);
   });
 
   test("a link block to a screen the user may not open is hidden", async () => {

@@ -82,7 +82,7 @@ describe("FileNameLink", () => {
       <FileNameLink fileId="22222222-2222-4333-8444-555555555555" fallbackLabel="File attached" />,
     );
     await waitFor(() => expect(requested).toBe(true));
-    expect(getByText("File attached")).toBeDefined();
+    getByText("File attached");
   });
 
   test("an id the batch answer leaves out keeps the fallback label", async () => {
@@ -95,7 +95,7 @@ describe("FileNameLink", () => {
       <FileNameLink fileId="33333333-2222-4333-8444-555555555555" fallbackLabel="File attached" />,
     );
     await waitFor(() => expect(requested).toBe(true));
-    expect(getByText("File attached")).toBeDefined();
+    getByText("File attached");
   });
 
   test("a cleared meta cache refetches instead of serving the previous session's name", async () => {
@@ -114,7 +114,7 @@ describe("FileNameLink", () => {
     answerWith("second-user.pdf");
     clearFileMetaCache();
     const second = render(<FileNameLink fileId={id} fallbackLabel="File attached" />);
-    expect(await second.findByText("second-user.pdf")).toBeDefined();
+    await second.findByText("second-user.pdf");
   });
 
   test("file names rendered in the same pass share one batched request", async () => {
@@ -141,7 +141,7 @@ describe("FileNameLink", () => {
         ))}
       </>,
     );
-    expect(await findByText("batch-2.pdf")).toBeDefined();
+    await findByText("batch-2.pdf");
     expect(urls).toEqual([`/api/files/meta?ids=${ids.join(",")}`]);
   });
 });
@@ -156,7 +156,7 @@ describe("FileDisplayCell", () => {
       />,
     );
     expect(container.querySelectorAll("img")).toHaveLength(1);
-    expect(getByText("+2")).toBeDefined();
+    getByText("+2");
   });
 
   test("an empty value renders nothing", () => {
@@ -180,7 +180,7 @@ describe("FileUploadInput", () => {
     const { findByText } = render(
       <FileUploadInput kind="file" id="f" value={FILE_ID} onChange={() => {}} />,
     );
-    expect(await findByText("floorplan.pdf")).toBeDefined();
+    await findByText("floorplan.pdf");
   });
 });
 
@@ -217,7 +217,7 @@ describe("read-only file fields", () => {
         valueDisplay="text"
       />,
     );
-    expect(await findByText("floorplan.pdf")).toBeDefined();
+    await findByText("floorplan.pdf");
     expect(container.textContent).not.toContain(FILE_ID);
   });
 });
@@ -283,7 +283,7 @@ describe("list file columns", () => {
         featureName="rental"
       />,
     );
-    expect(await findByText("floorplan.pdf")).toBeDefined();
+    await findByText("floorplan.pdf");
   });
 });
 

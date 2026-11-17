@@ -14,7 +14,7 @@ describe("DataTableCell pillField", () => {
         pillToneField="stateTone"
       />,
     );
-    expect(screen.getByText("Golf")).toBeTruthy();
+    screen.getByText("Golf");
     expect(screen.getByText("Free").className).toContain("bg-status-ok-surface");
   });
 
@@ -28,7 +28,7 @@ describe("DataTableCell pillField", () => {
         pillField="state"
       />,
     );
-    expect(screen.getByText("Golf")).toBeTruthy();
+    screen.getByText("Golf");
   });
 });
 

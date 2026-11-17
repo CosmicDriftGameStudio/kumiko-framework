@@ -1,3 +1,5 @@
+import { handlerTranslationKeys } from "@cosmicdrift/kumiko-framework/engine";
+
 // English-only, per convention (see cap-overview/i18n.ts) — de/es coverage
 // lives exclusively in the locale-de/locale-es packages' harvested
 // strings.ts + en-catalog.ts, not inline here.
@@ -169,3 +171,20 @@ export const BILLING_FOUNDATION_I18N: Readonly<Record<string, LocalizedString>> 
     en: "The terms are temporarily unavailable. Please try again later.",
   },
 };
+
+export const BILLING_FOUNDATION_HANDLER_I18N = handlerTranslationKeys("billing-foundation", {
+  writes: {
+    "create-checkout-session": {
+      title: { en: "Start checkout" },
+      fields: {
+        providerName: { en: "Payment provider" },
+        priceId: { en: "Price" },
+        successUrl: { en: "Success page" },
+        cancelUrl: { en: "Cancel page" },
+        providerCustomerId: { en: "Provider customer" },
+        mode: { en: "Mode" },
+      },
+    },
+    "create-portal-session": { title: { en: "Open billing portal" } },
+  },
+});

@@ -16,10 +16,10 @@ import {
   createSystemUser,
   createTextField,
   defineFeature,
+  defineWriteHandler,
   type FeatureDefinition,
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 
 // product — toggleable, default on. Owns the `product` entity and a
@@ -49,22 +49,20 @@ export function createProductFeature(): FeatureDefinition {
     r.systemScope();
     r.toggleable({ default: true });
     r.entity(productEntity);
-    r.writeHandler({
-      name: "product:create",
-      schema: z.object({ name: z.string().min(1).max(100) }),
-      handler: async (event, ctx) => {
-        if (!ctx.systemDb) {
-          throw new InternalError({
-            message: "product:create requires ctx.systemDb — is r.systemScope() still set?",
-          });
-        }
-        const db = ctx.systemDb.acknowledgeCrossTenant(
-          "product catalog is system-wide, not tenant-scoped",
-        );
-        return productCrud.create(event.payload, event.user, db);
-      },
-      access: { roles: ["SystemAdmin"] },
-    });
+    r.writeHandler(
+      defineWriteHandler({
+        name: "product:create",
+        schema: z.object({ name: z.string().min(1).max(100) }),
+        access: { roles: ["SystemAdmin"] },
+        systemScope: true,
+        handler: async (event, ctx) => {
+          const db = ctx.systemDb.acknowledgeCrossTenant(
+            "product catalog is system-wide, not tenant-scoped",
+          );
+          return productCrud.create(event.payload, event.user, db);
+        },
+      }),
+    );
   });
 }
 

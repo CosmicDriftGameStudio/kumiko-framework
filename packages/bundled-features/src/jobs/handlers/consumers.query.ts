@@ -7,7 +7,6 @@ import {
   SSE_BROADCAST_CONSUMER_NAME,
 } from "@cosmicdrift/kumiko-framework/pipeline";
 import * as z from "zod";
-import { requireSystemDb } from "../../shared/index.ts";
 import {
   CONSUMER_ID_SEPARATOR,
   CONSUMER_STATUSES,
@@ -77,8 +76,9 @@ export const consumersQuery = defineQueryHandler({
     sortDirection: z.enum(["asc", "desc"]).optional(),
   }),
   access: { roles: ["SystemAdmin"] },
+  systemScope: true,
   handler: async (query, ctx) => {
-    const systemDb = requireSystemDb(ctx, "jobs:query:consumers");
+    const { systemDb } = ctx;
     const db = systemDb.unsafeRaw(
       "event consumer state is global dispatcher state, not tenant data",
     );
@@ -107,8 +107,9 @@ export const consumerDetailQuery = defineQueryHandler({
     "Returns one event consumer with its status, lag, attempts, the full last error and the time of its last state change; use it to decide between restart, skip and pause.",
   schema: z.object({ consumerId: z.string().min(1) }),
   access: { roles: ["SystemAdmin"] },
+  systemScope: true,
   handler: async (query, ctx) => {
-    const systemDb = requireSystemDb(ctx, "jobs:query:consumer-details");
+    const { systemDb } = ctx;
     const target = splitConsumerRowId(query.payload.consumerId);
     if (!target) return null;
     const db = systemDb.unsafeRaw(

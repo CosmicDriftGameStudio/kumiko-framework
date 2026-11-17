@@ -63,8 +63,9 @@ export function usePresence({
       setOthers(NO_ENTRIES);
     };
     const send = async (): Promise<void> => {
-      // skip: the record closed or presence gave up after a permanent failure
-      if (stopped) return;
+      // skip: the record closed, presence gave up after a permanent failure, or the page is hidden
+      // (the visibility subscription sends the beat with the latest activity on return)
+      if (stopped || isPageHidden()) return;
       const current = latest.current;
       lastSentKey.current = stateKey(current.activity, current.focus);
       const request = ++latestRequest;
@@ -83,16 +84,12 @@ export function usePresence({
     };
     beat.current = send;
 
-    if (!isPageHidden()) void send();
-    timer = setInterval(() => {
-      if (!isPageHidden()) void send();
-    }, PRESENCE_HEARTBEAT_INTERVAL_MS);
+    void send();
+    timer = setInterval(() => void send(), PRESENCE_HEARTBEAT_INTERVAL_MS);
     const unsubscribe = subscribe(PRESENCE_CHANGED_EVENT, (event) => {
-      if (isPresenceSignalFor(event.data, entity, id) && !isPageHidden()) void send();
+      if (isPresenceSignalFor(event.data, entity, id)) void send();
     });
-    const unsubscribeVisibility = pageVisibility.subscribe(() => {
-      if (!isPageHidden()) void send();
-    });
+    const unsubscribeVisibility = pageVisibility.subscribe(() => void send());
 
     return () => {
       const wasStopped = stopped;

@@ -1,4 +1,4 @@
-import type { QueryHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 
 // get-active-tier — returns the current tier assignment for the calling tenant.
@@ -9,7 +9,7 @@ import * as z from "zod";
 //
 // **Tenant scope:** `ctx.dispatch.queryProjection` automatically filters by tenantId.
 // By convention, each platform tenant has exactly one tier-assignment row.
-export const getActiveTierQuery: QueryHandlerDef = {
+export const getActiveTierQuery = defineQueryHandler({
   name: "get-active-tier",
   description:
     "Returns the tier-assignment row currently active for the caller's own tenant, or null when none is assigned; use it to answer which plan the caller is on.",
@@ -21,4 +21,4 @@ export const getActiveTierQuery: QueryHandlerDef = {
     );
     return rows[0] ?? null;
   },
-};
+});

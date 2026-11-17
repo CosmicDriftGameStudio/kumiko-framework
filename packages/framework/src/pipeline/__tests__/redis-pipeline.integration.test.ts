@@ -1,11 +1,45 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { sleep } from "@cosmicdrift/kumiko-testing/helpers";
+import { sleep, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/stack";
 import { ensureTemporalPolyfill } from "../../time/polyfill.ts";
 import { createEventDedup } from "../event-dedup.ts";
 import { createIdempotencyGuard } from "../idempotency.ts";
+import { RedisKeys } from "../redis-keys.ts";
 
 let testRedis: TestRedis;
+
+const REDIS_KEY_ABSENT = -2;
+// 1s TTLs below: 60 × 50ms bounds each wait at 3s instead of a fixed sleep.
+const ONE_SECOND_TTL_POLL_DELAYS_MS = Array.from({ length: 60 }, () => 50);
+
+function idempotencyKey(tenantId: string, userId: string, requestId: string): string {
+  return `${RedisKeys.idempotency}${tenantId}:${userId}:${requestId}`;
+}
+
+async function waitForKeyToExpire(key: string): Promise<void> {
+  await waitFor(
+    async () => {
+      expect(await testRedis.redis.pttl(key)).toBe(REDIS_KEY_ABSENT);
+    },
+    { delays: ONE_SECOND_TTL_POLL_DELAYS_MS },
+  );
+}
+
+// Counts upward PTTL jumps on `key`: without a renew the PTTL only falls, so
+// every rise is a distinct EXPIRE from the heartbeat.
+async function waitForPttlRenewals(key: string, minimumRenewals: number): Promise<void> {
+  let previousPttlMs = -1;
+  let observedRenewals = 0;
+  await waitFor(
+    async () => {
+      const pttlMs = await testRedis.redis.pttl(key);
+      if (previousPttlMs >= 0 && pttlMs > previousPttlMs) observedRenewals++;
+      previousPttlMs = pttlMs;
+      expect(observedRenewals).toBeGreaterThanOrEqual(minimumRenewals);
+    },
+    { delays: Array.from({ length: 80 }, () => 50) },
+  );
+}
 
 beforeAll(async () => {
   await ensureTemporalPolyfill();
@@ -56,9 +90,17 @@ describe("idempotency guard", () => {
     // Should exist immediately
     expect((await guard.check(tenantA, userA, requestId)).status).toBe("cached");
 
-    // Fixed wait: the 1s TTL bound is the assertion.
-    await sleep(1100);
-    expect((await guard.check(tenantA, userA, requestId)).status).toBe("acquired");
+    const cachedPttlMs = await testRedis.redis.pttl(idempotencyKey(tenantA, userA, requestId));
+    expect(cachedPttlMs).toBeGreaterThan(0);
+    expect(cachedPttlMs).toBeLessThanOrEqual(1000);
+
+    // A cached key never blocks check(), so polling check() itself is bounded.
+    await waitFor(
+      async () => {
+        expect((await guard.check(tenantA, userA, requestId)).status).toBe("acquired");
+      },
+      { delays: ONE_SECOND_TTL_POLL_DELAYS_MS },
+    );
   });
 
   test("keepPendingAlive holds the lock past pendingTtl so the owner can still store", async () => {
@@ -69,8 +111,10 @@ describe("idempotency guard", () => {
     if (acquired.status !== "acquired") throw new Error("expected to acquire the lock");
     const stop = guard.keepPendingAlive(tenantA, userA, requestId, acquired.token);
     try {
-      // Fixed wait: longer than the 1s lock TTL, which would have expired without renewal.
-      await sleep(2500);
+      // Renewals fire every 333ms (pendingTtl 1s / 3). Four observed renewals
+      // put the store at >= 1332ms after acquire, past the 1s TTL that would
+      // have dropped the lock without them.
+      await waitForPttlRenewals(idempotencyKey(tenantA, userA, requestId), 4);
       await guard.store(tenantA, userA, requestId, acquired.token, { ok: true });
     } finally {
       stop();
@@ -88,12 +132,17 @@ describe("idempotency guard", () => {
 
     const acquired = await guard.check(tenantA, userA, requestId);
     if (acquired.status !== "acquired") throw new Error("expected to acquire the lock");
+    const key = idempotencyKey(tenantA, userA, requestId);
     const stop = guard.keepPendingAlive(tenantA, userA, requestId, acquired.token);
-    await sleep(500);
+    await waitForPttlRenewals(key, 1);
     stop();
 
-    // Fixed wait: the 1s lock TTL bound is the assertion.
-    await sleep(1600);
+    const pttlAfterStopMs = await testRedis.redis.pttl(key);
+    expect(pttlAfterStopMs).toBeGreaterThan(0);
+    expect(pttlAfterStopMs).toBeLessThanOrEqual(1000);
+    // check() on a pending key polls internally up to waitTimeoutMs (>= 6s), so
+    // expiry is observed on the raw key instead.
+    await waitForKeyToExpire(key);
     expect((await guard.check(tenantA, userA, requestId)).status).toBe("acquired");
   });
 
@@ -235,7 +284,7 @@ describe("idempotency guard", () => {
     if (original.status !== "acquired") throw new Error("expected to acquire the lock");
 
     // Let the lock expire, then a second run reclaims it and finishes fast.
-    await sleep(1100);
+    await waitForKeyToExpire(idempotencyKey(tenantA, userA, requestId));
     const reclaimer = await guard.check(tenantA, userA, requestId);
     expect(reclaimer.status).toBe("acquired");
     if (reclaimer.status !== "acquired") throw new Error("expected to reclaim the lock");
@@ -299,7 +348,7 @@ describe("idempotency guard", () => {
     if (original.status !== "acquired") throw new Error("expected to acquire the lock");
 
     // Let the lock expire, then a new owner reclaims it.
-    await sleep(1100);
+    await waitForKeyToExpire(idempotencyKey(tenantA, userA, requestId));
     const reclaimer = await guard.check(tenantA, userA, requestId);
     expect(reclaimer.status).toBe("acquired");
     if (reclaimer.status !== "acquired") throw new Error("expected to reclaim the lock");
@@ -356,9 +405,16 @@ describe("event dedup", () => {
     expect(await dedup.tryAcquire(eventId)).toBe(true);
     expect(await dedup.tryAcquire(eventId)).toBe(false);
 
-    // Fixed wait: the 1s TTL bound is the assertion.
-    await sleep(1100);
-    expect(await dedup.tryAcquire(eventId)).toBe(true);
+    const dedupPttlMs = await testRedis.redis.pttl(`${RedisKeys.eventDedup}${eventId}`);
+    expect(dedupPttlMs).toBeGreaterThan(0);
+    expect(dedupPttlMs).toBeLessThanOrEqual(1000);
+
+    await waitFor(
+      async () => {
+        expect(await dedup.tryAcquire(eventId)).toBe(true);
+      },
+      { delays: ONE_SECOND_TTL_POLL_DELAYS_MS },
+    );
   });
 
   test("concurrent acquires — only one wins", async () => {

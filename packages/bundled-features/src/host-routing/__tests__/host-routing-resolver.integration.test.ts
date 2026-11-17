@@ -19,6 +19,7 @@ import {
   createAuthFoundationFeature,
   resolveAnonymousAccessFromRegistry,
 } from "../../auth-foundation/index.ts";
+import { createBrandingFeature } from "../../branding/index.ts";
 import {
   configValuesTable,
   createConfigAccessorFactory,
@@ -129,6 +130,7 @@ beforeAll(async () => {
       createTenantFeature(),
       createAuthFoundationFeature(),
       createHostRoutingFeature(options),
+      createBrandingFeature(),
       createManagedPagesFeature({}),
       probeFeature,
     ],

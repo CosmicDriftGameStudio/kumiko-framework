@@ -79,7 +79,7 @@ describe("dashboard screen panel / projectionDetail", () => {
       </BrowserNav>,
     );
 
-    await waitFor(() => expect(screen.getByText("EU-North")).toBeTruthy());
+    await waitFor(() => screen.getByText("EU-North"));
     expect(payloads).toContainEqual({ id: "site-1" });
     const tile = screen.getByTestId("dashboard-panel-site");
     expect(tile.textContent).toContain("EU-North");

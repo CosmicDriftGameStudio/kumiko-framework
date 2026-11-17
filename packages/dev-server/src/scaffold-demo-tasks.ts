@@ -115,6 +115,7 @@ import type {
 import { tasksTranslationKeys } from "./i18n";
 
 const taskEntity = createEntity({
+  name: "task",
   description: "A to-do item with a title, status, priority and urgency flag.",
   fields: {
     title: createTextField({
@@ -158,7 +159,7 @@ const open = {
 
 export const tasksFeature = defineFeature("tasks", (r) => {
   r.translations({ keys: tasksTranslationKeys });
-  r.crud("task", taskEntity, {
+  r.crud(taskEntity, {
     write: open,
     read: open,
     descriptions: {

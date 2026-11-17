@@ -53,9 +53,9 @@ describe("RenderEdit", () => {
     );
 
     // Visible: title, count, isUrgent. notes hidden because isUrgent=false.
-    expect(screen.getByTestId("field-title")).toBeTruthy();
-    expect(screen.getByTestId("field-count")).toBeTruthy();
-    expect(screen.getByTestId("field-isUrgent")).toBeTruthy();
+    screen.getByTestId("field-title");
+    screen.getByTestId("field-count");
+    screen.getByTestId("field-isUrgent");
     expect(screen.queryByTestId("field-notes")).toBeNull();
   });
 
@@ -246,8 +246,8 @@ describe("RenderEdit", () => {
     const billingCard = screen.getByTestId("section-Overview-group-1");
     expect(contactCard.querySelector("h3")?.textContent).toBe("Contact");
     expect(billingCard.querySelector("h3")?.textContent).toBe("Billing");
-    expect(within(contactCard).getByTestId("field-email")).toBeTruthy();
-    expect(within(billingCard).getByTestId("field-plan")).toBeTruthy();
+    within(contactCard).getByTestId("field-email");
+    within(billingCard).getByTestId("field-plan");
     expect(within(contactCard).queryByTestId("field-plan")).toBeNull();
 
     // Default columns per group is 2 (--grid-cols CSS var), unless overridden.
@@ -281,9 +281,9 @@ describe("RenderEdit", () => {
       </DispatcherProvider>,
     );
 
-    expect(screen.getByTestId("section-Overview")).toBeTruthy();
+    screen.getByTestId("section-Overview");
     expect(screen.queryByTestId("section-Overview-group-0")).toBeNull();
-    expect(within(screen.getByTestId("section-Overview")).getByTestId("field-email")).toBeTruthy();
+    within(screen.getByTestId("section-Overview")).getByTestId("field-email");
   });
 
   // End-to-end routing: a `type:"locatedTimestamp"` entity field must pass through
@@ -472,7 +472,7 @@ describe("RenderEdit", () => {
       </DispatcherProvider>,
     );
 
-    expect(screen.getByTestId("field-notes")).toBeTruthy();
+    screen.getByTestId("field-notes");
     const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
     fireEvent.change(titleInput, { target: { value: "Hello" } });
     await act(async () => {
@@ -824,7 +824,7 @@ describe("RenderEdit", () => {
       </DispatcherProvider>,
     );
 
-    expect(screen.getByTestId("section-extension-Custom Fields")).toBeTruthy();
+    screen.getByTestId("section-extension-Custom Fields");
     const mounted = screen.getByTestId("my-custom-fields-form");
     expect(mounted.textContent).toBe("order:row-42");
   });
@@ -983,7 +983,7 @@ describe("RenderEdit", () => {
     });
     expect(lastValidateResult).toBe(false);
     expect(write).not.toHaveBeenCalled();
-    expect(screen.getByTestId("field-title-errors")).toBeTruthy();
+    screen.getByTestId("field-title-errors");
 
     const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
     fireEvent.change(titleInput, { target: { value: "Acme" } });
@@ -1036,7 +1036,7 @@ describe("RenderEdit server validation errors (single-section)", () => {
       await Promise.resolve();
     });
 
-    expect(screen.getByTestId("field-title-errors")).toBeTruthy();
+    screen.getByTestId("field-title-errors");
     expect(screen.queryByTestId("render-edit-form-error")).toBeNull();
   });
 
@@ -1075,7 +1075,7 @@ describe("RenderEdit server validation errors (single-section)", () => {
       await Promise.resolve();
     });
 
-    expect(screen.getByTestId("render-edit-form-error")).toBeTruthy();
+    screen.getByTestId("render-edit-form-error");
   });
 });
 

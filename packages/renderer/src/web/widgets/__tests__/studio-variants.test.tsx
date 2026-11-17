@@ -93,7 +93,7 @@ describe("TextareaField placeholder and Composer", () => {
         placeholder="Hint"
       />,
     );
-    expect(screen.getByPlaceholderText("Hint")).toBeTruthy();
+    screen.getByPlaceholderText("Hint");
   });
 
   test("Composer submits through the send button and is disabled while empty", () => {

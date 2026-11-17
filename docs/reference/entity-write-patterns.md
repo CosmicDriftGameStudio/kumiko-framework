@@ -117,7 +117,7 @@ executor.update({ id, changes: {} }, user, db, { verb: "archived" });
 
 The executor appends `ticket.archived` with the `updated` payload (`{ changes, previous }`). A transition sets its field itself and rejects a row whose current state is not in `from` with 422 `invalid_transition`. The implicit projection, rebuild, upcasters, job triggers, derived webhook contracts and the audit filter treat the verb like `updated`. This replaces a `defineEvent` plus `extendEntityProjection` per status change.
 
-`executor.history({ id })` returns `{ version, at, by, verb, changes }` per lifecycle or verb event, upcast and decrypted. Fields follow the audit rule: a field whose read rule grants none of the caller's roles `"all"` is removed, because ownership rules cannot be checked against a past event. `executor.listAsOf({ asOf })` folds the entity's events up to the instant in memory and refuses entities with `parentRef`, `readGate` or a SQL read ownership for the same reason.
+`executor.history({ id })` returns `{ version, at, by, verb, changes }` per lifecycle or verb event, upcast and decrypted. Fields follow the audit rule: a field whose read rule grants none of the caller's roles `"all"` is removed, because ownership rules cannot be checked against a past event. `executor.listAsOf({ asOf, ids? })` folds the entity's events up to the instant in memory and refuses entities with `parentRef`, `readGate` or a SQL read ownership for the same reason. `ids` limits the fold to those aggregates in SQL; an empty list returns no rows. A personal field whose subject key was erased reads as `PII_ERASED_SENTINEL`, like in `list` and `detail`, so a caller can tell an erased value from content.
 
 ## Versions after `ctx.events.append`
 

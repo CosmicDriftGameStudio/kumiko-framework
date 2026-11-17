@@ -88,7 +88,7 @@ const entryOf = (title: string, content: string) => ({
   slug: "standard",
   locale: "de",
   title,
-  folder: "Kunden",
+  folder: "kunden",
   content,
   contentFormat: "html" as const,
 });
@@ -144,7 +144,7 @@ describe("user export :: user-content-entry", () => {
       kind: "document-pdf",
       locale: "de",
       title: "Signatur Weber",
-      folder: "Kunden",
+      folder: "kunden",
       content: "<p>Viele Grüße, Weber</p>",
     });
     expect(bundle.tenants.some((t) => t.tenantId === OTHER_TENANT)).toBe(false);

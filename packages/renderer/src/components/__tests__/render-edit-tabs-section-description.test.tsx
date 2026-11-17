@@ -95,7 +95,7 @@ describe("RenderEdit tabs mode — section description", () => {
 
   test("a section without description renders no subtitle", () => {
     renderTabsMode(undefined);
-    expect(screen.getByTestId("section-Basics")).toBeTruthy();
+    screen.getByTestId("section-Basics");
     expect(screen.queryByTestId("section-Basics-subtitle")).toBeNull();
   });
 });

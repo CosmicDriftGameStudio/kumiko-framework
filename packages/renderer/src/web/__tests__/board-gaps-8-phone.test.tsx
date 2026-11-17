@@ -50,9 +50,9 @@ describe("narrowPlacement behind-filter", () => {
     setViewportWidth(500);
     renderTable([statusFacet, otherFacet]);
     expect(screen.queryByTestId("facet-__namedFilter")).toBeNull();
-    expect(screen.getByTestId("facet-kind")).toBeTruthy();
+    screen.getByTestId("facet-kind");
     fireEvent.click(screen.getByTestId("t-filter-toggle"));
-    expect(screen.getByRole("button", { name: /To do/ })).toBeTruthy();
+    screen.getByRole("button", { name: /To do/ });
   });
 
   test("an active facet behind the toggle marks the closed toggle, an idle one does not", () => {
@@ -102,14 +102,14 @@ describe("narrowPlacement behind-filter", () => {
     expect(screen.queryByTestId("facet-daterange-createdAt")).toBeNull();
     fireEvent.click(screen.getByTestId("t-filter-toggle"));
     expect(screen.getAllByTestId("t-filter-toggle")).toHaveLength(1);
-    expect(screen.getByTestId("facet-daterange-createdAt")).toBeTruthy();
-    expect(screen.getByRole("button", { name: /To do/ })).toBeTruthy();
+    screen.getByTestId("facet-daterange-createdAt");
+    screen.getByRole("button", { name: /To do/ });
   });
 
   test("from sm the facet stands in the toolbar and there is no filter icon", () => {
     setViewportWidth(1280);
     renderTable([statusFacet, otherFacet]);
-    expect(screen.getByTestId("facet-__namedFilter")).toBeTruthy();
+    screen.getByTestId("facet-__namedFilter");
     expect(screen.queryByTestId("t-filter-toggle")).toBeNull();
   });
 });
@@ -179,7 +179,7 @@ describe("steps panel board look", () => {
       />,
     );
     const more = screen.getByTestId("record-step-a-more-actions");
-    expect(within(more).getByText("Prepare")).toBeTruthy();
+    within(more).getByText("Prepare");
     expect(more.className).not.toContain("hidden");
   });
 });
@@ -213,7 +213,7 @@ describe("named-filter chips on a phone", () => {
       />,
     );
     fireEvent.click(screen.getByTestId("t-filter-toggle"));
-    expect(screen.getByRole("button", { name: /Open\s*3/ })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /All\s*6/ })).toBeTruthy();
+    screen.getByRole("button", { name: /Open\s*3/ });
+    screen.getByRole("button", { name: /All\s*6/ });
   });
 });

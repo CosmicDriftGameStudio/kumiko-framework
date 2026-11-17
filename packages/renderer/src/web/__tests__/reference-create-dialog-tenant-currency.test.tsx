@@ -67,7 +67,7 @@ describe("ReferenceCreateDialog — tenant-declared money currency", () => {
       </DispatcherProvider>,
     );
 
-    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy(), {
+    await waitFor(() => screen.getByTestId("render-edit-form"), {
       timeout: 3000,
     });
     const costInput = screen.getByTestId("field-cost").querySelector("input");

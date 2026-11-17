@@ -1,18 +1,18 @@
 import {
   type AccessRule,
+  defineWriteHandler,
+  forEachPage,
   type HandlerContext,
   parentVisibilityFor,
   registeredEntityExecutor,
   type SessionUser,
-  type WriteHandlerDef,
+  type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { liveHostRowIds } from "../../shared/index.ts";
 import { type TagAssignmentExecutor, tagExecutor } from "../executor.ts";
-import { type DeleteTagPayload, deleteTagPayloadSchema } from "../schemas.ts";
+import { deleteTagPayloadSchema } from "../schemas.ts";
 import { TAG_LOCK_NAMESPACE } from "../web/constants.ts";
-
-const CASCADE_PAGE = 200;
 
 // tag:delete — no FK, so the handler cascades; it refuses while an assignment the caller cannot
 // read still points at a live record, so a catalog delete never detaches a tag from records of
@@ -57,16 +57,16 @@ export function createDeleteTagHandler(
   access: AccessRule,
   assignmentExecutor: TagAssignmentExecutor,
   name = "tag:delete",
-): WriteHandlerDef {
-  return {
+) {
+  return defineWriteHandler({
     name,
     schema: deleteTagPayloadSchema,
     access,
     description:
       "Deletes a catalog tag and detaches it from every record carrying it; refuses while a record the caller cannot see still carries the tag.",
     agent: { risk: "high" },
-    handler: async (event, ctx) => {
-      const payload = event.payload as DeleteTagPayload; // @cast-boundary engine-payload
+    handler: async (event, ctx): Promise<WriteResult<unknown>> => {
+      const payload = event.payload;
 
       // Serialises with assign-tag (see there): the cascade must see every
       // assignment that a concurrent assign-tag committed before the tag goes.
@@ -77,27 +77,25 @@ export function createDeleteTagHandler(
       }
 
       const assignmentIds: string[] = [];
-      let cursor: string | undefined;
-      do {
-        const page = await assignmentExecutor.list(
-          {
-            filter: { field: "tagId", op: "eq", value: payload.id },
-            limit: CASCADE_PAGE,
-            cursor,
-          },
-          event.user,
-          ctx.db,
-        );
-        if (await pageHidesLiveAssignment(page.rows, event.user, ctx)) {
-          return writeFailure(
-            new UnprocessableError("tag_in_use_on_hidden_records", {
-              details: { tagId: payload.id },
-            }),
-          );
-        }
-        for (const row of page.rows) assignmentIds.push(String(row["id"]));
-        cursor = page.nextCursor ?? undefined;
-      } while (cursor !== undefined);
+      const refused = await forEachPage(
+        (request) =>
+          assignmentExecutor.list(
+            { filter: { field: "tagId", op: "eq", value: payload.id }, ...request },
+            event.user,
+            ctx.db,
+          ),
+        async (rows) => {
+          if (await pageHidesLiveAssignment(rows, event.user, ctx)) {
+            return writeFailure(
+              new UnprocessableError("tag_in_use_on_hidden_records", {
+                details: { tagId: payload.id },
+              }),
+            );
+          }
+          for (const row of rows) assignmentIds.push(String(row["id"]));
+        },
+      );
+      if (refused !== undefined) return refused;
 
       for (const id of assignmentIds) {
         const removed = await assignmentExecutor.delete({ id }, event.user, ctx.db);
@@ -106,5 +104,5 @@ export function createDeleteTagHandler(
 
       return tagExecutor.delete({ id: payload.id }, event.user, ctx.db);
     },
-  };
+  });
 }

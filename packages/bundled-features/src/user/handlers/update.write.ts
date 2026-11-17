@@ -1,10 +1,6 @@
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { access, defineWriteHandler, hasAccess } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  AccessDeniedError,
-  InternalError,
-  writeFailure,
-} from "@cosmicdrift/kumiko-framework/errors";
+import { AccessDeniedError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { canonicalizeLocaleTag, isValidLocaleTag } from "@cosmicdrift/kumiko-framework/i18n";
 import { isValidIanaTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import * as z from "zod";
@@ -58,6 +54,7 @@ export const updateWrite = defineWriteHandler({
   description:
     "Changes a user's display name, locale, timezone, email, verification flag, last active tenant or global roles against the version the caller read; callers may edit themselves, while editing someone else or granting roles needs a privileged actor.",
   agent: { risk: "high" },
+  systemScope: true,
   handler: async (event, ctx) => {
     const isSelf = event.payload.id === event.user.id;
     const isPrivileged = hasAccess(event.user, { roles: access.privileged });
@@ -81,9 +78,6 @@ export const updateWrite = defineWriteHandler({
       );
     }
 
-    if (!ctx.systemDb) {
-      throw new InternalError({ message: "user:update requires r.systemScope()" });
-    }
     const db = ctx.systemDb.acknowledgeCrossTenant(
       "user rows are tenant-agnostic identity records; self/admin update needs no tenant filter",
     );

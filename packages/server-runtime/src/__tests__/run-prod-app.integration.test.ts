@@ -811,7 +811,9 @@ describe("runProdApp", () => {
       tenantId: TENANT_ID as import("@cosmicdrift/kumiko-framework/engine").TenantId,
       roles: ["User"],
     });
-    const authCookie = `${sessionCookieName(AUTH_COOKIE_BASE, { secure: true })}=${token}`;
+    // Without `auth:` runProdApp keeps the NODE_ENV fallback for the cookie names, so under bun test
+    // the auth cookie has no __Host- prefix.
+    const authCookie = `${sessionCookieName(AUTH_COOKIE_BASE, { secure: false })}=${token}`;
     const schemaRes = await handle.fetch(
       new Request("http://test/api/schema", { headers: { Cookie: authCookie } }),
     );

@@ -160,6 +160,12 @@ export function requireOutsideTransactionDb(ctx: OutsideTransactionContext): Ten
   return ctx.db.outsideTransaction;
 }
 
+export function hasSystemDb<TContext extends { readonly systemDb?: unknown }>(
+  ctx: TContext,
+): ctx is TContext & { readonly systemDb: NonNullable<TContext["systemDb"]> } {
+  return ctx.systemDb !== undefined;
+}
+
 export function requireSystemDb<TSystemDb>(
   ctx: { readonly systemDb?: TSystemDb },
   callerName: string,

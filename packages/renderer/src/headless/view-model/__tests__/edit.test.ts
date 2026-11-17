@@ -1697,6 +1697,9 @@ describe("computeEditViewModel — fieldTextEntities", () => {
     fields: { status: { type: "select", options: ["open", "done"] } },
   } as unknown as EntityDefinition;
 
+  const translateOrderTexts = (key: string) =>
+    key.startsWith("orders:entity:order:") ? `text(${key})` : key;
+
   test("a field listed in fieldTextEntities takes its label and option labels from that entity", () => {
     const vm = computeEditViewModel({
       screen: editScreen(
@@ -1705,15 +1708,15 @@ describe("computeEditViewModel — fieldTextEntities", () => {
       ),
       entity,
       values: {},
-      translate,
+      translate: translateOrderTexts,
       featureName: "orders",
     });
 
     const field = asFields(vm.sections[0]).fields[0];
-    expect(field?.label).toBe("orders:entity:order:field:status");
+    expect(field?.label).toBe("text(orders:entity:order:field:status)");
     expect(field?.optionLabels).toEqual({
-      open: "orders:entity:order:field:status:option:open",
-      done: "orders:entity:order:field:status:option:done",
+      open: "text(orders:entity:order:field:status:option:open)",
+      done: "text(orders:entity:order:field:status:option:done)",
     });
   });
 });

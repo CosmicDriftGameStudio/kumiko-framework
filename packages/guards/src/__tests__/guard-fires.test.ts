@@ -17,6 +17,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Project, type SourceFile } from "ts-morph";
 import type { AstGuard, GuardOutcome } from "../_lib/guard-kit";
+import { guard as featureImportCyclesGuard } from "../guard-feature-import-cycles";
 import { createGuard as createTailwindScanSurfaceGuard } from "../guard-tailwind-scan-surface";
 import { GUARDS } from "../run-guards";
 import { UI_GUARDS } from "../run-ui-guards";
@@ -91,6 +92,17 @@ function runTailwindPublishedSurfaceFixture(sf: SourceFile): GuardOutcome {
 const CWD = process.cwd();
 const PKG = `${CWD}/packages/framework/src`;
 const FEAT = `${CWD}/packages/bundled-features/src`;
+
+// A cycle needs both features in the scanned files; extraFiles only reach the file system.
+function runFeatureCycleFixture(sf: SourceFile): GuardOutcome {
+  const beta = sf
+    .getProject()
+    .createSourceFile(
+      `${FEAT}/beta/b.ts`,
+      'import { a } from "../alpha/a";\nexport const b = () => a;\n',
+    );
+  return featureImportCyclesGuard.run([sf, beta]);
+}
 const APP = `${CWD}/packages/app/src`;
 
 const ENFORCING: Record<string, Violating> = {
@@ -209,6 +221,11 @@ const ENFORCING: Record<string, Violating> = {
     code: 'process.env.FOO = "1";',
     expectedMessage: /direct env write\(s\)/,
   },
+  "weak-assertions": {
+    path: `${PKG}/features/x/__tests__/x.test.ts`,
+    code: 'declare function load(): unknown;\ntest("loads", () => { expect(load()).toBeDefined(); });',
+    expectedMessage: /weak-assertion test\(s\) (?:over baseline|without a baseline file)/,
+  },
   "seed-runtime-imports": {
     path: `${CWD}/packages/app/seeds/demo.ts`,
     code: 'import { x } from "@cosmicdrift/kumiko-framework/engine";\nexport const y = x;',
@@ -248,6 +265,17 @@ const ENFORCING: Record<string, Violating> = {
     path: `${PKG}/features/x/fetcher.ts`,
     code: "// biome-ignore lint/plugin: user supplied url here\nexport const load = (url: string) => fetch(url);\n",
     expectedMessage: /suppressed security plugin finding\(s\)/,
+  },
+  "Handler Definitions": {
+    path: `${FEAT}/x/feature.ts`,
+    code: "declare function defineWriteHandler(cfg: unknown): unknown;\nexport const h = defineWriteHandler({});\n",
+    expectedMessage: /handler definition finding\(s\) (?:over baseline|without a baseline file)/,
+  },
+  "Feature Import Cycles": {
+    path: `${FEAT}/alpha/a.ts`,
+    code: 'import { b } from "../beta/b";\nexport const a = () => b;\n',
+    expectedMessage: /cyclic feature import\(s\) (?:over baseline|without a baseline file)/,
+    execute: runFeatureCycleFixture,
   },
 };
 

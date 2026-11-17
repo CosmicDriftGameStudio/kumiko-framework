@@ -36,6 +36,7 @@ import { rejectInvalidFolderParent } from "./folder-parent-guard.ts";
 import { createClearFolderHandler } from "./handlers/clear-folder.write.ts";
 import { createDeleteFolderHandler } from "./handlers/delete-folder.write.ts";
 import { createSetFolderHandler } from "./handlers/set-folder.write.ts";
+import { FOLDERS_I18N } from "./i18n.ts";
 import {
   folderAssignmentDeleteHook,
   folderAssignmentExportHook,
@@ -66,6 +67,7 @@ function registerFolders(
     category: "data",
     recommended: false,
   });
+  r.translations({ keys: FOLDERS_I18N });
 
   if (toggleable !== undefined) r.toggleable(toggleable);
 

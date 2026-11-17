@@ -1,7 +1,7 @@
 import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { decryptStoredPii, decryptStoredPiiValues, requireSystemDb } from "../../shared/index.ts";
+import { decryptStoredPii, decryptStoredPiiValues } from "../../shared/index.ts";
 import { jobRunLogsTable, jobRunsTable } from "../job-run-table.ts";
 
 export const detailQuery = defineQueryHandler({
@@ -14,8 +14,9 @@ export const detailQuery = defineQueryHandler({
   // contract). z.uuid() guards against accidental number-id passing.
   schema: z.object({ runId: z.uuid() }),
   access: { roles: ["SystemAdmin"] },
+  systemScope: true,
   handler: async (query, ctx) => {
-    const systemDb = requireSystemDb(ctx, "jobs:query:details");
+    const { systemDb } = ctx;
     const db = systemDb.acknowledgeCrossTenant("cross-tenant job monitoring");
 
     const row = await fetchOne(db, jobRunsTable, { id: query.payload.runId });

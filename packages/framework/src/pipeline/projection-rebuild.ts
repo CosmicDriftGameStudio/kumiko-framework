@@ -1,7 +1,6 @@
 /// <reference types="temporal-polyfill/global" preserve="true" />
 import type { ProjectionDefinition } from "@cosmicdrift/kumiko-types/projection";
 import type { DbConnection, DbTx } from "../db/connection.ts";
-import { extractTableName } from "../db/dialect.ts";
 import { executorManagedEntitySourceOf } from "../db/executor-managed-tables.ts";
 import {
   countSubscribedEvents,
@@ -30,6 +29,7 @@ import { coerceRow, runInSavepoint, selectMany } from "../db/query.ts";
 import { runInSystemRowLevelSecurityScope } from "../db/row-level-security-scope.ts";
 import { withoutStatementTimeout } from "../db/statement-timeout.ts";
 import { extractTableInfo } from "../db/table-info.ts";
+import { tableNameOf } from "../db/table-introspection.ts";
 import { withExecutorManagedWrites } from "../db/tenant-db.ts";
 import type { Registry, TenantId } from "../engine/types/index.ts";
 import { eventsTable, upcastStoredEvent } from "../event-store/index.ts";
@@ -223,9 +223,9 @@ function findOwningEntityProjection(
   registry: RebuildDeps["registry"],
   projection: ProjectionDefinition,
 ): ProjectionDefinition | undefined {
-  const tableName = extractTableName(projection.table);
+  const tableName = tableNameOf(projection.table);
   for (const candidate of registry.getAllProjections().values()) {
-    if (candidate.isImplicit === true && extractTableName(candidate.table) === tableName) {
+    if (candidate.isImplicit === true && tableNameOf(candidate.table) === tableName) {
       return candidate;
     }
   }

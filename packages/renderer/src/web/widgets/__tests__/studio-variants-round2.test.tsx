@@ -50,7 +50,7 @@ describe("ChoiceCards columns, radio variant and label", () => {
     const label = screen.getByText("Start with");
     expect(classesOf(label)).toContain("text-[13px]");
     expect(classesOf(label)).not.toContain("uppercase");
-    expect(screen.getByRole("radiogroup", { name: "Start with" })).toBeTruthy();
+    screen.getByRole("radiogroup", { name: "Start with" });
   });
 });
 

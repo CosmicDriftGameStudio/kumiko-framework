@@ -124,7 +124,7 @@ function renderEditScreen(
 }
 
 async function openHeaderMenu(): Promise<HTMLElement> {
-  await waitFor(() => expect(screen.getByTestId("render-edit-header-menu")).toBeTruthy());
+  await waitFor(() => screen.getByTestId("render-edit-header-menu"));
   fireEvent.pointerDown(screen.getByTestId("render-edit-header-menu"), { button: 0 });
   fireEvent.click(screen.getByTestId("render-edit-header-menu"));
   return screen.findByRole("menu");
@@ -167,12 +167,12 @@ describe("entityEdit actions with placement: menu", () => {
   test("an action without placement stays in the footer", async () => {
     renderEditScreen([openAction], { withHeaderMenu: true });
 
-    await waitFor(() => expect(screen.getByTestId("render-edit-action-open")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-action-open"));
   });
 
   test("without a header menu a menu action falls back to a footer button", async () => {
     renderEditScreen([{ ...openAction, placement: "menu" }], { withHeaderMenu: false });
 
-    await waitFor(() => expect(screen.getByTestId("render-edit-action-open")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-action-open"));
   });
 });

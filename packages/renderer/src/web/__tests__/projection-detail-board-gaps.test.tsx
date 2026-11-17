@@ -81,7 +81,7 @@ describe("KumikoScreen / projectionDetail — board gaps", () => {
     renderDetail({ ...baseScreen, progress: { field: "chains" } });
     await waitFor(() => screen.getByTestId("record-progress-0"));
     expect(screen.getByTestId("record-progress-0").closest(".lg\\:col-span-4")).toBeNull();
-    expect(screen.getByTestId("record-progress-0-up-next")).toBeTruthy();
+    screen.getByTestId("record-progress-0-up-next");
   });
 
   test("a chain without steps renders no progress and the steps take the full width", async () => {
@@ -288,7 +288,7 @@ describe("KumikoScreen / projectionDetail — board gaps", () => {
     test("a narrowLabel draws both labels, one per breakpoint", async () => {
       renderNotice(withBannerAction, notice);
       await waitFor(() => screen.getByText("Refresh order"));
-      expect(screen.getByText("Refresh")).toBeTruthy();
+      screen.getByText("Refresh");
     });
 
     const withSubtitle = (narrowSubtitle: string): ProjectionDetailScreenDefinition => ({

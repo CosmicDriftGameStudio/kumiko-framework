@@ -84,7 +84,7 @@ describe("RenderEdit formErrorOnTop", () => {
     const user = userEvent.setup();
     await user.type(screen.getAllByRole("textbox")[0] as HTMLElement, "x");
     await user.click(screen.getByTestId("render-edit-submit"));
-    await waitFor(() => expect(screen.getByTestId("render-edit-form-error")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-form-error"));
     return screen.getByTestId("render-edit-form").innerHTML;
   }
 

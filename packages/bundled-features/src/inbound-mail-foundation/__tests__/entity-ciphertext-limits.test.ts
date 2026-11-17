@@ -44,11 +44,13 @@ import {
 } from "../normalize-inbound-message.ts";
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001";
+const RECORD_ID = "00000000-0000-4000-8000-0000000000aa";
 
 afterEach(() => {
   resetPiiSubjectKmsForTests();
 });
 
+// Inbound message fields are keyed per record ({ of: "id" }), so the row carries an id like the ingest handler's.
 async function encryptedAtLimit(
   entity: EntityDefinition,
   entityName: string,
@@ -61,7 +63,7 @@ async function encryptedAtLimit(
     Object.entries(limits).map(([name, limit]) => [name, "€".repeat(limit)]),
   );
   return encryptPiiFieldValues(
-    { tenantId: TENANT_ID, ...plain },
+    { id: RECORD_ID, tenantId: TENANT_ID, ...plain },
     entity,
     piiFields,
     kms,

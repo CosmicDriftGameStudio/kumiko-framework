@@ -9,7 +9,7 @@ import {
 import type { JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import { parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
-import { decryptStoredPii, requireSystemDb } from "../../shared/index.ts";
+import { decryptStoredPii } from "../../shared/index.ts";
 import { jobRunsTable } from "../job-run-table.ts";
 import { JobErrors } from "../web/constants.ts";
 
@@ -29,8 +29,9 @@ export const retryWrite = defineWriteHandler({
   schema: z.object({ runId: z.uuid() }),
   agent: { expose: false },
   access: { roles: ["SystemAdmin"] },
+  systemScope: true,
   handler: async (event, ctx) => {
-    const systemDb = requireSystemDb(ctx, "jobs:write:retry");
+    const { systemDb } = ctx;
     const db = systemDb.acknowledgeCrossTenant("cross-tenant job monitoring");
     // @cast-boundary engine-payload — JobRunner attached by app-boot via ctx-extension
     const jobRunner = ctx.services.jobRunner as JobRunner;

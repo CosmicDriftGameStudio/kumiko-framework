@@ -52,6 +52,7 @@ import {
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   buildMultipartBody,
+  createTestEnvelopeCipher,
   patchFileInstanceofForBunTest,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -217,7 +218,7 @@ beforeAll(async () => {
       }),
     },
     extraContext: (deps) => ({
-      ...createDeliveryTestContext(deps),
+      ...createDeliveryTestContext(deps, { addressCipher: createTestEnvelopeCipher() }),
       configResolver: resolver,
       configAccessorFactory: createConfigAccessorFactory(deps.registry, resolver),
     }),
@@ -256,12 +257,12 @@ async function upload(
 
 async function uploadResource(
   as: typeof adminTenantA,
-  link?: { templateId: string; tenantIdOverride?: string },
+  link: { templateId: string; tenantIdOverride?: string },
 ): Promise<string> {
   const sourceFileRefId = await upload(as, PNG_BYTES, { name: "logo.png", type: "image/png" });
   const result = await stack.http.writeOk<{ fileRefId: string }>(
     TemplateResolverHandlers.resourceUpload,
-    { sourceFileRefId, ...(link && { ...link, key: "logo" }) },
+    { sourceFileRefId, ...link, key: "logo" },
     as,
   );
   return result.fileRefId;
@@ -384,7 +385,10 @@ describe("mail attachments: inline logo and file attachment", () => {
   });
 
   test("without an own link the tenant's branding logo is used for cid logo", async () => {
-    const brandingFileRefId = await uploadResource(adminTenantB);
+    const brandingFileRefId = await upload(adminTenantB, PNG_BYTES, {
+      name: "logo.png",
+      type: "image/png",
+    });
     await stack.http.writeOk(
       "config:write:set",
       { key: BRANDING_QN.logoFile, value: brandingFileRefId },
@@ -491,7 +495,10 @@ describe("mail attachments: inline logo and file attachment", () => {
   });
 
   test("a branding logo token pointing at another tenant's file is dropped", async () => {
-    const foreignFileRefId = await uploadResource(adminTenantF);
+    const foreignFileRefId = await upload(adminTenantF, PNG_BYTES, {
+      name: "logo.png",
+      type: "image/png",
+    });
     await stack.http.writeOk(
       "config:write:set",
       { key: BRANDING_QN.logoFile, value: foreignFileRefId },
@@ -505,7 +512,10 @@ describe("mail attachments: inline logo and file attachment", () => {
   });
 
   test("without any layout row the built-in header shows the branding logo", async () => {
-    const brandingFileRefId = await uploadResource(adminTenantL);
+    const brandingFileRefId = await upload(adminTenantL, PNG_BYTES, {
+      name: "logo.png",
+      type: "image/png",
+    });
     await stack.http.writeOk(
       "config:write:set",
       { key: BRANDING_QN.logoFile, value: brandingFileRefId },
@@ -525,7 +535,10 @@ describe("mail attachments: inline logo and file attachment", () => {
   });
 
   test("the unsubscribe page chrome carries the uploaded branding logo as a data URI", async () => {
-    const brandingFileRefId = await uploadResource(adminTenantM);
+    const brandingFileRefId = await upload(adminTenantM, PNG_BYTES, {
+      name: "logo.png",
+      type: "image/png",
+    });
     await stack.http.writeOk(
       "config:write:set",
       { key: BRANDING_QN.logoFile, value: brandingFileRefId },

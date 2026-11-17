@@ -143,7 +143,7 @@ describe("projectionDetail on a phone", () => {
   test("footerActions with a start-aligned one show as buttons, not only the more-menu", async () => {
     setViewportWidth(390);
     renderScreen(footerScreen, { id: "r1", name: "x" });
-    await waitFor(() => expect(screen.getByTestId("render-edit-action-release")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-action-release"));
     const release = screen.getByTestId("render-edit-action-release");
     const discard = screen.getByTestId("render-edit-action-discard");
     const footerRow = release.closest("[class*='h-14']");

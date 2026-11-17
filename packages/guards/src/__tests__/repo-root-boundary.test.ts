@@ -12,6 +12,10 @@ import {
   isOutsideRepoRoot,
   runGuards,
 } from "../_lib/guard-kit";
+import {
+  createGuard as createTailwindScanSurfaceGuard,
+  guard as tailwindScanSurfaceGuard,
+} from "../guard-tailwind-scan-surface";
 import type { RepoManifest } from "../repo-manifest/index.ts";
 import { UI_GUARDS } from "../run-ui-guards";
 import { writeRepo } from "./parent-workspace-fixture";
@@ -44,7 +48,14 @@ function write(dir: string, relative: string, content: string): void {
 function uiViolationFiles(resolvedNeighborFiles: readonly string[] = []): string[] {
   const project = buildSharedProject(UI_GUARDS);
   for (const file of resolvedNeighborFiles) project.addSourceFileAtPath(file);
-  return runGuards(UI_GUARDS, project).flatMap((result) =>
+  // The default tailwind guard froze the framework repo's baseline at import time; the
+  // fixture repo has its own (empty) one.
+  const guards = UI_GUARDS.map((guard) =>
+    guard === tailwindScanSurfaceGuard
+      ? createTailwindScanSurfaceGuard({ baselineRoot: appDir })
+      : guard,
+  );
+  return runGuards(guards, project).flatMap((result) =>
     (result.outcome?.violations ?? []).map((violation) => violation.file),
   );
 }

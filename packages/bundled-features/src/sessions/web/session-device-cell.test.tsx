@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, test } from "bun:test";
 import { createStaticLocaleResolver, LocaleProvider } from "@cosmicdrift/kumiko-renderer";
 import { cleanup, render, screen } from "@testing-library/react";
 import { defaultTranslations } from "./default-translations.ts";
@@ -20,21 +20,21 @@ function renderCell(value: unknown): void {
 describe("SessionDeviceCell", () => {
   test("shows the server-formatted label as is", () => {
     renderCell("Chrome 141 · macOS");
-    expect(screen.getByText("Chrome 141 · macOS")).toBeTruthy();
+    screen.getByText("Chrome 141 · macOS");
   });
 
   test("formats the parsed device object of a device column", () => {
     renderCell({ browser: "Firefox", browserMajor: 132, os: "macOS" });
-    expect(screen.getByText("Firefox 132 · macOS")).toBeTruthy();
+    screen.getByText("Firefox 132 · macOS");
   });
 
   test("shows the translated fallback for an object without any recognised part", () => {
     renderCell({ browser: null, browserMajor: null, os: null });
-    expect(screen.getByText("Unknown device")).toBeTruthy();
+    screen.getByText("Unknown device");
   });
 
   test("shows the translated fallback without a label", () => {
     renderCell(null);
-    expect(screen.getByText("Unknown device")).toBeTruthy();
+    screen.getByText("Unknown device");
   });
 });

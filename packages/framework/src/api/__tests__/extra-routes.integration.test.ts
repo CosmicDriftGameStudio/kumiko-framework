@@ -932,7 +932,9 @@ test("extraRoutes: entry:signature route overlapping a mounted framework sub-rou
         }),
       ],
     }),
-  ).rejects.toThrow(/overlap the route "GET \/api\/files\/:id"/);
+  ).rejects.toThrow(
+    /route "GET \/api\/files\/:id" must not overlap the route "GET \/api\/files\/meta"/,
+  );
 });
 
 test("extraRoutes: a signature route with a different method than the user route boots", () => {

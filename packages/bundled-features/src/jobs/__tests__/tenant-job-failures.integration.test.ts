@@ -158,6 +158,7 @@ beforeAll(async () => {
   app = server.app;
   jwt = server.jwt;
   eventDispatcher = server.eventDispatcher;
+  await eventDispatcher?.ensureRegistered();
 
   await jobRunner.start();
 });

@@ -2,7 +2,6 @@ import { scopeTenantDbToTenant, selectMany } from "@cosmicdrift/kumiko-framework
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { serializeJobSubject } from "@cosmicdrift/kumiko-framework/jobs";
 import * as z from "zod";
-import { requireSystemDb } from "../../shared/index.ts";
 import { parseSubject } from "../parse-subject.ts";
 import { tenantJobFailuresTable } from "../tenant-job-failure-table.ts";
 
@@ -31,8 +30,9 @@ export function createTenantFailuresQuery(readRoles: readonly string[]) {
     access: {
       roles: [...new Set([...access.roles("User", "Editor", ...access.admin), ...readRoles])],
     },
+    systemScope: true,
     handler: async (query, ctx) => {
-      const systemDb = requireSystemDb(ctx, "jobs:query:failures");
+      const { systemDb } = ctx;
       // Tenant-mode db so filter and RLS are restricted to the caller's tenant;
       // the explicit tenantId filter below also excludes SYSTEM_TENANT_ID rows,
       // which tenant-mode reads let through. There is no cross-tenant mode

@@ -81,18 +81,18 @@ function renderDetail(gate: Gate, onGateRefetch?: () => void) {
 describe("screen fallback by reason", () => {
   test("403 on the gate renders the forbidden fallback screen", async () => {
     renderDetail({ httpStatus: 403 });
-    await waitFor(() => expect(screen.getByText("LIST ROW")).toBeTruthy());
+    await waitFor(() => screen.getByText("LIST ROW"));
     expect(screen.queryByText("CASE NAME")).toBeNull();
   });
 
   test("404 on the gate renders the notFound fallback screen", async () => {
     renderDetail({ httpStatus: 404 });
-    await waitFor(() => expect(screen.getByText("LIST ROW")).toBeTruthy());
+    await waitFor(() => screen.getByText("LIST ROW"));
   });
 
   test("an unmet condition without a hidden entry shows the default notice", async () => {
     renderDetail({ allowed: false });
-    await waitFor(() => expect(screen.getByTestId("kumiko-screen-unavailable")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("kumiko-screen-unavailable"));
     expect(screen.queryByText("LIST ROW")).toBeNull();
   });
 
@@ -101,7 +101,7 @@ describe("screen fallback by reason", () => {
     renderDetail({ httpStatus: 500 }, () => {
       gateCalls++;
     });
-    await waitFor(() => expect(screen.getByTestId("kumiko-screen-error")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("kumiko-screen-error"));
     expect(screen.queryByText("LIST ROW")).toBeNull();
     const before = gateCalls;
     await act(async () => {

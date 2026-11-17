@@ -11,7 +11,7 @@ import {
   configuredPiiSubjectKms,
   decryptPiiFieldValues,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import { MAX_LIST_LIMIT, type QueryHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { defineQueryHandler, MAX_LIST_LIMIT } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import {
   IMAP_PROVIDER_KEY,
@@ -55,18 +55,15 @@ const listAccountsSchema = z
   .object({ limit: z.number().int().min(1).max(MAX_LIST_LIMIT).default(MAX_LIST_LIMIT) })
   .strict();
 
-export function createListAccountsQuery({
-  memberRoles,
-  adminRoles,
-}: InboundMailRoles): QueryHandlerDef {
-  return {
+export function createListAccountsQuery({ memberRoles, adminRoles }: InboundMailRoles) {
+  return defineQueryHandler({
     name: "account:list",
     schema: listAccountsSchema,
     access: { roles: [...memberRoles] },
     description:
       "Lists the connected mailboxes of the caller's tenant with the mailbox address decrypted, hiding personal mailboxes the caller neither owns nor administers and the quarantine of personal mailboxes the caller does not own; use it for the mail connect and settings views.",
     handler: async (query, ctx) => {
-      const { limit } = listAccountsSchema.parse(query.payload);
+      const { limit } = query.payload;
       const allRows = await ctx.db.selectMany(mailAccountsProjectionTable, {
         tenantId: ctx.user.tenantId,
       });
@@ -110,5 +107,5 @@ export function createListAccountsQuery({
       );
       return { rows: decryptedRows.map(withQuarantine) };
     },
-  };
+  });
 }

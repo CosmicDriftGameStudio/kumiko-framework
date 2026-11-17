@@ -29,7 +29,7 @@ describe("TenantSwitcher", () => {
     });
     renderWithProviders(<TenantSwitcher tenantName={(id) => `Tenant ${id}`} />, { session });
     // The tenantName resolver provides "Tenant tenant-a" as the trigger label.
-    expect(screen.getByText("Tenant tenant-a")).toBeTruthy();
+    screen.getByText("Tenant tenant-a");
   });
   test("renders server-provided membership name without tenantName prop", () => {
     // /auth/tenants provides name/key, so the switcher no longer needs an
@@ -49,7 +49,7 @@ describe("TenantSwitcher", () => {
     renderWithProviders(<TenantSwitcher />, { session });
     // Without the fix, both labels would be the identical UUID prefix
     // "00000000".
-    expect(screen.getByText("Status")).toBeTruthy();
+    screen.getByText("Status");
   });
 
   test("opens dropdown showing all memberships with roles", async () => {
@@ -69,9 +69,9 @@ describe("TenantSwitcher", () => {
     // Use getAllByText to allow the duplicate active-tenant label, then use role strings as
     // unambiguous anchors.
     expect(screen.getAllByText("Tenant tenant-a").length).toBeGreaterThan(0);
-    expect(screen.getByText("Tenant tenant-b")).toBeTruthy();
-    expect(screen.getByText("Admin")).toBeTruthy();
-    expect(screen.getByText("User, Billing")).toBeTruthy();
+    screen.getByText("Tenant tenant-b");
+    screen.getByText("Admin");
+    screen.getByText("User, Billing");
   });
   test("clicking a tenant triggers switchTenant", async () => {
     const user = userEvent.setup();
@@ -131,7 +131,7 @@ describe("TenantSwitcher — key-only fallback in the open dropdown", () => {
     await user.click(screen.getByRole("button", { name: /Status/ }));
     // The key-only path (without name) must appear in the dropdown rather
     // than the UUID prefix "00000000".
-    expect(screen.getByText("demo")).toBeTruthy();
+    screen.getByText("demo");
     expect(screen.queryByText("00000000")).toBeNull();
   });
 });

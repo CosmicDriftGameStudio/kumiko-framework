@@ -8,7 +8,7 @@ Fields can require a second person's approval. `access: { approve: ["Accountant"
 
 <!-- kumiko-changes
 feature: field-approval
-type: feature
+type: improvement
 title: Four-eyes approval for payment-relevant fields
 detail: Declare access.approve on a field and mount createFieldApprovalFeature({ parents }). Direct changes by non-approvers return 403 field_approval_required; file them with field-approval:write:request-change and decide them with approve-change or reject-change. field-approval:query:pending-changes lists open requests with their value.
 -->

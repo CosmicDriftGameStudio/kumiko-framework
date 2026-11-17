@@ -184,6 +184,7 @@ export function buildEntityHandlerMethods<TName extends string>(
           rateLimitCost: def.rateLimitCost as (payload: unknown) => number, // @cast-boundary engine-bridge
         }),
         ...(def.escapeHatch && { escapeHatch: def.escapeHatch }),
+        ...(def.systemScope === true && { systemScope: true as const }),
         ...transactionPhaseSlots(def),
         ...(def.dispatchOnly && { dispatchOnly: true }),
         ...(def.tenantlessAnonymous && { tenantlessAnonymous: true }),
@@ -232,6 +233,7 @@ export function buildEntityHandlerMethods<TName extends string>(
         ...(def.resultEntity && { resultEntity: def.resultEntity }),
         ...(def.unfilteredResult && { unfilteredResult: def.unfilteredResult }),
         ...(def.escapeHatch && { escapeHatch: def.escapeHatch }),
+        ...(def.systemScope === true && { systemScope: true as const }),
         // Carry the definePagedQueryHandler brand through — this rebuild
         // drops any field not explicitly listed.
         ...(isPagedQueryHandler(def) && { [PAGED_QUERY_HANDLER_BRAND]: true }),

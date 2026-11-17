@@ -2,7 +2,6 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler, SYSTEM_ROLE } from "@cosmicdrift/kumiko-framework/engine";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
-import { requireSystemDb } from "../../shared/index.ts";
 import { decryptTenantNames } from "../decrypt-tenant-names.ts";
 import { tenantMembershipsTable } from "../membership-table.ts";
 import { tenantTable } from "../schema/tenant.ts";
@@ -13,10 +12,11 @@ export const membershipsQuery = defineQueryHandler({
   // Called via ctx.dispatch.queryAs(systemUser, ...) during login/switch-tenant, or
   // directly by tenant admins managing memberships in the admin UI.
   access: { roles: [SYSTEM_ROLE, "SystemAdmin"] },
+  systemScope: true,
   description:
     "Resolves which tenants a given user belongs to and with which roles, labelled by tenant name and key and skipping disabled tenants; sign-in and tenant switching build their options from it.",
   handler: async (query, ctx) => {
-    const systemDb = requireSystemDb(ctx, "tenant:query:memberships");
+    const { systemDb } = ctx;
     const db = systemDb.acknowledgeCrossTenant(
       "resolves memberships for an arbitrary userId across all tenants",
     );

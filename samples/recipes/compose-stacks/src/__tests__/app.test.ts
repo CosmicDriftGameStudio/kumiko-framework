@@ -18,13 +18,16 @@ const PRODUCTION_BOOT_ENV: Readonly<Record<string, string>> = {
   KUMIKO_BLIND_INDEX_KEY: randomBytes(32).toString("base64"),
 };
 
-async function bootValidate(options: Pick<RunProdAppOptions, "kmsMode" | "billing">) {
+async function bootValidate(
+  options: Pick<RunProdAppOptions, "kmsMode" | "billing">,
+  envOverrides: Readonly<Record<string, string>> = {},
+) {
   const handle = await runProdApp({
     features: appFeatures(),
     envSchema: composeEnvSchema({ features: [] }),
     autoListen: false,
     migrations: false,
-    envSource: { ...PRODUCTION_BOOT_ENV },
+    envSource: { ...PRODUCTION_BOOT_ENV, ...envOverrides },
     ...options,
   });
   await handle.stop();
@@ -59,9 +62,16 @@ describe("compose stacks recipe", () => {
     ).toBe(true);
   });
 
-  test("a missing KMS decision names every stack that needs it", async () => {
+  test("in production a missing KMS decision falls back to kmsMode optional and passes boot validation", async () => {
     const { kmsMode: _kmsMode, ...withoutKms } = bootOptions();
-    const failure = bootValidate(withoutKms);
+    await bootValidate(withoutKms);
+    const lines = logSpy.mock.calls.map((call: unknown[]) => String(call[0]));
+    expect(lines.some((line: string) => line.includes("boot validation OK"))).toBe(true);
+  });
+
+  test("a missing KMS decision outside production names every stack that needs it", async () => {
+    const { kmsMode: _kmsMode, ...withoutKms } = bootOptions();
+    const failure = bootValidate(withoutKms, { NODE_ENV: "development" });
     await expect(failure).rejects.toThrow("composeSecurityStack needs the boot option `kmsMode`");
     await expect(failure).rejects.toThrow("composeGdprStack needs the boot option `kmsMode`");
   });

@@ -141,14 +141,16 @@ describe("entity PII whenAbsent: tenant", () => {
     expect((await detail(id))["name"]).toBe("new name");
   });
 
-  test("delete of an ownerless row encrypts previous under the tenant key", async () => {
+  test("delete of an ownerless row succeeds and keeps the personal field out of previous", async () => {
     const id = await seedOwnerlessPlaintextRow();
     const row = await detail(id);
 
     const res = await stack.http.write(DELETE, { id, version: row["version"] }, admin);
     expect(res.status).toBeLessThan(300);
 
-    expect((await lastEventNames(id)).previousName).toStartWith(TENANT_PREFIX);
+    const previousKeys = await lastEventPreviousKeys(id);
+    expect(previousKeys).toContain("id");
+    expect(previousKeys).not.toContain("name");
   });
 
   test("setting the owner in the same update keeps previous and changes under the user key", async () => {

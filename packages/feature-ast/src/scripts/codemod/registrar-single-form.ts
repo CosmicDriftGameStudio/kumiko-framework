@@ -274,6 +274,45 @@ function dropHookBiomeIgnore(rewriter: SourceRewriter, call: CallExpression): vo
   if (edit !== undefined) rewriter.addEdit(edit);
 }
 
+function manualReasonOf(
+  name: string,
+  shape: Shape,
+  receiver: Node,
+  isRegistrar: boolean,
+): string | undefined {
+  if (shape === "spread") return `r.${name}: ${SPREAD_REASON}`;
+  if (shape === "none") return `r.${name}: missing argument`;
+  if (shape === "ambiguous") {
+    return `r.${name}: argument is not a string literal, so it may already be the options object, check by hand`;
+  }
+  if (!isRegistrar) {
+    return `r.${name}: receiver \`${receiver.getText()}\` is not a resolvable FeatureRegistrar (no defineFeature callback parameter or FeatureRegistrar-typed binding), rewrite by hand`;
+  }
+  return undefined;
+}
+
+function rewriteRegistrarCall(
+  rewriter: SourceRewriter,
+  call: CallExpression,
+  name: string,
+  verb: Verb,
+  shape: Shape,
+  renameTo: string | undefined,
+): void {
+  if (shape === "object") {
+    const edit = renameTo === undefined ? undefined : renameOnlyEdit(call, renameTo);
+    if (edit === undefined) return;
+    rewriter.addEdit(edit);
+    rewriter.recordRewrite(call, `r.${name}: renamed to r.${renameTo}`);
+    dropHookBiomeIgnore(rewriter, call);
+    return;
+  }
+
+  const plan = planPositional(rewriter, call, verb);
+  applyPlan(rewriter, call, name, plan);
+  if (renameTo !== undefined && !("why" in plan)) dropHookBiomeIgnore(rewriter, call);
+}
+
 function visitCall(rewriter: SourceRewriter, call: CallExpression): void {
   const callee = call.getExpression();
   if (!Node.isPropertyAccessExpression(callee)) return;
@@ -290,39 +329,12 @@ function visitCall(rewriter: SourceRewriter, call: CallExpression): void {
   const renameTo = verb.kind === "verb" ? verb.spec.renameTo : undefined;
   if (shape === "object" && renameTo === undefined) return;
 
-  const unresolvedWhy = `receiver \`${receiver.getText()}\` is not a resolvable FeatureRegistrar (no defineFeature callback parameter or FeatureRegistrar-typed binding), rewrite by hand`;
-  if (shape === "spread") {
-    rewriter.recordManual(call, `r.${name}: ${SPREAD_REASON}`);
+  const manualReason = manualReasonOf(name, shape, receiver, isRegistrar);
+  if (manualReason !== undefined) {
+    rewriter.recordManual(call, manualReason);
     return;
   }
-  if (shape === "none") {
-    rewriter.recordManual(call, `r.${name}: missing argument`);
-    return;
-  }
-  if (shape === "ambiguous") {
-    rewriter.recordManual(
-      call,
-      `r.${name}: argument is not a string literal, so it may already be the options object, check by hand`,
-    );
-    return;
-  }
-  if (!isRegistrar) {
-    rewriter.recordManual(call, `r.${name}: ${unresolvedWhy}`);
-    return;
-  }
-
-  if (shape === "object") {
-    const edit = renameTo === undefined ? undefined : renameOnlyEdit(call, renameTo);
-    if (edit === undefined) return;
-    rewriter.addEdit(edit);
-    rewriter.recordRewrite(call, `r.${name}: renamed to r.${renameTo}`);
-    dropHookBiomeIgnore(rewriter, call);
-    return;
-  }
-
-  const plan = planPositional(rewriter, call, verb);
-  applyPlan(rewriter, call, name, plan);
-  if (renameTo !== undefined && !("why" in plan)) dropHookBiomeIgnore(rewriter, call);
+  rewriteRegistrarCall(rewriter, call, name, verb, shape, renameTo);
 }
 
 function visitAll(rewriter: SourceRewriter, sourceFile: SourceFile): void {

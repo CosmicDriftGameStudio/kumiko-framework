@@ -171,6 +171,7 @@ export {
   createSystemDbView,
   createTenantDataDestroyDb,
   hasOutsideTransactionDb,
+  hasSystemDb,
   requireOutsideTransactionDb,
   requireSystemDb,
   scopeTenantDbToTenant,

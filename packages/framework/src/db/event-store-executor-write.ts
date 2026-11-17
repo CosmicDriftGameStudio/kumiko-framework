@@ -56,6 +56,7 @@ import { generateId } from "../utils/index.ts";
 import { applyEntityEvent } from "./apply-entity-event.ts";
 import { flattenCompoundTypes, rehydrateCompoundTypes } from "./compound-types.ts";
 import type { DbRow } from "./connection.ts";
+import { holdsCiphertextOrSecret } from "./entity-field-encryption.ts";
 import {
   type EventStoreExecutor,
   type LockGuardOption,
@@ -162,6 +163,14 @@ export function createWriteVerbs(
     return options?.writePurpose === WritePurposes.erasure
       ? { onErasedSubject: ErasedSubjectHandlings.sentinel }
       : {};
+  }
+  // Delete and forget events keep only plaintext columns: their readers use size, isDeleted,
+  // ids and FKs, restore reads the table row and the rebuild ignores the payload. A personal,
+  // encrypted or sensitive value there would only be one more copy to encrypt, shred and scrub.
+  function plaintextSnapshot(row: Record<string, unknown>): Record<string, unknown> {
+    return Object.fromEntries(
+      Object.entries(row).filter(([key]) => !holdsCiphertextOrSecret(entity, key)),
+    );
   }
   const eventVersion = entity.eventVersion ?? 1;
   let insertSchema: ZodType | undefined;
@@ -611,6 +620,67 @@ export function createWriteVerbs(
     };
   }
 
+  function resolveVerbChanges(
+    verbName: string | undefined,
+    changes: Record<string, unknown>,
+    previous: DbRow,
+  ): { readonly verbChanges: Record<string, unknown> } | { readonly failure: WriteFailure } {
+    if (verbName === undefined) return { verbChanges: changes };
+    const verbDef = entity.verbs?.[verbName];
+    if (verbDef === undefined || !isDeclaredEntityVerb(entity, verbName)) {
+      throw new InternalError({
+        message: `update: verb "${verbName}" is not declared in verbs of entity "${entityName}"`,
+      });
+    }
+    const transition = verbDef.transition;
+    if (transition === undefined) return { verbChanges: changes };
+    const submitted = changes[transition.field];
+    if (submitted !== undefined && submitted !== transition.to) {
+      throw new InternalError({
+        message: `update with verb "${verbName}" on "${entityName}": changes.${transition.field} is ${JSON.stringify(submitted)}, the verb sets "${transition.to}"`,
+      });
+    }
+    const current = previous[transition.field];
+    if (typeof current !== "string" || !transition.from.includes(current)) {
+      return {
+        failure: writeFailure(
+          new UnprocessableError(FrameworkReasons.invalidTransition, {
+            i18nKey: "errors.invalidTransition",
+            details: buildInvalidTransitionDetails(String(current ?? ""), transition.to, []),
+          }),
+        ),
+      };
+    }
+    return { verbChanges: { ...changes, [transition.field]: transition.to } };
+  }
+
+  function updateConcurrencyFailure(
+    snapshot: {
+      readonly rawRow: Readonly<Record<string, unknown>>;
+      readonly streamVersion: number;
+      readonly archived: boolean;
+    },
+    streamTenant: TenantId,
+    payload: { readonly id: EntityId; readonly version?: number | undefined },
+    updateOptions: ExecutorUpdateOptions | undefined,
+  ): WriteFailure | undefined {
+    if (snapshot.archived) throw new ArchivedStreamError(streamTenant, String(payload.id));
+    if (updateOptions?.expect) {
+      const expectFailure = expectMismatchFailure(
+        snapshot.rawRow,
+        payload.id,
+        updateOptions.expect,
+      );
+      if (expectFailure) return expectFailure;
+    }
+    return optimisticLockFailure(
+      payload.id,
+      payload.version,
+      snapshot.streamVersion,
+      updateOptions?.skipOptimisticLock,
+    );
+  }
+
   async function prepareUpdate(
     payload: { id: EntityId; version?: number | undefined; changes: Record<string, unknown> },
     user: SessionUser,
@@ -649,35 +719,9 @@ export function createWriteVerbs(
     const changes = preSaveResult.data;
 
     const verbName = updateOptions?.verb;
-    const verbDef = verbName === undefined ? undefined : entity.verbs?.[verbName];
-    if (
-      verbName !== undefined &&
-      (verbDef === undefined || !isDeclaredEntityVerb(entity, verbName))
-    ) {
-      throw new InternalError({
-        message: `update: verb "${verbName}" is not declared in verbs of entity "${entityName}"`,
-      });
-    }
-    const transition = verbDef?.transition;
-    let verbChanges: Record<string, unknown> = changes;
-    if (transition !== undefined) {
-      const submitted = changes[transition.field];
-      if (submitted !== undefined && submitted !== transition.to) {
-        throw new InternalError({
-          message: `update with verb "${verbName}" on "${entityName}": changes.${transition.field} is ${JSON.stringify(submitted)}, the verb sets "${transition.to}"`,
-        });
-      }
-      const current = previous[transition.field];
-      if (typeof current !== "string" || !transition.from.includes(current)) {
-        return writeFailure(
-          new UnprocessableError(FrameworkReasons.invalidTransition, {
-            i18nKey: "errors.invalidTransition",
-            details: buildInvalidTransitionDetails(String(current ?? ""), transition.to, []),
-          }),
-        );
-      }
-      verbChanges = { ...changes, [transition.field]: transition.to };
-    }
+    const resolvedVerb = resolveVerbChanges(verbName, changes, previous);
+    if ("failure" in resolvedVerb) return resolvedVerb.failure;
+    const { verbChanges } = resolvedVerb;
 
     assertFieldWritesAllowed(db, "update", verbChanges);
     const approvalRequired = fieldApprovalFailure(user, verbChanges, previous);
@@ -708,25 +752,14 @@ export function createWriteVerbs(
       updateSelectOptionFailure(user, mergedNew, previous, updateOptions);
     if (guardFailure) return guardFailure;
 
-    if (snapshot.archived) throw new ArchivedStreamError(streamTenant, String(payload.id));
-
-    if (updateOptions?.expect) {
-      const expectFailure = expectMismatchFailure(
-        snapshot.rawRow,
-        payload.id,
-        updateOptions.expect,
-      );
-      if (expectFailure) return expectFailure;
-    }
-    const currentVersion = snapshot.streamVersion;
-
-    const versionConflict = optimisticLockFailure(
-      payload.id,
-      payload.version,
-      currentVersion,
-      updateOptions?.skipOptimisticLock,
+    const concurrencyFailure = updateConcurrencyFailure(
+      snapshot,
+      streamTenant,
+      payload,
+      updateOptions,
     );
-    if (versionConflict) return versionConflict;
+    if (concurrencyFailure) return concurrencyFailure;
+    const currentVersion = snapshot.streamVersion;
 
     const { flatChangesPlain, flatChanges, encryptedPrevious, changedPrevious } =
       await encryptUpdatePayload(
@@ -904,12 +937,8 @@ export function createWriteVerbs(
       // stream without touching the row.
       const currentVersion = snapshot.streamVersion;
 
-      // Deletes carry the full pre-delete row as `previous`. That's what
-      // projections and downstream consumers need to reverse any aggregates —
-      // a `{}`-payload delete would make cross-aggregate projections impossible
-      // to rebuild from the event log alone. `existing` came from loadWriteSnapshot(),
-      // which decrypts — re-encrypt before persisting so plaintext doesn't
-      // land in the immutable log.
+      // The pre-delete row without personal, encrypted or sensitive fields (see plaintextSnapshot).
+      const deletedPrevious = plaintextSnapshot(existing);
       let event: AppendedEvent;
       try {
         event = await runInSavepointIfSupported(runner, async (sp) =>
@@ -920,12 +949,7 @@ export function createWriteVerbs(
             expectedVersion: currentVersion,
             type: entityEventName(entityName, "deleted"),
             eventVersion,
-            payload: {
-              previous: await encryptForStorage(existing, user, {
-                keyTenantId: streamTenantId,
-                ...erasureSentinelOption(options),
-              }),
-            },
+            payload: { previous: deletedPrevious },
             metadata: buildEventMetadata(user),
           }),
         );
@@ -948,7 +972,7 @@ export function createWriteVerbs(
         );
       }
 
-      const echoEvent = { ...event, payload: { previous: stripSensitive(existing) } };
+      const echoEvent = { ...event, payload: { previous: deletedPrevious } };
       await projectEntityEvent(db, runner, echoEvent);
 
       return {
@@ -1017,6 +1041,7 @@ export function createWriteVerbs(
         streamTenantFor(user, streamTenantId),
       );
 
+      const forgottenPrevious = plaintextSnapshot(existing);
       let event: AppendedEvent;
       try {
         event = await runInSavepointIfSupported(runner, async (sp) =>
@@ -1027,14 +1052,9 @@ export function createWriteVerbs(
             expectedVersion: currentVersion,
             type: entityEventName(entityName, "forgotten"),
             eventVersion,
-            // Re-encrypt like delete(): `existing` came decrypted from readProjectedRow —
-            // plaintext must not land in the immutable log, least of all on forget.
-            payload: {
-              previous: await encryptForStorage(existing, user, {
-                keyTenantId: streamTenantId,
-                onErasedSubject: ErasedSubjectHandlings.sentinel,
-              }),
-            },
+            // No personal value lands in the erasure event itself (see plaintextSnapshot); storage
+            // tracking still needs size and isDeleted.
+            payload: { previous: forgottenPrevious },
             metadata: buildEventMetadata(user),
           }),
         );
@@ -1056,7 +1076,7 @@ export function createWriteVerbs(
         );
       }
 
-      const echoEvent = { ...event, payload: { previous: stripSensitive(existing) } };
+      const echoEvent = { ...event, payload: { previous: forgottenPrevious } };
       await projectEntityEvent(db, runner, echoEvent);
 
       return {
@@ -1123,12 +1143,11 @@ export function createWriteVerbs(
         String(payload.id),
         streamTenantFor(user, streamTenantId),
       );
-      // Restore carries the soft-deleted snapshot as `previous` — mirror of
-      // delete for symmetry. Projections that decremented on delete use
-      // `previous` to re-increment on restore without re-querying the entity
-      // table. Rows predating the subject-KMS rollout may still hold plaintext
-      // pii, and envelope encryption is not idempotent: decrypt, then
-      // re-encrypt as delete does.
+      // Restore keeps the whole soft-deleted row as `previous`, unlike delete and forget:
+      // document ingest re-ingests from its fileName and storageKey, and the search index
+      // rebuilds the document from it, searchable personal fields included. Rows predating
+      // the subject-KMS rollout may still hold plaintext pii, and envelope encryption is
+      // not idempotent: decrypt, then re-encrypt.
       const previousPlain = await decryptForRead(rehydrateCompoundTypes(data, entity));
       const appended = await appendRestoredEvent(
         runner,

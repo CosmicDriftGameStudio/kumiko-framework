@@ -46,7 +46,7 @@ describe("makeAuthGate", () => {
       </Gate>,
       { session },
     );
-    expect(screen.getByTestId("custom-login")).toBeTruthy();
+    screen.getByTestId("custom-login");
     expect(screen.queryByTestId("protected")).toBeNull();
   });
 
@@ -57,7 +57,7 @@ describe("makeAuthGate", () => {
         <div data-testid="protected">secret</div>
       </Gate>,
     );
-    expect(screen.getByTestId("protected")).toBeTruthy();
+    screen.getByTestId("protected");
     expect(screen.queryByTestId("custom-login")).toBeNull();
   });
 });
@@ -129,7 +129,7 @@ describe("createLoginRoute", () => {
     const LoginRoute = createLoginRoute({ loginScreen: CustomLogin });
     const session = makeSessionApi({ status: "authenticated" });
     renderWithProviders(<LoginRoute />, { session });
-    expect(screen.getByTestId("custom-login")).toBeTruthy();
+    screen.getByTestId("custom-login");
   });
 
   test("onMfaChallenge → renders MfaVerifyComponent with the challenge token", () => {
@@ -199,7 +199,7 @@ describe("createLoginRoute", () => {
     const session = makeSessionApi({ status: "unauthenticated" });
     renderWithProviders(<LoginRoute />, { session });
     fireEvent.click(screen.getByTestId("trigger-mfa-setup"));
-    expect(screen.getByTestId("mfa-setup")).toBeTruthy();
+    screen.getByTestId("mfa-setup");
     fireEvent.click(screen.getByTestId("complete-mfa-setup"));
     expect(session.refresh).toHaveBeenCalledTimes(1);
     await waitFor(() => {
@@ -291,7 +291,7 @@ describe("makeSessionAuthGate — session bootstrap failure", () => {
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
 
     await waitFor(() => {
-      expect(screen.getByTestId("protected")).toBeTruthy();
+      screen.getByTestId("protected");
     });
     expect(tenantsCalls).toBe(2);
   });

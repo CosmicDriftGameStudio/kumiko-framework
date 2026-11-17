@@ -16,7 +16,7 @@ import {
   type Registry,
   SYSTEM_USER_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError, ValidationError } from "@cosmicdrift/kumiko-framework/errors";
+import { ValidationError } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { decryptStoredPii } from "../../shared/index.ts";
@@ -143,10 +143,8 @@ export const logQuery = definePagedQueryHandler({
   access: { roles: access.admin },
   description:
     "Pages through recorded delivery attempts (notification type, channel, recipient, status, error, priority) for the caller's tenant, or across all tenants for a SystemAdmin; use it to investigate whether and why a notification reached someone.",
+  systemScope: true,
   handler: async (query, ctx) => {
-    if (!ctx.systemDb) {
-      throw new InternalError({ message: "delivery log handler requires ctx.systemDb" });
-    }
     // SystemAdmin acknowledges the cross-tenant read (PII-bearing delivery logs across all
     // tenants incl. SYSTEM_TENANT_ID); everyone else gets a tenant-filtered db via scopedTo, and
     // the explicit `where` below still covers the SYSTEM_TENANT_ID rows that filter lets through.

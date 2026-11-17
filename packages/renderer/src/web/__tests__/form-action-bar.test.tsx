@@ -481,7 +481,7 @@ describe("DefaultForm pinned footer below sm", () => {
     renderNarrow(2, true);
     const bar = screen.getByTestId("f-actions");
     expect(bar.className).toContain("h-14");
-    expect(screen.getByTestId("f-overflow-badge")).toBeTruthy();
+    screen.getByTestId("f-overflow-badge");
     expect(screen.queryByTestId("f-unsaved")).toBeNull();
     expect(screen.getByText("Verwerfen").closest(".hidden")).not.toBeNull();
     expect(document.querySelector("[data-radix-popper-content-wrapper]")).toBeNull();
@@ -490,7 +490,7 @@ describe("DefaultForm pinned footer below sm", () => {
     expect(popover.getAttribute("data-state")).toBe("open");
     expect(screen.getByText("Verwerfen").closest(".hidden")).toBeNull();
     expect(screen.getByTestId("f-overflow").getAttribute("aria-label")).toContain("2");
-    expect(screen.getByRole("button", { name: "Speichern" })).toBeTruthy();
+    screen.getByRole("button", { name: "Speichern" });
   });
 
   test("a clean form has no badge", () => {
@@ -560,19 +560,19 @@ describe("DefaultForm pinned footer below sm", () => {
     await waitFor(() => expect(screen.getByTestId("f-overflow").className).not.toContain("hidden"));
     await userEvent.click(screen.getByTestId("f-overflow"));
     await userEvent.click(await screen.findByRole("button", { name: "Löschen" }));
-    expect(await screen.findByRole("alertdialog")).toBeTruthy();
+    await screen.findByRole("alertdialog");
   });
 
   test("a lone primary action renders without an overflow trigger", () => {
     renderNarrow(undefined, false);
     expect(screen.queryByTestId("f-overflow")).toBeNull();
-    expect(screen.getByRole("button", { name: "Speichern" })).toBeTruthy();
+    screen.getByRole("button", { name: "Speichern" });
   });
 
   test("a lone primary action with unsaved changes shows the badge and an accessible status", () => {
     renderNarrow(2, false);
     expect(screen.queryByTestId("f-overflow")).toBeNull();
-    expect(screen.getByTestId("f-primary-badge")).toBeTruthy();
+    screen.getByTestId("f-primary-badge");
     const primary = screen.getByTestId("f-primary-badge").closest("button") as HTMLElement;
     expect(primary.textContent).toContain("Speichern");
     expect(primary.querySelector(".sr-only")?.textContent).toContain("2");
@@ -639,6 +639,6 @@ describe("DefaultForm pinned footer below sm", () => {
     const back = screen.getByText("Zurück").closest("button") as HTMLElement;
     expect(back.getAttribute("aria-label")).toBeNull();
     expect(back.textContent).toBe("Zurück");
-    expect(screen.getByTestId("f-overflow")).toBeTruthy();
+    screen.getByTestId("f-overflow");
   });
 });

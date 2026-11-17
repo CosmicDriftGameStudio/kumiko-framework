@@ -3,7 +3,6 @@ export { RENDERED_PDF_ENTITY_NAME, renderedPdfEntity, renderedPdfsTable } from "
 export { PuppeteerUnavailableError } from "./errors.ts";
 export { createRendererPuppeteerClientFeature } from "./feature.ts";
 export { countPdfPages } from "./pdf-page-count.ts";
-export { RendererPuppeteerClientQueries } from "./qualified-names.ts";
 export {
   AGENT_IMAGES_RESULT_KEY,
   type RasterImage,
@@ -24,3 +23,4 @@ export {
   storeRenderedPdf,
 } from "./render-and-store.ts";
 export { type RenderHtmlToPdf, renderHtmlToPdf } from "./render-html-to-pdf.ts";
+export { RendererPuppeteerClientQueries } from "./web/qualified-names.ts";

@@ -25,6 +25,7 @@ import { mineQuery } from "./handlers/mine.query.ts";
 import { revokeWrite } from "./handlers/revoke.write.ts";
 import { revokeAllForUserWrite } from "./handlers/revoke-all-for-user.write.ts";
 import { revokeAllOthersWrite } from "./handlers/revoke-all-others.write.ts";
+import { SESSIONS_HANDLER_I18N } from "./i18n.ts";
 import { revokeSessionsAndAnnounce } from "./revoke-sessions.ts";
 import { userSessionEntity } from "./schema/user-session.ts";
 import {
@@ -183,7 +184,7 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
       const probeSecret = options?.lastActivityProbeSecret ?? readProbeSecretFromEnv();
       if (probeSecret !== undefined) registerLastActivityProbe(r, probeSecret);
 
-      r.translations({ keys: SESSIONS_I18N });
+      r.translations({ keys: { ...SESSIONS_I18N, ...SESSIONS_HANDLER_I18N } });
 
       r.screen(createSessionListScreen(adminRoles));
       r.screen(createSessionDetailScreen(adminRoles));

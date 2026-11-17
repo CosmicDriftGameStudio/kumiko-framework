@@ -1,8 +1,12 @@
-import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  type AccessRule,
+  defineWriteHandler,
+  type WriteResult,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { denyUnlessJoinRowParentVisible } from "../../shared/index.ts";
 import { tagAssignmentAggregateId } from "../aggregate-id.ts";
 import type { TagAssignmentExecutor } from "../executor.ts";
-import { type RemoveTagPayload, removeTagPayloadSchema } from "../schemas.ts";
+import { removeTagPayloadSchema } from "../schemas.ts";
 
 // remove-tag — unlinks a tag from a host entity. Idempotent: removing an
 // assignment that doesn't exist is already the requested end state (not
@@ -14,15 +18,15 @@ import { type RemoveTagPayload, removeTagPayloadSchema } from "../schemas.ts";
 export function createRemoveTagHandler(
   access: AccessRule,
   assignmentExecutor: TagAssignmentExecutor,
-): WriteHandlerDef {
-  return {
+) {
+  return defineWriteHandler({
     name: "remove-tag",
     schema: removeTagPayloadSchema,
     access,
     description:
       "Detaches one catalog tag from one host entity, reporting success when it was not attached; use it to untag a single record while the tag itself stays in the catalog.",
-    handler: async (event, ctx) => {
-      const payload = event.payload as RemoveTagPayload; // @cast-boundary engine-payload
+    handler: async (event, ctx): Promise<WriteResult<unknown>> => {
+      const payload = event.payload;
       const denied = await denyUnlessJoinRowParentVisible(
         ctx.registry,
         "tag-assignment",
@@ -46,5 +50,5 @@ export function createRemoveTagHandler(
 
       return assignmentExecutor.delete({ id }, event.user, ctx.db);
     },
-  };
+  });
 }

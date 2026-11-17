@@ -1,4 +1,4 @@
-import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { bookCapUsage } from "../book-cap-usage.ts";
 
@@ -14,7 +14,6 @@ const incrementSchema = z.object({
    *  rolling-window counters pass a fixed sentinel ("1970-01-01"). */
   periodStartIso: z.string().min(1),
 });
-type IncrementPayload = z.infer<typeof incrementSchema>;
 
 // increment-cap — one atomic upsert increment on the counter row of (tenant, cap, period); parallel
 // bookings serialize on the row lock, so no retry loop is needed.
@@ -22,7 +21,7 @@ type IncrementPayload = z.infer<typeof incrementSchema>;
 // **Why no `r.systemScope`:** counters are tenant-scoped (one row per tenant per cap per period).
 // The dispatcher's tenant-filter on ctx.db ensures a tenant can only see/increment their own
 // counters.
-export const incrementCapHandler: WriteHandlerDef = {
+export const incrementCapHandler = defineWriteHandler({
   name: "increment",
   agent: { expose: false },
   schema: incrementSchema,
@@ -32,7 +31,7 @@ export const incrementCapHandler: WriteHandlerDef = {
   // which subsystem incremented.
   access: { roles: ["SystemAdmin"] },
   handler: async (event, ctx) => {
-    const payload = event.payload as IncrementPayload; // @cast-boundary engine-payload
+    const payload = event.payload;
     const { value } = await bookCapUsage(ctx, {
       capName: payload.capName,
       periodStartIso: payload.periodStartIso,
@@ -40,4 +39,4 @@ export const incrementCapHandler: WriteHandlerDef = {
     });
     return { isSuccess: true as const, data: { value } };
   },
-};
+});

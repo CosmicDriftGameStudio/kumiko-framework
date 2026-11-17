@@ -32,7 +32,8 @@ const TENANT_STORAGE_USAGE_MSP_NAME = "tenant-storage-usage";
 // fileRef is a standard ES entity, so usage tracking subscribes to its
 // auto-verb events. `fileRef.created` payload carries the entity fields
 // (incl. size); `fileRef.deleted` / `fileRef.restored` / `fileRef.forgotten` carry
-// `{ previous }` (the pre-event row), so the byte count to apply lives at previous.size.
+// `{ previous }`: restored the whole pre-event row, deleted and forgotten its plaintext columns
+// (size and isDeleted included; older events the whole row), so the byte count to apply lives at previous.size.
 const FILE_REF_CREATED = entityEventName(FILE_REF_AGGREGATE_TYPE, "created");
 const FILE_REF_DELETED = entityEventName(FILE_REF_AGGREGATE_TYPE, "deleted");
 const FILE_REF_RESTORED = entityEventName(FILE_REF_AGGREGATE_TYPE, "restored");

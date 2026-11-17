@@ -133,7 +133,7 @@ describe("NotesSection — two-card layout", () => {
   test("filters on entityType and entityId server-side", async () => {
     const queryPayloads: unknown[] = [];
     const view = renderSection(queryPayloads);
-    await waitFor(() => expect(view.getByTestId("notes-section-history")).toBeTruthy());
+    await waitFor(() => view.getByTestId("notes-section-history"));
 
     expect(queryPayloads[0]).toMatchObject({
       filters: [
@@ -145,7 +145,7 @@ describe("NotesSection — two-card layout", () => {
 
   test("renders a 'new note' card and a 'history' card as two separate cards", async () => {
     const view = renderSection();
-    await waitFor(() => expect(view.getByTestId("notes-section-history")).toBeTruthy());
+    await waitFor(() => view.getByTestId("notes-section-history"));
 
     const newNoteCard = view.getByTestId("notes-section-new");
     const historyCard = view.getByTestId("notes-section-history");
@@ -156,7 +156,7 @@ describe("NotesSection — two-card layout", () => {
 
   test("history entries are separated by dividers, not individual borders", async () => {
     const view = renderSection();
-    await waitFor(() => expect(view.getByTestId("notes-section-row-note-1")).toBeTruthy());
+    await waitFor(() => view.getByTestId("notes-section-row-note-1"));
 
     const row = view.getByTestId("notes-section-row-note-1");
     expect(row.className).not.toContain("border");
@@ -295,7 +295,7 @@ describe("NotesSection — Ctrl/Cmd+Enter submit shortcut", () => {
   test("Ctrl+Enter with a non-empty draft dispatches addNote, same as the button", async () => {
     const { dispatcher, writes } = makeWriteCapturingDispatcher();
     const view = renderSectionWith(dispatcher);
-    await waitFor(() => expect(view.getByTestId("notes-section-add")).toBeTruthy());
+    await waitFor(() => view.getByTestId("notes-section-add"));
 
     const textarea = requireTextarea(view.container);
     fireEvent.change(textarea, { target: { value: "Ctrl+Enter note" } });
@@ -311,7 +311,7 @@ describe("NotesSection — Ctrl/Cmd+Enter submit shortcut", () => {
   test("Cmd+Enter (metaKey) also dispatches addNote", async () => {
     const { dispatcher, writes } = makeWriteCapturingDispatcher();
     const view = renderSectionWith(dispatcher);
-    await waitFor(() => expect(view.getByTestId("notes-section-add")).toBeTruthy());
+    await waitFor(() => view.getByTestId("notes-section-add"));
 
     const textarea = requireTextarea(view.container);
     fireEvent.change(textarea, { target: { value: "Cmd+Enter note" } });
@@ -328,7 +328,7 @@ describe("NotesSection — Ctrl/Cmd+Enter submit shortcut", () => {
   test("Ctrl+Enter with an empty draft does nothing", async () => {
     const { dispatcher, writes } = makeWriteCapturingDispatcher();
     const view = renderSectionWith(dispatcher);
-    await waitFor(() => expect(view.getByTestId("notes-section-add")).toBeTruthy());
+    await waitFor(() => view.getByTestId("notes-section-add"));
 
     const textarea = requireTextarea(view.container);
     fireEvent.keyDown(textarea, { key: "Enter", ctrlKey: true });

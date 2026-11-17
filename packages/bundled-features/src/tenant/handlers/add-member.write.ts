@@ -11,7 +11,6 @@ import {
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { requireSystemDb } from "../../shared/index.ts";
 import { findForbiddenMembershipRole, reservedMembershipRoleError } from "../membership-roles.ts";
 import { tenantMembershipEntity, tenantMembershipsTable } from "../membership-table.ts";
 import { TenantErrors } from "../web/constants.ts";
@@ -34,10 +33,11 @@ export const addMemberWrite = defineWriteHandler({
     roles: z.array(z.string()).min(1),
   }),
   access: { roles: [SYSTEM_ROLE, "SystemAdmin"] },
+  systemScope: true,
   description:
     "Grants an existing user membership in a tenant with the given roles, refusing reserved role names and a user who is already a member; use it to add someone to a workspace without going through an invitation.",
   handler: async (event, ctx) => {
-    const systemDb = requireSystemDb(ctx, "tenant:write:addMember");
+    const { systemDb } = ctx;
     const db = systemDb.acknowledgeCrossTenant("SystemAdmin manages memberships across tenants");
     if (!isFrameworkSystemUser(event.user) && event.payload.tenantId !== event.user.tenantId) {
       return writeFailure(

@@ -35,6 +35,7 @@
 //   2. projection ({@link PiiBackfillOptions.resolveOwnerFromProjection}) —
 //      pre-owner-field-addition events don't carry it; read it from the
 //      entity's current projection row instead.
+//      A hard-deleted aggregate falls back to the row stored in its delete event.
 //   2b. whenAbsent — the payload again, now falling back to the tenant key (or
 //      the row's own record key for whenAbsent: "self") for fields that declare it.
 //   3. erase ({@link PiiBackfillOptions.eraseUnresolvableSubjects}) — still
@@ -93,6 +94,7 @@ import {
 import type { Registry, TenantId } from "../../engine/types/index.ts";
 import type { DbRunner } from "../connection.ts";
 import { resolveTableName } from "../entity-table-meta.ts";
+import { entityEventName } from "../event-store-executor-context.ts";
 import { asRawClient } from "../query.ts";
 import { tableExists } from "../schema-inspection.ts";
 import { quoteIdent } from "../sql-identifier.ts";
@@ -493,6 +495,28 @@ async function loadProjectionOwners(
             fields: projectionRowToCamel(target.entity, projectionRow),
           });
         }
+      }
+    }
+    const missingIds = [...ids].filter((id) => !ownersById.has(id));
+    if (missingIds.length > 0) {
+      const deleteRows = await raw.unsafe<{
+        aggregate_id: string;
+        tenant_id: string | null;
+        previous: unknown;
+      }>(
+        `SELECT DISTINCT ON ("aggregate_id") "aggregate_id", "tenant_id", "payload" -> 'previous' AS "previous" FROM "kumiko_events" WHERE "aggregate_type" = $1 AND "type" = $2 AND "aggregate_id" = ANY($3::uuid[]) ORDER BY "aggregate_id", "id" DESC`,
+        [
+          aggregateType,
+          entityEventName(aggregateType, "deleted"),
+          toPostgresArrayLiteral(missingIds),
+        ],
+      );
+      for (const deleteRow of deleteRows) {
+        if (!isRecord(deleteRow.previous)) continue;
+        ownersById.set(deleteRow.aggregate_id, {
+          tenantId: deleteRow.tenant_id ?? undefined,
+          fields: deleteRow.previous,
+        });
       }
     }
     byType.set(aggregateType, ownersById);

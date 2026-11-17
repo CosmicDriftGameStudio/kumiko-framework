@@ -5,17 +5,17 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { requireSystemDb } from "../../shared/index.ts";
 import { tenantTable } from "../schema/tenant.ts";
 
 export const activeTenantIdsQuery = defineQueryHandler({
   name: "activeTenantIds",
   schema: z.object({}),
   access: { roles: [SYSTEM_ROLE, "SystemAdmin"] },
+  systemScope: true,
   description:
     "Returns the ids of every tenant that is currently enabled, platform-wide; use it to drive work that has to fan out over all live tenants.",
   handler: async (_query, ctx) => {
-    const systemDb = requireSystemDb(ctx, "tenant:query:activeTenantIds");
+    const { systemDb } = ctx;
     const db = systemDb.acknowledgeCrossTenant("lists active tenant ids platform-wide");
     // tenants.id is a uuid string (TenantId), not a numeric surrogate.
     // Brand at the DB parse boundary — getActiveTenantIds consumers expect TenantId[].

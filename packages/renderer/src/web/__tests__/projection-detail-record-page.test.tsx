@@ -190,7 +190,7 @@ describe("writeForm hint and badge from the record", () => {
       { ...record, ownCarHint: "Skoda Octavia", mileageHint: "Mileage open" },
       w,
     );
-    expect(await screen.findByText("Skoda Octavia")).not.toBeNull();
+    await screen.findByText("Skoda Octavia");
     expect(screen.getByTestId("field-badge-reason").textContent).toContain("Mileage open");
     const input = screen.getByTestId("field-reason").querySelector("input") as HTMLInputElement;
     fireEvent.change(input, { target: { value: "ok" } });
@@ -241,7 +241,7 @@ describe("writeForm submitWith with a form that is not usable", () => {
     const w = write();
     renderScreen(hidden, record, w);
     fireEvent.click(await screen.findByText("Approve"));
-    expect(await screen.findByText(/Please check: .*reason/i)).toBeTruthy();
+    await screen.findByText(/Please check: .*reason/i);
     expect(w).not.toHaveBeenCalled();
   });
 });

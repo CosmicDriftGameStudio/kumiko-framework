@@ -7,7 +7,6 @@ import {
   isEncryptedAtRest,
 } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { requireSystemDb } from "../../shared/index.ts";
 import { requireConfigResolver } from "../feature.ts";
 import { MASKED, redactInheritedCascade, shouldRedactInherited } from "../read-redaction.ts";
 import { hasConfigAccess, keyDefAtScope } from "../write-helpers.ts";
@@ -34,8 +33,9 @@ export const valuesQuery = defineQueryHandler({
       "self-scoped read of the caller's own readable config values, hit on every page load; " +
       "per-tenant bucket would throttle the whole tenant, L1 IP limit still applies",
   },
+  systemScope: true,
   handler: async (query, ctx) => {
-    const db = requireSystemDb(ctx, "config:query:values").assertTenantMatch(query.user.tenantId);
+    const db = ctx.systemDb.assertTenantMatch(query.user.tenantId);
     const registry = ctx.registry;
     const resolver = requireConfigResolver(ctx, "config:query:values");
 

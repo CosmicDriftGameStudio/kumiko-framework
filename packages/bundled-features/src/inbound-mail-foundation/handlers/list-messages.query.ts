@@ -15,7 +15,7 @@ import {
   encodeKeysetCursor,
   type TenantDb,
 } from "@cosmicdrift/kumiko-framework/db";
-import { isUuid, MAX_LIST_LIMIT, type QueryHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { defineQueryHandler, isUuid, MAX_LIST_LIMIT } from "@cosmicdrift/kumiko-framework/engine";
 import { ValidationError } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
@@ -49,7 +49,6 @@ const listMessagesSchema = z
     limit: z.number().int().min(1).max(MAX_LIST_LIMIT).default(50),
   })
   .strict();
-type ListMessagesPayload = z.infer<typeof listMessagesSchema>;
 
 type MessagePosition = { readonly receivedAt: Temporal.Instant; readonly id: string };
 
@@ -113,16 +112,15 @@ async function fetchAfter(
   return [...tied, ...beyond];
 }
 
-export function createListMessagesQuery({ memberRoles }: InboundMailRoles): QueryHandlerDef {
-  return {
+export function createListMessagesQuery({ memberRoles }: InboundMailRoles) {
+  return defineQueryHandler({
     name: "message:list",
     schema: listMessagesSchema,
     access: { roles: [...memberRoles] },
     description:
       "Lists received mail of the caller's tenant newest first with sender, recipients, subject and snippet decrypted, optionally narrowed to one account, thread or folder scope and hiding messages of personal mailboxes the caller does not own; pages with `limit` (default 50, at most 200) and the returned `nextCursor` until it is null. Use it to read an inbox or a conversation.",
     handler: async (query, ctx) => {
-      // @cast-boundary engine-payload — dispatcher-zod-validated payload
-      const payload = query.payload as ListMessagesPayload;
+      const payload = query.payload;
       const filter: Record<string, unknown> = { tenantId: ctx.user.tenantId };
       if (payload.accountId) filter["accountId"] = payload.accountId;
       if (payload.threadKey) filter["threadKey"] = payload.threadKey;
@@ -157,5 +155,5 @@ export function createListMessagesQuery({ memberRoles }: InboundMailRoles): Quer
       );
       return { rows: decryptedRows, nextCursor };
     },
-  };
+  });
 }

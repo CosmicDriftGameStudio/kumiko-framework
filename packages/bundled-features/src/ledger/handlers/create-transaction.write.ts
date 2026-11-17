@@ -1,12 +1,12 @@
-import type {
-  AccessRule,
-  WriteHandlerDef,
-  WriteResult,
+import {
+  type AccessRule,
+  defineWriteHandler,
+  type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { accountExecutor, transactionExecutor, transactionTable } from "../executor.ts";
-import { type CreateTransactionPayload, createTransactionPayloadSchema } from "../schemas.ts";
+import { createTransactionPayloadSchema } from "../schemas.ts";
 import { DEFAULT_LEDGER_ACCESS } from "../web/constants.ts";
 
 // pg_advisory_xact_lock namespace, disjoint from the other ledger lock keys.
@@ -19,18 +19,16 @@ const CREATE_TRANSACTION_SOURCE_REF_LOCK_NAMESPACE = 0x6c_63_74_78; // 'lctx'
 // posted by default and immutable thereafter (no update/delete handler exists).
 // An optional sourceRef makes the call idempotent per tenant; the key stays with
 // its entry after a reversal, so re-booking after a Storno needs a new key.
-export function createCreateTransactionHandler(
-  access: AccessRule = DEFAULT_LEDGER_ACCESS,
-): WriteHandlerDef {
-  return {
+export function createCreateTransactionHandler(access: AccessRule = DEFAULT_LEDGER_ACCESS) {
+  return defineWriteHandler({
     name: "create-transaction",
     schema: createTransactionPayloadSchema,
     access,
     description:
       "Books one balanced journal entry from a date, description and at least two posting lines summing to zero, after verifying every named account exists; use it to record any financial movement in the tenant's books. With a sourceRef it books at most once per tenant and returns the existing entry with alreadyBooked true on a repeat call.",
     agent: { risk: "high" },
-    handler: async (event, ctx) => {
-      const payload = event.payload as CreateTransactionPayload; // @cast-boundary engine-payload
+    handler: async (event, ctx): Promise<WriteResult<unknown>> => {
+      const payload = event.payload;
 
       // Lock serializes parallel calls with the same key; the partial unique index is the backstop.
       if (payload.sourceRef !== undefined) {
@@ -77,7 +75,7 @@ export function createCreateTransactionHandler(
       if (!created.isSuccess) return created;
       return { isSuccess: true, data: { ...created.data, alreadyBooked: false as const } };
     },
-  };
+  });
 }
 
-export const createTransactionHandler: WriteHandlerDef = createCreateTransactionHandler();
+export const createTransactionHandler = createCreateTransactionHandler();

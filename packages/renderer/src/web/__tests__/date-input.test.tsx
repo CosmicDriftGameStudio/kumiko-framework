@@ -91,7 +91,7 @@ describe("DateInput", () => {
     );
     await user.click(screen.getByRole("button"));
     // DayPicker exposes the calendar with a grid role; checking its existence is sufficient without pinning brittle DOM details.
-    expect(await screen.findByRole("grid")).toBeTruthy();
+    await screen.findByRole("grid");
   });
 
   test("Calendar day selection: onChange fires ISO yyyy-mm-dd", async () => {

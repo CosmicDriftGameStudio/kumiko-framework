@@ -37,6 +37,38 @@ type AssignmentListResponse = { readonly rows: readonly AssignmentRow[] };
 // assignment. Empty string can't collide with a folder id (uuid).
 const NO_FOLDER = "";
 
+type QueryBlocker = {
+  readonly variant: "loading" | "error";
+  readonly testId: string;
+  readonly i18nKey: string;
+  readonly i18nParams?: Parameters<ReturnType<typeof useTranslation>>[1];
+};
+
+type QueryState = Pick<ReturnType<typeof useQuery>, "loading" | "data" | "error">;
+
+function queryBlocker(catalog: QueryState, assignments: QueryState): QueryBlocker | null {
+  if (
+    (catalog.loading && catalog.data === null) ||
+    (assignments.loading && assignments.data === null)
+  ) {
+    return {
+      variant: "loading",
+      testId: "folder-section-loading",
+      i18nKey: "folders.section.loading",
+    };
+  }
+  const queryError = catalog.error ?? assignments.error;
+  if (queryError) {
+    return {
+      variant: "error",
+      testId: "folder-section-error",
+      i18nKey: queryError.i18nKey,
+      i18nParams: queryError.i18nParams,
+    };
+  }
+  return null;
+}
+
 export function FolderSection({
   entityName,
   entityId,
@@ -78,21 +110,11 @@ export function FolderSection({
       </Banner>
     );
   }
-  if (
-    (catalog.loading && catalog.data === null) ||
-    (assignments.loading && assignments.data === null)
-  ) {
+  const blocker = queryBlocker(catalog, assignments);
+  if (blocker !== null) {
     return (
-      <Banner variant="loading" testId="folder-section-loading">
-        <Text>{t("folders.section.loading")}</Text>
-      </Banner>
-    );
-  }
-  const queryError = catalog.error ?? assignments.error;
-  if (queryError) {
-    return (
-      <Banner variant="error" testId="folder-section-error">
-        <Text>{t(queryError.i18nKey, queryError.i18nParams)}</Text>
+      <Banner variant={blocker.variant} testId={blocker.testId}>
+        <Text>{t(blocker.i18nKey, blocker.i18nParams)}</Text>
       </Banner>
     );
   }

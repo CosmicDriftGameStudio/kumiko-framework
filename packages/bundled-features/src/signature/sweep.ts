@@ -1,4 +1,4 @@
-import type { JobContext } from "@cosmicdrift/kumiko-framework/engine";
+import { forEachPage, type JobContext } from "@cosmicdrift/kumiko-framework/engine";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { RendererError } from "../renderer-foundation/index.ts";
@@ -33,11 +33,6 @@ import {
   SignatureInternalHandlers,
 } from "./web/constants.ts";
 
-// Equals the executor's MAX_LIST_LIMIT.
-const SWEEP_PAGE_SIZE = 200;
-
-type RequestPage = Awaited<ReturnType<typeof ungatedRequestExecutor.list>>;
-
 // ungated: system paths only (sweep runs as systemUser over every host)
 // Keyset-paged, so rows that leave the status while the sweep works on them cannot shift the next page.
 export async function forEachRequestPageWithStatus(
@@ -45,20 +40,17 @@ export async function forEachRequestPageWithStatus(
   status: string,
   visitPage: (requests: readonly RequestRow[]) => Promise<void>,
 ): Promise<void> {
-  let cursor: string | null = null;
-  do {
-    const page: RequestPage = await ungatedRequestExecutor.list(
-      {
-        filter: { field: "status", op: "eq", value: status },
-        limit: SWEEP_PAGE_SIZE,
-        ...(cursor !== null && { cursor }),
-      },
-      ctx.systemUser,
-      ctx.db,
-    );
-    await visitPage(page.rows);
-    cursor = page.nextCursor;
-  } while (cursor !== null);
+  await forEachPage(
+    (request) =>
+      ungatedRequestExecutor.list(
+        { filter: { field: "status", op: "eq", value: status }, ...request },
+        ctx.systemUser,
+        ctx.db,
+      ),
+    async (requests) => {
+      await visitPage(requests);
+    },
+  );
 }
 
 // One grouped count per page instead of a reconcile write per open request: most open requests

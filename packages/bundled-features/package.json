@@ -168,7 +168,7 @@
     "./renderer-mail-html": "./src/renderer-mail-html/index.ts",
     "./renderer-mail-html/seeding": "./src/renderer-mail-html/seeding.ts",
     "./renderer-puppeteer-client": "./src/renderer-puppeteer-client/index.ts",
-    "./renderer-puppeteer-client/qualified-names": "./src/renderer-puppeteer-client/qualified-names.ts",
+    "./renderer-puppeteer-client/qualified-names": "./src/renderer-puppeteer-client/web/qualified-names.ts",
     "./signature": "./src/signature/index.ts",
     "./signature/web": "./src/signature/web/index.ts",
     "./document-draft": "./src/document-draft/index.ts",
@@ -808,8 +808,8 @@
         "default": "./dist/renderer-puppeteer-client/index.js"
       },
       "./renderer-puppeteer-client/qualified-names": {
-        "types": "./dist/renderer-puppeteer-client/qualified-names.d.ts",
-        "default": "./dist/renderer-puppeteer-client/qualified-names.js"
+        "types": "./dist/renderer-puppeteer-client/web/qualified-names.d.ts",
+        "default": "./dist/renderer-puppeteer-client/web/qualified-names.js"
       },
       "./signature": {
         "types": "./dist/signature/index.d.ts",

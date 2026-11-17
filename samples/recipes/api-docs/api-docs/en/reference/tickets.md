@@ -69,6 +69,7 @@ Lists tickets, newest first.
 | `sortDirection` | "asc" \| "desc" | no | `asc` or `desc`. |
 | `offset` | integer | no | Number of rows to skip. Prefer `cursor` for paging. |
 | `totalCount` | boolean | no | Set `true` to also get `total`, the number of matching rows. |
+| `fields` | array of string | no | Return only these stored fields. Rows then carry `id`, `version` and the named fields; derived fields are not computed. An unknown name fails with `unknown_field`. |
 | `includeDeleted` | boolean | no | Set `true` to include deleted rows. Only for entities with soft delete. |
 | `onlyDeleted` | boolean | no | Set `true` to return only deleted rows. Only for entities with soft delete, not together with `includeDeleted`. |
 | `filter` | object | no | One field filter with `field`, `op` and `value`. `op` is one of `eq`, `ne`, `lt`, `gt`, `lte`, `gte`, `in`. |

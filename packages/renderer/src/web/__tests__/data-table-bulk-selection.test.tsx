@@ -67,7 +67,7 @@ describe("DataTable bulk selection", () => {
         bulk={bulkOf(archiveAction())}
       />,
     );
-    expect(screen.getByTestId("column-select")).toBeTruthy();
+    screen.getByTestId("column-select");
     fireEvent.click(checkbox("row-r1-select"));
     fireEvent.click(checkbox("row-r3-select"));
     expect(onRowClick).not.toHaveBeenCalled();

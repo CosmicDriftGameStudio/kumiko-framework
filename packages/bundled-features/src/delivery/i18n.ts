@@ -3,8 +3,14 @@ import {
   DELIVERY_SKIP_REASONS,
   type DeliveryFailureCode,
   type DeliverySkipReason,
+  handlerFieldLabelKey,
+  handlerTitleKey,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { DeliveryStatus, type DeliveryStatusValue } from "./web/public-names.ts";
+import {
+  DeliveryStatus,
+  type DeliveryStatusValue,
+  DeliveryHandlers as H,
+} from "./web/public-names.ts";
 
 type LocalizedString = { readonly en: string };
 
@@ -46,6 +52,10 @@ function labelKeys(
 }
 
 export const DELIVERY_I18N: Readonly<Record<string, LocalizedString>> = {
+  [handlerTitleKey(H.setPreference)]: { en: "Set notification preference" },
+  [handlerFieldLabelKey(H.setPreference, "notificationType")]: { en: "Notification type" },
+  [handlerFieldLabelKey(H.setPreference, "channel")]: { en: "Channel" },
+  [handlerFieldLabelKey(H.setPreference, "enabled")]: { en: "Enabled" },
   "screen:delivery-log.title": { en: "Delivery log" },
   "delivery:nav.deliveryLog": { en: "Delivery" },
   "delivery.log.col.createdAt": { en: "Time" },

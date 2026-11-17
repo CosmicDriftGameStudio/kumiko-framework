@@ -8,6 +8,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { EXT_USER_DATA } from "@cosmicdrift/kumiko-framework/engine";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
 import { createDataRetentionFeature } from "../../data-retention/index.ts";
@@ -46,8 +47,9 @@ describe("user-data-rights :: feature-definition smoke", () => {
     expect(userDataRights.name).toBe("user-data-rights");
   });
 
-  test("EXT_USER_DATA extension is registered (other features can attach via useExtension)", () => {
-    expect(userDataRights.registrarExtensions["userData"]).toBeDefined();
+  test("EXT_USER_DATA is framework-owned: in the registry without user-data-rights declaring it", () => {
+    expect(stack.registry.getExtension(EXT_USER_DATA)).toBeDefined();
+    expect(userDataRights.registrarExtensions[EXT_USER_DATA]).toBeUndefined();
   });
 
   test("requires user + data-retention + compliance-profiles", () => {

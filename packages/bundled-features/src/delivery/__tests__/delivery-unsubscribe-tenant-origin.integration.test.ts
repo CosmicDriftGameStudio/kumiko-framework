@@ -440,6 +440,7 @@ describe("app hook after an address opt-out", () => {
   test("a job triggered on unsubscribeAddress receives the opt-out with its tenant", async () => {
     const address = "Hook.Reader@external.test";
     const link = await mailNews(address, tenantWithOrigin);
+    await stack.drainJobs();
     optOutsSeenByApp.length = 0;
 
     expect((await oneClick(link)).status).toBe(200);
@@ -475,6 +476,7 @@ describe("app hook after an address opt-out", () => {
 
   test("a forged token opts nobody out and fires no job", async () => {
     const link = await mailNews("forged@external.test", tenantWithoutOrigin);
+    await stack.drainJobs();
     optOutsSeenByApp.length = 0;
     const forged = new URL(link);
     forged.searchParams.set("token", `${tokenOf(link)}x`);

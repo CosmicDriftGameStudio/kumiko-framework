@@ -85,7 +85,7 @@ describe("header overflow menu", () => {
     );
     fireEvent.click(screen.getByTestId("shell-header-overflow-trigger"));
     expect(screen.queryByTestId("shell-header-overflow-item-export")).toBeNull();
-    expect(screen.getByTestId("shell-header-overflow-item-plain")).toBeTruthy();
+    screen.getByTestId("shell-header-overflow-item-plain");
     fireEvent.click(screen.getByTestId("my-export"));
     expect(onSelect).toHaveBeenCalledTimes(1);
   });
@@ -118,9 +118,7 @@ describe("header overflow menu", () => {
   test("in dark mode the row offers the light theme", () => {
     setViewportWidth(PHONE);
     renderHeader(() => {}, "dark");
-    expect(
-      within(screen.getByTestId("shell-header-overflow")).getByText("Light theme"),
-    ).toBeTruthy();
+    within(screen.getByTestId("shell-header-overflow")).getByText("Light theme");
   });
 
   test("opening focuses the first row, arrows cycle, Home/End jump, Escape returns focus", () => {
@@ -347,8 +345,8 @@ describe("primary toolbar action in the header", () => {
     expect(inHeader()).toBeNull();
     expect(document.querySelector(".lucide-plus")).toBeNull();
     fireEvent.click(screen.getByTestId("shell-header-overflow-trigger"));
-    expect(screen.getByTestId("render-list-toolbar-action-new")).toBeTruthy();
-    expect(screen.getByTestId("render-list-toolbar-action-upload")).toBeTruthy();
+    screen.getByTestId("render-list-toolbar-action-new");
+    screen.getByTestId("render-list-toolbar-action-upload");
   });
 
   test("a failing overflow-menu action surfaces its error", async () => {
@@ -365,7 +363,7 @@ describe("primary toolbar action in the header", () => {
     });
     fireEvent.click(screen.getByTestId("shell-header-overflow-trigger"));
     fireEvent.click(screen.getByTestId("render-list-toolbar-action-new"));
-    expect(await screen.findByText("menu boom")).toBeTruthy();
+    await screen.findByText("menu boom");
   });
 
   test("a pending overflow-menu action blocks a second select and then surfaces its error", async () => {
@@ -383,7 +381,7 @@ describe("primary toolbar action in the header", () => {
     fireEvent.click(screen.getByTestId("render-list-toolbar-action-new"));
     expect(onTrigger).toHaveBeenCalledTimes(1);
     rejectPending(new Error("late boom"));
-    expect(await screen.findByText("late boom")).toBeTruthy();
+    await screen.findByText("late boom");
   });
 
   test("a failing promoted action surfaces its error instead of an unhandled rejection", async () => {
@@ -398,7 +396,7 @@ describe("primary toolbar action in the header", () => {
       ],
     });
     fireEvent.click(inHeader() as HTMLElement);
-    expect(await screen.findByText("boom")).toBeTruthy();
+    await screen.findByText("boom");
   });
 
   test("an action without an icon is still promoted, with the plus icon", () => {

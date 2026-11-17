@@ -1,8 +1,12 @@
-import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  type AccessRule,
+  defineWriteHandler,
+  type WriteResult,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { denyUnlessJoinRowParentVisible } from "../../shared/index.ts";
 import { folderAssignmentAggregateId } from "../aggregate-id.ts";
 import type { FolderAssignmentExecutor } from "../executor.ts";
-import { type ClearFolderPayload, clearFolderPayloadSchema } from "../schemas.ts";
+import { clearFolderPayloadSchema } from "../schemas.ts";
 
 // clear-folder — removes a host entity from its folder (back to "unfiled").
 // Idempotent: clearing an entity that isn't in any folder is already the
@@ -14,15 +18,15 @@ import { type ClearFolderPayload, clearFolderPayloadSchema } from "../schemas.ts
 export function createClearFolderHandler(
   access: AccessRule,
   assignmentExecutor: FolderAssignmentExecutor,
-): WriteHandlerDef {
-  return {
+) {
+  return defineWriteHandler({
     name: "clear-folder",
     schema: clearFolderPayloadSchema,
     access,
     description:
       "Unfiles a host entity so it sits in no folder at all, reporting success when it was already unfiled; use it to take an entity out of its folder without touching the folder itself.",
-    handler: async (event, ctx) => {
-      const payload = event.payload as ClearFolderPayload; // @cast-boundary engine-payload
+    handler: async (event, ctx): Promise<WriteResult<unknown>> => {
+      const payload = event.payload;
       const denied = await denyUnlessJoinRowParentVisible(
         ctx.registry,
         "folder-assignment",
@@ -45,5 +49,5 @@ export function createClearFolderHandler(
 
       return assignmentExecutor.delete({ id }, event.user, ctx.db);
     },
-  };
+  });
 }

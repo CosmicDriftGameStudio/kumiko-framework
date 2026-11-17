@@ -2,7 +2,7 @@ import type { SELECTABLE_PROFILE_KEYS } from "@cosmicdrift/kumiko-framework/comp
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import type { FeatureRegistrar } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
-import { registerTenantCreatedSeedHook } from "../shared/tenant-created-seed-hook.ts";
+import { registerTenantCreatedSeedHook } from "../shared/index.ts";
 import {
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,

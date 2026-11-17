@@ -81,8 +81,8 @@ describe("multiSelect optionsQuery on an actionForm", () => {
     await chooseKind(user, "staff");
 
     await waitFor(() => expect(queryPayloads.at(-1)).toEqual({ kind: "staff", portal: "tenant" }));
-    expect(await screen.findByRole("checkbox", { name: "Lease 1" })).toBeDefined();
-    expect(await screen.findByRole("checkbox", { name: "Lease 2" })).toBeDefined();
+    await screen.findByRole("checkbox", { name: "Lease 1" });
+    await screen.findByRole("checkbox", { name: "Lease 2" });
   });
 
   test("submitting writes the checked values", async () => {
@@ -106,7 +106,7 @@ describe("multiSelect optionsQuery on an actionForm", () => {
     await chooseKind(user, "owner");
     await waitFor(() => expect(queryPayloads.at(-1)).toEqual({ kind: "owner", portal: "tenant" }));
     await waitFor(() => expect(screen.queryByRole("checkbox", { name: "Lease 2" })).toBeNull());
-    expect(screen.getByRole("checkbox", { name: "Lease 1" })).toBeDefined();
+    screen.getByRole("checkbox", { name: "Lease 1" });
 
     await user.click(screen.getByTestId("render-edit-submit"));
     await waitFor(() => expect(writes.length).toBe(1));

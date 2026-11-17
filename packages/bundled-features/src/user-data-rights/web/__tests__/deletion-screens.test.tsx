@@ -73,7 +73,7 @@ describe("RequestAccountDeletionScreen", () => {
     const ui = renderWith(<RequestAccountDeletionScreen />, makeDispatcher(true, calls));
     fireEvent.change(ui.getByRole("textbox"), { target: { value: "a@b.com" } });
     fireEvent.click(ui.getByRole("button"));
-    await waitFor(() => expect(ui.getByText(/Email sent/)).toBeTruthy());
+    await waitFor(() => ui.getByText(/Email sent/));
     await waitFor(() => expect(calls).toHaveLength(1));
     expect(calls[0]?.type).toBe("user-data-rights:write:request-deletion-by-email");
     expect(calls[0]?.payload).toEqual({ email: "a@b.com" });
@@ -84,7 +84,7 @@ describe("RequestAccountDeletionScreen", () => {
     const ui = renderWith(<RequestAccountDeletionScreen />, makeDispatcher(false, calls));
     fireEvent.change(ui.getByRole("textbox"), { target: { value: "a@b.com" } });
     fireEvent.click(ui.getByRole("button"));
-    await waitFor(() => expect(ui.getByText(/went wrong/)).toBeTruthy());
+    await waitFor(() => ui.getByText(/went wrong/));
     expect(ui.queryByText(/Email sent/)).toBeNull();
   });
 });
@@ -93,7 +93,7 @@ describe("ConfirmAccountDeletionScreen", () => {
   test("without #token → missingToken, no Confirm button", () => {
     window.history.replaceState({}, "", "/delete-account/confirm");
     const ui = renderWith(<ConfirmAccountDeletionScreen />, makeDispatcher(true, []));
-    expect(ui.getByText(/No token/)).toBeTruthy();
+    ui.getByText(/No token/);
     expect(ui.queryByRole("button")).toBeNull();
   });
 
@@ -102,7 +102,7 @@ describe("ConfirmAccountDeletionScreen", () => {
     const calls: WriteCall[] = [];
     const ui = renderWith(<ConfirmAccountDeletionScreen />, makeDispatcher(true, calls));
     fireEvent.click(ui.getByRole("button"));
-    await waitFor(() => expect(ui.getByText(/Deletion scheduled/)).toBeTruthy());
+    await waitFor(() => ui.getByText(/Deletion scheduled/));
     await waitFor(() => expect(calls).toHaveLength(1));
     expect(calls[0]?.type).toBe("user-data-rights:write:confirm-deletion-by-token");
     expect(calls[0]?.payload).toEqual({ token: "tok-123" });
@@ -112,7 +112,7 @@ describe("ConfirmAccountDeletionScreen", () => {
     window.history.replaceState({}, "", "/delete-account/confirm#token=bad");
     const ui = renderWith(<ConfirmAccountDeletionScreen />, makeDispatcher(false, []));
     fireEvent.click(ui.getByRole("button"));
-    await waitFor(() => expect(ui.getByText(/invalid or expired/)).toBeTruthy());
+    await waitFor(() => ui.getByText(/invalid or expired/));
     expect(ui.queryByText(/Deletion scheduled/)).toBeNull();
   });
 
@@ -120,7 +120,7 @@ describe("ConfirmAccountDeletionScreen", () => {
     window.history.replaceState({}, "", "/delete-account/confirm#token=tok-123");
     const ui = renderWith(<ConfirmAccountDeletionScreen />, makeThrowingDispatcher());
     fireEvent.click(ui.getByRole("button"));
-    await waitFor(() => expect(ui.getByText(/went wrong/)).toBeTruthy());
+    await waitFor(() => ui.getByText(/went wrong/));
     expect(ui.queryByText(/invalid or expired/)).toBeNull();
     expect(ui.queryByText(/Deletion scheduled/)).toBeNull();
   });
@@ -130,7 +130,7 @@ describe("CancelAccountDeletionScreen", () => {
   test("without #token → missingToken, no Cancel button", () => {
     window.history.replaceState({}, "", "/delete-account/cancel");
     const ui = renderWith(<CancelAccountDeletionScreen />, makeDispatcher(true, []));
-    expect(ui.getByText(/No token/)).toBeTruthy();
+    ui.getByText(/No token/);
     expect(ui.queryByRole("button")).toBeNull();
   });
 
@@ -139,7 +139,7 @@ describe("CancelAccountDeletionScreen", () => {
     const calls: WriteCall[] = [];
     const ui = renderWith(<CancelAccountDeletionScreen />, makeDispatcher(true, calls));
     fireEvent.click(ui.getByRole("button", { name: "Cancel deletion" }));
-    await waitFor(() => expect(ui.getByText("Deletion cancelled")).toBeTruthy());
+    await waitFor(() => ui.getByText("Deletion cancelled"));
     await waitFor(() => expect(calls).toHaveLength(1));
     expect(calls[0]?.type).toBe("user-data-rights:write:cancel-deletion-by-token");
     expect(calls[0]?.payload).toEqual({ token: "tok-456" });
@@ -149,7 +149,7 @@ describe("CancelAccountDeletionScreen", () => {
     window.history.replaceState({}, "", "/delete-account/cancel#token=bad");
     const ui = renderWith(<CancelAccountDeletionScreen />, makeDispatcher(false, []));
     fireEvent.click(ui.getByRole("button"));
-    await waitFor(() => expect(ui.getByText(/invalid or expired/)).toBeTruthy());
+    await waitFor(() => ui.getByText(/invalid or expired/));
     expect(ui.queryByText("Deletion cancelled")).toBeNull();
   });
 
@@ -157,7 +157,7 @@ describe("CancelAccountDeletionScreen", () => {
     window.history.replaceState({}, "", "/delete-account/cancel#token=tok-456");
     const ui = renderWith(<CancelAccountDeletionScreen />, makeThrowingDispatcher());
     fireEvent.click(ui.getByRole("button"));
-    await waitFor(() => expect(ui.getByText(/went wrong/)).toBeTruthy());
+    await waitFor(() => ui.getByText(/went wrong/));
     expect(ui.queryByText(/invalid or expired/)).toBeNull();
   });
 });

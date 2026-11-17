@@ -148,7 +148,7 @@ export function WriteFormSection({
   actions,
   onFooterAction,
 }: WriteFormSectionProps): ReactNode {
-  const { Section, Card, Grid, GridCell, Button, StatusBadge } = usePrimitives();
+  const { Grid, GridCell, Button, StatusBadge } = usePrimitives();
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
 
@@ -258,6 +258,36 @@ export function WriteFormSection({
     </>
   );
 
+  return (
+    <WriteFormSectionFrame
+      section={section}
+      hideTitle={hideTitle}
+      labelTitle={labelTitle}
+      actions={actions}
+      testId={sectionTestId}
+    >
+      {content}
+    </WriteFormSectionFrame>
+  );
+}
+
+function WriteFormSectionFrame({
+  section,
+  hideTitle,
+  labelTitle,
+  actions,
+  testId,
+  children,
+}: {
+  readonly section: WriteFormSectionProps["section"];
+  readonly hideTitle: boolean | undefined;
+  readonly labelTitle: boolean | undefined;
+  readonly actions: ReactNode;
+  readonly testId: string;
+  readonly children: ReactNode;
+}): ReactNode {
+  const { Section, Card } = usePrimitives();
+
   // Section always flattens to a borderless divider when rendered inside
   // RenderEdit's own <Form> in tabs mode (hideTitle) — an unframed Card panel
   // stands in, like render-edit.tsx's tabs-mode fields/extension branches.
@@ -271,9 +301,9 @@ export function WriteFormSection({
           }),
           ...(actions !== undefined && { headerActions: actions }),
         }}
-        testId={sectionTestId}
+        testId={testId}
       >
-        {content}
+        {children}
       </Card>
     );
   }
@@ -288,9 +318,9 @@ export function WriteFormSection({
       })}
       {...(section.icon !== undefined && { icon: section.icon })}
       {...(actions !== undefined && { actions })}
-      testId={sectionTestId}
+      testId={testId}
     >
-      {content}
+      {children}
     </Section>
   );
 }

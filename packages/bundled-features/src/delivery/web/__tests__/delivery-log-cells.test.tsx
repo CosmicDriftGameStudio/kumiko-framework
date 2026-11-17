@@ -45,11 +45,11 @@ function cell(
 describe("delivery log cells", () => {
   test("type: a notification QN uses the app label, else the short name", () => {
     render(cell(DeliveryTypeCell, "type", "orders:notify:assigned"));
-    expect(screen.getByText("Order assigned")).toBeTruthy();
+    screen.getByText("Order assigned");
     render(cell(DeliveryTypeCell, "type", "orders:notify:unlabeled"));
-    expect(screen.getByText("unlabeled")).toBeTruthy();
+    screen.getByText("unlabeled");
     render(cell(DeliveryTypeCell, "type", "something-else"));
-    expect(screen.getByText("something-else")).toBeTruthy();
+    screen.getByText("something-else");
   });
 
   test("channel: translated when registered, raw otherwise", () => {
@@ -65,16 +65,16 @@ describe("delivery log cells", () => {
         </PrimitivesProvider>
       </LocaleProvider>,
     );
-    expect(screen.getByText("Push")).toBeTruthy();
+    screen.getByText("Push");
     render(cell(DeliveryChannelCell, "channel", "carrier-pigeon"));
-    expect(screen.getByText("carrier-pigeon")).toBeTruthy();
+    screen.getByText("carrier-pigeon");
   });
 
   test("status: translated text, raw for unknown", () => {
     render(cell(DeliveryStatusCell, "status", "failed"));
-    expect(screen.getByText("Failed")).toBeTruthy();
+    screen.getByText("Failed");
     render(cell(DeliveryStatusCell, "status", "weird"));
-    expect(screen.getByText("weird")).toBeTruthy();
+    screen.getByText("weird");
   });
 
   test("status: sent without provider confirmation reads Sent (unconfirmed)", () => {
@@ -87,7 +87,7 @@ describe("delivery log cells", () => {
         />
       </Wrapper>,
     );
-    expect(screen.getByText("Sent (unconfirmed)")).toBeTruthy();
+    screen.getByText("Sent (unconfirmed)");
     render(
       <Wrapper>
         <DeliveryStatusCell
@@ -97,16 +97,16 @@ describe("delivery log cells", () => {
         />
       </Wrapper>,
     );
-    expect(screen.getByText("Sent")).toBeTruthy();
+    screen.getByText("Sent");
   });
 
   test("error: code label, http status parameter, raw unknown, empty for null", () => {
     render(cell(DeliveryErrorCell, "error", "send_failed"));
-    expect(screen.getByText("Sending failed")).toBeTruthy();
+    screen.getByText("Sending failed");
     render(cell(DeliveryErrorCell, "error", "http_503"));
-    expect(screen.getByText("HTTP 503")).toBeTruthy();
+    screen.getByText("HTTP 503");
     render(cell(DeliveryErrorCell, "error", "legacy text"));
-    expect(screen.getByText("legacy text")).toBeTruthy();
+    screen.getByText("legacy text");
     const empty = render(cell(DeliveryErrorCell, "error", null));
     expect(empty.container.textContent).toBe("");
   });
@@ -114,6 +114,6 @@ describe("delivery log cells", () => {
   test("time: formatted with formatWhen", () => {
     const iso = "2026-10-04T10:15:00Z";
     render(cell(DeliveryTimeCell, "createdAt", iso));
-    expect(screen.getByText(formatWhen(iso))).toBeTruthy();
+    screen.getByText(formatWhen(iso));
   });
 });

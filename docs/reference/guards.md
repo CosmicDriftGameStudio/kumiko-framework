@@ -66,6 +66,7 @@ A marker that suppresses nothing in a run fails the `unused-ignore-tags` check; 
 | `guard-test-timeouts` | Guard: tests wait for a condition, not for time. | `kumiko-lint-ignore test-timeouts` |
 | `guard-unsafe-array-param` | Warns when a `.unsafe(sql, [...])` parameter list holds a JS array literal. | - |
 | `guard-upgrade-state` | Guard: a consumer repo's `.kumiko/upgrade-state.json` marker must be caught up with the installed Kumiko framework version. | - |
+| `guard-weak-assertions` | Weak-Assertions Guard — tests whose only assertions are `expect(x).toBeDefined()` or `expect(x).toBeTruthy()` are counted per file in `.kumiko-weak-assertions-baseline.json` and may not grow; such a test passes for any value that happens to exist. | - |
 | `guard-write-handler-qns` | Guard: checks that `dispatcher.write("qn:literal:...")` calls in custom screens reference valid write-handler QNs. | - |
 
 ## Biome plugins
