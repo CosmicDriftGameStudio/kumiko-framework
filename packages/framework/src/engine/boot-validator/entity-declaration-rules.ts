@@ -108,6 +108,18 @@ export const ENTITY_DECLARATION_RULES = {
       'A recordOwned (or whenAbsent: "self") field lives only on entities with idType "uuid", because forgetSubject validates the record id as a UUID.',
     fix: 'Set idType: "uuid" on the entity, or give the field a different personal stance.',
   },
+  forgetWithSubjectWithoutSubjectField: {
+    id: "pii/forget-with-subject-without-subject-field",
+    summary:
+      'An entity with forgetWithSubject: true has a personal: "self" or record-keyed field, so a forget can name its row as a subject.',
+    fix: 'Give the entity a personal: "self" or personal: { of: "id" } field, or remove forgetWithSubject.',
+  },
+  forgetWithSubjectBlockDelete: {
+    id: "pii/forget-with-subject-block-delete",
+    summary:
+      'An entity with forgetWithSubject: true does not declare retention.strategy "blockDelete".',
+    fix: "Remove forgetWithSubject, or choose a retention strategy that allows deleting the row.",
+  },
   crossTenantFileReadQueryUnregistered: {
     id: "files/cross-tenant-read-query-unregistered",
     summary: "crossTenantFileRead.query names a registered query handler.",

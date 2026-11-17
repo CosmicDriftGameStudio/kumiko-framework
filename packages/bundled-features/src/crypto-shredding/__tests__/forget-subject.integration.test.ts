@@ -42,6 +42,7 @@ import {
   resetTestTables,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
+  drainEventConsumers,
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
@@ -62,6 +63,7 @@ import { seedUser } from "../../user/seeding.ts";
 import {
   SUBJECT_FORGET_DENIED_EVENT_NAME,
   SUBJECT_FORGOTTEN_EVENT_NAME,
+  SUBJECT_KEY_ERASER_CONSUMER_NAME,
   TARGET_TENANT_NOT_ADMIN_TENANT,
 } from "../constants.ts";
 import { createCryptoShreddingFeature } from "../feature.ts";
@@ -136,6 +138,7 @@ describe("crypto-shredding :: forget-subject", () => {
     );
     expect(result.subjectKey).toBe(`user:${TARGET_USER_ID}`);
 
+    await drainEventConsumers(stack, [SUBJECT_KEY_ERASER_CONSUMER_NAME]);
     await expect(kms.getKey(subject)).rejects.toThrow("Subject key erased");
 
     const events = await forgottenEvents();
@@ -158,6 +161,7 @@ describe("crypto-shredding :: forget-subject", () => {
     );
     expect(result.subjectKey).toBe(`tenant:${TENANT}`);
 
+    await drainEventConsumers(stack, [SUBJECT_KEY_ERASER_CONSUMER_NAME]);
     await expect(kms.getKey({ kind: "tenant", tenantId: TENANT })).rejects.toThrow(
       "Subject key erased",
     );
@@ -214,6 +218,7 @@ describe("crypto-shredding :: forget-subject", () => {
       TestUsers.systemAdmin,
     );
     expect(result.subjectKey).toBe(`tenant:${TARGET_TENANT_ID}`);
+    await drainEventConsumers(stack, [SUBJECT_KEY_ERASER_CONSUMER_NAME]);
     await expect(kms.getKey(subject)).rejects.toThrow("Subject key erased");
   });
 
@@ -440,15 +445,18 @@ describe("crypto-shredding :: forget-subject when the search purge fails", () =>
     await failingStack.cleanup();
   });
 
+  let kms: InMemoryKmsAdapter;
+
   beforeEach(() => {
-    configurePiiSubjectKms(new InMemoryKmsAdapter());
+    kms = new InMemoryKmsAdapter();
+    configurePiiSubjectKms(kms);
   });
 
   afterEach(() => {
     resetPiiSubjectKmsForTests();
   });
 
-  test("the audit event survives with cleanupError (name or code only) and the handler fails", async () => {
+  test("a failing search purge rolls the whole forget back: no audit event, key still readable", async () => {
     const ownerId = crypto.randomUUID();
     const admin = TestUsers.admin;
     const created = await createEventStoreExecutor(probeTable, probeEntity, {
@@ -477,17 +485,15 @@ describe("crypto-shredding :: forget-subject when the search purge fails", () =>
         type: SUBJECT_FORGOTTEN_EVENT_NAME,
       })) as Array<{ payload: Record<string, unknown> }>
     ).filter((e) => e.payload["subjectKey"] === `user:${ownerId}`);
-    expect(events).toHaveLength(1);
-    const cleanupError = events[0]?.payload["cleanupError"];
-    expect(typeof cleanupError).toBe("string");
-    expect(String(cleanupError).length).toBeGreaterThan(0);
-    expect(String(cleanupError)).not.toContain(" ");
-    expect(String(cleanupError)).not.toContain(ownerId);
+    expect(events).toHaveLength(0);
+
+    await drainEventConsumers(failingStack, [SUBJECT_KEY_ERASER_CONSUMER_NAME]);
+    await expect(kms.getKey({ kind: "user", userId: ownerId })).resolves.toBeDefined();
   });
 });
-// A failing sweep makes the handler throw and roll its transaction back; the
-// login door (status + PATs) must already be committed independently.
-describe("crypto-shredding :: forget-subject closes the login door although the search purge fails", () => {
+// A failing sweep makes the handler throw and roll its transaction back, the
+// login door (status + PATs) included.
+describe("crypto-shredding :: forget-subject with a failing search purge leaves the login door untouched", () => {
   const probeEntity = createEntity({
     table: "read_forget_subject_door_failing_search_probe",
     fields: {
@@ -541,7 +547,7 @@ describe("crypto-shredding :: forget-subject closes the login door although the 
     resetPiiSubjectKmsForTests();
   });
 
-  test("user status is Deleted and PATs are revoked after the failed forget", async () => {
+  test("a failing search purge leaves the login door untouched", async () => {
     const { id: userId } = await seedUser(doorStack.db, {
       email: "door-failing-search@example.com",
       displayName: "Door Failing Search",
@@ -583,10 +589,10 @@ describe("crypto-shredding :: forget-subject closes the login door although the 
     const userRow = await fetchOne<Record<string, unknown>>(doorStack.db, userTable, {
       id: userId,
     });
-    expect(userRow?.["status"]).toBe(USER_STATUS.Deleted);
+    expect(userRow?.["status"]).not.toBe(USER_STATUS.Deleted);
     const tokens = await selectMany(doorStack.db, apiTokenTable, { userId });
     expect(tokens).toHaveLength(1);
-    expect(tokens[0]?.["revokedAt"]).not.toBeNull();
+    expect(tokens[0]?.["revokedAt"]).toBeNull();
   });
 });
 
@@ -940,6 +946,7 @@ describe("crypto-shredding :: forget-subject closes the login door (user feature
       dpoUser,
     );
     expect(result.subjectKey).toBe(`user:${subjectId}`);
+    await drainEventConsumers(stack, [SUBJECT_KEY_ERASER_CONSUMER_NAME]);
     await expect(kms.getKey({ kind: "user", userId: subjectId })).rejects.toThrow(
       "Subject key erased",
     );
@@ -1094,6 +1101,8 @@ describe("crypto-shredding :: forget-subject purges user.email from the search i
       filterType: "user",
     });
     expect(after.some((h) => String(h.entityId) === userId)).toBe(false);
+
+    await drainEventConsumers(emailSearchStack, [SUBJECT_KEY_ERASER_CONSUMER_NAME]);
 
     // A rebuild must not resurrect the erased subject's email — reindexEntity's
     // hasErasedSearchableSubjectField skip has to hold for this real

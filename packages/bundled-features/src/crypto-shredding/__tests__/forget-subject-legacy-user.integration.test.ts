@@ -16,6 +16,7 @@ import {
   seedRow,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
+  drainEventConsumers,
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
@@ -34,7 +35,10 @@ import { seedTenantMembership } from "../../tenant/seeding.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { USER_STATUS, userEntity, userTable } from "../../user/index.ts";
 import { seedUser } from "../../user/seeding.ts";
-import { SUBJECT_FORGOTTEN_EVENT_NAME } from "../constants.ts";
+import {
+  SUBJECT_FORGOTTEN_EVENT_NAME,
+  SUBJECT_KEY_ERASER_CONSUMER_NAME,
+} from "../constants.ts";
 import { createCryptoShreddingFeature } from "../feature.ts";
 
 const FORGET = "crypto-shredding:write:forget-subject";
@@ -91,11 +95,13 @@ async function expectForgotten(userId: string, kms: InMemoryKmsAdapter) {
   expect(result.status).toBe(200);
   expect(result.body.isSuccess).toBe(true);
   expect(result.userStatus).toBe(USER_STATUS.Deleted);
+  await drainEventConsumers(stack, [SUBJECT_KEY_ERASER_CONSUMER_NAME]);
   await expect(kms.getKey({ kind: "user", userId })).rejects.toThrow("Subject key erased");
-  const audit = await selectMany(stack.db, eventsTable, {
-    type: SUBJECT_FORGOTTEN_EVENT_NAME,
-    aggregateId: userId,
-  });
+  const audit = (
+    (await selectMany(stack.db, eventsTable, {
+      type: SUBJECT_FORGOTTEN_EVENT_NAME,
+    })) as Array<{ payload: Record<string, unknown> }>
+  ).filter((e) => e.payload["subjectKey"] === `user:${userId}`);
   expect(audit.length).toBeGreaterThanOrEqual(1);
 }
 

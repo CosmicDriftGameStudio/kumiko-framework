@@ -25,6 +25,7 @@ export {
   KMS_POOL_CONCURRENCY,
 } from "./decrypt-stored-pii.ts";
 export { encryptForDirectWrite } from "./encrypt-for-direct-write.ts";
+export { eraseSubjectData } from "./erase-subject-data.ts";
 export { entitiesOf } from "./entities-of.ts";
 export { isWithinGracePeriod } from "./grace-period.ts";
 export { hmacSignatureMatches, signHmacSha256Base64Url } from "./hmac-signature.ts";

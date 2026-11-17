@@ -1209,6 +1209,10 @@ export type EntityDefinition<
    * See docs/plans/features/core-data-retention.md.
    */
   readonly retention?: RetentionDef;
+  /** crypto-shredding:write:forget-subject forgets this entity's row, through the executor, when the row's own
+   *  subject is forgotten: `record:<entity>:<id>`, or `user:<id>` when the entity has a `personal: "self"` field.
+   *  Needs a `personal: "self"` or record-keyed field; cannot be combined with `retention.strategy: "blockDelete"`. */
+  readonly forgetWithSubject?: true;
   /**
    * Read-time computed fields, keyed by name. Not stored, not a DB column,
    * not writable — appended to each row by the list/detail query handler and

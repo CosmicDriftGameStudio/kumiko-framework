@@ -15,7 +15,13 @@ import {
   resetBlindIndexKeyForTests,
   resetPiiSubjectKmsForTests,
 } from "@cosmicdrift/kumiko-testing/helpers";
-import { resetEventStore, setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import {
+  drainEventConsumers,
+  resetEventStore,
+  setupTestStack,
+  type TestStack,
+} from "@cosmicdrift/kumiko-testing/stack";
+import { SUBJECT_KEY_ERASER_CONSUMER_NAME } from "../constants.ts";
 import { createCryptoShreddingFeature } from "../feature.ts";
 
 const FORGET = "crypto-shredding:write:forget-subject";
@@ -102,6 +108,7 @@ describe("crypto-shredding :: forgetting a record's self fields whenAbsent", () 
       dpoUser,
     );
 
+    await drainEventConsumers(stack, [SUBJECT_KEY_ERASER_CONSUMER_NAME]);
     const erased = await detail(ownerless);
     expect(erased["name"]).toBe(PII_ERASED_SENTINEL);
     expect(erased["code"]).toBe(PII_ERASED_SENTINEL);

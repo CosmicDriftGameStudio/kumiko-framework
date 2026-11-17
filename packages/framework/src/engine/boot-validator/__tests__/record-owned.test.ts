@@ -9,7 +9,7 @@ import { plaintextText } from "../../__tests__/plaintext-fields.ts";
 import { defineFeature } from "../../define-feature.ts";
 import { createEntity, createTextField } from "../../factories.ts";
 import type { FeatureDefinition } from "../../types/index.ts";
-import { validateRecordOwnedSubjects } from "../record-owned.ts";
+import { validateForgetWithSubject, validateRecordOwnedSubjects } from "../record-owned.ts";
 
 // Presence/absence of the annotation is the test variable here; the factory
 // cannot produce the unannotated shape.
@@ -55,5 +55,53 @@ describe("validateRecordOwnedSubjects", () => {
   test("idType: 'serial' without any recordOwned field boots fine", () => {
     const feature = featureWith("serial", false);
     expect(() => validateRecordOwnedSubjects(feature)).not.toThrow();
+  });
+});
+
+describe("validateForgetWithSubject", () => {
+  type EmailStance = "none" | "self" | "record";
+
+  function forgetFeature(
+    stance: EmailStance,
+    retention?: { keepFor: string; strategy: "blockDelete" },
+  ): FeatureDefinition {
+    const email =
+      stance === "self"
+        ? createTextField({ personal: "self", find: "none" })
+        : stance === "record"
+          ? createTextField({ personal: { of: "id" }, find: "none" })
+          : plaintextText;
+    return defineFeature("subscribers", (r) => {
+      r.entity({
+        name: "subscriber",
+        ...createEntity({
+          table: "forget_with_subject_subscribers",
+          forgetWithSubject: true,
+          ...(retention && { retention }),
+          fields: { email },
+        }),
+      });
+    });
+  }
+
+  test("an entity without any subject field fails the boot, naming the entity", () => {
+    const feature = forgetFeature("none");
+    expect(() => validateForgetWithSubject(feature)).toThrow(
+      /forget-with-subject|forgetWithSubject/,
+    );
+    expect(() => validateForgetWithSubject(feature)).toThrow(/"subscriber"/);
+  });
+
+  test("retention blockDelete fails the boot", () => {
+    const feature = forgetFeature("self", { keepFor: "10y", strategy: "blockDelete" });
+    expect(() => validateForgetWithSubject(feature)).toThrow(/blockDelete/);
+  });
+
+  test("a personal: 'self' field boots fine", () => {
+    expect(() => validateForgetWithSubject(forgetFeature("self"))).not.toThrow();
+  });
+
+  test("a personal: { of: 'id' } field boots fine", () => {
+    expect(() => validateForgetWithSubject(forgetFeature("record"))).not.toThrow();
   });
 });

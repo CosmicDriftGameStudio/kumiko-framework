@@ -48,7 +48,7 @@ import { validateParentRefs } from "./parent-ref.ts";
 import { validatePiiAndRetention } from "./pii-retention.ts";
 import { validateQueryRefs } from "./query-refs.ts";
 import { validateReadGates } from "./read-gate.ts";
-import { validateRecordOwnedSubjects } from "./record-owned.ts";
+import { validateForgetWithSubject, validateRecordOwnedSubjects } from "./record-owned.ts";
 import { validateScreenShortIdCollisions, validateScreens } from "./screens.ts";
 import { validateSortNulls } from "./sort-nulls.ts";
 import { validateTransferGraph } from "./transfer-graph.ts";
@@ -121,6 +121,7 @@ const FEATURE_CHECKS: readonly FeatureCheck[] = [
   { check: "validateSearchableFieldReadAccess", run: (f) => validateSearchableFieldReadAccess(f) },
   { check: "validatePiiAndRetention", run: (f, c) => validatePiiAndRetention(f, c.warn) },
   { check: "validateRecordOwnedSubjects", run: (f) => validateRecordOwnedSubjects(f) },
+  { check: "validateForgetWithSubject", run: (f) => validateForgetWithSubject(f) },
   { check: "validateEntitySelectOptionsQuery", run: (f) => validateEntitySelectOptionsQuery(f) },
   {
     check: "validateEntitySelectAvailabilityQuery",

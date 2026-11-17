@@ -36,6 +36,7 @@ import { append, eventsTable, loadAggregate } from "@cosmicdrift/kumiko-framewor
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetPiiSubjectKmsForTests, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
+  drainEventConsumers,
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
@@ -53,6 +54,7 @@ import {
   RECORD_ENTITY_NOT_REGISTERED,
   SUBJECT_FORGET_DENIED_EVENT_NAME,
   SUBJECT_FORGOTTEN_EVENT_NAME,
+  SUBJECT_KEY_ERASER_CONSUMER_NAME,
   TARGET_RECORD_NOT_ADMIN_TENANT,
   TARGET_RECORD_RETENTION_BLOCK_DELETE,
 } from "../constants.ts";
@@ -162,6 +164,7 @@ describe("crypto-shredding :: forget-subject (record subject)", () => {
     );
     expect(result.subjectKey).toBe(`record:${RECORD_PROBE_ENTITY_NAME}:${rowId}`);
 
+    await drainEventConsumers(stack, [SUBJECT_KEY_ERASER_CONSUMER_NAME]);
     const afterShred = await recordProbeExecutor().detail({ id: rowId }, dpoUser, tenantDb);
     expect(afterShred?.["body"]).toBe(PII_ERASED_SENTINEL);
 
@@ -228,7 +231,9 @@ describe("crypto-shredding :: forget-subject (record subject)", () => {
       dpoUser,
     );
 
-    // The stream version is authoritative and forget-subject appended its own event to it.
+    await drainEventConsumers(stack, [SUBJECT_KEY_ERASER_CONSUMER_NAME]);
+
+    // Read the current stream version, so the 409 comes from the erased key and not a stale version.
     const streamEvents = (await selectMany(stack.db, eventsTable, {
       aggregateId: rowId,
     })) as Array<{ version: number }>;

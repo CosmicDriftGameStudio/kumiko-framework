@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-11-16
+verified: 2026-11-17
 ---
 
 # Crypto-shredding: the "record" (row) subject
@@ -264,3 +264,16 @@ production path.
    `forget-denied`) audit event is the system's proof; log the external
    request (ticket/authority reference) against the same `subjectKey`
    outside the system per your own Art. 17 record-keeping duty.
+
+## Forgetting the row with its subject: `forgetWithSubject`
+
+Some rows exist only for their subject: an email subscriber, a share recipient, a contact link. An entity opts in with `forgetWithSubject: true`, and `crypto-shredding:write:forget-subject` then forgets the entity's own row together with the subject's keys. A `record:<entity>:<id>` subject names exactly that row. A `user:<id>` subject names the row with `id = <id>` when the entity has a `personal: "self"` field.
+
+The row goes through the executor's `forget`, so the forgotten event, child projections and the stream close happen like any forget. A tenant's `blockDelete` retention keeps the row, and the key erase still shreds its PII. Boot rejects `forgetWithSubject` on an entity without a `personal: "self"` or record-keyed field, and on one with `retention.strategy: "blockDelete"`. The key is erased only after the forget's transaction commits, by the consumer `crypto-shredding:projection:subject-key-eraser`.
+
+```ts illustration
+const subscriberEntity = createEntity({
+  forgetWithSubject: true,
+  fields: { email: createTextField({ personal: "self", find: "exact", format: "email" }) },
+});
+```

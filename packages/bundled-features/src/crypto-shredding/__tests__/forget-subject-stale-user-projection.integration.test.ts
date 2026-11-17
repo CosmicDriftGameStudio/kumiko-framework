@@ -22,6 +22,7 @@ import {
   resetPiiSubjectKmsForTests,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
+  drainEventConsumers,
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
@@ -39,6 +40,7 @@ import { createUserFeature } from "../../user/feature.ts";
 import { USER_STATUS, userEntity, userTable } from "../../user/index.ts";
 import { principalStatusPlugin } from "../../user/principal-status.ts";
 import { seedUser } from "../../user/seeding.ts";
+import { SUBJECT_KEY_ERASER_CONSUMER_NAME } from "../constants.ts";
 import { createCryptoShreddingFeature } from "../feature.ts";
 
 const FORGET = "crypto-shredding:write:forget-subject";
@@ -115,6 +117,7 @@ describe("forget-subject for a user whose stream is deleted but whose status is 
       dpoUser,
     );
     expect(res.status).toBe(200);
+    await drainEventConsumers(stack, [SUBJECT_KEY_ERASER_CONSUMER_NAME]);
     await expect(kms.getKey({ kind: "user", userId: id })).rejects.toThrow("Subject key erased");
 
     expect(await userRow(id)).toEqual({ status: USER_STATUS.Deleted, isDeleted: true });

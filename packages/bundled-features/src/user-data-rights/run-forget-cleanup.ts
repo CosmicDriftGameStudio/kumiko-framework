@@ -28,17 +28,12 @@ import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
 // collected and returned for operator visibility, while a user with failed
 // hooks remains in DeletionRequested for automatic retry.
 
-import {
-  configuredPiiSubjectKms,
-  type KmsAdapter,
-  subjectIdToKey,
-} from "@cosmicdrift/kumiko-framework/crypto";
+import { configuredPiiSubjectKms, type KmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import {
   type DbRunner,
   entityEventName,
   executeRawQuery,
   fetchOne,
-  nullBlindIndexesForSubject,
   selectMany,
   WritePurposes,
 } from "@cosmicdrift/kumiko-framework/db";
@@ -56,10 +51,7 @@ import {
   type UserDataStorageProvider,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { runInSystemRowLevelSecurityScope } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
-import {
-  purgeSearchDocumentsForSubject,
-  type SearchAdapter,
-} from "@cosmicdrift/kumiko-framework/search";
+import type { SearchAdapter } from "@cosmicdrift/kumiko-framework/search";
 import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
   resolveRetentionPolicyForTenant,
@@ -68,7 +60,7 @@ import {
 import {
   type DeleteFileBytes,
   decryptStoredPii,
-  purgeFilesReachingSubject,
+  eraseSubjectData,
   runInSubTransaction,
 } from "../shared/index.ts";
 import { tenantMembershipsTable } from "../tenant/index.ts";
@@ -381,32 +373,12 @@ async function processUser(args: {
   let currentEntityName: string | null = null;
   try {
     await runInSubTransaction(db, async (tx) => {
-      // Discover + purge search docs for this subject BEFORE any delete
-      // hook runs. purgeSearchDocumentsForSubject finds candidate
-      // rows via a live SELECT on each entity's read-table — a hook that
-      // hard-deletes a row (UserDataDeleteStrategy "delete") makes that row
-      // invisible to a purge running afterward, permanently stranding its
-      // plaintext PII in the search index. Running the purge first means it
-      // sees every row a hook is about to touch, delete or not.
-      if (args.searchAdapter) {
-        const subject = { kind: "user" as const, userId };
-        await purgeSearchDocumentsForSubject(
-          tx,
-          registry.features,
-          args.searchAdapter,
-          subjectIdToKey(subject),
-          subject,
-        );
-      }
-
-      // Same ordering rationale: the files are found through the entity rows a
-      // hook may hard-delete, and a file whose uploader differs from the owner
-      // is never reached by the fileRef hook (it keys on insertedById).
-      await purgeFilesReachingSubject({
+      const subject = { kind: "user" as const, userId };
+      await eraseSubjectData({
         registry,
         db: tx,
-        subject: { kind: "user", userId },
-        subjectKey: subjectIdToKey({ kind: "user", userId }),
+        subject,
+        searchAdapter: args.searchAdapter,
         resolveDeleteBytes: resolveForgetFileBytesDeleter(buildStorageProvider),
         missingStorage: {
           mode: "skip",
@@ -417,65 +389,66 @@ async function processUser(args: {
               `[user-data-rights:run-forget-cleanup] no file provider resolvable for tenantId=${tenantId} - file binaries of userId=${userId} are NOT deleted (rows kept). Mount file-foundation + a file-provider-* feature so erasure can reach the binaries.`,
             ),
         },
-      });
-
-      for (const tenantId of tenantList) {
-        currentTenantId = tenantId;
-        // Refine the app-level model to THIS tenant: "single-user" only if the
-        // tenant truly has one member, so a stray invite can't let a per-user
-        // forget erase a co-member's tenant-scoped data (money-path safety).
-        const tenantModel = await resolveEffectiveTenantModel(tx, tenantId, appTenantModel);
-        // Resolved ONCE per tenant (not per hookEntry below) — the compliance-
-        // profile lookup it does internally is a single indexed read; N entities
-        // re-deriving it per tenant would be N reads for the same answer.
-        const tenantPreset = await resolveTenantRetentionPreset({ db: tx, registry, tenantId });
-        for (const entry of hookEntries) {
-          currentEntityName = entry.entityName;
-          const policy = await resolveRetentionPolicyForTenant({
-            db: tx,
-            registry,
-            tenantId,
-            entityName: entry.entityName,
-            preloadedTenantPreset: tenantPreset,
-          });
-          const strategy = policyToStrategy(policy.policy?.strategy ?? null);
-
-          hookCallsAttempted++;
-          const hookResult = await entry.deleteHook(
-            {
-              db: buildHookDb(tx, tenantId, entry, {
-                escapeHatchAuditSink: args.escapeHatchAuditSink,
-                escapeHatchAuditLog: args.escapeHatchAuditLog,
-                actor: args.actor,
-              }),
+        eraseRows: async () => {
+        for (const tenantId of tenantList) {
+          currentTenantId = tenantId;
+          // Refine the app-level model to THIS tenant: "single-user" only if the
+          // tenant truly has one member, so a stray invite can't let a per-user
+          // forget erase a co-member's tenant-scoped data (money-path safety).
+          const tenantModel = await resolveEffectiveTenantModel(tx, tenantId, appTenantModel);
+          // Resolved ONCE per tenant (not per hookEntry below) — the compliance-
+          // profile lookup it does internally is a single indexed read; N entities
+          // re-deriving it per tenant would be N reads for the same answer.
+          const tenantPreset = await resolveTenantRetentionPreset({ db: tx, registry, tenantId });
+          for (const entry of hookEntries) {
+            currentEntityName = entry.entityName;
+            const policy = await resolveRetentionPolicyForTenant({
+              db: tx,
               registry,
               tenantId,
-              userId,
-              buildStorageProvider,
-              tenantModel,
-              userEmailBeforeDelete,
-            },
-            strategy,
-          );
-          // "incomplete" is not a hard failure (see Header): no throw,
-          // no rollback, eraseKey + status flip proceed unchanged.
-          // Only collected + logged for operator visibility.
-          if (hookResult?.status === "incomplete") {
-            incomplete.push({
-              userId,
-              tenantId,
               entityName: entry.entityName,
-              reason: hookResult.reason,
+              preloadedTenantPreset: tenantPreset,
             });
-            // biome-ignore lint/suspicious/noConsole: operator-visibility for partial hook completion
-            console.warn(
-              `[user-data-rights:run-forget-cleanup] hook incomplete userId=${userId} tenantId=${tenantId} entityName=${entry.entityName} reason=${sanitizeReasonForLog(hookResult.reason)}`,
+            const strategy = policyToStrategy(policy.policy?.strategy ?? null);
+
+            hookCallsAttempted++;
+            const hookResult = await entry.deleteHook(
+              {
+                db: buildHookDb(tx, tenantId, entry, {
+                  escapeHatchAuditSink: args.escapeHatchAuditSink,
+                  escapeHatchAuditLog: args.escapeHatchAuditLog,
+                  actor: args.actor,
+                }),
+                registry,
+                tenantId,
+                userId,
+                buildStorageProvider,
+                tenantModel,
+                userEmailBeforeDelete,
+              },
+              strategy,
             );
+            // "incomplete" is not a hard failure (see Header): no throw,
+            // no rollback, eraseKey + status flip proceed unchanged.
+            // Only collected + logged for operator visibility.
+            if (hookResult?.status === "incomplete") {
+              incomplete.push({
+                userId,
+                tenantId,
+                entityName: entry.entityName,
+                reason: hookResult.reason,
+              });
+              // biome-ignore lint/suspicious/noConsole: operator-visibility for partial hook completion
+              console.warn(
+                `[user-data-rights:run-forget-cleanup] hook incomplete userId=${userId} tenantId=${tenantId} entityName=${entry.entityName} reason=${sanitizeReasonForLog(hookResult.reason)}`,
+              );
+            }
           }
         }
-      }
+        },
+      });
 
-      // Crypto-shredding: erase the user's subject key AFTER the hooks and
+      // Crypto-shredding: erase the user's subject key AFTER the shared erasure (eraseSubjectData) and
       // BEFORE the status flip. The KMS is not a tx participant, so ordering
       // is what makes this crash-safe: eraseKey-throw → tx rollback → user
       // stays DeletionRequested → next run retries; flip-throw after a
@@ -492,15 +465,6 @@ async function processUser(args: {
             userId,
             eraseReason: "user-data-rights:forget",
           },
-        );
-        // Null blind-index columns immediately after erasing the subject key; otherwise
-        // the deterministic HMAC would remain equality-matchable until the next
-        // rebuild. Keeping this in the sub-transaction makes the sweep rollback
-        // with the rest of the user's cleanup.
-        await nullBlindIndexesForSubject(
-          tx,
-          registry.features,
-          subjectIdToKey({ kind: "user", userId }),
         );
       }
 

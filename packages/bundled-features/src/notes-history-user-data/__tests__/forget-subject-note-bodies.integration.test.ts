@@ -26,6 +26,7 @@ import {
   seedRowViaEventStore,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
+  drainEventConsumers,
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
@@ -36,6 +37,7 @@ import {
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
 } from "../../compliance-profiles/index.ts";
+import { SUBJECT_KEY_ERASER_CONSUMER_NAME } from "../../crypto-shredding/constants.ts";
 import { createCryptoShreddingFeature } from "../../crypto-shredding/index.ts";
 import {
   createDataRetentionFeature,
@@ -236,6 +238,7 @@ async function addNote(
 }
 
 async function bodyOf(noteId: string): Promise<unknown> {
+  await drainEventConsumers(stack, [SUBJECT_KEY_ERASER_CONSUMER_NAME]);
   const tenantDb = createTenantDb({
     db: stack.db,
     tenantId: author.tenantId,

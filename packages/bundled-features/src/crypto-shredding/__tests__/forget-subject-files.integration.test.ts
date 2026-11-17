@@ -1,6 +1,6 @@
 // forget-subject also removes the files bound to the forgotten subject: bytes,
 // derivatives and file_refs rows behind its personal file fields. The entity row
-// stays (crypto-shredding is not deletion); failures fail closed into cleanupError.
+// stays (crypto-shredding is not deletion); failures fail closed and roll the whole forget back.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 
@@ -331,7 +331,7 @@ describe("crypto-shredding :: forget-subject removes the subject's files", () =>
     expect(detail.label).toBe("renamed again");
   });
 
-  test("a storage error fails closed (fileRef and entity row stay, cleanupError in the audit event, handler errors); a retry with working storage finishes the purge", async () => {
+  test("a storage error fails closed (fileRef and entity row stay, no audit event, handler errors); a retry with working storage finishes the purge", async () => {
     const target = await seedDossier("target");
     failDeletes = true;
 
@@ -343,12 +343,11 @@ describe("crypto-shredding :: forget-subject removes the subject's files", () =>
     expect(await fileRefExists(target.scanId)).toBe(true);
     expect(await memory.exists(target.passportKey)).toBe(true);
 
-    const events = await forgottenEvents();
-    expect(events).toHaveLength(1);
-    expect(events[0]?.payload["cleanupError"]).toBe("file_delete_failed");
+    expect(await forgottenEvents()).toHaveLength(0);
 
     failDeletes = false;
     await stack.http.writeOk(spec.name, spec.payload, spec.as);
+    expect(await forgottenEvents()).toHaveLength(1);
 
     expect(await memory.exists(target.passportKey)).toBe(false);
     expect(await memory.exists(target.thumbKey)).toBe(false);
@@ -358,7 +357,7 @@ describe("crypto-shredding :: forget-subject removes the subject's files", () =>
     expect(await memory.exists(target.coverKey)).toBe(true);
   });
 
-  test("a failing owner lookup of the record row still writes the audit event with a cleanupError", async () => {
+  test("a failing owner lookup of the record row fails the forget without an audit event", async () => {
     const target = await seedDossier("target");
     // The lookup reads tenant_id; a missing column stands in for any database error there.
     await executeRawQuery(
@@ -378,10 +377,7 @@ describe("crypto-shredding :: forget-subject removes the subject's files", () =>
       );
     }
 
-    const events = await forgottenEvents();
-    expect(events).toHaveLength(1);
-    expect(events[0]?.payload["subjectKey"]).toBe(`record:dossier:${target.id}`);
-    expect(events[0]?.payload["cleanupError"]).toBeString();
+    expect(await forgottenEvents()).toHaveLength(0);
   });
 
   test("user subject: a userOwned file uploaded by someone else is removed with the owner's forget; other users' files stay", async () => {
