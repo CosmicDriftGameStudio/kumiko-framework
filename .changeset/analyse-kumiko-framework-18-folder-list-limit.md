@@ -2,8 +2,6 @@
 "@cosmicdrift/kumiko-bundled-features": patch
 "@cosmicdrift/kumiko-locale-de": patch
 "@cosmicdrift/kumiko-locale-es": patch
-"@cosmicdrift/kumiko-locale-fr": patch
-"@cosmicdrift/kumiko-locale-it": patch
 ---
 
 The folder manager and the folder picker load up to 200 folders and say so when a tenant has more.

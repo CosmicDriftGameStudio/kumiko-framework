@@ -134,7 +134,7 @@ export function createTenantFeature(options?: TenantFeatureOptions): FeatureDefi
         }),
         locale: createTenantConfig("select", {
           default: "de",
-          options: ["de", "en", "fr", "es"],
+          options: ["de", "en", "es"],
         }),
 
         // SMTP settings — only SystemAdmin (platform operator) can change them; smtpPass is

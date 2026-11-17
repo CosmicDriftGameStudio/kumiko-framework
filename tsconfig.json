@@ -59,18 +59,6 @@
       ],
       "@cosmicdrift/kumiko-locale-es/*": [
         "./packages/locale-es/src/*"
-      ],
-      "@cosmicdrift/kumiko-locale-fr": [
-        "./packages/locale-fr/src"
-      ],
-      "@cosmicdrift/kumiko-locale-fr/*": [
-        "./packages/locale-fr/src/*"
-      ],
-      "@cosmicdrift/kumiko-locale-it": [
-        "./packages/locale-it/src"
-      ],
-      "@cosmicdrift/kumiko-locale-it/*": [
-        "./packages/locale-it/src/*"
       ]
     },
     "types": [
@@ -125,12 +113,6 @@
     },
     {
       "path": "./packages/locale-es"
-    },
-    {
-      "path": "./packages/locale-fr"
-    },
-    {
-      "path": "./packages/locale-it"
     },
     {
       "path": "./packages/document-designer"

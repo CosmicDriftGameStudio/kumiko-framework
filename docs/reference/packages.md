@@ -1,16 +1,16 @@
 ---
 status: reference
 verified: 2026-11-17
-evidence: "packages/*/package.json (17 directories, none private); .changeset/config.json fixed group"
+evidence: "packages/*/package.json (15 directories, none private); .changeset/config.json fixed group"
 ---
 
 # Package set
 
-The framework repo holds 17 package directories, all released in one lockstep version
-group (`.changeset/config.json`). The five former re-export shims are gone; this page lists
-where their code lives now.
+The framework repo holds 15 package directories, all released in one lockstep version
+group (`.changeset/config.json`). The five former re-export shims and the French and Italian locale packages are gone; this
+page lists what replaces them.
 
-## Real packages (17)
+## Real packages (15)
 
 | Package | Purpose |
 | --- | --- |
@@ -28,13 +28,11 @@ where their code lives now.
 | `@cosmicdrift/kumiko-document-designer` | Template editor; stays its own package because apps mount it |
 | `@cosmicdrift/kumiko-locale-de` | Opt-in UI and mail copy (German) |
 | `@cosmicdrift/kumiko-locale-es` | Opt-in UI and mail copy (Spanish) |
-| `@cosmicdrift/kumiko-locale-fr` | Opt-in UI and mail copy (French) |
-| `@cosmicdrift/kumiko-locale-it` | Opt-in UI and mail copy (Italian) |
 | `@cosmicdrift/kumiko-samples` | Packaged source of recipes and sample apps |
 
-## Removed packages (5)
+## Removed packages (7)
 
-These names are no longer published. The code lives in the target package.
+These names are no longer published. Shim code lives in the target package; the two locale packages had no consumer and were deleted.
 
 | Removed package | Moved to |
 | --- | --- |
@@ -43,6 +41,8 @@ These names are no longer published. The code lives in the target package.
 | `@cosmicdrift/kumiko-renderer-web` | `@cosmicdrift/kumiko-renderer/web/*` |
 | `@cosmicdrift/kumiko-http` | `@cosmicdrift/kumiko-framework/http` |
 | `@cosmicdrift/kumiko-repo-manifest` | `@cosmicdrift/kumiko-guards/repo-manifest` |
+| `@cosmicdrift/kumiko-locale-fr` | none; generate a locale package by AI translation of the English catalog when an app needs French |
+| `@cosmicdrift/kumiko-locale-it` | none; generate a locale package by AI translation of the English catalog when an app needs Italian |
 
 Replace the imports and the `package.json` dependency per the table.
 

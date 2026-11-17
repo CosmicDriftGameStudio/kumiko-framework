@@ -322,6 +322,6 @@ async function run(ctx: CliCommandContext): Promise<number> {
 export const apiDocsCommand: CliCommand = {
   id: "api-docs",
   description: "Generate API documentation for personal access tokens",
-  help: `${USAGE}\n\nReads kumiko.config.ts in cwd and writes Markdown pages (overview, tokens,\none reference page per token scope), openapi.json and index.json to --out\n(default: apiDocs.outDir, else ${DEFAULT_OUT_DIR}). Recorded request/response examples are read\nfrom apiDocs.examplesDir (default ${DEFAULT_EXAMPLES_DIR}), recorded webhook payloads from its webhooks/ subdirectory.\n\nOptions:\n  --out <dir>        Output directory inside the working directory\n  --locales en,de    Locales to generate (en, de, es, fr, it)\n  --check            Write nothing; report problems and differences to the disk, exit 1 on any\n`,
+  help: `${USAGE}\n\nReads kumiko.config.ts in cwd and writes Markdown pages (overview, tokens,\none reference page per token scope), openapi.json and index.json to --out\n(default: apiDocs.outDir, else ${DEFAULT_OUT_DIR}). Recorded request/response examples are read\nfrom apiDocs.examplesDir (default ${DEFAULT_EXAMPLES_DIR}), recorded webhook payloads from its webhooks/ subdirectory.\n\nOptions:\n  --out <dir>        Output directory inside the working directory\n  --locales en,de    Locales to generate (en, de, es)\n  --check            Write nothing; report problems and differences to the disk, exit 1 on any\n`,
   run,
 };

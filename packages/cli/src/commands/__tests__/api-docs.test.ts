@@ -152,6 +152,7 @@ describe("kumiko api-docs", () => {
   test("rejects unsupported locales and invalid recordings", async () => {
     const dir = setup();
     expect((await run(dir, ["--locales", "xx"])).code).toBe(2);
+    expect((await run(dir, ["--locales", "en,fr"])).code).toBe(2);
     mkdirSync(join(dir, "api-examples"));
     writeFileSync(join(dir, "api-examples/broken.json"), "{}");
     const result = await run(dir, ["--out", "docs/api"]);

@@ -3,8 +3,6 @@
 "@cosmicdrift/kumiko-document-designer": patch
 "@cosmicdrift/kumiko-locale-de": patch
 "@cosmicdrift/kumiko-locale-es": patch
-"@cosmicdrift/kumiko-locale-fr": patch
-"@cosmicdrift/kumiko-locale-it": patch
 ---
 
 Tenant branding moved from managed-pages into its own `branding` feature, so mail, PDF and the document designer get branding without public pages.
