@@ -1,4 +1,3 @@
-import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createReferenceField,
@@ -35,10 +34,6 @@ export const taskEntity = createEntity({
   },
 });
 
-export const teamTable = buildEntityTable("team", teamEntity);
-export const memberTable = buildEntityTable("member", memberEntity);
-export const taskTable = buildEntityTable("task", taskEntity);
-
 const adminWrite = { access: { roles: ["Admin"] } } as const;
 const openRead = {
   access: {
@@ -54,6 +49,8 @@ const createOnly = {
   list: false,
   detail: false,
 } as const;
+
+const createAndDelete = { ...createOnly, delete: true } as const;
 
 export const relationsFeature = defineFeature("org", (r) => {
   const team = r.entity({ name: "team", ...teamEntity });
@@ -73,14 +70,16 @@ export const relationsFeature = defineFeature("org", (r) => {
     onDelete: "cascade",
   });
 
+  // onDelete runs automatically in the delete lifecycle: deleting a team is refused while
+  // members exist, deleting a member removes its tasks.
   r.crud("team", teamEntity, {
     write: adminWrite,
-    verbs: createOnly,
+    verbs: createAndDelete,
     registerEntity: false,
   });
   r.crud("member", memberEntity, {
     write: adminWrite,
-    verbs: createOnly,
+    verbs: createAndDelete,
     registerEntity: false,
   });
   r.crud("task", taskEntity, {

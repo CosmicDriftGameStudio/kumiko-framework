@@ -97,6 +97,23 @@ export function parentVisibilityFor(
   };
 }
 
+function searchableChildRelations(ctx: HandlerContext, entityName: string) {
+  const relations: Array<{
+    readonly childEntityName: string;
+    readonly foreignKey: string;
+    readonly searchableFields: readonly string[];
+  }> = [];
+  for (const relation of Object.values(ctx.registry.getRelations(entityName))) {
+    if (relation.type !== "hasMany" || relation.searchable !== true) continue;
+    relations.push({
+      childEntityName: relation.target,
+      foreignKey: relation.foreignKey,
+      searchableFields: ctx.registry.getSearchableFields(relation.target),
+    });
+  }
+  return relations;
+}
+
 // Registry access only exists at request time, so the searchable/sortable-reference
 // caches, the entity resolver and the join-row read gate travel through the
 // runtime-override extension point of the executor verbs.
@@ -122,6 +139,7 @@ export function entityListRuntime(
       ...(ctx.onlyDeleted === true && { onlyDeleted: true }),
       referenceSearch: {
         fields: ctx.registry.getSearchableReferences(entityName),
+        childRelations: searchableChildRelations(ctx, entityName),
         resolveEntity,
         resolveTable,
       },

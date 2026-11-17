@@ -1,4 +1,9 @@
 import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
+import {
+  findImplicitEntityTable,
+  parentRulesFromRegistry,
+  resolveParentWriteAccess,
+} from "../db/parent-ownership.ts";
 import type { TenantDb } from "../db/tenant-db.ts";
 import { hasAccess } from "../engine/access.ts";
 import { userHasWriteRole } from "../engine/field-access.ts";
@@ -26,14 +31,7 @@ export type RecordWriteCheck = (args: {
   readonly user: SessionUser;
 }) => Promise<RecordWriteDecision>;
 
-export function findImplicitEntityTable(registry: Registry, entityType: string) {
-  for (const projection of registry.getAllProjections().values()) {
-    if (projection.isImplicit === true && projection.source === entityType) {
-      return projection.table;
-    }
-  }
-  return undefined;
-}
+export { findImplicitEntityTable };
 
 function isEntityUpdateWrite(qn: string, entityName: string): boolean {
   return qn.endsWith(`:write:${toKebab(entityName)}:update`);
@@ -98,7 +96,14 @@ export function createRecordWriteCheck(args: {
 
     if (!hasAccess(user, findUpdateHandlerAccess(entityType)))
       return RecordWriteDecisions.forbidden;
-    if (!userCanWriteFieldRow(user, entity.access?.write, row, row)) {
+    const writeAccess = await resolveParentWriteAccess({
+      accessMap: entity.access?.write,
+      user,
+      rows: [row],
+      db: tenantDbFor(user.tenantId),
+      parents: parentRulesFromRegistry(registry, "write"),
+    });
+    if (!userCanWriteFieldRow(user, writeAccess, row, row)) {
       return RecordWriteDecisions.forbidden;
     }
     if (!mayWriteNamedField({ entity, fieldName, subField, user, row })) {

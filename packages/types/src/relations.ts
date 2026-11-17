@@ -34,6 +34,9 @@ export type HasManyRelation = {
   // work — when they arrive, they'll take the same flag so the opt-in
   // stays a single, consistent surface.
   readonly nestedWrite?: boolean;
+  // When true, a list search on the parent also returns parents whose child rows match the term.
+  // The child entity needs searchable fields; hits are gated like a direct read of the child.
+  readonly searchable?: boolean;
 };
 
 export type ManyToManyRelation = {

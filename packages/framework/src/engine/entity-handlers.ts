@@ -436,6 +436,7 @@ export function defineEntityWriteHandler(
           isSystemIdentity(event.user) ? (event.payload as DbRow) : payloadWithoutId,
         );
         return executor.create(payload, event.user, dbFor(ctx), {
+          parentVisibility: parentVisibilityFor(ctx, event.user),
           preSave:
             runPreSave &&
             ((changes, previous, isNew) => runPreSave(event.type, changes, previous, isNew)),

@@ -8,6 +8,7 @@ import { buildEntityTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-
 import {
   createEntity,
   createLongTextField,
+  createReferenceField,
   createTextField,
   defineEntityCreateHandler,
   defineEntityDeleteHandler,
@@ -43,17 +44,44 @@ export const articleEntity = createEntity({
   },
 });
 
+// A searchable hasMany relation lets a list search on the article also find it through its comments.
+export const commentEntity = createEntity({
+  table: "read_sample_article_comments",
+  fields: {
+    articleId: createReferenceField({
+      entity: "article",
+      personal: false,
+      reason: "is_system_identifier",
+      required: true,
+    }),
+    text: createTextField({
+      personal: false,
+      reason: "is_business_data",
+      required: true,
+      searchable: true,
+    }),
+  },
+});
+
 const productTable = buildEntityTable("product", productEntity);
 
 export const productFeature = defineFeature("shop", (r) => {
   r.entity({ name: "product", ...productEntity });
-  r.entity({ name: "article", ...articleEntity });
+  const article = r.entity({ name: "article", ...articleEntity });
+  r.entity({ name: "comment", ...commentEntity });
+  r.relation(article, "comments", {
+    type: "hasMany",
+    target: "comment",
+    foreignKey: "articleId",
+    searchable: true,
+  });
 
   const articleAccess = { access: { roles: ["Admin"] } };
   r.writeHandler(defineEntityCreateHandler("article", articleEntity, articleAccess));
   r.writeHandler(defineEntityDeleteHandler("article", articleEntity, articleAccess));
   r.writeHandler(defineEntityRestoreHandler("article", articleEntity, articleAccess));
   r.queryHandler(defineEntityListHandler("article", articleEntity, articleAccess));
+  r.writeHandler(defineEntityCreateHandler("comment", commentEntity, articleAccess));
 
   r.writeHandler({
     name: "product:create",

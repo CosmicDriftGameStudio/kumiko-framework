@@ -155,11 +155,16 @@ async function runLifecycle(
       lifecycle.runPostSave(type, result, afterCommitContext, HookPhases.afterCommit),
     );
   } else if (result.kind === "delete") {
-    await lifecycle.runPreDelete(type, result, handlerContext);
+    const cascaded = await lifecycle.runPreDelete(type, result, handlerContext);
     await lifecycle.runPostDelete(type, result, handlerContext, HookPhases.inTransaction);
     queueAfterCommit((afterCommitContext) =>
       lifecycle.runPostDelete(type, result, afterCommitContext, HookPhases.afterCommit),
     );
+    for (const child of cascaded) {
+      queueAfterCommit((afterCommitContext) =>
+        lifecycle.runEntityPostDelete(child, afterCommitContext, HookPhases.afterCommit),
+      );
+    }
   }
 }
 

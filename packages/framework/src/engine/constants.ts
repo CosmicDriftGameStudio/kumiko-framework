@@ -10,17 +10,6 @@ import type { TenantId } from "./types/identifiers.ts";
 // `errors/classes.ts`. Features that need to surface a feature-specific reason
 // attach it under `details.reason` on the relevant Kumiko error class.
 
-// --- System Hook Names ---
-
-export const SystemHookNames = {
-  cascadeDelete: "system:hook:cascade-delete",
-} as const;
-// --- System Hook Priorities ---
-
-export const SystemHookPriorities = {
-  cascadeDelete: 500,
-} as const;
-
 // --- Message Kinds ---
 // --- Lifecycle Hook Types ---
 

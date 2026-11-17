@@ -96,6 +96,12 @@ export type ListRuntimeOptions = {
     readonly resolveEntity: (entityName: string) => EntityDefinition | undefined;
     // The table the executor reads the target from (a backingTable differs from the field-derived one).
     readonly resolveTable?: (entityName: string) => SchemaTable;
+    // hasMany relations declared searchable: a parent matches when a child row matches the term.
+    readonly childRelations?: ReadonlyArray<{
+      readonly childEntityName: string;
+      readonly foreignKey: string;
+      readonly searchableFields: readonly string[];
+    }>;
   };
   // `sortable: true` reference fields order by the target row's
   // labelField instead of the raw FK column. Same request-time registry
@@ -144,7 +150,8 @@ export type ListAggregateRequest = {
 // The executor runs uuid aggregates only (event-store-executor-context.ts rejects any other idType), so a save it returns always carries the string aggregate id.
 export type ExecutorSaveContext = SaveContext & { readonly id: string };
 
-export type ExecutorCreateOptions = StreamTenantOption & { preSave?: PreSaveRunner };
+export type ExecutorCreateOptions = StreamTenantOption &
+  ParentVisibilityGateOption & { preSave?: PreSaveRunner };
 
 export type ExecutorUpdateOptions = StreamTenantOption &
   LockGuardOption &

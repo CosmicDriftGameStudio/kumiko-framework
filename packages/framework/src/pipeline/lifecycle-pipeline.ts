@@ -15,6 +15,7 @@ import { HookPhases } from "../engine/hook-helpers.ts";
 import type { HandlerContext, Registry } from "../engine/types/index.ts";
 import { createFallbackLogger } from "../logging/utils.ts";
 
+import { applyCascadeDelete } from "./cascade-handler.ts";
 import type { EventDedup } from "./event-dedup.ts";
 
 function resolveTracer(context: HandlerContext): Tracer {
@@ -76,7 +77,19 @@ export type LifecycleHooks = {
     phase?: HookPhase,
   ): Promise<void>;
 
-  runPreDelete(handlerName: string, payload: DeleteContext, context: HandlerContext): Promise<void>;
+  // Returns every child the onDelete cascade deleted, across all levels.
+  runPreDelete(
+    handlerName: string,
+    payload: DeleteContext,
+    context: HandlerContext,
+  ): Promise<readonly DeleteContext[]>;
+
+  // Entity postDelete hooks only: cascaded children have no handler of their own.
+  runEntityPostDelete(
+    payload: DeleteContext,
+    context: HandlerContext,
+    phase: HookPhase,
+  ): Promise<void>;
 
   runPostDelete(
     handlerName: string,
@@ -261,6 +274,25 @@ export function createLifecycleHooks(
     }
   }
 
+  async function runEntityPostDelete(
+    payload: DeleteContext,
+    context: HandlerContext,
+    phase: HookPhase,
+  ): Promise<void> {
+    const eff = currentEffectiveFeatures(context);
+    await runHookSet({
+      handlerName: `cascade:${payload.entityName}`,
+      payload,
+      context,
+      entityName: payload.entityName,
+      getHandlerHooks: () => [],
+      getEntityHooks: (n) => registry.getEntityPostDeleteHooks(n, phase, eff),
+      systemHookDefs: undefined,
+      phaseLabel: `postDelete:${phase}`,
+      hookPhase: phase,
+    });
+  }
+
   return {
     async runPreSave(handlerName, changes, previous, isNew, context) {
       let currentChanges = changes;
@@ -303,14 +335,33 @@ export function createLifecycleHooks(
         await hook(payload, context);
       }
 
-      if (payload.entityName) {
+      const cascaded: DeleteContext[] = [];
+      const entityName = payload.entityName;
+      if (entityName) {
+        // The parent's own preDelete hooks run first so its veto wins before any child is touched.
         for (const hook of registry.getEntityPreDeleteHooks(
-          payload.entityName,
+          entityName,
           HookPhases.inTransaction,
           eff,
         )) {
           await hook(payload, context);
         }
+
+        const onChildDeleted = async (child: DeleteContext): Promise<void> => {
+          if (child.entityName) {
+            for (const hook of registry.getEntityPreDeleteHooks(
+              child.entityName,
+              HookPhases.inTransaction,
+              eff,
+            )) {
+              await hook(child, context);
+            }
+          }
+          await applyCascadeDelete(registry, child, context, onChildDeleted);
+          await runEntityPostDelete(child, context, HookPhases.inTransaction);
+          cascaded.push(child);
+        };
+        await applyCascadeDelete(registry, payload, context, onChildDeleted);
       }
 
       if (systemHooks.preDelete) {
@@ -320,7 +371,10 @@ export function createLifecycleHooks(
           await sysHook.fn(payload, context);
         }
       }
+      return cascaded;
     },
+
+    runEntityPostDelete,
 
     async runPostDelete(handlerName, payload, context, phase = HookPhases.afterCommit) {
       const eff = currentEffectiveFeatures(context);

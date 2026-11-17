@@ -195,6 +195,16 @@ async function resolveSearchOperation(
     return [{ kind: "remove", tenantId, entityType: entityName, entityId: event.aggregateId }];
   }
 
+  if (verb !== "created" && verb !== "restored") {
+    const changes =
+      isPlainObject(event.payload) && isPlainObject(event.payload["changes"])
+        ? event.payload["changes"]
+        : undefined;
+    if (changes !== undefined && !updateTouchesSearchDocument(entityName, changes, registry)) {
+      return [];
+    }
+  }
+
   const op =
     verb === "created" || verb === "restored"
       ? await indexOperationFromState(
@@ -213,6 +223,22 @@ async function resolveSearchOperation(
           registry,
         );
   return op ? [op] : [];
+}
+
+// Extensions can contribute arbitrary data, so they always reindex. Embedded entries are named
+// `parent_sub`, hence the prefix comparison in both directions.
+function updateTouchesSearchDocument(
+  entityName: string,
+  changes: Readonly<Record<string, unknown>>,
+  registry: Registry,
+): boolean {
+  if (registry.getSearchPayloadExtensions(entityName).length > 0) return true;
+  const searchable = registry.getSearchableFields(entityName);
+  return Object.keys(changes).some((key) =>
+    searchable.some(
+      (field) => field === key || field.startsWith(`${key}_`) || key.startsWith(`${field}_`),
+    ),
+  );
 }
 
 async function applySearchOperation(

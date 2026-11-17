@@ -8,7 +8,6 @@ export { normalizePayloadBucketValue } from "../rate-limit/bucket.ts";
 export { createUnlimitedRateLimitResolver } from "../rate-limit/unlimited-resolver.ts";
 export { appendDomainEventCore } from "./append-event-core.ts";
 export { resolveAuthClaims } from "./auth-claims-resolver.ts";
-export { createCascadeDeleteHook } from "./cascade-handler.ts";
 export type { Dispatcher } from "./dispatcher.ts";
 export { createDispatcher, dispatcherToWriteRef } from "./dispatcher.ts";
 export type { DistributedLock } from "./distributed-lock.ts";

@@ -5,6 +5,7 @@ import { BOOT_CHECK_RULES } from "./boot-check-rules.ts";
 import { BOOT_ENVIRONMENT_RULES } from "./boot-environment-rules.ts";
 import type { BootRule } from "./boot-rule.ts";
 import { CARD_META_OVERFLOW_RULES } from "./card-meta-overflow-rules.ts";
+import { CHILD_SEARCH_RULES } from "./child-search-rules.ts";
 import { CONFIG_EDIT_ACTION_RULES } from "./config-edit-action-rules.ts";
 import { CONFIG_KEY_RULES } from "./config-key-rules.ts";
 import { DEFINITION_CONFIG_EVENTS_JOBS_RULES } from "./definition-config-events-jobs-rules.ts";
@@ -92,6 +93,7 @@ export const FRAMEWORK_BOOT_RULE_TABLES = [
   HANDLER_DECLARATION_RULES,
   NAV_RULES,
   OWNERSHIP_RULES,
+  CHILD_SEARCH_RULES,
   AGENT_EFFECT_RULES,
   DEFINITION_CONFIG_EVENTS_JOBS_RULES,
   DEFINITION_EVENT_RULES,

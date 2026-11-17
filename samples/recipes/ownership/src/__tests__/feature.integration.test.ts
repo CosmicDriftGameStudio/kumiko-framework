@@ -190,6 +190,35 @@ describe("entity-level write: create/update/delete blocked on foreign rows", () 
   });
 });
 
+describe("fromParent: notes inherit access from their contract", () => {
+  test("TeamMember eng sees the eng note, not the ops note, and cannot add one to ops", async () => {
+    await stack.http.writeOk(
+      "contracts:write:contractNote:create",
+      { contractId: engRowId, text: "eng note" },
+      admin,
+    );
+    await stack.http.writeOk(
+      "contracts:write:contractNote:create",
+      { contractId: opsRowId, text: "ops note" },
+      admin,
+    );
+
+    const res = await stack.http.queryOk<{ rows: Array<{ text: string }> }>(
+      "contracts:query:contractNote:list",
+      {},
+      teamMemberEng,
+    );
+    expect(res.rows.map((row) => row.text)).toEqual(["eng note"]);
+
+    const err = await stack.http.writeErr(
+      "contracts:write:contractNote:create",
+      { contractId: opsRowId, text: "rogue" },
+      teamMemberEng,
+    );
+    expectErrorIncludes(err, "ownership_denied");
+  });
+});
+
 // --- Field-level WRITE ---
 
 describe("field-level write: individual fields rejected fail-loud", () => {

@@ -56,9 +56,15 @@ export type WhereRule<TTable = unknown> = {
   readonly where: (user: SessionUser, ctx: WhereRuleContext<TTable>) => SqlFragment;
 };
 
+export type ParentRule = {
+  readonly kind: "parent";
+  readonly field: string;
+  readonly entity: string;
+};
+
 // "all" collapses to a primitive so map authors can write `Admin: "all"`
 // without importing a helper.
-export type OwnershipRule = "all" | FromRule | WhereRule;
+export type OwnershipRule = "all" | FromRule | WhereRule | ParentRule;
 
 // Per-role map: every key is a role name, value is the rule that role
 // satisfies to pass the access check.

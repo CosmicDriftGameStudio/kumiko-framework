@@ -85,6 +85,7 @@ import { isFrameworkSystemUser, isLockGuardBypassed } from "./lock-guard.ts";
 import { runInSavepointIfSupported } from "./query.ts";
 import { assertPersonalDataWrite, tableNameOf, withExecutorManagedWrites } from "./tenant-db.ts";
 import { tenantDbWriteRunnerForTable } from "./tenant-db-runner.ts";
+import { parentRulesFromOption, resolveParentWriteAccess } from "./parent-ownership.ts";
 import { createOwnershipFailure, updateOwnershipFailure } from "./write-ownership-failures.ts";
 
 type WriteRunner = ReturnType<typeof tenantDbWriteRunnerForTable>;
@@ -469,6 +470,22 @@ export function createWriteVerbs(
     return { flatChangesPlain, flatChanges, encryptedPrevious, changedPrevious };
   }
 
+  function resolveWriteAccess(
+    user: SessionUser,
+    streamTenantId: TenantId | undefined,
+    db: TenantDb,
+    rows: readonly Record<string, unknown>[],
+    parentVisibility: ParentVisibilityOption | undefined,
+  ) {
+    return resolveParentWriteAccess({
+      accessMap: entity.access?.write,
+      user: ownershipSubject(user, streamTenantId),
+      rows,
+      db,
+      parents: parentRulesFromOption(parentVisibility, "write"),
+    });
+  }
+
   function assertTenantAllowedOnGlobalEntity(
     verb: "create" | "update",
     payloadField: string,
@@ -515,7 +532,15 @@ export function createWriteVerbs(
     assertFieldWritesAllowed(db, "create", data);
     const approvalRequired = fieldApprovalFailure(user, data, undefined);
     if (approvalRequired) return approvalRequired;
+    const writeAccess = await resolveWriteAccess(
+      user,
+      streamTenantId,
+      db,
+      [data],
+      options?.parentVisibility,
+    );
     const ownershipDenied = createOwnershipFailure({
+      writeAccess,
       entity,
       entityName,
       user,
@@ -659,8 +684,16 @@ export function createWriteVerbs(
     if (approvalRequired) return approvalRequired;
 
     const mergedNew: Record<string, unknown> = { ...previous, ...verbChanges };
+    const writeAccess = await resolveWriteAccess(
+      user,
+      streamTenantId,
+      db,
+      [previous, mergedNew],
+      updateOptions?.parentVisibility,
+    );
     const guardFailure =
       updateOwnershipFailure({
+        writeAccess,
         entity,
         entityName,
         user,
@@ -825,10 +858,11 @@ export function createWriteVerbs(
       // row matters (there's no "new" row for a delete); passing existing
       // twice to userCanWriteFieldRow makes the Straddle check trivial
       // (same row on both sides) while keeping the multi-role-atomic shape.
+      const writeAccess = await resolveWriteAccess(user, streamTenantId, db, [existing], options?.parentVisibility);
       if (
         !userCanWriteFieldRow(
           ownershipSubject(user, streamTenantId),
-          entity.access?.write,
+          writeAccess,
           existing,
           existing,
         )
@@ -937,11 +971,12 @@ export function createWriteVerbs(
       if (streamTenantMismatch) return streamTenantMismatch;
       const existing = await readProjectedRow(raw);
 
+      const writeAccess = await resolveWriteAccess(user, streamTenantId, db, [existing], options?.parentVisibility);
       if (
         !isFrameworkSystemUser(user) &&
         !userCanWriteFieldRow(
           ownershipSubject(user, streamTenantId),
-          entity.access?.write,
+          writeAccess,
           existing,
           existing,
         )
@@ -1044,10 +1079,11 @@ export function createWriteVerbs(
       // H.2 — entity-level write-ownership on restore. Same shape as delete:
       // only the stored row matters. Stored row carries pre-soft-delete
       // teamId/... fields, so the ownership predicate still applies cleanly.
+      const writeAccess = await resolveWriteAccess(user, streamTenantId, db, [data], options?.parentVisibility);
       if (
         !userCanWriteFieldRow(
           ownershipSubject(user, streamTenantId),
-          entity.access?.write,
+          writeAccess,
           data,
           data,
         )

@@ -1,7 +1,6 @@
 // A parent delete with onDelete cascade or setNull removes or detaches its children through
 // raw queries that bypass the executor, so a locked child has to block the parent delete in
-// the cascade hook. Runs with the cascade-delete system hook wired, which the plain
-// record-lock suite does not have.
+// the delete lifecycle's cascade.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import {
@@ -16,7 +15,6 @@ import { buildEntityTable } from "../../db/table-builder.ts";
 import {
   createBooleanField,
   createEntity,
-  createRegistry,
   createSystemUser,
   createTextField,
   defineEntityCreateHandler,
@@ -25,7 +23,6 @@ import {
   defineFeature,
 } from "../../engine/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
-import { createCascadeDeleteHook } from "../cascade-handler.ts";
 
 const projectEntity = createEntity({
   table: "lock_cascade_projects",
@@ -149,17 +146,7 @@ let stack: TestStack;
 const admin = TestUsers.admin;
 
 beforeAll(async () => {
-  const hookRegistry = createRegistry([cascadeFeature]);
-  const tables = new Map();
-  tables.set("task", buildEntityTable("task", taskEntity));
-  tables.set("note", buildEntityTable("note", noteEntity));
-  tables.set("chore", buildEntityTable("chore", choreEntity));
-  const hook = createCascadeDeleteHook(hookRegistry, tables);
-  stack = await setupTestStack({
-    features: [cascadeFeature],
-    systemHooks: [],
-    lifecycleSystemHooks: { preDelete: [hook] },
-  });
+  stack = await setupTestStack({ features: [cascadeFeature], systemHooks: [] });
   await unsafeCreateEntityTable(stack.db, projectEntity, "project");
   await unsafeCreateEntityTable(stack.db, taskEntity, "task");
   await unsafeCreateEntityTable(stack.db, noteEntity, "note");

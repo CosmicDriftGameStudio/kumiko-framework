@@ -44,6 +44,9 @@ export type DeleteContext = {
   // framework system write with a writePurpose, forget). Cascade handling of locked
   // children follows the same exemption.
   readonly lockGuardBypassed?: boolean | undefined;
+  // Set when this delete was triggered by an onDelete cascade of the named parent. Entity hooks of
+  // the child use it to skip work the parent delete already covers.
+  readonly cascadedFrom?: { readonly entityName: string; readonly id: EntityId } | undefined;
 };
 
 export type LifecycleResult = SaveContext | DeleteContext;

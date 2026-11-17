@@ -1,10 +1,15 @@
 import type { ParentVisibilityOption } from "@cosmicdrift/kumiko-types/event-store-executor-types";
 import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
-import { buildOwnershipClause, type OwnershipClause } from "../engine/ownership.ts";
+import {
+  buildOwnershipClause,
+  type OwnershipClause,
+  type ParentRuleResolver,
+} from "../engine/ownership.ts";
 import { SYSTEM_TENANT_ID, UUID_SHAPE_PATTERN } from "../engine/types/identifiers.ts";
 import type { SessionUser } from "../engine/types/index.ts";
 
 import type { Table } from "./event-store-executor-context.ts";
+import { parentRulesFromOption } from "./parent-ownership.ts";
 import { buildEntityTable, physicalColumnName } from "./table-builder.ts";
 import { asEntityTableMeta, schemaTableName } from "./table-introspection.ts";
 import type { TenantDb } from "./tenant-db.ts";
@@ -209,6 +214,7 @@ function collectGateBranches(
       // positional binding of the branches after it.
       typeParamIdx: params.length + (pendingShared?.values.length ?? 0) + 1,
       resolveTable: gate.option.resolveTable,
+      parents: parentRulesFromOption(gate.option, "read"),
     };
     const branch = resolvesHostIds
       ? buildResolvedHostBranch(gate.option.globalHostIds?.get(candidateName), branchContext)
@@ -265,7 +271,7 @@ function hostReadRuleNeedsRowLevelSecurity(
   });
   return (
     !applicable.includes("all") &&
-    applicable.some((rule) => rule !== "all" && rule.kind === "where")
+    applicable.some((rule) => rule !== "all" && (rule.kind === "where" || rule.kind === "parent"))
   );
 }
 
@@ -307,6 +313,7 @@ type BranchContext = {
   readonly includeDeleted: boolean;
   readonly typeParamIdx: number;
   readonly resolveTable: ParentVisibilityOption["resolveTable"];
+  readonly parents: ParentRuleResolver | undefined;
 };
 
 // One `entity_type = $n AND EXISTS (...)` arm, or undefined when the host's own
@@ -324,6 +331,8 @@ function buildCandidateBranch(
     candidate.access?.read,
     statics.table,
     ctx.typeParamIdx + 1,
+    undefined,
+    ctx.parents,
   );
   if (ownership.kind === "empty") return undefined;
 

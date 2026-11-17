@@ -14,6 +14,7 @@ import { FILE_REF_ENTITY_NAME } from "../files/types.ts";
 import type { Table } from "./event-store-executor-context.ts";
 import { isFrameworkSystemUser } from "./lock-guard.ts";
 import { buildParentRefClause } from "./parent-ref-clause.ts";
+import { parentRulesFromOption } from "./parent-ownership.ts";
 import { quoteIdent } from "./sql-identifier.ts";
 import { buildEntityTable, physicalColumnName } from "./table-builder.ts";
 import { schemaTableName } from "./table-introspection.ts";
@@ -85,7 +86,14 @@ function linkClause(input: GateInput, link: GateLink, mode: "any" | "all"): Owne
   const linkTable = tableOf(option, link.entity, linkEntity);
   const linkTableName = String(schemaTableName(linkTable));
   const linkOwnership = combineClauses(
-    buildOwnershipClause(user, linkEntity.access?.read, linkTable, 1, LINK_ALIAS),
+    buildOwnershipClause(
+      user,
+      linkEntity.access?.read,
+      linkTable,
+      1,
+      LINK_ALIAS,
+      parentRulesFromOption(option, "read"),
+    ),
     buildParentRefClause(linkEntity, linkTable, LINK_ALIAS, user, db, option, {
       includeDeleted: false,
       requireReadHandler: true,
@@ -182,6 +190,7 @@ function ownerBranch(
     ownerTable,
     1,
     ownerTableName,
+    parentRulesFromOption(input.option, "read"),
   );
   if (ownership.kind === "empty") return undefined;
 

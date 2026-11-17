@@ -10,12 +10,10 @@ import { selectMany } from "../../db/query.ts";
 import { buildEntityTable } from "../../db/table-builder.ts";
 import {
   createEntity,
-  createRegistry,
   createTextField,
   defineFeature,
 } from "../../engine/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
-import { createCascadeDeleteHook } from "../cascade-handler.ts";
 import { rebuildProjection } from "../index.ts";
 
 const parentEntity = createEntity({
@@ -102,16 +100,7 @@ const admin = TestUsers.admin;
 let stack: TestStack;
 
 beforeAll(async () => {
-  const tables = new Map([
-    ["rb-cascade-child", cascadeChildTable],
-    ["rb-setnull-child", setNullChildTable],
-  ]);
-  const hook = createCascadeDeleteHook(createRegistry([feature]), tables);
-  stack = await setupTestStack({
-    features: [feature],
-    systemHooks: [],
-    lifecycleSystemHooks: { preDelete: [hook] },
-  });
+  stack = await setupTestStack({ features: [feature], systemHooks: [] });
   await unsafeCreateEntityTable(stack.db, parentEntity, "rb-parent");
   await unsafeCreateEntityTable(stack.db, cascadeChildEntity, "rb-cascade-child");
   await unsafeCreateEntityTable(stack.db, setNullChildEntity, "rb-setnull-child");

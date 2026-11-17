@@ -1,449 +1,388 @@
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { createTestStoredEvent } from "@cosmicdrift/kumiko-testing/helpers";
-import { unsafeCreateEntityTable } from "@cosmicdrift/kumiko-testing/stack";
-import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.ts";
-import type { TableColumns } from "../../db/dialect.ts";
+// onDelete cascades run inside the delete lifecycle: every delete over HTTP applies the
+// relations' strategies, recurses through grandchildren and runs the children's entity hooks.
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import type { DeleteContext } from "@cosmicdrift/kumiko-types/hooks";
 import {
-  createEventStoreExecutor,
-  type EventStoreExecutor,
-} from "../../db/event-store-executor.ts";
-import { buildEntityTable } from "../../db/table-builder.ts";
-import { createTenantDb, type TenantDb } from "../../db/tenant-db.ts";
-import { stubHandlerContext } from "../../engine/__tests__/handler-context-stub.ts";
-import {
-  createEntity,
-  createRegistry,
-  createTextField,
-  defineFeature,
-  type Registry,
-} from "../../engine/index.ts";
+  resetEventStore,
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
+import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
-import { ensureTemporalPolyfill } from "../../time/polyfill.ts";
-import { attachOutsideTransaction } from "../attach-outside-transaction.ts";
-import { createCascadeDeleteHook } from "../cascade-handler.ts";
-
-type Table = TableColumns;
-
-let testDb: BunTestDb;
-let tdb: TenantDb;
-let registry: Registry;
-let departmentTable: Table;
-let userTable: Table;
-let sessionTable: Table;
-let groupTable: Table;
-let userGroupRestrictTable: Table;
-let userGroupCascadeTable: Table;
-let teamTable: Table;
-let memberTable: Table;
-let departmentExecutor: EventStoreExecutor;
-let userExecutor: EventStoreExecutor;
-let sessionExecutor: EventStoreExecutor;
-let groupExecutor: EventStoreExecutor;
-let userGroupRestrictExecutor: EventStoreExecutor;
-let userGroupCascadeExecutor: EventStoreExecutor;
-let teamExecutor: EventStoreExecutor;
-let memberExecutor: EventStoreExecutor;
 
 const admin = TestUsers.admin;
 
+function textField() {
+  return createTextField({ personal: false, reason: "test_fixture" });
+}
+
 const departmentEntity = createEntity({
   table: "cascade_departments",
-  fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+  fields: { name: textField() },
 });
 const userEntity = createEntity({
   table: "cascade_users",
-  fields: {
-    name: createTextField({ personal: false, reason: "test_fixture" }),
-    departmentId: createTextField({ personal: false, reason: "test_fixture" }),
-  },
+  fields: { name: textField(), departmentId: textField() },
 });
 const sessionEntity = createEntity({
   table: "cascade_sessions",
-  fields: {
-    userId: createTextField({ personal: false, reason: "test_fixture" }),
-    token: createTextField({ personal: false, reason: "test_fixture" }),
-  },
+  fields: { userId: textField(), token: textField() },
 });
-const groupEntity = createEntity({
-  table: "cascade_groups",
-  fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-});
+const groupEntity = createEntity({ table: "cascade_groups", fields: { name: textField() } });
 // Two separate junction tables so one Registry can host both onDelete
 // strategies (restrict + cascade) on the same user→group pair.
 const userGroupRestrictEntity = createEntity({
   table: "cascade_user_group_restrict",
-  fields: {
-    userId: createTextField({ personal: false, reason: "test_fixture" }),
-    groupId: createTextField({ personal: false, reason: "test_fixture" }),
-  },
+  fields: { userId: textField(), groupId: textField() },
 });
 const userGroupCascadeEntity = createEntity({
   table: "cascade_user_group_cascade",
-  fields: {
-    userId: createTextField({ personal: false, reason: "test_fixture" }),
-    groupId: createTextField({ personal: false, reason: "test_fixture" }),
-  },
+  fields: { userId: textField(), groupId: textField() },
 });
-// setNull pair: team→member with onDelete "setNull" — members survive
-// the team deletion with teamId nulled out.
-const teamEntity = createEntity({
-  table: "cascade_teams",
-  fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-});
+// setNull pair: members survive the team deletion with teamId nulled out.
+const teamEntity = createEntity({ table: "cascade_teams", fields: { name: textField() } });
 const memberEntity = createEntity({
   table: "cascade_members",
-  fields: {
-    name: createTextField({ personal: false, reason: "test_fixture" }),
-    teamId: createTextField({ personal: false, reason: "test_fixture" }),
-  },
+  fields: { name: textField(), teamId: textField() },
+});
+const taskEntity = createEntity({
+  table: "cascade_tasks",
+  fields: { title: textField(), memberId: textField() },
+});
+// Grandchild chain: squad → recruit → badge, all cascade.
+const squadEntity = createEntity({ table: "cascade_squads", fields: { name: textField() } });
+const recruitEntity = createEntity({
+  table: "cascade_recruits",
+  fields: { name: textField(), squadId: textField() },
+});
+const badgeEntity = createEntity({
+  table: "cascade_badges",
+  fields: { label: textField(), recruitId: textField() },
+});
+// Restrict on the grandchild level: fort → bunker (cascade) → crate (restrict).
+const fortEntity = createEntity({ table: "cascade_forts", fields: { name: textField() } });
+const bunkerEntity = createEntity({
+  table: "cascade_bunkers",
+  fields: { name: textField(), fortId: textField() },
+});
+const crateEntity = createEntity({
+  table: "cascade_crates",
+  fields: { label: textField(), bunkerId: textField() },
 });
 
+const entities = {
+  department: departmentEntity,
+  user: userEntity,
+  session: sessionEntity,
+  group: groupEntity,
+  "user-group-restrict": userGroupRestrictEntity,
+  "user-group-cascade": userGroupCascadeEntity,
+  team: teamEntity,
+  member: memberEntity,
+  task: taskEntity,
+  squad: squadEntity,
+  recruit: recruitEntity,
+  badge: badgeEntity,
+  fort: fortEntity,
+  bunker: bunkerEntity,
+  crate: crateEntity,
+} as const;
+
+const preDeletePayloads: DeleteContext[] = [];
+const afterCommitDeleted: string[] = [];
+const inTransactionDeleted: string[] = [];
+
+const access = { access: { roles: ["Admin"] } } as const;
+
+const cascadeFeature = defineFeature("cascade", (r) => {
+  for (const [name, entity] of Object.entries(entities)) {
+    r.entity({ name, ...entity });
+  }
+
+  r.relation("department", "users", {
+    type: "hasMany",
+    target: "user",
+    foreignKey: "departmentId",
+    onDelete: "restrict",
+  });
+  r.relation("user", "sessions", {
+    type: "hasMany",
+    target: "session",
+    foreignKey: "userId",
+    onDelete: "cascade",
+  });
+  r.relation("user", "groupsRestrict", {
+    type: "manyToMany",
+    target: "group",
+    through: { table: "user-group-restrict", sourceKey: "userId", targetKey: "groupId" },
+    onDelete: "restrict",
+  });
+  r.relation("user", "groupsCascade", {
+    type: "manyToMany",
+    target: "group",
+    through: { table: "user-group-cascade", sourceKey: "userId", targetKey: "groupId" },
+    onDelete: "cascade",
+  });
+  r.relation("team", "members", {
+    type: "hasMany",
+    target: "member",
+    foreignKey: "teamId",
+    onDelete: "setNull",
+  });
+  r.relation("squad", "recruits", {
+    type: "hasMany",
+    target: "recruit",
+    foreignKey: "squadId",
+    onDelete: "cascade",
+  });
+  r.relation("recruit", "badges", {
+    type: "hasMany",
+    target: "badge",
+    foreignKey: "recruitId",
+    onDelete: "cascade",
+  });
+  r.relation("fort", "bunkers", {
+    type: "hasMany",
+    target: "bunker",
+    foreignKey: "fortId",
+    onDelete: "cascade",
+  });
+  r.relation("bunker", "crates", {
+    type: "hasMany",
+    target: "crate",
+    foreignKey: "bunkerId",
+    onDelete: "restrict",
+  });
+
+  r.hook({
+    type: "preDelete",
+    target: { allOf: "recruit" },
+    handler: async (payload) => {
+      preDeletePayloads.push(payload);
+    },
+  });
+  r.hook({
+    type: "postDelete",
+    target: { allOf: "recruit" },
+    phase: "afterCommit",
+    handler: async (payload) => {
+      afterCommitDeleted.push(String(payload.id));
+    },
+  });
+  r.hook({
+    type: "postDelete",
+    target: { allOf: "recruit" },
+    phase: "inTransaction",
+    handler: async (payload) => {
+      inTransactionDeleted.push(String(payload.id));
+    },
+  });
+
+  for (const [name, entity] of Object.entries(entities)) {
+    r.crud(name, entity, { write: access, read: access, registerEntity: false });
+  }
+});
+
+let stack: TestStack;
+
 beforeAll(async () => {
-  await ensureTemporalPolyfill();
-  testDb = await createTestDb();
-  tdb = createTenantDb({ db: testDb.db, tenantId: admin.tenantId });
-
-  await unsafeCreateEntityTable(testDb.db, departmentEntity);
-  await unsafeCreateEntityTable(testDb.db, userEntity);
-  await unsafeCreateEntityTable(testDb.db, sessionEntity);
-  await unsafeCreateEntityTable(testDb.db, groupEntity);
-  await unsafeCreateEntityTable(testDb.db, userGroupRestrictEntity);
-  await unsafeCreateEntityTable(testDb.db, userGroupCascadeEntity);
-  await unsafeCreateEntityTable(testDb.db, teamEntity);
-  await unsafeCreateEntityTable(testDb.db, memberEntity);
-
-  departmentTable = buildEntityTable("department", departmentEntity);
-  userTable = buildEntityTable("user", userEntity);
-  sessionTable = buildEntityTable("session", sessionEntity);
-  groupTable = buildEntityTable("group", groupEntity);
-  userGroupRestrictTable = buildEntityTable("user-group-restrict", userGroupRestrictEntity);
-  userGroupCascadeTable = buildEntityTable("user-group-cascade", userGroupCascadeEntity);
-  teamTable = buildEntityTable("team", teamEntity);
-  memberTable = buildEntityTable("member", memberEntity);
-
-  const feature = defineFeature("cascade", (r) => {
-    r.entity({ name: "department", ...departmentEntity });
-    r.entity({ name: "user", ...userEntity });
-    r.entity({ name: "session", ...sessionEntity });
-    r.entity({ name: "group", ...groupEntity });
-    r.entity({ name: "user-group-restrict", ...userGroupRestrictEntity });
-    r.entity({ name: "user-group-cascade", ...userGroupCascadeEntity });
-    r.entity({ name: "team", ...teamEntity });
-    r.entity({ name: "member", ...memberEntity });
-
-    r.relation("department", "users", {
-      type: "hasMany",
-      target: "user",
-      foreignKey: "departmentId",
-      onDelete: "restrict",
-    });
-
-    r.relation("user", "sessions", {
-      type: "hasMany",
-      target: "session",
-      foreignKey: "userId",
-      onDelete: "cascade",
-    });
-
-    r.relation("user", "groupsRestrict", {
-      type: "manyToMany",
-      target: "group",
-      through: { table: "user-group-restrict", sourceKey: "userId", targetKey: "groupId" },
-      onDelete: "restrict",
-    });
-
-    r.relation("user", "groupsCascade", {
-      type: "manyToMany",
-      target: "group",
-      through: { table: "user-group-cascade", sourceKey: "userId", targetKey: "groupId" },
-      onDelete: "cascade",
-    });
-
-    r.relation("team", "members", {
-      type: "hasMany",
-      target: "member",
-      foreignKey: "teamId",
-      onDelete: "setNull",
-    });
-  });
-
-  registry = createRegistry([feature]);
-  departmentExecutor = createEventStoreExecutor(departmentTable, departmentEntity, {
-    entityName: "department",
-  });
-  userExecutor = createEventStoreExecutor(userTable, userEntity, { entityName: "user" });
-  sessionExecutor = createEventStoreExecutor(sessionTable, sessionEntity, {
-    entityName: "session",
-  });
-  groupExecutor = createEventStoreExecutor(groupTable, groupEntity, { entityName: "group" });
-  userGroupRestrictExecutor = createEventStoreExecutor(
-    userGroupRestrictTable,
-    userGroupRestrictEntity,
-    { entityName: "user-group-restrict" },
-  );
-  userGroupCascadeExecutor = createEventStoreExecutor(
-    userGroupCascadeTable,
-    userGroupCascadeEntity,
-    { entityName: "user-group-cascade" },
-  );
-  teamExecutor = createEventStoreExecutor(teamTable, teamEntity, { entityName: "team" });
-  memberExecutor = createEventStoreExecutor(memberTable, memberEntity, { entityName: "member" });
+  stack = await setupTestStack({ features: [cascadeFeature] });
+  for (const [name, entity] of Object.entries(entities)) {
+    await unsafeCreateEntityTable(stack.db, entity, name);
+  }
 });
 
 afterAll(async () => {
-  await testDb.cleanup();
+  await stack.cleanup();
 });
+
+beforeEach(async () => {
+  preDeletePayloads.length = 0;
+  afterCommitDeleted.length = 0;
+  inTransactionDeleted.length = 0;
+  await resetEventStore(
+    stack,
+    Object.values(entities).map((entity) => entity.table as string),
+  );
+});
+
+async function create(entity: keyof typeof entities, payload: Record<string, unknown>) {
+  const created = await stack.http.writeOk<{ id: string }>(
+    `cascade:write:${entity}:create`,
+    payload,
+    admin,
+  );
+  return created.id;
+}
+
+function remove(entity: keyof typeof entities, id: string) {
+  return stack.http.writeOk(`cascade:write:${entity}:delete`, { id }, admin);
+}
+
+function removeErr(entity: keyof typeof entities, id: string) {
+  return stack.http.writeErr(`cascade:write:${entity}:delete`, { id }, admin);
+}
+
+async function rowsOf(entity: keyof typeof entities): Promise<Record<string, unknown>[]> {
+  const result = await stack.http.queryOk<{ rows: Record<string, unknown>[] }>(
+    `cascade:query:${entity}:list`,
+    {},
+    admin,
+  );
+  return result.rows;
+}
 
 describe("cascade delete: restrict", () => {
   test("blocks delete when related records exist", async () => {
-    const dept = await departmentExecutor.create({ name: "Engineering" }, admin, tdb);
-    if (!dept.isSuccess) throw new Error("Setup failed");
+    const dept = await create("department", { name: "Engineering" });
+    await create("user", { name: "Marc", departmentId: dept });
 
-    await userExecutor.create({ name: "Marc", departmentId: dept.data.id }, admin, tdb);
-
-    const cascadeHook = createCascadeDeleteHook(registry, new Map([["user", userTable]]));
-
-    await expect(
-      cascadeHook.fn(
-        {
-          kind: "delete",
-          event: createTestStoredEvent(),
-          id: dept.data.id,
-          data: { tenantId: "00000000-0000-4000-8000-000000000001" },
-          entityName: "department",
-        },
-        { ...stubHandlerContext(), db: attachOutsideTransaction(tdb, tdb) },
-      ),
-    ).rejects.toMatchObject({ code: "conflict", details: { reason: "delete_restricted" } });
+    const err = await removeErr("department", dept);
+    expect(err).toMatchObject({ code: "conflict", details: { reason: "delete_restricted" } });
+    expect((await rowsOf("department")).map((row) => row["id"])).toContain(dept);
   });
 
   test("allows delete when no related records", async () => {
-    const dept = await departmentExecutor.create({ name: "Empty" }, admin, tdb);
-    if (!dept.isSuccess) throw new Error("Setup failed");
-
-    const cascadeHook = createCascadeDeleteHook(registry, new Map([["user", userTable]]));
-
-    await expect(
-      cascadeHook.fn(
-        {
-          kind: "delete",
-          event: createTestStoredEvent(),
-          id: dept.data.id,
-          data: { tenantId: "00000000-0000-4000-8000-000000000001" },
-          entityName: "department",
-        },
-        { ...stubHandlerContext(), db: attachOutsideTransaction(tdb, tdb) },
-      ),
-    ).resolves.toBeUndefined();
+    const dept = await create("department", { name: "Empty" });
+    await remove("department", dept);
+    expect(await rowsOf("department")).toHaveLength(0);
   });
 });
 
 describe("cascade delete: cascade", () => {
   test("deletes related records when parent is deleted", async () => {
-    const user = await userExecutor.create({ name: "Cascade User" }, admin, tdb);
-    if (!user.isSuccess) throw new Error("Setup failed");
+    const user = await create("user", { name: "Cascade User" });
+    await create("session", { userId: user, token: "abc" });
+    await create("session", { userId: user, token: "def" });
+    expect(await rowsOf("session")).toHaveLength(2);
 
-    const s1 = await sessionExecutor.create({ userId: user.data.id, token: "abc" }, admin, tdb);
-    const s2 = await sessionExecutor.create({ userId: user.data.id, token: "def" }, admin, tdb);
-    if (!s1.isSuccess || !s2.isSuccess) throw new Error("Setup failed");
+    await remove("user", user);
 
-    const before = await sessionExecutor.list({}, admin, tdb);
-    const sessionsBefore = before.rows.filter((r) => r["userId"] === user.data.id);
-    expect(sessionsBefore.length).toBe(2);
-
-    // Run cascade
-    const cascadeHook = createCascadeDeleteHook(registry, new Map([["session", sessionTable]]));
-
-    await cascadeHook.fn(
-      {
-        kind: "delete",
-        event: createTestStoredEvent(),
-        id: user.data.id,
-        data: { tenantId: "00000000-0000-4000-8000-000000000001" },
-        entityName: "user",
-      },
-      { ...stubHandlerContext(), db: attachOutsideTransaction(tdb, tdb) },
-    );
-
-    // Sessions should be gone
-    const after = await sessionExecutor.list({}, admin, tdb);
-    const sessionsAfter = after.rows.filter((r) => r["userId"] === user.data.id);
-    expect(sessionsAfter.length).toBe(0);
+    expect(await rowsOf("session")).toHaveLength(0);
   });
 });
 
 describe("cascade delete: manyToMany restrict", () => {
   test("blocks delete when through-records exist", async () => {
-    const user = await userExecutor.create({ name: "M2M Restrict User" }, admin, tdb);
-    const group = await groupExecutor.create({ name: "Admins" }, admin, tdb);
-    if (!user.isSuccess || !group.isSuccess) throw new Error("Setup failed");
+    const user = await create("user", { name: "M2M Restrict User" });
+    const group = await create("group", { name: "Admins" });
+    await create("user-group-restrict", { userId: user, groupId: group });
 
-    await userGroupRestrictExecutor.create(
-      { userId: user.data.id, groupId: group.data.id },
-      admin,
-      tdb,
-    );
-
-    const cascadeHook = createCascadeDeleteHook(
-      registry,
-      new Map([["user-group-restrict", userGroupRestrictTable]]),
-    );
-
-    await expect(
-      cascadeHook.fn(
-        {
-          kind: "delete",
-          event: createTestStoredEvent(),
-          id: user.data.id,
-          data: { tenantId: "00000000-0000-4000-8000-000000000001" },
-          entityName: "user",
-        },
-        { ...stubHandlerContext(), db: attachOutsideTransaction(tdb, tdb) },
-      ),
-    ).rejects.toMatchObject({
+    const err = await removeErr("user", user);
+    expect(err).toMatchObject({
       code: "conflict",
-      details: {
-        reason: "delete_restricted",
-        blockingEntity: "user-group-restrict",
-      },
+      details: { reason: "delete_restricted", blockingEntity: "user-group-restrict" },
     });
   });
 
   test("allows delete when no through-records reference this entity", async () => {
-    const user = await userExecutor.create({ name: "M2M Free User" }, admin, tdb);
-    if (!user.isSuccess) throw new Error("Setup failed");
-
-    const cascadeHook = createCascadeDeleteHook(
-      registry,
-      new Map([["user-group-restrict", userGroupRestrictTable]]),
-    );
-
-    await expect(
-      cascadeHook.fn(
-        {
-          kind: "delete",
-          event: createTestStoredEvent(),
-          id: user.data.id,
-          data: { tenantId: "00000000-0000-4000-8000-000000000001" },
-          entityName: "user",
-        },
-        { ...stubHandlerContext(), db: attachOutsideTransaction(tdb, tdb) },
-      ),
-    ).resolves.toBeUndefined();
+    const user = await create("user", { name: "M2M Free User" });
+    await remove("user", user);
+    expect(await rowsOf("user")).toHaveLength(0);
   });
 });
 
 describe("cascade delete: manyToMany cascade", () => {
   test("deletes through-records but keeps target entities", async () => {
-    const user = await userExecutor.create({ name: "M2M Cascade User" }, admin, tdb);
-    const groupA = await groupExecutor.create({ name: "Group A" }, admin, tdb);
-    const groupB = await groupExecutor.create({ name: "Group B" }, admin, tdb);
-    if (!user.isSuccess || !groupA.isSuccess || !groupB.isSuccess) throw new Error("Setup failed");
+    const user = await create("user", { name: "M2M Cascade User" });
+    const groupA = await create("group", { name: "Group A" });
+    const groupB = await create("group", { name: "Group B" });
+    await create("user-group-cascade", { userId: user, groupId: groupA });
+    await create("user-group-cascade", { userId: user, groupId: groupB });
+    expect(await rowsOf("user-group-cascade")).toHaveLength(2);
 
-    await userGroupCascadeExecutor.create(
-      { userId: user.data.id, groupId: groupA.data.id },
-      admin,
-      tdb,
-    );
-    await userGroupCascadeExecutor.create(
-      { userId: user.data.id, groupId: groupB.data.id },
-      admin,
-      tdb,
-    );
+    await remove("user", user);
 
-    const before = await userGroupCascadeExecutor.list({}, admin, tdb);
-    expect(before.rows.filter((r) => r["userId"] === user.data.id).length).toBe(2);
-
-    const cascadeHook = createCascadeDeleteHook(
-      registry,
-      new Map([["user-group-cascade", userGroupCascadeTable]]),
-    );
-
-    await cascadeHook.fn(
-      {
-        kind: "delete",
-        event: createTestStoredEvent(),
-        id: user.data.id,
-        data: { tenantId: "00000000-0000-4000-8000-000000000001" },
-        entityName: "user",
-      },
-      { ...stubHandlerContext(), db: attachOutsideTransaction(tdb, tdb) },
-    );
-
-    // Through-records for this user must be gone
-    const after = await userGroupCascadeExecutor.list({}, admin, tdb);
-    expect(after.rows.filter((r) => r["userId"] === user.data.id).length).toBe(0);
-
-    // Target groups themselves must remain — cascade drops the M:N link,
-    // not the referenced entities.
-    const groups = await groupExecutor.list({}, admin, tdb);
-    const groupIds = groups.rows.map((r) => r["id"]);
-    expect(groupIds).toContain(groupA.data.id);
-    expect(groupIds).toContain(groupB.data.id);
+    expect(await rowsOf("user-group-cascade")).toHaveLength(0);
+    // Cascade drops the M:N link, not the referenced entities.
+    const groupIds = (await rowsOf("group")).map((row) => row["id"]);
+    expect(groupIds).toContain(groupA);
+    expect(groupIds).toContain(groupB);
   });
 });
 
 describe("cascade delete: hasMany setNull", () => {
   test("nulls out FK on related records when parent is deleted", async () => {
-    const team = await teamExecutor.create({ name: "SetNull Team" }, admin, tdb);
-    if (!team.isSuccess) throw new Error("Setup failed");
+    const team = await create("team", { name: "SetNull Team" });
+    const alice = await create("member", { name: "Alice", teamId: team });
+    const bob = await create("member", { name: "Bob", teamId: team });
 
-    const m1 = await memberExecutor.create({ name: "Alice", teamId: team.data.id }, admin, tdb);
-    const m2 = await memberExecutor.create({ name: "Bob", teamId: team.data.id }, admin, tdb);
-    if (!m1.isSuccess || !m2.isSuccess) throw new Error("Setup failed");
+    await remove("team", team);
 
-    // Verify FK is set before cascade
-    const before = await memberExecutor.list({}, admin, tdb);
-    const teamMembers = before.rows.filter((r) => r["id"] === m1.data.id || r["id"] === m2.data.id);
-    expect(teamMembers.every((r) => r["teamId"] === team.data.id)).toBe(true);
-
-    const cascadeHook = createCascadeDeleteHook(registry, new Map([["member", memberTable]]));
-
-    await cascadeHook.fn(
-      {
-        kind: "delete",
-        event: createTestStoredEvent(),
-        id: team.data.id,
-        data: { tenantId: "00000000-0000-4000-8000-000000000001" },
-        entityName: "team",
-      },
-      { ...stubHandlerContext(), db: attachOutsideTransaction(tdb, tdb) },
-    );
-
-    // Members still exist, but teamId is now null
-    const after = await memberExecutor.list({}, admin, tdb);
-    const afterMembers = after.rows.filter((r) => r["id"] === m1.data.id || r["id"] === m2.data.id);
-    expect(afterMembers.length).toBe(2);
-    expect(afterMembers.every((r) => r["teamId"] === null)).toBe(true);
+    const members = (await rowsOf("member")).filter((row) => [alice, bob].includes(String(row["id"])));
+    expect(members).toHaveLength(2);
+    expect(members.every((row) => row["teamId"] === null)).toBe(true);
   });
 
   test("leaves unrelated records untouched", async () => {
-    const teamA = await teamExecutor.create({ name: "Team A" }, admin, tdb);
-    const teamB = await teamExecutor.create({ name: "Team B" }, admin, tdb);
-    if (!teamA.isSuccess || !teamB.isSuccess) throw new Error("Setup failed");
+    const teamA = await create("team", { name: "Team A" });
+    const teamB = await create("team", { name: "Team B" });
+    const memberA = await create("member", { name: "A-member", teamId: teamA });
+    const memberB = await create("member", { name: "B-member", teamId: teamB });
 
-    const mA = await memberExecutor.create({ name: "A-member", teamId: teamA.data.id }, admin, tdb);
-    const mB = await memberExecutor.create({ name: "B-member", teamId: teamB.data.id }, admin, tdb);
-    if (!mA.isSuccess || !mB.isSuccess) throw new Error("Setup failed");
+    await remove("team", teamA);
 
-    const cascadeHook = createCascadeDeleteHook(registry, new Map([["member", memberTable]]));
+    const rows = await rowsOf("member");
+    expect(rows.find((row) => row["id"] === memberA)?.["teamId"]).toBeNull();
+    expect(rows.find((row) => row["id"] === memberB)?.["teamId"]).toBe(teamB);
+  });
+});
 
-    // Delete team A — only mA should lose its teamId, mB must stay intact
-    await cascadeHook.fn(
-      {
-        kind: "delete",
-        event: createTestStoredEvent(),
-        id: teamA.data.id,
-        data: { tenantId: "00000000-0000-4000-8000-000000000001" },
-        entityName: "team",
-      },
-      { ...stubHandlerContext(), db: attachOutsideTransaction(tdb, tdb) },
-    );
+describe("cascade delete: recursion and child hooks", () => {
+  test("deleting the root removes children and grandchildren", async () => {
+    const squad = await create("squad", { name: "Alpha" });
+    const recruit = await create("recruit", { name: "R1", squadId: squad });
+    await create("badge", { label: "B1", recruitId: recruit });
+    await create("badge", { label: "B2", recruitId: recruit });
 
-    const after = await memberExecutor.list({}, admin, tdb);
-    const aAfter = after.rows.find((r) => r["id"] === mA.data.id);
-    const bAfter = after.rows.find((r) => r["id"] === mB.data.id);
-    expect(aAfter?.["teamId"]).toBeNull();
-    expect(bAfter?.["teamId"]).toBe(teamB.data.id);
+    await remove("squad", squad);
+
+    expect(await rowsOf("recruit")).toHaveLength(0);
+    expect(await rowsOf("badge")).toHaveLength(0);
+  });
+
+  test("the child's entity preDelete hook sees cascadedFrom", async () => {
+    const squad = await create("squad", { name: "Beta" });
+    const recruit = await create("recruit", { name: "R1", squadId: squad });
+
+    await remove("squad", squad);
+
+    expect(preDeletePayloads).toHaveLength(1);
+    expect(preDeletePayloads[0]?.id).toBe(recruit);
+    expect(preDeletePayloads[0]?.cascadedFrom).toEqual({ entityName: "squad", id: squad });
+  });
+
+  test("an afterCommit postDelete hook of the child runs once per deleted child", async () => {
+    const squad = await create("squad", { name: "Gamma" });
+    const first = await create("recruit", { name: "R1", squadId: squad });
+    const second = await create("recruit", { name: "R2", squadId: squad });
+
+    await remove("squad", squad);
+
+    expect([...afterCommitDeleted].sort()).toEqual([first, second].sort());
+    expect([...inTransactionDeleted].sort()).toEqual([first, second].sort());
+  });
+
+  test("a delete of the child itself runs its hooks without cascadedFrom", async () => {
+    const squad = await create("squad", { name: "Delta" });
+    const recruit = await create("recruit", { name: "R1", squadId: squad });
+
+    await remove("recruit", recruit);
+
+    expect(preDeletePayloads).toHaveLength(1);
+    expect(preDeletePayloads[0]?.cascadedFrom).toBeUndefined();
+  });
+
+  test("restrict on the grandchild level rolls the whole delete back", async () => {
+    const fort = await create("fort", { name: "Keep" });
+    const bunker = await create("bunker", { name: "B1", fortId: fort });
+    await create("crate", { label: "C1", bunkerId: bunker });
+
+    const err = await removeErr("fort", fort);
+    expect(err).toMatchObject({ code: "conflict", details: { reason: "delete_restricted" } });
+
+    expect((await rowsOf("fort")).map((row) => row["id"])).toContain(fort);
+    expect((await rowsOf("bunker")).map((row) => row["id"])).toContain(bunker);
   });
 });

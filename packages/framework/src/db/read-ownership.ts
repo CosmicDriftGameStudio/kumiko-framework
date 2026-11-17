@@ -1,6 +1,7 @@
 import { buildOwnershipClause, combineClauses, type OwnershipClause } from "../engine/ownership.ts";
 import type { SessionUser } from "../engine/types/index.ts";
 import type { ExecutorContext } from "./event-store-executor-context.ts";
+import { parentRulesFromOption } from "./parent-ownership.ts";
 import { buildParentRefClause, type ParentVisibilityOption } from "./parent-ref-clause.ts";
 import { buildReadGateClause } from "./read-gate-clause.ts";
 import type { TenantDb } from "./tenant-db.ts";
@@ -29,7 +30,14 @@ export function resolveReadOwnership(
   );
   return combineClauses(
     combineClauses(
-      buildOwnershipClause(user, ctx.entity.access?.read, ctx.table, 1, tableName),
+      buildOwnershipClause(
+        user,
+        ctx.entity.access?.read,
+        ctx.table,
+        1,
+        tableName,
+        parentRulesFromOption(parentVisibility, "read"),
+      ),
       parentClause,
     ),
     buildReadGateClause(ctx.entity, ctx.table, tableName, user, db, parentVisibility),

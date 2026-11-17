@@ -21,9 +21,11 @@
 
 import {
   createEntity,
+  createReferenceField,
   createTextField,
   defineFeature,
   from,
+  fromParent,
 } from "@cosmicdrift/kumiko-framework/engine";
 
 // The "teams" feature declares the teamId claim. Any other feature can
@@ -89,10 +91,34 @@ export const contractEntity = createEntity({
   },
 });
 
+// A note has no teamId of its own: fromParent grants a TeamMember the notes whose contract that
+// same role may read (and write), so the scoping column is not copied into every child.
+export const contractNoteEntity = createEntity({
+  table: "read_ownership_contract_notes",
+  fields: {
+    contractId: createReferenceField({
+      entity: "contract",
+      personal: false,
+      reason: "is_system_identifier",
+      required: true,
+    }),
+    text: createTextField({ personal: false, reason: "is_business_data", required: true }),
+  },
+  access: {
+    read: { Admin: "all", TeamMember: fromParent("contractId", "contract") },
+    write: { Admin: "all", TeamMember: fromParent("contractId", "contract") },
+  },
+});
+
 export const contractsFeature = defineFeature("contracts", (r) => {
   const contractAccess = { access: { roles: ["Admin", "TeamMember", "Driver"] } } as const;
   r.crud("contract", contractEntity, {
     write: contractAccess,
     read: contractAccess,
+  });
+  const noteAccess = { access: { roles: ["Admin", "TeamMember"] } } as const;
+  r.crud("contractNote", contractNoteEntity, {
+    write: noteAccess,
+    read: noteAccess,
   });
 });

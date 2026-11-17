@@ -148,3 +148,31 @@ describe("longText find: fuzzy and the trash list", () => {
     ]);
   });
 });
+
+describe("searchable hasMany relation", () => {
+  const listArticleIds = async (search: string) =>
+    (
+      await stack.http.queryOk<{ rows: Record<string, unknown>[] }>(
+        "shop:query:article:list",
+        { search },
+        admin,
+      )
+    ).rows.map((r) => r["id"]);
+
+  test("a list search finds the parent through a matching child row", async () => {
+    const article = await stack.http.writeOk<{ id: string }>(
+      "shop:write:article:create",
+      { title: "Quarterly report", body: "numbers" },
+      admin,
+    );
+    await stack.http.writeOk(
+      "shop:write:comment:create",
+      { articleId: article.id, text: "zebracomment needs a source" },
+      admin,
+    );
+    await stack.eventDispatcher?.runOnce();
+
+    expect(await listArticleIds("zebracomment")).toEqual([article.id]);
+    expect(await listArticleIds("nomatchanywhere")).toEqual([]);
+  });
+});

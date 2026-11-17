@@ -14,6 +14,7 @@ import {
   validateConfigKeyPiiEncrypted,
   validateConfigKeyRequired,
 } from "./config-deps.ts";
+import { validateChildSearchRelations } from "./child-search.ts";
 import { validateCrossTenantFileRead } from "./cross-tenant-file-read.ts";
 import { validateSqlDerivedFields } from "./derived-sql-fields.ts";
 import { collectDetailForScreens } from "./detail-screens.ts";
@@ -46,6 +47,7 @@ import { validateHandlerFieldReferences } from "./handler-field-references.ts";
 import { validateJobRunAs } from "./job-run-as.ts";
 import { validateNavs } from "./nav.ts";
 import { validateOwnershipRules } from "./ownership.ts";
+import { validateParentOwnershipRules } from "./parent-ownership.ts";
 import { validateParentRefs } from "./parent-ref.ts";
 import { validatePiiAndRetention } from "./pii-retention.ts";
 import { validateQueryRefs } from "./query-refs.ts";
@@ -88,6 +90,14 @@ const STRUCTURE_FEATURE_CHECKS: readonly FeatureCheck[] = [
     run: (f, c) => validateReferenceFields(f, c.featureMap, c.queryHandlerQns),
   },
   { check: "validateParentRefs", run: (f, c) => validateParentRefs(f, c.featureMap) },
+  {
+    check: "validateParentOwnershipRules",
+    run: (f, c) => validateParentOwnershipRules(f, c.featureMap),
+  },
+  {
+    check: "validateChildSearchRelations",
+    run: (f, c) => validateChildSearchRelations(f, c.featureMap),
+  },
 ];
 
 type DetailForScreens = ReturnType<typeof collectDetailForScreens>;

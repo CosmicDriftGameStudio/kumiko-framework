@@ -411,9 +411,11 @@ export {
   buildSessionRoles,
   findForbiddenMembershipRole,
 } from "./membership-roles.ts";
-export type { OwnershipMap } from "./ownership.ts";
+export { parentRulesFromRegistry, resolveParentWriteAccess } from "../db/parent-ownership.ts";
+export type { OwnershipMap, ParentRuleResolver, ParentRuleTarget } from "./ownership.ts";
 export {
   from,
+  fromParent,
   normalizeAccessEntry,
   userCanWriteFieldRow,
 } from "./ownership.ts";

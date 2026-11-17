@@ -1,4 +1,4 @@
-import type { EmbeddedSubFieldDef } from "@cosmicdrift/kumiko-types/fields";
+import type { EmbeddedSubFieldDef, FieldDefinition } from "@cosmicdrift/kumiko-types/fields";
 import type { ClaimKeyDefinition } from "@cosmicdrift/kumiko-types/handlers";
 import { buildEntityTable } from "../../db/table-builder.ts";
 import {
@@ -132,6 +132,7 @@ export function validateOwnershipRules(
         allClaimKeys,
         knownRoles,
         scope: `entity "${entityName}".access.read`,
+        entityFields: entity.fields,
         featureName: feature.name,
         probe,
         path: "read",
@@ -144,6 +145,7 @@ export function validateOwnershipRules(
         allClaimKeys,
         knownRoles,
         scope: `entity "${entityName}".access.write`,
+        entityFields: entity.fields,
         featureName: feature.name,
         probe,
         path: "write",
@@ -248,6 +250,8 @@ export function canValidateRoles(
 }
 
 export function checkOwnershipMap(args: {
+  // Present only for entity-level maps; a fromParent rule needs the entity own fields.
+  readonly entityFields?: Readonly<Record<string, FieldDefinition>>;
   readonly map: OwnershipMap;
   readonly columnNames: ReadonlySet<string>;
   readonly allClaimKeys: ReadonlyMap<string, ClaimKeyDefinition> | undefined;
@@ -283,6 +287,18 @@ export function checkOwnershipMap(args: {
       }
       probeWhereRule(rule, roleName, args.probe, args.scope, args.featureName);
       continue; // escape hatch — feature author owns the SQL
+    }
+
+    if (rule.kind === "parent") {
+      if (args.entityFields === undefined) {
+        throw bootRuleError(OWNERSHIP_RULES.parentOnFieldAccess, {
+          message:
+            `[Kumiko Ownership] ${args.scope} uses fromParent(...) (role: "${roleName}", ` +
+            `feature: "${args.featureName}"), which is only valid in an entity-level access map.`,
+        });
+      }
+      // Field, target and cycle checks live in validateParentOwnershipRules.
+      continue;
     }
 
     // FromRule — validate ref + column.
@@ -370,6 +386,13 @@ function rejectWhereInEmbeddedRead(
     const map = sub.access?.read;
     if (!map || isRoleList(map)) continue;
     for (const [roleName, rule] of Object.entries(map)) {
+      if (rule !== "all" && rule.kind === "parent") {
+        throw bootRuleError(OWNERSHIP_RULES.parentOnFieldAccess, {
+          message:
+            `[Kumiko Ownership] ${parentScope}.${subName}.access.read uses fromParent(...) (role: "${roleName}", ` +
+            `feature: "${featureName}"), which is only valid in an entity-level access map.`,
+        });
+      }
       if (rule !== "all" && rule.kind === "where") {
         throw bootRuleError(OWNERSHIP_RULES.whereOnFieldRead, {
           message: buildWhereOnFieldReadMessage(

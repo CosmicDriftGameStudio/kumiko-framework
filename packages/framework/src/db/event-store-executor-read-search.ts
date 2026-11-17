@@ -17,10 +17,13 @@ import type { EventStoreExecutor } from "./event-store-executor.ts";
 import type { Table } from "./event-store-executor-context.ts";
 import { bindPlaceholders, type ListWhere } from "./event-store-executor-read-filter.ts";
 import type { ParentVisibilityOption } from "./parent-ref-clause.ts";
+import { referenceTargetTable } from "./parent-ownership.ts";
+
+export { referenceTargetTable } from "./parent-ownership.ts";
 import { executeRawQueryRead } from "./queries/raw-sql.ts";
 import { resolveReadOwnership } from "./read-ownership.ts";
 import { quoteIdent } from "./sql-identifier.ts";
-import { buildEntityTable, physicalColumnName } from "./table-builder.ts";
+import { physicalColumnName } from "./table-builder.ts";
 import { schemaTableName } from "./table-introspection.ts";
 import type { TenantDb, TenantDbMode } from "./tenant-db.ts";
 import { tenantDbRunnerForTable } from "./tenant-db-runner.ts";
@@ -300,18 +303,6 @@ async function resolveReferenceMatches(
   );
 }
 
-// Building the table is pure but not free, and runs on every search request;
-// keyed by the definition object so a re-registered entity never sees a stale table.
-const referenceTargetTables = new WeakMap<EntityDefinition, { name: string; table: Table }>();
-
-export function referenceTargetTable(name: string, entity: EntityDefinition): Table {
-  const cached = referenceTargetTables.get(entity);
-  if (cached?.name === name) return cached.table;
-  const table = buildEntityTable(name, entity);
-  referenceTargetTables.set(entity, { name, table });
-  return table;
-}
-
 export type ListSearchRequest = {
   readonly searchTerm: string;
   readonly searchAdapter: SearchAdapter | undefined;
@@ -353,7 +344,11 @@ export async function applyListSearch(
     limit: MAX_SEARCH_CANDIDATE_IDS,
   });
   const filterIds = results.map((r) => r.entityId);
-  const referenceMatches = await resolveSearchableReferenceMatches(request, searchAdapter);
+  const childSearch = await resolveChildSearchMatches(request, searchAdapter);
+  const referenceMatches = [
+    ...(await resolveSearchableReferenceMatches(request, searchAdapter)),
+    ...childSearch.matches,
+  ];
   if (filterIds.length === 0 && referenceMatches.length === 0) return { kind: "noMatches" };
 
   const orParts: string[] = [];
@@ -369,7 +364,10 @@ export async function applyListSearch(
   // " AND " below, an unparenthesized OR here would leak past the
   // tenant filter that follows.
   where.whereSql.push(`(${orParts.join(" OR ")})`);
-  return { kind: "applied", searchTruncated: results.length >= MAX_SEARCH_CANDIDATE_IDS };
+  return {
+    kind: "applied",
+    searchTruncated: results.length >= MAX_SEARCH_CANDIDATE_IDS || childSearch.truncated,
+  };
 }
 
 // A searchable reference field (or the implicit tenantId→tenant.name row-meta
@@ -404,4 +402,102 @@ async function resolveSearchableReferenceMatches(
     ),
   );
   return matches.filter((m): m is ReferenceMatch => m !== undefined);
+}
+
+type ChildRelationSearch = NonNullable<
+  NonNullable<ReferenceSearchOption>["childRelations"]
+>[number];
+
+// A parent matches when a child row matches the term, but only through a child the viewer could
+// open and whose searchable fields they may all read — otherwise searching would probe values
+// they cannot see. The index only names candidates; tenant scope, soft delete and ownership are
+// re-checked against the child table.
+async function resolveChildMatches(
+  relation: ChildRelationSearch,
+  request: ListSearchRequest,
+  searchAdapter: SearchAdapter,
+): Promise<{ readonly match: ReferenceMatch | undefined; readonly truncated: boolean }> {
+  const none = { match: undefined, truncated: false };
+  const { referenceSearch, user, db } = request;
+  const child = referenceSearch?.resolveEntity(relation.childEntityName);
+  if (child === undefined || relation.searchableFields.length === 0) return none;
+  const childTable =
+    referenceSearch?.resolveTable?.(relation.childEntityName) ??
+    referenceTargetTable(relation.childEntityName, child);
+  const allFieldsReadable = relation.searchableFields.every(
+    (searchableField) => {
+      // Embedded entries are named "parent_sub"; the access lives on the parent field.
+      const fieldName =
+        searchableField in child.fields ? searchableField : searchableField.split("_")[0];
+      const field = fieldName === undefined ? undefined : child.fields[fieldName];
+      if (field === undefined) return false;
+      return (
+        buildOwnershipClause(user, normalizeAccessEntry(field.access?.read), childTable).kind ===
+        "pass"
+      );
+    },
+  );
+  if (!allFieldsReadable) return none;
+
+  const childTableName = String(schemaTableName(childTable));
+  const ownership = referenceTargetOwnership(
+    child,
+    childTable,
+    childTableName,
+    user,
+    db,
+    request.parentVisibility,
+  );
+  if (ownership.kind === "empty") return none;
+
+  const results = await searchAdapter.search(
+    child.systemStream ? SYSTEM_TENANT_ID : user.tenantId,
+    request.searchTerm,
+    { filterType: relation.childEntityName, limit: MAX_SEARCH_CANDIDATE_IDS },
+  );
+  if (results.length === 0) return none;
+  const truncated = results.length >= MAX_SEARCH_CANDIDATE_IDS;
+
+  const params: unknown[] = results.map((r) => String(r.entityId));
+  const idPlaceholders = params.map((_, i) => `$${i + 1}`);
+  let tenantClause = "";
+  if (childTable["tenantId"] !== undefined && db.mode === "tenant") {
+    params.push(db.tenantId, SYSTEM_TENANT_ID);
+    tenantClause = ` AND ${quoteIdent(physicalColumnName(childTable, "tenantId"))} IN ($${params.length - 1}, $${params.length})`;
+  }
+  let ownershipClause = "";
+  if (ownership.kind === "sql") {
+    const shifted = shiftParams(
+      { sqlText: ownership.sqlText, params: ownership.params },
+      params.length,
+    );
+    for (const p of shifted.params) params.push(p);
+    ownershipClause = ` AND ${shifted.sqlText}`;
+  }
+  const deletedClause = isSoftDeletedTargetHidden(child, childTable)
+    ? ` AND ${quoteIdent(physicalColumnName(childTable, "isDeleted"))} = FALSE`
+    : "";
+  const fkColumn = quoteIdent(physicalColumnName(childTable, relation.foreignKey));
+  const rows = await executeRawQueryRead<{ parentId: string | null }>(
+    tenantDbRunnerForTable(db, childTable),
+    `SELECT DISTINCT ${fkColumn} AS "parentId" FROM ${quoteIdent(childTableName)} ` +
+      `WHERE "id" IN (${idPlaceholders.join(", ")})${tenantClause}${ownershipClause}${deletedClause}`,
+    params,
+  );
+  const ids = rows.flatMap((row) => (row.parentId === null ? [] : [String(row.parentId)]));
+  return { match: ids.length === 0 ? undefined : { ownColumn: "id", ids }, truncated };
+}
+
+async function resolveChildSearchMatches(
+  request: ListSearchRequest,
+  searchAdapter: SearchAdapter,
+): Promise<{ readonly matches: readonly ReferenceMatch[]; readonly truncated: boolean }> {
+  const relations = request.referenceSearch?.childRelations ?? [];
+  const outcomes = await Promise.all(
+    relations.map((relation) => resolveChildMatches(relation, request, searchAdapter)),
+  );
+  return {
+    matches: outcomes.flatMap((o) => (o.match === undefined ? [] : [o.match])),
+    truncated: outcomes.some((o) => o.truncated),
+  };
 }
