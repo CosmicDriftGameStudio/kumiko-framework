@@ -10,7 +10,6 @@ import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { itemsFeature } from "../features/items/feature";
 import { itemEntity } from "../features/items/schema";
@@ -19,7 +18,6 @@ let stack: TestStack;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [itemsFeature] });
-  await unsafeCreateEntityTable(stack.db, itemEntity, "item");
 });
 
 afterAll(async () => {

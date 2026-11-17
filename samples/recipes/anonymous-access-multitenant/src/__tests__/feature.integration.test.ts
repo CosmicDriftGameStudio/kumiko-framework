@@ -5,14 +5,12 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { setTenantCookie } from "@cosmicdrift/kumiko-framework/api";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { multiTenantShopFeature, productEntity } from "../feature";
+import { multiTenantShopFeature } from "../feature";
 import { createSubdomainResolver, extractSubdomain } from "../subdomain-resolver";
 
 const ACME_TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
@@ -60,8 +58,6 @@ beforeAll(async () => {
       resolverTrust: "fallback-only",
     },
   });
-  await unsafeCreateEntityTable(stack.db, productEntity);
-  await createEventsTable(stack.db);
 
   // Stamp test routes that exercise setTenantCookie. The framework gives
   // apps the helper; the route is app-territory.

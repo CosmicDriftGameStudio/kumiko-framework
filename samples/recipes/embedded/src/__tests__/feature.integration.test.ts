@@ -9,11 +9,7 @@ import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { contactEntity } from "../entities/contact";
-import { invoiceEntity } from "../entities/invoice";
-import { productEntity } from "../entities/product";
 import { embeddedFeature } from "../feature";
 
 let stack: TestStack;
@@ -27,9 +23,6 @@ beforeAll(async () => {
     features: [embeddedFeature],
     systemHooks: [],
   });
-  await unsafeCreateEntityTable(stack.db, contactEntity);
-  await unsafeCreateEntityTable(stack.db, productEntity);
-  await unsafeCreateEntityTable(stack.db, invoiceEntity);
 });
 
 afterAll(async () => {

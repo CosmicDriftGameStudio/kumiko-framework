@@ -45,7 +45,6 @@ import {
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-testing/helpers";
@@ -112,7 +111,6 @@ beforeAll(async () => {
     tenantMembershipsTable,
     ticketTable,
   });
-  await createEventsTable(db);
   // setupTestStack does not run boot seeds; a real app seeds at boot.
   await seedNotificationTemplates(db, stack.registry);
 });

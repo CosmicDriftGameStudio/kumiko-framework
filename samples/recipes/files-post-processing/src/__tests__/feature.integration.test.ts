@@ -30,10 +30,9 @@ import {
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import sharp from "sharp";
-import { coverOrder, filesPostProcessingFeature, photoEntity, publishedPhotoIds } from "../feature";
+import { coverOrder, filesPostProcessingFeature, publishedPhotoIds } from "../feature";
 
 const HOST = "photos.example.com";
 const HOST_B = "photos-b.example.com";
@@ -75,7 +74,6 @@ beforeAll(async () => {
     ],
     files: { storageProvider: provider },
   });
-  await unsafeCreateEntityTable(stack.db, photoEntity, "photo");
 });
 
 async function createPhoto(asUser: typeof user = user): Promise<string> {

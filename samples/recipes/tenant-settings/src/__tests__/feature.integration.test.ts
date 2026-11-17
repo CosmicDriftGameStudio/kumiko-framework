@@ -10,16 +10,14 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/config";
 import { createTenantSettingsFeature } from "@cosmicdrift/kumiko-bundled-features/tenant-settings";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   pushEntityProjectionTables,
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { invoiceEntity, invoiceFeature } from "../feature";
+import { invoiceFeature } from "../feature";
 
 const tenantId = testTenantId(1);
 const admin: SessionUser = { id: "admin-1", tenantId, roles: ["Admin"] };
@@ -36,8 +34,6 @@ beforeAll(async () => {
     }),
   });
   await unsafePushTables(stack.db, { configValuesTable });
-  await unsafeCreateEntityTable(stack.db, invoiceEntity);
-  await createEventsTable(stack.db);
   await pushEntityProjectionTables(stack, stack.registry);
 });
 

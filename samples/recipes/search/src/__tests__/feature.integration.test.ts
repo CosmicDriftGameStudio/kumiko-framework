@@ -2,14 +2,12 @@
 // Proves: searchable fields indexed via system hook, search returns matches
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { articleEntity, productEntity, productFeature } from "../feature";
+import { productFeature } from "../feature";
 
 let stack: TestStack;
 
@@ -17,9 +15,6 @@ const admin = TestUsers.admin;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [productFeature] });
-  await unsafeCreateEntityTable(stack.db, productEntity);
-  await unsafeCreateEntityTable(stack.db, articleEntity, "article");
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {

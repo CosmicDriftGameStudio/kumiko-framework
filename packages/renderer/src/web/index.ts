@@ -140,6 +140,8 @@ export {
 } from "./editor/index.ts";
 export type { NavIconKey } from "./icons.tsx";
 export { Icon } from "./icons.tsx";
+export type { AccentScopeProps } from "./layout/accent-scope.tsx";
+export { AccentScope, accentColorVars } from "./layout/accent-scope.tsx";
 export type { AvatarProps, AvatarShape, AvatarSize } from "./layout/avatar.tsx";
 export { Avatar } from "./layout/avatar.tsx";
 export type { DefaultAppShellProps } from "./layout/default-app-shell.tsx";

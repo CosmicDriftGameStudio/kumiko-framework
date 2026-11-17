@@ -9,16 +9,12 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import {
-  accountEntity,
   createLedgerFeature,
-  transactionEntity,
 } from "@cosmicdrift/kumiko-bundled-features/ledger";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { invoicingFlow, type LedgerClient } from "../usage";
 
@@ -36,9 +32,6 @@ const client: LedgerClient = {
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [ledger] });
-  await unsafeCreateEntityTable(stack.db, accountEntity);
-  await unsafeCreateEntityTable(stack.db, transactionEntity);
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {

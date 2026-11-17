@@ -30,7 +30,7 @@ import {
   createSecretsContext,
   tenantSecretsTable,
 } from "@cosmicdrift/kumiko-bundled-features/secrets";
-import { createTenantFeature, tenantEntity } from "@cosmicdrift/kumiko-bundled-features/tenant";
+import { createTenantFeature } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { createEntityExecutor, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
@@ -45,7 +45,6 @@ import {
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { NEWSLETTER_SEND_QN, NEWSLETTER_TIER_CONFIG_KEY } from "../feature";
@@ -113,8 +112,6 @@ beforeAll(async () => {
   });
   db = stack.db;
 
-  await unsafeCreateEntityTable(db, tenantEntity);
-  await unsafeCreateEntityTable(db, capCounterEntity);
   // read_subscriptions wird von setupTestStack automatisch gepusht
   // (r.projection mit `table`-Property → auto-push).
   await unsafePushTables(db, { configValuesTable, tenant_secrets: tenantSecretsTable });

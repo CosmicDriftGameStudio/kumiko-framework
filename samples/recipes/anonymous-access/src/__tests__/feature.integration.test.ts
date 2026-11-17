@@ -9,18 +9,14 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { ANONYMOUS_USER_ID, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import {
   anonymousAccessFeature,
-  guestOrderEntity,
   guestOrderTable,
-  productEntity,
 } from "../feature";
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
@@ -39,9 +35,6 @@ beforeAll(async () => {
     // tenant. No header, cookie, or resolver needed.
     anonymousAccess: { defaultTenantId: TENANT_ID },
   });
-  await unsafeCreateEntityTable(stack.db, productEntity);
-  await unsafeCreateEntityTable(stack.db, guestOrderEntity);
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {

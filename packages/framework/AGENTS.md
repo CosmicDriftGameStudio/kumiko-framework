@@ -371,12 +371,14 @@ Each `agents/examples/<name>.md` starts with the sample's README, then every
 source file with its path. `src/feature.ts` holds the feature;
 `src/__tests__/*.integration.test.ts` shows how it is tested. Samples inside
 the framework repo set up their stack with `setupTestStack` from
-`@cosmicdrift/kumiko-testing/stack` and create tables in the test. In an
-app, `setupAppTestStack` and `seedTenant` do that for you; keep the
-assertions, take the setup from your scaffolded integration test. Table
-setup in sample tests (`unsafeCreateEntityTable`, `createEventsTable`) and
-any raw `DELETE FROM` cleanup are framework internals. Never copy them;
-isolate tests with one tenant each.
+`@cosmicdrift/kumiko-testing/stack`, which creates the entity and event tables
+of the features it gets. In an app, `setupAppTestStack` and `seedTenant` do
+that for you; keep the assertions, take the setup from your scaffolded
+integration test. The recipes that run a worker or a mail pipeline on a bare
+test database (`api-worker-split`, `inbound-mail-triage`, `lane-routing`)
+create tables by hand; that setup, `unsafePushTables` and any raw `DELETE FROM`
+cleanup are framework internals. Never copy them; isolate tests with one
+tenant each.
 
 ## Package entry points
 

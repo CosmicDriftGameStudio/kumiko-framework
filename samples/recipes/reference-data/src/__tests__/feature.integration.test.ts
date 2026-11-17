@@ -9,15 +9,13 @@ import { rebuildProjection } from "@cosmicdrift/kumiko-framework/pipeline";
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { categoryEntity, categoryFeature, categoryTable } from "../feature";
+import { categoryFeature, categoryTable } from "../feature";
 
 let stack: TestStack;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [categoryFeature] });
-  await unsafeCreateEntityTable(stack.db, categoryEntity, "category");
 });
 
 afterAll(async () => {

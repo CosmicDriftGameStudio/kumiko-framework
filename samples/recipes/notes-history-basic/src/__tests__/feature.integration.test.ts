@@ -11,17 +11,13 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import {
   createNotesHistoryFeature,
-  noteEntryEntity,
-  noteMentionEntity,
 } from "@cosmicdrift/kumiko-bundled-features/notes-history";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { taskEntity, taskFeature } from "../feature";
+import { taskFeature } from "../feature";
 import { type NotesClient, notesFlow } from "../usage";
 
 // Each test runs in its own tenant, so rows from other tests never show up.
@@ -38,10 +34,6 @@ let stack: TestStack;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [createNotesHistoryFeature(), taskFeature] });
-  await unsafeCreateEntityTable(stack.db, noteEntryEntity);
-  await unsafeCreateEntityTable(stack.db, noteMentionEntity);
-  await unsafeCreateEntityTable(stack.db, taskEntity);
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {

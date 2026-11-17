@@ -20,7 +20,7 @@ import {
   nullBlindIndexesForSubject,
 } from "@cosmicdrift/kumiko-framework/db";
 import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   resetBlindIndexKeyForTests,
@@ -31,9 +31,8 @@ import {
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { employeeEntity, hrCommentEntity, hrFeature } from "../feature";
+import { employeeEntity, hrFeature } from "../feature";
 
 let stack: TestStack;
 let kms: InMemoryKmsAdapter;
@@ -42,9 +41,6 @@ const admin = TestUsers.admin;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [hrFeature], jobs: { consumerLane: "worker" } });
-  await unsafeCreateEntityTable(stack.db, employeeEntity);
-  await unsafeCreateEntityTable(stack.db, hrCommentEntity);
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {

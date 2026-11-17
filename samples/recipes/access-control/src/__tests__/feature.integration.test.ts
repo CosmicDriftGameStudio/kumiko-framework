@@ -1,18 +1,14 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { z } from "zod";
 import {
   accessControlFeature,
-  projectEntity,
   projectTable,
-  taskEntity,
   taskTable,
 } from "../feature";
 
@@ -22,9 +18,6 @@ const user = TestUsers.user; // { id: 2, tenantId: 1, roles: ["User"] }
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [accessControlFeature] });
-  await unsafeCreateEntityTable(stack.db, projectEntity);
-  await unsafeCreateEntityTable(stack.db, taskEntity);
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {

@@ -22,11 +22,7 @@ import { expectErrorIncludes } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { currencyEntity } from "../entities/currency";
-import { invoiceEntity } from "../entities/invoice";
-import { tenantCurrencyEntity } from "../entities/tenant-currency";
 import { currenciesGlobalFeature } from "../feature";
 
 // The executor returns the rehydrated read-form: money is the combined
@@ -44,9 +40,6 @@ beforeAll(async () => {
     systemHooks: [],
   });
 
-  await unsafeCreateEntityTable(stack.db, currencyEntity);
-  await unsafeCreateEntityTable(stack.db, tenantCurrencyEntity);
-  await unsafeCreateEntityTable(stack.db, invoiceEntity);
 
   // Seed global currency table — same as r.referenceData() does at boot
   await seedReferenceData(currenciesGlobalFeature.referenceData, stack.registry, stack.db);

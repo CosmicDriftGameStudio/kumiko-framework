@@ -189,7 +189,7 @@ after commit through the dispatcher, outside the request's transaction.
 
 ## Samples
 
-Every feature has a tested, runnable example. [samples/README.md](samples/README.md) has the full index; the examples live in two folders:
+Every feature has a tested, runnable example. [packages/framework/agents/examples.md](packages/framework/agents/examples.md) lists every recipe; the examples live in two folders:
 
 - [`samples/recipes/`](samples/recipes/) holds one feature definition and one test per concept.
 - [`samples/apps/`](samples/apps/) holds full-stack demos with a dev server and a browser client.

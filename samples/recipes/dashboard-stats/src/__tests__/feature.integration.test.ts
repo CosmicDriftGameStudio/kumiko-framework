@@ -4,18 +4,15 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import {
   TICKET_CAPABILITIES_QUERY,
   TICKET_LIST_QUERY,
   TICKET_STATS_QUERY,
-  ticketEntity,
   ticketFeature,
 } from "../feature";
 
@@ -25,8 +22,6 @@ const admin = createTestUser({ roles: ["Admin"], tenantId: testTenantId(31) });
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [ticketFeature] });
-  await unsafeCreateEntityTable(stack.db, ticketEntity);
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {

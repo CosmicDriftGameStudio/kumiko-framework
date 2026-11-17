@@ -6,7 +6,6 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
   createDataRetentionFeature,
   runRetentionCleanup,
-  tenantRetentionOverrideEntity,
 } from "@cosmicdrift/kumiko-bundled-features/data-retention";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
@@ -25,9 +24,8 @@ import {
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { retainedDocEntity, retainedDocsFeature } from "../retained-docs";
+import { retainedDocsFeature } from "../retained-docs";
 
 const CREATE = "retained-docs:write:retained-doc:create";
 const DETAIL = "retained-docs:query:retained-doc:detail";
@@ -43,8 +41,6 @@ beforeAll(async () => {
     features: [createFilesFeature(), createDataRetentionFeature(), retainedDocsFeature],
     files: { storageProvider: provider },
   });
-  await unsafeCreateEntityTable(stack.db, retainedDocEntity, "retained-doc");
-  await unsafeCreateEntityTable(stack.db, tenantRetentionOverrideEntity);
 });
 
 afterAll(async () => {

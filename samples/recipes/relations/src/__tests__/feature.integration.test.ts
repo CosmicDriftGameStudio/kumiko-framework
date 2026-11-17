@@ -9,22 +9,17 @@ import {
   type HandlerContext,
   type SaveContext,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createCascadeDeleteHook } from "@cosmicdrift/kumiko-framework/pipeline";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { createTestStoredEvent } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import {
-  memberEntity,
   memberTable,
   relationsFeature,
-  taskEntity,
   taskTable,
-  teamEntity,
 } from "../feature";
 
 let stack: TestStack;
@@ -33,10 +28,6 @@ const admin = TestUsers.admin;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [relationsFeature] });
-  await unsafeCreateEntityTable(stack.db, teamEntity);
-  await unsafeCreateEntityTable(stack.db, memberEntity);
-  await unsafeCreateEntityTable(stack.db, taskEntity);
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {

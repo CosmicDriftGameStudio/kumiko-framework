@@ -15,26 +15,19 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createAuthEmailPasswordFeature } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
-import { tenantComplianceProfileEntity } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
 import {
-  configValueEntity,
   createConfigFeature,
 } from "@cosmicdrift/kumiko-bundled-features/config";
-import { tenantRetentionOverrideEntity } from "@cosmicdrift/kumiko-bundled-features/data-retention";
 import {
   createSessionsFeature,
-  userSessionEntity,
 } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import {
   createTenantFeature,
-  tenantInvitationEntity,
-  tenantMembershipEntity,
   tenantMembershipsTable,
 } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import {
   createUserFeature,
   USER_STATUS,
-  userEntity,
   userTable,
 } from "@cosmicdrift/kumiko-bundled-features/user";
 import {
@@ -50,16 +43,14 @@ import {
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import { fileRefEntity } from "@cosmicdrift/kumiko-framework/files";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { TODO_CREATE_QN, TODO_LIST_QN, todoEntity } from "../feature";
+import { TODO_CREATE_QN, TODO_LIST_QN } from "../feature";
 import { APP_FEATURES } from "../run-config";
 
 let stack: TestStack;
@@ -83,22 +74,6 @@ beforeAll(async () => {
       ...APP_FEATURES,
     ],
   });
-
-  await unsafeCreateEntityTable(stack.db, userEntity);
-  await unsafeCreateEntityTable(stack.db, userSessionEntity);
-  await unsafeCreateEntityTable(stack.db, tenantInvitationEntity);
-  await unsafeCreateEntityTable(stack.db, configValueEntity);
-  await unsafeCreateEntityTable(stack.db, todoEntity);
-  await unsafeCreateEntityTable(stack.db, tenantRetentionOverrideEntity);
-  await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
-  await unsafeCreateEntityTable(stack.db, tenantMembershipEntity);
-  // PR #177 made fileRef a standard ES entity (softDelete:
-  // true). The hand-maintained CREATE TABLE variant would have had to add the columns
-  // is_deleted/deleted_at/deleted_by_id/version/modified_at/modified_by_id
-  // — the user-data-rights hook filters on isDeleted:
-  // false. Instead of maintaining the schema twice, it now comes from the
-  // EntityDefinition.
-  await unsafeCreateEntityTable(stack.db, fileRefEntity);
 });
 
 afterAll(async () => {

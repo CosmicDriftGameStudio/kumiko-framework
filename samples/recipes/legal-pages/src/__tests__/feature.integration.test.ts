@@ -2,16 +2,13 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { legalContentSeed } from "@cosmicdrift/kumiko-bundled-features/legal-pages";
 import {
   createTemplateResolverApi,
-  templateResourceEntity,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { seedTextBlock } from "@cosmicdrift/kumiko-bundled-features/template-resolver/seeding";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import {
   LEGAL_ROUTES,
@@ -32,8 +29,6 @@ beforeAll(async () => {
     }),
   });
   db = stack.db;
-  await unsafeCreateEntityTable(db, templateResourceEntity);
-  await createEventsTable(db);
 
   // Seed required blocks for SYSTEM_TENANT (DE imprint + privacy policy)
   await seedTextBlock(db, {

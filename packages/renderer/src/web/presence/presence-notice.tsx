@@ -1,5 +1,6 @@
 import type { PresenceEntry } from "@cosmicdrift/kumiko-types/presence-types";
-import { type ReactNode, useEffect, useState } from "react";
+import type { ReactNode } from "react";
+import { useNow } from "../../hooks/use-now.ts";
 import { pluralKey } from "../../headless/plural-key.ts";
 import { useTranslation } from "../../index.ts";
 import { Avatar } from "../layout/avatar.tsx";
@@ -15,16 +16,6 @@ export type PresenceNoticeProps = {
   readonly testId?: string;
 };
 
-function useMinuteClock(fixedNowMs: number | undefined): number {
-  const [nowMs, setNowMs] = useState(() => Date.now());
-  useEffect(() => {
-    if (fixedNowMs !== undefined) return;
-    const timer = setInterval(() => setNowMs(Date.now()), MINUTE_MS);
-    return () => clearInterval(timer);
-  }, [fixedNowMs]);
-  return fixedNowMs ?? nowMs;
-}
-
 /** One quiet line above a record: who else is on it and for how long. Renders nothing when
  *  nobody is. */
 export function PresenceNotice({
@@ -34,7 +25,8 @@ export function PresenceNotice({
   testId,
 }: PresenceNoticeProps): ReactNode {
   const t = useTranslation();
-  const now = useMinuteClock(nowMs);
+  const clockNowMs = useNow(nowMs === undefined ? MINUTE_MS : null);
+  const now = nowMs ?? clockNowMs;
   const [first] = entries;
   if (first === undefined) return null;
 

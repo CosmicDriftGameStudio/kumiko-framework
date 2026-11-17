@@ -28,11 +28,10 @@ import {
   resetEventStore,
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 
-import { incidentEntity, incidentTable, webhookDemoFeature } from "../feature";
+import { incidentTable, webhookDemoFeature } from "../feature";
 
 let stack: TestStack;
 let masterKeyProvider: MasterKeyProvider;
@@ -76,7 +75,6 @@ beforeAll(async () => {
       secrets: createSecretsContext({ db, masterKeyProvider, registry }),
     }),
   });
-  await unsafeCreateEntityTable(stack.db, incidentEntity, "incident");
   await unsafePushTables(stack.db, { tenantSecretsTable });
 });
 

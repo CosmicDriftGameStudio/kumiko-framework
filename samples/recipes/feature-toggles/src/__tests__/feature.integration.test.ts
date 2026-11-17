@@ -11,15 +11,12 @@ import { createLateBoundHolder } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import {
   createProductAuditFeature,
   createProductFeature,
-  productAuditEntity,
   productAuditTable,
-  productEntity,
   productTable,
 } from "../feature";
 
@@ -41,8 +38,6 @@ beforeAll(async () => {
   });
 
   await unsafePushTables(stack.db, { globalFeatureStateTable });
-  await unsafeCreateEntityTable(stack.db, productEntity);
-  await unsafeCreateEntityTable(stack.db, productAuditEntity, "product-audit");
 
   runtime = new GlobalFeatureToggleRuntime(stack.db, stack.registry);
   await runtime.initialize();

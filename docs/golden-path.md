@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-11-16
+verified: 2026-11-17
 ---
 
 # Golden path: from entity to tested screen
@@ -70,4 +70,4 @@ test sees another's rows.
 
 - Rules for agents and contributors: [`AGENTS.md`](../AGENTS.md).
 - Folder layout of a real app feature: [app-feature-structure](reference/app-feature-structure.md).
-- More recipes, one per concept: [`samples/README.md`](../samples/README.md).
+- Every recipe, one per concept: [`agents/examples.md`](../packages/framework/agents/examples.md).

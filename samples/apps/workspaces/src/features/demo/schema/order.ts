@@ -3,20 +3,25 @@
 // (clientSchema with navs/workspaces) is obsolete — the client loads the
 // resolved AppSchema itself via the authenticated GET /api/schema.
 
+import { createEntity, createTextField } from "@cosmicdrift/kumiko-framework/engine";
 import type {
-  EntityDefinition,
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 
-export const orderEntity = {
+export const orderEntity = createEntity({
   table: "read_ws_orders",
   fields: {
-    label: { type: "text", required: true, sortable: true, allowPlaintext: "is_business_data" },
-    status: { type: "text", sortable: true, allowPlaintext: "is_business_data" },
-    notes: { type: "text", allowPlaintext: "is_business_data" },
+    label: createTextField({
+      personal: false,
+      reason: "is_business_data",
+      required: true,
+      sortable: true,
+    }),
+    status: createTextField({ personal: false, reason: "is_business_data", sortable: true }),
+    notes: createTextField({ personal: false, reason: "is_business_data" }),
   },
-} as unknown as EntityDefinition;
+});
 
 export const orderListScreen: EntityListScreenDefinition = {
   id: "order-list",

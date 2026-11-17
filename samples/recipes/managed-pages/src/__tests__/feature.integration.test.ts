@@ -4,15 +4,13 @@ import {
   createConfigAccessorFactory,
   createConfigResolver,
 } from "@cosmicdrift/kumiko-bundled-features/config";
-import { BRANDING_QN, pageEntity } from "@cosmicdrift/kumiko-bundled-features/managed-pages";
+import { BRANDING_QN } from "@cosmicdrift/kumiko-bundled-features/managed-pages";
 import { seedPage } from "@cosmicdrift/kumiko-bundled-features/managed-pages/seeding";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { configFeature, managedPagesCssFeature, managedPagesFeature } from "../feature";
@@ -42,9 +40,7 @@ beforeAll(async () => {
       configAccessorFactory: createConfigAccessorFactory(registry, resolver),
     }),
   });
-  await unsafeCreateEntityTable(stack.db, pageEntity);
   await unsafePushTables(stack.db, { configValuesTable });
-  await createEventsTable(stack.db);
 
   await seedPage(stack.db, {
     tenantId: SYSTEM_TENANT_ID,

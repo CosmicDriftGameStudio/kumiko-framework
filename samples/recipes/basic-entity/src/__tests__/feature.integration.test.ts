@@ -3,15 +3,13 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { taskEntity, taskFeature } from "../feature";
+import { taskFeature } from "../feature";
 
 let stack: TestStack;
 
@@ -20,8 +18,6 @@ const user = createTestUser({ id: 2, roles: ["User"] });
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [taskFeature] });
-  await unsafeCreateEntityTable(stack.db, taskEntity);
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {

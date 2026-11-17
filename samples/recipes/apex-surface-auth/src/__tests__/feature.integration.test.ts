@@ -4,19 +4,17 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import {
-  tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
 } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
-import { USER_STATUS, userEntity, userTable } from "@cosmicdrift/kumiko-bundled-features/user";
+import { USER_STATUS, userTable } from "@cosmicdrift/kumiko-bundled-features/user";
 import type { SendDeletionVerificationEmailFn } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
-import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { composeApexAccountApp } from "../feature";
 
@@ -45,9 +43,6 @@ beforeAll(async () => {
     }),
     anonymousAccess: { defaultTenantId: tenant },
   });
-  await unsafeCreateEntityTable(stack.db, userEntity);
-  await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {

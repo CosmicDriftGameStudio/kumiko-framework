@@ -20,10 +20,7 @@ import { expectErrorIncludes } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { currencyEntity } from "../entities/currency";
-import { invoiceEntity } from "../entities/invoice";
 import { currenciesPerTenantFeature } from "../feature";
 
 // The executor returns the rehydrated read-form: money is the combined
@@ -41,8 +38,6 @@ beforeAll(async () => {
     systemHooks: [],
   });
 
-  await unsafeCreateEntityTable(stack.db, currencyEntity);
-  await unsafeCreateEntityTable(stack.db, invoiceEntity);
 
   // Tenant 1 creates their own currencies: EUR, USD, XYZ
   for (const { code, name } of [

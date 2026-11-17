@@ -171,6 +171,45 @@
           }
         }
       }
+    },
+    {
+      "includes": [
+        "samples/**/__tests__/**",
+        "!samples/recipes/api-worker-split/**",
+        "!samples/recipes/inbound-mail-triage/**",
+        "!samples/recipes/lane-routing/**",
+        "!samples/recipes/user-data-rights/src/__tests__/feature.integration.test.ts"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "@cosmicdrift/kumiko-testing/stack": {
+                    "importNames": ["unsafeCreateEntityTable"],
+                    "message": "setupTestStack already creates the r.entity tables of the features it gets; drop the call."
+                  },
+                  "@cosmicdrift/kumiko-framework/event-store": {
+                    "importNames": ["createEventsTable"],
+                    "message": "setupTestStack already creates the events table; drop the call."
+                  },
+                  "temporal-polyfill": {
+                    "message": "import { Temporal } from \"@cosmicdrift/kumiko-types/temporal\" instead — it prefers the native global, so framework and consumer share one set of Temporal classes."
+                  }
+                },
+                "patterns": [
+                  {
+                    "group": ["temporal-polyfill/*"],
+                    "message": "import { Temporal } from \"@cosmicdrift/kumiko-types/temporal\" instead — it prefers the native global, so framework and consumer share one set of Temporal classes."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
     }
   ],
   "extends": ["./packages/framework/presets/biome-rules.json"]

@@ -28,13 +28,11 @@ import {
   resetEventStore,
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import {
   approverDirectoryTable,
   invoiceDetailTable,
-  invoiceEntity,
   invoiceFeature,
 } from "../feature";
 
@@ -43,7 +41,6 @@ const admin = createTestUser({ roles: ["Admin"] });
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [invoiceFeature], systemHooks: [] });
-  await unsafeCreateEntityTable(stack.db, invoiceEntity, "showcase-invoice");
   await unsafePushTables(stack.db, { read_showcase_approver_directory: approverDirectoryTable });
 });
 

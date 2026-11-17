@@ -12,11 +12,9 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import {
   createComplianceProfilesFeature,
-  tenantComplianceProfileEntity,
 } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
 import {
   createDataRetentionFeature,
-  tenantRetentionOverrideEntity,
 } from "@cosmicdrift/kumiko-bundled-features/data-retention";
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import {
@@ -26,7 +24,6 @@ import {
 import {
   createUserFeature,
   USER_STATUS,
-  userEntity,
   userTable,
 } from "@cosmicdrift/kumiko-bundled-features/user";
 import {
@@ -43,7 +40,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { muteEntity, mutesTable, noteEntity, notesFeature, notesTable } from "../feature";
+import { muteEntity, mutesTable, notesFeature, notesTable } from "../feature";
 
 let stack: TestStack;
 
@@ -72,11 +69,6 @@ beforeAll(async () => {
       notesFeature,
     ],
   });
-  await unsafeCreateEntityTable(stack.db, userEntity);
-  await unsafeCreateEntityTable(stack.db, noteEntity);
-  await unsafeCreateEntityTable(stack.db, muteEntity);
-  await unsafeCreateEntityTable(stack.db, tenantRetentionOverrideEntity);
-  await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
   await unsafeCreateEntityTable(stack.db, tenantMembershipEntity);
 });
 

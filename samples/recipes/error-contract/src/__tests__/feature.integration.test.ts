@@ -6,13 +6,11 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { updateRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { OrdersLiteReasons, orderEntity, ordersLiteFeature } from "../feature";
 
@@ -25,8 +23,6 @@ const bob = createTestUser({ id: 11, roles: ["User"] });
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [ordersLiteFeature], systemHooks: [] });
-  await unsafeCreateEntityTable(stack.db, orderEntity);
-  await createEventsTable(stack.db);
 });
 afterAll(async () => stack?.cleanup());
 

@@ -18,9 +18,8 @@ import {
   resetEventStore,
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { capturedEvents, orderEntity, pubsubOrderFeature } from "../feature";
+import { capturedEvents, pubsubOrderFeature } from "../feature";
 
 let stack: TestStack;
 
@@ -28,7 +27,6 @@ const customer = createTestUser({ roles: ["Customer"] });
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [pubsubOrderFeature] });
-  await unsafeCreateEntityTable(stack.db, orderEntity);
 });
 
 afterAll(async () => {

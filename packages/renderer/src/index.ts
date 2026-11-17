@@ -215,6 +215,7 @@ export type {
 } from "./hooks/use-ai-text.ts";
 export { AI_TEXT_RUN_QN, useAiTextAction, useCompletion } from "./hooks/use-ai-text.ts";
 export { useDebouncedValue } from "./hooks/use-debounced-value.ts";
+export { useNow } from "./hooks/use-now.ts";
 export type { UseDisclosureResult } from "./hooks/use-disclosure.ts";
 export { useDisclosure } from "./hooks/use-disclosure.ts";
 export type { UseFormOptions, UseFormResult } from "./hooks/use-form.ts";

@@ -12,16 +12,14 @@ import {
   createFormDraftFeature,
   FormDraftHandlers,
   FormDraftQueries,
-  formDraftEntity,
 } from "@cosmicdrift/kumiko-bundled-features/form-draft";
 import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { listingEntity, listingsFeature } from "../feature";
+import { listingsFeature } from "../feature";
 
 let stack: TestStack;
 
@@ -39,8 +37,6 @@ beforeAll(async () => {
   stack = await setupTestStack({
     features: [listingsFeature, createFormDraftFeature(), createConfigFeature()],
   });
-  await unsafeCreateEntityTable(stack.db, listingEntity);
-  await unsafeCreateEntityTable(stack.db, formDraftEntity);
 });
 
 afterAll(async () => {

@@ -4,14 +4,12 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { noteEntity, noteFeature, preferenceTable } from "../feature";
+import { noteFeature, preferenceTable } from "../feature";
 
 let stack: TestStack;
 
@@ -20,8 +18,6 @@ const tenantBAdmin = createTestUser({ id: 2, tenantId: "00000000-0000-4000-8000-
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [noteFeature] });
-  await unsafeCreateEntityTable(stack.db, noteEntity);
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {

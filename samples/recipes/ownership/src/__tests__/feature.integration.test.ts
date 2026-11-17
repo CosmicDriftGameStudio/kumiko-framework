@@ -10,9 +10,8 @@ import { expectErrorIncludes } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { contractEntity, contractsFeature, teamsFeature } from "../feature";
+import { contractsFeature, teamsFeature } from "../feature";
 
 let stack: TestStack;
 
@@ -45,7 +44,6 @@ let { admin, teamMemberEng, teamMemberOps, driverAlice } = usersForTenant(testTe
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [teamsFeature, contractsFeature] });
-  await unsafeCreateEntityTable(stack.db, contractEntity, "contract");
 });
 
 afterAll(async () => {

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, jest, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, jest, setSystemTime, test } from "bun:test";
 import {
   PRESENCE_CHANGED_EVENT,
   PRESENCE_HEARTBEAT_INTERVAL_MS,
@@ -37,6 +37,22 @@ function entry(name: string, overrides: Partial<PresenceEntry> = {}): PresenceEn
 afterEach(cleanup);
 
 describe("PresenceNotice", () => {
+  test("without nowMs the notice follows the clock once a minute", async () => {
+    jest.useFakeTimers();
+    setSystemTime(new Date(NOW));
+    try {
+      render(<PresenceNotice entries={[entry("Ada")]} />);
+      expect(screen.getByRole("status").textContent).toContain("for 3 min");
+      await act(async () => {
+        jest.advanceTimersByTime(60_000);
+      });
+      expect(screen.getByRole("status").textContent).toContain("for 4 min");
+    } finally {
+      jest.useRealTimers();
+      setSystemTime();
+    }
+  });
+
   test("names the person, the default text and how long they have been there", () => {
     render(<PresenceNotice entries={[entry("Ada")]} nowMs={NOW} />);
     const notice = screen.getByRole("status");

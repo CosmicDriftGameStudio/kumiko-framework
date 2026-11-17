@@ -10,9 +10,8 @@ import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { prospectEntity, prospectsFeature, suggestionEntity } from "../feature";
+import { prospectsFeature } from "../feature";
 
 let stack: TestStack;
 
@@ -30,8 +29,6 @@ async function seedSuggestion(overrides: Partial<Record<string, unknown>> = {}):
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [prospectsFeature] });
-  await unsafeCreateEntityTable(stack.db, suggestionEntity);
-  await unsafeCreateEntityTable(stack.db, prospectEntity);
 });
 
 afterAll(async () => {

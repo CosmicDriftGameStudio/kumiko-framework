@@ -26,7 +26,7 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import { createEnvMasterKeyProvider, createSecret } from "@cosmicdrift/kumiko-framework/secrets";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
@@ -111,7 +111,6 @@ beforeAll(async () => {
   await unsafePushTables(stack.db, {
     tenant_secrets: tenantSecretsTable,
   });
-  await createEventsTable(stack.db);
 
   // BullMQ-backed job runner. Triggering rotate via dispatch() routes
   // through the queue + worker just like production — not a direct call

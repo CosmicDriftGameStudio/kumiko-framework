@@ -2,8 +2,14 @@
 // The browser loads them itself via the authenticated GET /api/schema
 // (buildAppSchema) — no hand-written clientSchema mirror.
 
+import {
+  createBooleanField,
+  createEntity,
+  createNumberField,
+  createSelectField,
+  createTextField,
+} from "@cosmicdrift/kumiko-framework/engine";
 import type {
-  EntityDefinition,
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
@@ -22,21 +28,22 @@ const TASK_AREAS = [
   "finance",
 ] as const;
 
-// Entity — cast at the boundary. `createEntity` from framework/engine
-// would read nicer here, but its import path pulls the full framework
-// runtime; that is a later cleanup.
-export const taskEntity = {
+export const taskEntity = createEntity({
   table: "read_ui_walkthrough_tasks",
-
   fields: {
-    title: { type: "text", required: true, sortable: true, allowPlaintext: "is_business_data" },
-    status: { type: "select", options: TASK_STATUSES, display: "radio", sortable: true },
-    area: { type: "select", options: TASK_AREAS },
-    priority: { type: "number" },
-    isUrgent: { type: "boolean", default: false },
-    notes: { type: "text", allowPlaintext: "is_business_data" },
+    title: createTextField({
+      personal: false,
+      reason: "is_business_data",
+      required: true,
+      sortable: true,
+    }),
+    status: createSelectField({ options: TASK_STATUSES, display: "radio", sortable: true }),
+    area: createSelectField({ options: TASK_AREAS }),
+    priority: createNumberField(),
+    isUrgent: createBooleanField({ default: false }),
+    notes: createTextField({ personal: false, reason: "is_business_data" }),
   },
-} as unknown as EntityDefinition;
+});
 
 // Screens carry SHORT ids — the registry qualifies them to
 // `${featureName}:screen:${id}` on r.screen() ingest.

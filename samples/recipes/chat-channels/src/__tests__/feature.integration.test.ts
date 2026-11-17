@@ -23,7 +23,6 @@ import {
 import {
   createTenantFeature,
   TenantQueries,
-  tenantEntity,
   tenantMembershipsTable,
 } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
@@ -34,7 +33,6 @@ import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { OPS_ANNOUNCEMENT_TYPE, opsFeature } from "../feature";
@@ -104,7 +102,6 @@ beforeAll(async () => {
     tenantMembershipsTable,
     tenant_secrets: tenantSecretsTable,
   });
-  await unsafeCreateEntityTable(stack.db, tenantEntity, "tenant");
   await jobRunner.start();
 });
 

@@ -15,14 +15,12 @@ import {
   DEFAULT_PDF_LAYOUT_SLUG_CONFIG_KEY,
   TemplateResolverHandlers,
   TemplateResolverQueries,
-  templateResourceEntity,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import {
   createTenantFeature,
-  tenantEntity,
   tenantMembershipsTable,
 } from "@cosmicdrift/kumiko-bundled-features/tenant";
-import { createUserFeature, userEntity } from "@cosmicdrift/kumiko-bundled-features/user";
+import { createUserFeature } from "@cosmicdrift/kumiko-bundled-features/user";
 import {
   createFilesFeature,
   createInMemoryFileProvider,
@@ -31,12 +29,10 @@ import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-fra
 import {
   createRendererPuppeteerClientFeature,
   RendererPuppeteerClientQueries,
-  renderedPdfEntity,
 } from "@cosmicdrift/kumiko-renderer-puppeteer-client";
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import {
@@ -80,10 +76,6 @@ beforeAll(async () => {
       };
     },
   });
-  await unsafeCreateEntityTable(stack.db, userEntity);
-  await unsafeCreateEntityTable(stack.db, tenantEntity);
-  await unsafeCreateEntityTable(stack.db, templateResourceEntity);
-  await unsafeCreateEntityTable(stack.db, renderedPdfEntity, "rendered-pdf");
   await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
 
   await stack.http.writeOk(

@@ -25,7 +25,6 @@ import {
   createRegistry,
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import { TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
@@ -66,7 +65,6 @@ beforeAll(async () => {
     },
   });
   await unsafePushTables(stack.db, { configValuesTable, tenantSecretsTable });
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => stack?.cleanup());

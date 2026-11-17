@@ -1,13 +1,11 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { publicShareTokenFeature, shareLinkEntity } from "../feature";
+import { publicShareTokenFeature } from "../feature";
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
 
@@ -20,8 +18,6 @@ beforeAll(async () => {
     features: [publicShareTokenFeature],
     anonymousAccess: { defaultTenantId: TENANT_ID },
   });
-  await unsafeCreateEntityTable(stack.db, shareLinkEntity);
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {
