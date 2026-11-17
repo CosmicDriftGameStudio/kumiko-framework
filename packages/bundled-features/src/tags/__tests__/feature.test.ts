@@ -5,8 +5,10 @@ import {
   createTagPayloadSchema,
   deleteTagPayloadSchema,
   rejectBlankTagNameChange,
+  rejectEmptyTagUpdate,
   rejectInvalidTagColorChange,
   removeTagPayloadSchema,
+  trimTagName,
 } from "../schemas.ts";
 import { DEFAULT_TAG_ROLES } from "../web/constants.ts";
 
@@ -258,5 +260,32 @@ describe("rejectBlankTagNameChange", () => {
   test("passes a real name and changes without a name", () => {
     expect(rejectBlankTagNameChange({ changes: { name: "Neu" } })).toBeNull();
     expect(rejectBlankTagNameChange({ changes: { color: "#fff" } })).toBeNull();
+  });
+});
+
+describe("rejectEmptyTagUpdate", () => {
+  test("rejects a no-op (id + version, no mutable field)", () => {
+    const expected = [{ field: "changes", error: "no_changes" }];
+    expect(rejectEmptyTagUpdate({ id: "tag-1", version: 0, changes: {} })).toEqual(expected);
+    expect(rejectEmptyTagUpdate({ id: "tag-1", version: 0 })).toEqual(expected);
+  });
+
+  test("passes name-only, color-only, scope-only and scope cleared with ''", () => {
+    expect(rejectEmptyTagUpdate({ changes: { name: "Neu" } })).toBeNull();
+    expect(rejectEmptyTagUpdate({ changes: { color: "#fff" } })).toBeNull();
+    expect(rejectEmptyTagUpdate({ changes: { scope: "note" } })).toBeNull();
+    expect(rejectEmptyTagUpdate({ changes: { scope: "" } })).toBeNull();
+  });
+});
+
+describe("trimTagNameChange", () => {
+  test("trims the changed name and leaves other changes alone", () => {
+    const trimmed = trimTagName({ name: "  foo  ", scope: " x " });
+    expect(trimmed).toEqual({ name: "foo", scope: " x " });
+  });
+
+  test("passes changes without a name through", () => {
+    const changes = { color: "#fff" };
+    expect(trimTagName(changes)).toBe(changes);
   });
 });

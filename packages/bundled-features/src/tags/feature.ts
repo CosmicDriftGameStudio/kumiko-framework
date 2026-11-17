@@ -37,7 +37,12 @@ import { createCreateTagHandler } from "./handlers/create-tag.write.ts";
 import { createDeleteTagHandler } from "./handlers/delete-tag.write.ts";
 import { createRemoveTagHandler } from "./handlers/remove-tag.write.ts";
 import { TAGS_FEATURE_I18N, TAGS_HANDLER_I18N } from "./i18n.ts";
-import { rejectBlankTagNameChange, rejectInvalidTagColorChange } from "./schemas.ts";
+import {
+  rejectBlankTagNameChange,
+  rejectEmptyTagUpdate,
+  rejectInvalidTagColorChange,
+  trimTagNameChange,
+} from "./schemas.ts";
 import { createTagEditScreen, createTagListScreen } from "./screens.ts";
 import { DEFAULT_TAG_ACCESS, TAGS_FEATURE_NAME } from "./web/constants.ts";
 
@@ -83,6 +88,8 @@ function registerTags(
   );
   r.hook({ type: "validation", target: tagUpdate, handler: rejectInvalidTagColorChange });
   r.hook({ type: "validation", target: tagUpdate, handler: rejectBlankTagNameChange });
+  r.hook({ type: "validation", target: tagUpdate, handler: rejectEmptyTagUpdate });
+  r.hook({ type: "preSave", target: tagUpdate, handler: trimTagNameChange });
   const assignmentExecutor = createTagAssignmentExecutor(ownership, parents);
   r.writeHandler(createDeleteTagHandler(access, assignmentExecutor));
   r.writeHandler(createAssignTagHandler(access, assignmentExecutor));

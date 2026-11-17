@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { check, countMockCalls } from "../guard-integration-mocks";
+import { check, countMockCalls, MOCK_EXEMPTION_REASONS, toPosixPath } from "../guard-integration-mocks";
 import { fixtureRoot } from "./parent-workspace-fixture";
 
 describe("countMockCalls", () => {
@@ -24,6 +24,7 @@ describe("countMockCalls", () => {
     ["member call ctx.mock(", "await ctx.mock(payload);"],
     ["member call foo.spyOn(", "foo.spyOn(arg);"],
     ["identifier mockUser(", "const u = mockUser();"],
+    ["identifier substring (spyOnce)", "await spyOnce.run();"],
     ["the word in text", 'const label = "mocked";'],
     ["no mock at all", 'await stack.http.writeOk("a:b:c", {}, user);'],
   ])("does not flag %s", (_label, source) => {
@@ -32,6 +33,27 @@ describe("countMockCalls", () => {
 
   test("counts every call", () => {
     expect(countMockCalls('spyOn(a, "x");\nspyOn(b, "y");')).toBe(2);
+  });
+});
+
+describe("toPosixPath", () => {
+  test("normalises backslash separators to forward slashes", () => {
+    expect(toPosixPath("samples\\foo\\a.integration.test.ts", "\\")).toBe(
+      "samples/foo/a.integration.test.ts",
+    );
+  });
+});
+
+describe("repo baseline", () => {
+  test("every frozen file carries a written reason", () => {
+    const baselineFile = join(
+      import.meta.dir,
+      "../../../../.kumiko-integration-mocks-baseline.json",
+    );
+    const { perFile } = JSON.parse(readFileSync(baselineFile, "utf-8")) as {
+      perFile: Record<string, number>;
+    };
+    expect(Object.keys(perFile).sort()).toEqual(Object.keys(MOCK_EXEMPTION_REASONS).sort());
   });
 });
 

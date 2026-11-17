@@ -8,6 +8,7 @@ import {
   createTextField,
   defineFeature,
   type EntityDefinition,
+  SYSTEM_TENANT_ID,
   type SessionUser,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
@@ -94,6 +95,7 @@ const leaseExecutor = createEventStoreExecutor(buildEntityTable(leaseEntity), le
 
 const provider = createInMemoryFileProvider();
 const deliveredLinks: string[] = [];
+const deliveredUrls = new Map<string, string>();
 let stack: TestStack;
 let leaseA: string;
 let leaseB: string;
@@ -102,9 +104,9 @@ const fileRefExecutor = createEventStoreExecutor(fileRefsTable, fileRefEntity, {
   entityName: "fileRef",
 });
 
-function hostDb() {
+function hostDb(db: TestStack["db"] = stack.db) {
   return createTenantDb({
-    db: stack.db,
+    db,
     tenantId: TENANT,
     mode: "system",
     reason: "test seeds the host row",
@@ -117,30 +119,35 @@ async function seedLease(teamId: string): Promise<string> {
   return String(created.data.id);
 }
 
+function stackFeatures(linkSecret: string) {
+  return [
+    createUserFeature(),
+    createAuthFoundationFeature(),
+    createSessionsFeature(),
+    createDataRetentionFeature(),
+    createComplianceProfilesFeature(),
+    createUserDataRightsFeature(),
+    createFilesFeature(),
+    createTemplateResolverFeature(),
+    createRendererFoundationFeature(),
+    createRendererPuppeteerClientFeature(),
+    leaseHostFeature,
+    createSignatureFeature({
+      retention: { keepFor: "10y", unfinishedKeepFor: "90d" },
+      linkSecret,
+      hostEntities: [HOST_TYPE],
+      signaturePageUrl: "https://app.example/sign",
+      deliverLink: async (_ctx, delivery) => {
+        deliveredLinks.push(delivery.signerId);
+        deliveredUrls.set(delivery.signerId, delivery.url);
+      },
+    }),
+  ];
+}
+
 beforeAll(async () => {
   stack = await setupTestStack({
-    features: [
-      createUserFeature(),
-      createAuthFoundationFeature(),
-      createSessionsFeature(),
-      createDataRetentionFeature(),
-      createComplianceProfilesFeature(),
-      createUserDataRightsFeature(),
-      createFilesFeature(),
-      createTemplateResolverFeature(),
-      createRendererFoundationFeature(),
-      createRendererPuppeteerClientFeature(),
-      leaseHostFeature,
-      createSignatureFeature({
-        retention: { keepFor: "10y", unfinishedKeepFor: "90d" },
-        linkSecret: "signature-host-gate-test-link-secret-0123456789",
-        hostEntities: [HOST_TYPE],
-        signaturePageUrl: "https://app.example/sign",
-        deliverLink: async (_ctx, delivery) => {
-          deliveredLinks.push(delivery.signerId);
-        },
-      }),
-    ],
+    features: stackFeatures("signature-host-gate-test-link-secret-0123456789"),
     files: { storageProvider: provider },
   });
 });
@@ -157,11 +164,15 @@ beforeEach(async () => {
     eventsTable,
   ]);
   deliveredLinks.length = 0;
+  deliveredUrls.clear();
   leaseA = await seedLease("team-a");
   leaseB = await seedLease("team-b");
 });
 
-async function seedDocument(uploader: SessionUser): Promise<string> {
+async function seedDocument(
+  uploader: SessionUser,
+  db: TestStack["db"] = stack.db,
+): Promise<string> {
   const pdf = await PDFDocument.create();
   pdf.addPage();
   const content = await pdf.save();
@@ -170,7 +181,7 @@ async function seedDocument(uploader: SessionUser): Promise<string> {
   const created = await fileRefExecutor.create(
     { storageKey, fileName: "contract.pdf", mimeType: "application/pdf", size: content.length },
     uploader,
-    hostDb(),
+    hostDb(db),
   );
   if (!created.isSuccess) throw new Error(`fileRef create failed: ${created.error.message}`);
   return String(created.data.id);
@@ -178,9 +189,14 @@ async function seedDocument(uploader: SessionUser): Promise<string> {
 
 type RequestData = { requestId: string; signerIds: string[] };
 
-async function requestPayload(uploader: SessionUser, hostType: string, hostId: string) {
+async function requestPayload(
+  uploader: SessionUser,
+  hostType: string,
+  hostId: string,
+  db: TestStack["db"] = stack.db,
+) {
   return {
-    documentFileId: await seedDocument(uploader),
+    documentFileId: await seedDocument(uploader, db),
     title: "Rental agreement",
     subjectType: "protocol",
     subjectId: "handover",
@@ -398,5 +414,143 @@ describe("signature :: host changes", () => {
     expect(moved.isSuccess).toBe(true);
     expect((await listRequests(USER_A)).rows).toEqual([]);
     expect((await listRequests(USER_B)).rows.map((row) => row.id)).toEqual([requestId]);
+  });
+});
+
+async function requestOnLease(
+  uploader: SessionUser,
+  hostId: string,
+  subjectId: string,
+): Promise<string> {
+  const created = await stack.http.writeOk<RequestData>(
+    SignatureHandlers.request,
+    { ...(await requestPayload(uploader, HOST_TYPE, hostId)), subjectId },
+    uploader,
+  );
+  return created.requestId;
+}
+
+describe("signature :: host gate on aggregate, filters and cursor paging", () => {
+  test("group counts of a restricted user count only requests of readable hosts", async () => {
+    await Promise.all([requestOnLeaseA(), requestOnLeaseA(), requestOnLeaseA()]);
+    await requestOnLease(ADMIN, leaseB, "handover");
+    const aggregate = { aggregate: { groupBy: "status" } };
+
+    const forA = await stack.http.queryOk<unknown>(SignatureQueries.list, aggregate, USER_A);
+    const forB = await stack.http.queryOk<unknown>(SignatureQueries.list, aggregate, USER_B);
+    const forAdmin = await stack.http.queryOk<unknown>(SignatureQueries.list, aggregate, ADMIN);
+
+    const open = SIGNATURE_REQUEST_STATUS.Open;
+    expect(forA).toMatchObject({ groups: [{ key: open, count: 3 }] });
+    expect(forB).toMatchObject({ groups: [{ key: open, count: 1 }] });
+    expect(forAdmin).toMatchObject({ groups: [{ key: open, count: 4 }] });
+  });
+
+  test("a subjectId or hostId filter (eq and in) shows a restricted user only requests of readable hosts", async () => {
+    const ownA = await requestOnLease(USER_A, leaseA, "subject-shared");
+    const ownB = await requestOnLease(ADMIN, leaseB, "subject-shared");
+    const filters = {
+      subjectEq: [{ field: "subjectId", op: "eq", value: "subject-shared" }],
+      subjectIn: [{ field: "subjectId", op: "in", value: ["subject-shared", "subject-other"] }],
+      hostEq: [{ field: "hostId", op: "eq", value: leaseA }],
+      hostIn: [{ field: "hostId", op: "in", value: [leaseA, leaseB] }],
+      foreignHostEq: [{ field: "hostId", op: "eq", value: leaseB }],
+    };
+    const idsFor = async (user: SessionUser, key: keyof typeof filters) =>
+      (await listRequests(user, { filters: filters[key], limit: 200 })).rows.map((row) => row.id);
+
+    for (const key of ["subjectEq", "subjectIn", "hostIn"] as const) {
+      expect(await idsFor(USER_A, key)).toEqual([ownA]);
+      expect(await idsFor(USER_B, key)).toEqual([ownB]);
+    }
+    expect(await idsFor(USER_A, "hostEq")).toEqual([ownA]);
+    expect(await idsFor(USER_B, "hostEq")).toEqual([]);
+    expect(await idsFor(USER_A, "foreignHostEq")).toEqual([]);
+    expect(await idsFor(USER_B, "foreignHostEq")).toEqual([ownB]);
+  });
+
+  test("cursor paging reaches every own request of a restricted user without duplicates or foreign rows", async () => {
+    const own = [
+      await requestOnLease(USER_A, leaseA, "s1"),
+      await requestOnLease(USER_A, leaseA, "s2"),
+      await requestOnLease(USER_A, leaseA, "s3"),
+    ];
+    const foreign = [
+      await requestOnLease(ADMIN, leaseB, "s4"),
+      await requestOnLease(ADMIN, leaseB, "s5"),
+    ];
+    const seen: string[] = [];
+    let cursor: string | null = null;
+    let pages = 0;
+    do {
+      const page: Page<RequestRow> = await listRequests(USER_A, {
+        limit: 2,
+        ...(cursor !== null && { cursor }),
+      });
+      expect(page.rows.length).toBeLessThanOrEqual(2);
+      seen.push(...page.rows.map((row) => row.id));
+      cursor = page.nextCursor;
+      pages += 1;
+    } while (cursor !== null && pages < 10);
+
+    expect(cursor).toBeNull();
+    expect(new Set(seen).size).toBe(seen.length);
+    expect([...seen].sort()).toEqual([...own].sort());
+    for (const id of foreign) expect(seen).not.toContain(id);
+  });
+});
+
+describe("signature :: empty linkSecret", () => {
+  test("the app boots and every link is refused", async () => {
+    const emptySecretStack = await setupTestStack({
+      features: stackFeatures(""),
+      files: { storageProvider: provider },
+      anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID },
+    });
+    try {
+      const lease = await leaseExecutor.create(
+        { teamId: "team-a", name: "Lease empty secret" },
+        ADMIN,
+        createTenantDb({
+          db: emptySecretStack.db,
+          tenantId: TENANT,
+          mode: "system",
+          reason: "test seeds the host row",
+        }),
+      );
+      if (!lease.isSuccess) throw new Error(`lease create failed: ${lease.error.message}`);
+      const created = await emptySecretStack.http.writeOk<RequestData>(
+        SignatureHandlers.request,
+        await requestPayload(USER_A, HOST_TYPE, String(lease.data.id), emptySecretStack.db),
+        USER_A,
+      );
+      const signerId = created.signerIds[0];
+      if (signerId === undefined) throw new Error("request created no signer");
+
+      const tokens = ["x", "a.b.c", "forged-token"];
+      await emptySecretStack.http.writeWithHeaders(
+        SignatureHandlers.issueLink,
+        { signerId },
+        USER_A,
+        {},
+      );
+      const issuedUrl = deliveredUrls.get(signerId);
+      if (issuedUrl !== undefined) tokens.push(issuedUrl.split("#")[1] ?? "");
+
+      for (const token of tokens) {
+        for (const type of [SignatureHandlers.openByLink, SignatureHandlers.signByLink]) {
+          const response = await emptySecretStack.http.raw(
+            "POST",
+            "/api/write",
+            { type, payload: { token, imagePngBase64: toBase64(makePng()) } },
+            { "x-forwarded-for": "198.51.100.7" },
+          );
+          const body = (await response.json()) as { isSuccess: boolean };
+          expect(body.isSuccess).toBe(false);
+        }
+      }
+    } finally {
+      await emptySecretStack.cleanup();
+    }
   });
 });

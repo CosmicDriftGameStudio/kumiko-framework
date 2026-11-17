@@ -159,7 +159,7 @@ async function resolveTenantScopeDenial(
   // ponytail: fail-open here, not a gap in multi-tenant apps).
   if (!features.has("tenant")) return undefined;
 
-  const reach = await resolveAdminReachOverUser(db, user, raw.userId);
+  const reach = await resolveAdminReachOverUser(db, user, raw.userId, features.has("user"));
   if (reach.kind === "within-reach") return undefined;
 
   // Only a subject without any membership may still be a self-owned PII subject

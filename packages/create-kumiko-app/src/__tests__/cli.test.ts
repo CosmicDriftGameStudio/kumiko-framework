@@ -134,3 +134,30 @@ describe("parseArgv --blank", () => {
     expect(parseArgv(["my-app"]).starter).toBeUndefined();
   });
 });
+
+describe("--dest", () => {
+  test("parseArgv reads --dest <dir> and does not take its value as the app name", () => {
+    const args = parseArgv(["--dest", "./apps/my-shop", "my-shop"]);
+    expect(args.dest).toBe("./apps/my-shop");
+    expect(args.name).toBe("my-shop");
+    expect(parseArgv(["my-shop"]).dest).toBeUndefined();
+  });
+
+  test("runCreate scaffolds into --dest instead of ./<name>", async () => {
+    const tmp = mkdtempSync(join(tmpdir(), "create-kumiko-app-dest-"));
+    try {
+      const code = await runCreate({
+        name: "my-shop",
+        dest: join(tmp, "apps", "custom"),
+        yes: true,
+        cwd: tmp,
+        log: () => {},
+      });
+      expect(code).toBe(0);
+      expect(existsSync(join(tmp, "apps", "custom", "package.json"))).toBe(true);
+      expect(existsSync(join(tmp, "my-shop"))).toBe(false);
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+});

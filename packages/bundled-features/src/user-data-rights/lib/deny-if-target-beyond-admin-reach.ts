@@ -43,18 +43,22 @@ function beyondReach(reason: string, hasNoMembership = false): AdminReach {
 /**
  * The user row, its sessions and its KMS key are global, so a tenant-scoped admin may only act
  * on a target who is a member of the admin's tenant alone and does not outrank the admin.
- * SystemAdmin skips.
+ * SystemAdmin skips. Without the user feature there is no user row, so the global-role checks
+ * are skipped and only the membership-derived checks apply.
  */
 export async function resolveAdminReachOverUser(
   db: DbRaw,
   actor: SessionUser,
   targetUserId: string,
+  userFeatureMounted: boolean,
 ): Promise<AdminReach> {
   if (isSystemAdminActor(actor)) return WITHIN_REACH;
 
   const [memberships, userRow] = await Promise.all([
     selectMany<MembershipRow>(db, tenantMembershipsTable, { userId: targetUserId }),
-    fetchOne<{ roles: unknown }>(db, userTable, { id: targetUserId }),
+    userFeatureMounted
+      ? fetchOne<{ roles: unknown }>(db, userTable, { id: targetUserId })
+      : undefined,
   ]);
   if (memberships.length === 0) return beyondReach(TARGET_USER_NOT_IN_ADMIN_TENANT, true);
 
@@ -83,7 +87,8 @@ export async function denyIfTargetBeyondAdminReach(
   db: DbRaw,
   actor: SessionUser,
   targetUserId: string,
+  userFeatureMounted: boolean,
 ): Promise<WriteFailure | undefined> {
-  const reach = await resolveAdminReachOverUser(db, actor, targetUserId);
+  const reach = await resolveAdminReachOverUser(db, actor, targetUserId, userFeatureMounted);
   return reach.kind === "beyond-reach" ? reach.denial : undefined;
 }

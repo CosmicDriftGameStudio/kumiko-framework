@@ -313,6 +313,70 @@ describe("tags integration — update (recolor / re-scope)", () => {
     expect(after?.["scope"]).toBe("note");
   });
 
+  test("tag:update changes only the scope, preserving name and color", async () => {
+    const { id } = await stack.http.writeOk<{ id: string }>(
+      TagsHandlers.createTag,
+      { name: "Nur Bereich", color: "#123456" },
+      admin,
+    );
+    const version = (await tagById(id))?.["version"] as number;
+    await stack.http.writeOk(
+      TagsHandlers.updateTag,
+      { id, version, changes: { scope: "note" } },
+      admin,
+    );
+    const after = await tagById(id);
+    expect(after?.["scope"]).toBe("note");
+    expect(after?.["name"]).toBe("Nur Bereich");
+    expect(after?.["color"]).toBe("#123456");
+  });
+
+  test("tag:update with empty scope clears it", async () => {
+    const { id } = await stack.http.writeOk<{ id: string }>(
+      TagsHandlers.createTag,
+      { name: "Bereich leeren", scope: "note" },
+      admin,
+    );
+    const version = (await tagById(id))?.["version"] as number;
+    await stack.http.writeOk(
+      TagsHandlers.updateTag,
+      { id, version, changes: { scope: "" } },
+      admin,
+    );
+    expect((await tagById(id))?.["scope"]).toBe("");
+  });
+
+  test("tag:update trims the name server-side", async () => {
+    const { id } = await stack.http.writeOk<{ id: string }>(
+      TagsHandlers.createTag,
+      { name: "Vorher" },
+      admin,
+    );
+    const version = (await tagById(id))?.["version"] as number;
+    await stack.http.writeOk(
+      TagsHandlers.updateTag,
+      { id, version, changes: { name: "  foo  " } },
+      admin,
+    );
+    expect((await tagById(id))?.["name"]).toBe("foo");
+  });
+
+  test("tag:update rejects a no-op (id + version, no mutable field)", async () => {
+    const { id } = await stack.http.writeOk<{ id: string }>(
+      TagsHandlers.createTag,
+      { name: "Kein Feld" },
+      admin,
+    );
+    const version = (await tagById(id))?.["version"] as number;
+    const err = await stack.http.writeErr(
+      TagsHandlers.updateTag,
+      { id, version, changes: {} },
+      admin,
+    );
+    expectErrorIncludes(err, "no_changes");
+    expect((await tagById(id))?.["version"]).toBe(version);
+  });
+
   test("tag:update with empty color clears it", async () => {
     const { id } = await stack.http.writeOk<{ id: string }>(
       TagsHandlers.createTag,

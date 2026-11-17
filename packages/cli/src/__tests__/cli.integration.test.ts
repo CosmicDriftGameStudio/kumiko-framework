@@ -122,6 +122,29 @@ describe("kumiko cli", () => {
     expect(captured.errs.join("\n")).toContain("kebab-case");
   });
 
+  test("new rejects a non-'app' subject", async () => {
+    const { out, captured } = capture();
+    const code = await runCli({ argv: ["new", "feature", "x"], cwd: tmp, out });
+    expect(code).toBe(1);
+    expect(captured.errs.join("\n")).toContain('only "new app <name>"');
+  });
+
+  test("add rejects a non-'feature' subject", async () => {
+    const { out, captured } = capture();
+    const code = await runCli({ argv: ["add", "app", "x"], cwd: tmp, out });
+    expect(code).toBe(1);
+    expect(captured.errs.join("\n")).toContain('only "add feature <name>"');
+  });
+
+  test("new app --dest scaffolds into the given directory", async () => {
+    const { out } = capture();
+    const dest = join(tmp, "apps", "my-shop");
+    const code = await runCli({ argv: ["new", "app", "my-shop", "--dest", dest], cwd: tmp, out });
+    expect(code).toBe(0);
+    expect(() => readFileSync(join(dest, "package.json"), "utf-8")).not.toThrow();
+    expect(() => readFileSync(join(tmp, "my-shop", "package.json"), "utf-8")).toThrow();
+  });
+
   test("new app without name exits 1 with usage hint", async () => {
     const { out, captured } = capture();
     const code = await runCli({ argv: ["new", "app"], cwd: tmp, out });

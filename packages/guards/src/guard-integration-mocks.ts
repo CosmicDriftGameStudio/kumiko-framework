@@ -23,6 +23,28 @@ export function countMockCalls(content: string): number {
   return content.match(MOCK_CALL_PATTERN)?.length ?? 0;
 }
 
+export function toPosixPath(relativePath: string, separator: string = path.sep): string {
+  return relativePath.split(separator).join("/");
+}
+
+/**
+ * Reviewed exceptions frozen in `.kumiko-integration-mocks-baseline.json`. The JSON carries counts only, so the reason per file lives here; a baseline entry without a reason here fails the guard test.
+ *
+ * Former allowlist entry `packages/bundled-features/src/workflow-runner/__tests__/event-wakeup.integration.test.ts` (file no longer exists, so not frozen): spies Temporal.Now.instant to run the app clock ahead of the database clock, the only way to reproduce a wakeAt stamped with the app clock (Postgres now() cannot be faked); stack, DB and the resume job are real.
+ */
+export const MOCK_EXEMPTION_REASONS: Readonly<Record<string, string>> = {
+  "samples/recipes/auth-claims/src/__tests__/feature.integration.test.ts":
+    "spies the logger to assert a drift-warning side-channel; the stack itself is real (setupTestStack).",
+  "packages/dev-server/src/__tests__/schema-apply.integration.test.ts":
+    "spies console.warn to assert the 522/3 unmatched-rebuild-table warning fires; the schema apply + DB migration are real.",
+  "packages/bundled-features/src/user-data-rights/__tests__/run-export-jobs.integration.test.ts":
+    "spies console.warn to assert a cleanup-failure warning fires; the job run + DB state are real (setupTestStack).",
+  "packages/dev-server/src/__tests__/run-dev-app.integration.test.ts":
+    "spies console.warn to assert the missing-sessionStore boot warning fires (#2027); runDevApp itself boots for real (server, DB).",
+  "packages/framework/src/api/__tests__/http-route-rate-limit.integration.test.ts":
+    'spies console.warn to assert the warn-once "trustedProxyHops is 0 but X-Forwarded-For was set" notice fires exactly once across repeated requests, not once per request; the stack, HTTP calls and rate-limit enforcement are all real.',
+};
+
 const SCAN: ScanSpec = {
   scope: "tests",
   extensions: ["ts"],
@@ -60,7 +82,7 @@ function countsPerRoot(roots: readonly RepoRoot[]): RootCounts[] {
     const integrationFiles = files.filter(isIntegrationTestFile);
     for (const file of integrationFiles) {
       const calls = countMockCalls(readFileSync(file, "utf-8"));
-      if (calls > 0) counts[path.relative(root.absPath, file).split(path.sep).join("/")] = calls;
+      if (calls > 0) counts[toPosixPath(path.relative(root.absPath, file))] = calls;
     }
     return { root, counts, scannedFiles: integrationFiles.length };
   });

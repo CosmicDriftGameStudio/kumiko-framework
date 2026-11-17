@@ -9,7 +9,8 @@ import {
   OPTIONAL_HEX_COLOR_CONFIG_PATTERN,
   OPTIONAL_HTTPS_URL_CONFIG_PATTERN,
 } from "../page-render/index.ts";
-import { LAYOUT_PRESETS } from "./constants.ts";
+import { LAYOUT_PRESETS, LEGACY_BRANDING_QN } from "./constants.ts";
+import { computedFromLegacyKey } from "./legacy-computed.ts";
 
 // Per-tenant branding so every app + studio-tenant gets tenant-editable
 // branding. Stored as `config` keys (scope: tenant), edited via the
@@ -57,37 +58,44 @@ const BRANDING_WRITE = access.withSystem(access.admin);
 export const BRANDING_KEYS = {
   title: createTenantConfig("text", {
     default: "",
+    computed: computedFromLegacyKey(LEGACY_BRANDING_QN.title, ""),
     pattern: TITLE_PATTERN,
     write: BRANDING_WRITE,
   }),
   description: createTenantConfig("text", {
     default: "",
+    computed: computedFromLegacyKey(LEGACY_BRANDING_QN.description, ""),
     pattern: DESCRIPTION_PATTERN,
     write: BRANDING_WRITE,
   }),
   siteUrl: createTenantConfig("text", {
     default: "",
+    computed: computedFromLegacyKey(LEGACY_BRANDING_QN.siteUrl, ""),
     pattern: OPTIONAL_HTTPS_URL_CONFIG_PATTERN,
     write: BRANDING_WRITE,
   }),
   accentColor: createTenantConfig("text", {
     default: "",
+    computed: computedFromLegacyKey(LEGACY_BRANDING_QN.accentColor, ""),
     pattern: OPTIONAL_HEX_COLOR_CONFIG_PATTERN,
     write: BRANDING_WRITE,
   }),
   logoUrl: createTenantConfig("text", {
     default: "",
+    computed: computedFromLegacyKey(LEGACY_BRANDING_QN.logoUrl, ""),
     pattern: OPTIONAL_HTTPS_URL_CONFIG_PATTERN,
     write: BRANDING_WRITE,
   }),
   // Ownership is checked where it is read (renderer-mail-html: FileRef must belong to the rendering tenant).
   logoFile: createTenantConfig("text", {
     default: "",
+    computed: computedFromLegacyKey(LEGACY_BRANDING_QN.logoFile, ""),
     pattern: FILE_REF_ID_PATTERN,
     write: BRANDING_WRITE,
   }),
   layoutPreset: createTenantConfig("select", {
     default: "centered",
+    computed: computedFromLegacyKey(LEGACY_BRANDING_QN.layoutPreset, "centered"),
     options: LAYOUT_PRESETS,
     write: BRANDING_WRITE,
   }),
@@ -98,7 +106,11 @@ export const BRANDING_KEYS = {
 // off (fail-closed at the app level). The render-time sanitizer is the real
 // safety boundary; this is the opt-in switch + a per-tenant toggle gate.
 export const CUSTOM_CSS_KEY = {
-  customCss: createTenantConfig("text", { default: "", pattern: CUSTOM_CSS_PATTERN }),
+  customCss: createTenantConfig("text", {
+    default: "",
+    computed: computedFromLegacyKey(LEGACY_BRANDING_QN.customCss, ""),
+    pattern: CUSTOM_CSS_PATTERN,
+  }),
 } satisfies Record<string, ConfigKeyDefinition>;
 
 function stringField(source: Record<string, unknown>, key: string): string {

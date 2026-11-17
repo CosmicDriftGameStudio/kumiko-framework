@@ -21,6 +21,8 @@ type InProcessRun = (
 const bins: ReadonlyArray<{ file: string; usage: string; run?: InProcessRun }> = [
   { file: "kumiko-build.ts", usage: "Usage: kumiko-build" },
   { file: "kumiko-dev.ts", usage: "Usage: kumiko-dev" },
+  { file: "kumiko-init-deploy.ts", usage: "Usage: kumiko-init-deploy" },
+  { file: "kumiko-upgrade.ts", usage: "kumiko-upgrade [--from <version>]" },
   {
     file: "kumiko-schema.ts",
     usage: "Subcommands:",

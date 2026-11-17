@@ -1020,7 +1020,7 @@ describe("crypto-shredding :: forget-subject subjectRowExistsInTenant missing ta
         missingTableProbeFeature,
       ],
     });
-    await unsafePushTables(missingTableStack.db, { tenantMembershipsTable, userTable });
+    await unsafePushTables(missingTableStack.db, { tenantMembershipsTable });
     // No unsafeCreateEntityTable for missingTableProbeEntity — that's the point.
   });
 
@@ -1039,6 +1039,60 @@ describe("crypto-shredding :: forget-subject subjectRowExistsInTenant missing ta
 
   test("missing self-PII probe table denies (403), doesn't 500", async () => {
     const err = await missingTableStack.http.writeErr(
+      FORGET,
+      { subject: { kind: "user", userId: TARGET_USER_ID }, reason: REASON },
+      dpoUser,
+    );
+    expect(err.httpStatus).toBe(403);
+  });
+});
+
+describe("crypto-shredding :: forget-subject missing table with user feature mounted", () => {
+  const probeEntity = createEntity({
+    name: "probe",
+    table: "read_forget_subject_missing_table_probe_with_user",
+    fields: {
+      recipientName: createTextField({
+        required: true,
+        maxLength: 100,
+        personal: "self",
+        find: "exact",
+      }),
+    },
+  });
+  const probeFeature = defineFeature("forget-subject-missing-table-probe-with-user", (r) => {
+    r.entity(probeEntity);
+  });
+
+  let userStack: TestStack;
+
+  beforeAll(async () => {
+    userStack = await setupTestStack({
+      features: [
+        createCryptoShreddingFeature(),
+        createConfigFeature(),
+        createTenantFeature(),
+        createUserFeature(),
+        probeFeature,
+      ],
+    });
+    await unsafePushTables(userStack.db, { tenantMembershipsTable, userTable });
+  });
+
+  afterAll(async () => {
+    await userStack.cleanup();
+  });
+
+  beforeEach(() => {
+    configurePiiSubjectKms(new InMemoryKmsAdapter());
+  });
+
+  afterEach(() => {
+    resetPiiSubjectKmsForTests();
+  });
+
+  test("missing self-PII probe table denies (403), doesn't 500", async () => {
+    const err = await userStack.http.writeErr(
       FORGET,
       { subject: { kind: "user", userId: TARGET_USER_ID }, reason: REASON },
       dpoUser,

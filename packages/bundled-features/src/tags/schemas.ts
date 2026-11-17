@@ -1,3 +1,4 @@
+import type { PreSaveHookFn } from "@cosmicdrift/kumiko-framework/engine";
 import type { ValidationError } from "@cosmicdrift/kumiko-types/hooks";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
@@ -64,3 +65,22 @@ export function rejectBlankTagNameChange(
   }
   return null;
 }
+
+// An update envelope without a name, color or scope change would only bump the version; the old flat update-tag rejected it.
+export function rejectEmptyTagUpdate(
+  data: Readonly<Record<string, unknown>>,
+): readonly ValidationError[] | null {
+  const changes = propertyOf(data, "changes");
+  const hasMutableField = ["name", "color", "scope"].some(
+    (field) => propertyOf(changes, field) !== undefined,
+  );
+  return hasMutableField ? null : [{ field: "changes", error: "no_changes" }];
+}
+
+// Direct API callers are not trimmed by a client; create trims via its schema, so update does the same server-side.
+export function trimTagName(changes: Record<string, unknown>): Record<string, unknown> {
+  const name = changes["name"];
+  return typeof name === "string" ? { ...changes, name: name.trim() } : changes;
+}
+
+export const trimTagNameChange: PreSaveHookFn = async (changes) => trimTagName(changes);

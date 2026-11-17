@@ -6,22 +6,10 @@ import type {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { type ConfigSourceReader, readsWithSource } from "../config/index.ts";
 import { type BrandingTokens, EMPTY_BRANDING } from "../page-render/index.ts";
-import { BRANDING_QN } from "./constants.ts";
+import { BRANDING_QN, LEGACY_BRANDING_QN } from "./constants.ts";
 import { BRANDING_KEYS, CUSTOM_CSS_KEY } from "./keys.ts";
 
-// Keys under which managed-pages stored tenant branding before it moved into
-// this feature. Stored rows stay under these names after the move, so the read
-// path falls back to them when the new key has no row.
-export const LEGACY_BRANDING_QN = {
-  title: "managed-pages:config:branding-title",
-  description: "managed-pages:config:branding-description",
-  siteUrl: "managed-pages:config:branding-site-url",
-  accentColor: "managed-pages:config:branding-accent-color",
-  logoUrl: "managed-pages:config:branding-logo-url",
-  logoFile: "managed-pages:config:branding-logo-file",
-  layoutPreset: "managed-pages:config:branding-layout-preset",
-  customCss: "managed-pages:config:branding-custom-css",
-} as const;
+export { LEGACY_BRANDING_QN };
 
 export type BrandingReadContext = Pick<HandlerContext, "services" | "user" | "config" | "db">;
 

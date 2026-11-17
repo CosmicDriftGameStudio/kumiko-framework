@@ -1,8 +1,25 @@
 import { describe, expect, test } from "bun:test";
+import { createAuthEmailPasswordFeature } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
+import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createComplianceProfilesFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
+import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
+import { createCryptoShreddingFeature } from "@cosmicdrift/kumiko-bundled-features/crypto-shredding";
+import { createDataRetentionFeature } from "@cosmicdrift/kumiko-bundled-features/data-retention";
 import { createPersonalAccessTokensFeature } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
+import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
+import { createTenantFeature } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import type { CreateTierEngineOptions } from "@cosmicdrift/kumiko-bundled-features/tier-engine";
+import { createUserFeature } from "@cosmicdrift/kumiko-bundled-features/user";
+import { createUserDataRightsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import { createUserDataRightsDefaultsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights-defaults";
-import { type FeatureDefinition, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
+import { createUserProfileFeature } from "@cosmicdrift/kumiko-bundled-features/user-profile";
+import {
+  createRegistry,
+  defineFeature,
+  type FeatureDefinition,
+  SECURITY_BASELINE_FEATURE_NAMES,
+  validateBoot,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import { rolesOf } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -331,6 +348,27 @@ const TIERS: CreateTierEngineOptions<{ readonly seats: number }> = {
   },
 };
 
+// Minimal host the security combos need: sessions requires user +
+// auth-foundation, audit requires tenant, tenant requires config.
+function securityHostFeatures(): FeatureDefinition[] {
+  return [
+    createConfigFeature(),
+    createUserFeature(),
+    createTenantFeature(),
+    createAuthFoundationFeature(),
+  ];
+}
+
+function selfServiceFeatures(): FeatureDefinition[] {
+  return [
+    createDataRetentionFeature(),
+    createComplianceProfilesFeature(),
+    createSessionsFeature(),
+    createUserDataRightsFeature({}),
+    createUserProfileFeature(),
+  ];
+}
+
 describe("auth, saas and security stacks", () => {
   test("composeAuthStack with mfa adds account-security after auth-mfa", () => {
     expect(stackFeatureNames(composeAuthStack({ mfa: TEST_MFA }))).toEqual([
@@ -398,6 +436,72 @@ describe("auth, saas and security stacks", () => {
       "user-data-rights",
       "user-profile",
     ]);
+  });
+
+  test("composeSecurityStack returns exactly the SECURITY_BASELINE_FEATURE_NAMES feature names", () => {
+    expect(stackFeatureNames(composeSecurityStack())).toEqual([...SECURITY_BASELINE_FEATURE_NAMES]);
+  });
+
+  test("composeSecurityStack yields fresh feature instances on each call", () => {
+    const a = composeSecurityStack();
+    const b = composeSecurityStack();
+    expect(a).toHaveLength(b.length);
+    a.forEach((feature, i) => {
+      expect(feature).not.toBe(b[i]);
+    });
+
+    const withoutSessionsA = composeSecurityStack({ includeSessions: false });
+    const withoutSessionsB = composeSecurityStack({ includeSessions: false });
+    expect(withoutSessionsA).toHaveLength(3);
+    withoutSessionsA.forEach((feature, i) => {
+      expect(feature).not.toBe(withoutSessionsB[i]);
+    });
+  });
+
+  test("a standalone crypto-shredding and the stack's crypto-shredding collapse to one entry", () => {
+    const security = composeFeatures(
+      [...composeAuthStack(), createCryptoShreddingFeature(), ...composeSecurityStack()],
+      { includeBundled: true },
+    );
+    expect(stackFeatureNames(security).filter((name) => name === "crypto-shredding")).toHaveLength(
+      1,
+    );
+    expect(() => validateBoot(security)).not.toThrow();
+  });
+
+  test("includeSessions:false with the self-service features has no duplicates and covers the baseline", () => {
+    const names = [
+      ...selfServiceFeatures(),
+      ...composeSecurityStack({ includeSessions: false }),
+    ].map((f) => f.name);
+    expect(new Set(names).size).toBe(names.length);
+    for (const name of SECURITY_BASELINE_FEATURE_NAMES) {
+      expect(names).toContain(name);
+    }
+  });
+
+  test("self-service features + composeSecurityStack() boot with exactly one sessions", () => {
+    // user-data-rights-defaults requires "files"; a bare stub is enough here.
+    const filesStub = defineFeature("files", () => {});
+    const registry = createRegistry([
+      ...securityHostFeatures(),
+      createAuthEmailPasswordFeature({}),
+      filesStub,
+      createUserDataRightsDefaultsFeature(),
+      ...selfServiceFeatures(),
+      ...composeSecurityStack(),
+    ]);
+    expect(registry.getFeature("sessions")).toBeDefined();
+  });
+
+  test("sessions mounted with different options than the stack's throws a clear boot error", () => {
+    expect(() =>
+      createRegistry([
+        ...securityHostFeatures(),
+        createSessionsFeature({ expiresInMs: 1000 }),
+        ...composeSecurityStack(),
+      ]),
+    ).toThrow(/Duplicate feature: "sessions".*different options/);
   });
 
   test("auth + security + gdpr + ops + saas boot together without duplicates", () => {

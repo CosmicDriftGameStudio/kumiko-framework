@@ -44,6 +44,7 @@ export const liftRestrictionWrite = defineWriteHandler({
       ctx.db.unsafeRawAllTenants(),
       event.user,
       targetUserId,
+      ctx.registry.features.has("user"),
     );
     if (outside) return outside;
 

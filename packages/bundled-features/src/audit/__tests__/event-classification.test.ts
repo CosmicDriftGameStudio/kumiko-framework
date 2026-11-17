@@ -11,7 +11,12 @@ import { createHelpdeskFeature } from "../../helpdesk/index.ts";
 import { createNotesHistoryFeature } from "../../notes-history/index.ts";
 import { createPersonalAccessTokensFeature } from "../../personal-access-tokens/index.ts";
 import { createTagsFeature } from "../../tags/index.ts";
-import { AUDIT_EVENT_STANCES, TECHNICAL_EVENT } from "../event-classification.ts";
+import {
+  AUDIT_EVENT_STANCES,
+  RETIRED_EVENT_STANCES,
+  TECHNICAL_EVENT,
+  TECHNICAL_EVENT_TYPES,
+} from "../event-classification.ts";
 import { AUDIT_I18N } from "../web/i18n.ts";
 
 const BUNDLED_ROOT = join(import.meta.dir, "../..");
@@ -118,5 +123,17 @@ describe("audit event classification", () => {
   test("no stance points at an event type that no longer exists", () => {
     const registered = new Set(eventTypes);
     expect(Object.keys(AUDIT_EVENT_STANCES).filter((type) => !registered.has(type))).toEqual([]);
+  });
+
+  test("retired stances name only event types that are no longer registered", () => {
+    const registered = new Set(eventTypes);
+    const retired = Object.keys(RETIRED_EVENT_STANCES);
+    expect(retired.filter((type) => registered.has(type))).toEqual([]);
+    expect(retired.filter((type) => type in AUDIT_EVENT_STANCES)).toEqual([]);
+  });
+
+  test("retired technical types stay hidden behind the technical filter", () => {
+    expect(TECHNICAL_EVENT_TYPES).toContain("inbound-mail-foundation:event:mail-thread-updated");
+    expect(TECHNICAL_EVENT_TYPES).toContain("kumiko:system:workflow.run-started");
   });
 });

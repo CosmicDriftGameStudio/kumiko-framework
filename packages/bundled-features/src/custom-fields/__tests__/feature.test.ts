@@ -2,7 +2,11 @@ import { describe, expect, test } from "bun:test";
 import { fieldDefinitionAggregateId } from "../aggregate-id.ts";
 import { fieldDefinitionDeletedSchema } from "../events.ts";
 import { createCustomFieldsFeature, resolveFieldDefinitionListRoles } from "../feature.ts";
-import { defineFieldPayloadSchema, deleteFieldPayloadSchema } from "../schemas.ts";
+import {
+  defineFieldPayloadSchema,
+  deleteFieldPayloadSchema,
+  updateFieldPayloadSchema,
+} from "../schemas.ts";
 import { SUPPORTED_FIELD_TYPES } from "../web/constants.ts";
 
 // Unit tests cover feature shape, schema validation, and aggregate-ID determinism.
@@ -75,6 +79,29 @@ describe("defineFieldPayloadSchema", () => {
       });
       expect(result.success).toBe(true);
     }
+  });
+
+  test("rejects a serializedField with a retention key", () => {
+    const result = defineFieldPayloadSchema.safeParse({
+      entityName: "customer",
+      fieldKey: "internalNumber",
+      serializedField: { type: "text", retention: { keepFor: "P30D", strategy: "delete" } },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  test("update rejects a serializedField with a retention key", () => {
+    const base = {
+      entityName: "customer",
+      fieldKey: "internalNumber",
+      serializedField: { type: "text" },
+    };
+    expect(updateFieldPayloadSchema.safeParse(base).success).toBe(true);
+    const result = updateFieldPayloadSchema.safeParse({
+      ...base,
+      serializedField: { type: "text", retention: { keepFor: "P30D", strategy: "anonymize" } },
+    });
+    expect(result.success).toBe(false);
   });
 
   test("accepts i18n-label", () => {
