@@ -8,6 +8,7 @@ import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db
 import { appHookScopedRunner } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createFallbackLogger, setProcessLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { createEventDedup, createIdempotencyGuard } from "@cosmicdrift/kumiko-framework/pipeline";
+import { searchAdapterContext } from "./boot-options/search-option.ts";
 import type { RunProdAppDeps, RunProdAppOptions } from "./run-prod-app.ts";
 import {
   addConfigAccessorFactory,
@@ -24,7 +25,7 @@ function buildProdExtraContext(
   connections: ProdConnections,
   deps: RunProdAppDeps,
 ) {
-  const { envSource, bootKms } = config;
+  const { envSource, bootKms, bootOptionWiring } = config;
   const { registry, features, effectiveAuth, bootCrypto, unsubscribeLinks } = composed;
   const resolvedExtraContext =
     typeof options.extraContext === "function"
@@ -62,7 +63,14 @@ function buildProdExtraContext(
     ...(options.appOverrides && { appOverrides: options.appOverrides }),
   });
   return {
-    ...addConfigAccessorFactory({ ...autoExtraContext, ...resolvedExtraContext }, registry),
+    ...addConfigAccessorFactory(
+      {
+        ...autoExtraContext,
+        ...searchAdapterContext(bootOptionWiring.searchAdapter, resolvedExtraContext, "runProdApp"),
+        ...resolvedExtraContext,
+      },
+      registry,
+    ),
     ...(options.defaultLocale !== undefined && { defaultLocale: options.defaultLocale }),
   };
 }

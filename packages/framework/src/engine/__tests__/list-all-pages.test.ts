@@ -1,7 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import { InternalError } from "../../errors/index.ts";
 import { MAX_LIST_LIMIT } from "../entity-handlers.ts";
-import { type ListPage, type ListPageRequest, listAllPages, toListPage } from "../list-all-pages.ts";
+import {
+  LIST_ALL_PAGES_DEFAULT_MAX_PAGES,
+  type ListPage,
+  type ListPageRequest,
+  listAllPages,
+  toListPage,
+} from "../list-all-pages.ts";
 
 function pageSource<Row>(pages: readonly ListPage<Row>[]) {
   const requests: ListPageRequest[] = [];
@@ -15,6 +21,41 @@ function pageSource<Row>(pages: readonly ListPage<Row>[]) {
 }
 
 describe("listAllPages", () => {
+  test("throws InternalError when the list still has a cursor after maxPages pages", async () => {
+    const source = pageSource<number>([
+      { rows: [1], nextCursor: "c1" },
+      { rows: [2], nextCursor: "c2" },
+    ]);
+    const result = listAllPages(source.fetchPage, { maxPages: 2 });
+    await expect(result).rejects.toThrow(InternalError);
+    await expect(result).rejects.toThrow(/more than 2 pages/);
+    expect(source.requests).toHaveLength(2);
+  });
+
+  test("reads exactly maxPages pages when the last one ends the list", async () => {
+    const source = pageSource<number>([
+      { rows: [1], nextCursor: "c1" },
+      { rows: [2], nextCursor: null },
+    ]);
+    expect(await listAllPages(source.fetchPage, { maxPages: 2 })).toEqual([1, 2]);
+  });
+
+  test("an invalid maxPages throws before the first fetch", async () => {
+    const source = pageSource<number>([{ rows: [1], nextCursor: null }]);
+    await expect(listAllPages(source.fetchPage, { maxPages: 0 })).rejects.toThrow(InternalError);
+    expect(source.requests).toHaveLength(0);
+  });
+
+  test("the default cap is LIST_ALL_PAGES_DEFAULT_MAX_PAGES", async () => {
+    const requests: ListPageRequest[] = [];
+    const fetchPage = async (request: ListPageRequest): Promise<ListPage<number>> => {
+      requests.push(request);
+      return { rows: [requests.length], nextCursor: `c${requests.length}` };
+    };
+    await expect(listAllPages(fetchPage)).rejects.toThrow(InternalError);
+    expect(requests).toHaveLength(LIST_ALL_PAGES_DEFAULT_MAX_PAGES);
+  });
+
   test("follows nextCursor until it is null and asks every page for MAX_LIST_LIMIT rows", async () => {
     const source = pageSource<number>([
       { rows: [1, 2], nextCursor: "c1" },

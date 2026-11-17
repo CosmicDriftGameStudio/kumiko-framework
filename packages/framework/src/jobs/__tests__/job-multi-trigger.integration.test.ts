@@ -68,7 +68,7 @@ const orderFeature = defineFeature("multi", (r) => {
     "typed-fanout",
     { trigger: { on: [orderOpened.name, orderCancelled.name] } },
     async (payload, ctx) => {
-      const event = triggeredEventOf([orderOpened, orderCancelled], payload, ctx);
+      const event = await triggeredEventOf([orderOpened, orderCancelled], payload, ctx);
       typedExecutions.push({ type: event.type, id: event.payload.id });
     },
   );

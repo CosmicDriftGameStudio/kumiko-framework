@@ -39,11 +39,13 @@ import {
   redisClientOptionsFromEnv,
   redisNamespaceFromEnv,
 } from "@cosmicdrift/kumiko-framework/redis";
+import type { SearchAdapter } from "@cosmicdrift/kumiko-framework/search";
 import type { EnvelopeCipher, SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { Redis } from "ioredis";
 import type { FeatureTogglesWiring } from "../boot-options/feature-toggles-option.ts";
 import { readShutdownDrainTimeoutMs } from "../boot-options/process-signals.ts";
+import { searchAdapterContext } from "../boot-options/search-option.ts";
 import { composeFeatures } from "../compose-features.ts";
 import { assertPiiBootInvariants } from "../pii-boot-gate.ts";
 import { readEnv, requireEnv } from "../require-env.ts";
@@ -76,6 +78,8 @@ export type WorkerBootProfile = {
   readonly authOptions?: AuthEmailPasswordOptions;
   /** Set by runWorkerApp when `featureToggles` mounted the feature; bound once the database exists. */
   readonly featureToggles?: FeatureTogglesWiring;
+  /** Built by the `search` boot option; joins the extraContext. */
+  readonly searchAdapter?: SearchAdapter;
 };
 
 export type BootedWorkerProcess = {
@@ -312,7 +316,11 @@ export async function bootWorkerProcess(
     ...(unsubscribeLinks && { unsubscribeLinks }),
   });
   const extraContext = addConfigAccessorFactory(
-    { ...autoExtraContext, ...resolvedExtraContext },
+    {
+      ...autoExtraContext,
+      ...searchAdapterContext(profile.searchAdapter, resolvedExtraContext, processName),
+      ...resolvedExtraContext,
+    },
     registry,
   );
 

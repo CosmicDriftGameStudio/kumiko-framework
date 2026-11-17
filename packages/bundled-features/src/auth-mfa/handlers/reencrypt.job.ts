@@ -36,7 +36,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/db";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import type { JobContext, SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
+import { InternalError, VERSION_CONFLICT_CODE } from "@cosmicdrift/kumiko-framework/errors";
 import type { EnvelopeCipher } from "@cosmicdrift/kumiko-framework/secrets";
 import {
   type ChunkedMigrationStopReason,
@@ -196,7 +196,7 @@ export async function mfaReencryptJob(
     // version_conflict == a concurrent enable/disable/regenerate beat us;
     // the row now holds a fresh write, already fine.
     if (!result.isSuccess) {
-      if (result.error.code === "version_conflict") return "skipped";
+      if (result.error.code === VERSION_CONFLICT_CODE) return "skipped";
       ctx.obs.log?.warn?.(`[auth-mfa:reencrypt] executor rejected row ${row.id}`, {
         code: result.error.code,
       });

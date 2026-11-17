@@ -11,6 +11,7 @@ import {
   InternalError,
   NotFoundError,
   reraiseAsKumikoError,
+  VERSION_CONFLICT_CODE,
 } from "../errors/index.ts";
 import { assertRowFitsBindTarget } from "./bind-pending-file-refs.ts";
 import { type CanReadFileRefContext, canCallerReadFileRef } from "./can-caller-read-file-ref.ts";
@@ -42,7 +43,7 @@ export type FileRefOwner = {
 
 export type RebindFileRefOutcome = "rebound" | "not-found" | "moved" | "version-conflict";
 
-const CONCURRENT_WRITE_ERROR_CODES: readonly string[] = ["version_conflict", "unique_violation"];
+const CONCURRENT_WRITE_ERROR_CODES: readonly string[] = [VERSION_CONFLICT_CODE, "unique_violation"];
 
 type LoadedRow = { readonly fileRef: FileRef; readonly version: number };
 

@@ -337,6 +337,23 @@ describe("resolveBootOptionWiring feature checks", () => {
     ).rejects.toThrow(/mounts channel-email itself/);
   });
 
+  test("search meili-env puts the adapter into the wiring", async () => {
+    const wiring = await resolveBootOptionWiring(
+      { features: [], search: { provider: "meili-env" } },
+      { MEILI_URL: "http://127.0.0.1:1", MEILI_MASTER_KEY: "test-key" },
+    );
+    expect(wiring.searchAdapter).toBeDefined();
+  });
+
+  test("search meili-env without MEILI_URL is refused", async () => {
+    await expect(
+      resolveBootOptionWiring(
+        { features: [], search: { provider: "meili-env" } },
+        { MEILI_MASTER_KEY: "test-key" },
+      ),
+    ).rejects.toThrow(/search "meili-env" is missing: MEILI_URL/);
+  });
+
   test("fileStorage without file-foundation is refused", async () => {
     await expect(
       resolveBootOptionWiring({ features: [], fileStorage: { provider: "inmemory" } }, {}),

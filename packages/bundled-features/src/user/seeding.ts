@@ -21,6 +21,7 @@ import {
   type SessionUser,
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { VERSION_CONFLICT_CODE } from "@cosmicdrift/kumiko-framework/errors";
 import { normalizeEmail } from "../shared/index.ts";
 // kumiko-lint-ignore cross-feature-import shares the postSave-hooks fixture contract with tenant/seeding
 import { fireEntityPostSave, type SeedTenantHooks } from "../tenant/seeding.ts";
@@ -133,7 +134,7 @@ export async function reconcileSeededUserEmailVerified(
   );
   // version_conflict = a concurrent write already changed the row —
   // fine for a seed helper, don't fail the whole seed run over it.
-  if (!result.isSuccess && result.error.code !== "version_conflict") {
+  if (!result.isSuccess && result.error.code !== VERSION_CONFLICT_CODE) {
     throw new Error(
       `reconcileSeededUserEmailVerified failed: ${result.error.code} — ${JSON.stringify(result.error.details ?? {})}`,
     );

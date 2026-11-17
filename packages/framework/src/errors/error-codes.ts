@@ -19,3 +19,5 @@ export const frameworkErrorHttpStatus = {
 } as const;
 
 export type FrameworkErrorCode = keyof typeof frameworkErrorHttpStatus;
+
+export const VERSION_CONFLICT_CODE = "version_conflict" satisfies FrameworkErrorCode;

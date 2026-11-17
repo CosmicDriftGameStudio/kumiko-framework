@@ -1,5 +1,9 @@
 import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
-import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import {
+  NotFoundError,
+  VERSION_CONFLICT_CODE,
+  writeFailure,
+} from "@cosmicdrift/kumiko-framework/errors";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { denyUnlessJoinRowParentVisible } from "../../shared/index.ts";
 import { tagAssignmentAggregateId } from "../aggregate-id.ts";
@@ -100,7 +104,7 @@ export function createAssignTagHandler(
       // desired end state (the assignment exists) is already true — the
       // winner just wrote it. Converge instead of surfacing a spurious 409
       // for an idempotent operation.
-      if (created.error.code !== "version_conflict") return created;
+      if (created.error.code !== VERSION_CONFLICT_CODE) return created;
       return { isSuccess: true as const, data: { id } };
     },
   };

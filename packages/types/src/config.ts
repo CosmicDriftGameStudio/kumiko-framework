@@ -376,8 +376,8 @@ export type JobTrigger =
   // is DRY for fan-out patterns: one job body, multiple triggers (e.g.
   // webhook-fanout: incident.open / incident.update / maintenance.start)
   // instead of N r.job calls with the same handler body.
-  // `ctx.triggerName` names the trigger that fired; `triggeredEventOf(events, payload, ctx)`
-  // from the engine parses the payload into a typed union of those events.
+  // `ctx.triggerName` names the trigger that fired; `await triggeredEventOf(events, payload, ctx)`
+  // from the engine decrypts the catalogued personal fields and parses the payload into a typed union of those events.
   //
   // `on` names an r.defineEvent event (qualified, or the own feature's short
   // name) or an entity lifecycle event `<entityName>.<created|updated|deleted|

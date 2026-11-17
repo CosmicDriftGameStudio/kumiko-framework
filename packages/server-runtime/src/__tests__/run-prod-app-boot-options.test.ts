@@ -93,6 +93,19 @@ describe("runProdApp boot options", () => {
     expect(bootSummary()).toBe("");
   });
 
+  test('the boot dry run lists the meili-env block of search "meili-env"', async () => {
+    await bootValidate({ features: deliveryFeatures(), search: { provider: "meili-env" } });
+
+    const inventory =
+      logSpy.mock.calls
+        .map((call: unknown[]) => String(call[0]))
+        .find((line: string) => line.startsWith("Env check")) ?? "";
+    const rowOf = (name: string): string =>
+      inventory.split("\n").find((row: string) => row.trim().startsWith(`${name} `)) ?? "";
+    expect(rowOf("MEILI_URL")).toMatch(/runProdApp\.search\s+required\s+.*missing/i);
+    expect(rowOf("MEILI_MASTER_KEY")).toMatch(/runProdApp\.search\s+required/);
+  });
+
   test("an invalid smtp-env value fails the boot dry run", async () => {
     const reported: KumikoBootError[] = [];
     await bootValidate(

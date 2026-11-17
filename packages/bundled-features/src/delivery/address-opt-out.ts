@@ -5,7 +5,11 @@ import {
   type TenantDb,
 } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId, WriteResult } from "@cosmicdrift/kumiko-framework/engine";
-import { ConflictError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import {
+  ConflictError,
+  VERSION_CONFLICT_CODE,
+  writeFailure,
+} from "@cosmicdrift/kumiko-framework/errors";
 import { generateDeterministicId } from "@cosmicdrift/kumiko-framework/utils";
 import { notificationAddressOptOutEntity, notificationAddressOptOutsTable } from "./tables.ts";
 import { DeliveryErrors } from "./web/public-names.ts";
@@ -140,7 +144,7 @@ export async function upsertAddressOptOut(
       db,
     );
     if (created.isSuccess) return { isSuccess: true, data: input };
-    if (created.error.code !== "version_conflict") return created;
+    if (created.error.code !== VERSION_CONFLICT_CODE) return created;
 
     // Race-fallback: another request's create already won this generation's
     // id between our lookup and this create — the existing row already IS

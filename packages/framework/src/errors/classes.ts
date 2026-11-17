@@ -1,4 +1,5 @@
 import { toSnakeCase } from "../utils/case.ts";
+import { VERSION_CONFLICT_CODE } from "./error-codes.ts";
 import type { FieldIssue } from "./field-issue.ts";
 import { type ErrorOpts, KumikoError } from "./kumiko-error.ts";
 
@@ -143,7 +144,7 @@ export type VersionConflictDetails = {
 };
 
 export class VersionConflictError extends ConflictError {
-  override readonly code: string = "version_conflict";
+  override readonly code: string = VERSION_CONFLICT_CODE;
 
   constructor(details: VersionConflictDetails, opts?: Pick<ErrorOpts, "i18nKey" | "cause">) {
     super({

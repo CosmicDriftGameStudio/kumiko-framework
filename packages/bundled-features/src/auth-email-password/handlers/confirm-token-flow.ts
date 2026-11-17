@@ -26,7 +26,11 @@ import {
   SYSTEM_TENANT_ID,
   type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import {
+  InternalError,
+  VERSION_CONFLICT_CODE,
+  writeFailure,
+} from "@cosmicdrift/kumiko-framework/errors";
 import type { Redis } from "ioredis";
 import { burnToken, unburnToken } from "../../shared/index.ts";
 import { UserHandlers, UserQueries } from "../../user/index.ts";
@@ -107,7 +111,7 @@ export async function runConfirmTokenFlow<TSuccessData>(
     // version_conflict = concurrent modification (or an un-migrated
     // stream) → token-level failure. Anything else (DB down,
     // access denied) bubbles unchanged so ops sees the real failure class.
-    if (writeRes.error.code === "version_conflict") return spec.invalidToken();
+    if (writeRes.error.code === VERSION_CONFLICT_CODE) return spec.invalidToken();
     return writeRes;
   } finally {
     // committed===false covers EVERY failure path — including branches a

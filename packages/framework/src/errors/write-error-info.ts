@@ -4,7 +4,7 @@ import type {
   WriteFailure,
 } from "@cosmicdrift/kumiko-types/write-error-info-types";
 import { NotFoundError, UnprocessableError } from "./classes.ts";
-import type { FrameworkErrorCode } from "./error-codes.ts";
+import { VERSION_CONFLICT_CODE } from "./error-codes.ts";
 import { KumikoError } from "./kumiko-error.ts";
 import { FrameworkReasons } from "./reasons.ts";
 import {
@@ -27,8 +27,6 @@ export type { WriteErrorInfo, WriteFailure };
 export function writeFailure(err: KumikoError): WriteFailure {
   return { isSuccess: false, error: toWriteErrorInfo(err) };
 }
-
-const VERSION_CONFLICT_CODE: FrameworkErrorCode = "version_conflict";
 
 // A failed WriteResult carries WriteErrorInfo, not the VersionConflictError instance, so the
 // code is the only marker left; callers retry or re-check on it instead of comparing strings.

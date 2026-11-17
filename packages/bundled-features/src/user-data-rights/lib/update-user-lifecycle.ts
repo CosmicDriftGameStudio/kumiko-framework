@@ -2,7 +2,7 @@ import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import { createEventStoreExecutor, type WritePurpose } from "@cosmicdrift/kumiko-framework/db";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createSystemUser, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
+import { InternalError, VERSION_CONFLICT_CODE } from "@cosmicdrift/kumiko-framework/errors";
 import { userEntity, userTable } from "../../user/index.ts";
 
 // Lifecycle mutations of the user entity MUST be emitted as `user.updated` events.
@@ -79,7 +79,7 @@ export async function updateUserLifecycle(
 
   if (
     options?.expect &&
-    (result.error.code === "precondition_failed" || result.error.code === "version_conflict")
+    (result.error.code === "precondition_failed" || result.error.code === VERSION_CONFLICT_CODE)
   ) {
     return { applied: false };
   }

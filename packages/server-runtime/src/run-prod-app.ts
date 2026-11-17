@@ -87,6 +87,7 @@ import type { MailBootOption } from "./boot-options/mail-option.ts";
 import type { PreviewLoginOption } from "./boot-options/preview-login-option.ts";
 import { prodKmsModeDefault, prodStaticDirDefault } from "./boot-options/prod-boot-defaults.ts";
 import type { SignalsOption } from "./boot-options/process-signals.ts";
+import type { SearchBootOption } from "./boot-options/search-option.ts";
 import type { ProdSeedsConfig } from "./boot-options/seed-shortcuts.ts";
 import type { SystemWireDeps } from "./extra-routes-deps.ts";
 import { installProcessLogger, uninstallProcessLogger } from "./process-logger.ts";
@@ -460,6 +461,11 @@ export type AppRuntimeOptions = {
    *  @example
    *  fileStorage: { provider: "auto" } */
   readonly fileStorage?: FileStorageBootOption;
+  /** Meilisearch for the search adapter from MEILI_URL and MEILI_MASTER_KEY, both required. Replaces a
+   *  `searchAdapter` in `extraContext`; setting both aborts the boot.
+   *  @example
+   *  search: { provider: "meili-env" } */
+  readonly search?: SearchBootOption;
   /** Billing: `subscription-stripe` and/or `subscription-paddle` plus one tier-syncing webhook
    *  route. Needs `billing-foundation` and `tier-engine`. See `BillingBootOption`.
    *  @example

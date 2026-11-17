@@ -36,7 +36,7 @@ import {
   SYSTEM_TENANT_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
+import { InternalError, VERSION_CONFLICT_CODE } from "@cosmicdrift/kumiko-framework/errors";
 import { createEscapeHatchReporter } from "@cosmicdrift/kumiko-framework/pipeline";
 import type { EnvelopeCipher } from "@cosmicdrift/kumiko-framework/secrets";
 import {
@@ -244,7 +244,7 @@ export const reencryptJob: JobHandlerFn = async (rawPayload, ctx): Promise<void>
     // version_conflict == a concurrent config:set beat us; the row now
     // holds a fresh envelope written by the set handler — already fine.
     if (!result.isSuccess) {
-      if (result.error.code === "version_conflict") return "skipped";
+      if (result.error.code === VERSION_CONFLICT_CODE) return "skipped";
       ctx.obs.log?.warn?.(`[config:reencrypt] executor rejected row ${row.id}`, {
         code: result.error.code,
       });

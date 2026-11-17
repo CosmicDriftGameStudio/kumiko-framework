@@ -400,8 +400,8 @@ export { handlerFieldReference } from "./handler-field-references.ts";
 export { withResponseData } from "./handler-helpers.ts";
 export { HookPhases } from "./hook-helpers.ts";
 export { i18nKey } from "./i18n-key.ts";
-export type { ListPage, ListPageRequest } from "./list-all-pages.ts";
-export { listAllPages, toListPage } from "./list-all-pages.ts";
+export type { ListAllPagesOptions, ListPage, ListPageRequest } from "./list-all-pages.ts";
+export { LIST_ALL_PAGES_DEFAULT_MAX_PAGES, listAllPages, toListPage } from "./list-all-pages.ts";
 // findForbiddenMembershipRole/isForbiddenMembershipRole/
 // stripForbiddenMembershipRoles/buildSessionRoles are Public API for host
 // apps that build their own membership handlers. FORBIDDEN_MEMBERSHIP_ROLES

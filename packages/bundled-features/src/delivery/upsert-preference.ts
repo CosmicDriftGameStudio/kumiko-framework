@@ -19,6 +19,7 @@ import {
   type TenantDb,
 } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId, WriteResult } from "@cosmicdrift/kumiko-framework/engine";
+import { VERSION_CONFLICT_CODE } from "@cosmicdrift/kumiko-framework/errors";
 import { generateDeterministicId } from "@cosmicdrift/kumiko-framework/utils";
 import { notificationPreferenceEntity, notificationPreferencesTable } from "./tables.ts";
 
@@ -126,7 +127,7 @@ export async function upsertPreference(
     db,
   );
   if (created.isSuccess) return { isSuccess: true, data: input };
-  if (created.error.code !== "version_conflict") return created;
+  if (created.error.code !== VERSION_CONFLICT_CODE) return created;
 
   // Race-fallback: another request's create already won this deterministic
   // id between our lookup and this create. Re-lookup and converge onto its

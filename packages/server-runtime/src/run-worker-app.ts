@@ -62,6 +62,7 @@ import type { KmsMode } from "./boot-options/kms-mode.ts";
 import type { MailBootOption } from "./boot-options/mail-option.ts";
 import { prodKmsModeDefault } from "./boot-options/prod-boot-defaults.ts";
 import { resolveBootOptionWiring } from "./boot-options/resolve-boot-options.ts";
+import type { SearchBootOption } from "./boot-options/search-option.ts";
 import { assertStackBootRequirements } from "./boot-options/stack-boot-requirements.ts";
 import {
   makeDispatchSystemQuery,
@@ -161,6 +162,8 @@ export type RunWorkerAppOptions = {
   readonly mail?: MailBootOption;
   /** Same as RunProdAppOptions["fileStorage"]: mounts the file providers the worker's file jobs use. */
   readonly fileStorage?: FileStorageBootOption;
+  /** Same as RunProdAppOptions["search"]: the worker's search consumer indexes into the same Meilisearch. */
+  readonly search?: SearchBootOption;
   /** Same as RunProdAppOptions["kmsMode"], including the production default; cannot be combined with `kms` / `blindIndexKey` / `allowPlaintextPii`. */
   readonly kmsMode?: KmsMode;
   /** Same as RunProdAppOptions["billing"]: mounts the configured subscription providers so the registry matches the API. The webhook route belongs to the API process. */
@@ -259,6 +262,7 @@ export async function runWorkerApp(rawOptions: RunWorkerAppOptions): Promise<Wor
       {
         processName: "runWorkerApp",
         ...(wiring.featureToggles && { featureToggles: wiring.featureToggles }),
+        ...(wiring.searchAdapter && { searchAdapter: wiring.searchAdapter }),
       },
     );
   } catch (error) {
