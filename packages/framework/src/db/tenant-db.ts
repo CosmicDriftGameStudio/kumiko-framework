@@ -208,7 +208,7 @@ function buildTenantDb(
 ): TenantDb {
   const {
     db: givenDb,
-    tenantId,
+    tenantId: requestedTenantId,
     mode = "tenant",
     reason: systemReason,
     tracer,
@@ -219,9 +219,10 @@ function buildTenantDb(
   const modeOptions: TenantDbModeOptions =
     mode === "system" ? systemModeOptions(systemReason) : { mode: "tenant" };
   const db = mode === "system" ? givenDb : unscopedRunnerOf(givenDb);
-  if (tenantId === undefined) {
+  if (requestedTenantId === undefined) {
     throw new InternalError({ message: "createTenantDb: tenantId is required" });
   }
+  const tenantId: TenantId = requestedTenantId;
   if (meter) registerStandardMetrics(meter);
   const report = grants?.report ?? fallbackEscapeHatchReporter(tenantId);
   const personalDataGate = grants?.personalDataGate ?? runnerPersonalDataGates.get(db);

@@ -16,6 +16,7 @@ import {
   createTextField,
   defineFeature,
 } from "../../engine/index.ts";
+import type { SessionUser } from "../../engine/types/index.ts";
 import { rebuildProjection } from "../../pipeline/index.ts";
 import { TestUsers, testTenantId } from "../../seeding/seed-users.ts";
 import { createEventStoreExecutor } from "../event-store-executor.ts";
@@ -177,7 +178,7 @@ function eventsOf(id: string): Promise<StoredEventView[]> {
   return stack.http.queryOk<StoredEventView[]>("verbhist:query:ticket:events", { id }, admin);
 }
 
-function historyOf(id: string, user = admin): Promise<HistoryEntryView[] | null> {
+function historyOf(id: string, user: SessionUser = admin): Promise<HistoryEntryView[] | null> {
   return stack.http.queryOk<HistoryEntryView[] | null>(
     "verbhist:query:ticket:history",
     { id },

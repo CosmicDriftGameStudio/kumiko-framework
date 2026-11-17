@@ -137,7 +137,7 @@ describe("runInOwnTransaction", () => {
       mode: "tenant",
       grants: {
         personalDataGate: denyEmail,
-        unsafeRaw: { reason: "test: derive runner-bound gate" },
+        unsafeRaw: { reason: "test: derive runner-bound gate", grants: ["unsafeRaw"] },
       },
     });
     // Mirrors createTenantDb(ctx.db.unsafeRaw(), ...): the gate now lives on the

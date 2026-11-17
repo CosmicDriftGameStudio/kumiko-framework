@@ -149,7 +149,7 @@ describe("TenantDb.global()", () => {
       db: unreachableRunner(),
       tenantId: own,
       mode: "tenant",
-      grants: { globalWrites: { reason: "   " } },
+      grants: { globalWrites: { reason: "   ", grants: ["globalWrites"] } },
     });
     await expect(tdb.global(globalUnmanagedTable).insertOne({ name: "x" })).rejects.toThrow(
       /escapeHatch/,
@@ -172,7 +172,7 @@ describe("TenantDb.global()", () => {
       tenantId: own,
       mode: "tenant",
       grants: {
-        globalWrites: { reason: "cross-tenant backfill job" },
+        globalWrites: { reason: "cross-tenant backfill job", grants: ["globalWrites"] },
       },
     });
     await tdb.global(globalUnmanagedTable).insertOne({ name: "x" });
@@ -195,7 +195,7 @@ describe("TenantDb.global()", () => {
       tenantId: own,
       mode: "tenant",
       grants: {
-        globalWrites: { reason: "cross-tenant backfill job" },
+        globalWrites: { reason: "cross-tenant backfill job", grants: ["globalWrites"] },
       },
     });
     const erased = tdb.global(brandWritable(globalManagedTable));
@@ -220,7 +220,7 @@ describe("TenantDb.global()", () => {
       tenantId: own,
       mode: "tenant",
       grants: {
-        globalWrites: { reason: "cross-tenant backfill job" },
+        globalWrites: { reason: "cross-tenant backfill job", grants: ["globalWrites"] },
         report,
       },
     });
@@ -254,7 +254,7 @@ describe("TenantDb.global()", () => {
       tenantId: own,
       mode: "tenant",
       grants: {
-        globalWrites: { reason: "cross-tenant backfill job" },
+        globalWrites: { reason: "cross-tenant backfill job", grants: ["globalWrites"] },
       },
     });
     await expect(
@@ -293,7 +293,7 @@ describe("TenantDb.unsafeRaw()", () => {
       tenantId: own,
       mode: "tenant",
       grants: {
-        unsafeRaw: { reason: "granted" },
+        unsafeRaw: { reason: "granted", grants: ["unsafeRaw"] },
       },
     });
     expect(unscopedRunner(tdb.unsafeRawAllTenants())).toBe(rawDb);
@@ -306,7 +306,7 @@ describe("TenantDb.unsafeRaw()", () => {
       tenantId: own,
       mode: "tenant",
       grants: {
-        unsafeRaw: { reason: "granted" },
+        unsafeRaw: { reason: "granted", grants: ["unsafeRaw"] },
         report,
       },
     });
@@ -335,7 +335,7 @@ describe("withUnsafeRawGrant", () => {
     const tdb = createTenantDb({ db: rawDb, tenantId: own });
     expect(() => tdb.unsafeRawAllTenants()).toThrow(AccessDeniedError);
 
-    const rebound = withUnsafeRawGrant(tdb, { reason: "narrower hook grant" });
+    const rebound = withUnsafeRawGrant(tdb, { reason: "narrower hook grant", grants: ["unsafeRaw"] });
     expect(unscopedRunner(rebound.unsafeRawAllTenants())).toBe(rawDb);
   });
 
@@ -346,7 +346,7 @@ describe("withUnsafeRawGrant", () => {
       tenantId: own,
       mode: "tenant",
       grants: {
-        unsafeRaw: { reason: "handler grant" },
+        unsafeRaw: { reason: "handler grant", grants: ["unsafeRaw"] },
       },
     });
     expect(unscopedRunner(tdb.unsafeRawAllTenants())).toBe(rawDb);
@@ -357,7 +357,7 @@ describe("withUnsafeRawGrant", () => {
 
   test("passes an object not built by createTenantDb through unchanged", () => {
     const notATenantDb = { some: "stub" } as unknown as TenantDb;
-    expect(withUnsafeRawGrant(notATenantDb, { reason: "x" })).toBe(notATenantDb);
+    expect(withUnsafeRawGrant(notATenantDb, { reason: "x", grants: ["unsafeRaw"] })).toBe(notATenantDb);
   });
 });
 
@@ -412,7 +412,7 @@ describe("unsafeRaw gate inheritance", () => {
       mode: "system",
       reason: "test builds a system-mode handle to compare with tenant mode",
       grants: {
-        unsafeRaw: { reason: "test: derived handles keep the gate" },
+        unsafeRaw: { reason: "test: derived handles keep the gate", grants: ["unsafeRaw"] },
         personalDataGate: denyingGate,
       },
     });

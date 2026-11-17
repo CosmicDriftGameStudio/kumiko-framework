@@ -9,7 +9,7 @@ import { defineUnmanagedTable } from "../entity-table-meta.ts";
 import { asRawClient, transaction } from "../query.ts";
 import { runInSystemRowLevelSecurityScope } from "../row-level-security-scope.ts";
 import { unsafePushTables } from "../table-push.ts";
-import { createTenantDb } from "../tenant-db.ts";
+import { createTenantDb, type TenantDbGrants } from "../tenant-db.ts";
 import { INSUFFICIENT_PRIVILEGE, pgCodeOf } from "./rls-probe.ts";
 
 const itemsTable = defineUnmanagedTable({
@@ -31,7 +31,7 @@ const itemsTable = defineUnmanagedTable({
 const tenantA = testTenantId(321);
 const tenantB = testTenantId(322);
 const SELECT_LABELS = `SELECT label FROM "store_unsafe_raw_scope_items" ORDER BY label`;
-const grants = { unsafeRaw: { reason: "unsafe raw scope test" } };
+const grants: TenantDbGrants = { unsafeRaw: { reason: "unsafe raw scope test", grants: ["unsafeRaw"] } };
 
 let testDb: TestDb;
 

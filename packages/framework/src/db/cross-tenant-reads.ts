@@ -1,5 +1,8 @@
+import type { EntityTableMeta } from "@cosmicdrift/kumiko-types/entity-table-meta-types";
 import type { EscapeHatchReporter } from "@cosmicdrift/kumiko-types/handlers";
+import type { SchemaTable } from "@cosmicdrift/kumiko-types/schema-table-types";
 import type { CrossTenantReads } from "@cosmicdrift/kumiko-types/tenant-db-types";
+import type { SelectOptions, WhereObject } from "@cosmicdrift/kumiko-types/where-clause-types";
 
 import { type CreateTenantDbOptions, createTenantDb, type TenantDb } from "./tenant-db.ts";
 
@@ -9,13 +12,20 @@ export function createCrossTenantReads(
   report: EscapeHatchReporter,
 ): CrossTenantReads {
   return {
-    selectMany(table, where, options) {
+    selectMany<T = Record<string, unknown>>(
+      table: SchemaTable | EntityTableMeta,
+      where?: WhereObject,
+      options?: SelectOptions,
+    ): Promise<readonly T[]> {
       report("cross-tenant-read", reason);
-      return systemModeDb.selectMany(table, where, options);
+      return systemModeDb.selectMany<T>(table, where, options);
     },
-    fetchOne(table, where) {
+    fetchOne<T = Record<string, unknown>>(
+      table: SchemaTable | EntityTableMeta,
+      where: WhereObject,
+    ): Promise<T | undefined> {
       report("cross-tenant-read", reason);
-      return systemModeDb.fetchOne(table, where);
+      return systemModeDb.fetchOne<T>(table, where);
     },
     count(table, where) {
       report("cross-tenant-read", reason);

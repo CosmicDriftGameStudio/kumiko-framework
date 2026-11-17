@@ -75,7 +75,7 @@ describe("TenantDb with writesDeniedReason", () => {
 
   test("rebound instances stay denied: unsafeRaw grant, cross-tenant acknowledge, system acknowledge", () => {
     const db = deniedDb();
-    const regranted = withUnsafeRawGrant(db, { reason: "test grant" });
+    const regranted = withUnsafeRawGrant(db, { reason: "test grant", grants: ["unsafeRaw"] });
     const acknowledged = acknowledgeConventionCrossTenant(db, "test reason");
     const systemAcknowledged = createUncheckedSystemDb(
       db,

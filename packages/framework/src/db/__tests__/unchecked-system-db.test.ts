@@ -98,7 +98,7 @@ describe("createUncheckedSystemDb", () => {
         tenantId: own,
         mode: "system",
         reason: "test builds the system-mode source of the unchecked system db",
-        grants: { unsafeRaw: { reason: "test grants unsafeRaw to prove scopedTo drops it" } },
+        grants: { unsafeRaw: { reason: "test grants unsafeRaw to prove scopedTo drops it", grants: ["unsafeRaw"] } },
       });
       return createUncheckedSystemDb(systemDb, undefined, report);
     }

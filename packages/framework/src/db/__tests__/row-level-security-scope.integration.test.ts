@@ -272,7 +272,7 @@ describe("TenantDb", () => {
       db: testDb.db,
       tenantId: tenantA,
       mode: "tenant",
-      grants: { unsafeRaw: { reason: "scope test" } },
+      grants: { unsafeRaw: { reason: "scope test", grants: ["unsafeRaw"] } },
     });
     expect(await labelsOf(tenantDb.unsafeRawAllTenants())).toHaveLength(3);
   });
@@ -284,7 +284,7 @@ describe("TenantDb", () => {
       tenantId: tenantA,
       mode: "tenant",
       grants: {
-        unsafeRaw: { reason: "scope test" },
+        unsafeRaw: { reason: "scope test", grants: ["unsafeRaw"] },
         personalDataGate: (tableName) => {
           denied.push(tableName);
           throw new AccessDeniedError({ message: "personal data denied" });
@@ -307,7 +307,7 @@ describe("db.global()", () => {
       db: testDb.db,
       tenantId: tenantA,
       mode: "tenant",
-      grants: { globalWrites: { reason: "scope test" } },
+      grants: { globalWrites: { reason: "scope test", grants: ["globalWrites"] } },
     });
     const inserted = await tenantDb
       .global(globalTable)
