@@ -592,7 +592,7 @@ import { z } from "zod";
 
 defineFeature("mailer", (r) => {
   r.defineEvent("attempt", z.object({ recipientId: z.string(), recipientAddress: z.string() }), {
-    piiFields: { recipientAddress: { subjectField: "recipientId" } },
+    piiFields: { recipientAddress: { personal: { of: "recipientId" } } },
   });
 });
 `;
@@ -615,7 +615,7 @@ describe("render → parse roundtrip — r.defineEvent piiFields stance", () => 
       featureName: initial.featureName ?? "",
       patterns: initial.patterns,
     });
-    expect(rendered).toContain('piiFields: { recipientAddress: { subjectField: "recipientId" } }');
+    expect(rendered).toContain('piiFields: { recipientAddress: { personal: { of: "recipientId" } } }');
     const reparsed = parse(rendered);
     expect(reparsed.patterns.map(stripLocations)).toEqual(initial.patterns.map(stripLocations));
 

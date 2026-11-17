@@ -877,7 +877,7 @@ describe("runProdApp", () => {
       hostDispatch: ({ host }) =>
         host === "apex.example.test"
           ? { kind: "redirect", to: "https://target.example", status: 302 }
-          : { kind: "html", file: "index.html", injectSchema: false },
+          : { kind: "html", file: "index.html" },
     });
 
     const res = await handle.fetch(
@@ -895,7 +895,7 @@ describe("runProdApp", () => {
       staticDir: tmpStaticDir,
       hostDispatch: ({ host }) =>
         host === "known.example.test"
-          ? { kind: "html", file: "index.html", injectSchema: false }
+          ? { kind: "html", file: "index.html" }
           : { kind: "not-found" },
     });
 
@@ -912,7 +912,7 @@ describe("runProdApp", () => {
     const csp = "default-src 'self'; script-src 'self'";
     const handle = await boot(undefined, {
       staticDir: tmpStaticDir,
-      hostDispatch: () => ({ kind: "html", file: "index.html", injectSchema: false, csp }),
+      hostDispatch: () => ({ kind: "html", file: "index.html", csp }),
     });
 
     const res = await handle.fetch(new Request("http://x.example.test/"));
@@ -932,7 +932,6 @@ describe("runProdApp", () => {
       hostDispatch: ({ host }) => ({
         kind: "html",
         file: "index.html",
-        injectSchema: false,
         ...(host === "special.example.test" && { csp: hostCsp }),
       }),
     });

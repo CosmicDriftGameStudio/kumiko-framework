@@ -7,6 +7,7 @@ import {
   MEMBERSHIP_PAYLOAD_TENANT_INDEX_NAME,
   MEMBERSHIP_PAYLOAD_USER_INDEX_NAME,
   TENANT_ID_INDEX_NAME,
+  TYPE_ID_INDEX_NAME,
 } from "../../db/queries/event-store.ts";
 import { asRawClient } from "../../db/query.ts";
 import { createEventsTable } from "../events-schema.ts";
@@ -104,5 +105,17 @@ describe("secondary kumiko_events indexes", () => {
     expect(await indexDefinitions(AGGREGATE_TYPE_ID_INDEX_NAME)).toHaveLength(0);
     await ensureSecondaryEventIndexes(testDb.db);
     expect(await indexDefinitions(AGGREGATE_TYPE_ID_INDEX_NAME)).toHaveLength(1);
+  });
+
+  test("ensuring builds one (type, id) index for rebuild scans and heals it when dropped", async () => {
+    await ensureSecondaryEventIndexes(testDb.db);
+    const [definition, ...rest] = await indexDefinitions(TYPE_ID_INDEX_NAME);
+    expect(rest).toHaveLength(0);
+    expect(definition).toMatch(/\("?type"?, "?id"?\)/);
+
+    await dropIndex(TYPE_ID_INDEX_NAME);
+    expect(await indexDefinitions(TYPE_ID_INDEX_NAME)).toHaveLength(0);
+    await ensureSecondaryEventIndexes(testDb.db);
+    expect(await indexDefinitions(TYPE_ID_INDEX_NAME)).toHaveLength(1);
   });
 });

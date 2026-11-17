@@ -22,6 +22,7 @@
 import { isUuid, parseTenantId } from "@cosmicdrift/kumiko-types/identifiers";
 import type { ProjectionRowIdOf } from "@cosmicdrift/kumiko-types/projection";
 import { configuredBlindIndexKey } from "../../crypto/index.ts";
+import { InternalError } from "../../errors/index.ts";
 import type { DbConnection, DbTx } from "../connection.ts";
 import type { EntityTableMeta } from "../entity-table-meta.ts";
 import { extractPgError } from "../pg-error.ts";
@@ -29,6 +30,7 @@ import { type AnyDb, asEntityTableMeta, asRawClient } from "../query.ts";
 import { renderTableDdl } from "../render-ddl.ts";
 import { columnNamesOf, tableExists } from "../schema-inspection.ts";
 import { toPostgresArrayLiteral } from "./postgres-array-literal.ts";
+import { executeRawQueryRead } from "./raw-sql.ts";
 import { readRowLevelSecurityState, restoreRowLevelSecurityState } from "./rls-catalog.ts";
 import { quoteIdent } from "../sql-identifier.ts";
 
@@ -121,8 +123,8 @@ export async function assertLiveColumnsMatchMeta(
 // Boundary: an apply that writes to a table OTHER than its own projection (e.g.
 // an MSP saga touching a second read-model) writes UNQUALIFIED → resolves to
 // public, i.e. the live secondary table, not a shadow of it. Online rebuild is
-// safe for self-table-only apply (the common case); a multi-table apply would
-// mutate live state during replay.
+// safe for self-table-only apply (the common case); assertReplayWroteOnlyShadow
+// enforces that after the replay by comparing transaction-level write counters.
 export async function buildShadowTable(tx: AnyDb, meta: EntityTableMeta): Promise<void> {
   const raw = asRawClient(tx);
   await raw.unsafe(`SET LOCAL search_path TO ${SCHEMA_IDENT}, public`);
@@ -130,6 +132,58 @@ export async function buildShadowTable(tx: AnyDb, meta: EntityTableMeta): Promis
   for (const stmt of renderTableDdl(meta)) {
     await raw.unsafe(stmt);
   }
+}
+
+function isLiveRelationWriteRow(
+  row: Record<string, unknown>,
+): row is { schemaname: string; relname: string; writes: string | number | bigint } {
+  return (
+    typeof row["schemaname"] === "string" &&
+    typeof row["relname"] === "string" &&
+    (typeof row["writes"] === "string" ||
+      typeof row["writes"] === "number" ||
+      typeof row["writes"] === "bigint")
+  );
+}
+
+// Writes of THIS transaction per relation outside the rebuild schema (pg_stat_xact_*
+// counters are per transaction, so concurrent live writers do not show up).
+export async function captureLiveRelationWriteCounts(
+  tx: DbTx,
+): Promise<ReadonlyMap<string, number>> {
+  const rows = await executeRawQueryRead(
+    tx,
+    `SELECT schemaname, relname, (n_tup_ins + n_tup_upd + n_tup_del) AS writes
+       FROM pg_stat_xact_user_tables
+      WHERE schemaname <> $1 AND schemaname NOT LIKE 'pg_temp%'`,
+    [PROJECTION_REBUILD_SCHEMA],
+  );
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    if (!isLiveRelationWriteRow(row)) {
+      throw new InternalError({
+        message: "projection-rebuild: unexpected pg_stat_xact_user_tables row shape",
+      });
+    }
+    counts.set(`${row.schemaname}.${row.relname}`, Number(row.writes));
+  }
+  return counts;
+}
+
+// The shadow only protects the projection's own table; any other write in the
+// replay resolved to a live table and ran beside the live pipeline.
+export async function assertReplayWroteOnlyShadow(
+  tx: DbTx,
+  before: ReadonlyMap<string, number>,
+  projectionName: string,
+): Promise<void> {
+  const after = await captureLiveRelationWriteCounts(tx);
+  const written = [...after].filter(([relation, writes]) => writes > (before.get(relation) ?? 0));
+  if (written.length === 0) return;
+  const list = written.map(([relation]) => relation).join(", ");
+  throw new InternalError({
+    message: `projection-rebuild "${projectionName}": apply wrote to live table(s) ${list}; a rebuild apply may only write its own projection table`,
+  });
 }
 
 // Fence the live table before the cutover: take ACCESS EXCLUSIVE on

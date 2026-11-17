@@ -14,7 +14,9 @@ import {
   assertLiveColumnsMatchMeta,
   assertNoBlindIndexLoss,
   assertNoUnreachableLiveRows,
+  assertReplayWroteOnlyShadow,
   buildShadowTable,
+  captureLiveRelationWriteCounts,
   type ColumnDriftResult,
   countColumnDrift,
   ensureRebuildSchema,
@@ -322,6 +324,7 @@ async function replayProjectionIntoShadow(
       await assertLiveColumnsMatchMeta(tx, meta, projectionName);
       await buildShadowTable(tx, meta);
       deps.__test_onBuildShadowTable?.();
+      const liveWritesBefore = await captureLiveRelationWriteCounts(tx);
 
       // A projection that subscribes to nothing has no events to replay and no
       // live writer touching its table — skip straight to swapping the empty
@@ -380,6 +383,8 @@ async function replayProjectionIntoShadow(
           }
         }
       }
+
+      await assertReplayWroteOnlyShadow(tx, liveWritesBefore, projectionName);
 
       if (skipped.length > 0) {
         await recordRebuildDeadLetters(tx, projectionName, skipped);

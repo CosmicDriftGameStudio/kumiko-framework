@@ -23,7 +23,7 @@ import type { DbConnection, DbTx } from "../../db/connection.ts";
 import { integer, table as pgTable, uuid } from "../../db/dialect.ts";
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
 import { fenceLiveTable, swapShadowIntoLive } from "../../db/queries/shadow-swap.ts";
-import { asRawClient, selectMany } from "../../db/query.ts";
+import { asRawClient, insertOne, selectMany } from "../../db/query.ts";
 import { buildEntityTable } from "../../db/table-builder.ts";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db.ts";
 import {
@@ -89,10 +89,42 @@ const itemsPerGroupProjection: ProjectionDefinition = {
   },
 };
 
+// Violates the single-table contract: the apply also writes a second table, which
+// resolves to the live table during an online rebuild.
+const doubleWriterTable = pgTable("read_rebuild_dw_primary", {
+  id: uuid("id").primaryKey(),
+  tenantId: uuid("tenant_id").notNull(),
+});
+const doubleWriterSideTable = pgTable("read_rebuild_dw_side", {
+  id: uuid("id").primaryKey(),
+  tenantId: uuid("tenant_id").notNull(),
+});
+
+const doubleWriterProjection: ProjectionDefinition = {
+  name: "items-double-writer",
+  source: "rebuild-item",
+  table: doubleWriterTable,
+  apply: {
+    "rebuild-item.created": defineApply<ItemCreated>(async (event, tx) => {
+      await insertOne(tx, doubleWriterTable, { id: crypto.randomUUID(), tenantId: event.tenantId });
+      await insertOne(tx, doubleWriterSideTable, {
+        id: crypto.randomUUID(),
+        tenantId: event.tenantId,
+      });
+    }),
+  },
+};
+
 const feature = defineFeature("rebuildtest", (r) => {
   r.entity({ name: "rebuild-item", ...itemEntity });
   r.projection(itemsPerGroupProjection);
 });
+
+// Separate feature and registry: the projection-listing tests above count the main registry's projections.
+const doubleWriterFeature = defineFeature("rebuildguard", (r) => {
+  r.projection(doubleWriterProjection);
+});
+const doubleWriterRegistry = createRegistry([feature, doubleWriterFeature]);
 
 const admin = TestUsers.admin;
 let testDb: TestDb;
@@ -107,7 +139,11 @@ beforeAll(async () => {
   testDb = await createTestDb();
   await unsafeCreateEntityTable(testDb.db, itemEntity, "rebuild-item");
   await createProjectionStateTable(testDb.db);
-  await unsafePushTables(testDb.db, { rebuildItemsPerGroup: itemsPerGroupTable });
+  await unsafePushTables(testDb.db, {
+    rebuildItemsPerGroup: itemsPerGroupTable,
+    rebuildDoubleWriter: doubleWriterTable,
+    rebuildDoubleWriterSide: doubleWriterSideTable,
+  });
   tdb = createTenantDb({ db: testDb.db, tenantId: admin.tenantId });
 });
 
@@ -117,7 +153,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await asRawClient(testDb.db).unsafe(
-    `TRUNCATE kumiko_events, read_rebuild_items, read_rebuild_items_per_group, kumiko_projections, kumiko_archived_streams RESTART IDENTITY CASCADE`,
+    `TRUNCATE kumiko_events, read_rebuild_items, read_rebuild_items_per_group, read_rebuild_dw_primary, read_rebuild_dw_side, kumiko_projections, kumiko_archived_streams RESTART IDENTITY CASCADE`,
   );
 });
 
@@ -239,6 +275,24 @@ describe("rebuildProjection — happy path", () => {
     // contributes, preventing the recompute path from continually catching up.
     expect(result.eventsProcessed).toBe(1);
     expect(await getCount(group)).toBe(1);
+  });
+});
+
+describe("rebuildProjection — single-table guard", () => {
+  test("an apply that also writes a second table fails the rebuild and names the table", async () => {
+    await appendCreatedEvent("00000000-0000-4000-8000-000000000030", "one");
+    const liveRow = { id: crypto.randomUUID(), tenantId: admin.tenantId };
+    await seedRow(testDb.db, doubleWriterTable, liveRow);
+
+    await expect(
+      rebuildProjection("rebuildguard:projection:items-double-writer", {
+        db: testDb.db,
+        registry: doubleWriterRegistry,
+      }),
+    ).rejects.toThrow(/read_rebuild_dw_side/);
+
+    expect(await selectMany(testDb.db, doubleWriterTable)).toEqual([liveRow]);
+    expect(await selectMany(testDb.db, doubleWriterSideTable)).toHaveLength(0);
   });
 });
 

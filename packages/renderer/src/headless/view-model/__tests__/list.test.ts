@@ -232,7 +232,7 @@ describe("computeListViewModel", () => {
   });
 
   test("a derived money column is typed money and keeps the stored money row value", () => {
-    const rent = { amount: 1200.5, currency: "EUR", amountScaled: 120050, amountMinor: 120050 };
+    const rent = { amount: 1200.5, currency: "EUR", amountScaled: 120050 };
     const vm = computeListViewModel({
       screen: listScreen(["currentRent"]),
       entity: taskEntity,

@@ -928,11 +928,7 @@ export type EventPiiSubject =
       };
     }
   | { readonly personal: "tenant" }
-  | { readonly personal: "self" }
-  | {
-      /** @deprecated use `{ personal: { of: "<ownerField>" } }` instead. Removed in 0.390.0. */
-      readonly subjectField: string;
-    };
+  | { readonly personal: "self" };
 
 export type EventPiiFields = Readonly<Record<string, EventPiiSubject>>;
 
@@ -946,9 +942,6 @@ export type NormalizedEventPiiSubject =
   | { readonly kind: "self" };
 
 export function normalizeEventPiiSubject(spec: EventPiiSubject): NormalizedEventPiiSubject {
-  if ("subjectField" in spec) {
-    return { kind: "user", ownerField: spec.subjectField, whenAbsent: undefined };
-  }
   if (spec.personal === "tenant") return { kind: "tenant" };
   if (spec.personal === "self") return { kind: "self" };
   return { kind: "user", ownerField: spec.personal.of, whenAbsent: spec.personal.whenAbsent };

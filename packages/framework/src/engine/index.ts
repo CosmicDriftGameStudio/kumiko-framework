@@ -279,7 +279,11 @@ export {
   entityListSchema,
   MAX_LIST_LIMIT,
 } from "./entity-handlers.ts";
-export { parentVisibilityFor, referenceGroupLabels } from "./entity-list-runtime-options.ts";
+export {
+  hostRoleAllowsRead,
+  parentVisibilityFor,
+  referenceGroupLabels,
+} from "./entity-list-runtime-options.ts";
 export { declareEscapeHatch } from "./escape-hatch-declaration.ts";
 export { CODEMOD_PLACEHOLDER_REASON_MARKER } from "./escape-hatch-reason.ts";
 export { emitEvent, typedPayload } from "./event-helpers.ts";

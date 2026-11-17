@@ -26,6 +26,10 @@ export type ParentVisibilityOption = {
   // (EntityDefinition.readGate) treats a host or file owner without one as unreadable;
   // absent means no entity passes that check.
   readonly canReadEntity?: (entityName: string) => boolean;
+  // A query handler of the host must admit the viewer's roles; row-level rules alone would let a
+  // role without any handler access to the host see its join rows. A host without query handlers
+  // is decided by row rules only.
+  readonly canReadHostByRole?: (entityName: string) => boolean;
   // The table the executor reads the entity from (a backingTable differs from the field-derived one).
   readonly resolveTable?: (entityName: string) => SchemaTable;
   // Readable ids per global host entity, resolved in the system scope before a tenant-scoped

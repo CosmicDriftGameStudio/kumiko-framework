@@ -68,6 +68,7 @@ function selectCandidates(
     // A readGate host would need its own gate resolved first; unreadable beats a widened read.
     if (candidate.readGate !== undefined) continue;
     if (requireReadHandler && option.canReadEntity?.(name) !== true) continue;
+    if (option.canReadHostByRole !== undefined && !option.canReadHostByRole(name)) continue;
     // event-store-executor-context.ts rejects non-uuid idType at executor
     // build time, so there is no read path to check such a candidate against.
     if (candidate.idType !== undefined && candidate.idType !== "uuid") continue;

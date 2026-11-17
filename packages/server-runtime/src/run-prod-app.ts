@@ -374,9 +374,6 @@ export type HostDispatchResult =
   | {
       readonly kind: "html";
       readonly file: string;
-      /** @deprecated Ignored — HTML never carries the schema; createKumikoApp
-       *  fetches it from the authenticated GET /api/schema. Removed in 0.390.0. */
-      readonly injectSchema?: boolean;
       readonly csp?: string;
     }
   | { readonly kind: "redirect"; readonly to: string; readonly status?: 301 | 302 }

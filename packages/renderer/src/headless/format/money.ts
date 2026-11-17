@@ -11,7 +11,7 @@ export function currencyDecimals(code: string): number {
 }
 
 // Major-unit amount → minor units scaled by currencyDecimals(currency), as
-// formatMoney expects. Deliberately not rehydrateMoney's `amountMinor`: that
+// formatMoney expects. Deliberately not rehydrateMoney's `amountScaled`: that
 // uses a flat MINOR_UNIT_SCALE=100, which is wrong for JPY (0 decimals) and
 // BHD (3 decimals).
 export function moneyAmountToMinor(amount: number, currency: string): number {

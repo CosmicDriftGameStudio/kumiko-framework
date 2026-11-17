@@ -164,7 +164,7 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
     "invoice-acknowledged",
     z.object({ approverId: z.string(), approverDisplayName: z.string() }),
     {
-      piiFields: { approverDisplayName: { subjectField: "approverId" } },
+      piiFields: { approverDisplayName: { personal: { of: "approverId" } } },
       version: 2,
       migrations: [
         {

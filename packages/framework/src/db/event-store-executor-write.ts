@@ -26,7 +26,10 @@ import {
   writeFailure,
 } from "../errors/index.ts";
 import { isSubjectErasedConflict } from "../errors/subject-erased.ts";
-import { IdempotentAppendConflictError as EventStoreIdempotentAppendConflict } from "../event-store/errors.ts";
+import {
+  ArchivedStreamError,
+  IdempotentAppendConflictError as EventStoreIdempotentAppendConflict,
+} from "../event-store/errors.ts";
 import {
   append,
   VersionConflictError as EventStoreVersionConflict,
@@ -93,10 +96,11 @@ export function createWriteVerbs(
     ownerTransitionRekeys,
     applyDefaults,
     stripSensitive,
-    loadById,
     assertStreamWritable,
     isRowReadable,
-    loadExpectSnapshot,
+    loadWriteSnapshot,
+    assertExpectKeysComparable,
+    expectColumnOf,
   } = ctx;
   const entityInstructionFieldNames = instructionFieldNames(entity);
 
@@ -223,21 +227,21 @@ export function createWriteVerbs(
     }
   }
 
-  async function expectedStreamVersion(
-    db: TenantDb,
+  // Compares the `expect:` fields against the raw row of the write snapshot.
+  function expectMismatchFailure(
+    rawRow: Readonly<Record<string, unknown>>,
     id: EntityId,
-    streamTenant: TenantId,
     expect: Readonly<Record<string, unknown>>,
-  ): Promise<number | WriteFailure> {
-    const snapshot = await loadExpectSnapshot(db, id, streamTenant, Object.keys(expect));
-    const row = snapshot.row;
-    if (!row) return writeFailure(new PreconditionFailedError({ entityId: id, field: "id" }));
-    const mismatch = Object.entries(expect).find(([key, expected]) => row[key] !== expected);
-    if (mismatch) {
-      return writeFailure(new PreconditionFailedError({ entityId: id, field: mismatch[0] }));
-    }
-    return snapshot.streamVersion;
+  ): WriteFailure | undefined {
+    assertExpectKeysComparable(Object.keys(expect));
+    const mismatch = Object.entries(expect).find(
+      ([key, expected]) => rawRow[expectColumnOf(key)] !== expected,
+    );
+    return mismatch
+      ? writeFailure(new PreconditionFailedError({ entityId: id, field: mismatch[0] }))
+      : undefined;
   }
+
   async function appendConflictFailure(
     error: unknown,
     runner: WriteRunner,
@@ -262,26 +266,6 @@ export function createWriteVerbs(
       return writeFailure(new IdempotentReplayError({ idempotencyKey: error.idempotencyKey }));
     }
     throw error;
-  }
-
-  // Stream-version is authoritative, not row.version. `ctx.events.append`
-  // can bump the stream between CRUD writes (domain event on the same
-  // aggregate); a stale row.version here would make the next CRUD write
-  // trip `events_aggregate_version_uq` (tenant_id, aggregate_id, version)
-  // with version_conflict.
-  //
-  // With `expect:` the version comes from loadExpectSnapshot's combined
-  // query instead; see its comment for why.
-  async function currentStreamVersion(
-    db: TenantDb,
-    runner: WriteRunner,
-    id: EntityId,
-    streamTenant: TenantId,
-    expect: Readonly<Record<string, unknown>> | undefined,
-  ): Promise<number | WriteFailure> {
-    return expect
-      ? await expectedStreamVersion(db, id, streamTenant, expect)
-      : await getStreamVersion(runner, String(id), streamTenant);
   }
 
   function assertFieldWritesAllowed(db: TenantDb, action: "create" | "update", data: DbRow): void {
@@ -440,7 +424,7 @@ export function createWriteVerbs(
     // previous value to decrement/undo when a parent-FK moves — without it
     // you'd have to snapshot-and-diff on every apply, and replays would
     // break. Storage cost is acceptable (rows are bounded), correctness is
-    // not negotiable. `previous` came from loadById(), which decrypts —
+    // not negotiable. `previous` came from loadWriteSnapshot(), which decrypts —
     // re-encrypt it before it's persisted so plaintext of pii/encrypted
     // fields doesn't land in the immutable log (flatChanges is already
     // ciphertext from encryptForStorage above).
@@ -652,18 +636,15 @@ export function createWriteVerbs(
         "payload.changes.tenantId",
         payload.changes["tenantId"],
       );
-      const unreadable = await unreadableRowFailure(
-        payload.id,
-        user,
-        db,
-        updateOptions?.parentVisibility,
-      );
-      if (unreadable) return unreadable;
-      const previous = await loadById(payload.id, db, {
-        includeDeleted: updateOptions?.includeDeleted === true,
-      });
-      if (!previous) return writeFailure(new NotFoundError(entityName, payload.id));
       const streamTenantId = updateOptions?.streamTenantId;
+      const streamTenant = streamTenantFor(user, streamTenantId);
+      const snapshot = await loadWriteSnapshot(db, payload.id, user, {
+        includeDeleted: updateOptions?.includeDeleted === true,
+        streamTenant,
+        parentVisibility: updateOptions?.parentVisibility,
+      });
+      if (snapshot.row === null) return writeFailure(new NotFoundError(entityName, payload.id));
+      const previous = snapshot.row;
       const streamTenantMismatch = streamTenantOverrideFailure(db, previous, streamTenantId);
       if (streamTenantMismatch) return streamTenantMismatch;
       const handles = await resolveFileHandles(entity, entityName, payload.changes, db, user);
@@ -700,17 +681,17 @@ export function createWriteVerbs(
         updateSelectOptionFailure(user, mergedNew, previous, updateOptions);
       if (guardFailure) return guardFailure;
 
-      const streamTenant = streamTenantFor(user, streamTenantId);
-      await assertStreamWritable(db, payload.id, streamTenant);
+      if (snapshot.archived) throw new ArchivedStreamError(streamTenant, String(payload.id));
 
-      const currentVersion = await currentStreamVersion(
-        db,
-        runner,
-        payload.id,
-        streamTenant,
-        updateOptions?.expect,
-      );
-      if (typeof currentVersion !== "number") return currentVersion;
+      if (updateOptions?.expect) {
+        const expectFailure = expectMismatchFailure(
+          snapshot.rawRow,
+          payload.id,
+          updateOptions.expect,
+        );
+        if (expectFailure) return expectFailure;
+      }
+      const currentVersion = snapshot.streamVersion;
 
       const versionConflict = optimisticLockFailure(
         payload.id,
@@ -768,16 +749,14 @@ export function createWriteVerbs(
         assertIrreversibleOperationAllowed(`${entityName}.delete (entity has no softDelete)`);
       }
       const runner = tenantDbWriteRunnerForTable(db, "ctx.db executor delete", table);
-      const unreadable = await unreadableRowFailure(
-        payload.id,
-        user,
-        db,
-        options?.parentVisibility,
-      );
-      if (unreadable) return unreadable;
-      const existing = await loadById(payload.id, db);
-      if (!existing) return writeFailure(new NotFoundError(entityName, payload.id));
       const streamTenantId = options?.streamTenantId;
+      const streamTenant = streamTenantFor(user, streamTenantId);
+      const snapshot = await loadWriteSnapshot(db, payload.id, user, {
+        streamTenant,
+        parentVisibility: options?.parentVisibility,
+      });
+      if (snapshot.row === null) return writeFailure(new NotFoundError(entityName, payload.id));
+      const existing = snapshot.row;
       const streamTenantMismatch = streamTenantOverrideFailure(db, existing, streamTenantId);
       if (streamTenantMismatch) return streamTenantMismatch;
 
@@ -805,22 +784,20 @@ export function createWriteVerbs(
       const lockedDelete = recordLockedFailure(existing, payload.id, user, options);
       if (lockedDelete) return lockedDelete;
 
-      await assertStreamWritable(db, payload.id, streamTenantFor(user, streamTenantId));
+      if (snapshot.archived) throw new ArchivedStreamError(streamTenant, String(payload.id));
 
-      // Stream-version authoritative (see update() for rationale).
-      const currentVersion = await currentStreamVersion(
-        db,
-        runner,
-        payload.id,
-        streamTenantFor(user, streamTenantId),
-        options?.expect,
-      );
-      if (typeof currentVersion !== "number") return currentVersion;
+      if (options?.expect) {
+        const expectFailure = expectMismatchFailure(snapshot.rawRow, payload.id, options.expect);
+        if (expectFailure) return expectFailure;
+      }
+      // Stream version from the snapshot, not row.version: ctx.events.append can bump the
+      // stream without touching the row.
+      const currentVersion = snapshot.streamVersion;
 
       // Deletes carry the full pre-delete row as `previous`. That's what
       // projections and downstream consumers need to reverse any aggregates —
       // a `{}`-payload delete would make cross-aggregate projections impossible
-      // to rebuild from the event log alone. `existing` came from loadById(),
+      // to rebuild from the event log alone. `existing` came from loadWriteSnapshot(),
       // which decrypts — re-encrypt before persisting so plaintext doesn't
       // land in the immutable log.
       let event: AppendedEvent;
@@ -934,7 +911,7 @@ export function createWriteVerbs(
             expectedVersion: currentVersion,
             type: entityEventName(entityName, "forgotten"),
             eventVersion,
-            // Re-encrypt like delete(): `existing` came decrypted from loadById —
+            // Re-encrypt like delete(): `existing` came decrypted from readProjectedRow —
             // plaintext must not land in the immutable log, least of all on forget.
             payload: {
               previous: await encryptForStorage(existing, user, {

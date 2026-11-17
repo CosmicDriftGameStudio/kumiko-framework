@@ -10,14 +10,18 @@ import {
 import { assertRebuildableRowLevelSecurity } from "../db/queries/rebuild-rls-guard.ts";
 import {
   assertLiveColumnsMatchMeta,
+  assertReplayWroteOnlyShadow,
   buildShadowTable,
+  captureLiveRelationWriteCounts,
   ensureRebuildSchema,
   rebuildMetaOrThrow,
   swapShadowIntoLive,
 } from "../db/queries/shadow-swap.ts";
-import { runInSavepoint, selectMany } from "../db/query.ts";
+import { selectEventsForMultiStreamRebuild } from "../db/queries/projection-rebuild.ts";
+import { coerceRow, runInSavepoint } from "../db/query.ts";
 import { runInSystemRowLevelSecurityScope } from "../db/row-level-security-scope.ts";
 import { withoutStatementTimeout } from "../db/statement-timeout.ts";
+import { extractTableInfo } from "../db/table-info.ts";
 import { withExecutorManagedWrites } from "../db/tenant-db.ts";
 import type { Registry, TenantId } from "../engine/types/index.ts";
 import { InternalError } from "../errors/index.ts";
@@ -93,11 +97,10 @@ import type { RebuildResult } from "./projection-rebuild.ts";
 // so writes to the primary table land in the shadow — but a write to ANY OTHER
 // table (e.g. a saga side-effect on a second read-model) falls through to
 // `public`, i.e. the LIVE table, and runs concurrently with the live pipeline's
-// incremental applies to that same table → double-write corruption. The old
-// TRUNCATE path held ACCESS EXCLUSIVE and narrowed (not closed) this window; the
-// shadow-swap removes that brake entirely. Multi-table apply is not statically
-// detectable here (apply is an opaque callback), so this is enforced by
-// contract, not by a guard. See db/queries/shadow-swap.ts "Boundary".
+// incremental applies to that same table → double-write corruption. apply is an
+// opaque callback, so the rule is enforced after the replay: the rebuild
+// aborts if pg_stat_xact_user_tables shows a write outside the shadow schema
+// (assertReplayWroteOnlyShadow). See db/queries/shadow-swap.ts "Boundary".
 
 export type MspRebuildDeps = {
   readonly db: DbConnection;
@@ -200,6 +203,7 @@ async function replayMultiStreamProjectionIntoShadow(
 
       await assertLiveColumnsMatchMeta(tx, meta, mspName);
       await buildShadowTable(tx, meta);
+      const liveWritesBefore = await captureLiveRelationWriteCounts(tx);
 
       const subscribedTypes = Object.keys(msp.apply);
       if (subscribedTypes.length > 0) {
@@ -219,12 +223,10 @@ async function replayMultiStreamProjectionIntoShadow(
         // Events past `horizon` are the live dispatcher's to deliver via
         // `id > cursor` — bounding the replay here is what keeps the two
         // paths from ever double-applying the same event.
-        const events = await selectMany<EventRow>(
-          tx,
-          eventsTable,
-          { type: [...subscribedTypes], id: { lte: horizon } },
-          { orderBy: { col: "id", direction: "asc" } },
-        );
+        const eventsInfo = extractTableInfo(eventsTable);
+        const events = (
+          await selectEventsForMultiStreamRebuild(tx, subscribedTypes, horizon)
+        ).map((raw) => coerceRow<EventRow>(raw, eventsInfo));
 
         const upcasters = registry.getEventUpcasters();
         const applyTx = withExecutorManagedWrites(tx);
@@ -271,6 +273,8 @@ async function replayMultiStreamProjectionIntoShadow(
           lastProcessedEventId = row.id;
         }
       }
+
+      await assertReplayWroteOnlyShadow(tx, liveWritesBefore, mspName);
 
       if (skipped.length > 0) {
         await recordRebuildDeadLetters(tx, mspName, skipped);

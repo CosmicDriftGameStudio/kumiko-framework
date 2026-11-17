@@ -83,9 +83,6 @@ export type DevHostDispatchResult =
   | {
       readonly kind: "html";
       readonly entryName: string;
-      /** @deprecated Ignored — HTML never carries the schema; createKumikoApp
-       *  fetches it from the authenticated GET /api/schema. Removed in 0.390.0. */
-      readonly injectSchema?: boolean;
     }
   | {
       /** Static HTML: serves a file verbatim, no bundle injection. Mirrors

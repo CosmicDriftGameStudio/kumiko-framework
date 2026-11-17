@@ -9,7 +9,7 @@
 // not what turns the check on.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient, buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
@@ -17,14 +17,16 @@ import {
   type EntityDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
+import { z } from "zod";
 import { createNoteEntryEntity, noteMentionEntity } from "../entity.ts";
 import { createNotesHistoryFeature } from "../feature.ts";
-import { NotesHistoryHandlers } from "../web/constants.ts";
+import { NotesHistoryHandlers, NotesHistoryQueries } from "../web/constants.ts";
 
 const PROJECT_TABLE = "notes_pv_test_projects";
 
@@ -80,6 +82,20 @@ const contactEntity = createEntity({
   },
 });
 
+// Host with a query handler restricted to TenantAdmin: its row rules admit every
+// member, so only the handler roles keep TenantMember away from its join rows.
+const budgetEntity = createEntity({
+  table: "notes_pv_test_budgets",
+  fields: {
+    name: createTextField({
+      required: true,
+      maxLength: 64,
+      personal: false,
+      reason: "technical_reference",
+    }),
+  },
+});
+
 // Integer-id host: exercises the `idType: "serial"` branch of the id-shape gate
 // (rejects before any query, so no table is needed).
 const ticketEntity = createEntity({
@@ -99,6 +115,13 @@ const fixturesFeature = defineFeature("notes-pv-test-fixtures", (r) => {
   r.entity({ name: "project", ...guardedProjectEntity });
   r.entity({ name: "contact", ...contactEntity });
   r.entity({ name: "ticket", ...ticketEntity });
+  r.entity({ name: "budget", ...budgetEntity });
+  r.queryHandler({
+    name: "budget:list",
+    schema: z.object({}),
+    access: { roles: ["TenantAdmin"] },
+    handler: async () => ({ rows: [], nextCursor: null }),
+  });
 });
 
 type TestUser = ReturnType<typeof createTestUser>;
@@ -115,6 +138,11 @@ const userB: TestUser = createTestUser({
   claims: { team: "team-b" },
 });
 
+const adminUser: TestUser = createTestUser({
+  id: 43,
+  roles: ["TenantAdmin", "TenantMember"],
+});
+
 const userOtherTenant: TestUser = createTestUser({
   id: 42,
   tenantId: testTenantId(4242),
@@ -129,6 +157,7 @@ const PROJECT_A2 = "a0000000-0000-4000-8000-000000000002";
 // openStack-only team-a project row — never reused as PROJECT_A2 so the two
 // stacks' tests stay order-independent.
 const PROJECT_OPEN = "a0000000-0000-4000-8000-000000000009";
+const BUDGET_ID = "b0000000-0000-4000-8000-000000000001";
 
 let guardedStack: TestStack;
 let openStack: TestStack;
@@ -160,6 +189,12 @@ beforeAll(async () => {
     `INSERT INTO ${PROJECT_TABLE} (id, tenant_id, team_id, name) VALUES ($1, $2, 'team-a', 'Project Open')`,
     [PROJECT_OPEN, userA.tenantId],
   );
+  await unsafeCreateEntityTable(openStack.db, budgetEntity);
+  await seedRowViaEventStore(openStack.db, buildEntityTable("budget", budgetEntity), {
+    id: BUDGET_ID,
+    tenantId: userA.tenantId,
+    name: "Budget",
+  });
 });
 
 afterAll(async () => {
@@ -276,5 +311,33 @@ describe("notes-history integration — add-note parent-visibility (parents opti
     const err = await addNoteErr(openStack, "project", PROJECT_OPEN, userOtherTenant);
     expect(err.code).toBe("not_found");
     expect(err.httpStatus).toBe(404);
+  });
+
+  test("a role without access to the host's query handlers cannot note it, although its row rules would allow it", async () => {
+    const err = await addNoteErr(openStack, "budget", BUDGET_ID, userA);
+    expect(err.code).toBe("not_found");
+    expect(err.httpStatus).toBe(404);
+  });
+
+  test("a role the host's query handler admits may note it", async () => {
+    const result = await addNote(openStack, "budget", BUDGET_ID, adminUser);
+    expect(result.id).toBeTruthy();
+  });
+
+  test("notes on a host stay hidden from a role without access to the host's query handlers", async () => {
+    await addNote(openStack, "budget", BUDGET_ID, adminUser);
+    const asAdmin = await openStack.http.queryOk<{ rows: Array<Record<string, unknown>> }>(
+      NotesHistoryQueries.noteList,
+      {},
+      adminUser,
+    );
+    expect(asAdmin.rows.some((row) => row["entityId"] === BUDGET_ID)).toBe(true);
+
+    const asMember = await openStack.http.queryOk<{ rows: Array<Record<string, unknown>> }>(
+      NotesHistoryQueries.noteList,
+      {},
+      userA,
+    );
+    expect(asMember.rows.some((row) => row["entityId"] === BUDGET_ID)).toBe(false);
   });
 });

@@ -43,6 +43,27 @@ export async function selectEventsForProjectionRebuildBatch(
   );
 }
 
+// Whole replay of a multi-stream projection up to the horizon, ascending. Same archived-stream
+// exclusion as the single-stream batch query; type-only because MSPs subscribe by event type.
+export async function selectEventsForMultiStreamRebuild(
+  db: AnyDb,
+  eventTypes: readonly string[],
+  horizon: bigint,
+): Promise<ReadonlyArray<Record<string, unknown>>> {
+  return unsafeReadRetrying<Record<string, unknown>>(
+    db,
+    `SELECT e.* FROM "kumiko_events" e
+     WHERE e."type" = ANY($1::text[])
+       AND e."id" <= $2
+       AND NOT EXISTS (
+         SELECT 1 FROM "kumiko_archived_streams" a
+          WHERE a."tenant_id" = e."tenant_id" AND a."aggregate_id" = e."aggregate_id"
+       )
+     ORDER BY e."id" ASC`,
+    [toPostgresArrayLiteral(eventTypes), horizon],
+  );
+}
+
 // Total subscribed events in the log — same source/type filter as
 // selectEventsForProjectionRebuildBatch, no id cursor. Under the cutover fence
 // this is the ground-truth count the rebuild must have applied; a shortfall

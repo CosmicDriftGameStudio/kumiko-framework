@@ -29,10 +29,12 @@ import type { DbConnection, DbTx } from "../../db/connection.ts";
 import { integer as pgInteger, table as pgTable, uuid as pgUuid } from "../../db/dialect.ts";
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
 import { readRowLevelSecurityState } from "../../db/queries/rls-catalog.ts";
-import { asRawClient, selectMany, updateMany } from "../../db/query.ts";
+import { asRawClient, insertOne, selectMany, updateMany } from "../../db/query.ts";
 import { buildEntityTable } from "../../db/table-builder.ts";
+import { unsafePushTables } from "../../db/table-push.ts";
 import { withExecutorManagedWrites } from "../../db/tenant-db.ts";
 import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
+import { archiveStream } from "../../event-store/index.ts";
 import {
   eventConsumerStateTable,
   getConsumerState,
@@ -65,6 +67,19 @@ const balanceTable = pgTable("read_mspreb_balance", {
   tenantId: pgUuid("tenant_id").notNull(),
   invoicesCents: pgInteger("invoices_cents").notNull().default(0),
   paymentsCents: pgInteger("payments_cents").notNull().default(0),
+});
+
+// MSP whose apply also writes a second table — the single-table contract violation
+// the rebuild guard must catch.
+const doubleWriterTable = pgTable("read_mspreb_dw_primary", {
+  id: pgUuid("id").primaryKey(),
+  tenantId: pgUuid("tenant_id").notNull(),
+  invoicesCents: pgInteger("invoices_cents").notNull(),
+});
+const doubleWriterSideTable = pgTable("read_mspreb_dw_side", {
+  id: pgUuid("id").primaryKey(),
+  tenantId: pgUuid("tenant_id").notNull(),
+  invoicesCents: pgInteger("invoices_cents").notNull(),
 });
 
 // Saga-MSP read-model — never actually written, exists to satisfy the
@@ -117,6 +132,19 @@ const feature = defineFeature("mspreb", (r) => {
           `INSERT INTO "read_mspreb_balance" (customer, tenant_id, invoices_cents, payments_cents) VALUES ($1::uuid, $2::uuid, 0, $3) ON CONFLICT (customer) DO UPDATE SET payments_cents = read_mspreb_balance.payments_cents + $3`,
           [p.customer, event.tenantId, p.cents],
         );
+      },
+    },
+  });
+
+  r.multiStreamProjection({
+    name: "double-writer",
+    table: doubleWriterTable,
+    apply: {
+      [invoiceBilled.name]: async (event, tx) => {
+        const p = event.payload as { customer: string; cents: number };
+        const row = { id: crypto.randomUUID(), tenantId: event.tenantId, invoicesCents: p.cents };
+        await insertOne(tx, doubleWriterTable, row);
+        await insertOne(tx, doubleWriterSideTable, { ...row, id: crypto.randomUUID() });
       },
     },
   });
@@ -204,6 +232,7 @@ const feature = defineFeature("mspreb", (r) => {
 const BALANCE_MSP = "mspreb:projection:customer-balance";
 const WEBHOOK_MSP = "mspreb:projection:webhook-sink";
 const SAGA_MSP = "mspreb:projection:saga-emitter";
+const DOUBLE_WRITER_MSP = "mspreb:projection:double-writer";
 
 const admin = TestUsers.admin;
 let stack: TestStack;
@@ -215,6 +244,10 @@ beforeAll(async () => {
   });
   await unsafeCreateEntityTable(stack.db, invoiceEntity, "msp-reb-invoice");
   await unsafeCreateEntityTable(stack.db, paymentEntity, "msp-reb-payment");
+  await unsafePushTables(stack.db, {
+    doubleWriter: doubleWriterTable,
+    doubleWriterSide: doubleWriterSideTable,
+  });
 });
 
 afterAll(async () => {
@@ -230,6 +263,8 @@ afterEach(async () => {
     "read_mspreb_payments",
     "read_mspreb_balance",
     "read_mspreb_saga_state",
+    "read_mspreb_dw_primary",
+    "read_mspreb_dw_side",
   ]);
 });
 
@@ -426,6 +461,69 @@ describe("rebuildMultiStreamProjection — rebuildable read-model", () => {
 
     const [finalRow] = await selectMany(stack.db, balanceTable, { customer: frank });
     expect(finalRow).toMatchObject({ invoicesCents: 101_00 });
+  });
+});
+
+describe("rebuildMultiStreamProjection — archived streams", () => {
+  test("events of an archived stream are not replayed into the read-model", async () => {
+    const gina = "00000000-0000-4000-8000-000000000a07";
+    const hugo = "00000000-0000-4000-8000-000000000b08";
+    await updateMany(
+      stack.db,
+      eventConsumerStateTable,
+      { status: "disabled", updatedAt: sql`now()` },
+      { name: SAGA_MSP },
+    );
+    const archivedInvoice = await stack.http.writeOk<{ id: string }>(
+      "mspreb:write:invoice:bill",
+      { customer: gina, cents: 11_00 },
+      admin,
+    );
+    await stack.http.writeOk("mspreb:write:invoice:bill", { customer: hugo, cents: 6_00 }, admin);
+    await archiveStream(stack.db, {
+      tenantId: admin.tenantId,
+      aggregateId: archivedInvoice.id,
+      aggregateType: "msp-reb-invoice",
+      archivedBy: "msp-rebuild-test",
+    });
+
+    const result = await rebuildMultiStreamProjection(BALANCE_MSP, {
+      db: stack.db,
+      registry: stack.registry,
+    });
+
+    expect(result.eventsProcessed).toBe(1);
+    const rows = await selectMany(stack.db, balanceTable);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ customer: hugo, invoicesCents: 6_00 });
+  });
+});
+
+describe("rebuildMultiStreamProjection — single-table guard", () => {
+  test("an apply that also writes a second table fails the rebuild and names the table", async () => {
+    const ivan = "00000000-0000-4000-8000-000000000c09";
+    await updateMany(
+      stack.db,
+      eventConsumerStateTable,
+      { status: "disabled", updatedAt: sql`now()` },
+      { name: SAGA_MSP },
+    );
+    await stack.http.writeOk("mspreb:write:invoice:bill", { customer: ivan, cents: 2_00 }, admin);
+    await runFullDispatcher();
+    const liveBefore = await selectMany(stack.db, doubleWriterTable);
+    expect(liveBefore).toHaveLength(1);
+
+    await expect(
+      rebuildMultiStreamProjection(DOUBLE_WRITER_MSP, {
+        db: stack.db,
+        registry: stack.registry,
+      }),
+    ).rejects.toThrow(/read_mspreb_dw_side/);
+
+    const state = await getConsumerState(stack.db, DOUBLE_WRITER_MSP);
+    expect(state?.status).toBe("dead");
+    expect(state?.lastError).toMatch(/read_mspreb_dw_side/);
+    expect(await selectMany(stack.db, doubleWriterTable)).toEqual(liveBefore);
   });
 });
 

@@ -263,13 +263,13 @@ describe("billing option", () => {
 
   test("webhookPath moves the route", () => {
     const resolved = resolveBillingOption(
-      { ...billing, stripe: { ...billing.stripe, webhookPath: "/api/billing/:providerName" } },
+      { ...billing, webhookPath: "/api/billing/:providerName" },
       {},
     );
     expect(resolved.route.path).toBe("/api/billing/:providerName");
   });
 
-  test("billing.webhookPath moves the route for a paddle-only setup and wins over the stripe fallback", () => {
+  test("billing.webhookPath moves the route for a paddle-only setup", () => {
     const paddleOnly = resolveBillingOption(
       {
         paddle: { priceToTier: { pri_pro: "pro" } },
@@ -279,24 +279,11 @@ describe("billing option", () => {
       {},
     );
     expect(paddleOnly.route.path).toBe("/api/billing/:providerName");
-
-    const both = resolveBillingOption(
-      {
-        ...billing,
-        webhookPath: "/api/new/:providerName",
-        stripe: { ...billing.stripe, webhookPath: "/api/old/:providerName" },
-      },
-      {},
-    );
-    expect(both.route.path).toBe("/api/new/:providerName");
   });
 
   test("a webhookPath without :providerName is refused", () => {
     expect(() =>
-      resolveBillingOption(
-        { ...billing, stripe: { ...billing.stripe, webhookPath: "/api/billing/stripe" } },
-        {},
-      ),
+      resolveBillingOption({ ...billing, webhookPath: "/api/billing/stripe" }, {}),
     ).toThrow(/:providerName/);
   });
 });

@@ -322,8 +322,7 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   //
   // `options.piiFields` is a mandatory, explicit PII stance —
   // registration fails without one. Pass a map of payload fields to their
-  // owning subject via `{ personal: { of: "<ownerField>" } }` (the older
-  // `{ subjectField: "<ownerField>" }` form still works) for fields carrying
+  // owning subject via `{ personal: { of: "<ownerField>" } }` for fields carrying
   // personal data (encrypted under that user's DEK, crypto-shredding),
   // or `"none"` to declare the payload holds no personal data. append()
   // enforces the resulting catalog on every write path.

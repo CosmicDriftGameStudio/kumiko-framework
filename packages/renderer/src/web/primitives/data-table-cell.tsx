@@ -200,8 +200,6 @@ export function isComponentRendererRef(renderer: unknown): { readonly name: stri
 type MoneyCellValue = {
   amount: number;
   currency: string;
-  /** Exact integer cents from rehydrateMoney; preferred for display. */
-  amountMinor?: number;
 };
 
 function isMoneyValue(value: unknown): value is MoneyCellValue {

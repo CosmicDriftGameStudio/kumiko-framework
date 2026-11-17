@@ -33,8 +33,6 @@ export type BillingBootOption = {
   /** At least one of `stripe` and `paddle` is required. */
   readonly stripe?: {
     readonly priceToTier: Readonly<Record<string, string>>;
-    /** @deprecated Use `billing.webhookPath`; still read as a fallback. */
-    readonly webhookPath?: string;
     readonly oneOffPriceIds?: SubscriptionStripeOptions["oneOffPriceIds"];
     readonly paymentInvoiceCreation?: boolean;
     readonly allowPromotionCodes?: SubscriptionStripeOptions["allowPromotionCodes"];
@@ -127,7 +125,7 @@ export function resolveBillingOption(
       "[runProdApp] billing needs at least one provider: set billing.stripe or billing.paddle.",
     );
   }
-  const webhookPath = billing.webhookPath ?? stripe?.webhookPath ?? SUBSCRIPTION_WEBHOOK_PATH;
+  const webhookPath = billing.webhookPath ?? SUBSCRIPTION_WEBHOOK_PATH;
   if (!webhookPath.includes(PROVIDER_NAME_PARAM)) {
     throw new Error(
       `[runProdApp] billing.webhookPath "${webhookPath}" must contain ${PROVIDER_NAME_PARAM}.`,

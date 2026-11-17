@@ -99,7 +99,6 @@ describe("event-store-executor restore — money in payload.previous", () => {
       amount: 1500,
       currency: "EUR",
       amountScaled: 150000,
-      amountMinor: 150000,
     });
     expect(restoredPrevious["grossTotal"]).toEqual(deletedPrevious["grossTotal"]);
     expect("grossTotalCurrency" in restoredPrevious).toBe(false);

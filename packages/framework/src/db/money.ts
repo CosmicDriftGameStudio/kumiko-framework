@@ -12,11 +12,6 @@
 import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import { DEFAULT_CURRENCIES } from "../engine/field-helpers.ts";
 
-//                `amountMinor` stays as a @deprecated alias of the same
-//               value until the remaining consumers
-//               (renderer/web/primitives/index.tsx,
-//               renderer/components/render-field.tsx) migrate off the old name.
-//
 // table-builder.ts's moneyAmount column has always documented BIGINT as
 // "the integer minor unit" — this file used to just pass the API amount
 // through unconverted, silently violating that contract: a caller doing
@@ -127,13 +122,6 @@ export type MoneyRead = {
   readonly amount: number;
   readonly currency: string;
   readonly amountScaled: number;
-  /**
-   * @deprecated Removed in 0.390.0. Use `amountScaled` — this name implies ISO-4217 minor units
-   * (cents), which is wrong once a currency needing a different scale than
-   * the current flat MINOR_UNIT_SCALE=100 lands (e.g. JPY, 0 decimals).
-   * Alias of `amountScaled`, kept until the consumers migrate off it.
-   */
-  readonly amountMinor: number;
 };
 
 /**
@@ -205,11 +193,9 @@ export function readMoney(
   const currency =
     typeof currencyRaw === "string" && currencyRaw !== "" ? currencyRaw : fallbackCurrency;
 
-  // amountMinor: deprecated alias, same value as amountScaled — see MoneyRead.
   return {
     amount: toMajorUnits(amountScaled),
     currency,
     amountScaled,
-    amountMinor: amountScaled,
   };
 }

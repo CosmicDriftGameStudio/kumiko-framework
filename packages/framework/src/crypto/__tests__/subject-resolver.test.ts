@@ -405,14 +405,4 @@ describe("resolveEventSubject", () => {
       ),
     ).toThrow(/field "note".*v2\.digest/s);
   });
-
-  test("legacy subjectField normalizes to the same user subject as personal: { of }", () => {
-    const subject = resolveEventSubject(
-      "note",
-      { subjectField: "authorId" },
-      { authorId: UUID_A },
-      { tenantId: EVENT_TENANT, aggregateType: "note", aggregateId: UUID_B },
-    );
-    expect(subject).toEqual({ kind: "user", userId: UUID_A });
-  });
 });

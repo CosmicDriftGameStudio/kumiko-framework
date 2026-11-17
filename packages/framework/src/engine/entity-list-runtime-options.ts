@@ -9,6 +9,7 @@ import type { SchemaTable } from "../db/dialect.ts";
 import type { EagerLoadEntityResolver, EagerLoadViewer } from "../db/eagerload.ts";
 import { resolveTableName } from "../db/entity-table-meta.ts";
 import { labelListAggregateGroups } from "../db/list-aggregate-labels.ts";
+import { isFrameworkSystemUser } from "../db/lock-guard.ts";
 import { buildEntityTable } from "../db/table-builder.ts";
 import { extractTableInfo } from "../db/table-info.ts";
 import type { TenantDb } from "../db/tenant-db.ts";
@@ -66,6 +67,17 @@ function readTableResolver(ctx: HandlerContext, label: string) {
   };
 }
 
+export function hostRoleAllowsRead(
+  registry: Registry,
+  entityName: string,
+  user: SessionUser,
+): boolean {
+  if (isFrameworkSystemUser(user)) return true;
+  const rules = queryAccessOf(registry).get(entityName);
+  if (rules === undefined || rules.length === 0) return true;
+  return rules.some((rule) => hasAccess(user, rule));
+}
+
 // The join-row and read gates resolve hosts and file owners against the registry, which only
 // exists at request time; the handler check is the one live signals use too.
 export function parentVisibilityFor(
@@ -80,6 +92,7 @@ export function parentVisibilityFor(
       const rule = detailRules.get(name);
       return rule !== undefined && hasAccess(user, rule);
     },
+    canReadHostByRole: (name) => hostRoleAllowsRead(ctx.registry, name, user),
     resolveTable: readTableResolver(ctx, "parentVisibility"),
   };
 }

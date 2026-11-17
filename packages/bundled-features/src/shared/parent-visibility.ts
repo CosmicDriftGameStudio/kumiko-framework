@@ -6,6 +6,7 @@ import {
 import {
   createEntityExecutor,
   type EntityDefinition,
+  hostRoleAllowsRead,
   isUuid,
   type Registry,
   type SessionUser,
@@ -56,6 +57,8 @@ export async function parentRowIsVisible(
   // the executor.
   if (!idShapeMatchesEntity(entity, entityId)) return false;
 
+  if (!hostRoleAllowsRead(registry, entityType, user)) return false;
+
   return (await executorFor(entityType, entity).detail({ id: entityId }, user, db)) !== null;
 }
 
@@ -79,6 +82,7 @@ export async function visibleParentRowIds(
 ): Promise<ReadonlySet<string>> {
   const entity = registry.getEntity(entityType);
   if (!entity || entity.parentRef !== undefined) return new Set();
+  if (!hostRoleAllowsRead(registry, entityType, user)) return new Set();
   const wellFormed = entityIds.filter((entityId) => idShapeMatchesEntity(entity, entityId));
   if (wellFormed.length === 0) return new Set();
   const page = await executorFor(entityType, entity).list(

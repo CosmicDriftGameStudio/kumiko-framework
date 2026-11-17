@@ -52,6 +52,7 @@ export const MEMBERSHIP_PAYLOAD_USER_INDEX_NAME = "events_membership_payload_use
 export const TENANT_ID_INDEX_NAME = "events_tenant_id_idx";
 export const CREATED_AT_INDEX_NAME = "events_created_at_idx";
 export const AGGREGATE_TYPE_ID_INDEX_NAME = "events_aggregate_type_id_idx";
+export const TYPE_ID_INDEX_NAME = "events_type_id_idx";
 
 // Tenant-scoped partial unique index over metadata.idempotencyKey.
 // Expression index straight on the jsonb column — no dedicated key column,
@@ -151,6 +152,7 @@ const SECONDARY_EVENT_INDEXES: ReadonlyArray<{
   { name: TENANT_ID_INDEX_NAME, definition: `("tenant_id", "id")` },
   { name: CREATED_AT_INDEX_NAME, definition: `("created_at")` },
   { name: AGGREGATE_TYPE_ID_INDEX_NAME, definition: `("aggregate_type", "id")` },
+  { name: TYPE_ID_INDEX_NAME, definition: `("type", "id")` },
 ];
 
 export function ensureSecondaryEventIndexes(db: AnyDb): Promise<void> {

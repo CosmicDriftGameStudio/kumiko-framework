@@ -14,8 +14,8 @@ export function numberValue(v: unknown): number | "" {
 }
 
 // Read/initial value → MoneyInput's minor-units contract. The server's
-// read shape is `{amount, currency, amountMinor}` in MAJOR units — deliberately
-// NOT reading `amountMinor` here: the server derives it via a flat
+// read shape is `{amount, currency, amountScaled}` in MAJOR units — deliberately
+// NOT reading `amountScaled` here: the server derives it via a flat
 // MINOR_UNIT_SCALE=100 (money.ts), which disagrees with currencyDecimals for
 // zero-decimal currencies like JPY, so it would double-scale JPY amounts.
 // Deriving from `amount * 10**currencyDecimals(currency)` keeps this the
@@ -113,7 +113,7 @@ export function moneyMinorValue(v: unknown, currency: string): number | "" {
 
 // MoneyInput's minor-units onChange → the server payload shape
 // (`z.object({amount, currency})`, schema-builder.ts) — MAJOR units, no
-// `amountMinor` (the server derives that itself on write).
+// `amountScaled` (the server derives that itself on write).
 export function moneyPayload(minorUnits: number | undefined, currency: string): unknown {
   if (minorUnits === undefined) return undefined;
   return { amount: minorUnits / 10 ** currencyDecimals(currency), currency };
