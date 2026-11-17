@@ -754,16 +754,16 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = {
 // call this early is a framework boot bug, not a job-author mistake.
 //
 // `write` runs as the job's own systemUser, tenant-scoped via its tenantId
-// (SYSTEM_TENANT_ID for jobs with no tenant context, e.g. plain cron jobs). A job that writes without fanning out per-tenant
+// (SYSTEM_TENANT_ID for jobs with no tenant context, e.g. plain cron jobs). `query` runs as the same identity. A job that writes without fanning out per-tenant
 // (`_perTenant:` trigger) silently writes into the system tenant instead of
 // each tenant it may have meant to reach — no guard against this, only this
 // warning.
 //
 // `writeAs` is the explicit-identity counterpart, symmetric with `queryAs`:
 // `hasAccess` has no system bypass, so a write handler whose `access` lists
-// concrete roles is unreachable through `write` — the job's systemUser only
-// carries SYSTEM_ROLE and the dispatch comes back `access_denied`.
-// The job has to assemble a full SessionUser for it:
+// concrete roles is unreachable through `write` unless the job lists that role in `runAs`:
+// the job's systemUser carries SYSTEM_ROLE plus the `runAs` roles, anything else comes back
+// `access_denied`. To act as a different identity the job assembles a full SessionUser for `writeAs`:
 // `triggeredBy` alone is not enough, it carries only id + tenantId and no
 // roles, so the roles have to come from the job's own lookup.
 //

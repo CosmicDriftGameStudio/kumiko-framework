@@ -503,6 +503,10 @@ export type JobDefinition = {
   readonly runIn?: JobRunIn | undefined;
   // Grants `ctx.db.unsafeRaw()` (audited as `unsafe-raw`) and `db.global()` writes (`global-write`) for this job.
   readonly escapeHatch?: EscapeHatchDeclaration | undefined;
+  // Roles the job's own identity (ctx.systemUser) carries next to SYSTEM_ROLE, so ctx.dispatch.write and
+  // ctx.dispatch.query reach handlers gated on them. SystemAdmin can write into other tenants and therefore
+  // needs an escapeHatch with the systemIdentity grant or an r.systemScope() feature.
+  readonly runAs?: { readonly roles: readonly string[] } | undefined;
   // Opt in to a tenant-visible failure record (`jobs:query:failures`). Only a
   // translation key ever reaches the tenant: a thrown KumikoError's `i18nKey`
   // when it carries one, otherwise `messageKey`. The provider's own message

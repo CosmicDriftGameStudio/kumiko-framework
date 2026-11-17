@@ -221,6 +221,8 @@ export function buildJobDispatchFacets(
   return {
     write: (qn: string, payload: unknown) =>
       requireDispatchRef(scope, "write").write(systemUser, qn, payload, writeOrigin),
+    query: (qn: string, payload: unknown) =>
+      requireDispatchRef(scope, "query").queryAs(systemUser, qn, payload, writeOrigin),
     writeAs: gatedIdentitySwitch.writeAs,
     queryAs: gatedIdentitySwitch.queryAs,
     queryAsMember: (userId: string, qn: string, payload: unknown) => {

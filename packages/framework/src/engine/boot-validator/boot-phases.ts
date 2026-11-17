@@ -41,6 +41,7 @@ import {
 } from "./entity-select.ts";
 import { validateFieldConditions } from "./field-conditions.ts";
 import { validateHandlerFieldReferences } from "./handler-field-references.ts";
+import { validateJobRunAs } from "./job-run-as.ts";
 import { validateNavs } from "./nav.ts";
 import { validateOwnershipRules } from "./ownership.ts";
 import { validateParentRefs } from "./parent-ref.ts";
@@ -159,6 +160,7 @@ const FEATURE_CHECKS: readonly FeatureCheck[] = [
     check: "validateOwnershipRules",
     run: (f, c) => validateOwnershipRules(f, c.allClaimKeys, c.knownRoles),
   },
+  { check: "validateJobRunAs", run: (f, c) => validateJobRunAs(f, c.knownRoles) },
   { check: "validateReadGates", run: (f, c) => validateReadGates(f, c.featureMap) },
   {
     check: "validateCrossTenantFileRead",

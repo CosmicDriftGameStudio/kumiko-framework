@@ -16,7 +16,6 @@
 
 import { createAccountSecurityFeature } from "@cosmicdrift/kumiko-bundled-features/account-security";
 import { createAdminShellFeature } from "@cosmicdrift/kumiko-bundled-features/admin-shell";
-import { createAgentToolsFeature } from "@cosmicdrift/kumiko-bundled-features/agent-tools";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { createAuthMfaFeature } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import { createAuthMfaUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/auth-mfa-user-data";
@@ -497,7 +496,6 @@ export const APP_FEATURES = [
   // document-ingest-foundation: Phase-1 skeleton — documentExtract entity +
   // ocrLanguage/maxPagesPerFile config, no handlers yet (kumiko-framework#1497).
   createDocumentIngestFoundationFeature(),
-  createAgentToolsFeature(),
 ] as const;
 
 // runProdApp / runDevApp mount feature-toggles themselves with `featureToggles: true`

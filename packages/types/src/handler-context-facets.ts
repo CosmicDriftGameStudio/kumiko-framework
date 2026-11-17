@@ -174,9 +174,13 @@ export type HandlerObservability = {
 // handler-only so job contexts built by consumers (probes, boot seeding) need no new member.
 export type JobEvents = Pick<HandlerEvents, "append" | "load">;
 
-// `write` runs as the job's systemUser; `writeAs`/`queryAs` take an explicit identity. They throw
-// until JobRunner.attachDispatcher() has run. `queryAsMember`'s tenant is the job's resolved tenant.
-export type JobDispatch = Pick<HandlerDispatch, "write" | "writeAs" | "queryAs" | "queryAsMember">;
+// `write` and `query` run as the job's systemUser (SYSTEM_ROLE plus the roles of `runAs`);
+// `writeAs`/`queryAs` take an explicit identity. They throw until JobRunner.attachDispatcher()
+// has run. `queryAsMember`'s tenant is the job's resolved tenant.
+export type JobDispatch = Pick<
+  HandlerDispatch,
+  "write" | "query" | "writeAs" | "queryAs" | "queryAsMember"
+>;
 
 export type JobObservability = Pick<HandlerObservability, "log" | "metricsFor" | "meter">;
 

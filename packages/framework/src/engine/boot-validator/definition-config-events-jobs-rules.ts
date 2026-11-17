@@ -21,6 +21,17 @@ export const DEFINITION_CONFIG_EVENTS_JOBS_RULES = {
     summary: "A job escapeHatch carries a valid reason and grants.",
     fix: "Fix the escapeHatch reason or grants as the message describes.",
   },
+  jobRunAsInvalid: {
+    id: "job/run-as-invalid",
+    summary: "A job runAs lists at least one role and neither the system nor the anonymous role.",
+    fix: "List the app roles the job needs, or omit runAs.",
+  },
+  jobRunAsSystemAdminUngranted: {
+    id: "job/run-as-system-admin-ungranted",
+    summary:
+      "A job that runs as SystemAdmin declares the systemIdentity escape hatch or sits in an r.systemScope() feature.",
+    fix: 'Add escapeHatch: { reason, grants: ["systemIdentity"] } to the job, or run it with a tenant role.',
+  },
   configSingleKeyNeedsDefinition: {
     id: "config/single-key-needs-definition",
     summary: "The single-key config() form receives a definition as second argument.",

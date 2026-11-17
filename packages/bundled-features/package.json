@@ -26,6 +26,7 @@
   },
   "exports": {
     "./agent-tools": "./src/agent-tools/index.ts",
+    "./agent-tools/api-docs": "./src/agent-tools/api-docs/index.ts",
     "./audit": "./src/audit/index.ts",
     "./audit/web": "./src/audit/web/index.ts",
     "./admin-shell": "./src/admin-shell/index.ts",
@@ -234,6 +235,10 @@
       "./agent-tools": {
         "types": "./dist/agent-tools/index.d.ts",
         "default": "./dist/agent-tools/index.js"
+      },
+      "./agent-tools/api-docs": {
+        "types": "./dist/agent-tools/api-docs/index.d.ts",
+        "default": "./dist/agent-tools/api-docs/index.js"
       },
       "./audit": {
         "types": "./dist/audit/index.d.ts",

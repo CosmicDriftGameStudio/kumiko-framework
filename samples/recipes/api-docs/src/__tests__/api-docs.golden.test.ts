@@ -13,7 +13,7 @@ import {
   type NamedWebhookExample,
   resolveApiDocsConfig,
   WebhookExampleFileSchema,
-} from "@cosmicdrift/kumiko-bundled-features/agent-tools";
+} from "@cosmicdrift/kumiko-bundled-features/agent-tools/api-docs";
 import { allAppFeatures } from "@cosmicdrift/kumiko-framework/config";
 import { createRegistry } from "@cosmicdrift/kumiko-framework/engine";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime";

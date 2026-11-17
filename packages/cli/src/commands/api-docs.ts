@@ -154,8 +154,8 @@ function writeOutput(outDir: string, files: ReadonlyMap<string, string>, indexFi
 }
 
 type Values = { out?: string; locales?: string; check?: boolean };
-type AgentTools = typeof import("@cosmicdrift/kumiko-bundled-features/agent-tools");
-type ResolvedApiDocsConfig = Awaited<ReturnType<AgentTools["resolveApiDocsConfig"]>>;
+type ApiDocsModule = typeof import("@cosmicdrift/kumiko-bundled-features/agent-tools/api-docs");
+type ResolvedApiDocsConfig = Awaited<ReturnType<ApiDocsModule["resolveApiDocsConfig"]>>;
 
 function errorBlock(ctx: CliCommandContext, message: string): number {
   ctx.out.err("");
@@ -165,7 +165,7 @@ function errorBlock(ctx: CliCommandContext, message: string): number {
 }
 
 /** A usage message, or undefined when the locales are fine. */
-function localeProblem(locales: readonly string[], tools: AgentTools): string | undefined {
+function localeProblem(locales: readonly string[], tools: ApiDocsModule): string | undefined {
   const unsupported = locales.filter((locale) => !tools.isApiDocsLocale(locale));
   if (locales.length > 0 && unsupported.length === 0 && new Set(locales).size === locales.length) {
     return undefined;
@@ -176,8 +176,8 @@ function localeProblem(locales: readonly string[], tools: AgentTools): string | 
 
 function report(
   ctx: CliCommandContext,
-  tools: AgentTools,
-  generated: ReturnType<AgentTools["generateApiDocs"]>,
+  tools: ApiDocsModule,
+  generated: ReturnType<ApiDocsModule["generateApiDocs"]>,
   target: { outDir: string; onDisk: ReadonlyMap<string, string>; check: boolean },
 ): number {
   const { files, problems } = generated;
@@ -214,7 +214,7 @@ type Target = {
 /** The settings of this run, or the exit code after reporting what is wrong. */
 async function resolveTarget(
   ctx: CliCommandContext,
-  tools: AgentTools,
+  tools: ApiDocsModule,
   apiDocs: AppApiDocsConfig,
   values: Values,
 ): Promise<Target | number> {
@@ -263,7 +263,7 @@ async function generate(
   config: NonNullable<Awaited<ReturnType<typeof loadAppConfig>>>,
   values: Values,
 ): Promise<number> {
-  const tools = await import("@cosmicdrift/kumiko-bundled-features/agent-tools");
+  const tools = await import("@cosmicdrift/kumiko-bundled-features/agent-tools/api-docs");
   const { createRegistry } = await import("@cosmicdrift/kumiko-framework/engine");
   const { composeFeatures } = await import("@cosmicdrift/kumiko-server-runtime");
 

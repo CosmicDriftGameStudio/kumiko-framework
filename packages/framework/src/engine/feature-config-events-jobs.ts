@@ -45,7 +45,16 @@ import type { FeatureBuilderState } from "./feature-builder-state.ts";
 import { resolveName } from "./handler-helpers.ts";
 import { requireArgument, splitNamedDefinition, unwrapArrayForm } from "./object-form.ts";
 import { QnTypes, qn, toKebab } from "./qualified-name.ts";
+import { ANONYMOUS_ROLE, SYSTEM_ROLE } from "./system-user.ts";
 import type { EventPiiStance } from "./types/index.ts";
+
+function jobRunAsProblem(runAs: JobDefinition["runAs"]): string | undefined {
+  if (runAs === undefined) return undefined;
+  if (runAs.roles.length === 0) return "roles is empty; omit runAs instead";
+  const reserved = runAs.roles.find((role) => role === SYSTEM_ROLE || role === ANONYMOUS_ROLE);
+  if (reserved !== undefined) return `"${reserved}" is reserved and cannot be a job role`;
+  return undefined;
+}
 
 function assertScheduleTrigger(
   featureName: string,
@@ -212,6 +221,12 @@ export function buildConfigEventsJobsMethods<TName extends string>(
       if (jobGrantsProblem) {
         throw bootRuleError(DEFINITION_CONFIG_EVENTS_JOBS_RULES.jobEscapeHatchInvalid, {
           message: `[Feature ${name}] r.job("${jobName}") declares an invalid escapeHatch — ${jobGrantsProblem}`,
+        });
+      }
+      const runAsProblem = jobRunAsProblem(jobOptions.runAs);
+      if (runAsProblem !== undefined) {
+        throw bootRuleError(DEFINITION_CONFIG_EVENTS_JOBS_RULES.jobRunAsInvalid, {
+          message: `[Feature ${name}] r.job("${jobName}") declares an invalid runAs — ${runAsProblem}`,
         });
       }
       assertScheduleTrigger(name, jobName, jobOptions.trigger);

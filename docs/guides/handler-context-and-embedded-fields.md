@@ -1,7 +1,7 @@
 ---
 status: reference
-verified: 2026-10-26
-evidence: "packages/types/src/handlers.ts, packages/types/src/handler-context-facets.ts, packages/types/src/handler-context-services.ts, packages/feature-ast/src/scripts/codemod/ctx-namespaces-mapping.ts"
+verified: 2026-11-17
+evidence: "packages/types/src/handlers.ts, packages/types/src/handler-context-facets.ts, packages/types/src/handler-context-services.ts, packages/feature-ast/src/scripts/codemod/ctx-namespaces-mapping.ts, packages/types/src/config.ts"
 ---
 
 # Handler context and embedded fields
@@ -43,9 +43,10 @@ flowchart LR
 | `ctx.tenants` | `config(tenantId)`, `writeTarget(tenantId)` | config of a tenant, writes into another tenant's stream |
 | `ctx.auth` | `resolveClaims`, `resolveActiveMembership` | auth features |
 
-A job context carries subsets: `events.append`, `dispatch.write`, `writeAs`,
+A job context carries subsets: `events.append`, `dispatch.write`, `query`, `writeAs`,
 `queryAs` and `queryAsMember`, `obs.log`, `metricsFor` and `meter`,
-`lifecycle.signal` and the same `services`. The flat names (`ctx.appendEvent`,
+`lifecycle.signal` and the same `services`. `dispatch.write` and `dispatch.query` run as
+`ctx.systemUser`, which carries the roles the job lists in `r.job({ runAs: { roles } })`. The flat names (`ctx.appendEvent`,
 `ctx.write`, `ctx.log`, `ctx.scheduleAfterCommit`, `ctx.configFor`, …) are gone
 without aliases; `kumiko-upgrade --apply` rewrites them, see
 [Upgrading to 0.392](upgrading-to-0-392.md).
