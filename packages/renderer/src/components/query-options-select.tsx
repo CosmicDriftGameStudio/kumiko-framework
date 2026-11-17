@@ -3,6 +3,7 @@ import { type ReactNode, useEffect, useRef } from "react";
 import type { EditFieldViewModel } from "../headless/index.ts";
 import { useQuery } from "../hooks/use-query.ts";
 import { usePrimitives } from "../primitives.tsx";
+import type { SelectOptionEntry } from "./availability-options-select.tsx";
 
 type OptionRow = {
   readonly value: string;
@@ -135,4 +136,52 @@ export function QueryOptionLabel({
   const { data } = useQuery<OptionsQueryResult>(query, payload);
   const label = data?.rows.find((row) => row.value === value)?.label;
   return label ?? String(value);
+}
+
+type QueryOptionsMultiSelectProps = {
+  readonly query: string;
+  readonly payload: OptionsQueryPayload;
+  readonly row: Readonly<Record<string, unknown>>;
+  readonly values: readonly string[];
+  readonly onChange: (value: unknown) => void;
+  readonly children: (options: readonly SelectOptionEntry[]) => ReactNode;
+};
+
+// MultiSelect whose options come from a query (MultiSelectFieldDef.optionsQuery).
+export function QueryOptionsMultiSelect({
+  query,
+  payload,
+  row,
+  values,
+  onChange,
+  children,
+}: QueryOptionsMultiSelectProps): ReactNode {
+  const resolvedPayload = resolveOptionsQueryPayload(payload, row);
+  const payloadKey = JSON.stringify(resolvedPayload);
+  const { data } = useQuery<OptionsQueryResult>(query, resolvedPayload);
+  const settledData = useRef<OptionsQueryResult | null>(null);
+  const settledPayloadKey = useRef<string | null>(null);
+  // Acts once per fresh result object: useQuery keeps the old data while a changed payload reloads,
+  // so only a new `data` belongs to the current payload. A first load keeps stored values; a load
+  // after a payload change drops values the new rows no longer contain.
+  useEffect(() => {
+    if (data === null || data === settledData.current) return;
+    settledData.current = data;
+    const previousKey = settledPayloadKey.current;
+    settledPayloadKey.current = payloadKey;
+    if (previousKey === null || previousKey === payloadKey) return;
+    const kept = values.filter((value) => data.rows.some((r) => r.value === value));
+    if (kept.length !== values.length) onChange(kept);
+  }, [data, payloadKey, values, onChange]);
+  const rows = data?.rows ?? [];
+  const missing = values.filter((value) => !rows.some((r) => r.value === value));
+  const options: SelectOptionEntry[] = [
+    ...missing.map((value) => ({ value, label: value })),
+    ...rows.map((r) => ({
+      value: r.value,
+      label: r.label,
+      ...(r.description !== undefined && { description: r.description }),
+    })),
+  ];
+  return children(options);
 }

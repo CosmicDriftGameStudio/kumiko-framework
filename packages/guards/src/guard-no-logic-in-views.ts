@@ -128,6 +128,7 @@ function topLevelCallables(sf: SourceFile): { name: string; fn: Callable }[] {
 
 export const guard: AstGuard = {
   name: "No-Logic-in-Views Guard (App-Repos)",
+  ignoreTag: IGNORE_TAG,
   scan: SCAN,
   hint:
     "Computation/parsing/aggregation belongs in lib/ (with a test) — web/ holds only " +

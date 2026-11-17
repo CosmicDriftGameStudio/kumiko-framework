@@ -17,10 +17,45 @@ export function lineHasIgnoreTag(line: string, tag: string): boolean {
   return new RegExp(`${prefix}\\s+(?:[\\w-]+,)*${slug}(?=[\\s,]|$)`).test(line);
 }
 
+// Module state, not a parameter: hasIgnoreTag is called deep inside the guards, and runGuards runs them
+// sequentially in one process and resets the ledger before each run.
+const usedIgnoreTags = new Set<string>();
+
+function ledgerKey(filePath: string, line: number, slug: string): string {
+  return `${filePath}\0${line}\0${slug}`;
+}
+
+export function ignoreTagSlug(tag: string): string {
+  return tag.slice(tag.lastIndexOf(" ") + 1);
+}
+
+export function resetIgnoreTagUses(): void {
+  usedIgnoreTags.clear();
+}
+
+export function isIgnoreTagUsed(filePath: string, line: number, slug: string): boolean {
+  return usedIgnoreTags.has(ledgerKey(filePath, line, slug));
+}
+
+/** lineHasIgnoreTag on the 1-based `line` of `sf`, recording a hit as a used marker. */
+export function consumeIgnoreTagOnLine(sf: SourceFile, line: number, tag: string): boolean {
+  const text = sf.getFullText().split("\n")[line - 1] ?? "";
+  if (!lineHasIgnoreTag(text, tag)) return false;
+  usedIgnoreTags.add(ledgerKey(sf.getFilePath(), line, ignoreTagSlug(tag)));
+  return true;
+}
+
+// Not anchored: lineHasIgnoreTag honours the tag anywhere in a line, so a prefixed tag must be checked too.
+export const KUMIKO_IGNORE_TAG_RE = /\bkumiko-lint-ignore\s+(\S+)(?:\s+(.*))?$/;
+
+// Also matches the file-wide `kumiko-lint-ignore-file` form: reason checks cover both, the ledger tracks line markers only.
+export const KUMIKO_IGNORE_ANY_TAG_RE = /\bkumiko-lint-ignore(?:-file)?\s+(\S+)(?:\s+(.*))?$/;
+
 function taggedLineAt(node: Node, line: number, tag: string): string | undefined {
-  const lines = node.getSourceFile().getFullText().split("\n");
-  for (const candidate of [lines[line - 1] ?? "", lines[line - 2] ?? ""]) {
-    if (lineHasIgnoreTag(candidate, tag)) return candidate;
+  const sf = node.getSourceFile();
+  const lines = sf.getFullText().split("\n");
+  for (const candidate of [line, line - 1]) {
+    if (consumeIgnoreTagOnLine(sf, candidate, tag)) return lines[candidate - 1] ?? "";
   }
   return undefined;
 }

@@ -28,7 +28,7 @@ export const ENTITY_SELECT_IMAGE_RULES = {
   },
   selectOptionsQueryUnsupported: {
     id: "select/options-query-unsupported",
-    summary: "An entity select field has static options, no optionsQuery.",
+    summary: "An entity select or multiSelect field has static options, no optionsQuery.",
     fix: "Use static options, or a reference field.",
   },
   selectAvailabilityQueryUnregistered: {

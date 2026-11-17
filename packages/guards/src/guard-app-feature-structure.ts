@@ -144,6 +144,7 @@ function clientMarkerViolation(sf: SourceFile): GuardViolation | undefined {
 
 export const guard: AstGuard = {
   name: "App-Feature-Structure Guard (App-Repos)",
+  ignoreTag: IGNORE_TAG,
   scan: SCAN,
   hint:
     "Convention: feature.ts is registration only, screens live under web/ (one file per screen), handlers under handlers/, " +

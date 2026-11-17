@@ -135,13 +135,16 @@ function scan(
     const file = path.relative(ROOT, sf.getFilePath());
     for (const attr of sf.getDescendantsOfKind(SyntaxKind.JsxAttribute)) {
       if (attr.getNameNode().getText() !== "className") continue;
-      if (hasIgnoreTag(attr, IGNORE_TAG)) continue;
       const init = attr.getInitializer();
       if (init === undefined || init.getKind() !== SyntaxKind.StringLiteral) continue;
       const text = init.asKindOrThrow(SyntaxKind.StringLiteral).getLiteralText();
       const line = init.getStartLineNumber();
-      for (const token of text.split(/\s+/)) {
-        if (token.length === 0 || allowed.has(token)) continue;
+      const offending = text
+        .split(/\s+/)
+        .filter((token) => token.length > 0 && !allowed.has(token));
+      if (offending.length === 0) continue;
+      if (hasIgnoreTag(attr, IGNORE_TAG)) continue;
+      for (const token of offending) {
         findings.push({ file, line, token });
         console.warn(
           `  [tailwind-scan-surface WARN] ${file}:${line}  class "${token}" is outside the Tailwind scan surface (renderer/src, samples/**/src)`,
@@ -599,6 +602,7 @@ export function createGuard(options: { readonly baselineRoot?: string } = {}): A
   const baselineRoot = options.baselineRoot ?? BASELINE_ROOT;
   return {
     name: "Tailwind-Scan-Surface Guard",
+    ignoreTag: IGNORE_TAG,
     scan: SCAN,
     hint:
       "Tailwind class in bundled-features outside the @source scan surface (renderer/src, samples/**/src) " +

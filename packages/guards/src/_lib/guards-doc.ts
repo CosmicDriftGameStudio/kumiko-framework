@@ -141,6 +141,7 @@ export function renderGuardsDoc(frameworkRoot: string): string {
     "Generated, do not edit. Run `bun run gen:guards-doc` after adding or changing a guard.",
     "Purpose is the first sentence of the guard's header comment; the suppression column lists",
     "the `kumiko-lint-ignore <key>` markers the guard honors (`-` = not suppressible inline).",
+    "A marker that suppresses nothing in a run fails the `unused-ignore-tags` check; delete it.",
     "",
     "| Guard | Purpose | Suppression |",
     "| --- | --- | --- |",

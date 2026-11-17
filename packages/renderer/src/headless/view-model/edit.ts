@@ -396,7 +396,8 @@ type SelectFieldHints = Pick<
 function deriveSelectOptionsQuery(
   fieldDef: EntityFieldDef,
 ): Pick<EditFieldViewModel, "selectOptionsQuery"> {
-  return fieldDef.type === "select" && fieldDef.optionsQuery !== undefined
+  return (fieldDef.type === "select" || fieldDef.type === "multiSelect") &&
+    fieldDef.optionsQuery !== undefined
     ? {
         selectOptionsQuery: {
           query: fieldDef.optionsQuery,

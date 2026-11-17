@@ -454,6 +454,13 @@ export type MultiSelectFieldDef<TOptions extends readonly string[] = readonly st
    *  `hint` is ignored. Static `options` stay authoritative and the write path must
    *  enforce the same rule, the renderer only mirrors it. Called with an empty payload. */
   readonly optionsAvailabilityQuery?: string;
+  /** Options from a query handler instead of static `options` (rows `{ value, label, description? }`;
+   *  `default` is ignored). Only on actionForm/configEdit screen fields with `options: []`; entity
+   *  fields reject it at boot because the stored values would not be checked against the result.
+   *  The write handler must check every submitted value against the same source itself. */
+  readonly optionsQuery?: string;
+  /** Sent with every optionsQuery call; `{ field }` takes the current value of a sibling form field. */
+  readonly optionsQueryPayload?: OptionsQueryPayload;
 } & PiiAndFieldState;
 
 /**

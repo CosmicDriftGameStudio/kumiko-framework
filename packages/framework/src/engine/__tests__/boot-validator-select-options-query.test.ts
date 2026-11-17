@@ -191,6 +191,95 @@ describe("validateBoot — select optionsQuery on entity fields", () => {
       /Entity select field "item.meta.model" declares optionsQuery/,
     );
   });
+
+  test("a top-level entity multiSelect field with optionsQuery throws", () => {
+    const shop = defineFeature("shop", (r) => {
+      r.entity({
+        name: "item",
+        fields: {
+          scopes: {
+            type: "multiSelect",
+            options: ["a"],
+            optionsQuery: "catalog:query:model-options",
+          },
+        } as never,
+      });
+    });
+    expect(() => validateBoot([catalog, shop])).toThrow(
+      /Entity multiSelect field "item.scopes" declares optionsQuery/,
+    );
+  });
+});
+
+describe("validateBoot — multiSelect optionsQuery on form fields", () => {
+  const query = "catalog:query:model-options";
+  const kindField = { type: "select", options: ["staff", "owner"] };
+
+  test("a registered optionsQuery with empty options boots", () => {
+    const shop = featureWithActionForm({ scopes: { type: "multiSelect", options: [], optionsQuery: query } });
+    expect(() => validateBoot([catalog, shop])).not.toThrow();
+  });
+
+  test("a dead optionsQuery QN throws", () => {
+    const shop = featureWithActionForm({
+      scopes: { type: "multiSelect", options: [], optionsQuery: "catalog:query:ghost" },
+    });
+    expect(() => validateBoot([catalog, shop])).toThrow(
+      /multiSelect field "scopes" optionsQuery query "catalog:query:ghost" is not a registered query-handler/,
+    );
+  });
+
+  test("an empty optionsQuery string throws", () => {
+    const shop = featureWithActionForm({ scopes: { type: "multiSelect", options: [], optionsQuery: "" } });
+    expect(() => validateBoot([catalog, shop])).toThrow(/empty optionsQuery/);
+  });
+
+  test("non-empty options together with optionsQuery throws", () => {
+    const shop = featureWithActionForm({ scopes: { type: "multiSelect", options: ["a"], optionsQuery: query } });
+    expect(() => validateBoot([catalog, shop])).toThrow(/both options and optionsQuery/);
+  });
+
+  test("optionsQuery together with optionsAvailabilityQuery throws", () => {
+    const shop = featureWithActionForm({
+      scopes: { type: "multiSelect", options: [], optionsQuery: query, optionsAvailabilityQuery: query },
+    });
+    expect(() => validateBoot([catalog, shop])).toThrow(
+      /declares both optionsQuery and optionsAvailabilityQuery/,
+    );
+  });
+
+  test("optionsQueryPayload without optionsQuery throws", () => {
+    const shop = featureWithActionForm({
+      scopes: { type: "multiSelect", options: ["a"], optionsQueryPayload: { a: 1 } },
+    });
+    expect(() => validateBoot([catalog, shop])).toThrow(/optionsQueryPayload without optionsQuery/);
+  });
+
+  test("a { field } naming an unknown field throws", () => {
+    const shop = featureWithActionForm({
+      kind: kindField,
+      scopes: {
+        type: "multiSelect",
+        options: [],
+        optionsQuery: query,
+        optionsQueryPayload: { kind: { field: "ghost" } },
+      },
+    });
+    expect(() => validateBoot([catalog, shop])).toThrow(/references unknown field "ghost"/);
+  });
+
+  test("a { field } naming a sibling field boots", () => {
+    const shop = featureWithActionForm({
+      kind: kindField,
+      scopes: {
+        type: "multiSelect",
+        options: [],
+        optionsQuery: query,
+        optionsQueryPayload: { kind: { field: "kind" } },
+      },
+    });
+    expect(() => validateBoot([catalog, shop])).not.toThrow();
+  });
 });
 
 function featureWithWriteForm(fieldDefs: Record<string, unknown>) {

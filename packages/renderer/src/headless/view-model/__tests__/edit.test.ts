@@ -1189,6 +1189,31 @@ describe("computeEditViewModel — declared reference metadata", () => {
     expect(tags?.selectOptionsAvailabilityQuery).toBeUndefined();
   });
 
+  test("a multiSelect field's optionsQuery and payload reach the view-model as selectOptionsQuery", () => {
+    const entity: EntityDefinition = {
+      fields: {
+        scopes: {
+          type: "multiSelect",
+          options: [],
+          optionsQuery: "demo:query:x",
+          optionsQueryPayload: { a: "b" },
+        },
+        tags: { type: "multiSelect", options: ["x"] },
+      },
+    };
+    const vm = computeEditViewModel({
+      screen: editScreen({ sections: [{ fields: ["scopes", "tags"] }] }),
+      entity,
+      values: {},
+      translate,
+      featureName: "shop",
+    });
+
+    const [scopes, tags] = asFields(vm.sections[0]).fields;
+    expect(scopes?.selectOptionsQuery).toEqual({ query: "demo:query:x", payload: { a: "b" } });
+    expect(tags?.selectOptionsQuery).toBeUndefined();
+  });
+
   test("a projectionDetail field without refEntity metadata stays 'text', unchanged", () => {
     const vm = computeEditViewModel({
       screen: editScreen({ sections: [{ fields: ["ip"] }] }),

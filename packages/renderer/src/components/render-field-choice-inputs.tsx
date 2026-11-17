@@ -8,6 +8,7 @@ import { FileListField } from "./file-list-field.tsx";
 import { MultiSelectCheckboxes } from "./multi-select-checkboxes.tsx";
 import { MultiSelectChips } from "./multi-select-chips.tsx";
 import { MultiSelectCount } from "./multi-select-count.tsx";
+import { QueryOptionsMultiSelect } from "./query-options-select.tsx";
 import type { RenderInputArgs, SharedInputProps } from "./render-field-input-shared.ts";
 import { stringArrayOf, stringValue, withPinnedValues } from "./render-field-values.ts";
 
@@ -54,6 +55,19 @@ export function renderMultiSelectInput(args: RenderInputArgs, shared: SharedInpu
   if (field.display === "count") return <MultiSelectCount id={args.id} value={arrayValue} />;
   const renderControl = (options: readonly SelectOptionEntry[]): ReactNode =>
     renderMultiSelectControl(args, shared, options, arrayValue);
+  if (field.selectOptionsQuery !== undefined && field.readOnly !== true) {
+    return (
+      <QueryOptionsMultiSelect
+        query={field.selectOptionsQuery.query}
+        payload={field.selectOptionsQuery.payload}
+        row={args.row ?? { [field.field]: field.value }}
+        values={arrayValue}
+        onChange={args.onChange}
+      >
+        {renderControl}
+      </QueryOptionsMultiSelect>
+    );
+  }
   if (field.selectOptionsAvailabilityQuery !== undefined && field.readOnly !== true) {
     return (
       <AvailabilityOptionsMultiSelect

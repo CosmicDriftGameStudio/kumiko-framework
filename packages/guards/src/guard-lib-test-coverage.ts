@@ -164,6 +164,7 @@ function exceptionViolation(
 
 export const guard: AstGuard = {
   name: "Lib-Test-Coverage Guard (App-Repos)",
+  ignoreTag: IGNORE_TAG,
   scan: SCAN,
   hint:
     "Every lib file with an exported function needs a test that imports from the " +
@@ -188,11 +189,14 @@ export const guard: AstGuard = {
         }
         continue;
       }
-      const relevant: Export[] = [];
+      const libPathNoExt = stripExt(sf.getFilePath());
+      const linked = testFiles.filter((t) => testImportsLib(t, libPathNoExt));
+      const untested: Export[] = [];
       for (const e of exportedCallables(sf)) {
+        if (linked.some((t) => referencesName(t, e.name))) continue;
         const tagLine = ignoreTagLine(e.node, IGNORE_TAG);
         if (tagLine === undefined) {
-          relevant.push(e);
+          untested.push(e);
           continue;
         }
         const problem = citationProblem(tagLine, testFiles);
@@ -201,21 +205,17 @@ export const guard: AstGuard = {
           exceptionViolation(sf, e.node.getStartLineNumber(), `"${e.name}"`, problem),
         );
       }
-      if (relevant.length === 0) continue;
-
-      const libPathNoExt = stripExt(sf.getFilePath());
-      const linked = testFiles.filter((t) => testImportsLib(t, libPathNoExt));
+      if (untested.length === 0) continue;
       if (linked.length === 0) {
         violations.push({
           file: sf.getFilePath(),
           line: 1,
-          message: `No test imports this lib module (${relevant.length} exported function(s) untested)`,
+          message: `No test imports this lib module (${untested.length} exported function(s) untested)`,
         });
         continue;
       }
 
-      for (const e of relevant) {
-        if (linked.some((t) => referencesName(t, e.name))) continue;
+      for (const e of untested) {
         violations.push({
           file: sf.getFilePath(),
           line: e.node.getStartLineNumber(),

@@ -72,9 +72,9 @@ function checkRelatedListSections(
 ): void {
   for (const obj of root.getDescendantsOfKind(SyntaxKind.ObjectLiteralExpression)) {
     if (stringLiteralValue(obj, "kind") !== "relatedList") continue;
-    if (hasIgnoreTag(obj, IGNORE_TAG)) continue;
     if (booleanLiteralValue(obj, "readOnly") === true) continue;
     if (hasDeclaredProperty(obj, "rowClick") || hasDeclaredProperty(obj, "rowActions")) continue;
+    if (hasIgnoreTag(obj, IGNORE_TAG)) continue;
     violations.push({
       file: sf.getFilePath(),
       line: obj.getStartLineNumber(),
@@ -97,11 +97,11 @@ function checkRowActions(
     if (!init?.isKind(SyntaxKind.ArrayLiteralExpression)) continue;
     for (const el of init.getElements()) {
       if (!el.isKind(SyntaxKind.ObjectLiteralExpression)) continue;
-      if (hasIgnoreTag(el, IGNORE_TAG)) continue;
       const id = stringLiteralValue(el, "id");
       const label = stringLiteralValue(el, "label");
       if (id === undefined || label === undefined) continue;
       if (id !== "edit" && label.endsWith(".action.edit")) {
+        if (hasIgnoreTag(el, IGNORE_TAG)) continue;
         violations.push({
           file: sf.getFilePath(),
           line: el.getStartLineNumber(),
@@ -114,6 +114,7 @@ function checkRowActions(
 
 export const guard: AstGuard = {
   name: "Screen-Conventions Guard",
+  ignoreTag: IGNORE_TAG,
   scan: SCAN,
   hint:
     "relatedList sections need `rowClick`, `rowActions` or `readOnly: true`; a rowAction label " +

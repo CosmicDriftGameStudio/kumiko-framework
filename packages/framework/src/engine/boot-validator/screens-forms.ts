@@ -1,7 +1,9 @@
 import type {
   EntityDefinition,
   FieldDefinition,
+  MultiSelectFieldDef,
   OptionsQueryPayload,
+  SelectFieldDef,
 } from "@cosmicdrift/kumiko-types/fields";
 import { NO_WIDGET_FIELD_TYPES, optionsQueryFieldRefs } from "@cosmicdrift/kumiko-types/fields";
 import { isKebabSegment } from "../qualified-name.ts";
@@ -669,6 +671,31 @@ export function rejectWriteOnlyFormField(
 const CONDITIONAL_OPTIONS_ENTITY_ONLY =
   "conditionalOptions is only supported on entity select fields (enforced by the entity write path)";
 
+function validateFormOptionsQuery(
+  where: string,
+  fieldName: string,
+  fdef: SelectFieldDef | MultiSelectFieldDef,
+  siblingFieldNames: ReadonlySet<string>,
+): void {
+  if (fdef.optionsQuery === undefined) return;
+  if (fdef.optionsQuery.length === 0) {
+    throw bootRuleError(FORM_FIELD_RULES.selectOptionsQueryEmpty, {
+      message: `${where} has an empty optionsQuery. Set it to a query name or remove it.`,
+    });
+  }
+  if (fdef.options.length > 0) {
+    throw bootRuleError(FORM_FIELD_RULES.selectOptionsAndQuery, {
+      message: `${where} declares both options and optionsQuery — pick one`,
+    });
+  }
+  if (fdef.optionsAvailabilityQuery !== undefined) {
+    throw bootRuleError(FORM_FIELD_RULES.selectQueryAndAvailability, {
+      message: `${where} declares both optionsQuery and optionsAvailabilityQuery — availability only applies to static options`,
+    });
+  }
+  validateOptionsQueryFieldRefs(where, fieldName, fdef.optionsQueryPayload, siblingFieldNames);
+}
+
 export function validateFormSelectOptions(
   featureName: string,
   screenId: string,
@@ -685,22 +712,7 @@ export function validateFormSelectOptions(
       });
     }
     if (fdef.optionsQuery !== undefined) {
-      if (fdef.optionsQuery.length === 0) {
-        throw bootRuleError(FORM_FIELD_RULES.selectOptionsQueryEmpty, {
-          message: `${where} has an empty optionsQuery. Set it to a query name or remove it.`,
-        });
-      }
-      if (fdef.options.length > 0) {
-        throw bootRuleError(FORM_FIELD_RULES.selectOptionsAndQuery, {
-          message: `${where} declares both options and optionsQuery — pick one`,
-        });
-      }
-      if (fdef.optionsAvailabilityQuery !== undefined) {
-        throw bootRuleError(FORM_FIELD_RULES.selectQueryAndAvailability, {
-          message: `${where} declares both optionsQuery and optionsAvailabilityQuery — availability only applies to static options`,
-        });
-      }
-      validateOptionsQueryFieldRefs(where, fieldName, fdef.optionsQueryPayload, siblingFieldNames);
+      validateFormOptionsQuery(where, fieldName, fdef, siblingFieldNames);
     } else if (fdef.optionsAvailabilityQuery !== undefined) {
       if (fdef.optionsAvailabilityQuery.length === 0) {
         throw bootRuleError(FORM_FIELD_RULES.optionsAvailabilityQueryEmpty, {
@@ -713,10 +725,20 @@ export function validateFormSelectOptions(
         message: `${where} has optionsQueryPayload without optionsQuery. Set optionsQuery or remove optionsQueryPayload.`,
       });
     }
-  } else if (fdef.type === "multiSelect" && fdef.optionsAvailabilityQuery !== undefined) {
-    if (fdef.optionsAvailabilityQuery.length === 0) {
+  } else if (fdef.type === "multiSelect") {
+    const where = `[Feature ${featureName}] Screen "${screenId}" (${context}) multiSelect field "${fieldName}"`;
+    if (fdef.optionsQuery !== undefined) {
+      validateFormOptionsQuery(where, fieldName, fdef, siblingFieldNames);
+    } else if (fdef.optionsQueryPayload !== undefined) {
+      throw bootRuleError(FORM_FIELD_RULES.optionsQueryPayloadWithoutQuery, {
+        message: `${where} has optionsQueryPayload without optionsQuery. Set optionsQuery or remove optionsQueryPayload.`,
+      });
+    } else if (
+      fdef.optionsAvailabilityQuery !== undefined &&
+      fdef.optionsAvailabilityQuery.length === 0
+    ) {
       throw bootRuleError(FORM_FIELD_RULES.optionsAvailabilityQueryEmpty, {
-        message: `[Feature ${featureName}] Screen "${screenId}" (${context}) multiSelect field "${fieldName}" has an empty optionsAvailabilityQuery. Set it to a query name or remove it.`,
+        message: `${where} has an empty optionsAvailabilityQuery. Set it to a query name or remove it.`,
       });
     }
   }

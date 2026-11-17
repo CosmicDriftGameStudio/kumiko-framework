@@ -16,6 +16,7 @@ import { existsSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { basename, relative as pathRelative, resolve, sep } from "node:path";
 import { Project, type SourceFile } from "ts-morph";
 import { type BaselineRegression, compareToBaseline, findRepoRootFor } from "./baseline-compare";
+import { resetIgnoreTagUses } from "./ignore-tag";
 import {
   explainRepoRoots,
   findLocalRepo,
@@ -30,6 +31,11 @@ import {
   loadSecurityBaseline,
   type SecurityBaselineLoad,
 } from "./security-baseline";
+import {
+  type CheckedIgnoreTag,
+  UNUSED_IGNORE_TAGS_CHECK,
+  unusedIgnoreTagViolations,
+} from "./unused-ignore-tags";
 
 export { type BaselineRegression, compareToBaseline, findRepoRootFor } from "./baseline-compare";
 export { ALL_REPO_KINDS, type ScanExtension, type ScanScope, type ScanSpec } from "./scan-scope";
@@ -53,6 +59,9 @@ export type AstGuard = {
   readonly hint?: string;
   /** Security guards fail on every finding not frozen in the per-repo security baseline — no skip flag. */
   readonly security?: boolean;
+  /** The full `kumiko-lint-ignore <slug>` tag this guard honours. runGuards then reports every marker
+   *  of that slug in the guard's files that suppressed nothing in this run. */
+  readonly ignoreTag?: string;
   /** `roots` are the same roots `runGuards` scanned `files` with — a guard classifying paths against repo roots (`relFromRepoRoot`) must use these, not re-derive its own single-repo `resolveRepoRoots()`, or a multi-root caller's roots never reach it. */
   run(files: readonly SourceFile[], roots?: readonly RepoRoot[]): GuardOutcome;
   /** Ratchet guards only: freeze the current findings into that guard's own baseline file. */
@@ -401,7 +410,7 @@ function runOneGuard(
   scan: (guard: AstGuard, roots: readonly RepoRoot[]) => readonly RootScan[],
   deps: RunGuardsDeps,
   start: number,
-): RunResult {
+): { readonly result: RunResult; readonly files: readonly SourceFile[] } {
   const scans = scan(guard, roots);
   const paths = [...new Set(scans.flatMap((s) => s.files))].sort();
   const files = paths.map((p) => project.getSourceFile(p) ?? project.addSourceFileAtPath(p));
@@ -412,7 +421,7 @@ function runOneGuard(
     : outcome;
   const { violatingRoots } = checkRootFloor(guard, scans);
   const notApplicable = scans.length === 0;
-  return {
+  const result: RunResult = {
     name: guard.name,
     ok: effectiveOutcome.violations.length === 0 && violatingRoots.length === 0,
     ms: Math.round(performance.now() - start),
@@ -430,6 +439,7 @@ function runOneGuard(
     frozenFindings: securityResult?.frozen,
     security: securityResult !== undefined ? true : undefined,
   };
+  return { result, files };
 }
 
 // `project` is injectable so the run/catch wiring can be unit-tested with an
@@ -446,11 +456,15 @@ export function runGuards(
     ((guard: AstGuard, roots: readonly RepoRoot[]) =>
       scanRoots(guard.scan, roots, scanOptionsFor(guard)));
   const roots = deps.roots ?? resolveRepoRoots();
+  resetIgnoreTagUses();
+  const checkedTags: CheckedIgnoreTag[] = [];
 
   for (const guard of guards) {
     const start = performance.now();
     try {
-      results.push(runOneGuard(guard, project, roots, scan, deps, start));
+      const { result, files } = runOneGuard(guard, project, roots, scan, deps, start);
+      results.push(result);
+      if (guard.ignoreTag !== undefined) checkedTags.push({ tag: guard.ignoreTag, files });
     } catch (e) {
       results.push({
         name: guard.name,
@@ -459,6 +473,18 @@ export function runGuards(
         error: errorText(e),
       });
     }
+  }
+  if (guards.some((g) => g.ignoreTag !== undefined)) {
+    const start = performance.now();
+    const violations = unusedIgnoreTagViolations(checkedTags);
+    results.push({
+      name: UNUSED_IGNORE_TAGS_CHECK,
+      ok: violations.length === 0,
+      ms: Math.round(performance.now() - start),
+      outcome: { violations },
+      hint: "Delete markers that suppress nothing: a kumiko-lint-ignore marker only belongs where its guard would report a finding.",
+      matchedFiles: new Set(checkedTags.flatMap((c) => c.files)).size,
+    });
   }
   return results;
 }

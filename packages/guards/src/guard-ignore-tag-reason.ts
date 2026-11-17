@@ -9,7 +9,7 @@
 
 import path from "node:path";
 import type { SourceFile } from "ts-morph";
-import { scanCommentTrivia } from "./_lib/comment-trivia";
+import { commentLines } from "./_lib/comment-lines";
 import { isGenericReason } from "./_lib/generic-reason";
 import {
   ALL_REPO_KINDS,
@@ -22,6 +22,7 @@ import {
   runStandalone,
   type ScanSpec,
 } from "./_lib/guard-kit";
+import { KUMIKO_IGNORE_ANY_TAG_RE } from "./_lib/ignore-tag";
 import { resolveRepoRoots } from "./_lib/roots";
 
 const ROOT = process.cwd();
@@ -35,10 +36,6 @@ const SCAN: ScanSpec = {
 };
 
 const EXCLUDE = /(\.d\.(ts|tsx)$|\/dist\/)/;
-const COMMENT_MARKER_PREFIX_RE = /^\s*(?:\/\/+|\/\*+|\*+)?\s*/;
-const COMMENT_CLOSE_SUFFIX_RE = /\s*\*\/\s*\}?\s*$/;
-// Not anchored: lineHasIgnoreTag honours the tag anywhere in a line, so a prefixed tag must be checked too.
-const TAG_LINE_RE = /\bkumiko-lint-ignore(?:-file)?\s+(\S+)(?:\s+(.*))?$/;
 // Only the rules that replaced deleted guards inherit the reason check; other biome-ignore rules never had one.
 const BIOME_TAG_LINE_RE =
   /\bbiome-ignore(?:-all|-start)?\s+(lint\/(?:plugin|style\/(?:noProcessEnv|noInlineStyles|noRestrictedImports|noRestrictedGlobals))\S*?)\s*:\s*(.*)$/;
@@ -57,32 +54,14 @@ function isWeakReason(reason: string): boolean {
   return isGenericReason(reason) || reason.split(/\s+/).filter(Boolean).length < MIN_REASON_WORDS;
 }
 
-function countNewlines(text: string, from: number, to: number): number {
-  let count = 0;
-  for (let i = text.indexOf("\n", from); i !== -1 && i < to; i = text.indexOf("\n", i + 1)) count++;
-  return count;
-}
-
 export function findWeakIgnoreReasons(fullText: string): WeakIgnoreReason[] {
   const sites: WeakIgnoreReason[] = [];
-  let scannedUpTo = 0;
-  let firstLine = 1;
-  for (const comment of scanCommentTrivia(fullText)) {
-    firstLine += countNewlines(fullText, scannedUpTo, comment.start);
-    scannedUpTo = comment.start;
-    for (const [offset, rawLine] of comment.text.split("\n").entries()) {
-      const body = rawLine
-        .replace(COMMENT_MARKER_PREFIX_RE, "")
-        .replace(COMMENT_CLOSE_SUFFIX_RE, "");
-      const trimmed = body.trim();
-      const match = TAG_LINE_RE.exec(trimmed) ?? BIOME_TAG_LINE_RE.exec(trimmed);
-      const slug = match?.[1] ?? "";
-      const reason = (match?.[2] ?? "").trim();
-      const isCheckable = match !== null && !isPlaceholder(slug) && !isPlaceholder(reason);
-      if (isCheckable && isWeakReason(reason)) {
-        sites.push({ line: firstLine + offset, slug, reason });
-      }
-    }
+  for (const { line, body } of commentLines(fullText)) {
+    const match = KUMIKO_IGNORE_ANY_TAG_RE.exec(body) ?? BIOME_TAG_LINE_RE.exec(body);
+    const slug = match?.[1] ?? "";
+    const reason = (match?.[2] ?? "").trim();
+    const isCheckable = match !== null && !isPlaceholder(slug) && !isPlaceholder(reason);
+    if (isCheckable && isWeakReason(reason)) sites.push({ line, slug, reason });
   }
   return sites;
 }

@@ -165,21 +165,13 @@ function checkFormFieldQueryRefs(
   fields: Readonly<Record<string, FieldDefinition>>,
 ): void {
   for (const [fieldName, field] of Object.entries(fields)) {
-    if (field.type === "multiSelect" && field.optionsAvailabilityQuery !== undefined) {
-      checkQueryRef(
-        queryHandlers,
-        field.optionsAvailabilityQuery,
-        () =>
-          `[Feature ${featureName}] Screen "${screenId}" (${screenType}) multiSelect field "${fieldName}" optionsAvailabilityQuery`,
-      );
-    }
-    if (field.type !== "select") continue;
+    if (field.type !== "select" && field.type !== "multiSelect") continue;
     if (field.optionsQuery !== undefined) {
       checkQueryRef(
         queryHandlers,
         field.optionsQuery,
         () =>
-          `[Feature ${featureName}] Screen "${screenId}" (${screenType}) select field "${fieldName}" optionsQuery`,
+          `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${field.type} field "${fieldName}" optionsQuery`,
       );
     }
     if (field.optionsAvailabilityQuery !== undefined) {
@@ -187,7 +179,7 @@ function checkFormFieldQueryRefs(
         queryHandlers,
         field.optionsAvailabilityQuery,
         () =>
-          `[Feature ${featureName}] Screen "${screenId}" (${screenType}) select field "${fieldName}" optionsAvailabilityQuery`,
+          `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${field.type} field "${fieldName}" optionsAvailabilityQuery`,
       );
     }
   }

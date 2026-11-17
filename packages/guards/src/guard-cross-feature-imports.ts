@@ -48,7 +48,7 @@
 import * as path from "node:path";
 import type { ExportDeclaration, ImportDeclaration, SourceFile } from "ts-morph";
 import { type AstGuard, runStandalone, type ScanSpec } from "./_lib/guard-kit";
-import { lineHasIgnoreTag } from "./_lib/ignore-tag";
+import { consumeIgnoreTagOnLine } from "./_lib/ignore-tag";
 
 const ROOT = process.cwd();
 
@@ -187,12 +187,9 @@ function resolveModuleSpecifier(
 }
 
 function isIgnored(sf: SourceFile, importLine: number): boolean {
-  const text = sf.getFullText();
-  const lines = text.split("\n");
-  const onLine = lines[importLine - 1] ?? "";
-  if (lineHasIgnoreTag(onLine, IGNORE_TAG)) return true;
-  const above = lines[importLine - 2] ?? "";
-  return above.trim().startsWith("//") && lineHasIgnoreTag(above, IGNORE_TAG);
+  if (consumeIgnoreTagOnLine(sf, importLine, IGNORE_TAG)) return true;
+  const above = sf.getFullText().split("\n")[importLine - 2] ?? "";
+  return above.trim().startsWith("//") && consumeIgnoreTagOnLine(sf, importLine - 1, IGNORE_TAG);
 }
 
 function findCrossFeatureViolations(sf: SourceFile): Omit<Violation, "file">[] {
@@ -229,6 +226,7 @@ function findCrossFeatureViolations(sf: SourceFile): Omit<Violation, "file">[] {
 
 export const guard: AstGuard = {
   name: "Cross-Feature-Import Guard",
+  ignoreTag: IGNORE_TAG,
   scan: SCAN,
   hint: `Import from the feature's barrel ("../<feature>") instead of its internals. Escape hatch: "// ${IGNORE_TAG} <reason>" on the import line.`,
   run(files) {

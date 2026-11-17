@@ -178,12 +178,12 @@ export const FORM_FIELD_RULES = {
   },
   selectOptionsQueryEmpty: {
     id: "form/select-options-query-empty",
-    summary: "A select field's optionsQuery is non-empty when set.",
+    summary: "A select or multiSelect field's optionsQuery is non-empty when set.",
     fix: "Set it to a query name or remove it.",
   },
   selectOptionsAndQuery: {
     id: "form/select-options-and-query",
-    summary: "A select field declares static options or optionsQuery, not both.",
+    summary: "A select or multiSelect field declares static options or optionsQuery, not both.",
     fix: "Pick one of options and optionsQuery.",
   },
   selectQueryAndAvailability: {
