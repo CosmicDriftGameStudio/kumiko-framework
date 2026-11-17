@@ -1,5 +1,9 @@
 import type { AppContext } from "../engine/types/index.ts";
-import { createPayloadDigest, createRateLimitResolver } from "../rate-limit/index.ts";
+import {
+  createPayloadDigest,
+  createRateLimitResolver,
+  createVisitorKeyDigest,
+} from "../rate-limit/index.ts";
 import type { ServerOptions } from "./server.ts";
 import type { BootLogger } from "./server-boot-checks.ts";
 import {
@@ -12,10 +16,11 @@ export type ServerRateLimit = {
   readonly resolver: AppContext["rateLimit"];
   readonly middlewareRequested: boolean;
   readonly payloadDigest: ReturnType<typeof createPayloadDigest>;
+  readonly visitorKeyDigest: (value: string) => string;
 };
 
 export function resolveServerRateLimit(
-  options: Pick<ServerOptions, "registry" | "context" | "rateLimit" | "jwtSecret">,
+  options: Pick<ServerOptions, "registry" | "context" | "rateLimit" | "jwtSecret" | "extraRoutes">,
   tracedRedis: AppContext["redis"],
   bootLog: BootLogger,
 ): ServerRateLimit {
@@ -34,11 +39,15 @@ export function resolveServerRateLimit(
   const wantsHttpRouteLimit = [...options.registry.features.values()].some((feature) =>
     Object.values(feature.httpRoutes).some((route) => route.rateLimit !== undefined),
   );
-  const wantsResolver = wantsL3 || wantsL1L2 || wantsHttpRouteLimit;
+  const wantsExtraRouteLimit =
+    options.extraRoutes?.some((route) => route.rateLimit !== undefined) ?? false;
+  const wantsResolver = wantsL3 || wantsL1L2 || wantsHttpRouteLimit || wantsExtraRouteLimit;
   // Master for the payload-bucket HMAC: the current signing secret (the
   // keyring's signKid for rotation setups). buildServer always has one, so
   // the digest is available whenever a handler declares additionalRateLimits.
-  const payloadDigest = createPayloadDigest(payloadDigestMasterSecret(options.jwtSecret));
+  const digestMasterSecret = payloadDigestMasterSecret(options.jwtSecret);
+  const payloadDigest = createPayloadDigest(digestMasterSecret);
+  const visitorKeyDigest = createVisitorKeyDigest(digestMasterSecret);
   const rateLimitResolver =
     options.context.rateLimit ??
     (tracedRedis && wantsResolver ? createRateLimitResolver({ redis: tracedRedis }) : undefined);
@@ -47,7 +56,12 @@ export function resolveServerRateLimit(
     warnNonIpRateLimitsWithoutResolver(options.registry, bootLog);
     warnUnlimitedSystemScopeFeatures(options.registry, bootLog);
   }
-  return { resolver: rateLimitResolver, middlewareRequested: wantsL1L2, payloadDigest };
+  return {
+    resolver: rateLimitResolver,
+    middlewareRequested: wantsL1L2,
+    payloadDigest,
+    visitorKeyDigest,
+  };
 }
 
 function payloadDigestMasterSecret(jwtSecret: ServerOptions["jwtSecret"]): string {

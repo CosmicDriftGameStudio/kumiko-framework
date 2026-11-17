@@ -259,6 +259,7 @@ function buildServerAppContext(
     ...(tracedRedis ? { redis: tracedRedis } : {}),
     ...(rateLimit.resolver ? { rateLimit: rateLimit.resolver } : {}),
     _rateLimitPayloadDigest: rateLimit.payloadDigest,
+    _visitorKeyDigest: rateLimit.visitorKeyDigest,
     ...(cacheSync ? { cacheSync } : {}),
     // Propagate the feature-toggle resolver to the context so the event-
     // dispatcher (and any future context-reading consumer) sees the same

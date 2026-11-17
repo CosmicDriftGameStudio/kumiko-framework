@@ -6,6 +6,7 @@ import type { BootCheckFn, StoreTableOptions } from "@cosmicdrift/kumiko-types/f
 import type { HookDefinition } from "@cosmicdrift/kumiko-types/feature-registrar";
 import type { EscapeHatchDeclaration, NameOrRef } from "@cosmicdrift/kumiko-types/handlers";
 import { escapeHatchGrantsProblem } from "@cosmicdrift/kumiko-types/handlers";
+import { isValidHttpRouteRateLimit } from "@cosmicdrift/kumiko-types/http-route";
 import type {
   HookPhase,
   LifecycleHookFn,
@@ -630,13 +631,7 @@ export function buildUiExtensionsMethods<TName extends string>(
         });
       }
       const routeLimit = definition.rateLimit;
-      if (
-        routeLimit !== undefined &&
-        (!Number.isInteger(routeLimit.limit) ||
-          routeLimit.limit < 1 ||
-          !Number.isInteger(routeLimit.windowSeconds) ||
-          routeLimit.windowSeconds < 1)
-      ) {
+      if (routeLimit !== undefined && !isValidHttpRouteRateLimit(routeLimit)) {
         throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.httpRouteRateLimitInvalid, {
           message:
             `[Feature ${name}] httpRoute "${definition.method} ${definition.path}" rateLimit needs ` +

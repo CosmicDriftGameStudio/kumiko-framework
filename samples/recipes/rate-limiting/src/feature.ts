@@ -45,5 +45,13 @@ export function createRateLimitShowcaseFeature(): FeatureDefinition {
       rateLimit: { per: "tenant+handler", limit: 20, windowSeconds: 600 },
       rateLimitCost: (payload) => payload.files.length,
     });
+
+    // A daily pseudonym of the HTTP caller for anonymous dedup and per-visitor limits, absent outside HTTP.
+    r.queryHandler({
+      name: "visitor-key",
+      schema: z.object({}),
+      handler: async (_event, ctx) => ({ visitorKey: ctx.visitorKey ?? null }),
+      access: { roles: ["Admin", "User"] },
+    });
   });
 }

@@ -120,7 +120,7 @@ export type {
   ValidationError,
   ValidationHookFn,
 } from "@cosmicdrift/kumiko-types/hooks";
-export type { EntityId } from "@cosmicdrift/kumiko-types/identifiers";
+export type { EntityId, VisitorKey } from "@cosmicdrift/kumiko-types/identifiers";
 export type {
   ContentCollectionDefinition,
   NavDefinition,

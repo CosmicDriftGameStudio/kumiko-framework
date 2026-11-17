@@ -4,7 +4,7 @@
 // instead of handing every route a raw db/redis escape hatch.
 
 import type { WriteResult } from "@cosmicdrift/kumiko-types/handlers";
-import type { HttpRouteMethod } from "@cosmicdrift/kumiko-types/http-route";
+import type { HttpRouteMethod, HttpRouteRateLimit } from "@cosmicdrift/kumiko-types/http-route";
 import type { Context, Hono } from "hono";
 import type { Registry, SessionUser, TenantId } from "../engine/types/index.ts";
 
@@ -42,6 +42,10 @@ export type AnonymousExtraRoute = {
   readonly method: HttpRouteMethod;
   readonly path: string;
   readonly entry: "anonymous";
+  /** Same option and buckets as r.httpRoute's rateLimit, enforced through the server's shared
+   *  rate-limit store before the body limit, verify() and the handler. Fail-open; skipped
+   *  when the server has no Redis. */
+  readonly rateLimit?: HttpRouteRateLimit;
   readonly handler: (
     // biome-ignore lint/suspicious/noExplicitAny: Hono context generics are invisible at the framework boundary
     c: Context<any, any>,
@@ -62,6 +66,10 @@ export type UserExtraRoute = {
   readonly method: HttpRouteMethod;
   readonly path: string;
   readonly entry: "user";
+  /** Same option and buckets as r.httpRoute's rateLimit, enforced through the server's shared
+   *  rate-limit store before the body limit, verify() and the handler. Fail-open; skipped
+   *  when the server has no Redis. */
+  readonly rateLimit?: HttpRouteRateLimit;
   readonly handler: (
     // biome-ignore lint/suspicious/noExplicitAny: Hono context generics are invisible at the framework boundary
     c: Context<any, any>,
@@ -114,6 +122,10 @@ export type SignatureExtraRoute<TVerified> = {
   readonly method: HttpRouteMethod;
   readonly path: string;
   readonly entry: "signature";
+  /** Same option and buckets as r.httpRoute's rateLimit, enforced through the server's shared
+   *  rate-limit store before the body limit, verify() and the handler. Fail-open; skipped
+   *  when the server has no Redis. */
+  readonly rateLimit?: HttpRouteRateLimit;
   readonly verify: (
     request: SignatureExtraRouteVerifyRequest,
     deps: SignatureExtraRouteVerifyDeps,

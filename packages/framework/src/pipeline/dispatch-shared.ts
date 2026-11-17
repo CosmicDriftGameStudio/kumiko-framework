@@ -94,6 +94,7 @@ import {
   buildRuntimeServices,
   resolveHandlerContextScope,
 } from "./handler-context-scope.ts";
+import { resolveVisitorKey } from "./handler-context-visitor-key.ts";
 import type { IdempotencyGuard } from "./idempotency.ts";
 import type { LifecycleHooks } from "./lifecycle-pipeline.ts";
 import { createGatedIdentitySwitch, isSystemIdentity } from "./system-identity-switch.ts";
@@ -237,6 +238,7 @@ export async function buildHandlerContext(
   });
   const tz = await resolveHandlerTz(scope, configFacet.config);
   const locale = resolveHandlerLocale(scope);
+  const visitorKey = resolveVisitorKey(scope, tz.now());
 
   const { _rateLimitPayloadDigest: payloadDigest } = scope.context;
   // The final context (after the phase wrappers below) is what preSave hooks must see.
@@ -276,6 +278,7 @@ export async function buildHandlerContext(
     },
     tz,
     locale,
+    ...(visitorKey !== undefined && { visitorKey }),
     // ctx.user as a convenience alias for event.user. Identity switches still use queryAs/writeAs.
     user,
     ...(includeDeleted && { includeDeleted: true }),

@@ -24,3 +24,4 @@ export {
   type RateLimitResolverOptions,
 } from "./resolver.ts";
 export { createUnlimitedRateLimitResolver } from "./unlimited-resolver.ts";
+export { createVisitorKeyDigest } from "./visitor-key-digest.ts";

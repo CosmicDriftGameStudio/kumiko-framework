@@ -361,7 +361,7 @@ export type WriteResult<TData = unknown> =
 
 // Forward import: Registry is in feature.ts (circular type import — fine in TS)
 import type { Registry } from "./feature.ts";
-import type { TenantId } from "./identifiers.ts";
+import type { TenantId, VisitorKey } from "./identifiers.ts";
 import type { UncheckedSystemDb } from "./tenant-db-types.ts";
 
 // The framework resolves the member internally, so no hand-built SessionUser reaches app code.
@@ -577,6 +577,8 @@ type SharedContextFields = {
   readonly rateLimit?: import("./rate-limit-types.ts").RateLimitResolver;
   // Internal: keyed digest for payload-field rate-limit buckets. Set by buildServer; read only by the dispatcher.
   readonly _rateLimitPayloadDigest?: (value: string) => string;
+  // Internal: keyed digest behind ctx.visitorKey. Set by buildServer; read only by the handler-context builder.
+  readonly _visitorKeyDigest?: (value: string) => string;
   readonly searchAdapter?: SearchAdapter;
   readonly files?: FileContext;
   readonly derivatives?: DerivativesContext;
@@ -683,6 +685,11 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = {
    *  the same input yields a different digest per handler and never matches a
    *  dispatcher payload-bucket digest. Absent when the app wires no digest key. */
   readonly rateLimitDigest?: (value: string) => string;
+  /** Pseudonym of the HTTP caller: keyed HMAC over the UTC day, the resolved client IP and
+   *  the User-Agent, identical in every handler and nested dispatch of the app for that day.
+   *  Absent outside an HTTP request and when the client IP is unknown. Pseudonymous personal
+   *  data: keep it in short-lived dedup or limit records, never in events. */
+  readonly visitorKey?: VisitorKey;
   // Trash query opt-in (soft-delete). When true, the auto entity-list handler
   // asks the executor to include soft-deleted rows; a custom query handler can
   // read it to branch its own logic. Set by the dispatcher from the query

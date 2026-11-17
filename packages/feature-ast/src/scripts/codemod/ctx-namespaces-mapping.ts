@@ -138,6 +138,7 @@ const CONTEXT_MEMBER_NAMES: ReadonlySet<string> = new Set([
   "tenants",
   "tz",
   "user",
+  "visitorKey",
   "attempt",
   "canDefer",
   "defer",

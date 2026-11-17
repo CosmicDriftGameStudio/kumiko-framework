@@ -1,4 +1,5 @@
 import type { WriteResult } from "@cosmicdrift/kumiko-types/handlers";
+import { isValidHttpRouteRateLimit } from "@cosmicdrift/kumiko-types/http-route";
 import type { Context, Hono } from "hono";
 import { ROLES } from "../auth/roles.ts";
 import { createSystemUser } from "../engine/system-user.ts";
@@ -19,7 +20,11 @@ import {
   type SystemDispatchArgs,
 } from "./extra-route.ts";
 import { bodyLimitForRoutePath, DEFAULT_MAX_REQUEST_BYTES } from "./route-registrars.ts";
-import { makeSystemQuery, mountHonoRoute } from "./server-feature-http-routes.ts";
+import {
+  buildRouteRateLimitGuards,
+  makeSystemQuery,
+  mountHonoRoute,
+} from "./server-feature-http-routes.ts";
 import { isMissingOrAnonymousUser, unauthenticatedResponse } from "./server-routes.ts";
 import type { ServerWiring } from "./server-wiring.ts";
 import { tenantScopedSecrets } from "./tenant-scoped-secrets.ts";
@@ -42,7 +47,15 @@ export function compilePublicApiRequestMatcher(
 
 export function mountExtraRoutes(
   app: Hono,
-  wiring: Pick<ServerWiring, "options" | "dispatcher" | "context" | "clientIpResolver">,
+  wiring: Pick<
+    ServerWiring,
+    | "options"
+    | "dispatcher"
+    | "context"
+    | "clientIpResolver"
+    | "rateLimitResolver"
+    | "observability"
+  >,
 ): void {
   const { options, dispatcher, context, clientIpResolver } = wiring;
   // extraRoutes — declarative HTTP-routes with a
@@ -77,7 +90,13 @@ export function mountExtraRoutes(
         route.method,
         route.path,
         honoHandler,
-        bodyLimitForRoutePath(route.path, options.maxRequestBytes ?? DEFAULT_MAX_REQUEST_BYTES),
+        [
+          ...buildRouteRateLimitGuards(route, wiring),
+          ...bodyLimitForRoutePath(
+            route.path,
+            options.maxRequestBytes ?? DEFAULT_MAX_REQUEST_BYTES,
+          ),
+        ],
       );
     }
   }
@@ -124,6 +143,12 @@ function assertValidExtraRoute(route: ExtraRouteDefinition): void {
           `match the framework path "${shadowedFrameworkPath}" — it would bypass the auth chain for it.`,
       );
     }
+  }
+  if (route.rateLimit !== undefined && !isValidHttpRouteRateLimit(route.rateLimit)) {
+    throw new Error(
+      `[kumiko] extraRoutes: "${route.method} ${route.path}" rateLimit needs positive integer ` +
+        "limit and windowSeconds.",
+    );
   }
 }
 

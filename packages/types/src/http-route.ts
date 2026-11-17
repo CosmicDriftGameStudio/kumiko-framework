@@ -71,6 +71,15 @@ export type HttpRouteRateLimit = Omit<RateLimitOption, "per"> & {
   readonly per: "ip" | "ip+handler";
 };
 
+export function isValidHttpRouteRateLimit(rateLimit: HttpRouteRateLimit): boolean {
+  return (
+    Number.isInteger(rateLimit.limit) &&
+    rateLimit.limit >= 1 &&
+    Number.isInteger(rateLimit.windowSeconds) &&
+    rateLimit.windowSeconds >= 1
+  );
+}
+
 export type HttpRouteDefinition = {
   /** HTTP method — mounted in Hono via app.{get,post,...}(path). */
   readonly method: HttpRouteMethod;

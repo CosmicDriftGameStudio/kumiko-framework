@@ -67,6 +67,33 @@ bucket key, so Redis never holds the address in plaintext. The check runs after 
 validation and before the handler, identically for matching and non-matching values, and is
 skipped for system callers. Exceeding it answers 429 `rate_limited`.
 
+## Extra routes
+
+Hand-written `extraRoutes` take the same `rateLimit` as `r.httpRoute`. buildServer enforces it through the shared Redis store before the body limit, `verify()` and the handler, so the limit holds across replicas and restarts. `"ip+handler"` keeps one bucket per `METHOD path`, `"ip"` shares one bucket with every route that declares it.
+
+```ts illustration
+const badgeRoute: ExtraRouteDefinition = {
+  method: "GET",
+  path: "/badge.svg",
+  entry: "anonymous",
+  rateLimit: { per: "ip+handler", limit: 120, windowSeconds: 60 },
+  handler,
+};
+```
+
+## Visitor key
+
+During an HTTP request every handler gets `ctx.visitorKey`, a keyed hash of the UTC day, the client IP and the User-Agent. The same browser gets the same key in every handler for one day, so a public page can count a visit once per visitor and day without storing the IP. It is absent in jobs and event consumers and when the client IP is unknown; skip the dedup then instead of merging callers. Keep it in short-lived records, never in events.
+
+```ts illustration
+r.queryHandler({
+  name: "visitor-key",
+  schema: z.object({}),
+  handler: async (_event, ctx) => ({ visitorKey: ctx.visitorKey ?? null }),
+  access: { roles: ["Admin", "User"] },
+});
+```
+
 ## Source
 
 Feature entry point: `src/feature.ts`.

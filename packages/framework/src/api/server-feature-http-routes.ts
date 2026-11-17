@@ -1,4 +1,8 @@
-import type { HttpRouteDefinition, HttpRouteMethod } from "@cosmicdrift/kumiko-types/http-route";
+import type {
+  HttpRouteDefinition,
+  HttpRouteMethod,
+  HttpRouteRateLimit,
+} from "@cosmicdrift/kumiko-types/http-route";
 import type { Hono, MiddlewareHandler } from "hono";
 import { createAnonymousUser } from "../engine/system-user.ts";
 import type { TenantId } from "../engine/types/index.ts";
@@ -43,7 +47,7 @@ function mountFeatureHttpRoute(
   >,
   sessionOnlyHttpRouteGuards: readonly MiddlewareHandler[],
 ): void {
-  const { dispatcher, clientIpResolver, rateLimitResolver, observability } = wiring;
+  const { dispatcher, clientIpResolver } = wiring;
   const honoHandler = async (c: import("hono").Context): Promise<Response> =>
     route.handler(c, {
       app,
@@ -60,25 +64,36 @@ function mountFeatureHttpRoute(
       systemQuery: makeSystemQuery(c, dispatcher, clientIpResolver),
       clientIp: clientIpResolver.resolve(clientIpSourceFromHonoContext(c)),
     });
-  // Without a resolver (no Redis in the context — dev/test stacks) the
-  // declared limit is skipped rather than failing the boot of every app
-  // that mounts a bundled feature whose routes carry a default limit.
-  const routeLimit =
-    route.rateLimit && rateLimitResolver
-      ? [
-          httpRouteRateLimit({
-            resolver: rateLimitResolver,
-            rateLimit: route.rateLimit,
-            routeKey: `${route.method} ${route.path}`,
-            clientIpResolver,
-            meter: observability.meter,
-          }),
-        ]
-      : [];
   mountHonoRoute(app, route.method, route.path, honoHandler, [
-    ...routeLimit,
+    ...buildRouteRateLimitGuards(route, wiring),
     ...(route.anonymous ? [] : sessionOnlyHttpRouteGuards),
   ]);
+}
+
+type RateLimitedRoute = {
+  readonly method: HttpRouteMethod;
+  readonly path: string;
+  readonly rateLimit?: HttpRouteRateLimit;
+};
+
+// Without a resolver (no Redis in the context — dev/test stacks) the
+// declared limit is skipped rather than failing the boot of every app
+// that mounts a bundled feature whose routes carry a default limit.
+export function buildRouteRateLimitGuards(
+  route: RateLimitedRoute,
+  wiring: Pick<ServerWiring, "clientIpResolver" | "rateLimitResolver" | "observability">,
+): readonly MiddlewareHandler[] {
+  const { rateLimitResolver, clientIpResolver, observability } = wiring;
+  if (route.rateLimit === undefined || rateLimitResolver === undefined) return [];
+  return [
+    httpRouteRateLimit({
+      resolver: rateLimitResolver,
+      rateLimit: route.rateLimit,
+      routeKey: `${route.method} ${route.path}`,
+      clientIpResolver,
+      meter: observability.meter,
+    }),
+  ];
 }
 
 // Method-switch shared by r.httpRoute and extraRoutes — one place to keep

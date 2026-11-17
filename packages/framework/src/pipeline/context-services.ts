@@ -40,6 +40,7 @@ export const APP_CONTEXT_KEY_ROLES = {
   defaultLocale: "wiring",
   configAccessorFactory: "wiring",
   _rateLimitPayloadDigest: "wiring",
+  _visitorKeyDigest: "wiring",
   tracer: "wiring",
   meter: "wiring",
   config: "wiring",
