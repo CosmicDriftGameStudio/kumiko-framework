@@ -173,6 +173,12 @@ export function createAuthRouteContext(
         "POST /auth/switch-tenant would mint admin sessions without the second factor",
     );
   }
+  if (config.mfaVerifyHandler && Object.keys(config.sessionExchangeHandlers ?? {}).length > 0) {
+    throw new Error(
+      "createAuthRoutes: mfaVerifyHandler and sessionExchangeHandlers are both set; " +
+        "POST /auth/session-exchange would mint sessions without the second factor",
+    );
+  }
   const retiredCookieDomains = config.retiredCookieDomains ?? [];
   // Single hop-count-aware IP getter for every rate-limit call site below —
   // see AuthRoutesConfig.trustedProxyHops and client-ip.ts's resolveClientIp

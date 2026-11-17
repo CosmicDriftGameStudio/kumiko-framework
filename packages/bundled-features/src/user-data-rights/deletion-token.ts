@@ -94,7 +94,7 @@ export function redeemDeletionCancelToken(args: {
   readonly loadPendingGracePeriodAnchor: (userId: string) => Promise<string | null>;
   // Cancels the deletion atomically with spending the anchor; returns whether
   // this caller was the one that moved the row back to active.
-  readonly commitCancel: (userId: string) => Promise<boolean>;
+  readonly commitCancel: (userId: string, anchor: string) => Promise<boolean>;
   readonly now?: Temporal.Instant;
 }): Promise<RowBoundGrantResult> {
   return redeemRowBoundGrant({

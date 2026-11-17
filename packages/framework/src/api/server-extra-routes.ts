@@ -245,11 +245,7 @@ export function makeDispatchSystemQuery(
 
 // Same dispatcher calls as entry:"user", but the user is getUser(c) —
 // see AnonymousExtraRouteDeps.write/query for the privilege/tenant contract.
-function requireRequestSessionUser(
-  // biome-ignore lint/suspicious/noExplicitAny: Hono context generics are invisible at the framework boundary
-  c: import("hono").Context<any, any>,
-  depName: "write" | "query",
-): SessionUser {
+function requireRequestSessionUser(c: Context, depName: "write" | "query"): SessionUser {
   const user = getUser(c);
   if (!user) {
     throw new Error(
@@ -260,21 +256,13 @@ function requireRequestSessionUser(
   return user;
 }
 
-function makeAnonymousWrite(
-  // biome-ignore lint/suspicious/noExplicitAny: Hono context generics are invisible at the framework boundary
-  c: import("hono").Context<any, any>,
-  dispatcher: Dispatcher,
-): ContractWrite {
+function makeAnonymousWrite(c: Context, dispatcher: Dispatcher): ContractWrite {
   return bindContractWrite((type, payload) =>
     dispatcher.write(type, payload, requireRequestSessionUser(c, "write")),
   );
 }
 
-function makeAnonymousQuery(
-  // biome-ignore lint/suspicious/noExplicitAny: Hono context generics are invisible at the framework boundary
-  c: import("hono").Context<any, any>,
-  dispatcher: Dispatcher,
-): ContractQuery {
+function makeAnonymousQuery(c: Context, dispatcher: Dispatcher): ContractQuery {
   return bindContractQuery((type, payload) =>
     dispatcher.query(type, payload, requireRequestSessionUser(c, "query")),
   );
@@ -352,8 +340,7 @@ async function verifiedRateLimitResponse(
 function buildExtraRouteHonoHandler(
   route: ExtraRouteDefinition,
   shared: ExtraRouteHonoHandlerDeps,
-  // biome-ignore lint/suspicious/noExplicitAny: Hono context generics are invisible at the framework boundary
-): (c: import("hono").Context<any, any>) => Promise<Response> {
+): (c: Context) => Promise<Response> {
   switch (route.entry) {
     case ExtraRouteEntries.anonymous:
       return async (c) =>

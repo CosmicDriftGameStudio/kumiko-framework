@@ -75,6 +75,7 @@ export const PUBLIC_API_PATHS: ReadonlySet<string> = new Set([
 // so the Origin guard covers them although no auth runs there.
 export const SESSION_MINTING_PUBLIC_API_PATHS: ReadonlySet<string> = new Set([
   `/api${Routes.authLogin}`,
+  `/api${Routes.authSessionExchange}`,
   `/api${Routes.authMfaVerify}`,
   `/api${Routes.authMfaPreauthConfirm}`,
   `/api${Routes.authSignupConfirm}`,

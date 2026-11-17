@@ -15,21 +15,15 @@ function invalidToken(): UnprocessableError {
   return new UnprocessableError("invalid_or_expired_token");
 }
 
-// userId comes from the not-yet-verified token (attacker-controlled input); a
-// failed lookup must not surface as a 500. HMAC verification stays the gate.
 async function readPendingDeletionAnchor(
   ctx: HandlerContext,
   userId: string,
 ): Promise<string | null> {
-  try {
-    const row = await ctx.db
-      .global(userTable)
-      .fetchOne<{ status: string; gracePeriodEnd: Temporal.Instant | null }>({ id: userId });
-    if (row?.status !== USER_STATUS.DeletionRequested || row.gracePeriodEnd == null) return null;
-    return deletionCancelAnchor(row.gracePeriodEnd);
-  } catch {
-    return null;
-  }
+  const row = await ctx.db
+    .global(userTable)
+    .fetchOne<{ status: string; gracePeriodEnd: Temporal.Instant | null }>({ id: userId });
+  if (row?.status !== USER_STATUS.DeletionRequested || row.gracePeriodEnd == null) return null;
+  return deletionCancelAnchor(row.gracePeriodEnd);
 }
 
 // Anonymous counterpart of cancel-deletion for a user who cannot sign in: a
@@ -46,11 +40,10 @@ export function createCancelDeletionByTokenHandler(opts: CancelDeletionByTokenOp
       anySignedIn: true,
     },
     escapeHatch: {
-      grants: ["unsafeRaw", "globalWrites"],
+      grants: ["unsafeRaw"],
       reason:
         "the anonymous token holder has no session; the user lifecycle event is appended on " +
-        "the SYSTEM_TENANT_ID user stream and the user row is read tenant-agnostically, " +
-        "gated by the HMAC-verified cancel token",
+        "the SYSTEM_TENANT_ID user stream, gated by the HMAC-verified cancel token",
     },
     agent: { expose: false },
     rateLimit: { per: "ip+handler", limit: 10, windowSeconds: 60 },
@@ -60,7 +53,8 @@ export function createCancelDeletionByTokenHandler(opts: CancelDeletionByTokenOp
         token: event.payload.token,
         secret: opts.deletionTokenSecret,
         loadPendingGracePeriodAnchor: (userId) => readPendingDeletionAnchor(ctx, userId),
-        commitCancel: async (userId) => (await cancelPendingDeletion(ctx, userId)).ok,
+        commitCancel: async (userId, anchor) =>
+          (await cancelPendingDeletion(ctx, userId, anchor)).ok,
       });
       if (!verified.ok) return writeFailure(invalidToken());
 

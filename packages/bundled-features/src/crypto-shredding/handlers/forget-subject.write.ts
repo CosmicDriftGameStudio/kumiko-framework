@@ -44,6 +44,7 @@ import {
   assertIrreversibleOperationAllowed,
 } from "@cosmicdrift/kumiko-framework/pipeline";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
+import type { CrossTenantReads } from "@cosmicdrift/kumiko-types/tenant-db-types";
 import * as z from "zod";
 import { resolveRetentionPolicyForTenant } from "../../data-retention/index.ts";
 import {
@@ -116,6 +117,7 @@ function subjectOfInput(raw: SubjectIdInput): SubjectId {
 // (platform-wide) always bypasses.
 async function resolveTenantScopeDenial(
   db: DbRunner,
+  reads: CrossTenantReads,
   features: ReadonlyMap<string, FeatureDefinition>,
   user: SessionUser,
   raw: SubjectIdInput,
@@ -159,7 +161,7 @@ async function resolveTenantScopeDenial(
   // ponytail: fail-open here, not a gap in multi-tenant apps).
   if (!features.has("tenant")) return undefined;
 
-  const reach = await resolveAdminReachOverUser(db, user, raw.userId, features.has("user"));
+  const reach = await resolveAdminReachOverUser(reads, user, raw.userId, features.has("user"));
   if (reach.kind === "within-reach") return undefined;
 
   // Only a subject without any membership may still be a self-owned PII subject
@@ -395,9 +397,9 @@ export function createForgetSubjectWrite(opts: ForgetSubjectOptions = {}) {
     // not be able to reach it at all.
     agent: { expose: false, risk: "high" },
     escapeHatch: {
-      grants: ["unsafeRaw"],
+      grants: ["crossTenantReads", "unsafeRaw"],
       reason:
-        "the denial audit appends name the caller's own tenant stream on the outside-transaction db; " +
+        "the subject user's memberships and roles are read across tenants via crossTenantReads; the denial audit appends name the caller's own tenant stream on the outside-transaction db; " +
         "the tenant-scope and retention checks and the row-owner lookups run against the subject's tenant, not necessarily the caller's; " +
         "the blind-index sweep, search purge and file purge address the subject across tenants; " +
         "the subject-forgotten events of owned record subjects land in each row's own tenant; " +
@@ -422,6 +424,7 @@ export function createForgetSubjectWrite(opts: ForgetSubjectOptions = {}) {
 
       const tenantScopeDenial = await resolveTenantScopeDenial(
         ctx.db.unsafeRawAllTenants(),
+        ctx.crossTenantReads,
         ctx.registry.features,
         event.user,
         raw,

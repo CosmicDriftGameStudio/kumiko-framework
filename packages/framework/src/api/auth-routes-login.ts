@@ -2,12 +2,10 @@ import * as z from "zod";
 import { createAnonymousUser } from "../engine/system-user.ts";
 import type { SessionUser } from "../engine/types/index.ts";
 import { SYSTEM_TENANT_ID } from "../engine/types/index.ts";
-import { toClientWriteErrorInfo } from "../errors/write-error-info.ts";
 import { Routes } from "./api-constants.ts";
 import { inMemoryLoginRateLimiterFallback } from "./auth-rate-limiters.ts";
 import type { AuthRouteContext } from "./auth-routes-context.ts";
-import { readErrorReason } from "./auth-routes-shared.ts";
-import { toContentfulStatus } from "./contentful-status.ts";
+import { handlerFailureResponse } from "./auth-routes-shared.ts";
 
 // Body schema for POST /auth/login. Enforced BEFORE rate-limit so that a
 // malformed body (`email: 42`, missing password, …) returns 400 instead of
@@ -60,9 +58,7 @@ export function registerLoginRoute(ctx: AuthRouteContext): void {
         // Feature-specific auth reason codes arrive via UnprocessableError.details.reason
         // (e.g. "invalid_credentials", "user_locked"). Fall back to the KumikoError code
         // so unmapped cases still get a sensible status.
-        const reason = readErrorReason(result.error.details) ?? result.error.code;
-        const status = toContentfulStatus(statusMap[reason] ?? result.error.httpStatus);
-        return c.json({ isSuccess: false, error: toClientWriteErrorInfo(result.error) }, status);
+        return handlerFailureResponse(c, result.error, statusMap);
       }
 
       // @cast-boundary engine-payload — generic dispatcher.write result for

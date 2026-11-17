@@ -111,6 +111,17 @@ describe("origin-middleware (integration)", () => {
     expect(await errorCode(res)).toBe("origin_not_allowed");
   });
 
+  test("foreign origin POST to /api/auth/session-exchange → 403 origin_not_allowed (login CSRF)", async () => {
+    const res = await stack.http.raw(
+      "POST",
+      "/api/auth/session-exchange",
+      { method: "code", payload: {} },
+      { Origin: DISALLOWED, "Content-Type": "text/plain" },
+    );
+    expect(res.status).toBe(403);
+    expect(await errorCode(res)).toBe("origin_not_allowed");
+  });
+
   test("allowed origin POST to /api/auth/login is not origin-blocked", async () => {
     const res = await stack.http.raw("POST", "/api/auth/login", LOGIN_BODY, { Origin: ALLOWED });
     expect(res.status).not.toBe(403);

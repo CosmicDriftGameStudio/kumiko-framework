@@ -182,6 +182,15 @@ describe("POST /auth/session-exchange", () => {
     expect(res.status).toBe(404);
   });
 
+  test("mfaVerifyHandler together with sessionExchangeHandlers refuses to build the routes", () => {
+    expect(() =>
+      buildApp(sessionResult, [], {
+        mfaVerifyHandler: "auth-mfa:write:verify",
+        switchTenantMfaGateHandler: "auth:write:switch-tenant-mfa-gate",
+      }),
+    ).toThrow("would mint sessions without the second factor");
+  });
+
   test("path is public (bypasses the JWT guard)", () => {
     expect(PUBLIC_API_PATHS.has("/api/auth/session-exchange")).toBe(true);
   });

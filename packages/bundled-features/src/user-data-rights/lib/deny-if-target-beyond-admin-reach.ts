@@ -1,4 +1,3 @@
-import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   findForbiddenRoleAssignment,
   type SessionUser,
@@ -9,6 +8,7 @@ import {
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
+import type { CrossTenantReads } from "@cosmicdrift/kumiko-types/tenant-db-types";
 import { tenantMembershipsTable } from "../../tenant/index.ts";
 import { userTable } from "../../user/index.ts";
 import { isAdminActor, isSystemAdminActor } from "./is-admin-actor.ts";
@@ -16,8 +16,6 @@ import { isAdminActor, isSystemAdminActor } from "./is-admin-actor.ts";
 export const TARGET_USER_NOT_IN_ADMIN_TENANT = "target_user_not_in_admin_tenant" as const;
 export const TARGET_USER_IN_OTHER_TENANTS = "target_user_in_other_tenants" as const;
 export const TARGET_USER_OUTRANKS_ACTOR = "target_user_outranks_actor" as const;
-
-type DbRaw = Parameters<typeof selectMany>[0];
 
 type MembershipRow = { readonly tenantId: string; readonly roles: unknown };
 
@@ -47,7 +45,7 @@ function beyondReach(reason: string, hasNoMembership = false): AdminReach {
  * are skipped and only the membership-derived checks apply.
  */
 export async function resolveAdminReachOverUser(
-  db: DbRaw,
+  reads: CrossTenantReads,
   actor: SessionUser,
   targetUserId: string,
   userFeatureMounted: boolean,
@@ -55,9 +53,9 @@ export async function resolveAdminReachOverUser(
   if (isSystemAdminActor(actor)) return WITHIN_REACH;
 
   const [memberships, userRow] = await Promise.all([
-    selectMany<MembershipRow>(db, tenantMembershipsTable, { userId: targetUserId }),
+    reads.selectMany<MembershipRow>(tenantMembershipsTable, { userId: targetUserId }),
     userFeatureMounted
-      ? fetchOne<{ roles: unknown }>(db, userTable, { id: targetUserId })
+      ? reads.fetchOne<{ roles: unknown }>(userTable, { id: targetUserId })
       : undefined,
   ]);
   if (memberships.length === 0) return beyondReach(TARGET_USER_NOT_IN_ADMIN_TENANT, true);
@@ -84,11 +82,11 @@ export async function resolveAdminReachOverUser(
 }
 
 export async function denyIfTargetBeyondAdminReach(
-  db: DbRaw,
+  reads: CrossTenantReads,
   actor: SessionUser,
   targetUserId: string,
   userFeatureMounted: boolean,
 ): Promise<WriteFailure | undefined> {
-  const reach = await resolveAdminReachOverUser(db, actor, targetUserId, userFeatureMounted);
+  const reach = await resolveAdminReachOverUser(reads, actor, targetUserId, userFeatureMounted);
   return reach.kind === "beyond-reach" ? reach.denial : undefined;
 }

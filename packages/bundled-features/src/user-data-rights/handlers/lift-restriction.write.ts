@@ -6,7 +6,7 @@ import { denyIfTargetBeyondAdminReach } from "../lib/deny-if-target-beyond-admin
 import { updateUserLifecycle } from "../lib/update-user-lifecycle.ts";
 
 const LIFT_RESTRICTION_ESCAPE_HATCH_REASON =
-  "checks the target user's memberships and roles against the admin's reach and appends the user lifecycle status change on the SYSTEM_TENANT_ID user stream, both via DbRunner helpers outside the admin's own tenant scope.";
+  "reads the target user's memberships and roles across tenants via crossTenantReads to check them against the admin's reach; the user lifecycle status change is appended on the SYSTEM_TENANT_ID user stream via the raw DbRunner, outside the admin's own tenant scope.";
 
 // POST /api/user/lift-restriction — GDPR Art. 18 Reverse.
 //
@@ -34,14 +34,14 @@ export const liftRestrictionWrite = defineWriteHandler({
   description:
     "Lifts a GDPR Art. 18 processing restriction on the named user and returns the account to active; operator-only, because a restricted user's own session is rejected and cannot reach this endpoint.",
   escapeHatch: {
-    grants: ["unsafeRaw", "globalWrites"],
+    grants: ["crossTenantReads", "unsafeRaw"],
     reason: LIFT_RESTRICTION_ESCAPE_HATCH_REASON,
   },
   handler: async (event, ctx) => {
     const targetUserId = event.payload.userId;
 
     const outside = await denyIfTargetBeyondAdminReach(
-      ctx.db.unsafeRawAllTenants(),
+      ctx.crossTenantReads,
       event.user,
       targetUserId,
       ctx.registry.features.has("user"),

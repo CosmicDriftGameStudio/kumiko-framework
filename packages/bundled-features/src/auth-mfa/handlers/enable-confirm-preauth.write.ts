@@ -14,6 +14,7 @@ import { revokeAllUserCredentials } from "../../auth-foundation/index.ts";
 import { burnToken, mintAuthSession } from "../../shared/index.ts";
 import { isPrincipalBlockedForNewAuth, UserQueries } from "../../user/index.ts";
 import { base32Decode } from "../base32.ts";
+import { MFA_CREDENTIAL_REVOKE_REASON } from "../credential-revoke-reason.ts";
 import { findUserMfaRow } from "../db/queries.ts";
 import {
   invalidSetupToken,
@@ -68,7 +69,8 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
         "Pre-auth MFA enrollment step has no session yet — re-checks status via ctx.dispatch.queryAs(SYSTEM, " +
         "user:findForAuth) and membership via ctx.auth.resolveActiveMembership for the setup token's user. " +
         "Also reads the MFA enrollment of the tenant named in the signed login/setup token, not the " +
-        "guest dispatch tenant.",
+        "guest dispatch tenant. On success " +
+        MFA_CREDENTIAL_REVOKE_REASON,
     },
     description:
       "Completes the enrollment that unblocks a sign-in forced into two-factor setup: verifies the code against the pre-auth setup token, stores the factor and derives the session the blocked login never got.",

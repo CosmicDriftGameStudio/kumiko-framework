@@ -59,6 +59,30 @@ describe("Routes / PUBLIC_API_PATHS classification completeness", () => {
     expect(notPublic).toEqual([]);
   });
 
+  // A new public route has to be sorted into one of the two lists, so a route that
+  // answers with a session cookie cannot ship without the Origin guard unnoticed.
+  test("every public path is classified as session-minting or not", () => {
+    const publicPathsWithoutSession = [
+      Routes.authMfaPreauthEnableStart,
+      Routes.authRequestPasswordReset,
+      Routes.authResetPassword,
+      Routes.authRequestEmailVerification,
+      Routes.authVerifyEmail,
+      Routes.authRequestAccountUnlock,
+      Routes.authConfirmAccountUnlock,
+      Routes.authSignupRequest,
+      Routes.authInviteInfo,
+      Routes.health,
+      Routes.healthReady,
+      Routes.version,
+      Routes.clientErrors,
+    ].map((routePath) => `/api${routePath}`);
+
+    expect([...SESSION_MINTING_PUBLIC_API_PATHS, ...publicPathsWithoutSession].sort()).toEqual(
+      [...PUBLIC_API_PATHS].sort(),
+    );
+  });
+
   // Regression guard for the mechanism itself: proves the completeness
   // check actually fails when a route is added without a classification,
   // rather than the two tests above being vacuously true by construction.

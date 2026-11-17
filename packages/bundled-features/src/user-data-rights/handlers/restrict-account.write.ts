@@ -53,10 +53,10 @@ export const restrictAccountWrite = defineWriteHandler({
     reason:
       "Revokes all live sessions of the (possibly self-)restricted user via ctx.dispatch.writeAs(SYSTEM, " +
       "sessions:write:user-session:revoke-all-for-user) — that handler's own access gate needs " +
-      "privileged roles the acting caller doesn't necessarily have. It also checks the target " +
-      "user's memberships and roles against the admin's reach and appends the user lifecycle status change on " +
-      "the SYSTEM_TENANT_ID user stream, both via DbRunner helpers.",
-    grants: ["systemIdentity", "globalWrites", "unsafeRaw"],
+      "privileged roles the acting caller doesn't necessarily have. It also reads the target " +
+      "user's memberships and roles across tenants via crossTenantReads to check them against the admin's reach, " +
+      "and appends the user lifecycle status change on the SYSTEM_TENANT_ID user stream via the raw DbRunner.",
+    grants: ["systemIdentity", "crossTenantReads", "unsafeRaw"],
   },
   description:
     "Freezes an account under GDPR Art. 18 by flipping it to restricted and revoking all of its live sessions, locking the user out until an admin calls lift-restriction; targets the caller by default, an admin may name another userId.",
@@ -72,7 +72,7 @@ export const restrictAccountWrite = defineWriteHandler({
         );
       }
       const outside = await denyIfTargetBeyondAdminReach(
-        ctx.db.unsafeRawAllTenants(),
+        ctx.crossTenantReads,
         event.user,
         targetUserId,
         ctx.registry.features.has("user"),

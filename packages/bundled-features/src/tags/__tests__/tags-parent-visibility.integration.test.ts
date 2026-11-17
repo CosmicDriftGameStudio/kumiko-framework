@@ -12,7 +12,7 @@
 // see carries the tag.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient, buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
@@ -20,6 +20,7 @@ import {
   type EntityDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { deleteRowViaEventStore, seedRowsViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -66,6 +67,8 @@ const projectEntity = createEntity({
   access: projectOwnership,
 });
 
+const projectTable = buildEntityTable(projectEntity);
+
 const hostFixturesFeature = defineFeature("tags-pv-test-fixtures", (r) => {
   r.entity(projectEntity);
 });
@@ -110,16 +113,15 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, tagEntity);
   await unsafeCreateEntityTable(stack.db, tagAssignmentEntity);
   await unsafeCreateEntityTable(stack.db, projectEntity);
-  await asRawClient(stack.db).unsafe(
-    `INSERT INTO ${PROJECT_TABLE} (id, tenant_id, team_id, name) VALUES
-       ($1, $2, 'team-a', 'Project A'),
-       ($3, $2, 'team-a', 'Project A2'),
-       ($4, $2, 'team-a', 'Project A3'),
-       ($5, $2, 'team-b', 'Project B'),
-       ($6, $2, 'team-b', 'Project B gone'),
-       ($7, $2, 'team-a', 'Project A del')`,
-    [PROJECT_A, userA.tenantId, PROJECT_A2, PROJECT_A3, PROJECT_B, PROJECT_B_GONE, PROJECT_A_DEL],
-  );
+  const { tenantId } = userA;
+  await seedRowsViaEventStore(stack.db, projectTable, [
+    { id: PROJECT_A, tenantId, teamId: "team-a", name: "Project A" },
+    { id: PROJECT_A2, tenantId, teamId: "team-a", name: "Project A2" },
+    { id: PROJECT_A3, tenantId, teamId: "team-a", name: "Project A3" },
+    { id: PROJECT_B, tenantId, teamId: "team-b", name: "Project B" },
+    { id: PROJECT_B_GONE, tenantId, teamId: "team-b", name: "Project B gone" },
+    { id: PROJECT_A_DEL, tenantId, teamId: "team-a", name: "Project A del" },
+  ]);
 
   const tag = await stack.http.writeOk<{ id: string }>(
     TagsHandlers.createTag,
@@ -305,9 +307,12 @@ describe("tags integration — tag:delete never detaches a tag from records the 
     const tag = await createTagAs("Orphan", userA);
     await assignTagTo(tag, PROJECT_A_DEL, userA);
     await assignTagTo(tag, PROJECT_B_GONE, userB);
-    await asRawClient(stack.db).unsafe(`DELETE FROM ${PROJECT_TABLE} WHERE id = $1`, [
-      PROJECT_B_GONE,
-    ]);
+    await deleteRowViaEventStore(
+      stack.db,
+      { table: projectTable, entity: projectEntity, entityName: "project" },
+      { id: PROJECT_B_GONE },
+      { tenantId: userB.tenantId },
+    );
 
     await stack.http.writeOk(TagsHandlers.deleteTag, { id: tag }, userA);
     expect(await activeAssignmentsOfTag(tag)).toBe(0);

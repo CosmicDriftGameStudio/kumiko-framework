@@ -71,7 +71,7 @@ export function createRequestDeletionByEmailHandler(opts: RequestDeletionByEmail
     rateLimit: { per: "ip+handler", limit: 10, windowSeconds: 60 },
     tenantlessAnonymous: true,
     escapeHatch: {
-      grants: ["unsafeRaw", "globalWrites"],
+      grants: ["unsafeRaw"],
       reason: APPEND_LIFECYCLE_EVENT_REASON,
     },
     handler: async (event, ctx) => {

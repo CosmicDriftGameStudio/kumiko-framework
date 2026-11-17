@@ -3,6 +3,7 @@ import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/
 import * as z from "zod";
 import { isWithinGracePeriod } from "../../shared/index.ts";
 import { USER_STATUS, userTable } from "../../user/index.ts";
+import { deletionCancelAnchor } from "../deletion-token.ts";
 import { updateUserLifecycle } from "../lib/update-user-lifecycle.ts";
 
 const APPEND_LIFECYCLE_EVENT_REASON =
@@ -18,10 +19,12 @@ export type CancelPendingDeletionResult =
 export async function cancelPendingDeletion(
   ctx: HandlerContext,
   userId: string,
+  cancelTokenAnchor?: string,
 ): Promise<CancelPendingDeletionResult> {
   const row = await ctx.db.global(userTable).fetchOne<{
     status: string;
     gracePeriodEnd: Temporal.Instant | null;
+    version: number;
   }>({ id: userId });
 
   if (!row) {
@@ -41,6 +44,19 @@ export async function cancelPendingDeletion(
     return { ok: false, error: new UnprocessableError("grace_period_expired") };
   }
 
+  const isBoundToCancelToken = cancelTokenAnchor !== undefined;
+  if (
+    isBoundToCancelToken &&
+    (row.gracePeriodEnd == null || deletionCancelAnchor(row.gracePeriodEnd) !== cancelTokenAnchor)
+  ) {
+    return {
+      ok: false,
+      error: new UnprocessableError("no_pending_deletion", {
+        details: { currentStatus: row.status },
+      }),
+    };
+  }
+
   const { applied } = await updateUserLifecycle(
     ctx.db.unsafeRawAllTenants(),
     userId,
@@ -51,8 +67,15 @@ export async function cancelPendingDeletion(
       // token verified against the nulled requestId can no longer arm a second grace period.
       pendingDeletionRequestId: null,
     },
-    // Two concurrent cancels: only the one that still sees DeletionRequested wins.
-    { expect: { status: USER_STATUS.DeletionRequested } },
+    // Two concurrent cancels: only the one that still sees DeletionRequested wins. A cancel
+    // token belongs to one deletion cycle, so its write also pins the row version the anchor
+    // was checked on; a cancel plus a new request in between cannot be undone by the old link.
+    {
+      expect: {
+        status: USER_STATUS.DeletionRequested,
+        ...(isBoundToCancelToken && { version: row.version }),
+      },
+    },
   );
   if (!applied) {
     return {
@@ -89,7 +112,7 @@ export const cancelDeletionWrite = defineWriteHandler({
   description:
     "Withdraws the calling user's own pending account-deletion request and puts the account back to active, accepted only while the grace period is still running.",
   escapeHatch: {
-    grants: ["unsafeRaw", "globalWrites"],
+    grants: ["unsafeRaw"],
     reason: APPEND_LIFECYCLE_EVENT_REASON,
   },
   handler: async (event, ctx) => {
