@@ -487,7 +487,7 @@ describe("run-forget-cleanup job — real glue-code, not a hand-set tenantModel"
         tenantId: TENANT,
         mode: "tenant",
         grants: {
-          unsafeRaw: { reason: "executes overdue Art.17 forget requests across every tenant" },
+          unsafeRaw: { reason: "executes overdue Art.17 forget requests across every tenant", grants: ["unsafeRaw"] },
         },
       }),
       registry: stack.registry,

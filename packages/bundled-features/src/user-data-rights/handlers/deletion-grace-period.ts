@@ -38,6 +38,7 @@ export async function resolveGracePeriod(
   tenantId: string,
 ): Promise<DurationSpec> {
   declareEscapeHatch({
+    grants: ["systemIdentity"],
     reason:
       "reads the tenant compliance profile via queryAs(SYSTEM, ...) to compute the grace period end; the calling user's own identity has no read access to that tenant-config projection",
   });

@@ -328,7 +328,7 @@ describe("run-forget-cleanup :: registered cron (autonomous Art.17)", () => {
         tenantId: TENANT_A,
         mode: "tenant",
         grants: {
-          unsafeRaw: { reason: "executes overdue Art.17 forget requests across every tenant" },
+          unsafeRaw: { reason: "executes overdue Art.17 forget requests across every tenant", grants: ["unsafeRaw"] },
         },
       }),
       registry: stack.registry,
@@ -405,7 +405,7 @@ describe("run-forget-cleanup :: registered cron (autonomous Art.17)", () => {
           tenantId: TENANT_A,
           mode: "tenant",
           grants: {
-            unsafeRaw: { reason: "executes overdue Art.17 forget requests across every tenant" },
+            unsafeRaw: { reason: "executes overdue Art.17 forget requests across every tenant", grants: ["unsafeRaw"] },
           },
         }),
         registry: stack.registry,

@@ -29,7 +29,7 @@ export function registerTenantCreatedSeedHook(
     type: "postSave",
     target: { allOf: "tenant" },
     phase: HookPhases.inTransaction,
-    escapeHatch: { reason: options.reason },
+    escapeHatch: { reason: options.reason, grants: ["unsafeRaw"] },
     handler: async (result, ctx) => {
       // skip: only tenant creation seeds; updates also fire postSave
       if (!result.isNew) return;

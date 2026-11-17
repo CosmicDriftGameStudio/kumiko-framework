@@ -190,7 +190,7 @@ describe("run-export-jobs cron-context", () => {
         tenantId: TENANT,
         mode: "tenant",
         grants: {
-          unsafeRaw: { reason: "processes pending export jobs across every tenant" },
+          unsafeRaw: { reason: "processes pending export jobs across every tenant", grants: ["unsafeRaw"] },
         },
       }),
       registry: stack.registry,

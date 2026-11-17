@@ -26,7 +26,16 @@ function makeDispatcher(ok: boolean, calls: WriteCall[]): Dispatcher {
       calls.push({ type, payload });
       return ok
         ? { isSuccess: true, data: {} }
-        : { isSuccess: false, error: { reason: "invalid_or_expired_token", message: "nope" } };
+        : {
+            isSuccess: false,
+            error: {
+              code: "unprocessable",
+              httpStatus: 422,
+              i18nKey: "errors.unprocessable",
+              message: "nope",
+              details: { reason: "invalid_or_expired_token" },
+            },
+          };
     },
   });
 }

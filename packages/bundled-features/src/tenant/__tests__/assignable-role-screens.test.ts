@@ -48,7 +48,7 @@ describe("assignable app role declarations at boot (tenant r.bootCheck)", () => 
     expect(
       bootWith((r) => {
         r.requires({ features: ["tenant"] });
-        r.useExtension(EXT_ASSIGNABLE_ROLE, "PropertyManager");
+        r.applyExtension({ name: EXT_ASSIGNABLE_ROLE, entity: "PropertyManager" });
       }),
     ).not.toThrow();
   });
@@ -57,7 +57,7 @@ describe("assignable app role declarations at boot (tenant r.bootCheck)", () => 
     expect(
       bootWith((r) => {
         r.requires({ features: ["tenant"] });
-        r.useExtension(EXT_ASSIGNABLE_ROLE, "SystemAdmin");
+        r.applyExtension({ name: EXT_ASSIGNABLE_ROLE, entity: "SystemAdmin" });
       }),
     ).toThrow(/assignableRole: "SystemAdmin"/);
   });

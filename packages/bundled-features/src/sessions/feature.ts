@@ -171,7 +171,7 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
         name: "cleanup",
         trigger: { maintenance: true },
         concurrency: "skip",
-        escapeHatch: { reason: CLEANUP_ESCAPE_HATCH_REASON },
+        escapeHatch: { reason: CLEANUP_ESCAPE_HATCH_REASON, grants: ["unsafeRaw"] },
         handler: (payload, ctx) =>
           cleanupJob(
             payload,

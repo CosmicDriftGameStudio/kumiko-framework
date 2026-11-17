@@ -184,7 +184,7 @@ async function runTenantDataHooks(
         db: ctx.db,
         tenantId: ctx.tenantId,
         grants: {
-          unsafeRaw: reason !== undefined ? { reason } : undefined,
+          unsafeRaw: reason !== undefined ? { reason, grants: ["unsafeRaw"] } : undefined,
           report,
         },
       }),

@@ -127,7 +127,7 @@ export function registerUserDataRightsJobs(
     name: "run-export-jobs",
     trigger: { maintenance: true },
     concurrency: "skip",
-    escapeHatch: { reason: RUN_EXPORT_JOBS_REASON },
+    escapeHatch: { reason: RUN_EXPORT_JOBS_REASON, grants: ["unsafeRaw"] },
     handler: runExport,
   });
 
@@ -137,7 +137,7 @@ export function registerUserDataRightsJobs(
     name: "run-requested-export",
     trigger: { on: "export-job.created" },
     concurrency: "replace",
-    escapeHatch: { reason: RUN_EXPORT_JOBS_REASON },
+    escapeHatch: { reason: RUN_EXPORT_JOBS_REASON, grants: ["unsafeRaw"] },
     handler: runExport,
   });
 

@@ -2,7 +2,8 @@
 // hands out TenantMember mounts the feature with its own role.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createFilesFeature,
   createInMemoryFileProvider,

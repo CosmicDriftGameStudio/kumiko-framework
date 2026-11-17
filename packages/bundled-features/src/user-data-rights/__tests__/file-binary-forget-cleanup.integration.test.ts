@@ -205,7 +205,7 @@ describe("run-forget-cleanup :: registered cron actually erases binaries (not ju
         tenantId: TENANT,
         mode: "tenant",
         grants: {
-          unsafeRaw: { reason: "executes overdue Art.17 forget requests across every tenant" },
+          unsafeRaw: { reason: "executes overdue Art.17 forget requests across every tenant", grants: ["unsafeRaw"] },
         },
       }),
       registry: stack.registry,

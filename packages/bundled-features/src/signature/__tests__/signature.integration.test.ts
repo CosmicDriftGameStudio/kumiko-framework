@@ -5,7 +5,6 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import {
   createEventStoreExecutor,
-  createTenantDb,
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -28,6 +27,7 @@ import { rebuildProjection } from "@cosmicdrift/kumiko-framework/pipeline";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   createRecordingProvider,
+  createTenantDb,
   resetTestTables,
   seedRowViaEventStore,
 } from "@cosmicdrift/kumiko-testing/helpers";
@@ -161,7 +161,7 @@ const stubService = Bun.serve({
     const body: { html: string } = await request.json();
     stubRequests.push({ html: body.html });
     await whilePrinting?.();
-    return new Response(await onePagePdf(), { headers: { "Content-Type": "application/pdf" } });
+    return new Response((await onePagePdf()).slice(), { headers: { "Content-Type": "application/pdf" } });
   },
 });
 const STUB_URL = `http://127.0.0.1:${stubService.port}`;

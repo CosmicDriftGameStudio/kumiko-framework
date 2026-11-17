@@ -36,7 +36,7 @@ export function buildHookDb(
     mode: "tenant",
     grants: {
       unsafeRaw:
-        entry.escapeHatchReason !== undefined ? { reason: entry.escapeHatchReason } : undefined,
+        entry.escapeHatchReason !== undefined ? { reason: entry.escapeHatchReason, grants: ["unsafeRaw"] } : undefined,
       report,
       projectionRegistry: args.registry,
     },

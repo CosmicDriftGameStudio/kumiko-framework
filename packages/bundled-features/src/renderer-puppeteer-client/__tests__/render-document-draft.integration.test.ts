@@ -35,7 +35,6 @@ import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-
 import {
   buildEntityTable,
   createEventStoreExecutor,
-  createTenantDb,
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -48,7 +47,7 @@ import {
   createInMemoryFileProvider,
 } from "@cosmicdrift/kumiko-framework/files";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
+import { createTenantDb, resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,

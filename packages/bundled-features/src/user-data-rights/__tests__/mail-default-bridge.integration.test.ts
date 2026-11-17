@@ -148,7 +148,7 @@ describe("C6 default mail bridge :: forget cron sends deletion-executed without 
         tenantId: TENANT_A,
         mode: "tenant",
         grants: {
-          unsafeRaw: { reason: "executes overdue Art.17 forget requests across every tenant" },
+          unsafeRaw: { reason: "executes overdue Art.17 forget requests across every tenant", grants: ["unsafeRaw"] },
         },
       }),
       registry: stack.registry,

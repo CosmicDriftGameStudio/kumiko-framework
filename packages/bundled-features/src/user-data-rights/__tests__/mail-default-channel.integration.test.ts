@@ -154,7 +154,7 @@ describe("deletion-executed default mail through the email channel", () => {
         tenantId: TENANT_WITHOUT_PROVIDER,
         mode: "tenant",
         grants: {
-          unsafeRaw: { reason: "executes overdue Art.17 forget requests across every tenant" },
+          unsafeRaw: { reason: "executes overdue Art.17 forget requests across every tenant", grants: ["unsafeRaw"] },
         },
       }),
       registry: stack.registry,

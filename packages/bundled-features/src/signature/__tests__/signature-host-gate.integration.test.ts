@@ -5,7 +5,6 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import {
   buildEntityTable,
   createEventStoreExecutor,
-  createTenantDb,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
@@ -22,7 +21,7 @@ import {
   fileRefsTable,
 } from "@cosmicdrift/kumiko-framework/files";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
+import { createTenantDb, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { PDFDocument } from "pdf-lib";
 import { createAuthFoundationFeature } from "../../auth-foundation/index.ts";
@@ -133,7 +132,6 @@ beforeAll(async () => {
         retention: { keepFor: "10y", unfinishedKeepFor: "90d" },
         linkSecret: "signature-host-gate-test-link-secret-0123456789",
         hostEntities: [HOST_TYPE],
-        renderHtmlToPdf: async () => new Uint8Array(),
         signaturePageUrl: "https://app.example/sign",
         deliverLink: async (_ctx, delivery) => {
           deliveredLinks.push(delivery.signerId);

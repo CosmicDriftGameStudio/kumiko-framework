@@ -205,6 +205,7 @@ export function createSecretsFeature(
       trigger: { manual: true },
       escapeHatch: {
         reason: ROTATE_ESCAPE_HATCH_REASON,
+        grants: ["unsafeRaw"],
       },
       handler: (payload, ctx) =>
         rotateJob(

@@ -1,8 +1,8 @@
 import {
   buildEntityTable,
   createEventStoreExecutor,
-  createTenantDb,
 } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createEntity,
   createTextField,

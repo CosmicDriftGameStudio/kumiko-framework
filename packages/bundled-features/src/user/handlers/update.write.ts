@@ -16,9 +16,6 @@ import { applyUserRolesUpdate } from "./update-roles.ts";
 
 const crud = createEventStoreExecutor(userTable, userEntity, { entityName: "user" });
 
-const SYSTEM_ADMIN_DEMOTION_COUNT_REASON =
-  "on a SystemAdmin demotion, a jsonb @> prefilter over the global users table counts remaining active SystemAdmins";
-
 // Users can update their OWN profile; SystemAdmin/system can update anyone.
 // Handler-level access is openToAll — the row guard below is the actual gate,
 // and field-level access (passwordHash/email write-locked to "privileged")
@@ -61,9 +58,6 @@ export const updateWrite = defineWriteHandler({
   description:
     "Changes a user's display name, locale, timezone, email, verification flag, last active tenant or global roles against the version the caller read; callers may edit themselves, while editing someone else or granting roles needs a privileged actor.",
   agent: { risk: "high" },
-  escapeHatch: {
-    reason: SYSTEM_ADMIN_DEMOTION_COUNT_REASON,
-  },
   handler: async (event, ctx) => {
     const isSelf = event.payload.id === event.user.id;
     const isPrivileged = hasAccess(event.user, { roles: access.privileged });

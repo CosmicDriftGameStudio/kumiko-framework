@@ -65,6 +65,7 @@ export function createConfirmDeletionByTokenHandler(opts: ConfirmDeletionByToken
       anySignedIn: true,
     },
     escapeHatch: {
+      grants: ["systemIdentity", "unsafeRaw"],
       reason:
         "resolveDeletionGracePeriod reads the tenant compliance profiles via ctx.dispatch.queryAs(SYSTEM, " +
         "...) to compute the grace period end — the anonymous token holder has no read access " +

@@ -5,6 +5,7 @@ import { exportJobEntity } from "../schema/export-job.ts";
 export const exportJobDetailQuery = defineEntityDetailHandler("export-job", exportJobEntity, {
   access: { roles: access.systemAdmin },
   escapeHatch: {
+    grants: ["crossTenantReads"],
     reason:
       "SystemAdmin GDPR Art. 20 export inspector opens one data-export job owned by any tenant for platform-operator support",
   },
