@@ -39,7 +39,7 @@ export function isPrincipalBlockedForNewAuth(status: unknown): boolean {
   return typeof status === "string" && NEW_AUTH_BLOCKED_STATUSES.has(status);
 }
 
-// Registered via r.useExtension(EXT_PRINCIPAL_STATUS, "user", principalStatusPlugin)
+// Registered via r.applyExtension({ name: EXT_PRINCIPAL_STATUS, entity: "user", ...principalStatusPlugin })
 // so resolveActiveMembershipFn can reject a blocked principal without knowing about `user`'s table.
 export const principalStatusPlugin: PrincipalStatusPlugin = {
   async resolveStatus(userId, { db }): Promise<PrincipalStatus> {

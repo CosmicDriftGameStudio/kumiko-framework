@@ -2,7 +2,7 @@
 //
 // After #1374, apps do NOT pass tenantResolver/tenantExists on
 // anonymousAccess. They mount a feature that registers providers via
-// r.useExtension(EXT_TENANT_RESOLVER / EXT_TENANT_EXISTENCE). Boot
+// r.applyExtension({ name: EXT_TENANT_RESOLVER / EXT_TENANT_EXISTENCE, … }). Boot
 // (runProdApp / runDevApp) merges them through
 // resolveAnonymousAccessFromRegistry.
 //

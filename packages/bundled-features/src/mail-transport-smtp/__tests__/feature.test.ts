@@ -248,7 +248,7 @@ describe("SMTP_PASSWORD — generic redaction", () => {
 
 describe("mailTransportSmtpFeature — plugin-registration", () => {
   test("registers itself under entityName 'smtp' for mail-foundation's extension", () => {
-    // r.useExtension("mailTransport", "smtp", ...) lands in the feature's
+    // r.applyExtension({ name: "mailTransport", entity: "smtp", ... }) lands in the feature's
     // feature.extensionUsages. Drift-pin: tenant sets `mail-foundation:
     // config:provider = "smtp"` and the foundation-factory looks up by
     // exactly this name.

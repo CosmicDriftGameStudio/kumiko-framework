@@ -1,6 +1,6 @@
 # user-data-rights
 
-GDPR-compliant domain wiring in ~5 lines: `r.useExtension(EXT_USER_DATA, …)`
+GDPR-compliant domain wiring in ~5 lines: `r.applyExtension({ name: EXT_USER_DATA, … })`
 hooks any entity into the forget cron, export ZIP, and magic-link pipeline.
 You write two hooks per entity — the framework runs the rest.
 
@@ -14,7 +14,7 @@ defineFeature("notes", (r) => {
   r.requires({ features: ["user-data-rights"] });
   r.entity({ name: "note", ...noteEntity });
 
-  r.useExtension(EXT_USER_DATA, "note", {
+  r.applyExtension({ name: EXT_USER_DATA, entity: "note",
     export: async (ctx) => ({
       entity: "note",
       rows: await ctx.db

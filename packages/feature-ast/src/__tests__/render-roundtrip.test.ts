@@ -411,7 +411,7 @@ describe("renderPattern — single-pattern shape", () => {
 });
 
 // Registrar-call names authored as an imported/local constant
-// (`r.useExtension(EXT_TENANT_DATA, ...)`) must not get inlined into their
+// (`r.applyExtension({ name: EXT_TENANT_DATA, ... })`) must not get inlined into their
 // resolved string literal on a render → parse round-trip — the framework's own
 // bundled-features rely on the identifier reference surviving edits made
 // through the Designer to unrelated fields on the same pattern.

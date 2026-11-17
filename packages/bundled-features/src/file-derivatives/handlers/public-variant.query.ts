@@ -66,7 +66,7 @@ function isDerivativePublicPredicatePlugin(o: unknown): o is DerivativePublicPre
   return typeof o === "object" && o !== null && "isPublic" in o && typeof o.isPublic === "function";
 }
 
-// r.useExtension options-shape, co-located since the framework never imports upward.
+// r.applyExtension options-shape, co-located since the framework never imports upward.
 declare module "@cosmicdrift/kumiko-framework/engine" {
   interface KumikoExtensionOptionsMap {
     [EXT_DERIVATIVE_PUBLIC_PREDICATE]: DerivativePublicPredicatePlugin;

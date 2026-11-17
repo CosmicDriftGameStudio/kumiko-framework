@@ -15,7 +15,7 @@ export const documentIngestProviderOptionsSchema = z.object({
 });
 export type DocumentIngestProviderOptions = z.infer<typeof documentIngestProviderOptionsSchema>;
 
-// r.useExtension options-shape, co-located since the framework never imports upward.
+// r.applyExtension options-shape, co-located since the framework never imports upward.
 declare module "@cosmicdrift/kumiko-framework/engine" {
   interface KumikoExtensionOptionsMap {
     [EXT_DOCUMENT_INGEST_PROVIDER]: DocumentIngestProviderOptions;
@@ -50,7 +50,7 @@ export function resolveDocumentIngestProviders(
     if (!parsed.success) {
       throw new Error(
         `document-ingest-foundation: provider "${usage.entityName}" registered invalid options via ` +
-          `r.useExtension(EXT_DOCUMENT_INGEST_PROVIDER, "${usage.entityName}", ...) — ${parsed.error.message}`,
+          `r.applyExtension({ name: EXT_DOCUMENT_INGEST_PROVIDER, entity: "${usage.entityName}", ... }) — ${parsed.error.message}`,
       );
     }
     for (const mimeType of parsed.data.mimeTypes) {

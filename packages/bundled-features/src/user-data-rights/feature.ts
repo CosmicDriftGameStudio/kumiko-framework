@@ -44,8 +44,7 @@ import { USER_DATA_RIGHTS_I18N } from "./web/i18n.ts";
 // 18 (restriction), and 20 (portability) as a core feature.
 //
 // Instead of making each feature implement its own forget/export logic,
-// it registers through `r.useExtension(EXT_USER_DATA, "<entity>", {
-// export, delete })`. user-data-rights orchestrates:
+// it registers through `r.applyExtension({ name: EXT_USER_DATA, entity: "<entity>", // export, delete })`. user-data-rights orchestrates:
 //   - Export job: iterates over all extension registrations and collects JSON
 //   - Forget job: iterates over all registrations and calls each delete hook
 //     with the strategy from `retention.policyFor` (data-retention)
@@ -68,7 +67,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
   const showDeletion = opts.privacyCenterShowDeletion ?? true;
   return defineFeature("user-data-rights", (r) => {
     r.describe(
-      'Implements GDPR Art. 15 (access / `my-audit-log` query), Art. 17 (erasure / `request-deletion` + `cancel-deletion`, plus the anonymous email-verified `request-deletion-by-email` + `confirm-deletion-by-token` flow for lockout-safe self-service, + cron cleanup with grace period), Art. 18 (restriction / `restrict-account` + `lift-restriction`), and Art. 20 (portability / async `request-export` \u2192 ZIP via `file-foundation`, Magic-Link download) as first-class HTTP handlers and cron jobs. Each domain feature opts in by calling `r.useExtension(EXT_USER_DATA, "<entity>", { export, delete })` \u2014 the feature then orchestrates the export and forget pipelines across all registered hooks automatically. When `mail-foundation` and a `mail-transport-*` are mounted, it also sends the GDPR notifications (export ready/failed, deletion requested/executed) itself with no app callback code, rendered in each recipient’s locale. The anonymous deletion flow sends its verify mail itself through delivery. Requires `user`, `data-retention`, `compliance-profiles`, and `sessions`.',
+      'Implements GDPR Art. 15 (access / `my-audit-log` query), Art. 17 (erasure / `request-deletion` + `cancel-deletion`, plus the anonymous email-verified `request-deletion-by-email` + `confirm-deletion-by-token` flow for lockout-safe self-service, + cron cleanup with grace period), Art. 18 (restriction / `restrict-account` + `lift-restriction`), and Art. 20 (portability / async `request-export` \u2192 ZIP via `file-foundation`, Magic-Link download) as first-class HTTP handlers and cron jobs. Each domain feature opts in by calling `r.applyExtension({ name: EXT_USER_DATA, entity: "<entity>", export, delete })` \u2014 the feature then orchestrates the export and forget pipelines across all registered hooks automatically. When `mail-foundation` and a `mail-transport-*` are mounted, it also sends the GDPR notifications (export ready/failed, deletion requested/executed) itself with no app callback code, rendered in each recipient’s locale. The anonymous deletion flow sends its verify mail itself through delivery. Requires `user`, `data-retention`, `compliance-profiles`, and `sessions`.',
     );
     r.uiHints({
       displayLabel: "User Data Rights \u00b7 GDPR",

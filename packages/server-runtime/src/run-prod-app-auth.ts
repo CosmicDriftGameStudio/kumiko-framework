@@ -69,7 +69,7 @@ export async function wireProdAuth(
 
   // Token-verifier opt-in: any provider feature (personal-access-tokens, a
   // future auth-provider-jwt, ...) self-registers via
-  // r.useExtension(EXT_TOKEN_VERIFIER, ...) — wire one generic resolver
+  // r.applyExtension({ name: EXT_TOKEN_VERIFIER, ... }) — wire one generic resolver
   // whenever at least one is mounted, resolved by shape at request-time.
   // PAT keeps its own per-token rate limiter (patRateLimiter), unrelated to
   // verification.

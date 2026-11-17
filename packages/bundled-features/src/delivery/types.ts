@@ -141,7 +141,7 @@ export type DeliveryService = {
   logAttempt(entry: DeliveryLogEntry, deliveryDb?: DbConnection): Promise<void>;
 };
 
-// r.useExtension options-shape: `name` is NOT part of the registration
+// r.applyExtension options-shape: `name` is NOT part of the registration
 // payload — collectChannels derives it from the usage's entityName instead.
 export type DeliveryChannelPlugin = Omit<DeliveryChannel, "name">;
 
@@ -165,7 +165,7 @@ export function isDeliveryChannelPlugin(o: unknown): o is DeliveryChannelPlugin 
   );
 }
 
-// r.useExtension options-shape, co-located since the framework never imports upward.
+// r.applyExtension options-shape, co-located since the framework never imports upward.
 declare module "@cosmicdrift/kumiko-framework/engine" {
   interface KumikoExtensionOptionsMap {
     [DELIVERY_CHANNEL_EXTENSION]: DeliveryChannelPlugin;

@@ -1,7 +1,7 @@
 // Proves the escapeHatch declaration gate, not just its type.
 //
 // TenantDataHookCtx/UserDataHookCtx.db is a tenant-filtered TenantDb. A hook
-// that declares `escapeHatch: { reason }` on its `r.useExtension(...)`
+// that declares `escapeHatch: { reason }` on its `r.applyExtension(...)`
 // registration can call `ctx.db.unsafeRaw()` to get a REAL unfiltered
 // DbRunner — the two tests below use it with a deliberately filter-less
 // `DELETE FROM <table>` (no WHERE at all) to prove the grant is genuinely
@@ -67,7 +67,7 @@ async function bootBaseTables(stack: TestStack): Promise<void> {
 
 describe("escape-hatch declaration :: declared hook gets a real unfiltered DbRunner", () => {
   const DECLARED_REASON =
-    "fw#2914 test: escape-hatch declared on r.useExtension — ctx.db.unsafeRaw() must grant a real unfiltered DbRunner";
+    "fw#2914 test: escape-hatch declared on r.applyExtension — ctx.db.unsafeRaw() must grant a real unfiltered DbRunner";
 
   const declaredLeakHook: UserDataDeleteHook = async (ctx) => {
     // No WHERE clause at all — only possible with a genuinely unfiltered runner.

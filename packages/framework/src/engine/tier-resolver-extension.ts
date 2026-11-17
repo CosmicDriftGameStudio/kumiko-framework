@@ -3,7 +3,7 @@
 //
 // **Pattern (analogous to mail-foundation / file-foundation):** a feature
 // declares `r.extendsRegistrar("tenantTierResolver")`, and plugins
-// implement it via `r.useExtension("tenantTierResolver", "id", { build })`.
+// implement it via `r.applyExtension({ name: "tenantTierResolver", entity: "id", build })`.
 //
 // **Framework auto-wiring:** runDevApp + runProdApp scan the registry
 // for this exact extension name. If a plugin is found AND the app author
@@ -29,7 +29,7 @@ import type { TenantId } from "./types/identifiers.ts";
 
 /**
  * Extension name under which a tier-resolver plugin must be registered in the
- * registry. The constant keeps `r.useExtension(TENANT_TIER_RESOLVER_EXT, ...)`
+ * registry. The constant keeps `r.applyExtension({ name: TENANT_TIER_RESOLVER_EXT, ... })`
  * and the framework's `getExtensionUsages(TENANT_TIER_RESOLVER_EXT)` aligned
  * on the same value, preventing typos.
  */

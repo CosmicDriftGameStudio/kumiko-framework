@@ -160,7 +160,7 @@ export function applyExtensionUsages(state: RegistryState): void {
     // to also be gated, store the registering-feature on
     // RegistrarExtensionRegistration and use that here.
     const extOwner = "*";
-    // Unlike export/forget hooks (escapeHatch on r.useExtension(...)), these
+    // Unlike export/forget hooks (escapeHatch on r.applyExtension(...)), these
     // entity-lifecycle wrappers (postSave/preDelete/postDelete/preSave) have no
     // escapeHatch declaration site, so SYSTEM stays denied here (system-identity-switch.ts).
     if (ext.hooks) {

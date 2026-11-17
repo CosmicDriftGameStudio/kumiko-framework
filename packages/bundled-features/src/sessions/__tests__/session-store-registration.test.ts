@@ -12,7 +12,7 @@ import { createSessionsFeature } from "../feature.ts";
 import { userSessionTable } from "../schema/user-session.ts";
 
 describe("createSessionsFeature — sessionStore registration", () => {
-  test('registers via r.useExtension(EXT_SESSION_STORE, "default", ...)', () => {
+  test('registers via r.applyExtension({ name: EXT_SESSION_STORE, entity: "default", ... })', () => {
     const feature = createSessionsFeature();
     const usage = feature.extensionUsages.find((u) => u.extensionName === EXT_SESSION_STORE);
     expect(usage).toBeDefined();

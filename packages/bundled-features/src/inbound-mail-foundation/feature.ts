@@ -207,7 +207,7 @@ export function createInboundMailFoundationFeature(options: InboundMailRoleOptio
       registerMailAccountWakeConsumer(r);
 
       // Plugin extension point — providers register via
-      // r.useExtension("inboundMailProvider", "<key>", plugin).
+      // r.applyExtension({ name: "inboundMailProvider", entity: "<key>", ...plugin }).
       // Lookup happens at runtime via resolveInboundProviderForKey/-Account.
       r.extendsRegistrar(INBOUND_MAIL_PROVIDER_EXTENSION, {});
 

@@ -23,8 +23,8 @@
 //
 // **Pattern precedent:** identical to `delivery` + `channel-email`. The
 // delivery feature declares `r.extendsRegistrar("deliveryChannel")`, and
-// channel-email registers via `r.useExtension("deliveryChannel",
-// "email", {...})`. The foundation ↔ provider separation is the same.
+// channel-email registers via `r.applyExtension({ name: "deliveryChannel",
+// entity: "email", ... })`. The foundation ↔ provider separation is the same.
 //
 // **Standalone:** The foundation can be used without tier-engine. Existing
 // `channel-email` (app-wide mail sender via delivery) remains unchanged—an
@@ -90,7 +90,7 @@ export type MailTransportContext = {
 /**
  * Mail-Transport-Plugin contract. Each provider-feature (mail-transport-
  * smtp, mail-transport-brevo-api, ...) registers an implementation via
- * `r.useExtension("mailTransport", "<name>", { build })`.
+ * `r.applyExtension({ name: "mailTransport", entity: "<name>", build })`.
  *
  * `build(ctx, tenantId)` reads the plugin's own config-keys + secrets
  * (the plugin owns its provider-specific config schema) and constructs
@@ -114,7 +114,7 @@ export function isMailTransportPlugin(o: unknown): o is MailTransportPlugin {
   return typeof o === "object" && o !== null && "build" in o && typeof o.build === "function";
 }
 
-// r.useExtension options-shape, co-located since the framework never imports upward.
+// r.applyExtension options-shape, co-located since the framework never imports upward.
 declare module "@cosmicdrift/kumiko-framework/engine" {
   interface KumikoExtensionOptionsMap {
     [MAIL_TRANSPORT_EXTENSION]: MailTransportPlugin;

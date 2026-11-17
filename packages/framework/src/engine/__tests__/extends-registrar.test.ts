@@ -39,7 +39,7 @@ const dummySaveContext: SaveContext = {
 };
 
 describe("extendsRegistrar", () => {
-  test("r.useExtension records usage with name, entity, and options", () => {
+  test("r.applyExtension records usage with name, entity, and options", () => {
     const consumer = defineFeature("fleet", (r) => {
       r.entity(createEntity({ name: "vehicle", table: "Vehicles", fields: {} }));
       r.applyExtension({ name: "tags", entity: "vehicle" });

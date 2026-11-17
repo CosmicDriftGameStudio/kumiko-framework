@@ -2675,7 +2675,7 @@ describe("r.entity(importedEntity) reads the entity name from the imported file"
 });
 
 // Registrar-call name args authored as an imported constant
-// (`r.useExtension(EXT_TENANT_DATA, ...)`) instead of a string literal.
+// (`r.applyExtension({ name: EXT_TENANT_DATA, ... })`) instead of a string literal.
 // This is the dominant real-world style across the framework's own
 // bundled-features (see extension-names.ts), and previously ParseErrored
 // on every such call.

@@ -1,6 +1,6 @@
 // OAuth access-token refresh — real foundation, real secrets, real
 // connect-callback HTTP route, fake OAuth provider registered via
-// r.useExtension. The clock is an injected Temporal instant.
+// r.applyExtension. The clock is an injected Temporal instant.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";

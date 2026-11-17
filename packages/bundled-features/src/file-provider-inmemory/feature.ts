@@ -6,8 +6,8 @@
 // and tests without a MinIO container.
 //
 // **What this feature provides:**
-//   1. Plugin registration via `r.useExtension("fileProvider",
-//      "inmemory", { build })`.
+//   1. Plugin registration via `r.applyExtension({ name: "fileProvider",
+//      entity: "inmemory", build })`.
 //   2. **Per-tenant storage.** Each tenant gets its own
 //      InMemoryFileProvider, providing tenant isolation by design
 //      without requiring a path convention.

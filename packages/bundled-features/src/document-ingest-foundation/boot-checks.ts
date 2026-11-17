@@ -43,7 +43,7 @@ export function validateDocumentIngestProviderWiring(features: readonly FeatureD
           message:
             `[kumiko:boot] Job "${jobDef.name}" (feature "${feature.name}") filters documentIngest.requested to ` +
             `provider "${provider}", but no feature registers that provider via ` +
-            `r.useExtension(EXT_DOCUMENT_INGEST_PROVIDER, "${provider}", ...). Known: ` +
+            `r.applyExtension({ name: EXT_DOCUMENT_INGEST_PROVIDER, entity: "${provider}", ... }). Known: ` +
             `${[...registeredProviderNames].join(", ") || "<none>"}.`,
         });
       }

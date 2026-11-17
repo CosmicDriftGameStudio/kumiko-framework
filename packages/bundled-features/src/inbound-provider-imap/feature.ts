@@ -8,8 +8,8 @@
 // token refresh is handled by the OAuth providers).
 //
 // **What this feature provides:**
-//   1. Plugin registration via r.useExtension("inboundMailProvider",
-//      "imap", { verify, fetch, watch }).
+//   1. Plugin registration via r.applyExtension({ name: "inboundMailProvider",
+//      entity: "imap", verify, fetch, watch }).
 //   2. verify: connect+logout with typed error mapping.
 //   3. fetch: incremental sync using a UIDVALIDITY:lastUid cursor —
 //      a UIDVALIDITY change throws InboundCursorInvalidError (the

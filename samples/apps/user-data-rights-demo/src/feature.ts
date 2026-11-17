@@ -9,7 +9,7 @@
 //   - r.entity({ name: "todo", ...todoEntity })  → Drizzle table is built
 //   - r.writeHandler({ name: "create", … })      → user creates a todo
 //   - r.queryHandler({ name: "list", … })        → user sees their todos
-//   - r.useExtension(EXT_USER_DATA, "todo")      → forget + export integration
+//   - r.applyExtension({ name: EXT_USER_DATA, entity: "todo" })      → forget + export integration
 //
 // What happens when the user then calls request-export:
 //   1. user-data-rights.request-export.write triggers a job

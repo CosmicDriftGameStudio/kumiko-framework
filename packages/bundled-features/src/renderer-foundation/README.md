@@ -1,6 +1,6 @@
 # renderer-foundation
 
-Plugin foundation for renderers (HTML email, PDF, image). Plugins (`renderer-mail-html`, `renderer-puppeteer-client`) register via `r.useExtension("renderer", "<name>", { kinds, render })`.
+Plugin foundation for renderers (HTML email, PDF, image). Plugins (`renderer-mail-html`, `renderer-puppeteer-client`) register via `r.applyExtension({ name: "renderer", entity: "<name>", kinds, render })`.
 
 ## Mount
 
@@ -59,7 +59,7 @@ import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
 export const myRendererFeature = defineFeature("renderer-myown", (r) => {
   r.requires({ features: ["renderer-foundation"] });
-  r.useExtension("renderer", "myown", {
+  r.applyExtension({ name: "renderer", entity: "myown",
     kinds: ["document-pdf"],
     // ctx is optional, only use it when service access is required
     render: async (req, ctx) => {

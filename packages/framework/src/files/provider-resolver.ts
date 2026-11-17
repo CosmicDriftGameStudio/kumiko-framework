@@ -66,7 +66,7 @@ export type FileProviderContext = {
 /**
  * File-Storage-Plugin contract. Each provider-feature (file-provider-s3,
  * file-provider-inmemory, ...) registers an implementation via
- * `r.useExtension(EXT_FILE_PROVIDER, "<name>", { build })`.
+ * `r.applyExtension({ name: EXT_FILE_PROVIDER, entity: "<name>", build })`.
  *
  * **Plugin-Author-Warning:** `ctx` is EXPLICITLY a FileProviderContext, not
  * a full HandlerContext. Fields outside the narrow surface (e.g.

@@ -302,7 +302,7 @@ export type ReadsConfigPattern = {
   readonly qualifiedKeys: readonly string[];
 };
 
-// `r.useExtension(extensionName, entity, options?)` — opts an entity into a
+// `r.applyExtension({ name, entity, ...options })` — opts an entity into a
 // registrar extension declared via `r.extendsRegistrar`: runs its
 // `onRegister`, merges its extra schema fields, and installs its entity
 // hooks at registry build time. The `options` bag is passed verbatim to
@@ -313,7 +313,7 @@ export type UseExtensionPattern = {
   readonly source: SourceLocation;
   readonly extensionName: string;
   // Set only when `extensionName` was authored as an identifier resolving
-  // to a string constant (`r.useExtension(EXT_TENANT_DATA, ...)`) rather
+  // to a string constant (`r.applyExtension({ name: EXT_TENANT_DATA, ... })`) rather
   // than a literal — the renderer emits this verbatim instead of
   // `JSON.stringify(extensionName)` so the round-trip doesn't inline the
   // reference. A caller constructing an edited pattern must omit
@@ -606,7 +606,7 @@ export type DefineEventPattern = {
 
 // `r.extendsRegistrar(extensionName, def)` — declares a named, globally
 // unique extension point that other features opt into per entity via
-// `r.useExtension`. The def can contribute `onRegister`, extra schema
+// `r.applyExtension`. The def can contribute `onRegister`, extra schema
 // fields (`extendSchema`), and entity hooks; wiring happens at registry
 // build time.
 export type ExtendsRegistrarPattern = {

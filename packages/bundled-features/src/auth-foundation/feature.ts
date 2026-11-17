@@ -7,7 +7,7 @@
 //   - tenantExistence (single, optional)
 //   - credentialRevoker (multi, optional)
 //
-// Provider-features register via `r.useExtension(EXT_*, "<name>", plugin)`.
+// Provider-features register via `r.applyExtension({ name: EXT_*, entity: "<name>", ...plugin })`.
 // Middleware / runProdApp resolve providers from the registry at boot
 // (tokenVerifier/sessionStore) or request-time (tokenVerifier shape match).
 
@@ -53,7 +53,7 @@ export function createAuthFoundationFeature() {
     FEATURE_NAME,
     (r) => {
       r.describe(
-        "Declares auth-middleware extension points: `tokenVerifier` (Bearer), `sessionStore` (revocable JWT sid), optional `tenantResolver` + `tenantExistence` for anonymous multi-tenant. Provider-features register via r.useExtension; mount auth-foundation with the matching provider features. The multi-provider `credentialRevoker` revokes every credential of a user (sessions, access tokens) on a password change or MFA state change.",
+        "Declares auth-middleware extension points: `tokenVerifier` (Bearer), `sessionStore` (revocable JWT sid), optional `tenantResolver` + `tenantExistence` for anonymous multi-tenant. Provider-features register via r.applyExtension; mount auth-foundation with the matching provider features. The multi-provider `credentialRevoker` revokes every credential of a user (sessions, access tokens) on a password change or MFA state change.",
       );
       r.uiHints({
         displayLabel: "Auth Provider Foundation",

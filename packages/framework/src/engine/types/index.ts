@@ -2,7 +2,7 @@
 // runtime helpers below that stay framework-side.
 export type { JobRunIn } from "@cosmicdrift/kumiko-types/config";
 // Cross-Feature Compile-Time-Type-Map — features extend per declare-module.
-// Cross-Feature Compile-Time-Type-Map for r.useExtension options — mirrors KumikoEventTypeMap above.
+// Cross-Feature Compile-Time-Type-Map for r.applyExtension options — mirrors KumikoEventTypeMap above.
 export type {
   FeatureDefinition,
   Registry,

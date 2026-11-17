@@ -44,7 +44,7 @@ export const FIELD_DEFINITION_DELETED_EVENT = "field-definition-deleted";
 export const CUSTOM_FIELD_SET_EVENT = "custom-field-set";
 export const CUSTOM_FIELD_CLEARED_EVENT = "custom-field-cleared";
 
-// Extension name for r.useExtension("customFields", "<entity>"): registers
+// Extension name for r.applyExtension({ name: "customFields", entity: "<entity>" }): registers
 // that a host entity may have custom fields.
 export const CUSTOM_FIELDS_EXTENSION = "customFields";
 

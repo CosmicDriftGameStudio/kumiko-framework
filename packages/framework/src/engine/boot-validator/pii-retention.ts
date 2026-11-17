@@ -426,7 +426,7 @@ const UNANNOTATED_NAME_WARNINGS: readonly UnannotatedNameWarning[] = [
       !input.flags.subjectRef &&
       !input.personalOfOwnerFieldNames.has(input.fieldName),
     message: (input) =>
-      `${fieldLocation(input)} has a user-reference-typical name but no personal annotation — a foreign key into \`user\` carries Art.17 obligations even with no annotated content on the entity. Mark it { personal: "ref" } AND register r.useExtension(EXT_USER_DATA, "${input.entityName}", …) for Art.17 coverage — this warning is the only boot-time check for that, registering the hook is not enforced. Or { personal: { of: "${input.fieldName}" } } on the field it owns. If business data, set { personal: false, reason: "..." } to silence.`,
+      `${fieldLocation(input)} has a user-reference-typical name but no personal annotation — a foreign key into \`user\` carries Art.17 obligations even with no annotated content on the entity. Mark it { personal: "ref" } AND register r.applyExtension({ name: EXT_USER_DATA, entity: "${input.entityName}", … }) for Art.17 coverage — this warning is the only boot-time check for that, registering the hook is not enforced. Or { personal: { of: "${input.fieldName}" } } on the field it owns. If business data, set { personal: false, reason: "..." } to silence.`,
   },
 ];
 

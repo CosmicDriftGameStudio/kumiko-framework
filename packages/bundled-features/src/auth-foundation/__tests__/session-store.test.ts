@@ -1,5 +1,5 @@
 // resolveSessionStore + the sessionStore multiplicity boot-check.
-// Mock providers registered via r.useExtension(EXT_SESSION_STORE, ...) in
+// Mock providers registered via r.applyExtension({ name: EXT_SESSION_STORE, ... }) in
 // throwaway test-features — no real sessions provider exists yet.
 
 import { describe, expect, test } from "bun:test";

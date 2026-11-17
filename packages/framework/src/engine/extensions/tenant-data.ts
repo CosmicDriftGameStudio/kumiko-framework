@@ -9,7 +9,7 @@ import type { Registry, TenantId } from "../types/index.ts";
 import type { TenantDestroyHookResult } from "./tenant-resource.ts";
 
 // db is tenant-filtered; unfiltered access needs
-// `escapeHatch: { reason }` on the owning `r.useExtension(...)` registration.
+// `escapeHatch: { reason }` on the owning `r.applyExtension(...)` registration.
 export interface TenantDataHookCtx {
   readonly db: ExecutorManagedTenantDb;
   readonly registry: Registry;

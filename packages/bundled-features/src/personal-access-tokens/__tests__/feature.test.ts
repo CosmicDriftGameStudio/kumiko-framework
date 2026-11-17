@@ -48,7 +48,7 @@ describe("createPersonalAccessTokensFeature toggleable-option (tier-gating)", ()
 });
 
 describe("createPersonalAccessTokensFeature — tokenVerifier registration", () => {
-  test('registers via r.useExtension(EXT_TOKEN_VERIFIER, "pat", ...) instead of a patResolver field', () => {
+  test('registers via r.applyExtension({ name: EXT_TOKEN_VERIFIER, entity: "pat", ... }) instead of a patResolver field', () => {
     const feature = createPersonalAccessTokensFeature({ scopes: {} });
     expect(feature.extensionUsages).toHaveLength(1);
     const [usage] = feature.extensionUsages;

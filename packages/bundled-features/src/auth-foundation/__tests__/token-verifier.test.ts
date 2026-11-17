@@ -1,5 +1,5 @@
 // resolveTokenVerifier + the tokenVerifier multiplicity boot-check.
-// Mock providers registered via r.useExtension(EXT_TOKEN_VERIFIER, ...) in
+// Mock providers registered via r.applyExtension({ name: EXT_TOKEN_VERIFIER, ... }) in
 // throwaway test-features — no real JWT/PAT provider exists yet.
 
 import { describe, expect, test } from "bun:test";

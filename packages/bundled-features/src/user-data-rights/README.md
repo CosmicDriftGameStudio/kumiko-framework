@@ -9,13 +9,13 @@ Cron-Pipeline, Tests + Sample wired.
 ## Pattern
 
 Statt jedes Feature seine eigene Forget-/Export-Logik schreibt, hängt
-es sich via `r.useExtension(EXT_USER_DATA, "<entity>", { export, delete })`
+es sich via `r.applyExtension({ name: EXT_USER_DATA, entity: "<entity>", export, delete })`
 an. user-data-rights orchestriert Export- und Forget-Pipeline:
 
 ```ts
 defineFeature("tasks", (r) => {
   r.requires({ features: ["user-data-rights"] });
-  r.useExtension(EXT_USER_DATA, "task", {
+  r.applyExtension({ name: EXT_USER_DATA, entity: "task",
     export: async (ctx) => ({
       entity: "task",
       rows: await ctx.db.select().from(tasksTable).where(eq(tasksTable.authorId, ctx.userId)),

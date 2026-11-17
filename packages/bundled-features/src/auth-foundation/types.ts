@@ -2,7 +2,7 @@
 //
 // Type contracts for auth-foundation's `tokenVerifier` extension point.
 // Provider-features (future: auth-provider-jwt, auth-provider-pat) register
-// an AuthProviderPlugin via `r.useExtension(EXT_TOKEN_VERIFIER, "<name>", plugin)`.
+// an AuthProviderPlugin via `r.applyExtension({ name: EXT_TOKEN_VERIFIER, entity: "<name>", ...plugin })`.
 //
 // **Shape-match routing:** unlike file-foundation/mail-foundation (one active
 // provider per tenant, chosen via a config-key), token verification happens
@@ -172,7 +172,7 @@ export function isTenantExistenceProvider(o: unknown): o is TenantExistenceProvi
   return typeof o === "object" && o !== null && "build" in o && typeof o.build === "function";
 }
 
-// r.useExtension options-shape for auth-foundation's extension points.
+// r.applyExtension options-shape for auth-foundation's extension points.
 declare module "@cosmicdrift/kumiko-framework/engine" {
   interface KumikoExtensionOptionsMap {
     [EXT_TOKEN_VERIFIER]: AuthProviderPlugin;

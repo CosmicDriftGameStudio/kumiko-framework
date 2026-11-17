@@ -7,7 +7,7 @@
 // Mini feature set:
 //   compliance-profiles  exposesApi("compliance.forTenant")
 //   user-data-rights     usesApi (EXT_USER_DATA is framework-owned)
-//   tenant               useExtension(EXT_USER_DATA, "user", ...)
+//   tenant               applyExtension({ name: EXT_USER_DATA, entity: "user", ... })
 //                        + entity with pii / userOwned / tenantOwned fields
 //                        + retention.blockDelete + anonymize function
 //                        + handler access with ROLES.TenantAdmin

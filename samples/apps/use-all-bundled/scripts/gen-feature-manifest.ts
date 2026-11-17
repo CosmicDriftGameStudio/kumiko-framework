@@ -13,7 +13,7 @@
 // too; this script only supplies the feature set + the output paths.
 //
 // Source set = APP_FEATURES (the canonical bootable list). Regenerate after
-// changing any feature's r.config / r.secret / r.requires / r.useExtension;
+// changing any feature's r.config / r.secret / r.requires / r.applyExtension;
 // feature-manifest.test.ts fails the build if this file is stale.
 //
 // Usage: bun run scripts/gen-feature-manifest.ts

@@ -8,8 +8,8 @@
 //      and secret (smtp.password). Self-contained — mail-foundation does not
 //      know these keys; when an app owner switches between SMTP and the Brevo
 //      API, each plugin has its own independent config sets.
-//   2. **Plugin registration** via `r.useExtension("mailTransport",
-//      "smtp", { build })`. At boot, mail-foundation's factory lookup maps
+//   2. **Plugin registration** via `r.applyExtension({ name: "mailTransport",
+//      entity: "smtp", build })`. At boot, mail-foundation's factory lookup maps
 //      the name "smtp" to the build function.
 //   3. `build(ctx, tenantId)` reads the config keys and secret, then calls
 //      `createSmtpTransport()` from channel-email. This is the plugin's

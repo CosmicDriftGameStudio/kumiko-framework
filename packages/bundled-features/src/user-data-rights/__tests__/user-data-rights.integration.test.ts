@@ -3,7 +3,7 @@
 // Pre-commit checklist item: each new feature gets a five-line boot smoke test.
 // Catches drift in the schema definition or boot validation early.
 //
-// A deeper cross-feature test using useExtension(EXT_USER_DATA, ...) and
+// A deeper cross-feature test using applyExtension({ name: EXT_USER_DATA, ... }) and
 // the H1/H2 hooks is covered separately in the cross-data matrix.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";

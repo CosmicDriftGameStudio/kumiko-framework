@@ -236,7 +236,7 @@ export class RendererError extends Error {
   }
 }
 
-// r.useExtension options-shape: `name` is NOT part of the registration
+// r.applyExtension options-shape: `name` is NOT part of the registration
 // payload — collectRendererPlugins derives it from the usage's entityName.
 export type RendererRegistrationPlugin = Omit<RendererPlugin, "name">;
 
@@ -251,7 +251,7 @@ export function isRendererRegistrationPlugin(o: unknown): o is RendererRegistrat
   );
 }
 
-// r.useExtension options-shape, co-located since the framework never imports upward.
+// r.applyExtension options-shape, co-located since the framework never imports upward.
 declare module "@cosmicdrift/kumiko-framework/engine" {
   interface KumikoExtensionOptionsMap {
     [RENDERER_EXTENSION]: RendererRegistrationPlugin;

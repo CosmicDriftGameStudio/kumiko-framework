@@ -50,7 +50,7 @@ describe("files :: feature-definition smoke", () => {
 });
 
 describe("files :: cross-feature behavior (F1, S1.7)", () => {
-  test("a consumer feature can register r.useExtension(EXT_USER_DATA, fileRef, ...)", async () => {
+  test("a consumer feature can register r.applyExtension({ name: EXT_USER_DATA, entity: fileRef, ... })", async () => {
     // EXT_USER_DATA is framework-owned, so the consumer needs no provider feature.
     const consumer = defineFeature("test-files-consumer", (r) => {
       r.requires({ features: ["files"] });

@@ -83,7 +83,7 @@ describe("resolveDocumentIngestProviders", () => {
     const feature = makeProviderFeature(
       "bad",
       // Missing maxFileBytes — only reachable by a caller that bypasses the
-      // typed r.useExtension overload (e.g. hand-built dynamic config).
+      // typed r.applyExtension overload (e.g. hand-built dynamic config).
       { mimeTypes: ["application/pdf"] } as DocumentIngestProviderOptions,
     );
 

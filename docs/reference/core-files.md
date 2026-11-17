@@ -86,7 +86,7 @@ It is safe only because of three properties, all enforced together:
   that lets a caller hand the server an arbitrary crop/size/format to render.
 - **Default-deny.** Serving requires an `EXT_DERIVATIVE_PUBLIC_PREDICATE`
   registered for the file's `entityType` that explicitly returns `true`
-  (`r.useExtension(EXT_DERIVATIVE_PUBLIC_PREDICATE, "<entityType>", { isPublic })`).
+  (`r.applyExtension({ name: EXT_DERIVATIVE_PUBLIC_PREDICATE, entity: "<entityType>", isPublic })`).
   No registered predicate, or a predicate that returns `false`, means a 404 —
   never a degraded or partial response. An app opts individual entity types
   into public serving; nothing is public by default.
@@ -121,15 +121,15 @@ proxy, every caller shares one bucket; set too high, a caller can rotate
 ## The MIME extension point
 
 Renderers register against a MIME pattern via
-`r.useExtension(EXT_DERIVATIVE_RENDERER, "<mimePattern>", { render })`
+`r.applyExtension({ name: EXT_DERIVATIVE_RENDERER, entity: "<mimePattern>", render })`
 (`packages/framework/src/engine/extension-names.ts`). Resolution tries an
 exact match first, then falls back to a wildcard (`image/*`, registered by
 the bundled `derivatives-sharp` feature for all raster image types). The
 exact-match slot is there for renderers that don't fit the wildcard's
 shape — a PDF-preview renderer (`application/pdf`, rendering a first-page
 thumbnail) is the obvious next candidate, but nothing has registered that
-slot yet. No feature currently calls `useExtension(EXT_DERIVATIVE_RENDERER,
-"application/pdf", ...)` — a PDF `FileRef` today simply has no matching
+slot yet. No feature currently calls `applyExtension({ name: EXT_DERIVATIVE_RENDERER,
+entity: "application/pdf", ... })` — a PDF `FileRef` today simply has no matching
 renderer, exact or wildcard, so a variant request for it fails.
 
 ## Who sees a file: unbound uploads and binding
