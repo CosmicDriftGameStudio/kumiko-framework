@@ -2,6 +2,8 @@
 "@cosmicdrift/kumiko-bundled-features": patch
 "@cosmicdrift/kumiko-locale-de": patch
 "@cosmicdrift/kumiko-locale-es": patch
+"@cosmicdrift/kumiko-locale-fr": patch
+"@cosmicdrift/kumiko-locale-it": patch
 ---
 
 Retrying a failed run of a per-tenant or event-triggered job is refused instead of starting the job for every tenant or with an empty payload.

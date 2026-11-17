@@ -3,6 +3,8 @@
 "@cosmicdrift/kumiko-framework": patch
 "@cosmicdrift/kumiko-locale-de": patch
 "@cosmicdrift/kumiko-locale-es": patch
+"@cosmicdrift/kumiko-locale-fr": patch
+"@cosmicdrift/kumiko-locale-it": patch
 ---
 
 Calendar cap counters are booked into a store table with one atomic upsert instead of an event-sourced entity.

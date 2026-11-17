@@ -322,7 +322,7 @@ describe("scenario 6: config integration with tenant", () => {
   test("locale: select with valid option succeeds, invalid option rejected", async () => {
     await stack.http.writeOk(
       ConfigHandlers.set,
-      { key: "tenant:config:locale", value: "es" },
+      { key: "tenant:config:locale", value: "fr" },
       tenantAdmin,
     );
     const configFn = createConfigAccessor(
@@ -332,7 +332,7 @@ describe("scenario 6: config integration with tenant", () => {
       tenantAdmin.id,
       db,
     );
-    expect(await configFn("tenant:config:locale")).toBe("es");
+    expect(await configFn("tenant:config:locale")).toBe("fr");
 
     const invalid = await stack.http.writeErr(
       ConfigHandlers.set,
@@ -340,13 +340,6 @@ describe("scenario 6: config integration with tenant", () => {
       tenantAdmin,
     );
     expectErrorIncludes(invalid, "invalid_option");
-
-    const dropped = await stack.http.writeErr(
-      ConfigHandlers.set,
-      { key: "tenant:config:locale", value: "fr" },
-      tenantAdmin,
-    );
-    expectErrorIncludes(dropped, "invalid_option");
   });
 
   test("timezone: defaults to Europe/Berlin when unset", async () => {

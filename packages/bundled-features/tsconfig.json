@@ -12,6 +12,8 @@
     { "path": "../framework" },
     { "path": "../locale-de" },
     { "path": "../locale-es" },
+    { "path": "../locale-fr" },
+    { "path": "../locale-it" },
     { "path": "../testing" }
   ],
   "include": ["./src"]

@@ -3,9 +3,11 @@ import type { ApiDocsProblem } from "../problems.ts";
 import { deApiDocsTexts } from "./de.ts";
 import { enApiDocsTexts } from "./en.ts";
 import { esApiDocsTexts } from "./es.ts";
+import { frApiDocsTexts } from "./fr.ts";
+import { itApiDocsTexts } from "./it.ts";
 import { type ApiDocsTexts, isParagraphTextKey, placeholdersOf } from "./types.ts";
 
-export const apiDocsLocales = ["en", "de", "es"] as const;
+export const apiDocsLocales = ["en", "de", "es", "fr", "it"] as const;
 
 export type ApiDocsLocale = (typeof apiDocsLocales)[number];
 
@@ -17,6 +19,8 @@ const textsByLocale: Readonly<Record<ApiDocsLocale, ApiDocsTexts>> = {
   en: enApiDocsTexts,
   de: deApiDocsTexts,
   es: esApiDocsTexts,
+  fr: frApiDocsTexts,
+  it: itApiDocsTexts,
 };
 
 export function apiDocsTextsFor(locale: ApiDocsLocale): ApiDocsTexts {

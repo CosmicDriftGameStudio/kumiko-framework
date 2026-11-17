@@ -51,7 +51,7 @@ smallest complete example is [`samples/recipes/golden-path`](samples/recipes/gol
 | `guards` | AST guards and repo checks (`kumiko-guards`), `kumiko.json` schema and loader (`/repo-manifest`) |
 | `renderer` | Platform-agnostic renderer plus UI logic, HTTP dispatcher and web bindings (`renderer/headless`, `renderer/live`, `renderer/web`) |
 | `document-designer` | Template editor |
-| `locale-de`, `locale-es` | Opt-in UI and mail copy |
+| `locale-de`, `locale-es`, `locale-fr`, `locale-it` | Opt-in UI and mail copy |
 | `samples` | Packaged source of recipes and sample apps |
 | `apps/puppeteer-service` | PDF and image rendering service |
 | `samples/recipes/*`, `samples/apps/*` | One tested example per concept, full sample apps |

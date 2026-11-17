@@ -3,6 +3,8 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import { localeEsBundle } from "@cosmicdrift/kumiko-locale-es";
+import { localeFrBundle } from "@cosmicdrift/kumiko-locale-fr";
+import { localeItBundle } from "@cosmicdrift/kumiko-locale-it";
 import { frameworkEnCatalog } from "../../../../../packages/locale-de/src/__tests__/en-catalog";
 import { type EnHarvest, harvestEnglish } from "./i18n-harvest";
 
@@ -15,6 +17,8 @@ type Bundle = Readonly<Record<string, string>>;
 const SUPPORTED_LOCALES: readonly { readonly locale: string; readonly bundle: Bundle }[] = [
   { locale: "de", bundle: localeDeBundle },
   { locale: "es", bundle: localeEsBundle },
+  { locale: "fr", bundle: localeFrBundle },
+  { locale: "it", bundle: localeItBundle },
 ];
 
 // Client plugins that ship no English copy of their own (their screens use server or renderer keys).

@@ -40,6 +40,8 @@
     "packages/renderer",
     "packages/locale-es",
     "packages/locale-de",
+    "packages/locale-fr",
+    "packages/locale-it",
     "packages/document-designer",
     "packages/feature-ast",
     "apps/puppeteer-service",

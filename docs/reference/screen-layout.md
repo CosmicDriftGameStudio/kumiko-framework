@@ -317,7 +317,7 @@ r.screen({
 });
 ```
 
-- A click calls `handler` with `{}` and does not save the form. The button is disabled while the form has unsaved changes and shows the hint `kumiko.configEdit.action.saveFirst` ("Save first"; shipped in de, en, es), so the handler always works on stored values.
+- A click calls `handler` with `{}` and does not save the form. The button is disabled while the form has unsaved changes and shows the hint `kumiko.configEdit.action.saveFirst` ("Save first"; shipped in de, en, es, fr, it), so the handler always works on stored values.
 - `successMessage` is an optional i18n key. Success and failure go through the action notifier (a toast on web) and fall back to a banner inside the row. A failure shows the translated error of the handler (`i18nKey`, then `message`, then `code`).
 - Boot validation: `handler` must be a registered write handler, `afterField` must be a field of the layout, and the ids are unique within the screen.
 

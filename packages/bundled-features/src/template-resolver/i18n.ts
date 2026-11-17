@@ -2,7 +2,7 @@ import { handlerFieldLabelKey, handlerTitleKey } from "@cosmicdrift/kumiko-frame
 import { TemplateResolverHandlers as H } from "./web/qualified-names.ts";
 
 // The AI assistant and its approval prompts name a handler by its title key; without
-// one the user reads the raw handler name. de/es live in the locale packages.
+// one the user reads the raw handler name. de/es/fr/it live in the locale packages.
 export const TEMPLATE_RESOLVER_I18N: Readonly<Record<string, { readonly en: string }>> = {
   [handlerTitleKey(H.upsertSystem)]: { en: "Save system template" },
   [handlerTitleKey(H.upsertTenant)]: { en: "Save template" },

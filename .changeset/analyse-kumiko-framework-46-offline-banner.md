@@ -2,6 +2,8 @@
 "@cosmicdrift/kumiko-renderer": patch
 "@cosmicdrift/kumiko-locale-de": patch
 "@cosmicdrift/kumiko-locale-es": patch
+"@cosmicdrift/kumiko-locale-fr": patch
+"@cosmicdrift/kumiko-locale-it": patch
 ---
 
 Apps built with `createKumikoApp` show a hint while the server is unreachable, and live updates reconnect as soon as the device is back online.

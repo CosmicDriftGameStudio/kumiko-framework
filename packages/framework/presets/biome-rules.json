@@ -128,7 +128,11 @@
     {
       "path": "./biome-plugins/i18n-locale-terminology-romance.grit",
       "resolutionKind": "config",
-      "includes": ["**/packages/locale-es/src/strings.ts"]
+      "includes": [
+        "**/packages/locale-es/src/strings.ts",
+        "**/packages/locale-fr/src/strings.ts",
+        "**/packages/locale-it/src/strings.ts"
+      ]
     },
     {
       "path": "./biome-plugins/admin-api.grit",

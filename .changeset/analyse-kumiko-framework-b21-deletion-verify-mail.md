@@ -2,6 +2,8 @@
 "@cosmicdrift/kumiko-bundled-features": minor
 "@cosmicdrift/kumiko-locale-de": patch
 "@cosmicdrift/kumiko-locale-es": patch
+"@cosmicdrift/kumiko-locale-fr": patch
+"@cosmicdrift/kumiko-locale-it": patch
 ---
 
 user-data-rights sends the verification mail of the anonymous account deletion itself, as a localized notification template.

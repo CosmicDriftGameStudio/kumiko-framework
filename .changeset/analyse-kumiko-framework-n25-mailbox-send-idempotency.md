@@ -1,7 +1,9 @@
 ---
 "@cosmicdrift/kumiko-bundled-features": minor
 "@cosmicdrift/kumiko-locale-de": patch
+"@cosmicdrift/kumiko-locale-fr": patch
 "@cosmicdrift/kumiko-locale-es": patch
+"@cosmicdrift/kumiko-locale-it": patch
 ---
 
 sendMailFromAccount takes an idempotencyKey.

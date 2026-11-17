@@ -5,6 +5,8 @@
 "@cosmicdrift/kumiko-document-designer": patch
 "@cosmicdrift/kumiko-locale-de": patch
 "@cosmicdrift/kumiko-locale-es": patch
+"@cosmicdrift/kumiko-locale-fr": patch
+"@cosmicdrift/kumiko-locale-it": patch
 ---
 
 Workspaces collect the admin navs of every mounted feature with `collectAdminArea`.
