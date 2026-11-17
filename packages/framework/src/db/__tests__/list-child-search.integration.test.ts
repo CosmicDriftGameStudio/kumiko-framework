@@ -1,5 +1,6 @@
 // A list search on the parent also matches through child rows (hasMany searchable: true), but only
-// through children the viewer may read, with every searchable child field readable by them.
+// through children the viewer may read whose detail handler admits them, with every searchable
+// child field readable by them.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
@@ -65,6 +66,32 @@ const secretReplyEntity = createEntity({
   },
 });
 
+const internalNoteEntity = createEntity({
+  table: "read_helpdesk_internal_notes",
+  fields: {
+    ticketId: createReferenceField({ entity: "ticket", personal: false, reason: "test_fixture" }),
+    body: createTextField({
+      personal: false,
+      reason: "test_fixture",
+      required: true,
+      searchable: true,
+    }),
+  },
+});
+
+const draftNoteEntity = createEntity({
+  table: "read_helpdesk_draft_notes",
+  fields: {
+    ticketId: createReferenceField({ entity: "ticket", personal: false, reason: "test_fixture" }),
+    body: createTextField({
+      personal: false,
+      reason: "test_fixture",
+      required: true,
+      searchable: true,
+    }),
+  },
+});
+
 const roles = ["Admin", "Agent"] as const;
 
 const helpdeskFeature = defineFeature("helpdesk", (r) => {
@@ -83,12 +110,36 @@ const helpdeskFeature = defineFeature("helpdesk", (r) => {
     foreignKey: "ticketId",
     searchable: true,
   });
+  r.entity({ name: "internalNote", ...internalNoteEntity });
+  r.relation(ticket, "internalNotes", {
+    type: "hasMany",
+    target: "internalNote",
+    foreignKey: "ticketId",
+    searchable: true,
+  });
+  r.entity({ name: "draftNote", ...draftNoteEntity });
+  r.relation(ticket, "draftNotes", {
+    type: "hasMany",
+    target: "draftNote",
+    foreignKey: "ticketId",
+    searchable: true,
+  });
   const access = { access: { roles: [...roles] } };
   const writeAccess = { access: { roles: ["Admin"] } };
   r.writeHandler(defineEntityWriteHandler("ticket:create", ticketEntity, writeAccess));
   r.writeHandler(defineEntityWriteHandler("reply:create", replyEntity, writeAccess));
   r.writeHandler(defineEntityWriteHandler("secretReply:create", secretReplyEntity, writeAccess));
+  r.writeHandler(defineEntityWriteHandler("internalNote:create", internalNoteEntity, writeAccess));
+  r.writeHandler(defineEntityWriteHandler("draftNote:create", draftNoteEntity, writeAccess));
   r.queryHandler(defineEntityQueryHandler("ticket:list", ticketEntity, access));
+  r.queryHandler(defineEntityQueryHandler("reply:detail", replyEntity, access));
+  r.queryHandler(defineEntityQueryHandler("secretReply:detail", secretReplyEntity, access));
+  r.queryHandler(
+    defineEntityQueryHandler("internalNote:detail", internalNoteEntity, {
+      access: { roles: ["Admin"] },
+    }),
+  );
+  r.queryHandler(defineEntityQueryHandler("draftNote:list", draftNoteEntity, access));
 });
 
 const tenant = testTenantId(1);
@@ -111,6 +162,8 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, ticketEntity, "ticket");
   await unsafeCreateEntityTable(stack.db, replyEntity, "reply");
   await unsafeCreateEntityTable(stack.db, secretReplyEntity, "secretReply");
+  await unsafeCreateEntityTable(stack.db, internalNoteEntity, "internalNote");
+  await unsafeCreateEntityTable(stack.db, draftNoteEntity, "draftNote");
 });
 
 afterAll(async () => {
@@ -162,6 +215,27 @@ describe("list search through child rows", () => {
     );
     expect((await search(agentA, "narwhal")).rows).toHaveLength(0);
     expect((await search(admin, "narwhal")).rows.map((row) => row["id"])).toEqual([ticketId]);
+  });
+
+  test("an agent gets no hit through a child whose detail handler does not admit its role", async () => {
+    const ticketId = await createTicket("Shipping delay");
+    await stack.http.writeOk(
+      "helpdesk:write:internalNote:create",
+      { ticketId, body: "ocelot sighting" },
+      admin,
+    );
+    expect((await search(agentA, "ocelot")).rows).toHaveLength(0);
+    expect((await search(admin, "ocelot")).rows.map((row) => row["id"])).toEqual([ticketId]);
+  });
+
+  test("a child without a detail handler never matches, even with a list handler", async () => {
+    const ticketId = await createTicket("Refund request");
+    await stack.http.writeOk(
+      "helpdesk:write:draftNote:create",
+      { ticketId, body: "axolotl draft" },
+      admin,
+    );
+    expect((await search(admin, "axolotl")).rows).toHaveLength(0);
   });
 
   test("paging stays exact: limit 2 returns two rows with total 3", async () => {

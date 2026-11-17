@@ -226,7 +226,7 @@ function deleteRestrictedError(run: CascadeRun, blockingEntity: string): Conflic
 // ponytail: one executor call per child inside the parent's transaction, batch when child counts need it
 async function deleteHasManyChildren(run: CascadeRun, link: HasManyLink): Promise<void> {
   const childEntity = requireChildEntity(run, link);
-  await rejectLockedChildren(run, link, childEntity);
+  await rejectLockedChildren(run, link.table, link.foreignKey, childEntity);
   const executor = requireExecutor(run, link.target);
   for (const id of await childIds(
     run,
@@ -246,14 +246,29 @@ async function deleteHasManyChildren(run: CascadeRun, link: HasManyLink): Promis
       ...result.data,
       entityName: link.target,
       cascadedFrom: { entityName: run.entityName, id: run.parentId },
+      // The cascade's own child write always skips the lock guard; only the root delete decides.
+      lockGuardBypassed: run.lockGuardBypassed,
     };
-    await run.onChildDeleted(childPayload);
+    await notifyChildDeleted(run, childPayload);
+  }
+}
+
+// A lock deeper in the cascade is reported against this parent, so the caller only ever sees
+// the record it deleted.
+async function notifyChildDeleted(run: CascadeRun, child: DeleteContext): Promise<void> {
+  try {
+    await run.onChildDeleted(child);
+  } catch (error) {
+    if (error instanceof RecordLockedError) {
+      throw new RecordLockedError({ entityName: run.entityName, entityId: run.parentId });
+    }
+    throw error;
   }
 }
 
 async function detachHasManyChildren(run: CascadeRun, link: HasManyLink): Promise<void> {
   const childEntity = requireChildEntity(run, link);
-  await rejectLockedChildren(run, link, childEntity);
+  await rejectLockedChildren(run, link.table, link.foreignKey, childEntity);
   const executor = requireExecutor(run, link.target);
   const rows = await selectMany<ChildRow>(
     run.db,
@@ -287,20 +302,21 @@ function requireChildEntity(run: CascadeRun, link: HasManyLink): EntityDefinitio
   return childEntity;
 }
 
-// The child writes skip the executor's lock guard (decided here once), so a locked
+// The child and link-row writes skip the executor's lock guard (decided here once), so a locked
 // child must block the parent delete instead of changing with it. The error names
 // the parent only: the caller may delete the parent without reading the child.
 async function rejectLockedChildren(
   run: CascadeRun,
-  link: HasManyLink,
+  table: MappedTable,
+  key: string,
   childEntity: EntityDefinition,
 ): Promise<void> {
   const childLock = childEntity.lockedWhen;
   // skip: an unlockable child or an already bypassed parent delete has nothing to block
   if (childLock === undefined || run.lockGuardBypassed) return;
   // A soft-deleted child is invisible to the caller and must not block.
-  const children = await selectMany(run.db, link.table, {
-    [link.foreignKey]: run.parentId,
+  const children = await selectMany(run.db, table, {
+    [key]: run.parentId,
     ...(childEntity.softDelete === true && { isDeleted: false }),
   });
   if (children.some((child) => isRecordLocked(childLock, child))) {
@@ -315,6 +331,7 @@ async function deleteThroughRows(run: CascadeRun, link: ThroughLink): Promise<vo
       message: `cascadeDelete: through table "${link.throughTable}" is not an entity; deleting its rows needs an executor`,
     });
   }
+  await rejectLockedChildren(run, link.table, link.sourceKey, throughEntity);
   const executor = requireExecutor(run, link.throughTable);
   for (const id of await childIds(
     run,

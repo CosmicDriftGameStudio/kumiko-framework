@@ -12,6 +12,7 @@ import {
   createTextField,
   defineEntityCreateHandler,
   defineEntityDeleteHandler,
+  defineEntityDetailHandler,
   defineEntityListHandler,
   defineEntityRestoreHandler,
   defineFeature,
@@ -82,6 +83,7 @@ export const productFeature = defineFeature("shop", (r) => {
   r.writeHandler(defineEntityRestoreHandler("article", articleEntity, articleAccess));
   r.queryHandler(defineEntityListHandler("article", articleEntity, articleAccess));
   r.writeHandler(defineEntityCreateHandler("comment", commentEntity, articleAccess));
+  r.queryHandler(defineEntityDetailHandler("comment", commentEntity, articleAccess));
 
   r.writeHandler({
     name: "product:create",

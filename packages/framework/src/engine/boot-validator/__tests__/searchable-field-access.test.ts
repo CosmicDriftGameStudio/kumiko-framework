@@ -82,6 +82,20 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     ).not.toThrow();
   });
 
+  test("rejects a fuzzy-searchable longText field with a restricted access.read", () => {
+    expect(() =>
+      validateBoot(
+        searchableFeatureWith({ type: "longText", searchable: true, access: { read: ["Admin"] } }),
+      ),
+    ).toThrow(/secret.*cannot be searchable with a restricted access\.read/i);
+  });
+
+  test("allows a fuzzy-searchable longText field without access.read", () => {
+    expect(() =>
+      validateBoot(searchableFeatureWith({ type: "longText", searchable: true })),
+    ).not.toThrow();
+  });
+
   test("allows a restricted access.read on a non-searchable field", () => {
     expect(() =>
       validateBoot(searchableFeatureWith({ access: { read: ["Admin"] } })),

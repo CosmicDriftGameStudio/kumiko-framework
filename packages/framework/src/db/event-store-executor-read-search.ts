@@ -408,10 +408,10 @@ type ChildRelationSearch = NonNullable<
   NonNullable<ReferenceSearchOption>["childRelations"]
 >[number];
 
-// A parent matches when a child row matches the term, but only through a child the viewer could
-// open and whose searchable fields they may all read — otherwise searching would probe values
-// they cannot see. The index only names candidates; tenant scope, soft delete and ownership are
-// re-checked against the child table.
+// A parent matches when a child row matches the term, but only through a child entity whose detail
+// handler admits the viewer, a child row they could open, and searchable fields they may all read;
+// otherwise searching would probe values they cannot see. The index only names candidates; tenant
+// scope, soft delete and ownership are re-checked against the child table.
 async function resolveChildMatches(
   relation: ChildRelationSearch,
   request: ListSearchRequest,
@@ -421,6 +421,7 @@ async function resolveChildMatches(
   const { referenceSearch, user, db } = request;
   const child = referenceSearch?.resolveEntity(relation.childEntityName);
   if (child === undefined || relation.searchableFields.length === 0) return none;
+  if (request.parentVisibility?.canReadEntity?.(relation.childEntityName) !== true) return none;
   const childTable =
     referenceSearch?.resolveTable?.(relation.childEntityName) ??
     referenceTargetTable(relation.childEntityName, child);

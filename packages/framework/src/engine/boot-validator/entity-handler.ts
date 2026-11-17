@@ -1257,7 +1257,11 @@ function throwSearchableRestricted(subject: string, entityName: string): never {
 export function validateSearchableFieldReadAccess(feature: FeatureDefinition): void {
   for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
     for (const [fieldName, field] of Object.entries(entity.fields)) {
-      if (field.type === "text" && field.searchable && !isUnrestrictedReadAccess(field.access)) {
+      if (
+        (field.type === "text" || field.type === "longText") &&
+        field.searchable === true &&
+        !isUnrestrictedReadAccess(field.access)
+      ) {
         throwSearchableRestricted(`Field "${fieldName}"`, entityName);
       }
       if (field.type !== "embedded") continue;
