@@ -53,7 +53,13 @@ function dispatcherReturning(result: WriteResult): Dispatcher {
         ? result
         : {
             isSuccess: false,
-            error: { code: "handler_failed", message: "Handler said no", details: {} },
+            error: {
+              code: "handler_failed",
+              httpStatus: 500,
+              i18nKey: "errors.internal",
+              message: "Handler said no",
+              details: {},
+            },
           },
   });
 }

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from "bun:test";
 import type { ReactNode } from "react";
-import type { Dispatcher } from "../../../headless/index.ts";
+import type { Dispatcher, QueryResult } from "../../../headless/index.ts";
 import {
   DispatcherProvider,
   LIVE_RESYNC_EVENT_TYPE,
@@ -62,7 +62,7 @@ function renderList(dispatcher: Dispatcher, liveEvents: LiveEventSubscriber): vo
   render(ui);
 }
 
-function pageOf(subject: string) {
+function pageOf(subject: string): QueryResult {
   return { isSuccess: true, data: { rows: [{ id: "m1", subject }], nextCursor: null } };
 }
 
@@ -125,10 +125,10 @@ describe("InfinityList: live resync on the first stream open", () => {
   // The resync of the first open can arrive while the initial load is still
   // running; that load was issued before the change, so its answer is stale.
   test("a refresh that lands during the initial load wins over the older load", async () => {
-    const resolvers: Array<(res: unknown) => void> = [];
+    const resolvers: Array<(res: QueryResult) => void> = [];
     const dispatcher = createMockDispatcher({
       query: () =>
-        new Promise((resolve) => {
+        new Promise<QueryResult>((resolve) => {
           resolvers.push(resolve);
         }),
     });
@@ -166,10 +166,10 @@ describe("InfinityList: live resync on the first stream open", () => {
   });
 
   test("a failed refresh during the initial load changes nothing, the load still lands", async () => {
-    const resolvers: Array<(res: unknown) => void> = [];
+    const resolvers: Array<(res: QueryResult) => void> = [];
     const dispatcher = createMockDispatcher({
       query: () =>
-        new Promise((resolve) => {
+        new Promise<QueryResult>((resolve) => {
           resolvers.push(resolve);
         }),
     });
@@ -196,7 +196,12 @@ describe("InfinityList: live resync on the first stream open", () => {
 
     resolvers[1]?.({
       isSuccess: false,
-      error: { code: "internal", message: "kaputt", i18nKey: "errors.internal" },
+      error: {
+        code: "internal",
+        httpStatus: 500,
+        message: "kaputt",
+        i18nKey: "errors.internal",
+      },
     });
     await flushPromises();
     resolvers[0]?.(pageOf("Erste Seite"));

@@ -7,7 +7,13 @@ import userEvent from "@testing-library/user-event";
 import { WriteOnlyTextInput } from "../../components/render-field-write-only.tsx";
 import type { EditFieldViewModel } from "../../headless/index.ts";
 import { DispatcherProvider, RenderEdit } from "../../index.ts";
-import { createMockDispatcher, type MockWriteHandler, render, screen, waitFor } from "./test-utils.tsx";
+import {
+  createMockDispatcher,
+  type MockWriteHandler,
+  render,
+  screen,
+  waitFor,
+} from "./test-utils.tsx";
 
 const entity = {
   fields: { note: { type: "text" }, title: { type: "text" } },
@@ -53,7 +59,13 @@ describe("RenderEdit footer actions", () => {
 describe("RenderEdit formErrorOnTop", () => {
   const failingWrite: MockWriteHandler = async () => ({
     isSuccess: false,
-    error: { code: "boom", message: "Could not save", details: {} },
+    error: {
+      code: "boom",
+      httpStatus: 500,
+      i18nKey: "errors.internal",
+      message: "Could not save",
+      details: {},
+    },
   });
 
   async function submitAndGetFormHtml(formErrorOnTop: boolean): Promise<string> {

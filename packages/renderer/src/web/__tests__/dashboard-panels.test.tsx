@@ -2,7 +2,8 @@ import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import type { DashboardScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
-import { EMPTY_VALUE_PLACEHOLDER } from "../../headless/index.ts";
+import { EMPTY_VALUE_PLACEHOLDER, type QueryResult } from "../../headless/index.ts";
+import { isRecord } from "../../headless/is-record.ts";
 import type { FeatureSchema } from "../../index.ts";
 import {
   AppFeaturesProvider,
@@ -30,7 +31,7 @@ import {
   within,
 } from "./test-utils.tsx";
 
-type Handler = (payload: Readonly<Record<string, unknown>>) => unknown | Promise<unknown>;
+type Handler = (payload: Readonly<Record<string, unknown>>) => QueryResult | Promise<QueryResult>;
 
 const FEATURE = "demo";
 
@@ -59,7 +60,8 @@ function renderDashboard(
 ): { readonly calls: { readonly type: string; readonly payload: Record<string, unknown> }[] } {
   const calls: { readonly type: string; readonly payload: Record<string, unknown> }[] = [];
   const dispatcher = createMockDispatcher({
-    query: async (type: string, payload: Record<string, unknown> = {}) => {
+    query: async (type: string, rawPayload: unknown) => {
+      const payload = isRecord(rawPayload) ? rawPayload : {};
       calls.push({ type, payload });
       const handler = handlers[type];
       if (handler === undefined) return { isSuccess: true, data: {} };
@@ -99,10 +101,15 @@ function renderDashboard(
   return { calls };
 }
 
-const ok = (data: unknown) => ({ isSuccess: true, data });
-const failure = {
+const ok = (data: unknown): QueryResult => ({ isSuccess: true, data });
+const failure: QueryResult = {
   isSuccess: false,
-  error: { code: "internal", message: "kaputt", i18nKey: "errors.internal" },
+  error: {
+    code: "internal",
+    httpStatus: 500,
+    message: "kaputt",
+    i18nKey: "errors.internal",
+  },
 };
 
 const DAY = 86_400_000;

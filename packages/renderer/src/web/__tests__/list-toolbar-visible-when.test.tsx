@@ -74,7 +74,12 @@ function renderList(initial: Gate): {
       return gate === "error"
         ? {
             isSuccess: false,
-            error: { code: "internal", message: "kaputt", i18nKey: "errors.internal" },
+            error: {
+              code: "internal",
+              httpStatus: 500,
+              message: "kaputt",
+              i18nKey: "errors.internal",
+            },
           }
         : { isSuccess: true, data: gate };
     },

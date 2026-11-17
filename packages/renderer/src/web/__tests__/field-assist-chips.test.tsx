@@ -6,9 +6,16 @@ import type {
 
 import userEvent from "@testing-library/user-event";
 import { RelatedPhotoGrid } from "../../components/related-photo-grid.tsx";
+import type { QueryResult } from "../../headless/index.ts";
 import { DispatcherProvider, RenderEdit } from "../../index.ts";
 import { DefaultRecordSummary } from "../primitives/record-summary.tsx";
-import { createMockDispatcher, type MockQueryHandler, render, screen, waitFor } from "./test-utils.tsx";
+import {
+  createMockDispatcher,
+  type MockQueryHandler,
+  render,
+  screen,
+  waitFor,
+} from "./test-utils.tsx";
 
 const entity = {
   fields: {
@@ -59,14 +66,20 @@ function renderOffer(query: MockQueryHandler | undefined) {
         screen={SCREEN}
         entity={entity}
         featureName="demo"
-        initial={{ note: "hi there", price: null, seats: null, suggestions: [3, 5], priceSuggestions: [300, 500] }}
+        initial={{
+          note: "hi there",
+          price: null,
+          seats: null,
+          suggestions: [3, 5],
+          priceSuggestions: [300, 500],
+        }}
         writeCommand="offer:create"
       />
     </DispatcherProvider>,
   );
 }
 
-function recordingQuery(result: unknown = { isSuccess: true, data: { message: "Drafted" } }) {
+function recordingQuery(result: QueryResult = { isSuccess: true, data: { message: "Drafted" } }) {
   const calls: { type: string; payload: unknown }[] = [];
   const query: MockQueryHandler = async (type: string, payload: unknown) => {
     calls.push({ type, payload });
@@ -129,7 +142,13 @@ describe("aiAssist", () => {
   test("a failing query shows the error banner and keeps the text", async () => {
     const { query } = recordingQuery({
       isSuccess: false,
-      error: { code: "boom", message: "x", details: {} },
+      error: {
+        code: "boom",
+        httpStatus: 500,
+        i18nKey: "errors.internal",
+        message: "x",
+        details: {},
+      },
     });
     renderOffer(query);
 

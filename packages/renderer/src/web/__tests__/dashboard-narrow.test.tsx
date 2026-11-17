@@ -2,6 +2,7 @@
 import { describe, expect, test } from "bun:test";
 import type { DashboardScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { ReactNode } from "react";
+import type { QueryResult } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import {
   AppFeaturesProvider,
@@ -34,7 +35,7 @@ function BrowserNav({ children }: { readonly children: ReactNode }): ReactNode {
   return <NavProvider value={nav}>{children}</NavProvider>;
 }
 
-type Handler = () => unknown;
+type Handler = () => QueryResult | Promise<QueryResult>;
 
 function renderDashboard(
   dashboard: DashboardScreenDefinition,
@@ -76,7 +77,7 @@ function renderDashboard(
   );
 }
 
-const ok = (data: unknown) => ({ isSuccess: true, data });
+const ok = (data: unknown): QueryResult => ({ isSuccess: true, data });
 
 const ROWS = Array.from({ length: 5 }, (_unused, index) => ({
   id: `t${index}`,

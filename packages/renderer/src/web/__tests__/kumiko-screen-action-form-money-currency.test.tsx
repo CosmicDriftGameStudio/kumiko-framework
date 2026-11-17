@@ -141,7 +141,12 @@ describe("actionForm money field currency source", () => {
     const failing = createMockDispatcher({
       query: async () => ({
         isSuccess: false,
-        error: { code: "internal", i18nKey: "errors.internal" },
+        error: {
+          code: "internal",
+          httpStatus: 500,
+          i18nKey: "errors.internal",
+          message: "internal error",
+        },
       }),
     });
     const { unmount } = render(

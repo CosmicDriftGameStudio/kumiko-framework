@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { sleep } from "@cosmicdrift/kumiko-testing/helpers";
 import type { ReactNode } from "react";
-import type { Dispatcher } from "../../../headless/index.ts";
+import type { Dispatcher, QueryResult } from "../../../headless/index.ts";
+import { isRecord } from "../../../headless/is-record.ts";
 import {
   DispatcherProvider,
   type LiveEvent,
@@ -231,7 +232,12 @@ describe("InfinityList", () => {
         if (calls === 1) {
           return {
             isSuccess: false,
-            error: { code: "internal", message: "kaputt", i18nKey: "errors.internal" },
+            error: {
+              code: "internal",
+              httpStatus: 500,
+              message: "kaputt",
+              i18nKey: "errors.internal",
+            },
           };
         }
         return {
@@ -273,10 +279,10 @@ describe("InfinityList", () => {
   // a slow first response landing after a faster second one clobbers it —
   // the displayed rows end up out of sync with the current payload.
   test("discards an outdated response when an earlier request resolves later", async () => {
-    const resolvers: Array<(res: unknown) => void> = [];
+    const resolvers: Array<(res: QueryResult) => void> = [];
     const dispatcher = createMockDispatcher({
       query: () =>
-        new Promise((resolve) => {
+        new Promise<QueryResult>((resolve) => {
           resolvers.push(resolve);
         }),
     });
@@ -318,7 +324,8 @@ describe("InfinityList", () => {
     test("SSE event merges only the first page, already loaded subsequent pages remain intact", async () => {
       const calls: Array<Readonly<Record<string, unknown>>> = [];
       const dispatcher = createMockDispatcher({
-        query: (_type: string, payload: Readonly<Record<string, unknown>>) => {
+        query: (_type: string, payload: unknown) => {
+          if (!isRecord(payload)) throw new Error("expected a record payload");
           calls.push(payload);
           if (calls.length === 1) {
             return Promise.resolve({
@@ -392,7 +399,8 @@ describe("InfinityList", () => {
     test("Row deleted from page 1 → disappears after refresh", async () => {
       const calls: Array<Readonly<Record<string, unknown>>> = [];
       const dispatcher = createMockDispatcher({
-        query: (_type: string, payload: Readonly<Record<string, unknown>>) => {
+        query: (_type: string, payload: unknown) => {
+          if (!isRecord(payload)) throw new Error("expected a record payload");
           calls.push(payload);
           if (calls.length === 1) {
             return Promise.resolve({
@@ -441,7 +449,8 @@ describe("InfinityList", () => {
     test("Row from page 2 remains after a page-1 refresh", async () => {
       const calls: Array<Readonly<Record<string, unknown>>> = [];
       const dispatcher = createMockDispatcher({
-        query: (_type: string, payload: Readonly<Record<string, unknown>>) => {
+        query: (_type: string, payload: unknown) => {
+          if (!isRecord(payload)) throw new Error("expected a record payload");
           calls.push(payload);
           if (calls.length === 1) {
             return Promise.resolve({
@@ -538,12 +547,12 @@ describe("InfinityList", () => {
         query: () => {
           calls += 1;
           const subject = `v${calls}`;
-          const result = {
+          const result: QueryResult = {
             isSuccess: true,
             data: { rows: [{ id: "m1", subject }], nextCursor: null },
           };
           if (calls !== 2) return Promise.resolve(result);
-          return new Promise((resolve) => {
+          return new Promise<QueryResult>((resolve) => {
             releaseRefresh = () => resolve(result);
           });
         },
@@ -650,10 +659,10 @@ describe("InfinityList", () => {
     // discard that fetch — it's the normal case for a screen that mounts while
     // writes are already streaming in.
     test("SSE event during the initial loading phase still lets the mount request complete", async () => {
-      const resolvers: Array<(res: unknown) => void> = [];
+      const resolvers: Array<(res: QueryResult) => void> = [];
       const dispatcher = createMockDispatcher({
         query: () =>
-          new Promise((resolve) => {
+          new Promise<QueryResult>((resolve) => {
             resolvers.push(resolve);
           }),
       });

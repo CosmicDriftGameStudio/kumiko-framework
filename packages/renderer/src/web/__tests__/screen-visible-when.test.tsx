@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { ScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
+import type { QueryResult } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import {
   AppFeaturesProvider,
@@ -82,11 +83,16 @@ function renderDirect(gate: GateResult, options: GateOptions = {}): { queryTypes
     query: async (type: string) => {
       queryTypes.push(type);
       if (type === GATE_QUERY) {
-        if (gate.kind === "pending") return new Promise(() => undefined);
+        if (gate.kind === "pending") return new Promise<QueryResult>(() => undefined);
         if (gate.kind === "error") {
           return {
             isSuccess: false,
-            error: { code: "internal", message: "kaputt", i18nKey: "errors.internal" },
+            error: {
+              code: "internal",
+              httpStatus: 500,
+              message: "kaputt",
+              i18nKey: "errors.internal",
+            },
           };
         }
         return { isSuccess: true, data: { chatAlertsAvailable: gate.available } };
@@ -178,7 +184,12 @@ describe("KumikoScreen visibleWhen refetch", () => {
           return gateFails
             ? {
                 isSuccess: false,
-                error: { code: "internal", message: "kaputt", i18nKey: "errors.internal" },
+                error: {
+                  code: "internal",
+                  httpStatus: 500,
+                  message: "kaputt",
+                  i18nKey: "errors.internal",
+                },
               }
             : { isSuccess: true, data: { chatAlertsAvailable: true } };
         }

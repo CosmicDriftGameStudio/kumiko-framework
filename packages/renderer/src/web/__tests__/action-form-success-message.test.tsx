@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { ActionFormScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import userEvent from "@testing-library/user-event";
 import type { Dispatcher } from "../../headless/index.ts";
+import { isRecord } from "../../headless/is-record.ts";
 import type { FeatureSchema } from "../../index.ts";
 import { DispatcherProvider, KumikoScreen, NavProvider } from "../../index.ts";
 import { createMockDispatcher, render, screen, waitFor } from "./test-utils.tsx";
@@ -46,7 +47,13 @@ function dispatcherWith(handlerResult: "ok" | "rejected"): Dispatcher {
         ? { isSuccess: true, data: {} }
         : {
             isSuccess: false,
-            error: { code: "validation", message: "no", details: { fields: [] } },
+            error: {
+              code: "validation",
+              httpStatus: 422,
+              i18nKey: "errors.validation",
+              message: "no",
+              details: { fields: [] },
+            },
           },
   });
 }
@@ -107,7 +114,8 @@ describe("actionForm successMessage", () => {
 
   test("names a record that lies beyond the lookup cap by asking for exactly that id", async () => {
     const crowdedDirectory = createMockDispatcher({
-      query: async (type: string, payload?: { ids?: string[] }) => {
+      query: async (type: string, payload: unknown) => {
+        const ids = isRecord(payload) && Array.isArray(payload["ids"]) ? payload["ids"] : undefined;
         if (type !== "tenant:query:tenant-directory") {
           return { isSuccess: true, data: { rows: [], nextCursor: null } };
         }
@@ -119,10 +127,7 @@ describe("actionForm successMessage", () => {
         return {
           isSuccess: true,
           data: {
-            rows:
-              payload?.ids === undefined
-                ? capped
-                : everyone.filter((r) => payload.ids?.includes(r.id)),
+            rows: ids === undefined ? capped : everyone.filter((r) => ids.includes(r.id)),
             nextCursor: null,
           },
         };

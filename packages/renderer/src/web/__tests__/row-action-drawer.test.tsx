@@ -10,6 +10,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import userEvent from "@testing-library/user-event";
 import type { Dispatcher } from "../../headless/index.ts";
+import { isRecord } from "../../headless/is-record.ts";
 import type { FeatureSchema, NavTarget } from "../../index.ts";
 import {
   createStaticLocaleResolver,
@@ -279,8 +280,9 @@ describe("facet counts after a drawer write", () => {
       screens: [listScreen, noteForm],
     };
     const dispatcher = createMockDispatcher({
-      query: async (_type: string, payload: { aggregate?: { groupBy?: string } }) => {
-        if (payload.aggregate?.groupBy === "status") {
+      query: async (_type: string, payload: unknown) => {
+        const aggregate = isRecord(payload) ? payload["aggregate"] : undefined;
+        if (isRecord(aggregate) && aggregate["groupBy"] === "status") {
           return {
             isSuccess: true,
             data: {
@@ -293,7 +295,11 @@ describe("facet counts after a drawer write", () => {
         }
         return {
           isSuccess: true,
-          data: { rows: [{ id: "r1", title: "Alpha", status: "open" }], nextCursor: null, total: 1 },
+          data: {
+            rows: [{ id: "r1", title: "Alpha", status: "open" }],
+            nextCursor: null,
+            total: 1,
+          },
         };
       },
       write: async () => {

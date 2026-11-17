@@ -10,10 +10,16 @@
 import { describe, expect, mock, test } from "bun:test";
 import type { ConfigEditScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import userEvent from "@testing-library/user-event";
-import type { BatchResult, Dispatcher } from "../../headless/index.ts";
+import type { BatchResult, Dispatcher, QueryResult } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
-import { createMockDispatcher, type MockBatchHandler, render, screen, waitFor } from "./test-utils.tsx";
+import {
+  createMockDispatcher,
+  type MockBatchHandler,
+  render,
+  screen,
+  waitFor,
+} from "./test-utils.tsx";
 
 const settingsScreen: ConfigEditScreenDefinition = {
   id: "settings",
@@ -63,8 +69,8 @@ const schema: FeatureSchema = {
 
 describe("KumikoScreen / configEdit", () => {
   test("loading state while config:query:values is pending", async () => {
-    let resolveQuery: (value: unknown) => void = () => {};
-    const queryPending = new Promise((resolve) => {
+    let resolveQuery: (value: QueryResult) => void = () => {};
+    const queryPending = new Promise<QueryResult>((resolve) => {
       resolveQuery = resolve;
     });
     const dispatcher: Dispatcher = createMockDispatcher({
@@ -112,7 +118,10 @@ describe("KumikoScreen / configEdit", () => {
   });
 
   test("dirty footer: counts changed fields, Discard restores the loaded values client-side", async () => {
-    const batchSpy = mock<MockBatchHandler>(async () => ({ isSuccess: true as const, results: [] }));
+    const batchSpy = mock<MockBatchHandler>(async () => ({
+      isSuccess: true as const,
+      results: [],
+    }));
     const dispatcher: Dispatcher = createMockDispatcher({
       query: async () => ({
         isSuccess: true,
@@ -173,7 +182,10 @@ describe("KumikoScreen / configEdit", () => {
       entities: {},
       screens: [boundedScreen],
     };
-    const batchSpy = mock<MockBatchHandler>(async () => ({ isSuccess: true as const, results: [] }));
+    const batchSpy = mock<MockBatchHandler>(async () => ({
+      isSuccess: true as const,
+      results: [],
+    }));
     const dispatcher: Dispatcher = createMockDispatcher({
       query: async () => ({
         isSuccess: true,
@@ -209,10 +221,12 @@ describe("KumikoScreen / configEdit", () => {
   });
 
   test("submit dispatches one /api/batch with one command per changed field", async () => {
-    const batchSpy = mock<MockBatchHandler>(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
-      isSuccess: true as const,
-      results: [],
-    }));
+    const batchSpy = mock<MockBatchHandler>(
+      async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
+        isSuccess: true as const,
+        results: [],
+      }),
+    );
     const dispatcher: Dispatcher = createMockDispatcher({
       query: async () => ({
         isSuccess: true,
@@ -353,10 +367,12 @@ describe("KumikoScreen / configEdit", () => {
   // batch's config:write:set value fails its `string | number | boolean`
   // schema entirely (regression guard for that unwrap).
   test("money field submit unwraps {amount, currency} back to a bare number", async () => {
-    const batchSpy = mock<MockBatchHandler>(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
-      isSuccess: true as const,
-      results: [],
-    }));
+    const batchSpy = mock<MockBatchHandler>(
+      async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
+        isSuccess: true as const,
+        results: [],
+      }),
+    );
     const dispatcher: Dispatcher = createMockDispatcher({
       query: async () => ({
         isSuccess: true,
@@ -779,10 +795,12 @@ describe("KumikoScreen / configEdit bounds and row alignment", () => {
   };
 
   test("a number above its max is rejected on the field and never written", async () => {
-    const batchSpy = mock<MockBatchHandler>(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
-      isSuccess: true as const,
-      results: [],
-    }));
+    const batchSpy = mock<MockBatchHandler>(
+      async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
+        isSuccess: true as const,
+        results: [],
+      }),
+    );
     const dispatcher: Dispatcher = createMockDispatcher({
       query: async () => ({
         isSuccess: true,
@@ -869,10 +887,12 @@ describe("KumikoScreen / configEdit write-only secret keys", () => {
   };
 
   async function renderSecretScreen(stored: boolean, source = "system-row") {
-    const batchSpy = mock<MockBatchHandler>(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
-      isSuccess: true as const,
-      results: [],
-    }));
+    const batchSpy = mock<MockBatchHandler>(
+      async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
+        isSuccess: true as const,
+        results: [],
+      }),
+    );
     const dispatcher: Dispatcher = createMockDispatcher({
       query: async () => ({
         isSuccess: true,
@@ -1011,10 +1031,12 @@ describe("KumikoScreen / configEdit empty number fields", () => {
   const limitSchema: FeatureSchema = { featureName: "demo", entities: {}, screens: [limitScreen] };
 
   async function renderLimitScreen(stored: Record<string, unknown>) {
-    const batchSpy = mock<MockBatchHandler>(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
-      isSuccess: true as const,
-      results: [],
-    }));
+    const batchSpy = mock<MockBatchHandler>(
+      async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
+        isSuccess: true as const,
+        results: [],
+      }),
+    );
     const data = Object.fromEntries(
       Object.entries(stored).map(([key, value]) => [key, { value, scope: "tenant" }]),
     );
@@ -1096,10 +1118,12 @@ describe("KumikoScreen / configEdit empty number fields", () => {
   });
 
   test("clearing a stored money value sends a reset for that key", async () => {
-    const batchSpy = mock<MockBatchHandler>(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
-      isSuccess: true as const,
-      results: [],
-    }));
+    const batchSpy = mock<MockBatchHandler>(
+      async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
+        isSuccess: true as const,
+        results: [],
+      }),
+    );
     const dispatcher: Dispatcher = createMockDispatcher({
       query: async () => ({
         isSuccess: true,

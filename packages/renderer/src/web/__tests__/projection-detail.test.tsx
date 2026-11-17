@@ -13,7 +13,8 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import userEvent from "@testing-library/user-event";
 import { type ReactElement, type ReactNode, useState } from "react";
-import type { Dispatcher } from "../../headless/index.ts";
+import type { Dispatcher, QueryResult } from "../../headless/index.ts";
+import { isRecord } from "../../headless/is-record.ts";
 import type { ExtensionSectionProps, FeatureSchema, NavApi, NavTarget } from "../../index.ts";
 import {
   AppFeaturesProvider,
@@ -28,7 +29,18 @@ import {
 import { PageHeaderSlotProvider } from "../layout/page-header-slot.tsx";
 import { ShellHeader } from "../layout/shell-header.tsx";
 import { BareFormProvider } from "../primitives/index.tsx";
-import { act, createMockDispatcher, fireEvent, type MockQueryHandler, type MockWriteHandler, render, renderWithSidebar, screen, waitFor, within } from "./test-utils.tsx";
+import {
+  act,
+  createMockDispatcher,
+  fireEvent,
+  type MockQueryHandler,
+  type MockWriteHandler,
+  render,
+  renderWithSidebar,
+  screen,
+  waitFor,
+  within,
+} from "./test-utils.tsx";
 
 const detailScreen: ProjectionDetailScreenDefinition = {
   id: "session-detail",
@@ -155,10 +167,10 @@ describe("KumikoScreen / projectionDetail", () => {
   });
 
   test("missing entityId shows an error banner instead of crashing", async () => {
-    let resolveQuery: (value: unknown) => void = () => {};
+    let resolveQuery: (value: QueryResult) => void = () => {};
     const dispatcher: Dispatcher = createMockDispatcher({
       query: () =>
-        new Promise((resolve) => {
+        new Promise<QueryResult>((resolve) => {
           resolveQuery = resolve;
         }),
     });
@@ -1280,9 +1292,9 @@ describe("KumikoScreen / projectionDetail extension section", () => {
     };
     let resolveSecondRecord: () => void = () => {};
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: async (qn: string, payload: { id?: string }) => {
+      query: async (qn: string, payload: unknown) => {
         if (qn === "sessions:query:note:list") {
-          if (payload.id === "sess-2") {
+          if (isRecord(payload) && payload["id"] === "sess-2") {
             await new Promise<void>((resolve) => {
               resolveSecondRecord = resolve;
             });

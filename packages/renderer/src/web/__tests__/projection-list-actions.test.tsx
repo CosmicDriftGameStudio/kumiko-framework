@@ -6,7 +6,14 @@ import type {
 import type { Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
-import { createMockDispatcher, fireEvent, type MockWriteHandler, render, screen, waitFor } from "./test-utils.tsx";
+import {
+  createMockDispatcher,
+  fireEvent,
+  type MockWriteHandler,
+  render,
+  screen,
+  waitFor,
+} from "./test-utils.tsx";
 
 // `writeHandler` row and toolbar actions on projectionList now use the same
 // dispatch path as entityList instead of only navigating.
@@ -94,7 +101,12 @@ describe("projectionList writeHandler-Actions", () => {
   test("Row-Action error is surfaced as a toast, not swallowed", async () => {
     const write = mock<MockWriteHandler>(async (_type: string, _payload: unknown) => ({
       isSuccess: false,
-      error: { code: "internal_error", httpStatus: 500, message: "maintenance start failed" },
+      error: {
+        code: "internal_error",
+        httpStatus: 500,
+        i18nKey: "errors.internal",
+        message: "maintenance start failed",
+      },
     }));
     const { ToastProvider } = await import("../primitives/toast.tsx");
     render(
@@ -113,7 +125,12 @@ describe("projectionList writeHandler-Actions", () => {
   test("Toolbar-Action error is surfaced as a toast, not swallowed", async () => {
     const write = mock<MockWriteHandler>(async (_type: string, _payload: unknown) => ({
       isSuccess: false,
-      error: { code: "internal_error", httpStatus: 500, message: "maintenance sync failed" },
+      error: {
+        code: "internal_error",
+        httpStatus: 500,
+        i18nKey: "errors.internal",
+        message: "maintenance sync failed",
+      },
     }));
     const { ToastProvider } = await import("../primitives/toast.tsx");
     render(

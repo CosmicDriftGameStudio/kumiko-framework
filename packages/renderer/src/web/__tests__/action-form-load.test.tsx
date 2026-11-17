@@ -47,7 +47,13 @@ function renderForm(options: {
       if (options.outcome.kind === "error") {
         return {
           isSuccess: false,
-          error: { code: "handler_failed", message: "Detail failed", details: {} },
+          error: {
+            code: "handler_failed",
+            httpStatus: 500,
+            i18nKey: "errors.internal",
+            message: "Detail failed",
+            details: {},
+          },
         };
       }
       return {

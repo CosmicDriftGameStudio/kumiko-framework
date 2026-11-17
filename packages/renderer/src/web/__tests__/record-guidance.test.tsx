@@ -6,7 +6,15 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
 import { DataTable } from "./_primitives-helpers.tsx";
-import { createMockDispatcher, fireEvent, type MockQueryHandler, type MockWriteHandler, render, screen, waitFor } from "./test-utils.tsx";
+import {
+  createMockDispatcher,
+  fireEvent,
+  type MockQueryHandler,
+  type MockWriteHandler,
+  render,
+  screen,
+  waitFor,
+} from "./test-utils.tsx";
 
 const listScreen: ProjectionListScreenDefinition = {
   id: "orders",
@@ -138,7 +146,7 @@ function renderDetail(
   const query: MockQueryHandler = async () => ({ isSuccess: true, data });
   render(
     <DispatcherProvider
-      dispatcher={{ ...createMockDispatcher({ query }), ...(write !== undefined && { write }) }}
+      dispatcher={createMockDispatcher({ query, ...(write !== undefined && { write }) })}
     >
       <KumikoScreen
         schema={{ featureName: "shop", entities: {}, screens: [definition] }}
@@ -188,7 +196,10 @@ describe("projectionDetail record guidance blocks", () => {
   });
 
   test("banner and steps actions dispatch their handler with the shown record id", async () => {
-    const write = mock<MockWriteHandler>(async (_type: string, _payload: unknown) => ({ isSuccess: true, data: {} }));
+    const write = mock<MockWriteHandler>(async (_type: string, _payload: unknown) => ({
+      isSuccess: true,
+      data: {},
+    }));
     renderDetail(FULL, write);
     await waitFor(() => expect(screen.getByText("Send reminder")).toBeTruthy());
     fireEvent.click(screen.getAllByRole("button", { name: "Close it" })[0] as HTMLElement);
@@ -198,7 +209,10 @@ describe("projectionDetail record guidance blocks", () => {
   });
 
   test("a singleton detail whose row has no id offers no payload-less step action, so no step key is sent as id", async () => {
-    const write = mock<MockWriteHandler>(async (_type: string, _payload: unknown) => ({ isSuccess: true, data: {} }));
+    const write = mock<MockWriteHandler>(async (_type: string, _payload: unknown) => ({
+      isSuccess: true,
+      data: {},
+    }));
     const { id: _omitted, ...rowWithoutId } = FULL;
     renderDetail(rowWithoutId, write, {
       ...detailScreen,

@@ -35,6 +35,7 @@ function dispatcherRejecting(paths: readonly string[]): Dispatcher {
       isSuccess: false,
       error: {
         code: "validation_error",
+        httpStatus: 422,
         message: "Validation failed",
         i18nKey: "errors.validation.failed",
         details: {

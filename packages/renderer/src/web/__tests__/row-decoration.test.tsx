@@ -6,7 +6,14 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { mergeRowDecoration, useRowDecoration } from "../../app/use-row-decoration.ts";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
-import { createMockDispatcher, type MockQueryHandler, render, screen, taskEntity, waitFor } from "./test-utils.tsx";
+import {
+  createMockDispatcher,
+  type MockQueryHandler,
+  render,
+  screen,
+  taskEntity,
+  waitFor,
+} from "./test-utils.tsx";
 
 const DECORATION_QUERY = "shop:query:order:decorate";
 const LIST_QUERY = "shop:query:order:list";
@@ -42,7 +49,15 @@ function mockQueries(
     if (type === listQuery) return { isSuccess: true, data: { rows, nextCursor: null } };
     const answer = decoration({ type, payload });
     return answer instanceof Error
-      ? { isSuccess: false, error: { code: "boom", message: answer.message } }
+      ? {
+          isSuccess: false,
+          error: {
+            code: "boom",
+            httpStatus: 500,
+            i18nKey: "errors.internal",
+            message: answer.message,
+          },
+        }
       : { isSuccess: true, data: answer };
   };
   return { query, calls };

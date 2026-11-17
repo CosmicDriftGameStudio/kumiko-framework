@@ -34,7 +34,12 @@ function renderDetail(gate: Gate, entityId: string | undefined) {
         return gate === "error"
           ? {
               isSuccess: false,
-              error: { code: "forbidden", message: "no", i18nKey: "errors.forbidden" },
+              error: {
+                code: "forbidden",
+                httpStatus: 403,
+                message: "no",
+                i18nKey: "errors.forbidden",
+              },
             }
           : { isSuccess: true, data: { allowed: true } };
       }

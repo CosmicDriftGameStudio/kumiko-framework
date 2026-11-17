@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import type { DemoModePayload } from "@cosmicdrift/kumiko-types/demo-mode-types";
 import { renderHook, waitFor } from "@testing-library/react";
 import { useDemoMode } from "../use-demo-mode.ts";
 
@@ -21,7 +22,7 @@ afterEach(() => {
   globalThis.fetch = originalFetch;
 });
 
-const VALID_PAYLOAD = {
+const VALID_PAYLOAD: DemoModePayload = {
   readOnly: true,
   notice: {
     text: { en: "Read-only demo" },

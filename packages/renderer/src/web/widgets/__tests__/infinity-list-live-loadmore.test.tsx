@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from "bun:test";
+import type { QueryResult } from "../../../headless/index.ts";
+import { isRecord } from "../../../headless/is-record.ts";
 import {
   DispatcherProvider,
   type LiveEvent,
@@ -29,7 +31,7 @@ globalThis.IntersectionObserver = class {
   }
 } as unknown as typeof IntersectionObserver;
 
-function success(rows: readonly Row[], nextCursor: string | null) {
+function success(rows: readonly Row[], nextCursor: string | null): QueryResult {
   return { isSuccess: true, data: { rows, nextCursor } };
 }
 
@@ -47,10 +49,10 @@ describe("InfinityList: live refresh racing a load-more", () => {
   });
 
   test("a page-1 change whose refresh is superseded by a load-more shows up without another event", async () => {
-    const resolvers: Array<(res: unknown) => void> = [];
+    const resolvers: Array<(res: QueryResult) => void> = [];
     const dispatcher = createMockDispatcher({
       query: () =>
-        new Promise((resolve) => {
+        new Promise<QueryResult>((resolve) => {
           resolvers.push(resolve);
         }),
     });
@@ -115,11 +117,11 @@ describe("InfinityList: live refresh racing a load-more", () => {
   });
 
   test("a live refresh overtaken by a payload change does not re-query the old payload", async () => {
-    const calls: Array<{ resolve: (res: unknown) => void; search: unknown }> = [];
+    const calls: Array<{ resolve: (res: QueryResult) => void; search: unknown }> = [];
     const dispatcher = createMockDispatcher({
-      query: (_type: string, payload: { readonly search: string }) =>
-        new Promise((resolve) => {
-          calls.push({ resolve, search: payload.search });
+      query: (_type: string, payload: unknown) =>
+        new Promise<QueryResult>((resolve) => {
+          calls.push({ resolve, search: isRecord(payload) ? payload["search"] : undefined });
         }),
     });
     let emit: ((event: LiveEvent) => void) | undefined;
@@ -177,11 +179,11 @@ describe("InfinityList: live refresh racing a load-more", () => {
   });
 
   test("a live event of the new payload that arrives while the old payload's refresh is running is refreshed right away instead of parked behind it", async () => {
-    const calls: Array<{ resolve: (res: unknown) => void; search: unknown }> = [];
+    const calls: Array<{ resolve: (res: QueryResult) => void; search: unknown }> = [];
     const dispatcher = createMockDispatcher({
-      query: (_type: string, payload: { readonly search: string }) =>
-        new Promise((resolve) => {
-          calls.push({ resolve, search: payload.search });
+      query: (_type: string, payload: unknown) =>
+        new Promise<QueryResult>((resolve) => {
+          calls.push({ resolve, search: isRecord(payload) ? payload["search"] : undefined });
         }),
     });
     let emit: ((event: LiveEvent) => void) | undefined;

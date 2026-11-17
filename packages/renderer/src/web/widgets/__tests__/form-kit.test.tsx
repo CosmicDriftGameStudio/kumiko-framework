@@ -48,13 +48,12 @@ describe("useDraft", () => {
   });
 
   type D = { sum: number | undefined };
-  const hook = (props: { key: string | null; values: D | undefined }) =>
-    useDraft<D>({ sum: 0 }, { initialFrom: props });
+  type HookProps = { key: string | null; values: D | undefined };
+  const hook = (props: HookProps) => useDraft<D>({ sum: 0 }, { initialFrom: props });
 
   test("initialFrom fills the draft once the values for the key arrive", () => {
-    const { result, rerender } = renderHook(hook, {
-      initialProps: { key: "a", values: undefined },
-    });
+    const initialProps: HookProps = { key: "a", values: undefined };
+    const { result, rerender } = renderHook(hook, { initialProps });
     expect(result.current.draft.sum).toBe(0);
     expect(result.current.loadedKey).toBeNull();
     rerender({ key: "a", values: { sum: 5 } });
@@ -63,9 +62,8 @@ describe("useDraft", () => {
   });
 
   test("a refetch for the same key keeps the edited draft", () => {
-    const { result, rerender } = renderHook(hook, {
-      initialProps: { key: "a", values: { sum: 5 } },
-    });
+    const initialProps: HookProps = { key: "a", values: { sum: 5 } };
+    const { result, rerender } = renderHook(hook, { initialProps });
     expect(result.current.draft.sum).toBe(5);
     act(() => result.current.patch({ sum: 9 }));
     rerender({ key: "a", values: { sum: 7 } });
@@ -73,9 +71,8 @@ describe("useDraft", () => {
   });
 
   test("a new key loads its values and a null key resets to the defaults", () => {
-    const { result, rerender } = renderHook(hook, {
-      initialProps: { key: "a", values: { sum: 5 } },
-    });
+    const initialProps: HookProps = { key: "a", values: { sum: 5 } };
+    const { result, rerender } = renderHook(hook, { initialProps });
     rerender({ key: "b", values: { sum: 3 } });
     expect(result.current.draft.sum).toBe(3);
     expect(result.current.loadedKey).toBe("b");

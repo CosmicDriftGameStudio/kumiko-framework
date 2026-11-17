@@ -8,7 +8,7 @@ import { describe, expect, mock, test } from "bun:test";
 import type { SecretsEditScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
-import type { Dispatcher, DispatcherError } from "../../headless/index.ts";
+import type { Command, Dispatcher, DispatcherError } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import {
   createStaticLocaleResolver,
@@ -17,7 +17,14 @@ import {
   kumikoDefaultTranslations,
   LocaleProvider,
 } from "../../index.ts";
-import { createMockDispatcher, type MockBatchHandler, type MockWriteHandler, render, screen, waitFor } from "./test-utils.tsx";
+import {
+  createMockDispatcher,
+  type MockBatchHandler,
+  type MockWriteHandler,
+  render,
+  screen,
+  waitFor,
+} from "./test-utils.tsx";
 
 const secretsScreen: SecretsEditScreenDefinition = {
   id: "secrets",
@@ -103,7 +110,7 @@ describe("KumikoScreen / secretsEdit", () => {
   });
 
   test("submitting with no input dispatches nothing", async () => {
-    const batchSpy = mock<MockBatchHandler>(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
+    const batchSpy = mock<MockBatchHandler>(async (_commands: readonly Command[]) => ({
       isSuccess: true as const,
       results: [],
     }));
@@ -148,7 +155,7 @@ describe("KumikoScreen / secretsEdit", () => {
   });
 
   test("typing a value and saving dispatches exactly one secrets:write:set with the plaintext, never the redacted preview", async () => {
-    const batchSpy = mock<MockBatchHandler>(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
+    const batchSpy = mock<MockBatchHandler>(async (_commands: readonly Command[]) => ({
       isSuccess: true as const,
       results: [],
     }));
@@ -268,7 +275,7 @@ describe("KumikoScreen / secretsEdit", () => {
       entities: {},
       screens: [twoFieldScreen],
     };
-    const batchSpy = mock<MockBatchHandler>(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
+    const batchSpy = mock<MockBatchHandler>(async (_commands: readonly Command[]) => ({
       isSuccess: true as const,
       results: [],
     }));
@@ -366,9 +373,11 @@ describe("KumikoScreen / secretsEdit", () => {
       i18nKey: "secrets:errors.writeConflict",
       message: "Could not save secret: a concurrent update conflicted, please retry.",
     };
-    const batchSpy = mock<MockBatchHandler>(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
+    const batchSpy = mock<MockBatchHandler>(async (_commands: readonly Command[]) => ({
       isSuccess: false as const,
       error: serverError,
+      failedIndex: 0,
+      results: [],
     }));
     const dispatcher: Dispatcher = createMockDispatcher({
       query: async () => ({ isSuccess: true, data: [] }),

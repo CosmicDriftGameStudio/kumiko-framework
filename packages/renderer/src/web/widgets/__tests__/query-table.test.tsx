@@ -66,7 +66,12 @@ describe("QueryTable", () => {
         if (calls === 1) {
           return {
             isSuccess: false,
-            error: { code: "internal", message: "kaputt", i18nKey: "errors.internal" },
+            error: {
+              code: "internal",
+              httpStatus: 500,
+              message: "kaputt",
+              i18nKey: "errors.internal",
+            },
           };
         }
         return { isSuccess: true, data: [{ id: "t1", name: "Acme", plan: "pro" }] };

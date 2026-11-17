@@ -201,6 +201,7 @@ describe("actionForm preview", () => {
         isSuccess: false,
         error: {
           code: "internal_error",
+          httpStatus: 500,
           message: "Preview is unavailable",
           i18nKey: "preview.unavailable",
         },

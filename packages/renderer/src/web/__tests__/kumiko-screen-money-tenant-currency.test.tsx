@@ -13,7 +13,13 @@ import userEvent from "@testing-library/user-event";
 import type { Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
-import { createMockDispatcher, type MockDispatcherOptions, render, screen, waitFor } from "./test-utils.tsx";
+import {
+  createMockDispatcher,
+  type MockDispatcherOptions,
+  render,
+  screen,
+  waitFor,
+} from "./test-utils.tsx";
 
 // `price` opts into the tenant-settings currency; `cost`/`fee` don't and
 // keep today's entity.defaultCurrency ("EUR") fallback.
@@ -154,7 +160,15 @@ describe("money field currency: { kind: 'tenant' }", () => {
   for (const [label, configResult] of [
     [
       "config query fails",
-      { isSuccess: false, error: { code: "internal", i18nKey: "errors.internal" } },
+      {
+        isSuccess: false,
+        error: {
+          code: "internal",
+          httpStatus: 500,
+          i18nKey: "errors.internal",
+          message: "internal error",
+        },
+      },
     ],
     ["config key absent (tenant-settings not installed)", { isSuccess: true, data: {} }],
     [

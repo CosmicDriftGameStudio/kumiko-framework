@@ -26,7 +26,13 @@ import {
 } from "../../index.ts";
 import { WebDashboardBody } from "../app/dashboard-body.tsx";
 import { useBrowserNavApi } from "../app/nav.tsx";
-import { createMockDispatcher, type MockBatchHandler, type MockQueryHandler, render, screen, waitFor } from "./test-utils.tsx";
+import {
+  createMockDispatcher,
+  type MockQueryHandler,
+  render,
+  screen,
+  waitFor,
+} from "./test-utils.tsx";
 
 const TENANT_ADMIN_WRITE = access.roles("TenantAdmin");
 
@@ -216,7 +222,7 @@ describe("generated extension-selector dashboard", () => {
   });
 
   test("one save writes the provider, its settings and its password", async () => {
-    const batch: MockBatchHandler = batchSpy();
+    const batch = batchSpy();
     renderHub(
       createMockDispatcher({
         query: hubQuery({}),
@@ -248,7 +254,7 @@ describe("generated extension-selector dashboard", () => {
   });
 
   test("input for a provider that is no longer picked is not saved", async () => {
-    const batch: MockBatchHandler = batchSpy();
+    const batch = batchSpy();
     renderHub(
       createMockDispatcher({
         query: hubQuery({}),
@@ -272,7 +278,7 @@ describe("generated extension-selector dashboard", () => {
   });
 
   test("a stored password shows as set, and Replace then Remove deletes the secret", async () => {
-    const batch: MockBatchHandler = batchSpy();
+    const batch = batchSpy();
     renderHub(
       createMockDispatcher({
         query: hubQuery({ provider: "smtp", passwordStored: true }),

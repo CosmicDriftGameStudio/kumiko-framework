@@ -2,6 +2,7 @@
 import { describe, expect, test } from "bun:test";
 import type { DashboardScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { ReactNode } from "react";
+import type { QueryResult } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import {
   AppFeaturesProvider,
@@ -39,7 +40,7 @@ function PanelIcon(_props: ExtensionSectionProps): ReactNode {
 
 function renderDashboard(
   dashboard: DashboardScreenDefinition,
-  handlers: Readonly<Record<string, () => unknown>> = {},
+  handlers: Readonly<Record<string, () => QueryResult | Promise<QueryResult>>> = {},
 ): void {
   const dispatcher = createMockDispatcher({
     query: async (type: string) => {
@@ -63,7 +64,7 @@ function renderDashboard(
   );
 }
 
-const ok = (data: unknown) => ({ isSuccess: true, data });
+const ok = (data: unknown): QueryResult => ({ isSuccess: true, data });
 
 const textPanel = (id: string, extra: Record<string, unknown> = {}) => ({
   kind: "text",

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { InAppInboxResult } from "@cosmicdrift/kumiko-types/in-app-notification-types";
 import type { ReactNode } from "react";
 import type { Dispatcher } from "../../../headless/index.ts";
+import { isRecord } from "../../../headless/is-record.ts";
 import {
   type AppSchema,
   DispatcherProvider,
@@ -247,11 +248,12 @@ describe("NotificationBell", () => {
     let olderRequested = false;
     let resolveOlder: (result: InAppInboxResult) => void = () => {};
     const dispatcher = createMockDispatcher({
-      query: async (type: string, payload: { cursor?: string }) => {
+      query: async (type: string, payload: unknown) => {
+        const cursor = isRecord(payload) ? payload["cursor"] : undefined;
         if (type === "channel-in-app:query:unread-count") {
           return { isSuccess: true, data: { count: 1 } };
         }
-        if (payload.cursor !== undefined) {
+        if (cursor !== undefined) {
           const older = await new Promise<InAppInboxResult>((resolve) => {
             olderRequested = true;
             resolveOlder = resolve;

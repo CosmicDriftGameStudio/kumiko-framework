@@ -7,6 +7,8 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
+import type { QueryResult } from "../../headless/index.ts";
+import { isRecord } from "../../headless/is-record.ts";
 import type { FeatureSchema } from "../../index.ts";
 import {
   AppFeaturesProvider,
@@ -22,7 +24,7 @@ import { WebDashboardBody } from "../app/dashboard-body.tsx";
 import { useBrowserNavApi } from "../app/nav.tsx";
 import { createMockDispatcher, render, screen, waitFor } from "./test-utils.tsx";
 
-type Handler = (payload: Readonly<Record<string, unknown>>) => unknown | Promise<unknown>;
+type Handler = (payload: Readonly<Record<string, unknown>>) => QueryResult | Promise<QueryResult>;
 
 function BrowserNav({
   children,
@@ -49,9 +51,11 @@ function renderDashboard(
   appFeatures: readonly FeatureSchema[] = [],
 ): void {
   const dispatcher = createMockDispatcher({
-    query: async (type: string, payload: Record<string, unknown> = {}) => {
+    query: async (type: string, payload: unknown) => {
       const handler = handlers[type];
-      return handler === undefined ? { isSuccess: true, data: {} } : await handler(payload);
+      return handler === undefined
+        ? { isSuccess: true, data: {} }
+        : await handler(isRecord(payload) ? payload : {});
     },
   });
   const schema: FeatureSchema = { featureName: "demo", entities: {}, screens: [dashboard] };
@@ -73,7 +77,7 @@ function renderDashboard(
   );
 }
 
-const ok = (data: unknown) => ({ isSuccess: true, data });
+const ok = (data: unknown): QueryResult => ({ isSuccess: true, data });
 
 const TASK_ROW = {
   id: "t1",
@@ -176,8 +180,8 @@ describe("dashboard text panel with a query", () => {
   });
 
   test("static blocks show while the query loads, query blocks replace them afterwards", async () => {
-    let release: (value: unknown) => void = () => {};
-    const pending = new Promise((resolve) => {
+    let release: (value: QueryResult) => void = () => {};
+    const pending = new Promise<QueryResult>((resolve) => {
       release = resolve;
     });
     renderDashboard(textDashboard([{ kind: "heading", text: "demo:static-heading" }]), {
@@ -237,7 +241,12 @@ describe("dashboard text panel with a query", () => {
     renderDashboard(textDashboard([], { label: "demo:list-label" }), {
       "demo:query:tips": () => ({
         isSuccess: false,
-        error: { code: "internal", message: "kaputt", i18nKey: "errors.internal" },
+        error: {
+          code: "internal",
+          httpStatus: 500,
+          message: "kaputt",
+          i18nKey: "errors.internal",
+        },
       }),
     });
     expect(await screen.findByText(/konnte nicht geladen werden|could not be loaded/)).toBeTruthy();

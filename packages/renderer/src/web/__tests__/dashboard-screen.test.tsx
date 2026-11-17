@@ -833,7 +833,12 @@ function renderAccountSecurity(
         if (options.statusFails === true) {
           return {
             isSuccess: false,
-            error: { code: "internal", message: "kaputt", i18nKey: "errors.internal" },
+            error: {
+              code: "internal",
+              httpStatus: 500,
+              message: "kaputt",
+              i18nKey: "errors.internal",
+            },
           };
         }
         return { isSuccess: true, data: { enabled: mfaEnabled } };
