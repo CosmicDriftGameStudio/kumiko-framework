@@ -61,6 +61,13 @@ export const noteEntity = createEntity({
 // Plain EntityTableMeta, NOT a branded EntityTable: store_notes is a deliberate
 // unmanaged direct-write store (r.storeTable below), so the forget hook may
 // updateMany/deleteMany it directly — the meta carries no executor-only brand.
+export type NoteRow = {
+  readonly id: string;
+  readonly authorId: string | null;
+  readonly title: string;
+  readonly body: string | null;
+};
+
 export const notesTable = deriveEntityTableMeta(noteEntity, { source: "unmanaged" });
 
 export const muteEntity = createEntity({
@@ -74,9 +81,7 @@ export const muteEntity = createEntity({
   },
 });
 
-export const { table: mutesTable, executor: muteExecutor } = createEntityExecutor(
-  muteEntity,
-);
+export const { table: mutesTable, executor: muteExecutor } = createEntityExecutor(muteEntity);
 
 // A mute names two users; when either is erased the row goes, so no mute points at a missing user.
 export const forgetMutes = forgetOwnRowsDeleteHook({
@@ -98,7 +103,7 @@ export const notesFeature = defineFeature("notes", (r) => {
   });
 
   const exportNotes: UserDataExportHook = async (ctx) => {
-    const rows = await selectMany(ctx.db, notesTable, {
+    const rows = await selectMany<NoteRow>(ctx.db, notesTable, {
       tenantId: ctx.tenantId,
       authorId: ctx.userId,
     });
@@ -106,8 +111,8 @@ export const notesFeature = defineFeature("notes", (r) => {
     return {
       entity: "note",
       rows: rows.map((row) => ({
-        id: String(row.id),
-        title: row.title ?? "",
+        id: row.id,
+        title: row.title,
         body: row.body ?? "",
       })),
     };
@@ -122,8 +127,12 @@ export const notesFeature = defineFeature("notes", (r) => {
     }
   };
 
-  r.applyExtension({ name: EXT_USER_DATA, entity: "note", export: exportNotes,
-    delete: deleteNotes });
+  r.applyExtension({
+    name: EXT_USER_DATA,
+    entity: "note",
+    export: exportNotes,
+    delete: deleteNotes,
+  });
 
   r.entity(muteEntity);
   r.applyExtension({ name: EXT_USER_DATA, entity: "mute", delete: forgetMutes });

@@ -17,7 +17,11 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
-import { setupTestStack, type TestStack, unsafePushTables } from "@cosmicdrift/kumiko-testing/stack";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafePushTables,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { composeApexAccountApp } from "../feature";
 
 const REQUEST_BY_EMAIL = "user-data-rights:write:request-deletion-by-email";
@@ -97,9 +101,9 @@ describe("apex-surface-auth recipe", () => {
     });
     expect(confirmRes.status).toBe(200);
 
-    const rows = (await selectMany(stack.db, userTable, { id: user.id })) as Array<{
-      status: string;
-    }>;
+    const rows = await selectMany<{ readonly status: string }>(stack.db, userTable, {
+      id: user.id,
+    });
     expect(rows[0]?.status).toBe(USER_STATUS.DeletionRequested);
   });
 

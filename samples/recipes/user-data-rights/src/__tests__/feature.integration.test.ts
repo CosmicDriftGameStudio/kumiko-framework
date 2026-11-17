@@ -10,12 +10,8 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
-import {
-  createComplianceProfilesFeature,
-} from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
-import {
-  createDataRetentionFeature,
-} from "@cosmicdrift/kumiko-bundled-features/data-retention";
+import { createComplianceProfilesFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
+import { createDataRetentionFeature } from "@cosmicdrift/kumiko-bundled-features/data-retention";
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import {
   tenantMembershipEntity,
@@ -40,7 +36,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { muteEntity, mutesTable, notesFeature, notesTable } from "../feature";
+import { muteEntity, mutesTable, notesFeature, type NoteRow, notesTable } from "../feature";
 
 let stack: TestStack;
 
@@ -162,7 +158,7 @@ describe("user-data-rights recipe :: EXT_USER_DATA-Hooks integrieren Notes-Domai
     });
     expect(result.processedUserIds).toContain(ALICE_ID);
 
-    const remaining = await selectMany(stack.db, notesTable, { tenantId: TENANT_A });
+    const remaining = await selectMany<NoteRow>(stack.db, notesTable, { tenantId: TENANT_A });
     expect(remaining.length).toBe(0);
   });
 
@@ -183,7 +179,7 @@ describe("user-data-rights recipe :: EXT_USER_DATA-Hooks integrieren Notes-Domai
       | undefined;
     await hooks?.delete?.({ db: stack.db, tenantId: TENANT_A, userId: ALICE_ID }, "anonymize");
 
-    const after = await selectMany(stack.db, notesTable, { tenantId: TENANT_A });
+    const after = await selectMany<NoteRow>(stack.db, notesTable, { tenantId: TENANT_A });
     expect(after).toHaveLength(1);
     expect(after[0]?.authorId).toBeNull();
     expect(after[0]?.title).toBe("stays-anonymous");

@@ -14,11 +14,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
-import {
-  resetEventStore,
-  setupTestStack,
-  type TestStack,
-} from "@cosmicdrift/kumiko-testing/stack";
+import { resetEventStore, setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { capturedEvents, pubsubOrderFeature } from "../feature";
 
 let stack: TestStack;
@@ -52,7 +48,12 @@ describe("cross-feature reactions via ctx.events.append + r.multiStreamProjectio
     // The event row is committed alongside the order row. It lives on the
     // order's OWN stream now — aggregateType "pubsub-order", version 2
     // (auto "created" is v1, domain "order-placed" is v2).
-    const domainEvents = await selectMany(stack.db, eventsTable, {
+    const domainEvents = await selectMany<{
+      readonly aggregateId: string;
+      readonly version: number;
+      readonly payload: Record<string, unknown>;
+      readonly tenantId: string;
+    }>(stack.db, eventsTable, {
       aggregateType: "pubsub-order",
       type: "pubsub-orders:event:order-placed",
     });

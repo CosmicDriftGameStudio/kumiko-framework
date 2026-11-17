@@ -143,10 +143,11 @@ describe("1. at-rest representation", () => {
       tenantAdmin,
     );
 
-    const [row] = await selectMany(stack.db, tenantSecretsTable, {
-      tenantId: tenantAdmin.tenantId,
-      key: STRIPE_API_KEY.name,
-    });
+    const [row] = await selectMany<{ readonly envelope: unknown; readonly kekVersion: number }>(
+      stack.db,
+      tenantSecretsTable,
+      { tenantId: tenantAdmin.tenantId, key: STRIPE_API_KEY.name },
+    );
     if (!row) throw new Error("row missing");
 
     const env = row.envelope as StoredEnvelope;
@@ -190,10 +191,11 @@ describe("3. feature code decrypts via audited path", () => {
     expect(result.chargeId).toContain("cust_42");
     expect(JSON.stringify(result)).not.toContain("sk_test_SuperSecretLivePlatz12345");
 
-    const after = await selectMany(stack.db, eventsTable, {
-      tenantId: tenantAdmin.tenantId,
-      type: TENANT_SECRET_READ_EVENT,
-    });
+    const after = await selectMany<{ readonly payload: Record<string, unknown> }>(
+      stack.db,
+      eventsTable,
+      { tenantId: tenantAdmin.tenantId, type: TENANT_SECRET_READ_EVENT },
+    );
     expect(after.length).toBe(before.length + 1);
 
     const newest = after[after.length - 1];
@@ -261,7 +263,9 @@ describe("5. KEK rotation via the core job + real BullMQ dispatch", () => {
 
     // Ciphertext byte-identical — only the DEK wrapper changed. Proves
     // rewrapDek's promise (cheap rotation on large tables).
-    const [full] = await selectMany(stack.db, tenantSecretsTable, { key: STRIPE_API_KEY.name });
+    const [full] = await selectMany<{ readonly envelope: unknown }>(stack.db, tenantSecretsTable, {
+      key: STRIPE_API_KEY.name,
+    });
     if (!full) throw new Error("row missing");
     expect((full.envelope as StoredEnvelope).kekVersion).toBe(2);
   });
