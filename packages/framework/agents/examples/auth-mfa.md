@@ -422,7 +422,7 @@ describe("ConfirmationCodeStep", () => {
     const onConfirm = mock(async (_code: string) => false);
     renderStep(onConfirm);
     type("123456");
-    await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
+    await waitFor(() => screen.getByRole("alert"));
     expect(screen.getByRole("alert").textContent).toContain("That code is not valid");
     const input = screen.getByTestId("confirmation-code");
     expect(input).toHaveProperty("value", "");
@@ -436,7 +436,7 @@ describe("ConfirmationCodeStep", () => {
     });
     renderStep(onConfirm);
     type("123456");
-    await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
+    await waitFor(() => screen.getByRole("alert"));
     expect(screen.getByRole("alert").textContent).toContain("Could not verify the code");
     expect(screen.queryByText(/not valid/)).toBeNull();
     const input = screen.getByTestId("confirmation-code");

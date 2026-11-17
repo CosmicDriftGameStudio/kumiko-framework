@@ -228,7 +228,7 @@ describe("api-token userData-hooks", () => {
 describe("in-app-message userData-hooks", () => {
   async function seedMessage(userId: string, title: string): Promise<void> {
     await asRawClient(full.db).unsafe(
-      `INSERT INTO store_in_app_messages (tenant_id, user_id, notification_type, title, body)
+      `INSERT INTO in_app_messages (tenant_id, user_id, notification_type, title, body)
        VALUES ($1, $2, 'test:notify', $3, 'Hallo Marc, dein Export ist da')`,
       [TENANT_A, userId, title],
     );
@@ -242,7 +242,7 @@ describe("in-app-message userData-hooks", () => {
     expect(result?.rows[0]?.["title"]).toBe("Export fertig");
 
     await inAppMessageDeleteHook(ctx("inapp-user-1"), "delete");
-    const rows = await rawSelect("SELECT * FROM store_in_app_messages WHERE user_id = $1", [
+    const rows = await rawSelect("SELECT * FROM in_app_messages WHERE user_id = $1", [
       "inapp-user-1",
     ]);
     expect(rows).toHaveLength(0);

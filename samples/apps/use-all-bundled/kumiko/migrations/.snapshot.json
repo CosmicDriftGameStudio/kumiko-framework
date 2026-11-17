@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-11-17T14:37:15.798Z",
+  "generatedAt": "2026-11-17T21:28:35.072Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -119,6 +119,162 @@
       "piiSubjectFields": [
         "fileName"
       ],
+      "entityEventVersion": 1
+    },
+    {
+      "tableName": "in_app_messages",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "serial",
+          "notNull": true,
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "user_id",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "notification_type",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "title",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "body",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "data",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "is_read",
+          "pgType": "boolean",
+          "notNull": true,
+          "defaultSql": "false"
+        },
+        {
+          "name": "read_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "idempotency_key",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "created_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "in_app_messages_tenant_user_created_idx",
+          "columns": [
+            "tenant_id",
+            "user_id",
+            "created_at"
+          ]
+        },
+        {
+          "name": "in_app_messages_idempotency_key_idx",
+          "columns": [
+            "idempotency_key"
+          ]
+        }
+      ],
+      "source": "unmanaged"
+    },
+    {
+      "tableName": "read_cap_counters",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "defaultSql": "gen_random_uuid()",
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "cap_name",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "value",
+          "pgType": "bigint",
+          "notNull": true,
+          "bigintJsMode": "number",
+          "defaultSql": "0"
+        },
+        {
+          "name": "period_start",
+          "pgType": "timestamptz",
+          "notNull": true
+        },
+        {
+          "name": "last_soft_warned_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        }
+      ],
+      "indexes": [
+        {
+          "name": "read_cap_counters_tenant_id_idx",
+          "columns": [
+            "tenant_id"
+          ]
+        }
+      ],
+      "source": "managed",
       "entityEventVersion": 1
     },
     {
@@ -2284,7 +2440,7 @@
         }
       ],
       "source": "managed",
-      "entityEventVersion": 1
+      "entityEventVersion": 2
     },
     {
       "tableName": "read_mail_accounts",
@@ -3834,6 +3990,12 @@
           "notNull": true
         },
         {
+          "name": "global_roles",
+          "pgType": "jsonb",
+          "notNull": true,
+          "defaultSql": "'[]'::jsonb"
+        },
+        {
           "name": "status",
           "pgType": "text",
           "notNull": true,
@@ -5101,60 +5263,6 @@
       ]
     },
     {
-      "tableName": "store_cap_counters",
-      "columns": [
-        {
-          "name": "tenant_id",
-          "pgType": "uuid",
-          "notNull": true
-        },
-        {
-          "name": "cap_name",
-          "pgType": "text",
-          "notNull": true
-        },
-        {
-          "name": "period_start",
-          "pgType": "timestamptz",
-          "notNull": true
-        },
-        {
-          "name": "subject_hash",
-          "pgType": "text",
-          "notNull": true
-        },
-        {
-          "name": "value",
-          "pgType": "bigint",
-          "notNull": true,
-          "bigintJsMode": "number"
-        },
-        {
-          "name": "last_soft_warned_at",
-          "pgType": "timestamptz",
-          "notNull": false
-        }
-      ],
-      "indexes": [
-        {
-          "name": "store_cap_counters_subject_hash_idx",
-          "columns": [
-            "subject_hash"
-          ]
-        }
-      ],
-      "compositePrimaryKey": {
-        "name": "store_cap_counters_pkey",
-        "columns": [
-          "tenant_id",
-          "cap_name",
-          "period_start",
-          "subject_hash"
-        ]
-      },
-      "source": "unmanaged"
-    },
-    {
       "tableName": "store_cap_reservations",
       "columns": [
         {
@@ -5213,11 +5321,6 @@
           "name": "released_at",
           "pgType": "timestamptz",
           "notNull": false
-        },
-        {
-          "name": "subject_hash",
-          "pgType": "text",
-          "notNull": false
         }
       ],
       "indexes": [
@@ -5230,50 +5333,6 @@
           ]
         }
       ],
-      "source": "unmanaged"
-    },
-    {
-      "tableName": "store_cap_rolling_usage",
-      "columns": [
-        {
-          "name": "tenant_id",
-          "pgType": "uuid",
-          "notNull": true
-        },
-        {
-          "name": "cap_name",
-          "pgType": "text",
-          "notNull": true
-        },
-        {
-          "name": "bucket_start",
-          "pgType": "timestamptz",
-          "notNull": true
-        },
-        {
-          "name": "amount",
-          "pgType": "bigint",
-          "notNull": true,
-          "bigintJsMode": "number"
-        }
-      ],
-      "indexes": [
-        {
-          "name": "store_cap_rolling_usage_tenant_id_bucket_start_idx",
-          "columns": [
-            "tenant_id",
-            "bucket_start"
-          ]
-        }
-      ],
-      "compositePrimaryKey": {
-        "name": "store_cap_rolling_usage_pkey",
-        "columns": [
-          "tenant_id",
-          "cap_name",
-          "bucket_start"
-        ]
-      },
       "source": "unmanaged"
     },
     {
@@ -5474,86 +5533,6 @@
       "indexes": [],
       "source": "unmanaged",
       "tenancy": "global"
-    },
-    {
-      "tableName": "store_in_app_messages",
-      "columns": [
-        {
-          "name": "id",
-          "pgType": "serial",
-          "notNull": true,
-          "primaryKey": true
-        },
-        {
-          "name": "tenant_id",
-          "pgType": "uuid",
-          "notNull": true
-        },
-        {
-          "name": "user_id",
-          "pgType": "text",
-          "notNull": true
-        },
-        {
-          "name": "notification_type",
-          "pgType": "text",
-          "notNull": true
-        },
-        {
-          "name": "title",
-          "pgType": "text",
-          "notNull": true
-        },
-        {
-          "name": "body",
-          "pgType": "text",
-          "notNull": false
-        },
-        {
-          "name": "data",
-          "pgType": "text",
-          "notNull": false
-        },
-        {
-          "name": "is_read",
-          "pgType": "boolean",
-          "notNull": true,
-          "defaultSql": "false"
-        },
-        {
-          "name": "read_at",
-          "pgType": "timestamptz",
-          "notNull": false
-        },
-        {
-          "name": "idempotency_key",
-          "pgType": "text",
-          "notNull": false
-        },
-        {
-          "name": "created_at",
-          "pgType": "timestamptz",
-          "notNull": true,
-          "defaultSql": "now()"
-        }
-      ],
-      "indexes": [
-        {
-          "name": "store_in_app_messages_tenant_user_created_idx",
-          "columns": [
-            "tenant_id",
-            "user_id",
-            "created_at"
-          ]
-        },
-        {
-          "name": "store_in_app_messages_idempotency_key_idx",
-          "columns": [
-            "idempotency_key"
-          ]
-        }
-      ],
-      "source": "unmanaged"
     },
     {
       "tableName": "store_job_run_logs",
@@ -6584,6 +6563,30 @@
         }
       ]
     },
+    "in_app_messages": {
+      "policies": [
+        {
+          "name": "kumiko_tenant_isolation",
+          "command": "ALL",
+          "kind": "PERMISSIVE",
+          "rolesSql": "PUBLIC",
+          "using": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'",
+          "withCheck": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'"
+        }
+      ]
+    },
+    "read_cap_counters": {
+      "policies": [
+        {
+          "name": "kumiko_tenant_isolation",
+          "command": "ALL",
+          "kind": "PERMISSIVE",
+          "rolesSql": "PUBLIC",
+          "using": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'",
+          "withCheck": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'"
+        }
+      ]
+    },
     "read_config_values": {
       "policies": [
         {
@@ -7176,31 +7179,7 @@
         }
       ]
     },
-    "store_cap_counters": {
-      "policies": [
-        {
-          "name": "kumiko_tenant_isolation",
-          "command": "ALL",
-          "kind": "PERMISSIVE",
-          "rolesSql": "PUBLIC",
-          "using": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'",
-          "withCheck": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'"
-        }
-      ]
-    },
     "store_cap_reservations": {
-      "policies": [
-        {
-          "name": "kumiko_tenant_isolation",
-          "command": "ALL",
-          "kind": "PERMISSIVE",
-          "rolesSql": "PUBLIC",
-          "using": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'",
-          "withCheck": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'"
-        }
-      ]
-    },
-    "store_cap_rolling_usage": {
       "policies": [
         {
           "name": "kumiko_tenant_isolation",
@@ -7237,18 +7216,6 @@
       ]
     },
     "store_file_upload_ledger": {
-      "policies": [
-        {
-          "name": "kumiko_tenant_isolation",
-          "command": "ALL",
-          "kind": "PERMISSIVE",
-          "rolesSql": "PUBLIC",
-          "using": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'",
-          "withCheck": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'"
-        }
-      ]
-    },
-    "store_in_app_messages": {
       "policies": [
         {
           "name": "kumiko_tenant_isolation",

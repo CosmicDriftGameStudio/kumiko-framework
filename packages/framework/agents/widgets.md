@@ -13,6 +13,7 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | `AiSurface` | Light blue area that marks content as AI-generated. |
 | `AiTextArea` | Multi-line variant of {@link AiTextField}. |
 | `AiTextField` | Single-line AI text field — ghost-text completion + correct/translate/ rewrite toolbar. |
+| `AppLayout` |  |
 | `AttachmentCard` | Full-width attachment row with a thumbnail box, name, second line and an "open original" link or button. |
 | `AttachmentChip` | File chip with icon, name and a second line; renders as link, button or plain box depending on href/onOpen. |
 | `Avatar` |  |

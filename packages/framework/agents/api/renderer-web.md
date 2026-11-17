@@ -12,6 +12,7 @@ function ActionMenu(props: ActionMenuProps): ReactNode;
 function AiSurface(props: { children: ReactNode; title?: string; label?: string; testId?: string; as?: "section" | "aside" | "div"; }): ReactNode; // Light blue area that marks content as AI-generated.
 function AiTextArea(props: AiTextAreaProps): ReactNode; // Multi-line variant of {@link AiTextField}.
 function AiTextField(props: AiTextFieldProps): ReactNode; // Single-line AI text field — ghost-text completion + correct/translate/ rewrite toolbar.
+function AppLayout(props: AppLayoutProps): ReactNode;
 function AttachmentCard(props: Omit<MessageAttachment, "id"> & { testId?: string; }): ReactNode; // Full-width attachment row with a thumbnail box, name, second line and an "open original" link or button.
 function AttachmentChip(props: MessageAttachment & { testId?: string; }): ReactNode; // File chip with icon, name and a second line; renders as link, button or plain box depending on href/onOpen.
 function Avatar(props: AvatarProps): ReactNode;
@@ -258,6 +259,15 @@ interface AiTextAreaProps extends AiTextFieldBaseProps {
 }
 type AiTextEndAction = InputEndAction;
 interface AiTextFieldProps extends AiTextFieldBaseProps {}
+type AppLayoutProps = {
+  topbar?: ReactNode; // Optional.
+  sidebar?: ReactNode;
+  children: ReactNode;
+  testId?: string;
+  fill?: boolean; // Viewport-fit shell.
+  className?: string; // Optional classes appended to the root (for a custom background, etc.).
+  mainClassName?: string; // Optionaler Klassen-Append an `<main>`.
+};
 interface AppPrimitives {} // Extension point for app-owned primitives.
 interface AppTokens {} // Extension point for app-specific token categories.
 type AvatarProps = {

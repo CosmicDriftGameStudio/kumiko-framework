@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled + signup)",
-  "featureCount": 89,
+  "featureCount": 92,
   "features": [
     {
       "name": "account-security",
@@ -58,6 +58,25 @@
       "uiHints": {
         "displayLabel": "Admin Shell",
         "category": "operations",
+        "recommended": false
+      }
+    },
+    {
+      "name": "agent-tools",
+      "description": "Builds a tool catalog and an agent manifest from the mounted registry so an LLM agent can call handlers and understand the app's shape. A handler or entity without a `description` stays invisible to the agent by construction (see `resolveAgentExposure`), while a screen stays visible unless it opts out with `agent: { expose: false }` (see `isAgentVisibleScreen`) — this feature surfaces the resulting gaps at boot and via `kumiko agent lint` so an app author notices before an agent silently can't see a feature.",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "AI Agent Tools",
+        "category": "ai",
         "recommended": false
       }
     },
@@ -531,7 +550,7 @@
     },
     {
       "name": "cap-counter",
-      "description": "Tracks per-tenant usage against configurable limits using two storage models: calendar-period counters (rows in the store table store_cap_counters per tenant/capName/period plus optional per-subject rows, booked with an atomic upsert; period rollover starts a new row) and rolling-window counters (hourly usage buckets in a store table, summed over the last N days). Wrap write-handlers with `withCapEnforcement` (or call `enforceCap` / `enforceCapAndMaybeNotify`) for calendar caps with soft-warn and hard-block tolerances; book rolling usage through the SystemAdmin-only `increment-rolling` handler and read it with `readRollingCapUsage`.",
+      "description": "Tracks per-tenant usage against configurable limits using two complementary storage models: calendar-period counters (one projection row per tenant/capName/period, reset implicitly by period rollover) and rolling-window counters (append-only event stream, no projection). Use `enforceCap` / `enforceRollingCap` (or the `withCapEnforcement` / `withRollingCapEnforcement` handler wrappers) in your write-handlers to check limits with soft-warn and hard-block tolerances; call `enforceCapAndMaybeNotify` when you also want to trigger a delivery notification on soft-threshold hits.",
       "toggleableDefault": null,
       "requires": [],
       "optionalRequires": [],
@@ -676,6 +695,32 @@
       }
     },
     {
+      "name": "channel-push",
+      "description": "Delivers push notifications through a `PushTransport` (bring your own FCM/APNs adapter or use `createInMemoryPushTransport()` for tests) registered as the `push` channel in the delivery system. Requires `delivery`; supply a `PushChannelOptions` with a transport and a resolver that maps a user ID to their device token.",
+      "toggleableDefault": null,
+      "requires": [
+        "delivery"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "deliveryChannel",
+          "entityName": "push"
+        }
+      ],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "Push Channel",
+        "category": "notifications",
+        "recommended": false
+      }
+    },
+    {
       "name": "channel-slack",
       "description": "Posts delivery notifications to a Slack incoming webhook, registered as the `slack` channel in the delivery system. Tenant-owned chat target: reach it only via `ctx.notify(type, { route: { slack: \"<connection name>\" } })`. The webhook URL is a tenant secret under `channel-slack:webhooks.<connection name>`; only the connection name is logged. Requires `delivery` and `secrets`. Host allowlist (hooks.slack.com), https-only and the request timeout are app options of `createChannelSlackFeature(opts)`, never tenant config.",
       "toggleableDefault": null,
@@ -765,7 +810,7 @@
     },
     {
       "name": "channel-whatsapp",
-      "description": "WhatsApp Business (Meta Cloud API) as a two-way channel, not a delivery channel. Inbound: mount `createWhatsappWebhookRoutes()` via `extraRoutes` (default path `/api/channel-whatsapp/webhook/:tenantId`, the tenant id is part of the URL because the secrets are tenant-scoped); GET answers Meta's `hub.challenge` handshake, POST checks `X-Hub-Signature-256` over the raw body and normalizes each message and status. Events: `channel-whatsapp:event:message-received` (sender, wamid, type text|audio|image|interactive_button|other, text, button payload, `contextWamid`, media id and mime type, `phoneNumberId`), `status-updated` (sent|delivered|read|failed|other) and `throttled` (sender over the per-number limit). Sender number, text, button payload and status recipient are PII, stored as ciphertext under a record key per stream; the maintenance job `whatsapp-event-retention` erases those keys after 30 days and tenant destroy erases all of them, so a consuming job reads them with `readWhatsappMessagePii` (and `readWhatsappStatusPii`, `readWhatsappThrottledPii`) and copies what it keeps into its own entities. A redelivered wamid is stored once and answered 200; a failed dispatch answers 500 so Meta redelivers. Outbound: `createWhatsappClient(opts)` gives `sendText`, `sendTemplate`, `sendButtons`, `sendMedia` (each takes the sending `phoneNumberId` and answers `{ ok: true, wamid }` or a typed failure) and `fetchMedia` (media id to bytes and mime type; the URL from the Graph answer is checked against `allowedHosts` before the token is sent). Tenant secrets `channel-whatsapp:secret:access-token`, `app-secret` and `verify-token`. App options of `createChannelWhatsappFeature(opts)`: `apiBaseUrl`, `apiVersion` (default v21.0), `allowedHosts` (default graph.facebook.com and lookaside.fbsbx.com), `requireHttps` (default true; boot fails on a mismatch), `timeoutMs`, `mediaMaxBytes`, `transport` (in-memory Meta for tests), `senderRateLimits` (default 30 per hour and 200 per day per sender and tenant) and `rateLimit` (flood guard of the inbound handlers; cannot be disabled while a sender limit is set). Requires `secrets` and `tenant-lifecycle`. A worker-run job triggered by `message-received` attaches the business process.",
+      "description": "WhatsApp Business (Meta Cloud API) as a two-way channel, not a delivery channel. Inbound: mount `createWhatsappWebhookRoutes()` via `extraRoutes` (default path `/api/channel-whatsapp/webhook/:tenantId`, the tenant id is part of the URL because the secrets are tenant-scoped); GET answers Meta's `hub.challenge` handshake, POST checks `X-Hub-Signature-256` over the raw body and normalizes each message and status. Events: `channel-whatsapp:event:message-received` (sender, wamid, type text|audio|image|interactive_button|other, text, button payload, `contextWamid`, media id and mime type, `phoneNumberId`), `status-updated` (sent|delivered|read|failed|other) and `throttled` (sender over the per-number limit). Sender number, text, button payload and status recipient are PII, stored as ciphertext under a record key per stream; with `eventRetentionDays` set the maintenance job `whatsapp-event-retention` erases those keys after that many days (no job without it), and tenant destroy erases all of them, so a consuming job reads them with `readWhatsappMessagePii` (and `readWhatsappStatusPii`, `readWhatsappThrottledPii`) and copies what it keeps into its own entities. A redelivered wamid is stored once and answered 200; a failed dispatch answers 500 so Meta redelivers. Outbound: `createWhatsappClient(opts)` gives `sendText`, `sendTemplate`, `sendButtons`, `sendMedia` (each takes the sending `phoneNumberId` and answers `{ ok: true, wamid }` or a typed failure) and `fetchMedia` (media id to bytes and mime type; the URL from the Graph answer is checked against `allowedHosts` before the token is sent). Tenant secrets `channel-whatsapp:secret:access-token`, `app-secret` and `verify-token`. App options of `createChannelWhatsappFeature(opts)`: `apiBaseUrl`, `apiVersion` (default v21.0), `allowedHosts` (default graph.facebook.com and lookaside.fbsbx.com), `requireHttps` (default true; boot fails on a mismatch), `timeoutMs`, `mediaMaxBytes`, `transport` (in-memory Meta for tests), `senderRateLimits` (default 30 per hour and 200 per day per sender and tenant) and `rateLimit` (flood guard of the inbound handlers; cannot be disabled while a sender limit is set). Requires `secrets` and `tenant-lifecycle`. A worker-run job triggered by `message-received` attaches the business process.",
       "toggleableDefault": null,
       "requires": [
         "secrets",
@@ -1498,7 +1543,7 @@
     },
     {
       "name": "files-tenant-data",
-      "description": "GDPR coverage for the `files` feature's `fileRef` entity: tenant-destroy row purge (EXT_TENANT_DATA) and full storage-prefix binary wipe (EXT_STORAGE_PROVIDER). Requires `tenant-lifecycle`, optionalRequires `files`.",
+      "description": "GDPR coverage for the `files` feature's `fileRef` entity: tenant-destroy row purge (EXT_TENANT_DATA) and full storage-prefix binary wipe (EXT_STORAGE_PROVIDER), plus a manual backfill/GC job that sweeps derivatives orphaned by a forget/tenant-destroy that ran before binary cleanup was wired into those flows. Requires `tenant-lifecycle`, optionalRequires `files`.",
       "toggleableDefault": null,
       "requires": [
         "tenant-lifecycle"
@@ -1523,7 +1568,7 @@
       "secrets": [],
       "writeHandlers": [],
       "uiHints": {
-        "displayLabel": "Files · Tenant Destroy",
+        "displayLabel": "Files · Tenant-Destroy & Derivative GC",
         "category": "compliance",
         "recommended": false
       }
@@ -1655,6 +1700,10 @@
         {
           "extensionName": "userData",
           "entityName": "helpdesk-request"
+        },
+        {
+          "extensionName": "userData",
+          "entityName": "contact-request"
         },
         {
           "extensionName": "userData",
@@ -2382,6 +2431,32 @@
       "writeHandlers": []
     },
     {
+      "name": "renderer-pdf",
+      "description": "Renderer plugin for `kind=\"document-pdf\"` that draws a table document (title, meta lines, weighted columns, repeating header, page footer) as a PDF in pure JavaScript, without a browser or Puppeteer service. `payload.variables` must be a `PdfTableDocument`. Requires `renderer-foundation`; mount a Puppeteer-based plugin instead when you need HTML/CSS layouts.",
+      "toggleableDefault": null,
+      "requires": [
+        "renderer-foundation"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "renderer",
+          "entityName": "pdf"
+        }
+      ],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "Renderer · PDF tables",
+        "category": "notifications",
+        "recommended": false
+      }
+    },
+    {
       "name": "renderer-puppeteer-client",
       "description": "A `renderer-foundation` plugin that prints documents to PDF through a separately deployed `puppeteer-service`. A `document-pdf` request names a stored template (`{ slug, locale, variables }`): the plugin resolves the template and its `pdf-layout` (header, signature and footer regions), embeds every image as a data URI, turns repeating table header rows into a real table head and sends the finished HTML to the service, which performs no network fetches itself. The page format, margins, file name pattern and title come from the template meta. A write handler renders with `renderPdfBeforeTransaction(ctx, { slug, locale, variables })` as its `beforeTransaction` phase, so the print service call holds no database connection, and stores the result with `storeRenderedPdf(ctx, event.prepared)` in the handler: a file plus a `rendered-pdf` record that keeps the template and layout version, so a stored document can always be traced to the text it was created from. The `puppeteer-status` query tells a TenantAdmin whether the service answers; while it does not, rendering fails with a `puppeteer_unavailable` error (HTTP 503) and no PDF is created. `image-snapshot` requests still take ready HTML in `payload.content`, which must embed all resources as data: URIs because the service fetches no http(s) resources. Configure the endpoint and token with `PUPPETEER_SERVICE_URL` and `PUPPETEER_AUTH_TOKEN`; the client retries 502, 503 and network errors with exponential backoff (default 3 retries); 4xx, other 5xx and client timeouts fail at once, because the render has already run. The feature adds the `rendered_pdfs` table, so apps that mount it need a schema migration.",
       "toggleableDefault": null,
@@ -2679,7 +2754,7 @@
     },
     {
       "name": "subscription-paddle",
-      "description": "Paddle Billing provider plugin for `billing-foundation`. Paddle acts as merchant of record: it sells to the customer and issues invoice and VAT, so the consumer-protection texts for this provider come from `consumerProtection.providerTexts`. Reads its API key and webhook secret from system config keys with `backing:\"secrets\"` (envelope-encrypted in the secrets store under the system tenant), the public Paddle.js `client-token`, a `billingLive` master switch and an `environment` key (sandbox | live). `environment` is its own key because Paddle serves sandbox and live from different API hosts and a live key must never hit the sandbox host or the other way round; `billingLive` only decides whether checkouts are offered at all. All of them are runtime config, so keys rotate and prod goes live without a redeploy, and the `mask` on each derives the sysadmin settings screen and nav. Mount via `createSubscriptionPaddleFeature({ priceToTier })`; the optional `apiKey`/`webhookSecret`/`clientToken` options are env to config bridge fallbacks (`PADDLE_API_KEY`, `PADDLE_WEBHOOK_SECRET`, `PADDLE_CLIENT_TOKEN`). The plugin always mounts; `createCheckoutSession` throws `feature_disabled` unless `billingLive` is true, and billing counts as enabled only with the API key present. Webhooks arrive at `/webhooks/subscription/paddle` when mounted through the server-runtime `billing.paddle` boot option, or at `/api/subscription/webhook/paddle` when `createSubscriptionWebhookRoute` is mounted by hand and are verified with the `Paddle-Signature` header (HMAC-SHA256 over `ts:rawBody` keyed with the raw secret, any `h1` may match, 5 minute tolerance). Paddle.js can open checkouts with arbitrary `customData` from the browser, so `custom_data.tenantId` only locates the tenant stream: billing-foundation keeps a checkout ledger and accepts a webhook only for a transaction the server opened itself (a `subscription.created` must name it in `transaction_id`), so events for prices outside `priceToTier`, without a tenant or for foreign transactions are dropped. Paddle has no hosted checkout page, so the feature serves the Default Payment Link itself at `/billing/paddle-checkout` (the Default Payment Link in the Paddle dashboard must point to `<APP_BASE_URL>/billing/paddle-checkout`; it is the only source, because checkouts are created without a `checkout.url`). Create subscription prices in the Paddle catalog with quantity minimum and maximum 1; for one-off packs set the quantity limits on purpose, because the payment event carries `quantity` and the app has to multiply its credits by it: an anonymous page with its own CSP that loads Paddle.js from cdn.paddle.com, the one external script this framework allows, and opens the overlay for the transaction. Implements checkout, customer portal, cancel and resume, `retrievePrices` (batched, 10-minute TTL cache), `retrieveSubscription` for the sync job, and an in-app plan switch: `previewPlanSwitch` shows the proration before the customer confirms, `applyPlanSwitch` changes the plan without a hosted page and waits for the `subscription.updated` webhook to move the tier.",
+      "description": "Paddle Billing provider plugin for `billing-foundation`. Paddle acts as merchant of record: it sells to the customer and issues invoice and VAT, so the consumer-protection texts for this provider come from `consumerProtection.providerTexts`. Reads its API key and webhook secret from system config keys with `backing:\"secrets\"` (envelope-encrypted in the secrets store under the system tenant), the public Paddle.js `client-token`, a `billingLive` master switch and an `environment` key (sandbox | live). `environment` is its own key because Paddle serves sandbox and live from different API hosts and a live key must never hit the sandbox host or the other way round; `billingLive` only decides whether checkouts are offered at all. All of them are runtime config, so keys rotate and prod goes live without a redeploy, and the `mask` on each derives the sysadmin settings screen and nav. Mount via `createSubscriptionPaddleFeature({ priceToTier })`; the optional `apiKey`/`webhookSecret`/`clientToken` options are env to config bridge fallbacks (`PADDLE_API_KEY`, `PADDLE_WEBHOOK_SECRET`, `PADDLE_CLIENT_TOKEN`). The plugin always mounts; `createCheckoutSession` throws `feature_disabled` unless `billingLive` is true, and billing counts as enabled only with the API key present. Webhooks arrive at `/webhooks/subscription/paddle` when mounted through the server-runtime `billing.paddle` boot option, or at `/api/subscription/webhook/paddle` when `createSubscriptionWebhookRoute` is mounted by hand and are verified with the `Paddle-Signature` header (HMAC-SHA256 over `ts:rawBody` keyed with the raw secret, any `h1` may match, 5 minute tolerance). Paddle.js can open checkouts with arbitrary `customData` from the browser, so `custom_data.tenantId` only locates the tenant stream: billing-foundation keeps a checkout ledger and accepts a webhook only for a transaction the server opened itself (a `subscription.created` must name it in `transaction_id`), so events for prices outside `priceToTier`, without a tenant or for foreign transactions are dropped. The `backfill-checkout-ledger` job ledgers Paddle checkouts that were open when the ledger was introduced, then goes quiet. Paddle has no hosted checkout page, so the feature serves the Default Payment Link itself at `/billing/paddle-checkout` (the Default Payment Link in the Paddle dashboard must point to `<APP_BASE_URL>/billing/paddle-checkout`; it is the only source, because checkouts are created without a `checkout.url`). Create subscription prices in the Paddle catalog with quantity minimum and maximum 1; for one-off packs set the quantity limits on purpose, because the payment event carries `quantity` and the app has to multiply its credits by it: an anonymous page with its own CSP that loads Paddle.js from cdn.paddle.com, the one external script this framework allows, and opens the overlay for the transaction. Implements checkout, customer portal, cancel and resume, `retrievePrices` (batched, 10-minute TTL cache), `retrieveSubscription` for the sync job, and an in-app plan switch: `previewPlanSwitch` shows the proration before the customer confirms, `applyPlanSwitch` changes the plan without a hosted page and waits for the `subscription.updated` webhook to move the tier.",
       "toggleableDefault": null,
       "requires": [
         "billing-foundation",
@@ -2808,7 +2883,9 @@
         }
       ],
       "secrets": [],
-      "writeHandlers": [],
+      "writeHandlers": [
+        "subscription-paddle:write:ledger-backfill-marker"
+      ],
       "uiHints": {
         "displayLabel": "Billing · Paddle",
         "category": "billing",
@@ -3289,6 +3366,7 @@
           "options": [
             "de",
             "en",
+            "fr",
             "es"
           ],
           "bounds": null,

@@ -12,7 +12,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/db";
 
 export const inAppMessagesTable = pgTable(
-  "store_in_app_messages",
+  "in_app_messages",
   {
     id: serial("id").primaryKey(),
     tenantId: uuid("tenant_id").notNull(),
@@ -28,8 +28,8 @@ export const inAppMessagesTable = pgTable(
   },
   // Every inbox, unread-count, mark-all-read and userData export/delete read filters by tenant + user.
   (t) => [
-    index("store_in_app_messages_tenant_user_created_idx").on(t.tenantId, t.userId, t.createdAt),
-    index("store_in_app_messages_idempotency_key_idx").on(t.idempotencyKey),
+    index("in_app_messages_tenant_user_created_idx").on(t.tenantId, t.userId, t.createdAt),
+    index("in_app_messages_idempotency_key_idx").on(t.idempotencyKey),
   ],
 );
 

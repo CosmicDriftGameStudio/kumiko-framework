@@ -421,6 +421,29 @@ type FeatureTableSource = {
 };
 ```
 
+## packages/framework/src/db/inner-join-types.ts
+
+```ts
+type InnerJoinRow<TLeft, TRight> = {
+  left: TLeft;
+  right: TRight;
+};
+type InnerJoinSpec = {
+  left: TableLike;
+  right: TableLike;
+  on: [ JoinColumnPair, ...JoinColumnPair[] ];
+  leftWhere?: WhereObject;
+  rightWhere?: WhereObject;
+  leftFields?: string[]; // Fields to return per side; default: all columns of `left`, none of `right`.
+  rightFields?: string[];
+  limit?: number;
+};
+type JoinColumnPair = {
+  left: string;
+  right: string;
+};
+```
+
 ## packages/framework/src/db/list-aggregate-labels.ts
 
 ```ts
@@ -684,26 +707,8 @@ type IncrementCounterOptions = {
   conflictKeys?: string[];
   set?: Record<string, unknown>; // Extra SET clauses on conflict (e.g. lastUpdatedAt: sql\`NOW()\`).
 };
-type InnerJoinRow<TLeft, TRight> = {
-  left: TLeft;
-  right: TRight;
-};
-type InnerJoinSpec = {
-  left: TableLike;
-  right: TableLike;
-  on: [ JoinColumnPair, ...JoinColumnPair[] ];
-  leftWhere?: WhereObject;
-  rightWhere?: WhereObject;
-  leftFields?: string[]; // Fields to return per side; default: all columns of `left`, none of `right`.
-  rightFields?: string[];
-  limit?: number;
-};
 type InsertOnConflictDoNothingOptions = {
   conflictKeys?: string[];
-};
-type JoinColumnPair = {
-  left: string;
-  right: string;
 };
 type RawClient = {
   unsafe: <TRow = unknown>(sql: string, params?: unknown[]) => Promise<TRow[]>;
@@ -3436,6 +3441,16 @@ type StreamHandlerDefinition<TName extends string = string, TSchema extends ZodT
   escapeHatch?: EscapeHatchDeclaration;
   handler: (query: QueryEvent<z.infer<TSchema>>, context: HandlerContext<TMap>) => AsyncGenerator<TChunk>;
 };
+type WriteHandlerBody<TSchema extends ZodType, TData, TPrepared, TWhenNested, TContext> =
+  | {
+    handler: (event: PreparedWriteEvent<z.infer<TSchema>, PreparedOrSkipped<TPrepared, TWhenNested>>, context: TContext) => Promise<WriteResult<TData>>;
+    perform?: never;
+  }
+  | {
+    perform: PipelineDef<z.infer<TSchema>, TData>;
+    handler?: never;
+  }
+;
 ```
 
 ## packages/types/src/demo-mode-types.ts
@@ -4511,6 +4526,7 @@ type FetchForWritingArgs = {
   aggregateType: string;
   expectedVersion?: number;
 };
+type GrantedHandlerContext<TContext extends { crossTenantReads?: CrossTenantReads; }, TGrant extends EscapeHatchGrant> = [ EscapeHatchGrant ] extends [ TGrant ] ? TContext : [ "crossTenantReads" ] extends [ TGrant ] ? TContext & { crossTenantReads: CrossTenantReads; } : TContext;
 type HandlerRef = {
   name: string;
 };

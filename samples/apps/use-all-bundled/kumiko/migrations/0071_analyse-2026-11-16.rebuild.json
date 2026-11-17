@@ -2,7 +2,6 @@
   "version": 1,
   "tables": [
     "read_field_change_requests",
-    "read_ledger_transactions",
-    "read_tenant_invitations"
+    "read_ledger_transactions"
   ]
 }

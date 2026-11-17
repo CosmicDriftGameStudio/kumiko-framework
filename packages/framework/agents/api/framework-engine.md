@@ -71,13 +71,16 @@ function defineEntityRestoreHandler(entityName: string, entity: EntityDefinition
 function defineEntityUpdateHandler(entityName: string, entity: EntityDefinition, options: EntityWriteHandlerOptions): EntityWriteHandlerDef;
 function defineFeature<const TName extends string, TExports = undefined>(name: TName, setup: (r: FeatureRegistrar<TName>) => TExports, settings?: DefineFeatureSettings): FeatureDefinition & { exports: TExports; };
 function defineMspApply<TPayload = Record<string, unknown>>(fn: (event: StoredEvent<TPayload>, tx: ExecutorManagedRunner, ctx: MultiStreamApplyContext) => Promise<void>): MultiStreamApplyFn;
-function definePagedQueryHandler<const TName extends string, TSchema extends ZodType, TRow = unknown, TMap extends object = KumikoEventTypeMap>(def: QueryHandlerDefinition<TName, TSchema, CursorResult<TRow>, TMap>, ..._noSecretInResponse: true extends ContainsSecret<CursorResult<TRow>> ? [ secretLeak: "A handler response must not contain a Secret<> — call .reveal() and return the plaintext, or drop the field." ] : [ ]): PagedQueryHandlerDefinition<TName, TSchema, TRow, TMap>;
+function definePagedQueryHandler<const TName extends string, TSchema extends ZodType, TRow = unknown, TMap extends object = KumikoEventTypeMap, TGrant extends EscapeHatchGrant = EscapeHatchGrant>(def: QueryHandlerInput<TName, TSchema, CursorResult<TRow>, TMap, TGrant>, ..._noSecretInResponse: true extends ContainsSecret<CursorResult<TRow>> ? [ secretLeak: "A handler response must not contain a Secret<> — call .reveal() and return the plaintext, or drop the field." ] : [ ]): PagedQueryHandlerDefinition<TName, TSchema, TRow, TMap>;
+function definePagedQueryHandler<const TName extends string, TSchema extends ZodType, TRow = unknown, TMap extends object = KumikoEventTypeMap, TGrant extends EscapeHatchGrant = EscapeHatchGrant>(def: QueryHandlerInput<TName, TSchema, CursorResult<TRow>, TMap, TGrant>, ..._noSecretInResponse: true extends ContainsSecret<CursorResult<TRow>> ? [ secretLeak: "A handler response must not contain a Secret<> — call .reveal() and return the plaintext, or drop the field." ] : [ ]): PagedQueryHandlerDefinition<TName, TSchema, TRow, TMap>;
 function defineProjectionQueryHandler(name: string, projectionQualifiedName: string, options: { access: AccessRule; unsafeAllTenants?: boolean | { reason: string; }; escapeHatch?: EscapeHatchDeclaration; }): QueryHandlerDef;
-function defineQueryHandler<const TName extends string, TSchema extends ZodType, TResult = unknown, TMap extends object = KumikoEventTypeMap>(def: QueryHandlerDefinition<TName, TSchema, TResult, TMap>, ..._noSecretInResponse: true extends ContainsSecret<TResult> ? [ secretLeak: "A handler response must not contain a Secret<> — call .reveal() and return the plaintext, or drop the field." ] : [ ]): QueryHandlerDefinition<TName, TSchema, TResult, TMap>;
+function defineQueryHandler<const TName extends string, TSchema extends ZodType, TResult = unknown, TMap extends object = KumikoEventTypeMap, TGrant extends EscapeHatchGrant = EscapeHatchGrant>(def: QueryHandlerInput<TName, TSchema, TResult, TMap, TGrant>, ..._noSecretInResponse: true extends ContainsSecret<TResult> ? [ secretLeak: "A handler response must not contain a Secret<> — call .reveal() and return the plaintext, or drop the field." ] : [ ]): QueryHandlerDefinition<TName, TSchema, TResult, TMap>;
+function defineQueryHandler<const TName extends string, TSchema extends ZodType, TResult = unknown, TMap extends object = KumikoEventTypeMap, TGrant extends EscapeHatchGrant = EscapeHatchGrant>(def: QueryHandlerInput<TName, TSchema, TResult, TMap, TGrant>, ..._noSecretInResponse: true extends ContainsSecret<TResult> ? [ secretLeak: "A handler response must not contain a Secret<> — call .reveal() and return the plaintext, or drop the field." ] : [ ]): QueryHandlerDefinition<TName, TSchema, TResult, TMap>;
 function defineRoles<const T extends string[]>(roles: T): RoleMap<T>;
 function defineStep<TArgs, TResult>(def: StepDef<TArgs, TResult>): StepDef<TArgs, TResult>;
 function defineTransitions<const TMap extends Record<string, string[]>>(map: TMap): TransitionGraph<keyof TMap & string>; // Defines allowed state transitions.
-function defineWriteHandler<const TName extends string, TSchema extends ZodType, TData = unknown, TMap extends object = KumikoEventTypeMap, TPrepared = undefined, TWhenNested extends BeforeTransactionWhenNested | undefined = undefined>(def: WriteHandlerInput<TName, TSchema, TData, TMap, TPrepared, TWhenNested>, ..._noSecretInResponse: true extends ContainsSecret<TData> ? [ secretLeak: "A handler response must not contain a Secret<> — call .reveal() and return the plaintext, or drop the field." ] : [ ]): WriteHandlerDefinition<TName, TSchema, TData, TMap, TPrepared, TWhenNested>;
+function defineWriteHandler<const TName extends string, TSchema extends ZodType, TData = unknown, TMap extends object = KumikoEventTypeMap, TPrepared = undefined, TWhenNested extends BeforeTransactionWhenNested | undefined = undefined, TGrant extends EscapeHatchGrant = EscapeHatchGrant>(def: WriteHandlerInput<TName, TSchema, TData, TMap, TPrepared, TWhenNested, TGrant>, ..._noSecretInResponse: true extends ContainsSecret<TData> ? [ secretLeak: "A handler response must not contain a Secret<> — call .reveal() and return the plaintext, or drop the field." ] : [ ]): WriteHandlerDefinition<TName, TSchema, TData, TMap, TPrepared, TWhenNested>;
+function defineWriteHandler<const TName extends string, TSchema extends ZodType, TData = unknown, TMap extends object = KumikoEventTypeMap, TPrepared = undefined, TWhenNested extends BeforeTransactionWhenNested | undefined = undefined, TGrant extends EscapeHatchGrant = EscapeHatchGrant>(def: WriteHandlerInput<TName, TSchema, TData, TMap, TPrepared, TWhenNested, TGrant>, ..._noSecretInResponse: true extends ContainsSecret<TData> ? [ secretLeak: "A handler response must not contain a Secret<> — call .reveal() and return the plaintext, or drop the field." ] : [ ]): WriteHandlerDefinition<TName, TSchema, TData, TMap, TPrepared, TWhenNested>;
 function emitEvent<TPayload>(ctx: EmitCtx, eventDef: EventDef<TPayload>, args: { aggregateId: string; aggregateType: string; payload: TPayload; headers?: AppendEventArgs["headers"]; } & AppendConcurrency): Promise<void>;
 function entityHasAnonymizableSubjectField(fields: EntityDefinition["fields"]): boolean;
 function extensionSelectorTargets(registry: Pick<Registry, "getAllExtensionSelectors">): ReadonlyMap<string, string>;
@@ -92,6 +95,7 @@ function findForbiddenMembershipRole(roles: string[]): string | undefined;
 function findForbiddenRoleAssignment(actorRoles: string[], assignedRoles: string[], targetCurrentRoles: string[], assignableAppRoles?: AssignableAppRoles): string | undefined;
 function findOverDeepTransferChain(adjacency: TransferAdjacency, onPath: string[]): string[] | undefined;
 function findTierResolverUsage(features: FeatureDefinition[]): RegistrarExtensionRegistration | undefined;
+function forEachPage<Row, Stop = never>(fetchPage: (request: ListPageRequest) => Promise<ListPage<Row>>, visit: (rows: Row[]) => Promise<Stop | undefined>, options?: ListAllPagesOptions): Promise<Stop | undefined>; // Stops paging as soon as `visit` returns anything but undefined and resolves to that value.
 function formatWebhookPayloadIssues(issues: WebhookPayloadIssue[]): string;
 function from(ref: OwnershipRef, column?: string): FromRule;
 function fromParent(field: string, entity: string): ParentRule;
@@ -715,9 +719,9 @@ type EntityListScreenDefinition = {
   access?: AccessRule;
 };
 type EscapeHatchAuditSink = (event: EscapeHatchUseEvent) => Promise<void>;
-type EscapeHatchDeclaration = {
+type EscapeHatchDeclaration<TGrant extends EscapeHatchGrant = EscapeHatchGrant> = {
   reason: string;
-  grants: [ EscapeHatchGrant, ...EscapeHatchGrant[] ];
+  grants: [ TGrant, ...TGrant[] ];
 };
 type EscapeHatchKind = "unsafe-raw" | "acknowledge-cross-tenant" | "global-write" | "identity-switch" | "unsafe-all-tenants" | "cross-tenant-read";
 type EscapeHatchUseEvent = {
@@ -1538,6 +1542,7 @@ type QueryHandlerDef = {
     reason: string;
   }; // Marks a query whose result holds no entity rows (options, counts, derived values), so no field filter applies.
   escapeHatch?: EscapeHatchDeclaration;
+  systemScope?: true; // Declared via `systemScope: true` on defineQueryHandler; boot requires the owning feature to call r.systemScope().
 };
 type QueryHandlerDefinition<TName extends string = string, TSchema extends ZodType = ZodType, TResult = unknown, TMap extends object = KumikoEventTypeMap> = {
   name: TName;
@@ -1547,6 +1552,7 @@ type QueryHandlerDefinition<TName extends string = string, TSchema extends ZodTy
   agent?: AgentHandlerHints;
   rateLimit?: RateLimitDeclaration;
   escapeHatch?: EscapeHatchDeclaration;
+  systemScope?: true;
   handler: (query: QueryEvent<z.infer<TSchema>>, context: HandlerContext<TMap>) => Promise<TResult>;
   outputSchema?: ZodType; // Zod schema of `handler`'s actual return value — see QueryHandlerDef's doc (handlers.ts) for the boot-validator checks this unlocks.
   liveEntities?: string[]; // Entities whose changes this query reflects.
@@ -1554,6 +1560,9 @@ type QueryHandlerDefinition<TName extends string = string, TSchema extends ZodTy
   unfilteredResult?: {
     reason: string;
   }; // Marks a query whose result holds no entity rows (options, counts, derived values), so no field filter applies.
+};
+type QueryHandlerInput<TName extends string = string, TSchema extends ZodType = ZodType, TResult = unknown, TMap extends object = KumikoEventTypeMap, TGrant extends EscapeHatchGrant = EscapeHatchGrant> = Omit<QueryHandlerDefinition<TName, TSchema, TResult, TMap>, "handler" | "systemScope" | "escapeHatch"> & ({ systemScope?: undefined; handler: (query: QueryEvent<z.infer<TSchema>>, context: GrantedHandlerContext<HandlerContext<TMap>, TGrant>) => Promise<TResult>; } | { systemScope: true; handler: (query: QueryEvent<z.infer<TSchema>>, context: GrantedHandlerContext<SystemScopeHandlerContext<TMap>, TGrant>) => Promise<TResult>; }) & {
+  escapeHatch?: EscapeHatchDeclaration<TGrant>;
 };
 type QueryHandlerRef<TPayload = unknown, TResult = unknown> = HandlerRef & QueryContract<TPayload, TResult>;
 type RateLimitPer = (typeof RATE_LIMIT_PERS)[number];
@@ -1792,6 +1801,9 @@ type StreamHandlerDef = {
   rateLimit?: RateLimitDeclaration;
   escapeHatch?: EscapeHatchDeclaration;
 };
+type SystemScopeHandlerContext<TMap extends object = KumikoEventTypeMap> = HandlerContext<TMap> & {
+  systemDb: UncheckedSystemDb;
+};
 type TargetRef = {
   featureId: string;
   action: string;
@@ -1994,6 +2006,7 @@ type WriteHandlerDef = {
   additionalRateLimits?: PayloadRateLimitOption[]; // Per-payload-field limits, e.g. per recipient address.
   rateLimitCost?: (payload: unknown) => number; // Tokens each request books on every declared rateLimit bucket, computed from the validated payload (e.g. `(p) => p.files.length`).
   escapeHatch?: EscapeHatchDeclaration;
+  systemScope?: true; // Declared via `systemScope: true` on defineWriteHandler; boot requires the owning feature to call r.systemScope().
   reserveBeforeTransaction?: PreTransactionReservation; // Reserves before the handler transaction opens.
   beforeTransaction?: BeforeTransactionPhase; // Runs after all pre-handler gates (and after reserveBeforeTransaction) and before the transaction opens: no transaction and no connection held, for external I/O and reads only.
   beforeTransactionWhenNested?: BeforeTransactionWhenNested; // `"skip"`: a nested ctx.dispatch.write of this handler runs without the beforeTransaction phase (`event.prepared` is undefined) and without a reservation, so the handler does that work inside its own transaction.
@@ -2014,6 +2027,7 @@ type WriteHandlerDefinition<TName extends string = string, TSchema extends ZodTy
   additionalRateLimits?: PayloadRateLimitOption[];
   rateLimitCost?: (payload: z.infer<TSchema>) => number; // Tokens each request books on every declared rateLimit bucket, computed from the validated payload (e.g. `(p) => p.files.length`).
   escapeHatch?: EscapeHatchDeclaration;
+  systemScope?: true;
   reserveBeforeTransaction?: PreTransactionReservation;
   beforeTransaction?: BeforeTransactionPhase<z.infer<TSchema>, TPrepared>;
   beforeTransactionWhenNested?: TWhenNested;
@@ -2024,7 +2038,7 @@ type WriteHandlerDefinition<TName extends string = string, TSchema extends ZodTy
   perform?: PipelineDef<z.infer<TSchema>, TData>;
 };
 type WriteHandlerFn<TPayload = unknown, TData = unknown> = (event: WriteEvent<TPayload>, context: HandlerContext) => Promise<WriteResult<TData>>;
-type WriteHandlerInput<TName extends string = string, TSchema extends ZodType = ZodType, TData = unknown, TMap extends object = KumikoEventTypeMap, TPrepared = undefined, TWhenNested extends BeforeTransactionWhenNested | undefined = undefined> = ({ handler: (event: PreparedWriteEvent<z.infer<TSchema>, PreparedOrSkipped<TPrepared, TWhenNested>>, context: HandlerContext<TMap>) => Promise<WriteResult<TData>>; perform?: never; } | { perform: PipelineDef<z.infer<TSchema>, TData>; handler?: never; }) & {
+type WriteHandlerInput<TName extends string = string, TSchema extends ZodType = ZodType, TData = unknown, TMap extends object = KumikoEventTypeMap, TPrepared = undefined, TWhenNested extends BeforeTransactionWhenNested | undefined = undefined, TGrant extends EscapeHatchGrant = EscapeHatchGrant> = (({ systemScope?: undefined; } & WriteHandlerBody<TSchema, TData, TPrepared, TWhenNested, GrantedHandlerContext<HandlerContext<TMap>, TGrant>>) | ({ systemScope: true; } & WriteHandlerBody<TSchema, TData, TPrepared, TWhenNested, GrantedHandlerContext<SystemScopeHandlerContext<TMap>, TGrant>>)) & {
   name: TName;
   schema: TSchema;
   access: AccessRule;
@@ -2034,7 +2048,7 @@ type WriteHandlerInput<TName extends string = string, TSchema extends ZodType = 
   rateLimit?: RateLimitDeclaration;
   additionalRateLimits?: PayloadRateLimitOption[];
   rateLimitCost?: (payload: z.infer<TSchema>) => number; // Tokens each request books on every declared rateLimit bucket, computed from the validated payload (e.g. `(p) => p.files.length`).
-  escapeHatch?: EscapeHatchDeclaration;
+  escapeHatch?: EscapeHatchDeclaration<TGrant>;
   reserveBeforeTransaction?: PreTransactionReservation;
   beforeTransaction?: BeforeTransactionPhase<z.infer<TSchema>, TPrepared>;
   beforeTransactionWhenNested?: TWhenNested;

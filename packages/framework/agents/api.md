@@ -8,13 +8,13 @@ Format: one line per function or constant, object and options types as property 
 
 | Import path | File | Exports |
 | --- | --- | --- |
-| `@cosmicdrift/kumiko-framework/engine` | `api/framework-engine.md` | 458 |
+| `@cosmicdrift/kumiko-framework/engine` | `api/framework-engine.md` | 464 |
 | `@cosmicdrift/kumiko-framework/errors` | `api/framework-errors.md` | 32 |
 | `@cosmicdrift/kumiko-framework/ui-types` | `api/framework-ui-types.md` | 199 |
-| `@cosmicdrift/kumiko-framework/db` | `api/framework-db.md` | 179 |
-| `@cosmicdrift/kumiko-framework/event-store` | `api/framework-event-store.md` | 40 |
+| `@cosmicdrift/kumiko-framework/db` | `api/framework-db.md` | 180 |
+| `@cosmicdrift/kumiko-framework/event-store` | `api/framework-event-store.md` | 41 |
 | `@cosmicdrift/kumiko-framework/seeding` | `api/framework-seeding.md` | 6 |
-| `@cosmicdrift/kumiko-renderer/web` | `api/renderer-web.md` | 406 |
+| `@cosmicdrift/kumiko-renderer/web` | `api/renderer-web.md` | 408 |
 | `@cosmicdrift/kumiko-testing/stack` | `api/testing-stack.md` | 23 |
 | `@cosmicdrift/kumiko-testing/helpers` | `api/testing-helpers.md` | 84 |
 | `@cosmicdrift/kumiko-dev-server/testing` | `api/dev-server-testing.md` | 5 |

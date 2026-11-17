@@ -3,7 +3,7 @@ import { inAppMessagesTable } from "../../channel-in-app/index.ts";
 import { featureMounted } from "./feature-mounted.ts";
 import { hardDeleteOwnRowsDeleteHook } from "./hard-delete-own-rows-hook.ts";
 
-// userData-Hooks for channel-in-app's store_in_app_messages. Plain SQL table (no
+// userData-Hooks for channel-in-app's in_app_messages. Plain SQL table (no
 // r.entity, no event stream — see channel-in-app/tables.ts), written by
 // direct INSERT in the channel adapter, so a direct DELETE is rebuild-safe.
 // Messages are addressed TO the user (title/body can quote personal content);

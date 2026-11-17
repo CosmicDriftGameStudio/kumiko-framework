@@ -8,11 +8,11 @@ Delivery flows plus notifications. Package tracking, minus the tracking.
 
 # Sample: Delivery Notifications
 
-Shows how a feature sends notifications to multiple channels (InApp + Email) without knowing the channel internals, and how the mail text lives in the template store where a tenant can override it.
+Shows how a feature sends notifications to multiple channels (InApp + Email + Push) without knowing the channel internals, and how the mail text lives in the template store where a tenant can override it.
 
 ## What you learn here
 
-**Declarative notifications:** `r.notification()` declares the mail variables, the default mail text, the subject and the short inApp text in one place.
+**Declarative notifications:** `r.notification()` declares the mail variables, the default mail text, the subject and the short inApp/push texts in one place.
 
 **Mail text is stored data:** The boot seed (`seedNotificationTemplates`) writes the declared `template` and `meta` into the template store as system templates. The email channel renders them with `renderer-mail-html`. A notification routed to email without `template` and `meta` fails its delivery.
 
@@ -32,7 +32,7 @@ tenant            → memberships (delivery needs tenant:query:resolve-user-ids)
 template-resolver → template store, override handlers
 renderer-foundation + renderer-mail-html → renders kind "mail"
 delivery          → core: ctx.notify, DeliveryLog, Preferences, extension points
-channel-inApp / channel-email
+channel-inApp / channel-email / channel-push
 support           → our business logic (tickets + the notification declaration)
 ```
 
@@ -46,11 +46,12 @@ The `support` feature `r.requires({ features: ["delivery"] })`: channels are fea
 4. For each registered channel:
    - InApp: `templates.inApp(data)`, DB insert + SSE push
    - Email: stored template rendered with `data` as variables, then transport
+   - Push: `templates.push(data)`, transport
 5. DeliveryLog entry per channel
 
 ## Tests
 
-- **E2E happy path:** Ticket with assignee → InApp + Email + 2 DeliveryLog entries
+- **E2E happy path:** Ticket with assignee → InApp + Email + Push + 3 DeliveryLog entries
 - **Tenant override:** a published tenant template replaces the system mail text
 - **Skip:** Ticket without assignee → no notifications
 - **Access control:** Non-Admin/Support can't create tickets
@@ -67,8 +68,9 @@ The `support` feature `r.requires({ features: ["delivery"] })`: channels are fea
 // 2. Admin creates a ticket with assignee (via HTTP API), the handler sends via ctx.notify
 // 3. InApp → DB + SSE
 // 4. Email → stored template → mail renderer → Transport
-// 5. DeliveryLog has entries for both channels
-// 6. A tenant overrides the stored mail text and the next mail uses it
+// 5. Push → Transport
+// 6. DeliveryLog has entries for all 3 channels
+// 7. A tenant overrides the stored mail text and the next mail uses it
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
@@ -80,6 +82,11 @@ import {
   createChannelInAppFeature,
   inAppMessagesTable,
 } from "@cosmicdrift/kumiko-bundled-features/channel-in-app";
+import {
+  createChannelPushFeature,
+  createInMemoryPushTransport,
+  type PushMessage,
+} from "@cosmicdrift/kumiko-bundled-features/channel-push";
 import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
 import {
   createDeliveryFeature,
@@ -114,9 +121,11 @@ import { supportFeature, TICKET_ASSIGNED, ticketTable } from "../feature";
 // --- Test Infrastructure ---
 
 const emailTransport = createInMemoryTransport();
+const pushTransport = createInMemoryPushTransport();
 
 // Simple resolvers: userId → address
 const testEmail = (userId: string) => `user-${userId}@example.com`;
+const testPushToken = (userId: string) => `push-token-${userId}`;
 
 // Test users
 const admin: SessionUser = TestUsers.admin;
@@ -137,6 +146,10 @@ const features = [
   createChannelEmailFeature({
     transport: emailTransport,
     resolveEmail: async (userId) => testEmail(userId),
+  }),
+  createChannelPushFeature({
+    transport: pushTransport,
+    resolveToken: async (userId) => testPushToken(userId),
   }),
   supportFeature,
 ];
@@ -172,9 +185,10 @@ afterAll(async () => {
 // --- End-to-End Flow ---
 
 describe("delivery-notifications sample", () => {
-  test("ticket creation fires InApp + Email notifications to assignee", async () => {
+  test("ticket creation fires InApp + Email + Push notifications to assignee", async () => {
     // Reset transports and SSE
     emailTransport.sent.length = 0;
+    pushTransport.sent.length = 0;
     stack.events.reset();
 
     // --- Act: Admin creates a ticket with an assignee ---
@@ -211,15 +225,25 @@ describe("delivery-notifications sample", () => {
     expect(email?.html).toContain("Open ticket"); // button
     expect(email?.html).toContain("/support/tickets/"); // button URL
 
-    // --- Assert: DeliveryLog has entries for both channels ---
+    // --- Assert: Push ---
+    const push = pushTransport.sent.find(
+      (p: PushMessage) => p.token === testPushToken(assignee.id),
+    );
+    expect(push).toBeDefined();
+    expect(push?.title).toBe("New ticket");
+    expect(push?.body).toContain("Login-Button");
+    expect(push?.body).toContain("critical");
+
+    // --- Assert: DeliveryLog has entries for all 3 channels ---
     const logs = await selectMany(db, deliveryAttemptsTable, {
       notificationType: TICKET_ASSIGNED,
       recipientId: assignee.id,
     });
-    expect(logs).toHaveLength(2);
+    expect(logs).toHaveLength(3);
     const channels = logs.map((l) => l["channel"]);
     expect(channels).toContain("inApp");
     expect(channels).toContain("email");
+    expect(channels).toContain("push");
     expect(logs.every((l) => l["status"] === "sent")).toBe(true);
   });
 
@@ -304,6 +328,7 @@ describe("delivery-notifications sample", () => {
 
   test("ticket without assignee skips notification (recipient returns null)", async () => {
     emailTransport.sent.length = 0;
+    pushTransport.sent.length = 0;
 
     await stack.http.writeOk(
       "support:write:ticket:create",
@@ -318,6 +343,7 @@ describe("delivery-notifications sample", () => {
 
     // No notifications sent — no assignee
     expect(emailTransport.sent).toHaveLength(0);
+    expect(pushTransport.sent).toHaveLength(0);
   });
 
   test("access control: non-Admin/Support cannot create tickets", async () => {
@@ -341,8 +367,8 @@ describe("delivery-notifications sample", () => {
 ```ts
 // Delivery Notifications Sample
 //
-// A support ticket is created and its assignee is notified via inApp and email.
-// The mail is a stored template: `r.notification` declares the
+// A support ticket is created and its assignee is notified via inApp, email
+// and push. The mail is a stored template: `r.notification` declares the
 // variables, the default text and the subject, the boot seed writes the text
 // into the template store, and a tenant can override it there.
 //
@@ -408,12 +434,16 @@ export const supportFeature = defineFeature("support", (r) => {
       },
     },
     meta: { en: { subject: "Support ticket #{{ticketId}} ({{priority}})" } },
-    // inApp builds its own short text; email renders the stored
+    // inApp and push build their own short text; email renders the stored
     // template with the notify data as variables.
     templates: {
       inApp: (data) => ({
         title: `New ticket: ${data["title"]}`,
         body: (data["description"] as string) || "A ticket was assigned to you.",
+      }),
+      push: (data) => ({
+        title: "New ticket",
+        body: `${data["title"]} (${data["priority"]})`,
       }),
     },
   });

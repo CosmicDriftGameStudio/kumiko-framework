@@ -80,7 +80,7 @@ Generated from `packages/framework/presets/biome-rules.json`. Purpose is the fir
 | `es-literal-writes` | Raw SQL write on an event-store table (kumiko_events, kumiko_snapshots, kumiko_archived_streams) or hand-written read_tenant_memberships DDL. | `**/src/**/*.ts`, `**/bin/**/*.ts`, `**/scripts/**/*.ts` |
 | `es-literal-writes-tests` | Raw INSERT/UPDATE on kumiko_events or hand-written read_tenant_memberships DDL in a test. | `**/__tests__/**/*.ts`, `**/*.test.ts`, `**/*.integration.ts` |
 | `i18n-locale-terminology-de` | German locale terminology: use Mandant instead of Tenant/Organisation (fw#2200). | `**/packages/locale-de/src/strings.ts` |
-| `i18n-locale-terminology-romance` | Locale terminology: use Organización (es) instead of the tenant loanword (fw#2200). | `**/packages/locale-es/src/strings.ts` |
+| `i18n-locale-terminology-romance` | Locale terminology: use Organización (es), organisation (fr) or organizzazione (it) instead of the tenant loanword (fw#2200). | `**/packages/locale-es/src/strings.ts`, `**/packages/locale-fr/src/strings.ts`, `**/packages/locale-it/src/strings.ts` |
 | `no-create-test-dispatcher` | Integration tests run through the real stack: use setupTestStack from @cosmicdrift/kumiko-testing/stack and stack.http.writeOk/queryOk, never createTestDispatcher. | `**/*.integration.ts`, `**/*.integration.test.ts` |
 | `no-css-properties-type` | CSSProperties style objects bypass theme tokens and dark mode. | `**/*.ts`, `**/*.tsx` |
 | `no-date-api` | JS Date API in production code: use Temporal.Now.instant(), Temporal.Instant.from(...), .toString() or .epochMilliseconds (ctx.tz for wall-clock + IANA zone). | `**/src/**/*.ts`, `**/bin/**/*.ts`, `**/scripts/**/*.ts` |

@@ -14,7 +14,7 @@ update, delete, restore, list, detail — via `r.crud`, plus
 soft-delete enabled.
 
 This is the smallest useful sample: it demonstrates the path from
-`createEntity({ fields })` to a working API surface without writing any Zod
+`createEntity({ name, fields })` to a working API surface without writing any Zod
 schemas or handler bodies by hand.
 
 ## What it shows
@@ -40,8 +40,8 @@ No bundled features required — this is the baseline before you add
 
 ## Flow
 
-1. Define fields with `createEntity({ fields: { … } })`.
-2. Call `r.crud("task", taskEntity, { write, read, verbs })`.
+1. Define fields with `createEntity({ name: "task", fields: { … } })`.
+2. Call `r.crud(taskEntity, { write, read, verbs })`.
 3. Client calls `task-management:write:task:create` → row + event appended.
 4. `delete` soft-flips `isDeleted`; `restore` flips back; `list` excludes
    deleted rows by default.

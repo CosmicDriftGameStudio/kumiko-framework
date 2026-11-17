@@ -842,6 +842,7 @@ describe("Event Sourcing Showcase", () => {
     for (let i = 0; i < 5; i++) {
       await stack.http.writeOk("showcase:write:invoice:pay", { id, amountCents: 100 }, admin);
     }
+    expect(await selectMany(stack.db, receiptTable, { invoiceId: id })).toHaveLength(1);
 
     // 6th call hits the cap. queryOk/writeOk would throw on a non-2xx
     // response, hiding the wire body — go through `write` directly so
@@ -918,6 +919,7 @@ import {
   incrementCounter,
   insertOne,
   insertProjectedEntityRow,
+  patchProjectedEntityRow,
   updateMany,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -1068,16 +1070,29 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
   });
 
   // A domain event on the invoice stream writes a row of another entity; the helper fills
-  // tenant, version and the insert audit columns from the event.
+  // tenant, version and the insert audit columns from the event. A repeated payment updates
+  // the one receipt.
   const receiptApply: ProjectionDefinition["apply"] = {
     [paid.name]: async (event, tx) => {
       const p = typedPayload(event, paid);
+      const rowId = receiptIdOf(event);
+      const amountLabel = String(p.amountCents);
+      if (await fetchOne(tx, receiptTable, { id: rowId })) {
+        await patchProjectedEntityRow(
+          tx,
+          { entityName: "showcase-receipt", entity: receiptEntity, table: receiptTable },
+          event,
+          rowId,
+          { amountLabel },
+        );
+        return;
+      }
       await insertProjectedEntityRow(
         tx,
         { entityName: "showcase-receipt", entity: receiptEntity, table: receiptTable },
         event,
-        receiptIdOf(event),
-        { invoiceId: event.aggregateId, amountLabel: String(p.amountCents) },
+        rowId,
+        { invoiceId: event.aggregateId, amountLabel },
       );
     },
   };

@@ -86,6 +86,7 @@ function fetchOne<TTable extends TableLike>(db: AnyDb, table: TTable, where: Whe
 function fetchOne<TRow = AnyRow>(db: AnyDb, table: TableLike, where: WhereObject): Promise<TRow | undefined>;
 function generateMigration(input: GenerateMigrationInput): GenerateMigrationOutput;
 function hasOutsideTransactionDb(ctx: OutsideTransactionContext): ctx is { db: { outsideTransaction: TenantDb; }; };
+function hasSystemDb<TContext extends { systemDb?: unknown; }>(ctx: TContext): ctx is TContext & { systemDb: NonNullable<TContext["systemDb"]>; };
 function incrementCounter<TRow = AnyRow>(db: AnyDb, table: WritableTable, values: Record<string, unknown>, increments: Record<string, number>, options?: IncrementCounterOptions): Promise<TRow | undefined>;
 function incrementCounter<TRow = AnyRow>(db: ExecutorManagedWriteCapability, table: EntityTableMeta, values: Record<string, unknown>, increments: Record<string, number>, options?: IncrementCounterOptions): Promise<TRow | undefined>;
 function incrementCounter<TRow = AnyRow>(db: AnyDb, table: WritableTable, values: Record<string, unknown>, increments: Record<string, number>, options?: IncrementCounterOptions): Promise<TRow | undefined>;
@@ -259,7 +260,7 @@ type EventStoreExecutor<Row extends Record<string, unknown> = Record<string, unk
   aggregate: (payload: ListAggregateRequest, user: SessionUser, db: TenantDb, runtimeOptions?: ListRuntimeOptions) => Promise<ListAggregateResult>; // Groups and measures over the same WHERE as `list` (filters, search, ownership, field-read gates); paging and sort are ignored.
   detail: (payload: { id: EntityId; }, user: SessionUser, db: TenantDb, options?: { parentVisibility?: ParentVisibilityOption; }) => Promise<Row | null>;
   history: (payload: { id: EntityId; }, user: SessionUser, db: TenantDb, options?: StreamTenantOption & ParentVisibilityGateOption) => Promise<EntityHistoryEntry[] | null>;
-  listAsOf: (payload: { asOf: Temporal.Instant; }, user: SessionUser, db: TenantDb, options?: StreamTenantOption) => Promise<Readonly<Record<string, unknown>>[]>;
+  listAsOf: (payload: { asOf: Temporal.Instant; ids?: EntityId[] | undefined; }, user: SessionUser, db: TenantDb, options?: StreamTenantOption) => Promise<Readonly<Record<string, unknown>>[]>; // `ids` limits the fold to these aggregates; an empty list returns no rows.
 };
 type ExecutorManagedRunner = DbRunner & ExecutorManagedWriteCapability;
 type ExecutorManagedTenantDb = TenantDbNonWrites & TenantDbWrites<EntityTableMeta> & ExecutorManagedWriteCapability;

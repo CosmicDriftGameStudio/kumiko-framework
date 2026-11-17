@@ -45,6 +45,7 @@ const SEED_MODE_ENV: "KUMIKO_TEST_SEED";
 const archivedStreamsTable: WritableSchemaTable;
 const eventsTable: WritableSchemaTable;
 const snapshotsTable: WritableSchemaTable;
+const upcasterDeadLetterTable: WritableSchemaTable;
 ```
 
 ## Classes
