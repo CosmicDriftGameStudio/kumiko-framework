@@ -4,6 +4,7 @@ import {
   createRateLimitResolver,
   createVisitorKeyDigest,
 } from "../rate-limit/index.ts";
+import { ExtraRouteEntries } from "./extra-route.ts";
 import type { ServerOptions } from "./server.ts";
 import type { BootLogger } from "./server-boot-checks.ts";
 import {
@@ -40,7 +41,11 @@ export function resolveServerRateLimit(
     Object.values(feature.httpRoutes).some((route) => route.rateLimit !== undefined),
   );
   const wantsExtraRouteLimit =
-    options.extraRoutes?.some((route) => route.rateLimit !== undefined) ?? false;
+    options.extraRoutes?.some(
+      (route) =>
+        route.rateLimit !== undefined ||
+        (route.entry === ExtraRouteEntries.signature && route.verifiedRateLimit !== undefined),
+    ) ?? false;
   const wantsResolver = wantsL3 || wantsL1L2 || wantsHttpRouteLimit || wantsExtraRouteLimit;
   // Master for the payload-bucket HMAC: the current signing secret (the
   // keyring's signKid for rotation setups). buildServer always has one, so

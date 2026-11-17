@@ -13,6 +13,7 @@ import type {
 import type { DerivativesContext } from "./derivatives-types.ts";
 import type { EventMetadata, WriteOrigin } from "./event-store-types.ts";
 import type { KumikoEventTypeMap } from "./event-type-map.ts";
+import type { QueryContract } from "./handler-contract.ts";
 import type {
   FileContext,
   FileDownloadLinks,
@@ -1170,14 +1171,9 @@ export type HandlerRef = {
   readonly name: string;
 };
 
-declare const QUERY_HANDLER_IO: unique symbol;
-
-// Type-only slot: never set at runtime, it carries the handler's payload and result types across
-// feature boundaries so queryByRef can return the result without a cast.
-export type QueryHandlerRef<TPayload = unknown, TResult = unknown> = HandlerRef & {
-  readonly qualifiedName: string;
-  readonly [QUERY_HANDLER_IO]?: { readonly payload: TPayload; readonly result: TResult };
-};
+// Carries the target handler's payload and result types, so ctx.dispatch.query(ref, payload) is typed.
+export type QueryHandlerRef<TPayload = unknown, TResult = unknown> = HandlerRef &
+  QueryContract<TPayload, TResult>;
 
 // --- Handler Definitions (stored in feature/registry) ---
 

@@ -1,6 +1,7 @@
 import type { ContractQuery, ContractWrite } from "@cosmicdrift/kumiko-types/handler-contract";
 import type { WriteResult } from "@cosmicdrift/kumiko-types/handlers";
 import { isValidHttpRouteRateLimit } from "@cosmicdrift/kumiko-types/http-route";
+import type { RateLimitDecision, RateLimitResolver } from "@cosmicdrift/kumiko-types/rate-limit-types";
 import type { Context, Hono } from "hono";
 import { ROLES } from "../auth/roles.ts";
 import { createSystemUser } from "../engine/system-user.ts";
@@ -10,6 +11,11 @@ import { FILE_DOWNLOAD_LINK_ROUTE_PREFIX } from "../files/file-download-link.ts"
 import { createFallbackLogger } from "../logging/index.ts";
 import { bindContractQuery, bindContractWrite } from "../pipeline/contract-dispatch.ts";
 import type { Dispatcher } from "../pipeline/dispatcher.ts";
+import {
+  createFailOpenReporter,
+  respondRateLimited,
+  setRateLimitHeaders,
+} from "../rate-limit/middleware.ts";
 import { assertUnreachable } from "../utils/index.ts";
 import { NON_PUBLIC_API_PATHS, PUBLIC_API_PATHS } from "./api-constants.ts";
 import { getUser } from "./auth-middleware.ts";
@@ -20,6 +26,7 @@ import {
   type ExtraRouteEntry,
   ExtraRouteRejection,
   type RoleDispatchArgs,
+  type SignatureExtraRoute,
   type SystemDispatchArgs,
 } from "./extra-route.ts";
 import { bodyLimitForRoutePath, DEFAULT_MAX_REQUEST_BYTES } from "./route-registrars.ts";
@@ -87,6 +94,10 @@ export function mountExtraRoutes(
     const dispatchSystemWrite = makeDispatchSystemWrite(dispatcher);
     const dispatchSystemQuery = makeDispatchSystemQuery(dispatcher);
     const dispatchWriteAs = makeDispatchWriteAs(dispatcher);
+    const verifiedRateLimitFailOpen = createFailOpenReporter(
+      "extra-route-verified",
+      wiring.observability.meter,
+    );
     for (const route of options.extraRoutes) {
       const honoHandler = buildExtraRouteHonoHandler(route, {
         app,
@@ -97,6 +108,8 @@ export function mountExtraRoutes(
         dispatchSystemQuery,
         dispatchWriteAs,
         clientIpResolver,
+        rateLimitResolver: wiring.rateLimitResolver,
+        onVerifiedRateLimitFailOpen: verifiedRateLimitFailOpen,
       });
       mountHonoRoute(
         app,
@@ -160,6 +173,16 @@ function assertValidExtraRoute(route: ExtraRouteDefinition): void {
   if (route.rateLimit !== undefined && !isValidHttpRouteRateLimit(route.rateLimit)) {
     throw new Error(
       `[kumiko] extraRoutes: "${route.method} ${route.path}" rateLimit needs positive integer ` +
+        "limit and windowSeconds.",
+    );
+  }
+  if (
+    route.entry === ExtraRouteEntries.signature &&
+    route.verifiedRateLimit !== undefined &&
+    !isValidHttpRouteRateLimit(route.verifiedRateLimit)
+  ) {
+    throw new Error(
+      `[kumiko] extraRoutes: "${route.method} ${route.path}" verifiedRateLimit needs positive integer ` +
         "limit and windowSeconds.",
     );
   }
@@ -296,7 +319,40 @@ type ExtraRouteHonoHandlerDeps = {
   readonly dispatchSystemQuery: (args: SystemDispatchArgs) => Promise<unknown>;
   readonly dispatchWriteAs: (args: RoleDispatchArgs) => Promise<WriteResult>;
   readonly clientIpResolver: ClientIpResolver;
+  readonly rateLimitResolver: RateLimitResolver | undefined;
+  readonly onVerifiedRateLimitFailOpen: (err: unknown) => void;
 };
+
+async function verifiedRateLimitResponse(
+  c: Context,
+  route: SignatureExtraRoute<unknown>,
+  verified: unknown,
+  shared: ExtraRouteHonoHandlerDeps,
+): Promise<Response | undefined> {
+  const rateLimit = route.verifiedRateLimit;
+  const resolver = shared.rateLimitResolver;
+  if (rateLimit === undefined || resolver === undefined) return undefined;
+  // Computed outside the try so a throwing key() is not swallowed as fail-open.
+  const bucket = `extra:${route.method} ${route.path}:${rateLimit.key(verified)}`;
+  let decision: RateLimitDecision;
+  try {
+    decision = await resolver.check(bucket, {
+      limit: rateLimit.limit,
+      windowSeconds: rateLimit.windowSeconds,
+    });
+  } catch (e) {
+    shared.onVerifiedRateLimitFailOpen(e);
+    return undefined;
+  }
+  if (decision.allowed) {
+    setRateLimitHeaders(c, decision);
+    return undefined;
+  }
+  if (rateLimit.rejectionBody === undefined) return respondRateLimited(c, decision, bucket);
+  c.header("Retry-After", String(Math.max(1, decision.retryAfterSeconds)));
+  setRateLimitHeaders(c, decision);
+  return c.json(rateLimit.rejectionBody(decision), 429);
+}
 
 function buildExtraRouteHonoHandler(
   route: ExtraRouteDefinition,
@@ -363,6 +419,8 @@ function buildExtraRouteHonoHandler(
             401,
           );
         }
+        const limited = await verifiedRateLimitResponse(c, route, verified, shared);
+        if (limited !== undefined) return limited;
         return route.handler(c, verified, {
           app: shared.app,
           registry: shared.registry,

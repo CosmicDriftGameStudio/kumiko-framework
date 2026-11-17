@@ -1,6 +1,7 @@
 import type { KumikoEventTypeMap } from "@cosmicdrift/kumiko-types/event-type-map";
 import type { EntityObjectDefinition } from "@cosmicdrift/kumiko-types/feature-registrar";
 import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
+import { queryContract } from "@cosmicdrift/kumiko-types/handler-contract";
 import type {
   BeforeTransactionWhenNested,
   EntityRef,
@@ -16,6 +17,7 @@ import {
   ENTITY_CONVENTION_WRITE_BRAND,
 } from "@cosmicdrift/kumiko-types/handlers";
 import type { RelationDefinition } from "@cosmicdrift/kumiko-types/relations";
+import type { WriteFailure } from "@cosmicdrift/kumiko-types/write-error-info-types";
 import type * as z from "zod";
 import type { ZodType } from "zod";
 import { toTableName } from "../db/table-builder.ts";
@@ -40,7 +42,7 @@ import {
 import type { FeatureBuilderState } from "./feature-builder-state.ts";
 import { agentSlots, transactionPhaseSlots } from "./handler-definition-slots.ts";
 import { resolveName } from "./handler-helpers.ts";
-import { qualifyEntityName } from "./qualified-name.ts";
+import { qualifyQueryName } from "./qualified-name.ts";
 
 import type { PipelineDef } from "./types/step.ts";
 
@@ -196,7 +198,7 @@ export function buildEntityHandlerMethods<TName extends string>(
     },
     queryHandler<TName extends string, TSchema extends ZodType, TResult = unknown>(
       def: QueryHandlerDefinition<TName, TSchema, TResult>,
-    ): QueryHandlerRef<z.input<TSchema>, TResult> {
+    ): QueryHandlerRef<z.input<TSchema>, Exclude<TResult, WriteFailure>> {
       assertHandlerHasAccess(name, "queryHandler", def.name, def.access);
       assertHandlerNameFree(state, name, "query", def.name);
       if (def.resultEntity !== undefined && def.unfilteredResult !== undefined) {
@@ -234,7 +236,12 @@ export function buildEntityHandlerMethods<TName extends string>(
         }),
       };
       tryMapEntity(state, name, def.name);
-      return { name: def.name, qualifiedName: qualifyEntityName(name, "query", def.name) };
+      return {
+        name: def.name,
+        ...queryContract<z.input<TSchema>, Exclude<TResult, WriteFailure>>(
+          qualifyQueryName(name, def.name),
+        ),
+      };
     },
     streamHandler<TName extends string, TSchema extends ZodType>(
       def: StreamHandlerDefinition<TName, TSchema>,

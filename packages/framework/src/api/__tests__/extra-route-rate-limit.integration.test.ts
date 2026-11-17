@@ -13,6 +13,7 @@ const JWT_SECRET = "test-extra-route-rl-secret-32-chars-min!";
 
 let handlerCalls = 0;
 let verifyCalls = 0;
+let keyedHandlerCalls = 0;
 
 const probe = defineFeature("extra-rl-probe", (r) => {
   r.queryHandler({
@@ -58,6 +59,33 @@ const extraRoutes: readonly ExtraRouteDefinition[] = [
     },
     handler: async (c) => c.text("ok"),
   }),
+  signatureRoute({
+    method: "POST",
+    path: "/hooks/per-app",
+    entry: "signature",
+    verify: async (request) => ({ appId: request.headers["x-app-id"] ?? "none" }),
+    verifiedRateLimit: {
+      key: (verified) => verified.appId,
+      limit: 1,
+      windowSeconds: 60,
+      rejectionBody: (decision) => ({
+        type: "error",
+        error: { type: "rate_limit_error", retryAfterSeconds: decision.retryAfterSeconds },
+      }),
+    },
+    handler: async (c) => {
+      keyedHandlerCalls++;
+      return c.text("ok");
+    },
+  }),
+  signatureRoute({
+    method: "POST",
+    path: "/hooks/per-app-default",
+    entry: "signature",
+    verify: async () => ({ appId: "fixed" }),
+    verifiedRateLimit: { key: (verified) => verified.appId, limit: 1, windowSeconds: 60 },
+    handler: async (c) => c.text("ok"),
+  }),
 ];
 
 let stack: TestStack;
@@ -73,11 +101,20 @@ afterAll(async () => {
 beforeEach(async () => {
   handlerCalls = 0;
   verifyCalls = 0;
+  keyedHandlerCalls = 0;
   await stack.redis.flushNamespace();
 });
 
-async function callAs(method: "GET" | "POST", path: string, ip: string): Promise<Response> {
-  return stack.app.request(path, { method, headers: { "x-forwarded-for": ip } });
+async function callAs(
+  method: "GET" | "POST",
+  path: string,
+  ip: string,
+  extraHeaders: Record<string, string> = {},
+): Promise<Response> {
+  return stack.app.request(path, {
+    method,
+    headers: { "x-forwarded-for": ip, ...extraHeaders },
+  });
 }
 
 describe("extraRoutes rateLimit", () => {
@@ -113,6 +150,29 @@ describe("extraRoutes rateLimit", () => {
   });
 });
 
+describe("extraRoutes verifiedRateLimit", () => {
+  test("each verified key has its own bucket and the 429 carries the route's body", async () => {
+    const ip = "9.9.7.6";
+    expect((await callAs("POST", "/hooks/per-app", ip, { "x-app-id": "app-a" })).status).toBe(200);
+    const blocked = await callAs("POST", "/hooks/per-app", ip, { "x-app-id": "app-a" });
+    expect(blocked.status).toBe(429);
+    expect(blocked.headers.get("Retry-After")).not.toBeNull();
+    const body = (await blocked.json()) as { error: { type: string } };
+    expect(body.error.type).toBe("rate_limit_error");
+    expect((await callAs("POST", "/hooks/per-app", ip, { "x-app-id": "app-b" })).status).toBe(200);
+    expect(keyedHandlerCalls).toBe(2);
+  });
+
+  test("without rejectionBody the 429 is the framework's rate_limited error", async () => {
+    const ip = "9.9.7.7";
+    expect((await callAs("POST", "/hooks/per-app-default", ip)).status).toBe(200);
+    const blocked = await callAs("POST", "/hooks/per-app-default", ip);
+    expect(blocked.status).toBe(429);
+    const body = (await blocked.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("rate_limited");
+  });
+});
+
 describe("extraRoutes rateLimit validation", () => {
   test("rejects a non-positive limit at boot", () => {
     expect(() =>
@@ -131,5 +191,25 @@ describe("extraRoutes rateLimit validation", () => {
         ],
       }),
     ).toThrow(/rateLimit needs positive integer\s+limit and windowSeconds/);
+  });
+
+  test("rejects a non-positive verifiedRateLimit at boot", () => {
+    expect(() =>
+      buildServer({
+        registry: createRegistry([probe]),
+        context: {},
+        jwtSecret: JWT_SECRET,
+        extraRoutes: [
+          signatureRoute({
+            method: "POST",
+            path: "/hooks/bad",
+            entry: "signature",
+            verify: async () => ({ appId: "x" }),
+            verifiedRateLimit: { key: (v) => v.appId, limit: 0, windowSeconds: 60 },
+            handler: async (c) => c.text("x"),
+          }),
+        ],
+      }),
+    ).toThrow(/verifiedRateLimit needs positive integer\s+limit and windowSeconds/);
   });
 });

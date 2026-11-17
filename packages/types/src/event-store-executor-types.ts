@@ -266,6 +266,8 @@ export type EventStoreExecutor<Row extends Record<string, unknown> = Record<stri
       totalCount?: boolean | undefined;
       /** Reads and returns only these fields plus id and version; derived fields are not computed. A name that is no stored field fails with a validation error. */
       readonly fields?: readonly string[] | undefined;
+      /** Never reads or returns these fields; a `fields` entry naming one fails like an unknown field. */
+      readonly excludeFields?: readonly string[] | undefined;
       filter?: ListFilterOption | undefined;
       // User-chosen faceted filters (dynamic, additive to the static
       // `filter`). All combined with AND.

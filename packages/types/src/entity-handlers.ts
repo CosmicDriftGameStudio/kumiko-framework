@@ -37,6 +37,12 @@ export type EntityWriteHandlerOptions = EntityHandlerOptions & {
 
 export type EntityQueryHandlerOptions = EntityHandlerOptions;
 
+/** Options for the generic list handler. */
+export type EntityListHandlerOptions = EntityQueryHandlerOptions & {
+  /** Fields the list never reads or returns, e.g. long texts only the detail view shows. A `fields` selection naming one fails validation. This is no access rule: use the field's `access.read` to hide data. */
+  readonly excludeFields?: readonly string[];
+};
+
 export type EntityCrudVerb = "create" | "update" | "delete" | "restore" | "list" | "detail";
 
 // `access` stays optional here — r.crud resolves it per-verb from `verbAccess`, falling back to this default.

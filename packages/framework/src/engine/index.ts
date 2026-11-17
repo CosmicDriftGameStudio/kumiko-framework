@@ -266,7 +266,6 @@ export {
   defineQueryHandler,
   defineWriteHandler,
 } from "./define-handler.ts";
-export { queryByRef } from "./query-by-ref.ts";
 export { defineRoles } from "./define-roles.ts";
 export { defineStep, getStep } from "./define-step.ts";
 export type { ToggleReader } from "./effective-features.ts";

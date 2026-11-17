@@ -77,6 +77,7 @@ import type { RelationDefinition } from "./relations.ts";
 import type { ScreenDefinition } from "./screen.ts";
 import type { TreeActionDef, TreeActionsHandle } from "./tree-node.ts";
 import type { WebSocketRouteDefinition } from "./websocket-route.ts";
+import type { WriteFailure } from "./write-error-info-types.ts";
 import type { WorkspaceDefinition } from "./workspace.ts";
 
 // --- Feature Registrar (the "r" object in defineFeature) ---
@@ -205,7 +206,7 @@ export type FeatureRegistrar<TFeature extends string = string> = {
    */
   queryHandler<TName extends string, TSchema extends ZodType, TResult = unknown>(
     def: QueryHandlerDefinition<TName, TSchema, TResult>,
-  ): QueryHandlerRef<z.input<TSchema>, TResult>;
+  ): QueryHandlerRef<z.input<TSchema>, Exclude<TResult, WriteFailure>>;
 
   streamHandler<TName extends string, TSchema extends ZodType>(
     def: StreamHandlerDefinition<TName, TSchema>,

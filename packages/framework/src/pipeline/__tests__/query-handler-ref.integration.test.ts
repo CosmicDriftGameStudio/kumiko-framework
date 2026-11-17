@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { defineFeature, queryByRef } from "../../engine/index.ts";
+import { defineFeature } from "../../engine/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 
 const orderDesk = defineFeature("orderDesk", (r) => ({
@@ -18,7 +18,7 @@ const reporting = defineFeature("reporting", (r) => {
     name: "summary",
     schema: z.object({ id: z.string() }),
     handler: async (query, ctx) => {
-      const total = await queryByRef(ctx.dispatch, orderDesk.exports.totalQuery, {
+      const total = await ctx.dispatch.query(orderDesk.exports.totalQuery, {
         id: query.payload.id,
       });
       return { label: `${total.id}: ${total.totalCents}` };
@@ -37,7 +37,7 @@ afterAll(async () => {
   await stack.cleanup();
 });
 
-describe("queryByRef", () => {
+describe("query handler ref", () => {
   test("a handler reads another feature's query through its typed ref over HTTP", async () => {
     const data = await stack.http.queryOk<{ label: string }>(
       "reporting:query:summary",

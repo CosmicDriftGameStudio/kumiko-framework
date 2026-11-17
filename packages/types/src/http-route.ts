@@ -75,7 +75,9 @@ export type HttpRouteRateLimit = Omit<RateLimitOption, "per"> & {
   readonly per: "ip" | "ip+handler";
 };
 
-export function isValidHttpRouteRateLimit(rateLimit: HttpRouteRateLimit): boolean {
+export function isValidHttpRouteRateLimit(
+  rateLimit: Pick<HttpRouteRateLimit, "limit" | "windowSeconds">,
+): boolean {
   return (
     Number.isInteger(rateLimit.limit) &&
     rateLimit.limit >= 1 &&

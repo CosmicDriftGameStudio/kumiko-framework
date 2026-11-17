@@ -51,6 +51,7 @@ import type {
   EntityCrudRegistrar,
   EntityCrudVerb,
   EntityHandlerOptions,
+  EntityListHandlerOptions,
   EntityQueryHandlerOptions,
   EntityWriteHandlerOptions,
   RegisterEntityCrudOptions,
@@ -63,6 +64,7 @@ export type {
   EntityCrudRegistrar,
   EntityCrudVerb,
   EntityHandlerOptions,
+  EntityListHandlerOptions,
   EntityQueryHandlerOptions,
   EntityWriteHandlerOptions,
   RegisterEntityCrudOptions,
@@ -542,9 +544,22 @@ function augmentDerivedFields(
 export function defineEntityQueryHandler(
   name: string,
   entity: EntityDefinition,
-  options: EntityQueryHandlerOptions,
+  options: EntityListHandlerOptions,
 ): QueryHandlerDef {
   const { entityName, verb } = parseHandlerName(name, QUERY_VERBS);
+  const excludedFields = options.excludeFields ?? [];
+  if (verb !== "list" && excludedFields.length > 0) {
+    throw bootRuleError(DEFINITION_HANDLER_RULES.excludeFieldsVerbUnsupported, {
+      message: `"${name}": excludeFields only applies to create, update and list handlers.`,
+    });
+  }
+  for (const fieldName of excludedFields) {
+    if (!entity.fields[fieldName]) {
+      throw bootRuleError(DEFINITION_HANDLER_RULES.excludeFieldsUnknownField, {
+        message: `"${name}": excludeFields names unknown field "${fieldName}".`,
+      });
+    }
+  }
 
   const table = buildEntityTable(entity);
   const executor = createEventStoreExecutor(table, entity, { entityName });
@@ -626,7 +641,12 @@ export function defineEntityQueryHandler(
             { entity, resolveEntity, viewer: eagerLoadViewer },
           );
         }
-        const result = await executor.list(listPayload, query.user, db, runtimeOptions);
+        const result = await executor.list(
+          excludedFields.length > 0 ? { ...listPayload, excludeFields: excludedFields } : listPayload,
+          query.user,
+          db,
+          runtimeOptions,
+        );
         const enrichedRows = hasRefFields
           ? await enrichWithReferences(result.rows, entity, resolveEntity, db, eagerLoadViewer)
           : result.rows;
@@ -717,7 +737,7 @@ export function defineEntityRestoreHandler(
 export function defineEntityListHandler(
   entityName: string,
   entity: EntityDefinition,
-  options: EntityQueryHandlerOptions,
+  options: EntityListHandlerOptions,
 ): QueryHandlerDef {
   return defineEntityQueryHandler(`${entityName}:list`, entity, options);
 }

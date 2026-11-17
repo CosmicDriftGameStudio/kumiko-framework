@@ -12,7 +12,9 @@ import {
 } from "./event-store-executor-read-paging.ts";
 import {
   coerceAndRehydrateRow,
+  listColumnsExcluding,
   listSelectColumns,
+  omitListFields,
   pickListFields,
 } from "./event-store-executor-read-rows.ts";
 import {
@@ -88,7 +90,15 @@ export function createReadVerbs(
       const whereClauseSqlText =
         where.whereSql.length > 0 ? ` WHERE ${where.whereSql.join(" AND ")}` : "";
       const fields = payload.fields;
-      const columnList = fields === undefined ? "*" : listSelectColumns(fields, sort, table, entity);
+      const excludedFields = payload.excludeFields ?? [];
+      let columnList: string;
+      if (fields !== undefined) {
+        columnList = listSelectColumns(fields, excludedFields, sort, table, entity);
+      } else if (excludedFields.length === 0) {
+        columnList = "*";
+      } else {
+        columnList = listColumnsExcluding(excludedFields, sort, table);
+      }
       const derivedProjection = fields === undefined ? (derived?.projections(where.params) ?? "") : "";
       const selectList = `${columnList}${sortLabelProjection}${derivedProjection}`;
       const listSql = `SELECT ${selectList} FROM ${quoteIdent(tableName)}${whereClauseSqlText}${orderByClause} LIMIT ${limit}${offsetClause}`;
@@ -106,8 +116,14 @@ export function createReadVerbs(
         encryptedRows.map((r) => decryptForRead(r, { degradeUndecryptable: () => {} })),
       );
 
-      const storedRows =
-        fields === undefined ? decryptedRows : decryptedRows.map((r) => pickListFields(r, fields));
+      let storedRows: Record<string, unknown>[];
+      if (fields !== undefined) {
+        storedRows = decryptedRows.map((r) => pickListFields(r, fields));
+      } else if (excludedFields.length > 0) {
+        storedRows = decryptedRows.map((r) => omitListFields(r, excludedFields));
+      } else {
+        storedRows = decryptedRows;
+      }
 
       // Viewer-dependent, so attached as new row objects.
       const rows =

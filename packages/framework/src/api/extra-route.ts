@@ -6,6 +6,7 @@
 import type { ContractQuery, ContractWrite } from "@cosmicdrift/kumiko-types/handler-contract";
 import type { WriteResult } from "@cosmicdrift/kumiko-types/handlers";
 import type { HttpRouteMethod, HttpRouteRateLimit } from "@cosmicdrift/kumiko-types/http-route";
+import type { RateLimitDecision } from "@cosmicdrift/kumiko-types/rate-limit-types";
 import type { Context, Hono } from "hono";
 import type { Registry, SessionUser, TenantId } from "../engine/types/index.ts";
 
@@ -119,6 +120,15 @@ export type SignatureExtraRouteDeps = {
   readonly dispatchWriteAs: (args: RoleDispatchArgs) => Promise<WriteResult>;
 };
 
+export type VerifiedRouteRateLimit<TVerified> = {
+  /** Bucket key from what verify() proved (app id, tenant, account); one bucket per route and key. */
+  readonly key: (verified: TVerified) => string;
+  readonly limit: number;
+  readonly windowSeconds: number;
+  /** JSON body of the 429 (Retry-After and X-RateLimit headers are always set); default is the framework's rate_limited error. */
+  readonly rejectionBody?: (decision: RateLimitDecision) => unknown;
+};
+
 export type SignatureExtraRoute<TVerified> = {
   readonly method: HttpRouteMethod;
   readonly path: string;
@@ -127,6 +137,8 @@ export type SignatureExtraRoute<TVerified> = {
    *  rate-limit store before the body limit, verify() and the handler. Fail-open; skipped
    *  when the server has no Redis. */
   readonly rateLimit?: HttpRouteRateLimit;
+  /** Limit keyed by the verified caller, checked after verify() and before the handler through the server's shared rate-limit store. Fail-open; skipped when the server has no Redis. */
+  readonly verifiedRateLimit?: VerifiedRouteRateLimit<TVerified>;
   readonly verify: (
     request: SignatureExtraRouteVerifyRequest,
     deps: SignatureExtraRouteVerifyDeps,
