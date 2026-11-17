@@ -1369,6 +1369,27 @@ describe("reference fields", () => {
     });
   });
 
+  const SITE_ID = "00000000-0000-4000-8000-000000000001";
+  const visitEntity = createEntity({
+    table: "visits",
+    fields: {
+      contactId: createReferenceField({ entity: "contact" }),
+      siteId: createReferenceField({ entity: "site", required: true }),
+    },
+  });
+
+  test.each([
+    ["insert", buildInsertSchema(visitEntity)],
+    ["update", buildUpdateSchema(visitEntity)],
+  ])("the %s schema reads an empty optional reference as null", (_kind, schema) => {
+    expect(schema.parse({ contactId: "", siteId: SITE_ID })).toMatchObject({ contactId: null });
+    expect(handlerFieldReference(schema, "contactId")?.entity).toBe("contact");
+  });
+
+  test("a required reference still rejects an empty string", () => {
+    expect(buildInsertSchema(visitEntity).safeParse({ siteId: "" }).success).toBe(false);
+  });
+
   test("a cross-feature reference keeps its qualified target", () => {
     const schema = buildInsertSchema(
       createEntity({

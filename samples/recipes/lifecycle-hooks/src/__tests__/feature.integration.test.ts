@@ -29,6 +29,46 @@ beforeEach(() => {
   reservedSlots.clear();
 });
 
+describe("preSave hook", () => {
+  test("a thrown KumikoError rejects the create with its fields and writes nothing", async () => {
+    const error = await stack.http.writeErr(
+      "blog:write:article:create",
+      { title: "Empty", isPublished: true },
+      editor,
+    );
+
+    expect(error.httpStatus).toBe(422);
+    expectErrorIncludes(error, "published_article_needs_content");
+    expect(error.details).toMatchObject({ fields: [{ path: "content" }] });
+    expect(hookLog.some((entry) => entry.type === "created")).toBe(false);
+  });
+
+  test("an update that publishes a draft without content is rejected", async () => {
+    const draft = await stack.http.writeOk<SaveContext>(
+      "blog:write:article:create",
+      { title: "Draft" },
+      editor,
+    );
+
+    const error = await stack.http.writeErr(
+      "blog:write:article:update",
+      { id: draft.id, version: 1, changes: { isPublished: true } },
+      editor,
+    );
+
+    expect(error.httpStatus).toBe(422);
+    expectErrorIncludes(error, "published_article_needs_content");
+  });
+
+  test("a published article with content passes", async () => {
+    await stack.http.writeOk<SaveContext>(
+      "blog:write:article:create",
+      { title: "Ready", content: "Body", isPublished: true },
+      editor,
+    );
+  });
+});
+
 describe("validation hook: single handler", () => {
   test("rejects title with banned word", async () => {
     const error = await stack.http.writeErr(
@@ -152,7 +192,7 @@ describe("preDelete + postDelete entity hooks", () => {
   test("preDelete blocks delete when the article is still published", async () => {
     const created = await stack.http.writeOk<SaveContext>(
       "blog:write:article:create",
-      { title: "Live Article" },
+      { title: "Live Article", content: "Body" },
       editor,
     );
     await stack.http.writeOk<SaveContext>(

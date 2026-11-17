@@ -50,6 +50,7 @@ export type LifecycleResult = SaveContext | DeleteContext;
 
 // --- Lifecycle Hooks ---
 
+// Throw a KumikoError to reject the write with exactly that error; any other throw becomes presave_hook_failed.
 export type PreSaveHookFn = (
   changes: Record<string, unknown>,
   context: HandlerContext & {

@@ -1076,8 +1076,8 @@ describe("ledger integration — subject dimension (filterable business-object r
           newSchedule(bank, rent, subject),
           admin,
         );
-        // A preSave hook failure on create surfaces as 422 presave_hook_failed.
-        expect(err.httpStatus).toBe(422);
+        expect(err.httpStatus).toBe(400);
+        expect(err.code).toBe("validation_error");
       }
     });
 
@@ -1100,8 +1100,8 @@ describe("ledger integration — subject dimension (filterable business-object r
         { id: bare.id, version: detail.version, changes: { subjectId: "lease-1" } },
         admin,
       );
-      expect(err.httpStatus).toBeGreaterThanOrEqual(400);
-      expect(JSON.stringify(err)).toContain("presave_hook_failed");
+      expect(err.httpStatus).toBe(400);
+      expect(err.code).toBe("validation_error");
     });
 
     test("update cannot clear just one of the two, but may change one value", async () => {
@@ -1123,8 +1123,8 @@ describe("ledger integration — subject dimension (filterable business-object r
         { id: withSubject.id, version: detail.version, changes: { subjectType: null } },
         admin,
       );
-      expect(err.httpStatus).toBe(422);
-      expect(JSON.stringify(err)).toContain("presave_hook_failed");
+      expect(err.httpStatus).toBe(400);
+      expect(err.code).toBe("validation_error");
 
       await stack.http.writeOk(
         LedgerHandlers.updateSchedule,

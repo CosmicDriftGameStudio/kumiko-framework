@@ -22,8 +22,6 @@ function stringOrNull(value: unknown): string | null {
   return typeof value === "string" ? value : null;
 }
 
-// preSave hooks cannot report field errors (the executor maps every throw to
-// presave_hook_failed), so the convention handlers are checked before they run.
 // An update may touch only body or only bodyFormat, so the pair is completed
 // from the stored row. A document body is handed on as the rebuilt html.
 async function guardUpdate(payload: unknown, ctx: PageWriteContext): Promise<Guarded> {

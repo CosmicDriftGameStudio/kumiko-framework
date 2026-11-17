@@ -365,16 +365,20 @@ export function fieldToZod(
     case "files":
     case "images":
       return fileListFieldToZod(field);
-    case "reference":
+    case "reference": {
       // Validates the UUID shape. Checking that the reference exists
       // (the row exists in the referenced table and belongs to the tenant) is
       // the handler / foreign-key constraint's responsibility, not the schema
       // validator's; checking it here would require a database round trip during
       // parsing.
       // Multi-mode accepts an array of UUIDs.
-      return field.multiple === true
-        ? z.array(z.uuid().meta({ references: field.entity }))
-        : z.uuid().meta({ references: field.entity });
+      if (field.multiple === true) return z.array(z.uuid().meta({ references: field.entity }));
+      if (field.required === true) return z.uuid().meta({ references: field.entity });
+      // An untouched reference picker submits "" — read it as unset (null), like an optional select.
+      return z
+        .preprocess((value) => (value === "" ? null : value), z.uuid().nullable())
+        .meta({ references: field.entity });
+    }
     default:
       assertUnreachable(field, "field type");
   }

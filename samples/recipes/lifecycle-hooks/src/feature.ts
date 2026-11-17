@@ -1,5 +1,6 @@
 // Lifecycle Hooks Sample
-// Shows: validation hooks (reject bad data), postSave entity hooks (track changes),
+// Shows: validation hooks (reject bad data), preSave hooks (reject a write with a thrown KumikoError),
+// postSave entity hooks (track changes),
 // preDelete hooks (block delete on invariant violation), postDelete hooks
 // (log deletions after commit).
 
@@ -100,6 +101,27 @@ export const articlesFeature = defineFeature("blog", (r) => {
         return [{ field: "title", error: "title_too_long" }];
       }
       return null;
+    },
+  });
+
+  // --- preSave hook on create and update: a published article needs content.
+  // The rule reads the effective value (change over stored row) because an update may send
+  // only isPublished. A thrown KumikoError reaches the caller unchanged and nothing is written.
+  r.hook({
+    type: "preSave",
+    target: [articleCreate, articleUpdate],
+    handler: async (changes, ctx) => {
+      const effective = (key: "content" | "isPublished"): unknown =>
+        key in changes ? changes[key] : ctx.previous[key];
+      const content = effective("content");
+      const hasContent = typeof content === "string" && content.trim() !== "";
+      if (effective("isPublished") !== true || hasContent) return changes;
+      throw new UnprocessableError("published_article_needs_content", {
+        i18nKey: "errors.publishedArticleNeedsContent",
+        details: {
+          fields: [{ path: "content", code: "required", i18nKey: "errors.validation.required" }],
+        },
+      });
     },
   });
 
