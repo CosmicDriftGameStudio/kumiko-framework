@@ -315,14 +315,12 @@ export async function bootWorkerProcess(
     ...(bootLogger && { log: bootLogger }),
     ...(unsubscribeLinks && { unsubscribeLinks }),
   });
-  const extraContext = addConfigAccessorFactory(
-    {
-      ...autoExtraContext,
-      ...searchAdapterContext(profile.searchAdapter, resolvedExtraContext, processName),
-      ...resolvedExtraContext,
-    },
-    registry,
-  );
+  const bootExtraContext: Record<string, unknown> = {
+    ...autoExtraContext,
+    ...searchAdapterContext(profile.searchAdapter, resolvedExtraContext, processName),
+    ...resolvedExtraContext,
+  };
+  const extraContext = addConfigAccessorFactory(bootExtraContext, registry);
 
   const jobLogger = jobRunLoggerCallbacks(registry, db);
   const { sseBroker, ownedRedisSseBroker } = createDefaultSseBroker(envSource);

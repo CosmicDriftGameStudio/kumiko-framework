@@ -1,8 +1,17 @@
 import { describe, expect, test } from "bun:test";
 import { Project } from "ts-morph";
+import type { RepoRoot } from "../_lib/roots";
 import { guard } from "../guard-seed-runtime-imports";
 
-const ROOTS = [{ absPath: "/repo" }];
+const ROOTS: readonly RepoRoot[] = [
+  {
+    name: "seed-app",
+    absPath: "/repo",
+    kind: "app",
+    manifest: { kind: "app", sourceRoots: ["src"], testGlobs: [] },
+    manifestSource: "derived",
+  },
+];
 
 function messagesFor(code: string, filePath = "/repo/seeds/demo.ts"): string[] {
   const project = new Project({ useInMemoryFileSystem: true });

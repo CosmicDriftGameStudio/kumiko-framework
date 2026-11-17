@@ -27,6 +27,7 @@ import {
   createEntity,
   createTextField,
   defineFeature,
+  emitEvent,
   SYSTEM_USER_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -71,17 +72,16 @@ const workerProbeEntity = createEntity({
 
 const workerProbeFeature = defineFeature("worker-probe", (r) => {
   r.entity(workerProbeEntity);
-  r.defineEvent("pinged", z.object({ note: z.string() }), { piiFields: "none" });
+  const pinged = r.defineEvent("pinged", z.object({ note: z.string() }), { piiFields: "none" });
   r.writeHandler({
     name: "ping",
     schema: z.object({ note: z.string() }),
     access: { roles: ["SystemAdmin"] },
     handler: async (event, ctx) => {
-      await ctx.events.append({
+      await emitEvent(ctx, pinged, {
         aggregateId: crypto.randomUUID(),
         expectedVersion: 0,
         aggregateType: "probe-ping",
-        type: "worker-probe:event:pinged",
         payload: { note: event.payload.note },
       });
       return { isSuccess: true as const, data: { note: event.payload.note } };

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { Project, SyntaxKind } from "ts-morph";
-import type { RepoKind } from "../../../repo-manifest/index.ts";
 import { guard as i18nUiStringsGuard } from "../../guard-i18n-ui-strings";
+import type { RepoKind } from "../../repo-manifest/index.ts";
 import { type AstGuard, type RunResult, runGuards } from "../guard-kit";
 import { hasIgnoreTag } from "../ignore-tag";
 import type { RepoRoot } from "../roots";

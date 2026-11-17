@@ -62,15 +62,13 @@ function buildProdExtraContext(
     ...(unsubscribeLinks && { unsubscribeLinks }),
     ...(options.appOverrides && { appOverrides: options.appOverrides }),
   });
+  const bootExtraContext: Record<string, unknown> = {
+    ...autoExtraContext,
+    ...searchAdapterContext(bootOptionWiring.searchAdapter, resolvedExtraContext, "runProdApp"),
+    ...resolvedExtraContext,
+  };
   return {
-    ...addConfigAccessorFactory(
-      {
-        ...autoExtraContext,
-        ...searchAdapterContext(bootOptionWiring.searchAdapter, resolvedExtraContext, "runProdApp"),
-        ...resolvedExtraContext,
-      },
-      registry,
-    ),
+    ...addConfigAccessorFactory(bootExtraContext, registry),
     ...(options.defaultLocale !== undefined && { defaultLocale: options.defaultLocale }),
   };
 }

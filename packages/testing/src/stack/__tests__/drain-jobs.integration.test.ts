@@ -3,7 +3,7 @@
 // `waitFor` polling on a specific job's side effect.
 
 import { afterEach, describe, expect, test } from "bun:test";
-import { defineFeature, SYSTEM_ROLE } from "@cosmicdrift/kumiko-framework/engine";
+import { defineFeature, emitEvent, SYSTEM_ROLE } from "@cosmicdrift/kumiko-framework/engine";
 import { DEFAULT_EVENT_DISPATCHER_BATCH_SIZE } from "@cosmicdrift/kumiko-framework/pipeline";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import * as z from "zod";
@@ -21,17 +21,16 @@ const chainFeature = defineFeature("draintestchain", (r) => {
     piiFields: "none",
   });
 
-  r.defineEvent("started", z.object({ value: z.string() }), { piiFields: "none" });
+  const started = r.defineEvent("started", z.object({ value: z.string() }), { piiFields: "none" });
 
   r.writeHandler({
     name: "start",
     schema: z.object({ value: z.string() }),
     handler: async (event, ctx) => {
-      await ctx.events.append({
+      await emitEvent(ctx, started, {
         aggregateId: crypto.randomUUID(),
         expectedVersion: 0,
         aggregateType: "draintestchain",
-        type: "draintestchain:event:started",
         payload: { value: event.payload.value },
       });
       return { isSuccess: true as const, data: {} };

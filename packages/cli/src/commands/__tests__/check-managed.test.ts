@@ -104,7 +104,7 @@ describe("runScriptsCheckStep test command timeouts", () => {
     const scripts: Record<string, string> = Object.fromEntries(
       STANDARD_APP_SCRIPTS.map((name) => [name, "echo ok"]),
     );
-    scripts.test = "bun test --dots";
+    scripts["test"] = "bun test --dots";
     scripts["test:unit"] = "bun test --dots";
     scripts["test:integration"] = "bun kumiko-testing integration";
     scripts["test:integration:ci"] = "bun kumiko-testing integration";

@@ -4,7 +4,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createJobsFeature, JobQueries } from "@cosmicdrift/kumiko-bundled-features/jobs";
-import { defineFeature, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { defineFeature, defineWriteHandler, emitEvent } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
@@ -19,6 +19,11 @@ const userA = createTestUser({ id: 1, tenantId: tenantA, roles: ["Admin"] });
 const userB = createTestUser({ id: 2, tenantId: tenantB, roles: ["Admin"] });
 
 const appFeature = defineFeature("app", (r) => {
+  const generationRequested = r.defineEvent(
+    "generation-requested",
+    z.object({ campaignId: z.string() }),
+    { piiFields: "none" },
+  );
   r.writeHandler(
     defineWriteHandler({
       name: "generate",
@@ -26,20 +31,16 @@ const appFeature = defineFeature("app", (r) => {
       schema: z.object({ campaignId: z.string() }),
       access: { roles: ["Admin"] },
       handler: async (event, ctx) => {
-        await ctx.events.append({
+        await emitEvent(ctx, generationRequested, {
           aggregateId: crypto.randomUUID(),
           expectedVersion: 0,
           aggregateType: "generation-request",
-          type: "app:event:generation-requested",
           payload: { campaignId: event.payload.campaignId },
         });
         return { isSuccess: true as const, data: { ...event.payload } };
       },
     }),
   );
-  r.defineEvent("generation-requested", z.object({ campaignId: z.string() }), {
-    piiFields: "none",
-  });
   r.job({ name: "generateTexts", trigger: { on: "generation-requested" },
       retries: 0,
       tenantVisibleFailure: { messageKey: FAILURE_KEY, subjectFields: ["campaignId"] }, handler: async () => {

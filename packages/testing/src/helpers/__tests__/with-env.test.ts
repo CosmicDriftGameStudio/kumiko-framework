@@ -9,20 +9,20 @@ describe("withEnvForSuite / withEnvForEachTest", () => {
       withEnvForEachTest({ KUMIKO_TEST_PRESET: undefined, KUMIKO_TEST_EACH: "on" });
 
       test("applies the per-test override on top of the suite value", () => {
-        expect(process.env.KUMIKO_TEST_PRESET).toBeUndefined();
-        expect(process.env.KUMIKO_TEST_EACH).toBe("on");
+        expect(process.env["KUMIKO_TEST_PRESET"]).toBeUndefined();
+        expect(process.env["KUMIKO_TEST_EACH"]).toBe("on");
       });
     });
 
     test("restores the suite value after the inner describe", () => {
-      expect(process.env.KUMIKO_TEST_PRESET).toBe("preset");
-      expect(process.env.KUMIKO_TEST_EACH).toBeUndefined();
+      expect(process.env["KUMIKO_TEST_PRESET"]).toBe("preset");
+      expect(process.env["KUMIKO_TEST_EACH"]).toBeUndefined();
     });
   });
 
   test("restores the original env after the suite", () => {
-    expect(process.env.KUMIKO_TEST_PRESET).toBeUndefined();
-    expect(process.env.KUMIKO_TEST_EACH).toBeUndefined();
+    expect(process.env["KUMIKO_TEST_PRESET"]).toBeUndefined();
+    expect(process.env["KUMIKO_TEST_EACH"]).toBeUndefined();
   });
 });
 

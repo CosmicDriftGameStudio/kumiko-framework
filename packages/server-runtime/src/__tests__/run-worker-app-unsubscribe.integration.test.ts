@@ -24,6 +24,7 @@ import { createDbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   defineFeature,
   defineWriteHandler,
+  emitEvent,
   type NotifyFn,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -66,18 +67,17 @@ const captureEmailChannelFeature = defineFeature("channel-email", (r) => {
 const digestFeature = defineFeature("digest-probe", (r) => {
   r.requires({ features: ["delivery"] });
   r.notification({ name: "digest", unsubscribe: true });
-  r.defineEvent("triggered", z.object({}), { piiFields: "none" });
+  const triggered = r.defineEvent("triggered", z.object({}), { piiFields: "none" });
   r.writeHandler(
     defineWriteHandler({
       name: "trigger",
       schema: z.object({}),
       access: { roles: ["SystemAdmin"] },
       handler: async (_event, ctx) => {
-        await ctx.events.append({
+        await emitEvent(ctx, triggered, {
           aggregateId: crypto.randomUUID(),
           expectedVersion: 0,
           aggregateType: "digest-request",
-          type: "digest-probe:event:triggered",
           payload: {},
         });
         return { isSuccess: true as const, data: {} };
