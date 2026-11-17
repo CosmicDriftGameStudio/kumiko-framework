@@ -2,6 +2,7 @@
 // loadable by tooling (kumiko check, agent lint, port registry) without
 // pulling the engine runtime.
 
+import type { TranslationKeys } from "@cosmicdrift/kumiko-types/config";
 import type { BundledListsOptions } from "@cosmicdrift/kumiko-types/screen";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { ROW_LEVEL_SECURITY_MODES, type RowLevelSecurityMode } from "../db/render-rls-ddl.ts";
@@ -52,6 +53,8 @@ export type AppApiDocsConfig = {
   readonly uiOnlyWrites?: readonly { readonly pattern: string; readonly reason: string }[];
   /** Paragraph overrides per locale and text key; the page structure stays fixed. */
   readonly texts?: Readonly<Record<string, Readonly<Record<string, string>>>>;
+  /** Texts only the API docs need (handler titles, descriptions, field labels, webhook texts), loaded lazily so they stay out of the server boot. Full translation keys as in r.translations; per key and locale they only fill what the registry does not define. */
+  readonly translations?: () => Promise<TranslationKeys>;
   /** Directory of recorded request/response examples; default `api-examples`. */
   readonly examplesDir?: string;
 };

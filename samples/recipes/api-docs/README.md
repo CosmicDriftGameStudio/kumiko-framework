@@ -12,7 +12,7 @@ an `index.json` that a website or an agent can read.
   listed under `apiDocs.uiOnlyWrites` with a reason; without that entry the generator reports it.
 - **Texts come from the feature.** Titles, descriptions and field labels per locale use the
   keys `<handler qn>:title`, `:description` and `:field:<name>`; the German pages need the
-  German translations, the menu path to the token screen comes from the nav tree.
+  German translations, the menu path to the token screen comes from the nav tree. Texts that only the docs need can live in `apiDocs.translations` instead, a lazily loaded function, so they stay out of the server boot.
 - **Examples are recordings.** The integration test sends real requests with a token through
   `recordApiExample` from `@cosmicdrift/kumiko-testing/api-examples`. UUIDs, timestamps and
   tokens are replaced by fixed values, so a recording only changes when the API changes.

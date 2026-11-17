@@ -141,6 +141,9 @@ export type ListAggregateRequest = {
   readonly aggregate: ListAggregatePayload;
 };
 
+// The executor runs uuid aggregates only (event-store-executor-context.ts rejects any other idType), so a save it returns always carries the string aggregate id.
+export type ExecutorSaveContext = SaveContext & { readonly id: string };
+
 // `Row` is the shape list()/detail() hand back; create/update payloads stay untyped. The default
 // keeps every untyped use compiling, and an executor typed to an entity row stays assignable to it.
 export type EventStoreExecutor<Row extends Record<string, unknown> = Record<string, unknown>> = {
@@ -149,7 +152,7 @@ export type EventStoreExecutor<Row extends Record<string, unknown> = Record<stri
     user: SessionUser,
     db: TenantDb,
     options?: StreamTenantOption & { preSave?: PreSaveRunner },
-  ) => Promise<WriteResult<SaveContext>>;
+  ) => Promise<WriteResult<ExecutorSaveContext>>;
 
   update: (
     payload: { id: EntityId; version?: number | undefined; changes: Record<string, unknown> },
@@ -182,7 +185,7 @@ export type EventStoreExecutor<Row extends Record<string, unknown> = Record<stri
         // so a pii/encrypted field can't be used here.
         expect?: Readonly<Record<string, string | number | boolean | null>>;
       },
-  ) => Promise<WriteResult<SaveContext>>;
+  ) => Promise<WriteResult<ExecutorSaveContext>>;
 
   delete: (
     payload: { id: EntityId },
@@ -213,7 +216,7 @@ export type EventStoreExecutor<Row extends Record<string, unknown> = Record<stri
     user: SessionUser,
     db: TenantDb,
     options?: StreamTenantOption & ParentVisibilityGateOption,
-  ) => Promise<WriteResult<SaveContext>>;
+  ) => Promise<WriteResult<ExecutorSaveContext>>;
 
   list: (
     payload: {

@@ -721,7 +721,7 @@ export function createWriteVerbs(
           isSuccess: true,
           data: {
             kind: "save",
-            id: data["id"] as EntityId, // @cast-boundary engine-payload
+            id: String(payload.id),
             data,
             changes,
             previous,
@@ -1047,7 +1047,7 @@ export function createWriteVerbs(
         isSuccess: true,
         data: {
           kind: "save",
-          id: payload.id,
+          id: String(payload.id),
           data: restoredHydrated,
           changes: { isDeleted: false },
           previous: previousPlain,

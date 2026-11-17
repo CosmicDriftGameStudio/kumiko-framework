@@ -41,6 +41,20 @@ describe("createI18n", () => {
     expect(i18n.t("adminUsers:nav.title", "en")).toBe("Users");
   });
 
+  test("a region tag falls back to its base language before the default locale", () => {
+    const registry = createRegistry([adminFeature]);
+    const i18n = createI18n(registry, { defaultLocale: "de" });
+
+    expect(i18n.t("adminUsers:nav.title", "en-US")).toBe("Users");
+  });
+
+  test("a region tag without a base-language text falls back to the default locale", () => {
+    const registry = createRegistry([adminFeature]);
+    const i18n = createI18n(registry, { defaultLocale: "de" });
+
+    expect(i18n.t("adminUsers:nav.title", "fr-CA")).toBe("Benutzer");
+  });
+
   test("falls back to default locale", () => {
     const registry = createRegistry([adminFeature]);
     const i18n = createI18n(registry, { defaultLocale: "de" });

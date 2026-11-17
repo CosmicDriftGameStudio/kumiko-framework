@@ -4,7 +4,7 @@
 // field-level ownership denials, explicit version conflicts, the forget()
 // verb entirely, and restore()'s two precondition failures.
 
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, expectTypeOf, test } from "bun:test";
 import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createTestDb,
@@ -271,8 +271,30 @@ describe("event-store-executor write-verbs — update on soft-deleted rows", () 
     if (!created.isSuccess) throw new Error("setup failed");
     const deleted = await crud.delete({ id: created.data.id }, admin, tdb);
     if (!deleted.isSuccess) throw new Error("delete setup failed");
-    return { id: String(created.data.id), version: 2 };
+    return { id: created.data.id, version: 2 };
   }
+
+  test("create, update and restore return the string aggregate id", async () => {
+    const created = await crud.create({ name: "typed", teamId: "team-a" }, admin, tdb);
+    if (!created.isSuccess) throw new Error("create failed");
+    expectTypeOf(created.data.id).toEqualTypeOf<string>();
+    expect((await crud.list({}, admin, tdb)).rows[0]?.id).toBe(created.data.id);
+
+    const updated = await crud.update(
+      { id: created.data.id, version: 1, changes: { teamId: "team-b" } },
+      admin,
+      tdb,
+    );
+    if (!updated.isSuccess) throw new Error("update failed");
+    expectTypeOf(updated.data.id).toEqualTypeOf<string>();
+    expect(updated.data.id).toBe(created.data.id);
+
+    await crud.delete({ id: created.data.id }, admin, tdb);
+    const restored = await crud.restore({ id: created.data.id }, admin, tdb);
+    if (!restored.isSuccess) throw new Error("restore failed");
+    expectTypeOf(restored.data.id).toEqualTypeOf<string>();
+    expect(restored.data.id).toBe(created.data.id);
+  });
 
   test("without the option a soft-deleted row is not found", async () => {
     const row = await createDeletedRow();

@@ -96,6 +96,7 @@ an app that needs `auth-foundation` for the token feature lists it in `features`
 - `uiOnlyWrites`, patterns of writes that screens trigger but no scope grants, each
   with a `reason`; unlisted ones are reported.
 - `texts`, paragraph overrides per locale and key; the page structure stays fixed.
+- `translations`, a function returning texts only the docs need (handler titles, descriptions, field labels) as full translation keys, e.g. `() => import("./src/api-docs-texts").then((m) => m.texts)`. Loaded only by `kumiko api-docs`, never at boot, and outside the locale-consistency boot rule. A locale the registry defines for a key wins.
 - `examplesDir` (default `api-examples`), recorded request and response pairs. Record
   them in an integration test with `recordApiExample` from
   `@cosmicdrift/kumiko-testing/api-examples` and `KUMIKO_RECORD_API_EXAMPLES=1`.

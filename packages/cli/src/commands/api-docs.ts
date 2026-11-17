@@ -155,7 +155,7 @@ function writeOutput(outDir: string, files: ReadonlyMap<string, string>, indexFi
 
 type Values = { out?: string; locales?: string; check?: boolean };
 type AgentTools = typeof import("@cosmicdrift/kumiko-bundled-features/agent-tools");
-type ResolvedApiDocsConfig = ReturnType<AgentTools["resolveApiDocsConfig"]>;
+type ResolvedApiDocsConfig = Awaited<ReturnType<AgentTools["resolveApiDocsConfig"]>>;
 
 function errorBlock(ctx: CliCommandContext, message: string): number {
   ctx.out.err("");
@@ -212,16 +212,26 @@ type Target = {
 };
 
 /** The settings of this run, or the exit code after reporting what is wrong. */
-function resolveTarget(
+async function resolveTarget(
   ctx: CliCommandContext,
   tools: AgentTools,
   apiDocs: AppApiDocsConfig,
   values: Values,
-): Target | number {
-  const resolved = tools.resolveApiDocsConfig(apiDocs, {
+): Promise<Target | number> {
+  // Built outside the try so a broken package.json is not reported as an apiDocs.translations failure.
+  const resolveOptions = {
     appName: appSource(ctx.cwd).name,
     locales: values.locales?.split(",").map((locale) => locale.trim()),
-  });
+  };
+  let resolved: ResolvedApiDocsConfig;
+  try {
+    resolved = await tools.resolveApiDocsConfig(apiDocs, resolveOptions);
+  } catch (error) {
+    return errorBlock(
+      ctx,
+      `✗ apiDocs.translations: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
   const badLocales = localeProblem(resolved.locales, tools);
   if (badLocales !== undefined) return usageError(ctx, badLocales);
   if (apiDocs.baseUrl === undefined) {
@@ -258,7 +268,7 @@ async function generate(
   const { composeFeatures } = await import("@cosmicdrift/kumiko-server-runtime");
 
   const apiDocs = config.apiDocs ?? {};
-  const target = resolveTarget(ctx, tools, apiDocs, values);
+  const target = await resolveTarget(ctx, tools, apiDocs, values);
   if (typeof target === "number") return target;
   const { resolved, outDir, onDisk, check } = target;
 
