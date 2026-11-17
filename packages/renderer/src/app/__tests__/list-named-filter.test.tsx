@@ -242,9 +242,15 @@ describe("entityList namedFilters", () => {
       QN,
       { "task-list.filter": "overdue" },
     );
-    await waitFor(() => expect(queryCalls.length).toBeGreaterThan(2));
+    await waitFor(() =>
+      expect(
+        queryCalls.some(
+          (call) =>
+            (call.payload as { aggregate?: { groupBy?: unknown } }).aggregate?.groupBy === "status",
+        ),
+      ).toBe(true),
+    );
     expect(queryCalls.every((call) => namedFilterOf(call.payload) === "overdue")).toBe(true);
-    expect(queryCalls.some((call) => (call.payload as { limit?: number }).limit === 1)).toBe(true);
   });
 
   test("without the URL key no namedFilter is sent", async () => {

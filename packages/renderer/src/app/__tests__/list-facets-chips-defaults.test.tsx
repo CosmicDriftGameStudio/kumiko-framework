@@ -119,6 +119,7 @@ const statusEntity: EntityDefinition = {
 
 function statusSchema(
   extra: Pick<EntityListScreenDefinition, "facets" | "defaultFilters">,
+  entity: EntityDefinition = statusEntity,
 ): FeatureSchema {
   const screen: EntityListScreenDefinition = {
     id: "task-list",
@@ -129,7 +130,7 @@ function statusSchema(
   };
   return {
     featureName: "tasks",
-    entities: { task: statusEntity },
+    entities: { task: entity },
     screens: [screen],
   } as FeatureSchema;
 }
@@ -139,6 +140,10 @@ async function capturedFacets(): Promise<DataTableProps> {
   const props = getCapturedProps();
   if (props === undefined) throw new Error("DataTable was not rendered");
   return props;
+}
+
+function aggregateOf(payload: unknown): { groupBy?: string; measures?: unknown } | undefined {
+  return (payload as { aggregate?: { groupBy?: string; measures?: unknown } }).aggregate;
 }
 
 function filtersOf(payload: unknown): unknown {
@@ -173,15 +178,102 @@ describe("entityList facets config", () => {
     ]);
   });
 
-  test("showCounts: each chip's count comes from a limit-1 totalCount query with that chip's filter", async () => {
+  test("showCounts: one grouped count query per facet field answers every chip", async () => {
     queryCalls = [];
     capturedProps = undefined;
     const dispatcher = createMockDispatcher({
       query: async (type: string, payload: unknown) => {
         queryCalls.push({ type, payload });
-        const filters = filtersOf(payload) as { value: string[] }[] | undefined;
-        const total = filters?.[0]?.value[0] === "open" ? 7 : 3;
-        return { isSuccess: true, data: { rows: [], nextCursor: null, total } };
+        if (aggregateOf(payload)?.groupBy === "status") {
+          return {
+            isSuccess: true,
+            data: {
+              groups: [
+                { key: "open", count: 7, measures: [] },
+                { key: "done", count: 3, measures: [] },
+              ],
+            },
+          };
+        }
+        return { isSuccess: true, data: { rows: [], nextCursor: null } };
+      },
+    });
+    renderScreen(
+      statusSchema({
+        facets: {
+          status: {
+            display: "chips",
+            showCounts: true,
+            extraOptions: [
+              { id: "all", label: "All", values: [] },
+              { id: "active", label: "Active", values: ["open", "done"], position: "end" },
+            ],
+          },
+        },
+      }),
+      "tasks:screen:task-list",
+      dispatcher,
+    );
+    await waitFor(() => {
+      const chips = getCapturedProps()?.filterFacets?.[0]?.chips;
+      expect(chips?.map((chip) => chip.count)).toEqual([10, 7, 3, 10]);
+    });
+    const groupCalls = queryCalls.filter(
+      (call) => aggregateOf(call.payload)?.groupBy === "status",
+    );
+    expect(groupCalls.length).toBeGreaterThan(0);
+    for (const call of groupCalls) {
+      expect(aggregateOf(call.payload)).toEqual({ groupBy: "status", measures: [] });
+      expect((call.payload as { limit?: number }).limit).toBeUndefined();
+    }
+    expect(
+      queryCalls.some((call) => (call.payload as { limit?: number }).limit === 1),
+    ).toBe(false);
+  });
+
+  test("the counted facet's own selection is left out, the other facets stay", async () => {
+    queryCalls = [];
+    capturedProps = undefined;
+    const entity: EntityDefinition = {
+      fields: {
+        status: { type: "select", options: ["open", "done"], filterable: true, required: false },
+        priority: { type: "select", options: ["high", "low"], filterable: true, required: false },
+      },
+    };
+    renderScreen(
+      statusSchema(
+        {
+          facets: { status: { display: "chips", showCounts: true } },
+          defaultFilters: { status: ["open"], priority: ["high"] },
+        },
+        entity,
+      ),
+      "tasks:screen:task-list",
+    );
+    await waitFor(() => {
+      expect(
+        queryCalls.some((call) => aggregateOf(call.payload)?.groupBy === "status"),
+      ).toBe(true);
+    });
+    const groupCall = queryCalls.find((call) => aggregateOf(call.payload)?.groupBy === "status");
+    expect(filtersOf(groupCall?.payload)).toEqual([
+      { field: "priority", op: "in", value: ["high"] },
+    ]);
+  });
+
+  test("a truncated grouped answer leaves the chips without a count", async () => {
+    queryCalls = [];
+    capturedProps = undefined;
+    const dispatcher = createMockDispatcher({
+      query: async (type: string, payload: unknown) => {
+        queryCalls.push({ type, payload });
+        if (aggregateOf(payload)?.groupBy === "status") {
+          return {
+            isSuccess: true,
+            data: { groups: [{ key: "open", count: 7, measures: [] }], truncated: true },
+          };
+        }
+        return { isSuccess: true, data: { rows: [], nextCursor: null } };
       },
     });
     renderScreen(
@@ -190,14 +282,12 @@ describe("entityList facets config", () => {
       dispatcher,
     );
     await waitFor(() => {
-      const chips = getCapturedProps()?.filterFacets?.[0]?.chips;
-      expect(chips?.map((chip) => chip.count)).toEqual([7, 3]);
+      expect(
+        queryCalls.some((call) => aggregateOf(call.payload)?.groupBy === "status"),
+      ).toBe(true);
     });
-    const countCalls = queryCalls.filter(
-      (call) => (call.payload as { limit?: number }).limit === 1,
-    );
-    expect(countCalls.length).toBeGreaterThanOrEqual(2);
-    expect(countCalls[0]?.payload).toMatchObject({ totalCount: true });
+    const chips = getCapturedProps()?.filterFacets?.[0]?.chips;
+    expect(chips?.map((chip) => chip.count)).toEqual([undefined, undefined]);
   });
 
   test("a facet set to false is not shown", async () => {

@@ -8,9 +8,11 @@ import {
   createEntity,
   createMoneyField,
   createNumberField,
+  createReferenceField,
   createSelectField,
   createTextField,
 } from "../../factories.ts";
+import { validateEntityListAggregateOptions } from "../entity-list-aggregate-options.ts";
 
 function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   validateBootRaw(withBootValidatorFixture(features));
@@ -250,5 +252,45 @@ describe("validateBoot — range facets", () => {
     expect(() =>
       validateBoot([featureWith("entityList", { facets: { name: { display: "range" } } })]),
     ).toThrow(/facets\.name: display "range" needs a number, decimal, money or bigInt field/);
+  });
+});
+
+describe("validateBoot — counted chip facets", () => {
+  test("chips with showCounts on a select field are accepted", () => {
+    const facets = { status: { display: "chips", showCounts: true } };
+    expect(() => validateBoot([featureWith("entityList", { facets })])).not.toThrow();
+  });
+
+  test("chips with showCounts on an encrypted field are rejected", () => {
+    const facets = { vaultKey: { display: "chips", showCounts: true } };
+    expect(() => validateBoot([featureWith("entityList", { facets })])).toThrow(
+      /facets\.vaultKey: chips with showCounts or hideEmpty/,
+    );
+  });
+
+  test("chips with hideEmpty on a text field are rejected", () => {
+    const facets = { name: { display: "chips", hideEmpty: true } };
+    expect(() => validateBoot([featureWith("entityList", { facets })])).toThrow(
+      /facets\.name: chips with showCounts or hideEmpty/,
+    );
+  });
+
+  test("chips with showCounts on a multiple reference are rejected", () => {
+    const entity = createEntity({
+      fields: { tags: createReferenceField({ entity: "tag", multiple: true, filterable: true }) },
+    });
+    expect(() =>
+      validateEntityListAggregateOptions(
+        '[Feature shop] Screen "x" (entityList)',
+        {
+          id: "x",
+          type: "entityList",
+          entity: "order",
+          columns: ["tags"],
+          facets: { tags: { display: "chips", showCounts: true } },
+        },
+        entity,
+      ),
+    ).toThrow(/facets\.tags: chips with showCounts or hideEmpty/);
   });
 });

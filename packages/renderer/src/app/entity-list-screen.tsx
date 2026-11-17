@@ -26,7 +26,7 @@ import { useAppFeatures } from "./app-features-context.tsx";
 import { useClientActionRuntime } from "./client-actions.tsx";
 import { EntityListExpandedRow } from "./entity-list-expanded-row.tsx";
 import { resolveEntityFacetSpecs } from "./entity-list-facet-specs.ts";
-import { FacetCountBridges, type FacetCountQuery } from "./facet-count-bridge.tsx";
+import { FacetCountBridges, FacetValueCountBridges } from "./facet-count-bridge.tsx";
 import type { FeatureSchema } from "./feature-schema.ts";
 import { useListBulk } from "./list-bulk-actions.ts";
 import {
@@ -36,8 +36,6 @@ import {
 } from "./list-empty-content.ts";
 import {
   buildEntityFilterFacets,
-  buildFacetCountRequests,
-  buildFilterPayload,
   mergeReferenceFacetOptions,
   normalizeDefaultFilters,
 } from "./list-facets.ts";
@@ -72,6 +70,7 @@ import {
   isEntityEditScreenOfEntity,
   useNavigateToCreateFor,
 } from "./screen-shared.tsx";
+import { useEntityFacetValueCounts } from "./use-entity-facet-value-counts.ts";
 import { useEntityListPayload } from "./use-entity-list-payload.ts";
 import { useEntityRangeFacets } from "./use-entity-range-facets.ts";
 import { useFacetCounts } from "./use-facet-counts.ts";
@@ -277,6 +276,17 @@ function EntityListBody({
     [],
   );
   const { facetCounts, handleFacetCount } = useFacetCounts();
+  const { valueCountQueries, facetValueCounts, handleFacetValueCounts } =
+    useEntityFacetValueCounts({
+      specs: entityFacetSpecs,
+      facets: screen.facets,
+      urlFilters: urlState.filters,
+      search: urlState.q,
+      screenFilter: screen.filter,
+      fields: entity.fields,
+      rangeFilters: range.rangeFilters,
+      activeNamedFilter,
+    });
   const filterFacets = useMemo<DataTableFacet[]>(() => {
     const namedFacet = buildNamedFilterFacet(
       screen.namedFilters,
@@ -290,7 +300,7 @@ function EntityListBody({
         mergeReferenceFacetOptions(entityFacetSpecs, entityReferenceFacetOptions),
         screen.facets,
         effectiveTranslate,
-        facetCounts,
+        facetValueCounts,
       ),
       ...(namedFacet !== undefined ? [namedFacet] : []),
     ];
@@ -303,52 +313,13 @@ function EntityListBody({
     effectiveTranslate,
     userRoles,
     facetCounts,
+    facetValueCounts,
   ]);
   const filterValues = useMemo(
     () => withNamedFilterValues(urlState.filters, activeNamedFilter),
     [urlState.filters, activeNamedFilter],
   );
   const onFilterChange = useMemo(() => routeFacetChange(urlState), [urlState]);
-  const facetCountQueries = useMemo<FacetCountQuery[]>(
-    () =>
-      buildFacetCountRequests(entityFacetSpecs, screen.facets, effectiveTranslate).map(
-        (request) => {
-          const filters = [
-            ...buildFilterPayload(
-              { ...urlState.filters, [request.field]: request.values },
-              (field) => entity.fields[field]?.type,
-            ),
-            ...range.rangeFilters,
-          ];
-          return {
-            key: request.key,
-            payload: {
-              limit: 1,
-              totalCount: true,
-              ...(urlState.q !== "" && { search: urlState.q }),
-              ...(screen.filter !== undefined && { filter: screen.filter }),
-              ...(filters.length > 0 && { filters }),
-              ...(activeNamedFilter !== undefined && { namedFilter: activeNamedFilter }),
-            },
-          };
-        },
-      ),
-    [
-      activeNamedFilter,
-      entityFacetSpecs,
-      screen.facets,
-      screen.filter,
-      effectiveTranslate,
-      urlState.filters,
-      urlState.q,
-      entity.fields,
-      range.rangeFilters,
-    ],
-  );
-  const allFacetCountQueries = useMemo(
-    () => [...namedFilterCountQueries, ...facetCountQueries],
-    [namedFilterCountQueries, facetCountQueries],
-  );
 
   // Soft dispatcher: in tests that mount without a DispatcherProvider,
   // rowActions stays undefined instead of crashing. Real apps have the
@@ -630,8 +601,14 @@ function EntityListBody({
       />
       <FacetCountBridges
         queryType={queryType}
-        queries={allFacetCountQueries}
+        queries={namedFilterCountQueries}
         onCount={handleFacetCount}
+        refreshNonce={facetCountRefreshNonce}
+      />
+      <FacetValueCountBridges
+        queryType={queryType}
+        queries={valueCountQueries}
+        onValueCounts={handleFacetValueCounts}
         refreshNonce={facetCountRefreshNonce}
       />
       <RenderList

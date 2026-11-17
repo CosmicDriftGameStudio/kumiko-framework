@@ -567,8 +567,9 @@ export type EntityListFacetConfig = {
    *  number, decimal, money or bigInt field, sent as `gte`/`lte`. */
   readonly display?: "select" | "chips" | "range";
   /** Chips show how many rows each option matches (other facets and the
-   *  search apply). Counts come from the list query itself, one `limit: 1`
-   *  count request per chip. */
+   *  search apply). Counts come from one grouped list query per facet
+   *  (`aggregate.groupBy`); needs a select, boolean or single reference field
+   *  that is not encrypted, personal or secret. */
   readonly showCounts?: boolean;
   /** Chips with zero matching rows are not shown. Needs counts; implies
    *  `showCounts`'s requests even when the number itself is not shown. */

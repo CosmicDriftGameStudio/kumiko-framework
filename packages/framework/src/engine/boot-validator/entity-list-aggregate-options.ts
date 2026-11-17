@@ -1,4 +1,5 @@
 import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
+import { isListAggregateGroupable } from "../../db/aggregate-sql.ts";
 import { isListFilterAllowed } from "../../db/entity-field-encryption.ts";
 import { isFieldFilterable } from "../screen-filter-ops.ts";
 
@@ -33,6 +34,31 @@ function validateRangeFacets(
   }
 }
 
+const COUNTED_FACET_TYPES: readonly string[] = ["select", "boolean", "reference"];
+
+function validateCountedChipFacets(
+  where: string,
+  facets: EntityListScreenDefinition["facets"],
+  entity: EntityDefinition,
+): void {
+  const lookup = entityAggregateFieldLookup(entity);
+  for (const [field, config] of Object.entries(facets ?? {})) {
+    if (config === false || config.display !== "chips") continue;
+    if (config.showCounts !== true && config.hideEmpty !== true) continue;
+    const info = lookup(field);
+    if (
+      info === undefined ||
+      info.secret ||
+      !COUNTED_FACET_TYPES.includes(info.type) ||
+      !isListAggregateGroupable(info.type, info.multiple)
+    ) {
+      throw bootRuleError(LIST_TABLE_AGGREGATE_RULES.countFacetNotGroupable, {
+        message: `${where} facets.${field}: chips with showCounts or hideEmpty need a select, boolean or single reference field that is not encrypted, personal or secret.`,
+      });
+    }
+  }
+}
+
 export function validateEntityListAggregateOptions(
   where: string,
   screen: EntityListScreenDefinition,
@@ -47,4 +73,5 @@ export function validateEntityListAggregateOptions(
     );
   }
   validateRangeFacets(where, screen.facets, entity);
+  validateCountedChipFacets(where, screen.facets, entity);
 }

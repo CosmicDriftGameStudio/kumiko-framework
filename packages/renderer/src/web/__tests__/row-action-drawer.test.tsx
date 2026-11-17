@@ -279,12 +279,21 @@ describe("facet counts after a drawer write", () => {
       screens: [listScreen, noteForm],
     };
     const dispatcher = createMockDispatcher({
-      query: async (_type: string, payload: { filters?: { value: string[] }[] }) => {
-        const chipValue = payload.filters?.[0]?.value[0];
-        const total = chipValue === "done" && !written ? 0 : 1;
+      query: async (_type: string, payload: { aggregate?: { groupBy?: string } }) => {
+        if (payload.aggregate?.groupBy === "status") {
+          return {
+            isSuccess: true,
+            data: {
+              groups: [
+                { key: "open", count: 1, measures: [] },
+                ...(written ? [{ key: "done", count: 1, measures: [] }] : []),
+              ],
+            },
+          };
+        }
         return {
           isSuccess: true,
-          data: { rows: [{ id: "r1", title: "Alpha", status: "open" }], nextCursor: null, total },
+          data: { rows: [{ id: "r1", title: "Alpha", status: "open" }], nextCursor: null, total: 1 },
         };
       },
       write: async () => {
