@@ -121,6 +121,7 @@ export function createCapCounterFeature() {
         screen: "cap-counter:screen:cap-list",
         icon: "gauge",
         order: 60,
+        adminArea: "platform",
       });
       r.translations({
         keys: {

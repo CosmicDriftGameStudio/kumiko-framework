@@ -21,7 +21,7 @@ createKumikoApp({
 Mount `createDocumentDesignerFeature()` after `template-resolver` (and `managed-pages` if the branding rail should link to the branding screen).
 
 - Screens: `templates` (TenantAdmin, SystemAdmin), `platform-templates` (SystemAdmin, adds the "customised by" column), `layout-editor` (opened from the "Edit" row action of a layout), `mail-editor` (opened from the "Edit" row action of a mail template; subject, content, resources, preview and test mail).
-- Navs: `document-designer:nav:templates` and `document-designer:nav:platform-templates`. `createAdminShellFeature({ includeDocumentDesigner: true })` lists them in the admin workspaces.
+- Navs: `document-designer:nav:templates` and `document-designer:nav:platform-templates`. Both carry `adminArea`, so the admin-shell workspaces and any workspace with `collectAdminArea` list them.
 - `TEMPLATE_EDITOR_SCREENS` maps a template kind to the screen that edits it; adding a kind there adds the "Edit" row action.
 - `PreviewRecordPickerProvider` (web export) adds a "pick a record" action to the mail preview; without it the action is hidden. Picked values are shown only, the preview endpoint takes no overrides.
 - The MJML tab of the layout editor is shown to SystemAdmin only and only when the system layout is MJML.

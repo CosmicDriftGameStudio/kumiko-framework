@@ -171,6 +171,7 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
       icon: "list",
       screen: "jobs:screen:job-runs",
       order: 10,
+      adminArea: "platform",
     });
 
     r.screen(eventConsumersScreen);
@@ -181,6 +182,7 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
       icon: "list",
       screen: "jobs:screen:event-consumers",
       order: 11,
+      adminArea: "platform",
     });
 
     return { handlers, queries };

@@ -449,7 +449,6 @@ export const APP_FEATURES = [
   // tenant-caps nav entries end-to-end — cap-overview is mounted below.
   createAdminShellFeature({
     includeCapOverview: true,
-    includeDocumentDesigner: true,
     extraPlatformPanels: helpdeskOpenRequestsPanels(),
   }),
 

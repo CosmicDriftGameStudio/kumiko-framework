@@ -203,6 +203,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
       icon: "download",
       screen: UserDataRightsScreens.exportJobList,
       order: 25,
+      adminArea: "platform",
       access: { roles: ["SystemAdmin"] },
     });
 

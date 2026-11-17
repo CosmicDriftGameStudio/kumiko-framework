@@ -11,6 +11,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "admin-shell:nav.tenantOverview": "Resumen",
   "admin-shell:nav.tenants": "Organizaciones",
   "admin-shell:nav.tierAdmin": "Asignar tier",
+  "admin-shell:nav.users": "Usuarios",
   "admin-shell:overview.chart.auditWrites": "Cambios por día",
   "admin-shell:overview.chart.auditWritesSubtitle": "Registro de auditoría, 14 días",
   "admin-shell:overview.chart.deliveriesByChannel": "Entregas por canal",

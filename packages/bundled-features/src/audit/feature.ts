@@ -180,6 +180,7 @@ export function createAuditFeature(): FeatureDefinition {
         icon: "file",
         screen: "audit:screen:audit-log",
         order: 30,
+        adminArea: "tenant",
       });
       r.nav({
         id: AUDIT_LOG_ALL_TENANTS_NAV_ID,
@@ -187,6 +188,7 @@ export function createAuditFeature(): FeatureDefinition {
         icon: "file",
         screen: "audit:screen:audit-log-all-tenants",
         order: 31,
+        adminArea: "platform",
       });
 
       return { queries };

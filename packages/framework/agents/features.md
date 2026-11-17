@@ -14,7 +14,7 @@ Administration group in the sidebar of this sample app.
 
 ## admin-shell
 
-Registers tenant-admin and platform-admin workspaces with provider nav into owner-feature screens (`tenant:screen:members`, `audit:screen:audit-log`, `audit:screen:audit-log-all-tenants`, `tenant:screen:tenant-list`, `jobs:screen:job-runs`, optional `tier-engine:screen:tier-admin`, optional `cap-overview:screen:my-caps`/`cap-overview:screen:tenant-cap-list`, optional `document-designer` template navs) and the two overview dashboards (the tenant one can be dropped with `includeTenantOverview: false`), built from the metrics list (`metrics` option, default DEFAULT_METRICS). Mount after user, tenant, audit, jobs, metrics and metrics-system; pass `workspaceIds` to match app URL conventions (e.g. Studio `d`/`s`, PublicStatus `admin`/`sysadmin`). Client: `adminShellClient()`, `tenantClient()`, `auditClient()`, `jobsClient()`, optional `tierEngineClient()`.
+Registers tenant-admin and platform-admin workspaces that collect every nav with adminArea "tenant" / "platform" of the mounted features (members, audit, jobs, event consumers, export jobs, feature toggles, caps, document templates, users, optional tier-admin/caps) and the two overview dashboards (the tenant one can be dropped with `includeTenantOverview: false`), built from the metrics list (`metrics` option, default DEFAULT_METRICS). Apps with their own workspaces set `registerWorkspaces: false` and `collectAdminArea` on them. Mount after user, tenant, audit, jobs, metrics and metrics-system; pass `workspaceIds` to match app URL conventions (e.g. Studio `d`/`s`, PublicStatus `admin`/`sysadmin`). Client: `adminShellClient()`, `tenantClient()`, `auditClient()`, `jobsClient()`, optional `tierEngineClient()`.
 
 Category: operations
 
@@ -248,7 +248,7 @@ Requires: `file-derivatives`
 
 ## document-designer
 
-Template overview and layout editor: lists the mail, PDF and layout templates of a tenant (platform admins see the system templates and how many tenants customised each) and edits the mail layout and the PDF letterhead in the browser. Mount after template-resolver and, for the branding rail, managed-pages. Client: `documentDesignerClient()`; admin-shell lists the navs with `includeDocumentDesigner`. The tenant overview and the editors are for SystemAdmin only; the `access` option adds roles (normally `templateEditAccess(tenantEditable)` of the template-resolver mount), and the server still enforces per template which of them may save.
+Template overview and layout editor: lists the mail, PDF and layout templates of a tenant (platform admins see the system templates and how many tenants customised each) and edits the mail layout and the PDF letterhead in the browser. Mount after template-resolver and, for the branding rail, managed-pages. Client: `documentDesignerClient()`; the navs carry adminArea tenant/platform, so admin-shell and any workspace with collectAdminArea list them. The tenant overview and the editors are for SystemAdmin only; the `access` option adds roles (normally `templateEditAccess(tenantEditable)` of the template-resolver mount), and the server still enforces per template which of them may save.
 
 Category: content
 

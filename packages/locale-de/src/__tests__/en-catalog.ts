@@ -10,6 +10,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "admin-shell:nav.tenantOverview": "Overview",
   "admin-shell:nav.tenants": "Tenants",
   "admin-shell:nav.tierAdmin": "Assign tier",
+  "admin-shell:nav.users": "Users",
   "admin-shell:overview.chart.auditWrites": "Changes per day",
   "admin-shell:overview.chart.auditWritesSubtitle": "Audit log, 14 days",
   "admin-shell:overview.chart.deliveriesByChannel": "Deliveries by channel",

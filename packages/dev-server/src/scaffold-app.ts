@@ -449,7 +449,7 @@ export const HAS_AUTH = true;
 `;
 }
 
-// Ports match runDevApp's default and kumiko-testing's SCAFFOLD_E2E_PORT.
+// dev matches runDevApp's default; e2e sits one above so both runs fit side by side.
 const SCAFFOLD_DEV_PORT = 4173;
 const SCAFFOLD_E2E_PORT = 4174;
 

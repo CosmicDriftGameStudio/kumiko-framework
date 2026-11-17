@@ -122,6 +122,7 @@ export type {
 } from "@cosmicdrift/kumiko-types/hooks";
 export type { EntityId, VisitorKey } from "@cosmicdrift/kumiko-types/identifiers";
 export type {
+  AdminNavArea,
   ContentCollectionDefinition,
   NavDefinition,
   NavIconKey,

@@ -1,4 +1,8 @@
+import type { AdminNavArea } from "@cosmicdrift/kumiko-framework/engine";
+
 export type DeliveryFeatureOptions = {
+  // Admin area of the delivery-log nav; unset leaves it to the app's workspace lists.
+  readonly adminArea?: AdminNavArea;
   // Access gate for the delivery-log screen and the `log` query it reads —
   // both move together so the nav entry a role sees always matches a
   // callable handler. Default access.admin includes TenantAdmin,

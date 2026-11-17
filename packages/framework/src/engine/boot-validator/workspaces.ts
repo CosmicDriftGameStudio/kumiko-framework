@@ -65,13 +65,18 @@ export function deriveNavAllowlistFromWorkspaces(
   allWorkspaceQns: ReadonlyMap<string, WorkspaceDefinition & { readonly featureName: string }>,
 ): ReadonlySet<string> {
   const allowlist = new Set<string>();
+  const collectedAreas = new Set<string>();
   for (const wsDef of allWorkspaceQns.values()) {
     for (const navQn of wsDef.nav ?? []) {
       allowlist.add(navQn);
     }
+    if (wsDef.collectAdminArea !== undefined) collectedAreas.add(wsDef.collectAdminArea);
   }
   for (const [navQn, navDef] of allNavQns) {
     if (navDef.workspaces !== undefined && navDef.workspaces.length > 0) {
+      allowlist.add(navQn);
+    }
+    if (navDef.adminArea !== undefined && collectedAreas.has(navDef.adminArea)) {
       allowlist.add(navQn);
     }
   }

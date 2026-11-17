@@ -7,6 +7,7 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { deriveEntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import {
+  type AdminNavArea,
   access,
   defineFeature,
   type FeatureDefinition,
@@ -46,6 +47,8 @@ export type SessionsFeatureOptions = {
   // IP/user-agent of every session in the tenant. A preset name, not a role array, because
   // dedupeOptions must stay primitive.
   readonly adminAccess?: "admin" | "systemAdmin";
+  // Admin area of the session-list nav; unset leaves it to the app's workspace lists.
+  readonly adminArea?: AdminNavArea;
   // Real time unless a test injects a manual clock; makes session times deterministic.
   readonly clock?: Clock;
   // Opt-in: serves GET /sessions/last-activity to a sibling app presenting this secret as a
@@ -70,6 +73,7 @@ export type SessionsFeatureOptions = {
 // Not system-scoped: sessions live per tenant, and the handlers should only
 // see rows in the caller's active tenant.
 export function createSessionsFeature(options?: SessionsFeatureOptions): FeatureDefinition {
+  const sessionListAdminArea = options?.adminArea;
   return defineFeature(
     "sessions",
     (r) => {
@@ -191,6 +195,7 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
         icon: "list",
         screen: "sessions:screen:session-list",
         order: 10,
+        adminArea: sessionListAdminArea,
       });
 
       return { handlers, queries };

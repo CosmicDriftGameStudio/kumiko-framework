@@ -71,7 +71,7 @@ describe("admin-shell boot + workspace composition", () => {
     ).toBe(`${ADMIN_SHELL_FEATURE}:workspace:${DEFAULT_PLATFORM_WORKSPACE_ID}`);
   });
 
-  test("tenant workspace nav references owner-feature navs", () => {
+  test("tenant workspace collects the tenant-area navs of mounted features", () => {
     const registry = createRegistry(features);
     const navs = registry.getWorkspaceNavs(
       `${ADMIN_SHELL_FEATURE}:workspace:${DEFAULT_TENANT_WORKSPACE_ID}`,
@@ -83,17 +83,19 @@ describe("admin-shell boot + workspace composition", () => {
     ]);
   });
 
-  test("platform workspace nav includes overview, tenants, jobs, tier-admin", () => {
+  test("platform workspace collects the platform-area navs sorted by order", () => {
     const registry = createRegistry(features);
     const navs = registry.getWorkspaceNavs(
       `${ADMIN_SHELL_FEATURE}:workspace:${DEFAULT_PLATFORM_WORKSPACE_ID}`,
     );
     expect(navs).toEqual([
       "admin-shell:nav:platform-overview",
-      "admin-shell:nav:tenants",
-      "audit:nav:audit-log-all-tenants",
       "jobs:nav:job-runs",
+      "admin-shell:nav:tenants",
+      "jobs:nav:event-consumers",
+      "admin-shell:nav:users",
       "admin-shell:nav:tier-admin",
+      "audit:nav:audit-log-all-tenants",
     ]);
   });
 
@@ -129,9 +131,11 @@ describe("admin-shell boot + workspace composition", () => {
     expect(registry.getWorkspace("admin-shell:workspace:sysadmin")?.id).toBeDefined();
     expect(registry.getWorkspaceNavs("admin-shell:workspace:sysadmin")).toEqual([
       "admin-shell:nav:platform-overview",
-      "admin-shell:nav:tenants",
-      "audit:nav:audit-log-all-tenants",
       "jobs:nav:job-runs",
+      "admin-shell:nav:tenants",
+      "jobs:nav:event-consumers",
+      "admin-shell:nav:users",
+      "audit:nav:audit-log-all-tenants",
     ]);
   });
 
@@ -198,8 +202,8 @@ describe("admin-shell boot + workspace composition", () => {
     ).toEqual([
       "admin-shell:nav:tenant-overview",
       "tenant:nav:members",
-      "audit:nav:audit-log",
       "admin-shell:nav:my-caps",
+      "audit:nav:audit-log",
     ]);
     expect(
       registry.getWorkspaceNavs(
@@ -207,11 +211,13 @@ describe("admin-shell boot + workspace composition", () => {
       ),
     ).toEqual([
       "admin-shell:nav:platform-overview",
-      "admin-shell:nav:tenants",
-      "admin-shell:nav:tenant-caps",
-      "audit:nav:audit-log-all-tenants",
       "jobs:nav:job-runs",
+      "admin-shell:nav:tenants",
+      "jobs:nav:event-consumers",
+      "admin-shell:nav:users",
+      "admin-shell:nav:tenant-caps",
       "admin-shell:nav:tier-admin",
+      "audit:nav:audit-log-all-tenants",
     ]);
     expect(registry.getNav("admin-shell:nav:my-caps")?.screen).toBe("cap-overview:screen:my-caps");
     expect(registry.getNav("admin-shell:nav:tenant-caps")?.screen).toBe(
@@ -235,25 +241,26 @@ describe("admin-shell boot + workspace composition", () => {
 });
 
 // Stand-in for the document-designer package, which bundled-features must not depend on:
-// admin-shell only references its nav ids.
+// its navs only carry the admin area the workspaces collect by.
 const documentDesignerStandIn = defineFeature("document-designer", (r) => {
   r.nav({
     id: "templates",
     label: "test.nav.templates",
     screen: "document-designer:screen:templates",
+    order: 15,
+    adminArea: "tenant",
   });
   r.nav({
     id: "platform-templates",
     label: "test.nav.platformTemplates",
     screen: "document-designer:screen:platform-templates",
+    order: 15,
+    adminArea: "platform",
   });
 });
 
-describe("admin-shell includeDocumentDesigner", () => {
-  const withDesigner = createAdminShellFeature({
-    metrics: ADMIN_SHELL_TEST_METRICS,
-    includeDocumentDesigner: true,
-  });
+describe("admin-shell document-designer navs are collected", () => {
+  const withDesigner = createAdminShellFeature({ metrics: ADMIN_SHELL_TEST_METRICS });
   const baseFeatures = [
     createConfigFeature(),
     createUserFeature(),
@@ -280,15 +287,35 @@ describe("admin-shell includeDocumentDesigner", () => {
     expect(platformNavs).not.toContain("document-designer:nav:templates");
   });
 
-  test("requires the document-designer feature", () => {
-    expect(() => validateBoot([...baseFeatures, withDesigner])).toThrow();
-  });
-
-  test("default adds no template navs", () => {
+  test("without document-designer no template navs", () => {
     const registry = createRegistry(features);
     expect(
       registry.getWorkspaceNavs(`${ADMIN_SHELL_FEATURE}:workspace:${DEFAULT_TENANT_WORKSPACE_ID}`),
     ).not.toContain("document-designer:nav:templates");
+  });
+});
+
+describe("admin-shell with app-owned workspaces", () => {
+  test("registerWorkspaces:false plus a collecting app workspace lists the same tenant navs", () => {
+    const tenantWorkspace = `${ADMIN_SHELL_FEATURE}:workspace:${DEFAULT_TENANT_WORKSPACE_ID}`;
+    const hostFeature = defineFeature("host", (r) => {
+      r.workspace({ id: "host", label: "test.workspace.host", collectAdminArea: "tenant" });
+    });
+    const appFeatures = [
+      createConfigFeature(),
+      createUserFeature(),
+      createTenantFeature(),
+      createAuditFeature(),
+      createJobsFeature(),
+      ...ADMIN_SHELL_METRICS_FEATURES,
+      createTierEngineFeature(),
+      createAdminShellFeature({ metrics: ADMIN_SHELL_TEST_METRICS, registerWorkspaces: false }),
+      hostFeature,
+    ];
+    const appRegistry = createRegistry(appFeatures);
+    expect(appRegistry.getWorkspaceNavs("host:workspace:host")).toEqual(
+      createRegistry(features).getWorkspaceNavs(tenantWorkspace),
+    );
   });
 });
 

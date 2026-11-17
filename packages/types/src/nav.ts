@@ -5,6 +5,8 @@ import type { TreeAction } from "./tree-node.ts";
 
 export type { IconKey, NavIconKey } from "./nav-icon.ts";
 
+export type AdminNavArea = "tenant" | "platform";
+
 // Nav entry declaration. Every feature that wants to appear in the app's
 // navigation tree registers one or more entries via r.nav(). The engine
 // keeps the list flat — ui-core's resolveNavigation assembles the parent/
@@ -68,6 +70,8 @@ export type NavDefinition = {
   // membership decided solely by the workspace's nav list (or both empty
   // → entry belongs to no workspace).
   readonly workspaces?: readonly string[];
+  // Admin area this entry belongs to. A workspace with a matching collectAdminArea lists it without naming the QN.
+  readonly adminArea?: AdminNavArea;
 };
 
 // A feature's content collection — a set of template-resources of one `kind`,

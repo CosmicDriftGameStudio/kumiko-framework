@@ -49,7 +49,10 @@ function allHandlerQns(state: RegistryState): ReadonlySet<string> {
 
 // Pass 2 for workspaces: fold any nav-self-assigned QNs into their
 // workspace's member list. Safe now that every feature (and therefore every
-// workspace) is in state.workspaceMap.
+// workspace) is in state.workspaceMap. Workspaces with collectAdminArea then
+// append every nav of that area, sorted by order.
+const NAV_ORDER_UNSET = Number.MAX_SAFE_INTEGER;
+
 export function finalizeWorkspaceNavMembership(state: RegistryState): void {
   // workspace's member list. We can do this safely now that every feature
   // (and therefore every workspace) is in state.workspaceMap. Cross-feature refs
@@ -62,6 +65,18 @@ export function finalizeWorkspaceNavMembership(state: RegistryState): void {
     for (const wsQn of navDef.workspaces) {
       const members = state.navsByWorkspace.get(wsQn);
       if (members === undefined) continue; // dangling — boot-validator reports
+      if (!members.includes(navQn)) members.push(navQn);
+    }
+  }
+  for (const [wsQn, wsDef] of state.workspaceMap) {
+    const area = wsDef.collectAdminArea;
+    if (area === undefined) continue;
+    const members = state.navsByWorkspace.get(wsQn);
+    if (members === undefined) continue;
+    const collected = [...state.navMap]
+      .filter(([, navDef]) => navDef.adminArea === area)
+      .sort(([, a], [, b]) => (a.order ?? NAV_ORDER_UNSET) - (b.order ?? NAV_ORDER_UNSET));
+    for (const [navQn] of collected) {
       if (!members.includes(navQn)) members.push(navQn);
     }
   }

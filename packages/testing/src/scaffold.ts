@@ -17,12 +17,8 @@ export type ScaffoldTestSetup = {
 export type RenderTestSetupInput = {
   readonly appName: string;
   readonly frameworkVersion: string;
-  readonly port?: number;
   readonly starter?: ScaffoldTestStarter;
 };
-
-// One above the scaffold's `bun dev` default (4173) so both can run side by side.
-export const SCAFFOLD_E2E_PORT = 4174;
 
 export const SCAFFOLD_INTEGRATION_PARALLEL = 4;
 
@@ -52,12 +48,13 @@ const RULES_MARKDOWN = [
   "",
 ].join("\n");
 
-function renderPlaywrightConfig(port: number): string {
+function renderPlaywrightConfig(): string {
   return [
     TEST_RUNTIME_DIRECTIVE,
     'import { defineAppE2eConfig } from "@cosmicdrift/kumiko-testing/e2e";',
+    'import appConfig from "./kumiko.config";',
     "",
-    `export default defineAppE2eConfig({ port: ${port} });`,
+    "export default defineAppE2eConfig({ port: appConfig.ports.e2e });",
     "",
   ].join("\n");
 }
@@ -208,7 +205,7 @@ function renderIntegrationTest(): string {
 }
 
 export function renderTestSetup(input: RenderTestSetupInput): ScaffoldTestSetup {
-  const { appName, frameworkVersion, port = SCAFFOLD_E2E_PORT, starter = "demo" } = input;
+  const { appName, frameworkVersion, starter = "demo" } = input;
   const isBlank = starter === "blank";
   const playwrightRun = `bunx --bun playwright test${isBlank ? ` ${BLANK_E2E_PLAYWRIGHT_FLAG}` : ""}`;
   const unitTestScript = `bun --config=${BUNFIG_FILES.unit} test --timeout=${TEST_TIMEOUT_MS.unit} --dots`;
@@ -216,7 +213,7 @@ export function renderTestSetup(input: RenderTestSetupInput): ScaffoldTestSetup 
   return {
     files: {
       ...renderBunfigFiles({ install: { linker: "hoisted" }, dom: true }),
-      "playwright.config.ts": renderPlaywrightConfig(port),
+      "playwright.config.ts": renderPlaywrightConfig(),
       "e2e/server.ts": renderE2eServer(appName),
       ...(isBlank
         ? BLANK_TEST_FILES

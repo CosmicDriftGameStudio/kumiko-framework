@@ -8,7 +8,7 @@
 // query may roll up missing config + missing required secrets + a single
 // `ready` boolean — the settings-checklist call for admin UIs.
 
-import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { type AdminNavArea, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { registerBuiltInProbes } from "./built-in-probes.ts";
 import { latestResultsQuery } from "./handlers/latest-results.query.ts";
 import { latestSummaryQuery } from "./handlers/latest-summary.query.ts";
@@ -34,6 +34,8 @@ export interface ReadinessNavOptions {
   readonly parent?: string;
   // Workspace apps need it: a nav belongs only to the workspaces it names, a parent's do not carry over.
   readonly workspaces?: readonly string[];
+  // Admin area for workspaces that collect navs by area.
+  readonly adminArea?: AdminNavArea;
 }
 
 export interface ReadinessFeatureOptions {
@@ -89,6 +91,7 @@ export function createReadinessFeature(options: ReadinessFeatureOptions = {}) {
           order: navOrder = DEFAULT_NAV_ORDER,
           parent: navParent,
           workspaces: navWorkspaces,
+          adminArea: navAdminArea,
         } = nav;
         r.nav({
           id: SYSTEM_CHECK_SCREEN_ID,
@@ -98,6 +101,7 @@ export function createReadinessFeature(options: ReadinessFeatureOptions = {}) {
           order: navOrder,
           parent: navParent,
           workspaces: navWorkspaces,
+          adminArea: navAdminArea,
         });
       }
 
@@ -118,6 +122,7 @@ export function createReadinessFeature(options: ReadinessFeatureOptions = {}) {
         navOrder: nav?.order ?? DEFAULT_NAV_ORDER,
         navParent: nav?.parent ?? "",
         navWorkspaces: nav?.workspaces?.join(",") ?? "",
+        navAdminArea: nav?.adminArea ?? "",
       },
     },
   );

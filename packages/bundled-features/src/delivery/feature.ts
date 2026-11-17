@@ -53,6 +53,7 @@ const ATTEMPT_LOG_RETENTION_ESCAPE_HATCH_REASON =
 
 export function createDeliveryFeature(options?: DeliveryFeatureOptions): FeatureDefinition {
   const resolvedAccess = options?.access ?? access.admin;
+  const deliveryLogAdminArea = options?.adminArea;
   const attemptLogRetentionDays = resolveAttemptLogRetentionDays(options?.attemptLogRetentionDays);
   return defineFeature("delivery", (r) => {
     r.adoptsBundledLists();
@@ -272,6 +273,7 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
       icon: "send",
       screen: "delivery:screen:delivery-log",
       order: 40,
+      adminArea: deliveryLogAdminArea,
     });
 
     r.translations({ keys: DELIVERY_I18N });

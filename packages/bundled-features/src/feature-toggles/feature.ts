@@ -100,6 +100,7 @@ export function createFeatureTogglesFeature(
       label: "feature-toggles:nav.toggleAdmin",
       screen: "feature-toggles:screen:toggle-admin",
       order: 20,
+      adminArea: "platform",
     });
 
     r.translations({ keys: FEATURE_TOGGLES_I18N });

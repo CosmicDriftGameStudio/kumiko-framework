@@ -227,6 +227,7 @@ export function createTenantFeature(options?: TenantFeatureOptions): FeatureDefi
       icon: "users",
       screen: "tenant:screen:members",
       order: 20,
+      adminArea: "tenant",
     });
 
     r.translations({ keys: TENANT_I18N });

@@ -40,14 +40,17 @@ Sample: `kumiko-framework/samples/apps/admin-console` (port 4177 dev, 4178 E2E).
 
 | Workspace (default id) | `access` | Nav (first → last) |
 |---|---|---|
-| `tenant-admin` | `access.admin` (`TenantAdmin`, `Admin`, `SystemAdmin`) | Overview → Members → Audit log |
-| `platform` | `access.systemAdmin` | Overview → Tenants → Job runs → Tier admin (optional) |
+| `tenant-admin` | `access.admin` (`TenantAdmin`, `Admin`, `SystemAdmin`) | Overview → Members → Audit log, plus every nav with `adminArea: "tenant"` (document templates, optional caps) |
+| `platform` | `access.systemAdmin` | Overview → Job runs → Tenants → Event consumers → Users → Tier admin (optional), plus every nav with `adminArea: "platform"` (export jobs, feature toggles, caps, document templates), sorted by `order` |
+
+Both workspaces use `collectAdminArea`: a nav declares `adminArea: "tenant" | "platform"`, the workspace lists every matching nav of the mounted features after its explicit `nav` list, sorted by `order`.
 
 `createAdminShellFeature({ workspaceIds })` maps URL segments for app conventions
 (Studio `d`/`s`, PublicStatus `admin`/`sysadmin`).
 
 **`registerWorkspaces: false`** — app owns `r.workspace()`; admin-shell registers
-overview screens + nav QNs only. Wire nav into your workspace arrays and mount
+overview screens + nav QNs only. Set `collectAdminArea: "tenant"` or `"platform"` on your
+workspaces instead of listing the standard nav QNs, and mount
 `adminShellClient()` + `tenantClient()`. Studio/PublicStatus use this pattern.
 
 **`useShellUser`:** must pass merged `session.roles` (global + membership) into

@@ -62,7 +62,38 @@ describe("kumiko.config.ts static read", () => {
   });
 });
 
+function writeAppConfig(dir: string, ports: string): void {
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    join(dir, "kumiko.config.ts"),
+    `export default defineAppConfig({ features: [], client: { entries: ["src/client.tsx"] }, ports: ${ports} });\n`,
+  );
+}
+
 describe("port registry", () => {
+  test("scans apps nested under <child>/apps and reports their collisions", () => {
+    writeAppConfig(join(root, "app-a"), "{ dev: 4173, e2e: 4183 }");
+    writeAppConfig(join(root, "tm", "apps", "server"), "{ dev: 4173, e2e: 4174 }");
+    mkdirSync(join(root, "tm", "apps", "mobile"), { recursive: true });
+    const apps = scanWorkspaceApps(root);
+    expect(apps.map((app) => app.app)).toEqual(["app-a", "tm/apps/server"]);
+    expect(findPortCollisions(apps)).toEqual([
+      {
+        port: 4173,
+        claims: [
+          { app: "app-a", role: "dev" },
+          { app: "tm/apps/server", role: "dev" },
+        ],
+      },
+    ]);
+  });
+
+  test("a child with its own config and an apps folder is not scanned twice", () => {
+    writeAppConfig(join(root, "mono"), "{ dev: 4200, e2e: 4201 }");
+    writeAppConfig(join(root, "mono", "apps", "inner"), "{ dev: 4210, e2e: 4211 }");
+    expect(scanWorkspaceApps(root).map((app) => app.app)).toEqual(["mono"]);
+  });
+
   test("reports a port claimed by two apps across roles", () => {
     for (const [name, ports] of [
       ["app-a", "{ dev: 4320, e2e: 4321 }"],
