@@ -75,6 +75,7 @@
 | `secrets-demo` | Tenant-owned secrets with envelope encryption, DEK cache, and KEK rotation. | `examples/secrets-demo.md` |
 | `security-baseline` | composeSecurityStack(): sessions, crypto-shredding, rate-limiting, audit — plus the NODE_ENV=production boot warning when one is missing. | `examples/security-baseline.md` |
 | `seed-migration` | ES-Operations seed-migrations — file-based diff-and-apply für Aggregate-Updates die idempotent-Seeder nicht erfassen. | `examples/seed-migration.md` |
+| `session-exchange` | auth.sessionExchangeHandlers — app-defined login methods (ID token, email code) that the framework mints into a session. | `examples/session-exchange.md` |
 | `session-revocation` | createSessionCallbacks + sessionChecker — server-side session revocation via JWT jti. | `examples/session-revocation.md` |
 | `signature` | The signature bundled feature: a request for several signers, a signing link that is delivered by the app, and a completed PDF with a signature page. | `examples/signature.md` |
 | `state-machine` | Enforced entity state transitions. No more illegal state changes. | `examples/state-machine.md` |

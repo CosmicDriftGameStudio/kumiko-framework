@@ -63,12 +63,20 @@ export type AuthRoutesConfig = {
   // dispatches to this handler with a guest identity and issues a JWT on
   // success. Handler must return { kind: "auth-session", session: SessionUser }.
   loginHandler?: string;
+  // Method name → QN of an anonymous write handler that verifies the identity
+  // itself (e.g. an ID token) and returns { kind: "auth-session", session }.
+  // Only handlers listed here may cause a session to be minted.
+  sessionExchangeHandlers?: Readonly<Record<string, string>>;
   // Maps feature-specific login error codes to HTTP status codes. Unknown
   // errors default to 400. Keeps the framework unaware of concrete auth codes.
   loginErrorStatusMap?: Readonly<Record<string, number>>;
   // Rate-limit for POST /auth/login. Defaults to in-memory 10/5min per
   // (ip + email) bucket. Pass `null` to disable (tests, trusted networks).
   loginRateLimit?: LoginRateLimiter | null;
+  // Rate-limit for POST /auth/session-exchange, bucketed by IP + method and never reset
+  // after success. Unset: reuses loginRateLimit. Apps whose methods carry signed tokens
+  // may want a larger bucket or `null` to disable.
+  sessionExchangeRateLimit?: LoginRateLimiter | null;
   // Optional: qualified write handler completing a two-step (password +
   // TOTP/recovery-code) login. When set, POST /auth/mfa/verify dispatches
   // { challengeToken, code } to this handler with a guest identity. On

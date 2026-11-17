@@ -14,7 +14,7 @@
 
 import type { SeedAdminOptions } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/seeding";
 import { createConfigResolver } from "@cosmicdrift/kumiko-bundled-features/config";
-import type { PostAuthLandingResolver } from "@cosmicdrift/kumiko-framework/api";
+import type { LoginRateLimiter, PostAuthLandingResolver } from "@cosmicdrift/kumiko-framework/api";
 import {
   parseTrustedProxyHopsEnv,
   TRUSTED_PROXY_HOPS_ENV,
@@ -105,6 +105,10 @@ export type RunDevAppAuthOptions = {
   /** Optional override of the login error → HTTP status map. Default
    *  maps invalidCredentials → 401, noMembership → 403. */
   readonly loginErrorStatusMap?: Readonly<Record<string, number>>;
+  /** Symmetric with RunProdAppAuthOptions.sessionExchangeHandlers. */
+  readonly sessionExchangeHandlers?: Readonly<Record<string, string>>;
+  /** Symmetric with RunProdAppAuthOptions.sessionExchangeRateLimit. */
+  readonly sessionExchangeRateLimit?: LoginRateLimiter | null;
   /** Auth-mail convenience, symmetric with RunProdAppAuthOptions.mail.
    *  Wires all four mail flows from env-based SMTP settings and the default
    *  templates; hmacSecret is the `JWT_SECRET` environment value, with a dev
