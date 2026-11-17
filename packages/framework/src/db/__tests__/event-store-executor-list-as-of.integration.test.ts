@@ -50,7 +50,12 @@ const asOfFeature = defineFeature("asof", (r) => {
   r.queryHandler({
     name: "draft:events",
     schema: idPayload,
-    handler: async (query, ctx) => ctx.events.load(query.payload.id),
+    // Raw events carry the body ciphertext, which the response leak guard refuses.
+    handler: async (query, ctx) =>
+      (await ctx.events.load(query.payload.id)).map((event) => ({
+        type: event.type,
+        createdAt: event.createdAt,
+      })),
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
   r.queryHandler({

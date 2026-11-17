@@ -207,7 +207,7 @@ export async function runExportJobs(args: RunExportJobsArgs): Promise<RunExportJ
   // this is a hard application configuration error.
   if (sendExportReadyEmail && args.appExportDownloadUrl === undefined) {
     throw new Error(
-      "user-data-rights: sendExportReadyEmail is set but appExportDownloadUrl is missing — configure both together",
+      "user-data-rights: sendExportReadyEmail is set but appExportDownloadUrl is missing, configure both together",
     );
   }
 
@@ -925,7 +925,7 @@ async function fireExportReadyCallback(args: {
   const baseUrl = args.appExportDownloadUrl;
   if (!baseUrl) {
     throw new Error(
-      "user-data-rights: sendExportReadyEmail is set but appExportDownloadUrl is missing — configure both together",
+      "user-data-rights: sendExportReadyEmail is set but appExportDownloadUrl is missing, configure both together",
     );
   }
   const downloadUrl = `${baseUrl}#token=${encodeURIComponent(args.plainToken)}`;
