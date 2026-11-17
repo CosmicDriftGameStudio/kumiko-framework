@@ -2,6 +2,7 @@ import {
   configureBlindIndexKey,
   configurePiiSubjectKms,
   type KmsWiring,
+  requireKmsWiringAsync,
   resolveKmsWiringAsync,
 } from "../crypto/index.ts";
 import { createDbConnection, type DbConnection, runMigrationsFromDir } from "../db/index.ts";
@@ -80,6 +81,25 @@ export async function runApplyCommand(ctx: SchemaCliContext): Promise<number> {
   const { db, close } = createDbConnection({ url: dbUrl, rowLevelSecurity });
   let wiring: KmsWiring | undefined;
   try {
+    // A rebuild replays applyEntityEvent, which computes bidx columns from
+    // configureBlindIndexKey/configurePiiSubjectKms — both boot-injected by
+    // run{Prod,Dev}App but never by this standalone CLI (the migrate-db
+    // initContainer). Without wiring them here, a rebuild would silently
+    // null out bidx columns and, for ciphertext, throw only once it hits
+    // the row. The wiring runs before the migrations so a broken KMS env
+    // exits 1 before the database is touched.
+    if (options.features) {
+      const kmsOptions = {
+        logPrefix: "[kumiko schema apply]",
+        log: out.log,
+        slots: options.kmsSlots,
+      };
+      wiring =
+        options.requireKms === true
+          ? await requireKmsWiringAsync(process.env, kmsOptions)
+          : await resolveKmsWiringAsync(process.env, kmsOptions);
+      configureRebuildKms(wiring);
+    }
     const result = await runMigrationsFromDir(db, migrationsDir);
     await ensureFrameworkInfrastructureTables(db);
     reportAppliedMigrations(out, result);
@@ -93,21 +113,7 @@ export async function runApplyCommand(ctx: SchemaCliContext): Promise<number> {
     // earlier apply, so a later apply with zero new migrations still must
     // retry it — otherwise a failed rebuild is silently never retried,
     // since the migration itself is already tracked applied.
-    if (options.features) {
-      // A rebuild replays applyEntityEvent, which computes bidx columns from
-      // configureBlindIndexKey/configurePiiSubjectKms — both boot-injected by
-      // run{Prod,Dev}App but never by this standalone CLI (the migrate-db
-      // initContainer). Without wiring them here, a rebuild would silently
-      // null out bidx columns and, for ciphertext, throw only once it hits
-      // the row.
-      wiring = await resolveKmsWiringAsync(process.env, {
-        logPrefix: "[kumiko schema apply]",
-        log: out.log,
-        slots: options.kmsSlots,
-      });
-      configureRebuildKms(wiring);
-      await rebuildQueuedProjections(db, ctx, options.features, result.applied);
-    }
+    if (options.features) await rebuildQueuedProjections(db, ctx, options.features, result.applied);
     return 0;
   } catch (e) {
     out.err("");

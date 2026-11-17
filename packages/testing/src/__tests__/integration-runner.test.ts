@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { TEST_TIMEOUT_MS } from "../bunfig";
 import {
   buildIntegrationTestArgs,
   listIntegrationTestFiles,
@@ -200,5 +201,34 @@ describe("listIntegrationTestFiles", () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
+  });
+});
+
+describe("build test class", () => {
+  const both = ["a.integration.test.ts", "b.build.integration.test.ts"];
+
+  test("selectIntegrationFiles keeps build tests out of the default class and only them in build", () => {
+    expect(selectIntegrationFiles(both)).toEqual(["a.integration.test.ts"]);
+    expect(selectIntegrationFiles(both, "build")).toEqual(["b.build.integration.test.ts"]);
+  });
+
+  test("resolveRequestedIntegrationFiles expands a directory per class", () => {
+    const exists = () => true;
+    const listDirectory = () => both;
+    expect(resolveRequestedIntegrationFiles("/cwd", ["dir"], exists, listDirectory)).toEqual([
+      "/cwd/dir/a.integration.test.ts",
+    ]);
+    expect(
+      resolveRequestedIntegrationFiles("/cwd", ["dir"], exists, listDirectory, "build"),
+    ).toEqual(["/cwd/dir/b.build.integration.test.ts"]);
+  });
+
+  test("buildIntegrationTestArgs uses the build timeout only for the build class", () => {
+    expect(buildIntegrationTestArgs({ files: ["x"], testClass: "build" })).toContain(
+      `--timeout=${TEST_TIMEOUT_MS.build}`,
+    );
+    expect(buildIntegrationTestArgs({ files: ["x"] })).toContain(
+      `--timeout=${TEST_TIMEOUT_MS.integration}`,
+    );
   });
 });

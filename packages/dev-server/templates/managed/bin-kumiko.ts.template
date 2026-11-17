@@ -1,0 +1,21 @@
+#!/usr/bin/env bun
+
+// Standalone kumiko CLI, bundled by kumiko-build to dist-server/kumiko.js. The deploy
+// migrate-step runs `schema apply`; ops runs `consumer status|restart <name>` and
+// `events prune --aggregate-type <type> [--apply]`.
+
+import { runStandaloneCli } from "@cosmicdrift/kumiko-server-runtime/standalone-cli";
+import { FEATURES } from "../kumiko/schema";
+import appConfig from "../kumiko.config";
+import { envSchema } from "./env-schema";
+
+const out = { log: (l: string) => console.log(l), err: (l: string) => console.error(l) };
+
+// exitCode instead of process.exit(): in an initContainer stderr is a pipe and exit() drops unflushed lines.
+process.exitCode = await runStandaloneCli(Bun.argv.slice(2), process.env.INIT_CWD ?? process.cwd(), out, {
+  features: FEATURES,
+  envSchema,
+  ...(appConfig.rowLevelSecurity && { rowLevelSecurity: appConfig.rowLevelSecurity }),
+  // Same rule as bin/main.ts: production requires the KMS env (kmsMode "required").
+  requireKms: process.env["NODE_ENV"] === "production",
+});

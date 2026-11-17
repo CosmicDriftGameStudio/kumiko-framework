@@ -4,7 +4,9 @@ import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { BUNFIG_FILES, mergeBunfig, renderBunfigFiles } from "../src/bunfig";
 import {
+  BUILD_INTEGRATION_TEST_SUFFIX,
   buildIntegrationTestArgs,
+  type IntegrationTestClass,
   listIntegrationTestFiles,
   resolveRequestedIntegrationFiles,
   runWithTestRun,
@@ -16,9 +18,11 @@ const USAGE = `kumiko-testing <command>
   bunfig [--dom] [--coverage] [--hoisted]  write bunfig.toml, bunfig.integration.toml and
                                            bunfig.real.toml (plus bunfig.dom.toml with --dom);
                                            --hoisted adds [install] linker = "hoisted"
-  integration [--parallel N]               run every *.integration.test.ts under the cwd,
+  integration [--build] [--parallel N]     run every *.integration.test.ts under the cwd,
               [--timings <file>] [--update-timings]  or only the given file(s) when passed
               [file...]                               as positional args
+  --build                                  runs only *.build.integration.test.ts (install/build subprocess
+                                           tests, TEST_TIMEOUT_MS.build); without it they are skipped
   -h, --help                               print this help (also works after a command)
 `;
 
@@ -82,6 +86,7 @@ async function runIntegration(args: readonly string[], io: CliIo): Promise<numbe
       parallel: { type: "string" },
       timings: { type: "string" },
       "update-timings": { type: "boolean" },
+      build: { type: "boolean" },
     },
     allowPositionals: true,
     strict: true,
@@ -90,24 +95,33 @@ async function runIntegration(args: readonly string[], io: CliIo): Promise<numbe
     io.stderr(`${BUNFIG_FILES.integration} not found - run \`kumiko-testing bunfig\` first`);
     return 1;
   }
+  const testClass: IntegrationTestClass = values.build === true ? "build" : "integration";
+  const pattern = testClass === "build" ? BUILD_INTEGRATION_TEST_SUFFIX : ".integration.test.ts";
   let files: string[];
   if (positionals.length > 0) {
     try {
-      files = resolveRequestedIntegrationFiles(io.cwd, positionals);
-      if (files.length === 0) throw new Error("no *.integration.test.ts files found");
+      files = resolveRequestedIntegrationFiles(
+        io.cwd,
+        positionals,
+        undefined,
+        undefined,
+        testClass,
+      );
+      if (files.length === 0) throw new Error(`no *${pattern} files found`);
     } catch (error) {
       io.stderr(error instanceof Error ? error.message : String(error));
       return 1;
     }
   } else {
-    files = selectIntegrationFiles(listIntegrationTestFiles(io.cwd));
+    files = selectIntegrationFiles(listIntegrationTestFiles(io.cwd), testClass);
     if (files.length === 0) {
-      io.stderr("no *.integration.test.ts files found");
+      io.stderr(`no *${pattern} files found`);
       return 1;
     }
   }
   const testArgs = buildIntegrationTestArgs({
     files,
+    testClass,
     ...(values.parallel !== undefined && { parallel: Number(values.parallel) }),
     ...(values.timings !== undefined && { timings: values.timings }),
     ...(values["update-timings"] === true && { updateTimings: true }),

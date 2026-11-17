@@ -40,6 +40,7 @@ import { ensureTemporalPolyfill } from "../time/polyfill.ts";
 const feature = defineFeature("kmsslotstest", () => {});
 
 const GUARD_PROBE_TABLE = "kms_slots_guard_probe";
+const KMS_PROBE_TABLE = "kms_slots_kms_probe";
 const BIDX_TABLE = "read_kms_slots_persons";
 const personEntity = createEntity({
   table: BIDX_TABLE,
@@ -246,6 +247,47 @@ describe("runSchemaCli apply — kmsSlots", () => {
     expect(cap.err.join("\n")).toContain("kmsSlots");
     expect(fetchCalls).toEqual([]);
     expect(await tableExists(testDb.db, GUARD_PROBE_TABLE)).toBe(false);
+  });
+
+  test("a Key Manager failure exits 1 before applying any migration", async () => {
+    process.env["PLATFORM_KEK_CIPHERTEXT"] = PLATFORM_KEK_CIPHERTEXT;
+    process.env["PLATFORM_KEK_KMS_KEY_ID"] = "key-1";
+    process.env["PLATFORM_KEK_KMS_TOKEN"] = "token-1";
+    const fetchCalls: string[] = [];
+    globalThis.fetch = mockDecryptFetch({}, fetchCalls);
+
+    const appCwd = writeAppWithTrivialMigration("0003_kms_probe");
+    writeFileSync(
+      join(appCwd, "kumiko/migrations/0003_kms_probe.sql"),
+      `CREATE TABLE ${KMS_PROBE_TABLE} (id integer);\n`,
+    );
+    const cap = captureOut();
+    const code = await runSchemaCli(["apply"], appCwd, cap.out, {
+      features: [feature],
+      kmsSlots: ["PLATFORM_KEK"],
+    });
+
+    expect(code).toBe(1);
+    expect(fetchCalls).toEqual([PLATFORM_KEK_CIPHERTEXT]);
+    expect(await tableExists(testDb.db, KMS_PROBE_TABLE)).toBe(false);
+  });
+
+  test("requireKms without the KMS env exits 1 before applying any migration", async () => {
+    const appCwd = writeAppWithTrivialMigration("0004_kms_required_probe");
+    writeFileSync(
+      join(appCwd, "kumiko/migrations/0004_kms_required_probe.sql"),
+      `CREATE TABLE ${KMS_PROBE_TABLE} (id integer);\n`,
+    );
+    const cap = captureOut();
+    const code = await runSchemaCli(["apply"], appCwd, cap.out, {
+      features: [feature],
+      kmsSlots: [],
+      requireKms: true,
+    });
+
+    expect(code).toBe(1);
+    expect(cap.err.length).toBeGreaterThan(0);
+    expect(await tableExists(testDb.db, KMS_PROBE_TABLE)).toBe(false);
   });
 });
 

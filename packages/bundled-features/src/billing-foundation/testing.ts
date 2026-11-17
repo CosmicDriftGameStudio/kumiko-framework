@@ -1,5 +1,6 @@
 // Stub subscription provider for e2e and dev seeding. Tier sync (tier engine)
 // stays in the app; this only gets a subscription past the checkout ledger.
+// It records checkout, portal and plan-switch calls for integration tests.
 
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
@@ -44,6 +45,20 @@ export type StubSubscriptionProviderOptions = {
   readonly overrides?: Partial<SubscriptionProviderPlugin>;
 };
 
+type StubCheckoutCall = Parameters<
+  NonNullable<SubscriptionProviderPlugin["createCheckoutSession"]>
+>[1];
+type StubPortalCall = Parameters<NonNullable<SubscriptionProviderPlugin["createPortalSession"]>>[1];
+type StubPlanSwitchCall = Parameters<
+  NonNullable<SubscriptionProviderPlugin["createPlanSwitchSession"]>
+>[1];
+
+export type StubSubscriptionProviderCalls = {
+  readonly checkout: readonly StubCheckoutCall[];
+  readonly portal: readonly StubPortalCall[];
+  readonly planSwitch: readonly StubPlanSwitchCall[];
+};
+
 const SEED_PERIOD_HOURS = 24 * 30;
 
 export function createStubSubscriptionProvider(options: StubSubscriptionProviderOptions) {
@@ -52,6 +67,9 @@ export function createStubSubscriptionProvider(options: StubSubscriptionProvider
   const currency = options.currency ?? "eur";
   const featureName = options.featureName ?? `stub-subscription-provider-${providerName}`;
   const disabledTenantIds = new Set<string>();
+  const checkoutCalls: StubCheckoutCall[] = [];
+  const portalCalls: StubPortalCall[] = [];
+  const planSwitchCalls: StubPlanSwitchCall[] = [];
 
   const priceToTier: Record<string, string> = {};
   for (const plan of plans) priceToTier[plan.priceId] = plan.tier;
@@ -88,12 +106,19 @@ export function createStubSubscriptionProvider(options: StubSubscriptionProvider
     ...(oneOffPrices.length > 0 && { oneOffPriceIds: oneOffPrices.map((p) => p.priceId) }),
     isBillingEnabled: async (ctx) => !disabledTenantIds.has(ctx.user.tenantId),
     retrievePrices: async (_ctx, priceIds) => allPrices.filter((p) => priceIds.includes(p.priceId)),
-    createCheckoutSession: async (_ctx, o) => ({
-      url: o.successUrl,
-      providerCheckoutId: `stub_cs_${crypto.randomUUID()}`,
-    }),
-    createPortalSession: async (_ctx, o) => ({ url: o.returnUrl }),
-    createPlanSwitchSession: async (_ctx, o) => ({ url: o.returnUrl }),
+    createCheckoutSession: async (_ctx, o) => {
+      checkoutCalls.push(o);
+      return { url: o.successUrl, providerCheckoutId: `stub_cs_${crypto.randomUUID()}` };
+    },
+    createPortalSession: async (_ctx, o) => {
+      portalCalls.push(o);
+      return { url: o.returnUrl };
+    },
+    createPlanSwitchSession: async (_ctx, o) => {
+      planSwitchCalls.push(o);
+      return { url: o.returnUrl };
+    },
+    // A replaced hook also replaces its recording.
     ...options.overrides,
   };
 
@@ -101,6 +126,12 @@ export function createStubSubscriptionProvider(options: StubSubscriptionProvider
     r.requires({ features: ["billing-foundation"] });
     r.useExtension("subscriptionProvider", providerName, plugin);
   });
+
+  function resetCalls(): void {
+    checkoutCalls.length = 0;
+    portalCalls.length = 0;
+    planSwitchCalls.length = 0;
+  }
 
   function setBillingEnabled(tenantId: string, enabled: boolean): void {
     if (enabled) disabledTenantIds.delete(tenantId);
@@ -150,5 +181,11 @@ export function createStubSubscriptionProvider(options: StubSubscriptionProvider
     }
   }
 
-  return { feature, plugin, setBillingEnabled, seedSubscription };
+  const calls: StubSubscriptionProviderCalls = {
+    checkout: checkoutCalls,
+    portal: portalCalls,
+    planSwitch: planSwitchCalls,
+  };
+
+  return { feature, plugin, calls, resetCalls, setBillingEnabled, seedSubscription };
 }

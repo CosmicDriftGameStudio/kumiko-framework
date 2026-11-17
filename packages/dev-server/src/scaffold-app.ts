@@ -171,8 +171,6 @@ function writeBinFiles(
     isBlank ? renderBlankEnvSchema() : renderEnvSchema(appName),
   );
   files.push("bin/env-schema.ts");
-  write(join(destination, "bin", "kumiko.ts"), renderBinKumiko());
-  files.push("bin/kumiko.ts");
 }
 
 function resolveScaffoldTarget(options: ScaffoldAppOptions): {
@@ -811,7 +809,7 @@ deploys. Build context = app repo root; migrations ship in \`kumiko/migrations/\
 ## Managed files
 
 Files whose first line reads \`kumiko-managed\` (deploy/, .github/workflows/,
-.husky/pre-push, the bunfigs, kumiko/schema.ts) belong to the framework.
+.husky/pre-push, the bunfigs, kumiko/schema.ts, bin/kumiko.ts) belong to the framework.
 \`bun run check\` reports drift against the installed version;
 \`bunx kumiko sync-managed --write\` restores them. To keep a local change, add
 \`# kumiko-managed: local <reason>\` as line 2.
@@ -873,31 +871,6 @@ function renderKumikoManifest(): string {
     null,
     2,
   )}\n`;
-}
-
-function renderBinKumiko(): string {
-  return [
-    "#!/usr/bin/env bun",
-    "",
-    "// Standalone kumiko CLI, bundled by kumiko-build to dist-server/kumiko.js. The deploy",
-    "// migrate-step runs `schema apply`; ops runs `consumer status|restart <name>` and",
-    "// `events prune --aggregate-type <type> [--apply]`.",
-    "",
-    'import { runStandaloneCli } from "@cosmicdrift/kumiko-server-runtime/standalone-cli";',
-    'import { FEATURES } from "../kumiko/schema";',
-    'import appConfig from "../kumiko.config";',
-    'import { envSchema } from "./env-schema";',
-    "",
-    "const out = { log: (l: string) => console.log(l), err: (l: string) => console.error(l) };",
-    "",
-    "// exitCode instead of process.exit(): in an initContainer stderr is a pipe and exit() drops unflushed lines.",
-    "process.exitCode = await runStandaloneCli(Bun.argv.slice(2), process.env.INIT_CWD ?? process.cwd(), out, {",
-    "  features: FEATURES,",
-    "  envSchema,",
-    "  ...(appConfig.rowLevelSecurity && { rowLevelSecurity: appConfig.rowLevelSecurity }),",
-    "});",
-    "",
-  ].join("\n");
 }
 
 async function instantiateScaffoldFeatures(

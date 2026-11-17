@@ -369,6 +369,9 @@ describe("scaffoldApp", () => {
     expect(kumikoBin).toContain(
       "...(appConfig.rowLevelSecurity && { rowLevelSecurity: appConfig.rowLevelSecurity }),",
     );
+    expect(kumikoBin.split("\n")[0]).toBe("#!/usr/bin/env bun");
+    expect(kumikoBin.split("\n")[1]).toBe("// kumiko-managed");
+    expect(kumikoBin).toContain('requireKms: process.env["NODE_ENV"] === "production",');
   });
 
   test("framework-owned files carry the kumiko-managed marker", async () => {

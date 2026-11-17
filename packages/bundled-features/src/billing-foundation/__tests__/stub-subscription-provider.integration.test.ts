@@ -23,7 +23,7 @@ import { subscriptionAggregateId } from "../aggregate-id.ts";
 import { createBillingFoundationFeature } from "../feature.ts";
 import { subscriptionsProjectionTable } from "../projection.ts";
 import { createStubSubscriptionProvider } from "../testing.ts";
-import { SubscriptionStatuses } from "../web/constants.ts";
+import { SubscriptionFoundationHandlers, SubscriptionStatuses } from "../web/constants.ts";
 
 const stub = createStubSubscriptionProvider({
   providerName: "stub-test",
@@ -153,5 +153,17 @@ describe("stub subscription provider", () => {
         tier: "enterprise",
       }),
     ).rejects.toThrow("no plan for tier enterprise");
+  });
+
+  test("start-plan-checkout records the checkout call with the plan's price", async () => {
+    stub.resetCalls();
+    const admin = adminFor(8106);
+
+    await stack.http.writeOk(SubscriptionFoundationHandlers.startPlanCheckout, { tier: "pro" }, admin);
+
+    expect(stub.calls.checkout).toHaveLength(1);
+    expect(stub.calls.checkout[0]?.priceId).toBe("price_pro");
+    expect(stub.calls.checkout[0]?.tenantId).toBe(admin.tenantId);
+    expect(stub.calls.checkout[0]?.successUrl).toBe("https://app.example.com/billing/success");
   });
 });

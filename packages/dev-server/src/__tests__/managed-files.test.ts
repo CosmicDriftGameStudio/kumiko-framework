@@ -20,6 +20,7 @@ import {
   type ManagedFileReport,
   PREPARE_SCRIPT,
   readManagedMarker,
+  renderManagedTemplates,
   resolveManagedAppFacts,
   STANDARD_APP_SCRIPTS,
   syncManagedFiles,
@@ -138,6 +139,16 @@ describe("kumiko check managed", () => {
     expect(ci).toMatch(
       /\n {2}test:\n {4}if: contains\(fromJSON\('\["pull_request","merge_group"\]'\), github\.event_name\)\n {4}permissions:\n {6}contents: read\n {6}packages: read\n {6}pull-requests: read\n {4}uses: /,
     );
+  });
+});
+
+describe("bin/kumiko.ts template", () => {
+  test("bin/kumiko.ts is a managed template running the standalone CLI", () => {
+    const entry = renderManagedTemplates(facts()).find((file) => file.path === "bin/kumiko.ts");
+    if (entry === undefined) throw new Error("no bin/kumiko.ts template");
+    expect(entry.content).toContain("runStandaloneCli");
+    expect(entry.content).toContain("requireKms");
+    expect(readManagedMarker(entry.content).kind).toBe("managed");
   });
 });
 

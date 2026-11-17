@@ -18,9 +18,9 @@ src/features/<name>/
   index.ts         # Server-Exports (Feature + Public-Types)
   constants.ts     # nur Server-Konstanten; geteilte (auch im Browser genutzte)
                    # Konstanten und Translation-Keys liegen unter web/
-  handlers/        # eine Datei pro handgeschriebenem Handler: <thema>.query.ts / <thema>.write.ts
+  handlers/        # eine Datei pro handgeschriebenem Handler oder Job: <thema>.query.ts / <thema>.write.ts / <thema>.job.ts
                    # (defineQueryHandler / defineWriteHandler); Standard-CRUD per r.crud in feature.ts
-  schema/          # Entity- + Table-Definitionen, index.ts re-exportiert
+  schema/          # Entity- + Table-Definitionen (<name>.ts, entity.ts, <name>.entity.ts)
   lib/             # reine Domain-Logik: pure Funktionen mit Test
                    # (ohne r.*-Abhängigkeit)
   web/             # client-sicherer Einstieg: index.ts (ClientFeatureDefinition),
@@ -40,7 +40,7 @@ dem Pfad, ein `// @runtime client`-Marker ist unnötig und wird von
 `bun kumiko-upgrade --apply` oder `bun kumiko codemod feature-layout . --write` um
 (`--check` listet Reste).
 
-`guard-handler-definitions` friert Handler-Definitionen außerhalb von `handlers/`, mehrere Handler in einer Datei, falsche `.write`/`.query`-Endungen und als `WriteHandlerDef`/`QueryHandlerDef` getypte Literale pro Datei in einer Baseline ein; neue Funde scheitern. `bun kumiko codemod feature-layout . --write` verschiebt `<name>.write.ts`/`<name>.query.ts` aus dem Feature-Root nach `handlers/`. `guard-feature-import-cycles` friert Laufzeit-Import-Zyklen zwischen Features ein; `import type` zählt nicht.
+`guard-handler-definitions` friert Handler-Definitionen außerhalb von `handlers/`, mehrere Handler in einer Datei, falsche `.write`/`.query`-Endungen und als `WriteHandlerDef`/`QueryHandlerDef` getypte Literale pro Datei in einer Baseline ein; neue Funde scheitern. `bun kumiko codemod feature-layout . --write` verschiebt `<name>.write.ts`/`.query.ts`/`.job.ts` aus dem Feature-Root nach `handlers/`, `entity.ts`/`<name>.entity.ts` nach `schema/` und eine `client.ts` mit `ClientFeatureDefinition` nach `web/index.ts`; ein `write.ts`/`queries.ts` mit mehreren Handlern meldet er zum Aufteilen; `--check` schlägt fehl, solange etwas offen ist. `guard-feature-import-cycles` friert Laufzeit-Import-Zyklen zwischen Features ein; `import type` zählt nicht.
 
 ## Regeln
 

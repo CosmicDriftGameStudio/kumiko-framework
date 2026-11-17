@@ -29,6 +29,8 @@ export {
   createTierResolver,
   type TierResolver,
   type TierResolverDeps,
+  type TierResolverTrial,
+  type TierState,
 } from "./tier-resolver.ts";
 export { isTrialActive, type TrialPolicy } from "./trial.ts";
 export {

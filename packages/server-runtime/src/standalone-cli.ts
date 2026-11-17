@@ -16,6 +16,8 @@ export type StandaloneCliOptions = {
   /** The app's composed env schema (bin/env-schema.ts). */
   readonly envSchema: ComposedEnvSchema;
   readonly rowLevelSecurity?: RowLevelSecurityMode;
+  /** Passed to `schema apply`: fail before any migration when the KMS env is missing. */
+  readonly requireKms?: boolean;
 };
 
 /** Dispatches `schema`, `consumer` and `events` for the bundled dist-server/kumiko.js. Returns the exit code. */
@@ -38,6 +40,7 @@ export async function runStandaloneCli(
     return runSchemaCli(rest, appCwd, out, {
       features: options.features,
       kmsSlots,
+      ...(options.requireKms === true && { requireKms: true }),
       ...rowLevelSecurity,
     });
   }

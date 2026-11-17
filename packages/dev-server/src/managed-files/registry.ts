@@ -197,6 +197,7 @@ export function renderManagedTemplates(facts: ManagedAppFacts): readonly Managed
     marked(".github/workflows/release.yml", renderReleaseWorkflow(facts), "#"),
     marked(".github/workflows/ci.yml", renderCiWorkflow(facts), "#"),
     marked("kumiko/schema.ts", readTemplate("kumiko-schema.ts.template"), "//"),
+    marked("bin/kumiko.ts", readTemplate("bin-kumiko.ts.template"), "//"),
   ];
 }
 

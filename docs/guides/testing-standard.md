@@ -21,8 +21,11 @@ those steps.
 | Unit | `*.test.ts` | `bun run test` | 5 s per test |
 | DOM | `*.test.tsx` | `bun run test:dom` | 5 s per test |
 | Integration | `*.integration.test.ts` | `bun run test:integration` (files run in parallel) | 15 s per test |
+| Build | `*.build.integration.test.ts` | `bun run test:build` (`bun kumiko-testing integration --build`), own CI job | 180 s per test |
 | E2E | `e2e/*.spec.ts` | `bun run e2e` | fixed in `defineAppE2eConfig` |
 | Real provider | `*.real.test.ts`, `*.real.spec.ts` | `bun run test:real`, `bun run e2e:real` | 240 s per test |
+
+Tests that run `bun install`, a build or a Docker image in a subprocess are build tests. `test:integration` skips them; the app runs them in its own `app-<name>` CI job, which only runs when the affected feature changes or nightly.
 
 Unit tests carry no services and stay fast enough to run on every save.
 Integration tests hit a real Postgres/Redis stack and prove the app's own

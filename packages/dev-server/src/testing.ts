@@ -9,12 +9,9 @@ import {
 import { TenantHandlers, TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { UserHandlers } from "@cosmicdrift/kumiko-bundled-features/user";
 import type { ExtraRouteDefinition } from "@cosmicdrift/kumiko-framework/api";
-import type {
-  EffectiveFeaturesResolver,
-  FeatureDefinition,
-  TenantId,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { type FeatureDefinition, findTierResolverUsage } from "@cosmicdrift/kumiko-framework/engine";
 import { resolveFeatureTogglesOption } from "@cosmicdrift/kumiko-server-runtime";
+import { buildEffectiveFeaturesResolver } from "@cosmicdrift/kumiko-server-runtime/boot/shared-boot-steps";
 import {
   type InProcessSeededTenant,
   type PersistedTenant,
@@ -30,6 +27,7 @@ import {
   type E2eSeedRoutesOptions,
 } from "@cosmicdrift/kumiko-testing/e2e/seed-route";
 import { pushEntityProjectionTables, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { createDevLateBindings, createLateBoundEffectiveFeatures } from "./run-dev-app-auth.ts";
 import {
   type SetupTestStackFromFeaturesOptions,
   setupTestStackFromFeatures,
@@ -42,6 +40,8 @@ export type SetupAppTestStackOptions = SetupTestStackFromFeaturesOptions & {
   readonly featureToggles?: boolean;
 };
 
+// A feature with a tenantTierResolver (tier-engine with a tierMap) gates handlers per tenant like
+// runDevApp does; an explicit effectiveFeatures replaces it.
 export async function setupAppTestStack(
   features: readonly FeatureDefinition[],
   options: SetupAppTestStackOptions = {},
@@ -58,37 +58,37 @@ export async function setupAppTestStack(
     );
   }
   const toggles = featureToggles ? resolveFeatureTogglesOption() : undefined;
-  const toggleResolver: { current: EffectiveFeaturesResolver | undefined } = { current: undefined };
-  const stack = await setupTestStackFromFeatures(
-    toggles === undefined ? features : [...features, toggles.feature],
-    {
-      ...stackOptions,
-      includeBundled,
-      entityTables: registryTables,
-      ...(toggles !== undefined && {
-        effectiveFeatures: (tenantId: TenantId) => {
-          if (toggleResolver.current === undefined) {
-            throw new Error("feature-toggles: resolver not bound yet (boot order).");
-          }
-          return toggleResolver.current(tenantId);
-        },
-      }),
-    },
-  );
+  const stackFeatures = toggles === undefined ? features : [...features, toggles.feature];
+  // Same late-bound resolver runDevApp builds, so a tier-engine tierMap and the operator toggles
+  // gate handlers in app tests as in dev and prod. An explicit effectiveFeatures wins.
+  const lateBindings = createDevLateBindings();
+  const lateBoundResolver =
+    stackOptions.effectiveFeatures === undefined
+      ? createLateBoundEffectiveFeatures(
+          lateBindings,
+          toggles !== undefined || findTierResolverUsage(stackFeatures) !== undefined,
+        )
+      : undefined;
+  const stack = await setupTestStackFromFeatures(stackFeatures, {
+    ...stackOptions,
+    includeBundled,
+    entityTables: registryTables,
+    ...(lateBoundResolver !== undefined && { effectiveFeatures: lateBoundResolver }),
+  });
   try {
     // setupTestStack already created every entity table on a fresh DB (entityTables);
     // only a persistent DB can predate a column or index the sync backfills.
     if (registryTables && stackOptions.persistentDb === true) {
       await pushEntityProjectionTables(stack, stack.registry);
     }
-    if (toggles !== undefined) {
-      const bound = await toggles.bind({
+    if (lateBoundResolver !== undefined) {
+      lateBindings.tierResolver = await buildEffectiveFeaturesResolver({
+        features: stackFeatures,
+        featureToggles: toggles,
         db: stack.db,
         registry: stack.registry,
         cacheSync: stack.cacheSync,
-        tierResolver: undefined,
       });
-      toggleResolver.current = bound.resolver;
     }
   } catch (error) {
     await stack.cleanup();

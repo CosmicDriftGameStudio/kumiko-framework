@@ -163,12 +163,66 @@ describe("feature-layout codemod: root handler files", () => {
     expect(result.manual[0]?.description).toContain("target exists");
   });
 
-  it("leaves a bare write.ts and test files alone", () => {
+  it("reports a bare write.ts as manual and leaves test files alone", () => {
     const result = run({
       [`${ROOT}/write.ts`]: `export const w = 1;\n`,
       [`${ROOT}/__tests__/a.write.test.ts`]: `export const t = 1;\n`,
     });
     expect(result.moves).toEqual([]);
+    expect(result.manual.map((site) => site.file)).toEqual([`${ROOT}/write.ts`]);
+    expect(result.manual[0]?.description).toContain("split");
+  });
+});
+
+describe("feature-layout codemod: root jobs, entities and client entry", () => {
+  it("moves a root job file to handlers/ and rewrites the import", () => {
+    const result = run({
+      [`${ROOT}/cleanup.job.ts`]: `export const cleanup = 1;\n`,
+      [`${ROOT}/feature.ts`]: `import { cleanup } from "./cleanup.job.ts";\nexport const f = cleanup;\n`,
+    });
+    expect(result.moves).toEqual([
+      { from: `${ROOT}/cleanup.job.ts`, to: `${ROOT}/handlers/cleanup.job.ts` },
+    ]);
+    expect(result.writes.get(`${ROOT}/feature.ts`)).toContain('"./handlers/cleanup.job.ts"');
+  });
+
+  it("moves entity.ts and <name>.entity.ts to schema/ and rewrites the imports", () => {
+    const result = run({
+      [`${ROOT}/entity.ts`]: `export const e = 1;\n`,
+      [`${ROOT}/lease.entity.ts`]: `export const l = 1;\n`,
+      [`${ROOT}/feature.ts`]: `import { e } from "./entity.ts";\nimport { l } from "./lease.entity.ts";\nexport const f = [e, l];\n`,
+    });
+    expect(result.moves.map((move) => move.to).sort()).toEqual([
+      `${ROOT}/schema/entity.ts`,
+      `${ROOT}/schema/lease.entity.ts`,
+    ]);
+    const feature = result.writes.get(`${ROOT}/feature.ts`);
+    expect(feature).toContain('"./schema/entity.ts"');
+    expect(feature).toContain('"./schema/lease.entity.ts"');
+  });
+
+  it("moves a client.ts with a ClientFeatureDefinition to web/index.ts", () => {
+    const result = run({
+      [`${ROOT}/constants.ts`]: `export const C = "demo";\n`,
+      [`${ROOT}/client.ts`]: `import type { ClientFeatureDefinition } from "x";\nimport { C } from "./constants.ts";\nexport const demoClient: ClientFeatureDefinition = { name: C };\n`,
+    });
+    expect(result.moves).toEqual([{ from: `${ROOT}/client.ts`, to: `${ROOT}/web/index.ts` }]);
+    expect(result.writes.get(`${ROOT}/web/index.ts`)).toContain('"../constants.ts"');
+  });
+
+  it("leaves a client.ts without a ClientFeatureDefinition alone", () => {
+    const result = run({ [`${ROOT}/client.ts`]: `export const http = 1;\n` });
+    expect(result.moves).toEqual([]);
+  });
+
+  it("reports manual when web/index.ts already exists", () => {
+    const result = run({
+      [`${ROOT}/client.ts`]: `import type { ClientFeatureDefinition } from "x";\nexport const c: ClientFeatureDefinition = { name: "d" };\n`,
+      [`${ROOT}/web/index.ts`]: `export const w = 1;\n`,
+    });
+    expect(result.moves).toEqual([]);
+    expect(result.manual).toHaveLength(1);
+    expect(result.manual[0]?.description).toContain("target exists");
   });
 });
 
@@ -290,5 +344,11 @@ describe("feature-layout codemod: CLI", () => {
       featureAfterFirstRun,
     );
     expect(await cli("--check")).toBe(0);
+  });
+
+  it("--check exits 1 for an unmarked root job file", async () => {
+    expect(await cli()).toBe(0);
+    writeFileSync(join(dir, "src/features/demo/cleanup.job.ts"), `export const cleanup = 1;\n`);
+    expect(await cli("--check")).toBe(1);
   });
 });

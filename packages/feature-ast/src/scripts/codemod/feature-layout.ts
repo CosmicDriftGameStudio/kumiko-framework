@@ -6,6 +6,9 @@
 // export targets, and drops the marker. A marker the path already implies (client in web/, test in
 // __tests__/, dev in dev/, tooling in scripts/) is only removed. A target that already exists, or a
 // marker no path rule covers, is reported as manual and left alone.
+// Unmarked root files move too: `*.write/.query/.job.ts` to handlers/, `entity.ts`/`*.entity.ts` to
+// schema/, a `client.ts` with ClientFeatureDefinition to web/index.ts; a `write.ts`/`queries.ts` with
+// several handlers is reported as manual.
 //
 // Features are found as src/features/<feature>/ and bundled-features/src/<feature>/ below the target
 // directories; --feature-dir <dir> names a directory that is itself one feature, --features-root <dir>
@@ -18,7 +21,7 @@
 // any move, marker or manual site is left; --dry-run only reports.
 
 import { mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
+import { dirname, extname, join, relative, resolve } from "node:path";
 import { Node, Project } from "ts-morph";
 import {
   applyEdits,
@@ -35,6 +38,12 @@ const MARKER_LINE = /^\s*\/\/\s*@runtime(?:\s+(\w+))?\s*$/;
 const WEB_DIR = "web";
 const HANDLERS_DIR = "handlers";
 const ROOT_HANDLER_FILE = /^[^/]+\.(?:write|query)\.tsx?$/;
+const SCHEMA_DIR = "schema";
+const ROOT_JOB_FILE = /^[^/]+\.job\.tsx?$/;
+const ROOT_ENTITY_FILE = /^(?:[^/]+\.)?entity\.ts$/;
+const ROOT_CLIENT_FILE = /^client\.tsx?$/;
+const ROOT_MULTI_HANDLER_FILE = /^(?:write|queries|query)\.tsx?$/;
+const CLIENT_FEATURE_DEFINITION = "ClientFeatureDefinition";
 const IMPLICIT_FEATURE_PATTERNS: readonly RegExp[] = [
   /^(.*\/src\/features\/[^/]+)\/(.+)$/,
   /^(.*\/bundled-features\/src\/[^/]+)\/(.+)$/,
@@ -235,6 +244,31 @@ function rewritePackageJson(
   });
 }
 
+type UnmarkedAction =
+  | { readonly action: "move"; readonly target: string }
+  | { readonly action: "manual"; readonly description: string }
+  | undefined;
+
+function unmarkedAction(rel: string, source: string, featureDir: string): UnmarkedAction {
+  if (ROOT_HANDLER_FILE.test(rel) || ROOT_JOB_FILE.test(rel)) {
+    return { action: "move", target: join(featureDir, HANDLERS_DIR, rel) };
+  }
+  if (ROOT_ENTITY_FILE.test(rel)) {
+    return { action: "move", target: join(featureDir, SCHEMA_DIR, rel) };
+  }
+  // A client.ts without a ClientFeatureDefinition is an HTTP client, not the feature's client entry.
+  if (ROOT_CLIENT_FILE.test(rel) && source.includes(CLIENT_FEATURE_DEFINITION)) {
+    return { action: "move", target: join(featureDir, WEB_DIR, `index${extname(rel)}`) };
+  }
+  if (ROOT_MULTI_HANDLER_FILE.test(rel)) {
+    return {
+      action: "manual",
+      description: "split into handlers/<topic>.write.ts|.query.ts, one handler per file",
+    };
+  }
+  return undefined;
+}
+
 type MarkerAction =
   | { readonly action: "strip" }
   | { readonly action: "move"; readonly target: string }
@@ -303,18 +337,23 @@ export function applyFeatureLayout(
     if (location === undefined) continue;
     const marker = findMarker(source);
     if (marker === undefined) {
-      if (!ROOT_HANDLER_FILE.test(location.rel) || TEST_PATH.test(file)) continue;
-      const target = join(location.featureDir, HANDLERS_DIR, location.rel);
-      if (isTaken(target)) {
+      if (TEST_PATH.test(file)) continue;
+      const unmarked = unmarkedAction(location.rel, source, location.featureDir);
+      if (unmarked === undefined) continue;
+      if (unmarked.action === "manual") {
+        manual.push({ file, line: 1, description: unmarked.description });
+        continue;
+      }
+      if (isTaken(unmarked.target)) {
         manual.push({
           file,
           line: 1,
-          description: `cannot move to ${HANDLERS_DIR}/${location.rel}: target exists`,
+          description: `cannot move to ${relative(location.featureDir, unmarked.target)}: target exists`,
         });
         continue;
       }
-      claimedTargets.add(target);
-      moved.set(file, target);
+      claimedTargets.add(unmarked.target);
+      moved.set(file, unmarked.target);
       continue;
     }
     const decision = actionForMarker(marker, location, isTaken);
@@ -434,7 +473,7 @@ export async function main(argv: readonly string[]): Promise<number> {
         await formatWithBiome("feature-layout", changed, resolve(options.paths[0] ?? "."));
     }
   }
-  const pending = result.markersRemoved.length + result.manual.length;
+  const pending = result.moves.length + result.markersRemoved.length + result.manual.length;
   return options.mode === "check" && pending > 0 ? 1 : 0;
 }
 

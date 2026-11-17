@@ -29,6 +29,7 @@ export const KNOWN_EXTRA_APP_SCRIPTS = [
   "test:bunfig",
   "test:lib-coverage",
   "shots",
+  "test:build",
 ] as const;
 
 export type AppScriptsReport = {
