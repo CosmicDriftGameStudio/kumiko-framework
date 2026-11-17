@@ -267,14 +267,14 @@ describe("TenantDb", () => {
     expect(await labels(systemDb)).toHaveLength(3);
   });
 
-  test("a granted unsafeRaw runner sees every tenant, the audited raw escape for cross-tenant handlers", async () => {
+  test("a granted unsafeRawAllTenants runner sees every tenant, the audited raw escape for cross-tenant handlers", async () => {
     const tenantDb = createTenantDb({
       db: testDb.db,
       tenantId: tenantA,
       mode: "tenant",
       grants: { unsafeRaw: { reason: "scope test" } },
     });
-    expect(await labelsOf(tenantDb.unsafeRaw())).toHaveLength(3);
+    expect(await labelsOf(tenantDb.unsafeRawAllTenants())).toHaveLength(3);
   });
 
   test("createTenantDb over an unsafeRaw runner inherits the personal-data gate and no executor capability", async () => {
@@ -291,7 +291,7 @@ describe("TenantDb", () => {
         },
       },
     });
-    const runner: DbRunner = tenantDb.unsafeRaw();
+    const runner: DbRunner = tenantDb.unsafeRawAllTenants();
     expect(hasExecutorManagedWriteCapability(runner)).toBe(false);
     const inner = createTenantDb({ db: runner, tenantId: tenantA, mode: "tenant" });
     await expect(inner.insertOne(itemsTable, { label: "blocked" })).rejects.toThrow(

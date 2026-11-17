@@ -740,8 +740,8 @@ export function defineEntityDetailHandler(
 export function createEntityExecutor<E extends EntityDefinition>(
   entityName: string,
   entity: E,
-): { readonly table: EntityTable; readonly executor: EventStoreExecutor<EntityRow<E>> } {
-  const table = buildEntityTable<EntityDefinition>(entityName, entity);
+): { readonly table: EntityTable<E>; readonly executor: EventStoreExecutor<EntityRow<E>> } {
+  const table = buildEntityTable<E>(entityName, entity);
   const executor = createEventStoreExecutor(table, entity, { entityName });
   return { table, executor };
 }

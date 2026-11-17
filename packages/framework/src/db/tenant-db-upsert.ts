@@ -15,7 +15,7 @@ import {
   type TableLike,
   unsafeLoggingClosedConnection,
 } from "./query.ts";
-import { extractTableInfo } from "./table-info.ts";
+import { extractTableInfo, type TableInfo } from "./table-info.ts";
 import { asEntityTableMeta, tableNameOf } from "./table-introspection.ts";
 
 const TENANT_COLUMN = "tenant_id";
@@ -59,6 +59,41 @@ function primaryKeyColumnsOf(meta: EntityTableMeta): readonly string[] {
     ...meta.columns.filter((c) => c.primaryKey).map((c) => c.name),
     ...(meta.compositePrimaryKey?.columns ?? []),
   ];
+}
+
+const INTEGER_PG_TYPES: ReadonlySet<string> = new Set(["integer", "bigint"]);
+
+function isNumericPgType(pgType: string | undefined): boolean {
+  return (
+    pgType !== undefined &&
+    (INTEGER_PG_TYPES.has(pgType) || pgType === "double precision" || pgType.startsWith("numeric"))
+  );
+}
+
+function assertValidIncrements(
+  info: TableInfo,
+  meta: EntityTableMeta,
+  conflictCols: readonly string[],
+  options: TenantDbUpsertOptions,
+): void {
+  if (!options.increment) return;
+  const keyCols = new Set([...conflictCols, ...primaryKeyColumnsOf(meta), TENANT_COLUMN]);
+  const updatedCols = new Set(Object.keys(options.update ?? {}).map((f) => info.columnOf(f)));
+  const fail = (message: string): never => {
+    throw new Error(`tenantDb.upsert(${info.name}): ${message}`);
+  };
+  for (const [field, delta] of Object.entries(options.increment)) {
+    if (!info.hasColumn(field)) fail(`increment field "${field}" is not a column`);
+    const col = info.columnOf(field);
+    if (keyCols.has(col)) fail(`increment must not touch a key column ("${field}")`);
+    if (updatedCols.has(col)) fail(`"${field}" is both in update and increment`);
+    const pgType = info.pgTypeOf(col);
+    if (!isNumericPgType(pgType)) fail(`increment needs a numeric column ("${field}")`);
+    const integerColumn = pgType !== undefined && INTEGER_PG_TYPES.has(pgType);
+    if (!Number.isFinite(delta) || (integerColumn && !Number.isInteger(delta))) {
+      fail(`increment delta must be a finite number (an integer for integer columns) ("${field}")`);
+    }
+  }
 }
 
 function assertTenantSafeConflictTarget(
@@ -113,13 +148,30 @@ export async function upsertTenantRow<TRow>(
     );
   }
 
-  const entries = insertEntries(info, values);
+  assertValidIncrements(info, meta, conflictCols, options);
+  const increments = Object.entries(options.increment ?? {});
+
+  const insertValues: Record<string, unknown> = { ...values };
+  for (const [field, delta] of increments) {
+    if (!(field in insertValues)) insertValues[field] = delta;
+  }
+  const entries = insertEntries(info, insertValues);
   if (!entries.some((e) => e.col === TENANT_COLUMN)) {
     throw new Error(`tenantDb.upsert(${info.name}): values carry no tenantId.`);
   }
   const { sqlPrefix, params } = buildInsertSql(info, entries);
-  const skipCols = new Set([...conflictCols, ...primaryKeyColumnsOf(meta), TENANT_COLUMN]);
+  const skipCols = new Set([
+    ...conflictCols,
+    ...primaryKeyColumnsOf(meta),
+    TENANT_COLUMN,
+    ...increments.map(([field]) => info.columnOf(field)),
+  ]);
   const setParts = conflictUpdateParts(info, entries, options.update, skipCols, params);
+  for (const [field, delta] of increments) {
+    const col = quoteIdent(info.columnOf(field));
+    params.push(delta);
+    setParts.push(`${col} = ${quoteIdent(info.name)}.${col} + $${params.length}`);
+  }
   if (setParts.length === 0) {
     throw new Error(`tenantDb.upsert(${info.name}): nothing to update on conflict`);
   }

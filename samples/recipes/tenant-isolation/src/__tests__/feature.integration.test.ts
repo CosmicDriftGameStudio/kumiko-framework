@@ -101,19 +101,37 @@ describe("tenant isolation", () => {
 
 describe("ctx.db.upsert", () => {
   const setPreference = (user: typeof tenantBAdmin, key: string, value: string) =>
-    stack.http.writeOk<{ value: string }>("notes:write:preference:set", { key, value }, user);
+    stack.http.writeOk<{ value: string; changes: number }>(
+      "notes:write:preference:set",
+      { key, value },
+      user,
+    );
 
   test("a second upsert with the same key updates the tenant's row instead of inserting", async () => {
     await setPreference(tenantAAdmin, "theme", "light");
     const second = await setPreference(tenantAAdmin, "theme", "dark");
 
     expect(second.value).toBe("dark");
+    expect(second.changes).toBe(2);
     const rows = await selectMany(stack.db, preferenceTable, {
       tenantId: tenantAAdmin.tenantId,
       key: "theme",
     });
     expect(rows).toHaveLength(1);
     expect(rows[0]?.["value"]).toBe("dark");
+  });
+
+  test("every set counts once, also in parallel", async () => {
+    await Promise.all(
+      Array.from({ length: 5 }, (_, i) => setPreference(tenantAAdmin, "counter", "v" + i)),
+    );
+
+    const rows = await selectMany(stack.db, preferenceTable, {
+      tenantId: tenantAAdmin.tenantId,
+      key: "counter",
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.["changes"]).toBe(5);
   });
 
   test("the same key in another tenant creates a separate row and leaves A's value alone", async () => {

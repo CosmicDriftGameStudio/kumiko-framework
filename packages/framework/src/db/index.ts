@@ -138,6 +138,8 @@ export {
   buildBaseColumns,
   buildEntityTable,
   declareGlobalTenancy,
+  type EntityColumnRow,
+  type EntityRow,
   type EntityTable,
   type ExecutorManagedRunner,
   physicalColumnName,

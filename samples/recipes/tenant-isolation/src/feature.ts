@@ -24,6 +24,7 @@ export const preferenceTable = defineUnmanagedTable({
     { name: "tenant_id", pgType: "uuid", notNull: true },
     { name: "key", pgType: "text", notNull: true },
     { name: "value", pgType: "text", notNull: true },
+    { name: "changes", pgType: "integer", notNull: true, defaultSql: "0" },
   ],
   indexes: [
     { name: "sample_tenant_preferences_tenant_key", columns: ["tenant_id", "key"], unique: true },
@@ -54,10 +55,12 @@ export const noteFeature = defineFeature("notes", (r) => {
     name: "preference:set",
     schema: z.object({ key: z.string().min(1), value: z.string() }),
     handler: async (event, ctx) => {
-      const row = await ctx.db.upsert<{ value: string }>(preferenceTable, event.payload, {
-        conflictTarget: ["tenantId", "key"],
-      });
-      return { isSuccess: true, data: { value: row?.value } };
+      const row = await ctx.db.upsert<{ value: string; changes: number }>(
+        preferenceTable,
+        event.payload,
+        { conflictTarget: ["tenantId", "key"], increment: { changes: 1 } },
+      );
+      return { isSuccess: true, data: { value: row?.value, changes: row?.changes } };
     },
     ...adminWrite,
   });

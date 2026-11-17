@@ -213,7 +213,7 @@ produces code that compiles and then fails in production.
   handler: `r.crud`, the `defineEntity*Handler` helpers, the executor from
   `createEntityExecutor`, or `emitEvent` / `ctx.events.append`. The query
   helpers and `ctx.db` throw `AccessDeniedError` on such a write, also
-  through `ctx.db.unsafeRaw()`. Test seeds on an entity table use
+  through `ctx.db.unsafeRaw()` and `ctx.db.unsafeRawAllTenants()`. Test seeds on an entity table use
   `seedRowViaEventStore` / `seedRowsViaEventStore` from
   `@cosmicdrift/kumiko-testing/helpers`; `seedRow`, `updateRows` and
   `deleteRows` are for tables without event sourcing and throw on an entity

@@ -459,6 +459,24 @@ export type EntityRow<E extends EntityDefinition = EntityDefinition> =
     ? Record<string, unknown>
     : Flatten<RowOfColumns<BaseColumnsType<E>> & SoftDeleteRow<E> & RowForFields<E["fields"]>>;
 
+type ColumnRowForField<K extends string, F extends FieldDefinition> = [
+  ValueColumnsForField<K, F>,
+] extends [never]
+  ? { readonly [P in K]: unknown }
+  : RowOfColumns<ValueColumnsForField<K, F>>;
+
+type ColumnRowForFields<F extends FieldsMap> = UnionToIntersection<
+  {
+    [K in keyof F & string]: ColumnRowForField<K, F[K]>;
+  }[keyof F & string]
+>;
+
+// The row ctx.db.selectMany/fetchOne return: money and locatedTimestamp stay column pairs, values are not decrypted; a wide EntityDefinition yields Record<string, unknown>.
+export type EntityColumnRow<E extends EntityDefinition = EntityDefinition> =
+  string extends keyof E["fields"]
+    ? Record<string, unknown>
+    : Flatten<RowOfColumns<BaseColumnsType<E>> & SoftDeleteRow<E> & ColumnRowForFields<E["fields"]>>;
+
 // ── ES-write brand ──────────────────────────────────────────────────────
 export type {
   ExecutorManagedRunner,
@@ -484,7 +502,10 @@ export type EntityTable<E extends EntityDefinition = EntityDefinition> = TableCo
   BaseColumnsType<E> &
   SoftDeleteColumnsType &
   ColumnsForEntity<E["fields"]> &
-  TenancyBrand<EntityTableTenancy<E>>;
+  TenancyBrand<EntityTableTenancy<E>> & {
+    // Optional phantom, never present at runtime, read by TenantDb.selectMany/fetchOne.
+    readonly __columnRow?: EntityColumnRow<E>;
+  };
 
 export function buildBaseColumns(softDelete: boolean, idType: "serial" | "uuid" = "uuid") {
   const idColumn =

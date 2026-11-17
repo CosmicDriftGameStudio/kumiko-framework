@@ -59,14 +59,24 @@ export type TenantDbWrites<TTable> = {
   deleteMany(table: TTable, where: WhereObject): Promise<number>;
 };
 
+// Tables built from an entity carry their column row as a phantom; every other table stays Record<string, unknown>.
+export type TableColumnRow<TTable> = TTable extends { readonly __columnRow?: infer R }
+  ? unknown extends R
+    ? Record<string, unknown>
+    : NonNullable<R>
+  : Record<string, unknown>;
+
 type TenantDbNonWrites = {
   readonly tenantId: TenantId;
   readonly mode: TenantDbMode;
   /**
-   * Unfiltered DbRunner escape hatch for handlers/hooks that declare `escapeHatch: { reason }`.
-   * Throws `AccessDeniedError` when ungranted. The audit entry carries the declared escapeHatch reason.
+   * Raw runner in this TenantDb's own row level security scope (tenant scope in tenant mode, system scope in system mode); needs `escapeHatch: { reason }` (grant `unsafeRaw`), audited.
    */
   unsafeRaw(): DbRunner;
+  /**
+   * Raw runner in the system scope that reads and writes every tenant; same `unsafeRaw` grant and audit. Use only when the SQL has to reach other tenants or the system tenant.
+   */
+  unsafeRawAllTenants(): DbRunner;
   /**
    * Reach a "global" table with the tenant filter lifted — reads always work; writes
    * reject unless the write handler declared `escapeHatch: { reason }`. "tenant"-tenancy is a compile error here.
@@ -74,11 +84,20 @@ type TenantDbNonWrites = {
   global<TTable extends (SchemaTable | EntityTableMeta) & TenancyBrand<"global">>(
     table: TTable,
   ): GlobalTableDb<TTable>;
+  selectMany<TTable extends SchemaTable | EntityTableMeta>(
+    table: TTable,
+    where?: WhereObject,
+    options?: SelectOptions & { readonly fields?: undefined },
+  ): Promise<readonly TableColumnRow<TTable>[]>;
   selectMany<T = Record<string, unknown>>(
     table: SchemaTable | EntityTableMeta,
     where?: WhereObject,
     options?: SelectOptions,
   ): Promise<readonly T[]>;
+  fetchOne<TTable extends SchemaTable | EntityTableMeta>(
+    table: TTable,
+    where: WhereObject,
+  ): Promise<TableColumnRow<TTable> | undefined>;
   fetchOne<T = Record<string, unknown>>(
     table: SchemaTable | EntityTableMeta,
     where: WhereObject,
@@ -108,12 +127,17 @@ type TenantDbNonWrites = {
 export type TenantDbUpsertOptions = {
   readonly conflictTarget: readonly string[];
   readonly update?: Record<string, unknown>;
+  // On conflict the column grows by the delta atomically; on insert it starts at values[field] or the delta.
+  readonly increment?: Readonly<Record<string, number>>;
 };
 
 export type TenantDb = TenantDbNonWrites & TenantDbWrites<WritableTable>;
 
 // What a job's ctx.db is: built from the boot connection, so unsafeRaw() never returns a DbTx.
-export type ConnectionTenantDb = Omit<TenantDb, "unsafeRaw"> & { unsafeRaw(): DbConnection };
+export type ConnectionTenantDb = Omit<TenantDb, "unsafeRaw" | "unsafeRawAllTenants"> & {
+  unsafeRaw(): DbConnection;
+  unsafeRawAllTenants(): DbConnection;
+};
 
 // Handle for apply/rebuild/tenant-destroy contexts: may also write event-fed tables.
 export type ExecutorManagedTenantDb = TenantDbNonWrites &
