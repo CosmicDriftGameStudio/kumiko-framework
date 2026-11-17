@@ -9,6 +9,7 @@ export {
 export { assertExistsIn } from "./assert-exists-in.ts";
 export {
   nullBlindIndexesForSubject,
+  type OwnedRecordSubject,
   recordEventsOwnedExclusivelyByTenant,
   recordRowExistsInTenant,
   recordRowOwningTenantId,

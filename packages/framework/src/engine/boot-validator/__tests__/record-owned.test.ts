@@ -5,11 +5,17 @@
 // guard catches that combination before it ships.
 
 import { describe, expect, test } from "bun:test";
+import type { FieldsMap } from "@cosmicdrift/kumiko-types/fields";
 import { plaintextText } from "../../__tests__/plaintext-fields.ts";
+import { validateBoot } from "../../boot-validator.ts";
 import { defineFeature } from "../../define-feature.ts";
 import { createEntity, createTextField } from "../../factories.ts";
 import type { FeatureDefinition } from "../../types/index.ts";
-import { validateForgetWithSubject, validateRecordOwnedSubjects } from "../record-owned.ts";
+import {
+  validateForgetWithSubject,
+  validateRecordKeyHeldByOneOwner,
+  validateRecordOwnedSubjects,
+} from "../record-owned.ts";
 
 // Presence/absence of the annotation is the test variable here; the factory
 // cannot produce the unannotated shape.
@@ -103,5 +109,61 @@ describe("validateForgetWithSubject", () => {
 
   test("a personal: { of: 'id' } field boots fine", () => {
     expect(() => validateForgetWithSubject(forgetFeature("record"))).not.toThrow();
+  });
+});
+
+describe("validateRecordKeyHeldByOneOwner", () => {
+  function selfKeyedFeature(fields: FieldsMap): FeatureDefinition {
+    return defineFeature("slips", (r) =>
+      r.entity({
+        name: "slip",
+        ...createEntity({ table: "record_key_one_owner_slips", fields }),
+      }),
+    );
+  }
+
+  const ref = () => createTextField({ personal: "ref" });
+  const withRecordOwned = () =>
+    selfKeyedFeature({
+      ownerId: ref(),
+      name: createTextField({ personal: { of: "ownerId", whenAbsent: "self" }, find: "none" }),
+      body: createTextField({ personal: { of: "id" }, find: "none" }),
+    });
+
+  test("a whenAbsent self field next to a recordOwned field fails the boot", () => {
+    const feature = withRecordOwned();
+    expect(() => validateRecordKeyHeldByOneOwner(feature)).toThrow(/"slip"/);
+    expect(() => validateRecordKeyHeldByOneOwner(feature)).toThrow(/"body"/);
+    expect(() => validateRecordKeyHeldByOneOwner(feature)).toThrow(/recordOwned/);
+  });
+
+  test("whenAbsent self fields of two owner fields fail the boot", () => {
+    const feature = selfKeyedFeature({
+      ownerId: ref(),
+      reviewerId: ref(),
+      name: createTextField({ personal: { of: "ownerId", whenAbsent: "self" }, find: "none" }),
+      verdict: createTextField({
+        personal: { of: "reviewerId", whenAbsent: "self" },
+        find: "none",
+      }),
+    });
+    expect(() => validateRecordKeyHeldByOneOwner(feature)).toThrow(/"ownerId"/);
+    expect(() => validateRecordKeyHeldByOneOwner(feature)).toThrow(/"reviewerId"/);
+  });
+
+  test("several whenAbsent self fields of one owner boot fine", () => {
+    const feature = selfKeyedFeature({
+      ownerId: ref(),
+      reviewerId: ref(),
+      name: createTextField({ personal: { of: "ownerId", whenAbsent: "self" }, find: "none" }),
+      code: createTextField({ personal: { of: "ownerId", whenAbsent: "self" }, find: "none" }),
+      note: createTextField({ personal: { of: "reviewerId", whenAbsent: "tenant" }, find: "none" }),
+      label: createTextField({ personal: "self", find: "none" }),
+    });
+    expect(() => validateRecordKeyHeldByOneOwner(feature)).not.toThrow();
+  });
+
+  test("validateBoot runs the rule", () => {
+    expect(() => validateBoot([withRecordOwned()])).toThrow(/recordOwned/);
   });
 });

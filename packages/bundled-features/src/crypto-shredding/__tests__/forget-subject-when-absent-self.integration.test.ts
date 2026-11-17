@@ -25,8 +25,9 @@ import {
   setupTestStack,
   type TestStack,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { SUBJECT_KEY_ERASER_CONSUMER_NAME } from "../constants.ts";
+import { SUBJECT_FORGOTTEN_EVENT_NAME, SUBJECT_KEY_ERASER_CONSUMER_NAME } from "../constants.ts";
 import { createCryptoShreddingFeature } from "../feature.ts";
+import { subjectForgottenSchema } from "../handlers/forget-subject.write.ts";
 
 const FORGET = "crypto-shredding:write:forget-subject";
 const CREATE = "forget-self-probe:write:slip:create";
@@ -57,6 +58,12 @@ const probeFeature = defineFeature("forget-self-probe", (r) => {
 const dpoUser = {
   id: "cccccccc-cccc-4ccc-8ccc-000000000031",
   tenantId: testTenantId(31),
+  roles: ["DataProtectionOfficer"],
+};
+
+const dpoUserOtherTenant = {
+  id: "cccccccc-cccc-4ccc-8ccc-000000000032",
+  tenantId: testTenantId(32),
   roles: ["DataProtectionOfficer"],
 };
 
@@ -151,5 +158,45 @@ describe("crypto-shredding :: forgetting a record's self fields whenAbsent", () 
 
     await expect(kms.getKey(recordSubject)).rejects.toBeInstanceOf(KeyErasedError);
     expect((await detail(control))["name"]).toBe("never owned");
+  });
+
+  test("forgetting the owner announces each record key erase in the row's own tenant", async () => {
+    const { id } = await stack.http.writeOk<{ id: string }>(
+      CREATE,
+      { name: "other early" },
+      dpoUserOtherTenant,
+    );
+    await stack.http.writeOk(
+      UPDATE,
+      { id, version: 1, changes: { ownerId: OWNER } },
+      dpoUserOtherTenant,
+    );
+    const recordSubject = { kind: "record" as const, entity: "slip", id };
+    await kms.getKey(recordSubject);
+
+    await stack.http.writeOk(
+      FORGET,
+      { subject: { kind: "user", userId: OWNER }, reason: REASON },
+      dpoUser,
+    );
+    await drainEventConsumers(stack, [SUBJECT_KEY_ERASER_CONSUMER_NAME]);
+    await expect(kms.getKey(recordSubject)).rejects.toBeInstanceOf(KeyErasedError);
+
+    const rows = await selectMany<{ tenantId: string; payload: unknown }>(stack.db, eventsTable, {
+      type: SUBJECT_FORGOTTEN_EVENT_NAME,
+    });
+    const forgotten = rows.map((e) => ({
+      tenantId: e.tenantId,
+      subjectKey: subjectForgottenSchema.parse(e.payload).subjectKey,
+    }));
+    const recordKey = subjectIdToKey(recordSubject);
+    const userKey = subjectIdToKey({ kind: "user", userId: OWNER });
+    expect(forgotten.find((e) => e.subjectKey === recordKey)?.tenantId).toBe(
+      dpoUserOtherTenant.tenantId,
+    );
+    expect(
+      forgotten.filter((e) => e.tenantId === dpoUser.tenantId && e.subjectKey === recordKey),
+    ).toEqual([]);
+    expect(forgotten.find((e) => e.subjectKey === userKey)?.tenantId).toBe(dpoUser.tenantId);
   });
 });

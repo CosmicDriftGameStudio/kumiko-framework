@@ -467,7 +467,8 @@ async function processUser(args: {
             eraseReason: "user-data-rights:forget",
           },
         );
-        for (const recordSubject of ownedRecordSubjects) {
+        // The user's own erasure reaches every tenant, like the hooks above; pii/record-key-one-owner keeps these keys to the user's data.
+        for (const { subject: recordSubject } of ownedRecordSubjects) {
           await kms.eraseKey(recordSubject, {
             requestId: "user-data-rights:run-forget-cleanup",
             userId,

@@ -38,6 +38,7 @@ import {
   type WriteFailure,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
+import { runInSystemRowLevelSecurityScope } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   appendDomainEventCore,
   assertIrreversibleOperationAllowed,
@@ -391,6 +392,7 @@ export const forgetSubjectWrite = defineWriteHandler({
       "the denial audit appends name the caller's own tenant stream on the outside-transaction db; " +
       "the tenant-scope and retention checks and the row-owner lookups run against the subject's tenant, not necessarily the caller's; " +
       "the blind-index sweep, search purge and file purge address the subject across tenants; " +
+      "the subject-forgotten events of owned record subjects land in each row's own tenant; " +
       "the user lifecycle update and PAT revoke run on the SYSTEM user stream.",
   },
   handler: async (event, ctx) => {
@@ -487,18 +489,34 @@ export const forgetSubjectWrite = defineWriteHandler({
       payload: { subjectKey, reason: event.payload.reason, forgottenBy: event.user.id },
       expectedVersion: 0,
     });
-    for (const recordSubject of ownedRecordSubjects) {
-      await ctx.events.unsafeAppend({
-        aggregateId: generateId(),
-        aggregateType: CRYPTO_SHREDDING_AGGREGATE_TYPE,
-        type: SUBJECT_FORGOTTEN_EVENT_NAME,
-        payload: {
-          subjectKey: subjectIdToKey(recordSubject),
-          reason: event.payload.reason,
-          forgottenBy: event.user.id,
-        },
-        expectedVersion: 0,
-      });
+    // No tenant or retention filter: pii/record-key-one-owner keeps these keys to the owner's data, which the user-key erase shreds in every tenant anyway.
+    for (const owned of ownedRecordSubjects) {
+      // In the row's own tenant: the actor's stream must not carry another tenant's row ids.
+      await runInSystemRowLevelSecurityScope(
+        "an owned record's subject-forgotten event lands in the row's own tenant",
+        () =>
+          appendDomainEventCore(
+            {
+              registry: ctx.registry,
+              db: crossTenantRunner,
+              tenantId: owned.tenantId,
+              userId: String(event.user.id),
+              callSiteLabel: "forget-subject owned record",
+              callerFeature: CRYPTO_SHREDDING_FEATURE_NAME,
+            },
+            {
+              aggregateId: generateId(),
+              aggregateType: CRYPTO_SHREDDING_AGGREGATE_TYPE,
+              type: SUBJECT_FORGOTTEN_EVENT_NAME,
+              payload: {
+                subjectKey: subjectIdToKey(owned.subject),
+                reason: event.payload.reason,
+                forgottenBy: event.user.id,
+              },
+              expectedVersion: 0,
+            },
+          ),
+      );
     }
     return { isSuccess: true as const, data: { subjectKey } };
   },

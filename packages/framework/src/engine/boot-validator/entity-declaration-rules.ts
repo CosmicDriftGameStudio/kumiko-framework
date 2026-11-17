@@ -169,6 +169,12 @@ export const ENTITY_DECLARATION_RULES = {
       'An entity with forgetWithSubject: true does not declare retention.strategy "blockDelete".',
     fix: "Remove forgetWithSubject, or choose a retention strategy that allows deleting the row.",
   },
+  recordKeyOneOwner: {
+    id: "pii/record-key-one-owner",
+    summary:
+      'An entity with whenAbsent: "self" fields names one owner field for all of them and has no recordOwned field, because forgetting that owner erases the record key.',
+    fix: 'Give the owner-keyed fields whenAbsent: "tenant", use one owner field, or keep the record\'s own data on a separate entity.',
+  },
   crossTenantFileReadQueryUnregistered: {
     id: "files/cross-tenant-read-query-unregistered",
     summary: "crossTenantFileRead.query names a registered query handler.",

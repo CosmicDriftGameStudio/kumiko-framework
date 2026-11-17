@@ -24,6 +24,32 @@ export function validateRecordOwnedSubjects(feature: FeatureDefinition): void {
   }
 }
 
+// Forgetting the owner erases the row's record key (recordSubjectsOwnedByUser), so that key may hold only that owner's data.
+export function validateRecordKeyHeldByOneOwner(feature: FeatureDefinition): void {
+  for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
+    const selfOwnerFields = new Set<string>();
+    const recordOwnedFields: string[] = [];
+    for (const [fieldName, field] of Object.entries(entity.fields)) {
+      if ("recordOwned" in field && field.recordOwned === true) recordOwnedFields.push(fieldName);
+      if ("userOwned" in field && field.userOwned?.whenAbsent === "self") {
+        selfOwnerFields.add(field.userOwned.ownerField);
+      }
+    }
+    if (selfOwnerFields.size === 0) continue;
+    const owners = [...selfOwnerFields].map((name) => `"${name}"`).join(", ");
+    if (recordOwnedFields.length > 0) {
+      throw bootRuleError(ENTITY_DECLARATION_RULES.recordKeyOneOwner, {
+        message: `[Feature ${feature.name}] entity "${entityName}" has whenAbsent: "self" fields of owner field ${owners} and recordOwned field(s) ${recordOwnedFields.map((n) => `"${n}"`).join(", ")} — both sit under the record key "record:${entityName}:<id>", so forgetting the owner would erase the record's own data. Give the owner-keyed fields whenAbsent: "tenant", or keep the recordOwned data on a separate entity.`,
+      });
+    }
+    if (selfOwnerFields.size > 1) {
+      throw bootRuleError(ENTITY_DECLARATION_RULES.recordKeyOneOwner, {
+        message: `[Feature ${feature.name}] entity "${entityName}" uses whenAbsent: "self" with several owner fields (${owners}) — they share the record key "record:${entityName}:<id>", so forgetting one owner would erase the others' data. Use one owner field for all whenAbsent: "self" fields, or give the others whenAbsent: "tenant".`,
+      });
+    }
+  }
+}
+
 export function validateForgetWithSubject(feature: FeatureDefinition): void {
   for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
     if (entity.forgetWithSubject !== true) continue;
