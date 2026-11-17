@@ -92,6 +92,12 @@ export type ActionFormScreenDefinition = {
   /** Per-field label i18n key override, same type/semantics as
    *  `EntityEditScreenDefinition.fieldLabels`. Falls back to the convention when absent. */
   readonly fieldLabels?: Readonly<Record<string, FieldTextRef>>;
+  /** Entity of the same feature whose field texts this form reuses: a form field the entity
+   *  also declares takes its label and option labels from `<feature>:entity:<labelEntity>:field:<name>`.
+   *  An entry in `fieldLabels` still wins; a field the entity lacks keeps the `__action-form__` keys. */
+  readonly labelEntity?: string;
+  /** Derived by buildAppSchema: the form fields `labelEntity` declares. An authored value is overwritten. */
+  readonly labelEntityFields?: readonly string[];
   /** i18n key for the submit button. Default: the renderer's i18n default
    *  (typically "actions.submit"). */
   readonly submitLabel?: string;

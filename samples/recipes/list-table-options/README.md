@@ -25,7 +25,9 @@ the `table` block renders and behaves as before.
   an actionForm once for the whole selection. Its `taskIds` field is a
   `multiSelect` with `display: "count"`, and the `task:set-status` handler
   updates every id in one write, bounded by `.max(MAX_BULK_SELECTION)` and
-  reading each id through the tenant-scoped executor. The form has a `preview`:
+  reading each id through the tenant-scoped executor. `labelEntity: "task"` lets the form's
+  `status` and `note` fields reuse the task entity's label and option texts instead of
+  separate `__action-form__` keys. The form has a `preview`:
   the `task:set-status-preview` query returns the affected tasks with old and
   new status from the same plan function the handler applies. A preview list
   column with `type: "file"` shows a FileRef id as file name and download link.

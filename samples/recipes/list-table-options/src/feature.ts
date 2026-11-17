@@ -359,6 +359,7 @@ export function createTaskBoardFeature(
       handler: "task-board:write:task:set-status",
       listScreenId: "task-list",
       redirect: "task-list",
+      labelEntity: "task",
       fields: {
         taskIds: { type: "multiSelect", options: [], display: "count" },
         status: createSelectField({

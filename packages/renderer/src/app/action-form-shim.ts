@@ -103,6 +103,15 @@ export function actionFormSubmittableFields(
   );
 }
 
+function fieldTextEntitiesOf(
+  screen: ActionFormScreenDefinition | SecretMintScreenDefinition,
+): Readonly<Record<string, string>> | undefined {
+  if (screen.type !== "actionForm") return undefined;
+  const { labelEntity, labelEntityFields } = screen;
+  if (labelEntity === undefined || !labelEntityFields?.length) return undefined;
+  return Object.fromEntries(labelEntityFields.map((field) => [field, labelEntity]));
+}
+
 /** Converts an ActionFormScreenDefinition or SecretMintScreenDefinition to
  *  the EntityEditScreen shape expected by RenderEdit. `type` is set to
  *  "entityEdit" to satisfy the type constraint, and `entity` is pinned to
@@ -110,6 +119,7 @@ export function actionFormSubmittableFields(
 export function synthesizeActionFormScreen(
   screen: ActionFormScreenDefinition | SecretMintScreenDefinition,
 ): EntityEditScreenDefinition {
+  const fieldTextEntities = fieldTextEntitiesOf(screen);
   return {
     id: screen.id,
     type: "entityEdit",
@@ -124,6 +134,7 @@ export function synthesizeActionFormScreen(
       screen.fillHeight !== undefined && { fillHeight: screen.fillHeight }),
     ...("fieldLabels" in screen &&
       screen.fieldLabels !== undefined && { fieldLabels: screen.fieldLabels }),
+    ...(fieldTextEntities !== undefined && { fieldTextEntities }),
   };
 }
 

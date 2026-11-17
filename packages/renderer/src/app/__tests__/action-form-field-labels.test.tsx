@@ -52,7 +52,7 @@ function renderActionFormCapturingFieldLabels(screen: ActionFormScreenDefinition
           screen={synthesizeActionFormScreen(screen)}
           entity={synthesizeActionFormEntity(screen.fields)}
           featureName="shop"
-          initial={{ dueAt: "" }}
+          initial={{ dueAt: "", note: "" }}
         />
       </PrimitivesProvider>
     </LocaleProvider>,
@@ -88,5 +88,22 @@ describe("RenderEdit — ActionFormScreenDefinition.fieldLabels", () => {
     const { labels } = renderActionFormCapturingFieldLabels(screen);
 
     expect(labels["field-dueAt"]).toBe("shop:entity:__action-form__:field:dueAt");
+  });
+
+  test("labelEntity moves the fields the entity declares to the entity keys; the rest keep __action-form__", () => {
+    const screen: ActionFormScreenDefinition = {
+      id: "reschedule",
+      type: "actionForm",
+      handler: "shop:write:reschedule",
+      fields: { dueAt: { type: "date" }, note: { type: "text" } },
+      layout: { sections: [{ fields: ["dueAt", "note"] }] },
+      labelEntity: "order",
+      labelEntityFields: ["dueAt"],
+    };
+
+    const { labels } = renderActionFormCapturingFieldLabels(screen);
+
+    expect(labels["field-dueAt"]).toBe("shop:entity:order:field:dueAt");
+    expect(labels["field-note"]).toBe("shop:entity:__action-form__:field:note");
   });
 });

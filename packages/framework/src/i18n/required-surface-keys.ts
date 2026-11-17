@@ -376,6 +376,7 @@ type ScreenKeyCollectorContext = {
   readonly out: Set<string>;
   readonly featureName: string;
   readonly treatDotFormAsKey: boolean;
+  readonly entities: FeatureDefinition["entities"];
 };
 
 type ScreenKeyCollectors = {
@@ -448,7 +449,7 @@ function collectProjectionListKeys(
 function pushEditLayoutSectionKeys(
   ctx: ScreenKeyCollectorContext,
   sections: ScreenOfKind["entityEdit"]["layout"]["sections"],
-  labelEntity: string,
+  textEntityOf: (fieldName: string) => string,
   fieldLabels: FieldLabelOverrides,
 ): void {
   for (const section of sections) {
@@ -460,7 +461,8 @@ function pushEditLayoutSectionKeys(
     pushSectionTitles(ctx.out, section);
     for (const f of sectionFieldSpecs(section)) {
       pushEditFieldTextKeys(ctx.out, f);
-      pushFieldLabelOrOverrideKey(ctx, labelEntity, editFieldName(f), fieldLabels);
+      const fieldName = editFieldName(f);
+      pushFieldLabelOrOverrideKey(ctx, textEntityOf(fieldName), fieldName, fieldLabels);
     }
   }
 }
@@ -471,7 +473,7 @@ function collectEntityEditKeys(
 ): void {
   pushKey(ctx.out, edit.submitLabel);
   pushKey(ctx.out, edit.titleTemplate);
-  pushEditLayoutSectionKeys(ctx, edit.layout.sections, edit.entity, edit.fieldLabels);
+  pushEditLayoutSectionKeys(ctx, edit.layout.sections, () => edit.entity, edit.fieldLabels);
 }
 
 function pushPreviewKeys(
@@ -481,6 +483,18 @@ function pushPreviewKeys(
   pushKey(ctx.out, preview?.title);
   for (const fact of preview?.facts ?? []) pushKey(ctx.out, fact.label);
   for (const column of preview?.list?.columns ?? []) pushKey(ctx.out, column.label);
+}
+
+function actionFormTextEntityOf(
+  ctx: ScreenKeyCollectorContext,
+  form: ScreenOfKind["actionForm"],
+): (fieldName: string) => string {
+  const labelEntity = form.labelEntity;
+  const entityFields = labelEntity === undefined ? undefined : ctx.entities?.[labelEntity]?.fields;
+  return (fieldName) =>
+    labelEntity !== undefined && entityFields !== undefined && Object.hasOwn(entityFields, fieldName)
+      ? labelEntity
+      : ACTION_FORM_ENTITY;
 }
 
 function collectActionFormKeys(
@@ -500,10 +514,11 @@ function collectActionFormKeys(
   for (const fact of form.successFacts ?? []) pushKey(ctx.out, fact.label);
   pushPreviewKeys(ctx, form.preview);
   pushKey(ctx.out, form.successItems?.link?.label);
+  const textEntityOf = actionFormTextEntityOf(ctx, form);
   for (const fieldName of Object.keys(form.fields)) {
-    pushFieldLabelOrOverrideKey(ctx, ACTION_FORM_ENTITY, fieldName, form.fieldLabels);
+    pushFieldLabelOrOverrideKey(ctx, textEntityOf(fieldName), fieldName, form.fieldLabels);
   }
-  pushEditLayoutSectionKeys(ctx, form.layout.sections, ACTION_FORM_ENTITY, form.fieldLabels);
+  pushEditLayoutSectionKeys(ctx, form.layout.sections, textEntityOf, form.fieldLabels);
 }
 
 function collectSecretMintKeys(
@@ -673,6 +688,8 @@ function collectScreenKeysOfKind<K extends ScreenKind>(
 export type RequiredKeysOptions = {
   /** Bypass `isI18nKey`'s colon-only check for generated dot-form labels. */
   readonly treatDotFormAsKey?: boolean;
+  /** Entities of the screen's feature; an actionForm `labelEntity` resolves its field keys against them. */
+  readonly entities?: FeatureDefinition["entities"];
 };
 
 export function requiredKeysFromScreen(
@@ -684,6 +701,7 @@ export function requiredKeysFromScreen(
     out: new Set<string>(),
     featureName,
     treatDotFormAsKey: options.treatDotFormAsKey ?? false,
+    entities: options.entities,
   };
   pushKey(ctx.out, screenTitleKey(screen.id));
   // An unknown type is only reachable by casting past ScreenDefinition and yields the title key alone.
@@ -745,7 +763,9 @@ export function requiredKeysFromFeature(feature: FeatureDefinition): readonly st
   const out = new Set<string>();
 
   for (const screen of Object.values(feature.screens)) {
-    for (const key of requiredKeysFromScreen(feature.name, screen)) out.add(key);
+    for (const key of requiredKeysFromScreen(feature.name, screen, { entities: feature.entities })) {
+      out.add(key);
+    }
   }
   for (const nav of Object.values(feature.navs)) {
     for (const key of requiredKeysFromNav(nav)) out.add(key);

@@ -61,6 +61,11 @@ export const FORM_FIELD_RULES = {
     summary: "actionForm fieldBadges keys name fields of the form.",
     fix: "Name a field of the form or remove the entry.",
   },
+  labelEntityUnknown: {
+    id: "form/label-entity-unknown",
+    summary: "actionForm labelEntity names an entity of the same feature.",
+    fix: "Name an entity the feature registers or remove labelEntity.",
+  },
   editorFieldType: {
     id: "form/editor-field-type",
     summary: "The editor option targets a longText field without fillAction or valueChips.",

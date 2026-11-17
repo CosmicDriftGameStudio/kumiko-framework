@@ -808,8 +808,8 @@ export type JobContext = {
   // Multi-trigger jobs (`on: [...]`) use this to tell which trigger fired —
   // undefined for cron/manual jobs. Mirrors AppContext.triggerName.
   readonly triggerName?: string;
-  // Set when a stored event fired the job: by the job-trigger and catch-up consumers (at-least-once, key idempotency on triggerEvent.id)
-  // and by a write-handler trigger whose result is a save/delete lifecycle result. Undefined for cron/manual runs and plain-data results.
+  // Set when a stored event fired the job, by the job-trigger and catch-up consumers (at-least-once, key idempotency on triggerEvent.id).
+  // Undefined for cron and manual runs.
   readonly triggerEvent?: JobTriggerEvent;
   readonly config?: ConfigAccessor;
   readonly notify?: NotifyFn;

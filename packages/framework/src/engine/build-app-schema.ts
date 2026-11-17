@@ -31,6 +31,7 @@ import type { EntityWriteExcludedFields } from "@cosmicdrift/kumiko-types/screen
 import { ZodObject, type ZodType } from "zod";
 import { createFallbackLogger } from "../logging/utils.ts";
 import type {
+  ActionFormScreenDefinition,
   AppSchema,
   ConfigEditScreenDefinition,
   EntityDefinition,
@@ -378,14 +379,25 @@ function projectScreens(
       };
     }
     if (screen.type === "actionForm") {
-      const { writeExcludedFields: _authoredExclusions, ...authoredScreen } = screen;
+      const {
+        writeExcludedFields: _authoredExclusions,
+        labelEntityFields: _authoredLabelEntityFields,
+        ...authoredScreen
+      } = screen;
       const excluded = registry.getWriteHandler(screen.handler)?.excludedFields;
+      const labelEntityFields = actionFormLabelEntityFields(
+        screen,
+        screen.labelEntity === undefined
+          ? undefined
+          : registry.features.get(featureName)?.entities?.[screen.labelEntity],
+      );
       return {
         ...authoredScreen,
         urlPrefillFields: sortedUrlPrefillFields(
           urlPrefillFieldsByScreenQn.get(qualifyEntityName(featureName, "screen", shortId)),
         ),
         ...(excluded !== undefined && { writeExcludedFields: excluded }),
+        ...(labelEntityFields.length > 0 && { labelEntityFields }),
       };
     }
     if (screen.type === "secretMint") {
@@ -398,6 +410,14 @@ function projectScreens(
     }
     return screen;
   });
+}
+
+function actionFormLabelEntityFields(
+  screen: ActionFormScreenDefinition,
+  labelEntity: EntityDefinition | undefined,
+): string[] {
+  if (labelEntity === undefined) return [];
+  return Object.keys(screen.fields).filter((field) => Object.hasOwn(labelEntity.fields, field));
 }
 
 function sortedUrlPrefillFields(declared: ReadonlySet<string> | undefined): string[] {

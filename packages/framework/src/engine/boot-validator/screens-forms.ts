@@ -992,6 +992,17 @@ function validateActionFormFieldTexts(
   }
 }
 
+function validateActionFormLabelEntity(
+  feature: FeatureDefinition,
+  screenId: string,
+  screen: ActionFormScreenDefinition,
+): void {
+  if (screen.labelEntity === undefined || feature.entities?.[screen.labelEntity] !== undefined) return;
+  throw bootRuleError(FORM_FIELD_RULES.labelEntityUnknown, {
+    message: `[Feature ${feature.name}] Screen "${screenId}" (actionForm) labelEntity "${screen.labelEntity}" is not an entity of this feature. Known entities: ${Object.keys(feature.entities ?? {}).sort().join(", ")}`,
+  });
+}
+
 export function validateInlineFormScreen(
   feature: FeatureDefinition,
   screenId: string,
@@ -1023,6 +1034,7 @@ export function validateInlineFormScreen(
   );
   validateWizardLayout(feature.name, screenId, kind, screen.layout, featureMap, fieldNames);
   if (screen.type === "actionForm") {
+    validateActionFormLabelEntity(feature, screenId, screen);
     validateActionFormFieldTexts(feature.name, screenId, screen, fieldNames);
     validateActionFormPreview(feature.name, screenId, screen, fieldNames);
     validateFormDerivations(feature.name, screenId, screen);

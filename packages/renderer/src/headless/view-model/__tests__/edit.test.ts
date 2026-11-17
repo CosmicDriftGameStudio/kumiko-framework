@@ -1663,3 +1663,29 @@ describe("computeEditViewModel — conditional fields and file cells", () => {
     expect(field?.embeddedListUploadTarget).toMatchObject({ fieldName: "checkpoints" });
   });
 });
+
+describe("computeEditViewModel — fieldTextEntities", () => {
+  const entity = {
+    fields: { status: { type: "select", options: ["open", "done"] } },
+  } as unknown as EntityDefinition;
+
+  test("a field listed in fieldTextEntities takes its label and option labels from that entity", () => {
+    const vm = computeEditViewModel({
+      screen: editScreen(
+        { sections: [{ title: "x", fields: ["status"] }] },
+        { entity: "__action-form__", fieldTextEntities: { status: "order" } },
+      ),
+      entity,
+      values: {},
+      translate,
+      featureName: "orders",
+    });
+
+    const field = asFields(vm.sections[0]).fields[0];
+    expect(field?.label).toBe("orders:entity:order:field:status");
+    expect(field?.optionLabels).toEqual({
+      open: "orders:entity:order:field:status:option:open",
+      done: "orders:entity:order:field:status:option:done",
+    });
+  });
+});

@@ -753,6 +753,9 @@ export type EntityEditScreenDefinition = {
    *  `mask.title` label here. A missing entry falls back to the
    *  convention. */
   readonly fieldLabels?: Readonly<Record<string, FieldTextRef>>;
+  /** Field name -> entity whose label and option keys the field uses instead of `entity`.
+   *  Set by the actionForm shim from `labelEntity`. */
+  readonly fieldTextEntities?: Readonly<Record<string, string>>;
   /** Record actions. Reuses `RowAction` — analogous to
    *  `ProjectionDetailScreenDefinition.actions` (the loaded record stands
    *  in for the "row"). `rowClick` has no target here and is rejected by

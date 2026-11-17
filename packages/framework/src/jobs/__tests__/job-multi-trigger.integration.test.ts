@@ -1,6 +1,6 @@
 // Runtime test for r.job multi-trigger:
 // proves that a job with an array trigger fires for ALL declared triggers
-// and that payload._triggerName contains the correct name.
+// and that ctx.triggerName names the trigger that fired.
 //
 // Unit tests in engine.test.ts cover only boot behavior (acceptance +
 // validator rejection). This test exercises the runtime-dispatch paths
@@ -9,17 +9,18 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { defineFeature } from "../../engine/index.ts";
+import { defineFeature, triggeredEventOf } from "../../engine/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 
 const jobExecutions: Array<{ trigger: string; payload: Record<string, unknown> }> = [];
+const typedExecutions: Array<{ readonly type: string; readonly id: string }> = [];
 
 // Feature with two write handlers, each appending its own event, and one job
 // that listens to both events. One job body with multiple triggers is the DRY
 // case addressed by r.job multi-trigger.
 const orderFeature = defineFeature("multi", (r) => {
-  r.defineEvent("order-opened", z.object({ id: z.string() }), { piiFields: "none" });
-  r.defineEvent("order-cancelled", z.object({ id: z.string() }), { piiFields: "none" });
+  const orderOpened = r.defineEvent("order-opened", z.object({ id: z.string() }), { piiFields: "none" });
+  const orderCancelled = r.defineEvent("order-cancelled", z.object({ id: z.string() }), { piiFields: "none" });
   r.writeHandler({
     name: "order:open",
     schema: z.object({ id: z.string() }),
@@ -59,6 +60,14 @@ const orderFeature = defineFeature("multi", (r) => {
       // ctx.triggerName is the idiomatic API: for multi-trigger jobs,
       // this field tells the handler which of the N triggers fired.
       jobExecutions.push({ trigger: ctx.triggerName ?? "<missing>", payload });
+    },
+  );
+  r.job(
+    "typed-fanout",
+    { trigger: { on: [orderOpened.name, orderCancelled.name] } },
+    async (payload, ctx) => {
+      const event = triggeredEventOf([orderOpened, orderCancelled], payload, ctx);
+      typedExecutions.push({ type: event.type, id: event.payload.id });
     },
   );
 });
@@ -113,5 +122,16 @@ describe("r.job multi-trigger — runtime-dispatch", () => {
     expect(jobExecutions.length).toBe(2);
     const triggers = jobExecutions.map((e) => e.trigger).sort();
     expect(triggers).toEqual(["multi:event:order-cancelled", "multi:event:order-opened"]);
+  });
+
+  test("triggeredEventOf parses each run's payload against the event that fired", async () => {
+    typedExecutions.length = 0;
+    await stack.http.writeOk("multi:write:order:open", { id: "t-1" }, adminUser);
+    await stack.http.writeOk("multi:write:order:cancel", { id: "t-2" }, adminUser);
+    await stack.drainJobs();
+    expect([...typedExecutions].sort((a, b) => a.id.localeCompare(b.id))).toEqual([
+      { type: "multi:event:order-opened", id: "t-1" },
+      { type: "multi:event:order-cancelled", id: "t-2" },
+    ]);
   });
 });

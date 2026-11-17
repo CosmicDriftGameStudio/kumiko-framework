@@ -867,9 +867,10 @@ export function computeEditViewModel<
             ? parseRefTarget(normalized.refEntity, featureName)
             : undefined;
         const effectiveType = declaredRefTarget !== undefined ? "reference" : fieldDef.type;
+        const textEntity = screen.fieldTextEntities?.[normalized.field] ?? screen.entity;
         const label = resolveFieldText(
           screen.fieldLabels?.[normalized.field] ??
-            fieldLabelKey(featureName, screen.entity, normalized.field),
+            fieldLabelKey(featureName, textEntity, normalized.field),
           values,
           translate,
         ).text;
@@ -896,7 +897,7 @@ export function computeEditViewModel<
           fieldDef,
           translate,
           featureName,
-          screen.entity,
+          textEntity,
           normalized.field,
           values,
         );
