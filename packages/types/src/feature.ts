@@ -305,8 +305,8 @@ export type FeatureDefinition = {
   // means the feature is always-on (e.g. auth, tenant, user — core infra
   // that would brick the system if switchable).
   readonly toggleableDefault?: boolean;
-  // Set via r.adoptsBundledLists(): the feature takes the app-wide `bundledLists`
-  // block from composeFeatures. App features never set this.
+  // Set via r.adoptsBundledLists(): the feature takes the app-wide `bundledLists` block from composeFeatures.
+  // Bundled features with lists call it; an app feature calls it to get the same table on its lists.
   readonly adoptsBundledLists?: true;
   // Declarative UI metadata for picker/scaffolder tooling. Set via r.uiHints().
   // Pure manifest-side info — the framework runtime doesn't read it.

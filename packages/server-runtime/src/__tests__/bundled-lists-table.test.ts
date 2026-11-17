@@ -170,7 +170,7 @@ const withJobsOverride = () =>
   composeFeatures([jobsOverride], { includeBundled: false, bundledLists: FULL });
 
 describe("composeFeatures bundledLists", () => {
-  test("applies the block and pins the first column on bundled lists, leaves app features alone", () => {
+  test("applies the block and pins the first column on bundled lists, leaves features without the marker alone", () => {
     const features = composeFeatures([shopFeature], { includeBundled: true, bundledLists: FULL });
 
     const userList = listScreenOf(features, "user", "user-list");
@@ -192,6 +192,83 @@ describe("composeFeatures bundledLists", () => {
     expect(relatedListOf(features, "shop", "item-detail").table).toBeUndefined();
 
     expect(() => validateBoot(withBootValidatorFixture(features))).not.toThrow();
+  });
+
+  test("an app feature that calls adoptsBundledLists takes the block on its lists and relatedList sections", () => {
+    const crm = defineFeature("crm", (r) => {
+      r.adoptsBundledLists();
+      r.entity({
+        name: "contact",
+        ...createEntity({
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      });
+      r.queryHandler({
+        name: "contact:rows",
+        schema: z.object({}),
+        handler: async () => ({ rows: [], nextCursor: null }),
+        access: OPEN_TO_ALL,
+        outputSchema: rowsSchema,
+      });
+      r.screen({
+        id: "contact-list",
+        type: "entityList",
+        entity: "contact",
+        columns: ["name"],
+        dormant: true,
+      });
+      r.screen({
+        id: "contact-detail",
+        dormant: true,
+        type: "projectionDetail",
+        query: "crm:query:contact:rows",
+        layout: {
+          sections: [
+            {
+              kind: "relatedList",
+              title: "Rows",
+              query: "crm:query:contact:rows",
+              columns: ["name"],
+            },
+          ],
+        },
+      });
+    });
+    const features = composeFeatures([crm, shopFeature], {
+      includeBundled: true,
+      bundledLists: FULL,
+    });
+
+    const list = listScreenOf(features, "crm", "contact-list");
+    expect(list.table).toEqual(FULL.table);
+    expect(list.columns[0]).toEqual({ field: "name", pinned: "left" });
+
+    const { export: _export, ...withoutExport } = FULL.table;
+    expect(relatedListOf(features, "crm", "contact-detail").table).toEqual(withoutExport);
+
+    expect(listScreenOf(features, "shop", "item-list").table).toBeUndefined();
+    expect(() => validateBoot(withBootValidatorFixture(features))).not.toThrow();
+  });
+
+  test("export: undefined on an adopting screen drops the shared export", () => {
+    const lean = defineFeature("crm-lean", (r) => {
+      r.adoptsBundledLists();
+      r.screen({
+        id: "plain",
+        type: "projectionList",
+        query: ROWS_QN,
+        columns: ["id", "name"],
+        table: { export: undefined, pinning: false, resizing: false },
+      });
+    });
+    const features = composeFeatures([lean], { includeBundled: false, bundledLists: FULL });
+
+    const screen = listScreenOf(features, "crm-lean", "plain");
+    expect(screen.table?.export).toBeUndefined();
+    expect(screen.table?.pinning).toBe(false);
+    expect(screen.table?.resizing).toBe(false);
+    expect(screen.table?.columnPicker).toBe(true);
+    expect(screen.columns[0]).toBe("id");
   });
 
   test("does not mutate the shared bundled screen constants", () => {

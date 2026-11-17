@@ -30,6 +30,8 @@ export const createTransactionPayloadSchema = z
     // Business-object reference (e.g. a lease contract) this entry is about.
     subjectType: z.string().min(1).max(64).optional(),
     subjectId: z.string().min(1).max(128).optional(),
+    // Same key twice books once: the handler returns the existing entry.
+    sourceRef: z.string().min(1).max(128).optional(),
   })
   // Ids are only unique within their type, so a lone subjectId would match
   // bookings of a different object type.

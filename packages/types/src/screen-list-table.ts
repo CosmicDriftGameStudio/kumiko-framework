@@ -169,7 +169,7 @@ export type ListTableExportOptions = {
   readonly maxRows?: number;
 };
 
-/** One `table` block for every entityList, projectionList and relatedList of the bundled features. A screen's own `table` keys win per key. `grouping` and `totals` are not accepted here. */
+/** One `table` block for every entityList, projectionList and relatedList of the features that call `r.adoptsBundledLists()` (the bundled features with lists and any app feature that opts in). A screen's own `table` keys win per key; `export: undefined` on a screen drops the shared export for that list. `grouping` and `totals` are not accepted here. */
 export type BundledListsOptions = {
   readonly table: ListTableOptions;
   /** Pins the first column left on every bundled list where no column is pinned. Needs `table.pinning: true`. */

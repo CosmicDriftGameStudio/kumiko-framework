@@ -59,7 +59,7 @@ export const accountEntity = createEntity({
 export const transactionEntity = createEntity({
   table: "read_ledger_transactions",
   description:
-    "One journal entry: a booking date, a narration, an optional reference (a reversal points at the entry it corrects), a draft/posted status and the embedded posting lines of accountId plus signed minor-unit amount that must sum to zero; posted entries are immutable and corrected only by a reversing entry.",
+    "One journal entry: a booking date, a narration, an optional reference (a reversal points at the entry it corrects), an optional caller key (sourceRef) unique per tenant, a draft/posted status and the embedded posting lines of accountId plus signed minor-unit amount that must sum to zero; posted entries are immutable and corrected only by a reversing entry.",
   fields: {
     date: createDateField({ required: true }),
     // Journal narration ("Miete Januar", "Storno: …") is accounting data, not
@@ -107,12 +107,25 @@ export const transactionEntity = createEntity({
       reason: "technical_reference",
       filterable: true,
     }),
+    // Caller-assigned key that books an entry at most once per tenant; it stays with the entry after a Storno.
+    sourceRef: createTextField({
+      maxLength: 128,
+      personal: false,
+      reason: "technical_reference",
+      filterable: true,
+    }),
   },
   // Subject ids are only unique within their type, so lookups filter on both
   // columns; a subjectId-only filter would not be served by this index.
   indexes: [
     { columns: ["tenantId", "subjectType", "subjectId"] },
     { columns: ["tenantId", "reference"] },
+    {
+      columns: ["tenantId", "sourceRef"],
+      unique: true,
+      where: sql`"source_ref" IS NOT NULL`,
+      name: "read_ledger_transactions_tenant_id_source_ref_uidx",
+    },
   ],
 });
 

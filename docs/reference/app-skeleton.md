@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-11-16
+verified: 2026-11-17
 evidence: "kumiko new app scaffold, packages/dev-server/src/managed-files/registry.ts, kumiko check managed|scripts"
 ---
 
@@ -64,7 +64,7 @@ export default defineAppConfig({
 - `ports.infra.s3` and `ports.infra.meilisearch` switch the MinIO and Meilisearch
   services on in the managed `ci.yml`.
 - `bundledLists` sets one DataTable `table` block for every list of the features
-  that call `r.adoptsBundledLists()` (the bundled features with lists);
+  that call `r.adoptsBundledLists()` (the bundled features with lists and app features that opt in);
   `kumiko/schema.ts` passes it to `composeFeatures`, the bin files pass it to
   the runners. See `renderer-widget-options.md`.
 
