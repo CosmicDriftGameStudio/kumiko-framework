@@ -22,6 +22,12 @@ import { deleteSystemFieldHandler } from "./handlers/delete-system-field.write.t
 import { createDeleteTenantFieldHandler } from "./handlers/delete-tenant-field.write.ts";
 import { createSetCustomFieldHandler } from "./handlers/set-custom-field.write.ts";
 import { createUpdateTenantFieldHandler } from "./handlers/update-tenant-field.write.ts";
+import { customFieldsHostTableName } from "./lib/custom-fields-host.ts";
+import {
+  applyCustomFieldCleared,
+  applyCustomFieldSet,
+  applyFieldDefinitionDeleted,
+} from "./lib/host-value-apply.ts";
 import {
   CUSTOM_FIELD_CLEARED_EVENT,
   CUSTOM_FIELD_SET_EVENT,
@@ -66,10 +72,10 @@ function registerCustomFields(
   );
 
   // Registers that this extension exists.
-  // Consumer-side: r.useExtension("customFields", "<entity>") marks opt-in,
-  // but does not wire anything automatically. The consumer MUST also call
-  // `wireCustomFieldsFor(r, entity, table)` to register the MSP, postQuery hook,
-  // and search extension.
+  // This feature registers the one values projection `host-values` for all
+  // hosts. `wireCustomFieldsFor(r, entity, table)` announces a host
+  // (useExtension), provides the rebuild replay (extendEntityProjection) and
+  // registers the postQuery hook and search extension.
   // The empty-options pattern (`{}`) is intentional: boot-time onRegister
   // wiring would require a closure over the Drizzle table, which the consumer
   // does not provide during extendsRegistrar registration. Explicit consumer-
@@ -102,6 +108,31 @@ function registerCustomFields(
         "Lists the custom-field definitions of the caller's own tenant; use it to discover which extra fields an entity accepts before setting or clearing a value on it.",
     }),
   );
+
+  r.multiStreamProjection({
+    name: "host-values",
+    apply: {
+      [setEvent.name]: async (event, tx, ctx) => {
+        const tableName = customFieldsHostTableName(ctx.registry, event.aggregateType);
+        // skip: value events only exist on wired hosts (set-custom-field checks); an unwired type has no table
+        if (tableName === undefined) return;
+        await applyCustomFieldSet(event, tx, tableName);
+      },
+      [clearedEvent.name]: async (event, tx, ctx) => {
+        const tableName = customFieldsHostTableName(ctx.registry, event.aggregateType);
+        // skip: see set
+        if (tableName === undefined) return;
+        await applyCustomFieldCleared(event, tx, tableName);
+      },
+      [fieldDefinitionDeletedEvent.name]: async (event, tx, ctx) => {
+        const payload = fieldDefinitionDeletedSchema.parse(event.payload);
+        const tableName = customFieldsHostTableName(ctx.registry, payload.entityName);
+        // skip: the deleted definition belonged to an entity that is not wired here
+        if (tableName === undefined) return;
+        await applyFieldDefinitionDeleted(payload, tx, tableName);
+      },
+    },
+  });
 
   return { setEvent, clearedEvent, fieldDefinitionDeletedEvent };
 }

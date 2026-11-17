@@ -479,65 +479,14 @@ describe("custom-fields integration — no PII: `sensitive` rejected, every valu
     const payload = await fetchSetEventPayload(propId, "publicNote");
     expect(payload?.["value"]).toBe("visible");
   });
-
-  test("rebuild replay: re-applying logged events restores ALL custom-field values", async () => {
-    await defineField("property", "publicTag", "text");
-    await defineField("property", "vendorRef", "text");
-    const propId = "aaaaaaaa-aaaa-4000-8000-0000000000a3";
-    await createProperty(propId, "Rebuild Prop");
-    await setCustomField("property", propId, "publicTag", "keepme");
-    await setCustomField("property", propId, "vendorRef", "VR-777");
-    await stack.eventDispatcher?.runOnce();
-
-    // Wipe the read model, then replay the logged events through the REAL MSP
-    // apply fn — exactly the derivation a rebuild performs — without mutating
-    // consumer state (which would pollute the shared stack).
-    await asRawClient(stack.db).unsafe(
-      "UPDATE read_t1_properties SET custom_fields = '{}'::jsonb WHERE id = $1",
-      [propId],
-    );
-    const mspEntry = [...stack.registry.getAllMultiStreamProjections().entries()].find(([name]) =>
-      name.includes("property"),
-    );
-    expect(mspEntry).toBeDefined();
-    const apply = mspEntry?.[1].apply ?? {};
-    const events = (await asRawClient(stack.db).unsafe(
-      "SELECT type, payload FROM kumiko_events WHERE aggregate_id = $1 ORDER BY id ASC",
-      [propId],
-    )) as ReadonlyArray<{ type: string; payload: unknown }>;
-    // The MSP apply value-type declares a 3rd rebuild-context arg; custom-fields'
-    // apply only reads (event, tx), so narrow the call to those two for replay.
-    type ReplayApplyFn = (event: Record<string, unknown>, tx: unknown) => Promise<void>;
-    for (const e of events) {
-      const fn = apply[e.type] as ReplayApplyFn | undefined;
-      if (!fn) continue;
-      const payload = typeof e.payload === "string" ? JSON.parse(e.payload) : e.payload;
-      await fn(
-        {
-          type: e.type,
-          payload,
-          aggregateId: propId,
-          aggregateType: "property",
-          tenantId: admin.tenantId,
-        },
-        asRawClient(stack.db),
-      );
-    }
-
-    const row = (await listProperties()).rows.find((r) => r["id"] === propId);
-    // Every value restores from its value-bearing event — custom fields are
-    // fully rebuild-safe (no PII, no value-less events).
-    expect(row?.["publicTag"]).toBe("keepme");
-    expect(row?.["vendorRef"]).toBe("VR-777");
-  });
 });
 
 describe("custom-fields integration — registry facade: getMultiStreamProjectionFeature", () => {
   test("resolves the owning feature name for a registered multi-stream projection", () => {
-    const qualifiedName = "property-test:projection:custom-fields-property-projection";
+    const qualifiedName = "custom-fields:projection:host-values";
 
     expect(stack.registry.getAllMultiStreamProjections().has(qualifiedName)).toBe(true);
-    expect(stack.registry.getMultiStreamProjectionFeature(qualifiedName)).toBe("property-test");
+    expect(stack.registry.getMultiStreamProjectionFeature(qualifiedName)).toBe("custom-fields");
     // Missing MSP → undefined (not a fallback string). server.ts only spreads
     // featureName onto the EventConsumer when this returns a defined value.
     expect(

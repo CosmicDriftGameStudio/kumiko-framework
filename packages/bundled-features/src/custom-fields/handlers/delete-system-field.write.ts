@@ -8,7 +8,7 @@ import { FIELD_DEFINITION_AGGREGATE_TYPE } from "../web/constants.ts";
 
 // delete-system-field — SystemAdmin deletes a system-wide field definition.
 // Tenants can no longer set new values for it, but existing values remain in
-// read_<entity>.customFields jsonb until host-entity MSPs remove them in
+// read_<entity>.customFields jsonb until the custom-fields values projection removes them in
 // response to the customFieldDefinition.deleted event. Events remain for audit.
 export const deleteSystemFieldHandler: WriteHandlerDef = {
   name: "delete-system-field",
@@ -31,8 +31,8 @@ export const deleteSystemFieldHandler: WriteHandlerDef = {
       streamTenantId,
     });
 
-    // Cascade-cleanup event — host-entity MSPs remove orphaned values from their
-    // customFields jsonb in the same transaction for atomicity.
+    // Cascade-cleanup event — the custom-fields values projection removes orphaned values from each
+    // wired host's customFields jsonb in the same transaction for atomicity.
     if (result.isSuccess) {
       await ctx.events.unsafeAppend({
         aggregateId,

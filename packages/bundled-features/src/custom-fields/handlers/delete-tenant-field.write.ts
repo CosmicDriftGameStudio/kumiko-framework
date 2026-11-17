@@ -51,9 +51,10 @@ export function createDeleteTenantFieldHandler(
 
       const result = await fieldDefinitionExecutor.delete({ id: aggregateId }, event.user, ctx.db);
 
-      // Emit the cascade-cleanup event after a successful delete. Host-entity MSPs
-      // registered via wireCustomFieldsFor consume it and remove orphaned values
-      // from their customFields jsonb. The same transaction makes cleanup atomic.
+      // Emit the cascade-cleanup event after a successful delete. The custom-fields
+      // values projection consumes it for every host wired via wireCustomFieldsFor
+      // and removes orphaned values from their customFields jsonb. The same
+      // transaction makes cleanup atomic.
       if (result.isSuccess) {
         await ctx.events.unsafeAppend({
           aggregateId,

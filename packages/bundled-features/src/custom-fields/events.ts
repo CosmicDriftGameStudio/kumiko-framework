@@ -5,8 +5,8 @@ import * as z from "zod";
 //
 // The event's aggregate type is the host entity name (for example, "property"),
 // and its aggregate ID is the host entity row ID (for example, property-uuid).
-// This ensures customFields-MSPs consume only events for their wired entities,
-// filtered by aggregate-type match in each consumer-side-MSP registration.
+// The custom-fields `host-values` projection resolves the host table from this
+// aggregate type and skips types that are not wired.
 
 export const customFieldSetSchema = z.object({
   fieldKey: z.string().min(1).max(64),
