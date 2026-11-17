@@ -13,13 +13,15 @@ function answerListAggregate(executor: Pick<EventStoreExecutor, "aggregate">, re
 function applyEntityEvent(event: StoredEvent, table: Table, entity: EntityDefinition, tx: ExecutorManagedRunner): Promise<ApplyResult>; // Applies an auto-event idempotently to the entity table.
 function asEntityTableMeta(table: unknown): EntityTableMeta | undefined;
 function asRawClient(db: unknown): RawClient;
-function assertExistsIn(db: DbConnection | TenantDb, entity: any, options: { field: string; value: unknown; tenantId?: TenantId; where?: Record<string, unknown>; entityName?: string; }): Promise<NotFoundError | null>; // Generic constraint helper: asserts a value exists in a table.
+function assertExistsIn(db: DbConnection | TenantDb, entity: TableLike, options: { field: string; value: unknown; tenantId?: TenantId; where?: Record<string, unknown>; entityName?: string; }): Promise<NotFoundError | null>; // Generic constraint helper: asserts a value exists in a table.
 function assertNoActiveRowLevelSecurityScope(startingWhat: string): void;
 function assertRowLevelSecurityBootState(db: AnyDb, mode: RowLevelSecurityMode, knownTables: KnownTables): Promise<void>;
 function assertRowLevelSecurityTableState(db: AnyDb, mode: RowLevelSecurityMode, knownTables: KnownTables, scope?: RowLevelSecurityCheckScope): Promise<void>;
+function bigint(name: string, opts?: { mode?: "bigint" | "number"; }): ColumnBuilder<bigint>;
+function bindAppProjectionRegistry<TConnection extends DbRunner>(connection: TConnection, registry: Registry): TConnection;
 function boolean(name: string): ColumnBuilder<boolean>;
 function buildBaseColumns(softDelete: boolean, idType?: "serial" | "uuid"): …;
-function buildEntityTable<E extends EntityDefinition>(entityName: string, entity: E, options?: BuildEntityTableOptions): EntityTable<E>;
+function buildEntityTable<E extends EntityDefinition>(entity: E, options?: BuildEntityTableOptions): EntityTable<E>;
 function castTenantRows<T>(rows: Record<string, unknown>[]): T[];
 function collectEncryptedFieldNames(entity: EntityDefinition): ReadonlySet<string>;
 function collectTableMetas(features: FeatureDefinition[]): EntityTableMeta[];
@@ -31,12 +33,18 @@ function createEventStoreExecutor<E extends EntityDefinition>(table: Table, enti
 function createEventStoreExecutor<E extends EntityDefinition>(table: Table, entity: E, options: EventStoreExecutorOptions): EventStoreExecutor<EntityRow<E>>;
 function createSystemDbView(db: TenantDb, dbOutsideTransaction?: TenantDb, report?: EscapeHatchReporter): UncheckedSystemDb;
 function createTenantDataDestroyDb(options: Omit<CreateTenantDbOptions, "mode" | "reason">): ExecutorManagedTenantDb;
-function createTenantDb(options: CreateTenantDbOptions & { db: ExecutorManagedRunner; }): ExecutorManagedTenantDb;
-function createTenantDb(options: CreateTenantDbOptions): TenantDb;
-function createTenantDb(options: CreateTenantDbOptions & { db: ExecutorManagedRunner; }): ExecutorManagedTenantDb;
-function createTenantDb(options: CreateTenantDbOptions): TenantDb;
-function createTenantDb(options: CreateTenantDbOptions & { db: ExecutorManagedRunner; }): ExecutorManagedTenantDb;
-function createTenantDb(options: CreateTenantDbOptions): TenantDb;
+function createTenantDb(options: PublicCreateTenantDbOptions & { db: ExecutorManagedRunner; }): ExecutorManagedTenantDb;
+function createTenantDb(options: PublicCreateTenantDbOptions & { db: DbConnection; }): ConnectionTenantDb;
+function createTenantDb(options: PublicCreateTenantDbOptions): TenantDb;
+function createTenantDb(options: PublicCreateTenantDbOptions & { db: ExecutorManagedRunner; }): ExecutorManagedTenantDb;
+function createTenantDb(options: PublicCreateTenantDbOptions & { db: DbConnection; }): ConnectionTenantDb;
+function createTenantDb(options: PublicCreateTenantDbOptions): TenantDb;
+function createTenantDb(options: PublicCreateTenantDbOptions & { db: ExecutorManagedRunner; }): ExecutorManagedTenantDb;
+function createTenantDb(options: PublicCreateTenantDbOptions & { db: DbConnection; }): ConnectionTenantDb;
+function createTenantDb(options: PublicCreateTenantDbOptions): TenantDb;
+function createTenantDb(options: PublicCreateTenantDbOptions & { db: ExecutorManagedRunner; }): ExecutorManagedTenantDb;
+function createTenantDb(options: PublicCreateTenantDbOptions & { db: DbConnection; }): ConnectionTenantDb;
+function createTenantDb(options: PublicCreateTenantDbOptions): TenantDb;
 function dbConnectionOptionsFromEnv(env?: Readonly<Record<string, string | undefined>>): DbConnectionOptions;
 function declareGlobalTenancy<T extends SchemaTable>(table: T): T & TenancyBrand<"global">; // Stamps `tenancy: "global"` onto a `table()`/SchemaTable's meta in place.
 function decodeCursor(cursor: string): string;
@@ -55,23 +63,29 @@ function deleteManyBatched(db: AnyDb, table: WritableTable, where: WhereObject, 
 function deleteManyBatched(db: ExecutorManagedWriteCapability, table: EntityTableMeta, where: WhereObject, options: DeleteManyBatchedOptions): Promise<DeleteManyBatchedResult>;
 function deleteManyBatched(db: AnyDb, table: WritableTable, where: WhereObject, options: DeleteManyBatchedOptions): Promise<DeleteManyBatchedResult>;
 function deleteManyBatched(db: ExecutorManagedWriteCapability, table: EntityTableMeta, where: WhereObject, options: DeleteManyBatchedOptions): Promise<DeleteManyBatchedResult>;
-function deriveEntityTableMeta(entityName: string, entity: EntityDefinition, options: BuildEntityTableMetaOptions & { source: "unmanaged"; }): EntityTableMeta & Writable; // Derive EntityTableMeta from an EntityDefinition (base columns + field DDL).
-function deriveEntityTableMeta(entityName: string, entity: EntityDefinition, options?: BuildEntityTableMetaOptions): EntityTableMeta;
-function deriveEntityTableMeta(entityName: string, entity: EntityDefinition, options: BuildEntityTableMetaOptions & { source: "unmanaged"; }): EntityTableMeta & Writable; // Derive EntityTableMeta from an EntityDefinition (base columns + field DDL).
-function deriveEntityTableMeta(entityName: string, entity: EntityDefinition, options?: BuildEntityTableMetaOptions): EntityTableMeta;
-function deriveEntityTableMeta(entityName: string, entity: EntityDefinition, options: BuildEntityTableMetaOptions & { source: "unmanaged"; }): EntityTableMeta & Writable; // Derive EntityTableMeta from an EntityDefinition (base columns + field DDL).
-function deriveEntityTableMeta(entityName: string, entity: EntityDefinition, options?: BuildEntityTableMetaOptions): EntityTableMeta;
+function deriveEntityTableMeta(entity: EntityDefinition, options: BuildEntityTableMetaOptions & { source: "unmanaged"; }): EntityTableMeta & Writable; // Derive EntityTableMeta from an EntityDefinition (base columns + field DDL).
+function deriveEntityTableMeta(entity: EntityDefinition, options?: BuildEntityTableMetaOptions): EntityTableMeta;
+function deriveEntityTableMeta(entity: EntityDefinition, options: BuildEntityTableMetaOptions & { source: "unmanaged"; }): EntityTableMeta & Writable; // Derive EntityTableMeta from an EntityDefinition (base columns + field DDL).
+function deriveEntityTableMeta(entity: EntityDefinition, options?: BuildEntityTableMetaOptions): EntityTableMeta;
+function deriveEntityTableMeta(entity: EntityDefinition, options: BuildEntityTableMetaOptions & { source: "unmanaged"; }): EntityTableMeta & Writable; // Derive EntityTableMeta from an EntityDefinition (base columns + field DDL).
+function deriveEntityTableMeta(entity: EntityDefinition, options?: BuildEntityTableMetaOptions): EntityTableMeta;
 function encodeCursor(id: string | number): string;
 function encodeKeysetCursor(sortValue: string | null, id: string): string;
 function entityEventName(entityName: string, verb: EntityLifecycleVerb): string;
-function entityTableFromRegistry(registry: Registry, entityName: string, entity: Parameters<typeof buildEntityTable>[1]): SchemaTable;
+function entityTableFromRegistry(registry: Registry, entityName: string, entity: EntityDefinition): SchemaTable;
 function enumerateFeatureTableSources(feature: FeatureDefinition): FeatureTableSource[];
 function executeRawQuery<T = Record<string, unknown>>(db: AnyDb, sqlText: string, params?: unknown[]): Promise<T[]>; // Escape hatch for caller-built SQL that may write (or lock).
 function extractPgError(e: unknown): PgErrorInfo | null;
 function extractTableInfo(table: unknown): TableInfo;
 function extractTableName(table: unknown, context?): string; // Reads the `kumiko:schema:Name` symbol from a table object.
+function fetchOne<TTable extends TableLike>(db: AnyDb, table: TTable, where: WhereObject): Promise<TableColumnRow<TTable> | undefined>;
+function fetchOne<TRow = AnyRow>(db: AnyDb, table: TableLike, where: WhereObject): Promise<TRow | undefined>;
+function fetchOne<TTable extends TableLike>(db: AnyDb, table: TTable, where: WhereObject): Promise<TableColumnRow<TTable> | undefined>;
+function fetchOne<TRow = AnyRow>(db: AnyDb, table: TableLike, where: WhereObject): Promise<TRow | undefined>;
+function fetchOne<TTable extends TableLike>(db: AnyDb, table: TTable, where: WhereObject): Promise<TableColumnRow<TTable> | undefined>;
 function fetchOne<TRow = AnyRow>(db: AnyDb, table: TableLike, where: WhereObject): Promise<TRow | undefined>;
 function generateMigration(input: GenerateMigrationInput): GenerateMigrationOutput;
+function hasOutsideTransactionDb(ctx: OutsideTransactionContext): ctx is { db: { outsideTransaction: TenantDb; }; };
 function incrementCounter<TRow = AnyRow>(db: AnyDb, table: WritableTable, values: Record<string, unknown>, increments: Record<string, number>, options?: IncrementCounterOptions): Promise<TRow | undefined>;
 function incrementCounter<TRow = AnyRow>(db: ExecutorManagedWriteCapability, table: EntityTableMeta, values: Record<string, unknown>, increments: Record<string, number>, options?: IncrementCounterOptions): Promise<TRow | undefined>;
 function incrementCounter<TRow = AnyRow>(db: AnyDb, table: WritableTable, values: Record<string, unknown>, increments: Record<string, number>, options?: IncrementCounterOptions): Promise<TRow | undefined>;
@@ -97,6 +111,7 @@ function insertOne<TRow = AnyRow>(db: AnyDb, table: WritableTable, values: Recor
 function insertOne<TRow = AnyRow>(db: ExecutorManagedWriteCapability, table: EntityTableMeta, values: Record<string, unknown>): Promise<TRow | undefined>;
 function insertOne<TRow = AnyRow>(db: AnyDb, table: WritableTable, values: Record<string, unknown>): Promise<TRow | undefined>;
 function insertOne<TRow = AnyRow>(db: ExecutorManagedWriteCapability, table: EntityTableMeta, values: Record<string, unknown>): Promise<TRow | undefined>;
+function insertProjectedEntityRow<E extends EntityDefinition>(tx: ExecutorManagedRunner, target: ProjectedEntityTarget<E>, event: StoredEvent, rowId: string, values: ProjectedEntityValues<E>): Promise<void>;
 function instant(name: string, opts?: { precision?: 0 | 1 | 2 | 3 | 4 | 5 | 6; }): ColumnBuilder<Temporal.Instant>;
 function instantToTimestamptzParam(instant: Temporal.Instant): string;
 function integer(name: string): ColumnBuilder<number>;
@@ -111,6 +126,7 @@ function loadSnapshotJson(path: string): Snapshot | null;
 function nullBlindIndexesForSubject(db: DbRunner, features: ReadonlyMap<string, FeatureDefinition>, subjectKey: string): Promise<void>;
 function outsideRowLevelSecurityScope<T>(fn: () => T): T;
 function outsideTransactionPoolOptionsFromEnv(env?: Readonly<Record<string, string | undefined>>): DbConnectionOptions;
+function patchProjectedEntityRow<E extends EntityDefinition>(tx: ExecutorManagedRunner, target: ProjectedEntityTarget<E>, event: StoredEvent, rowId: string, set: ProjectedEntityValues<E>): Promise<void>;
 function physicalColumnName(table: SchemaTable, field: string): string;
 function primaryKey(opts: { columns: ColumnHandle[]; name?: string; }): PrimaryKeyDescriptor;
 function queryDatabaseNow(runner: AnyDb): Promise<Date>;
@@ -118,9 +134,12 @@ function readDatabaseNow(db: TenantDb): Promise<Date>; // Postgres clock; inside
 function recordEventsOwnedExclusivelyByTenant(db: DbRunner, aggregateType: string, aggregateId: string, tenantId: string): Promise<boolean>;
 function recordRowExistsInTenant(db: DbRunner, features: ReadonlyMap<string, FeatureDefinition>, entityName: string, recordId: string, tenantId: string): Promise<boolean>;
 function recordRowOwningTenantId(db: DbRunner, features: ReadonlyMap<string, FeatureDefinition>, entityName: string, recordId: string): Promise<string | undefined>;
+function recordSubjectsOwnedByUser(db: DbRunner, features: ReadonlyMap<string, FeatureDefinition>, userId: string): Promise<OwnedRecordSubject[]>;
 function rehydrateMoney(row: Record<string, unknown>, entity: EntityDefinition): Record<string, unknown>; // Rehydrate two flat DB columns into a combined `{ amount, currency }` value.
 function renderTablesDdl(metas: EntityTableMeta[], options?: RenderDdlOptions): string[];
 function requireEntityTableMeta(table: unknown, tableName: string): EntityTableMeta;
+function requireOutsideTransactionDb(ctx: OutsideTransactionContext): TenantDb;
+function requireSystemDb<TSystemDb>(ctx: { systemDb?: TSystemDb; }, callerName: string): NonNullable<TSystemDb>;
 function rowLevelSecurityModeOf(db: unknown): RowLevelSecurityMode;
 function runInOwnTransaction<T>(tenantDb: TenantDb, fn: (txDb: TenantDb) => Promise<T>): Promise<T>;
 function runInSavepointIfSupported<T>(db: ExecutorManagedRunner, fn: (sp: ExecutorManagedRunner) => Promise<T>): Promise<T>;
@@ -135,6 +154,11 @@ function scopeTenantDbToTenant(db: TenantDb, tenantId: TenantId): TenantDb;
 function seedConfigValues<E extends EntityDefinition>(seeds: ConfigSeedDef[], table: EntityTable<E>, entity: E, registry: Registry, db: DbConnection, cipher?: EnvelopeCipher): Promise<{ created: number; skipped: number; }>; // Seed config values at boot time via the event-store executor.
 function seedReferenceData(defs: ReferenceDataDef[], registry: Registry, db: DbConnection): Promise<{ inserted: number; updated: number; }>; // Seed reference data at boot time.
 function selectInnerJoin<TLeft = Record<string, unknown>, TRight = Record<string, unknown>>(db: AnyDb, spec: InnerJoinSpec): Promise<InnerJoinRow<TLeft, TRight>[]>;
+function selectMany<TTable extends TableLike>(db: AnyDb, table: TTable, where?: WhereObject, options?: SelectOptions & { fields?: undefined; }): Promise<TableColumnRow<TTable>[]>;
+function selectMany<TRow = AnyRow>(db: AnyDb, table: TableLike, where?: WhereObject, options?: SelectOptions): Promise<TRow[]>;
+function selectMany<TTable extends TableLike>(db: AnyDb, table: TTable, where?: WhereObject, options?: SelectOptions & { fields?: undefined; }): Promise<TableColumnRow<TTable>[]>;
+function selectMany<TRow = AnyRow>(db: AnyDb, table: TableLike, where?: WhereObject, options?: SelectOptions): Promise<TRow[]>;
+function selectMany<TTable extends TableLike>(db: AnyDb, table: TTable, where?: WhereObject, options?: SelectOptions & { fields?: undefined; }): Promise<TableColumnRow<TTable>[]>;
 function selectMany<TRow = AnyRow>(db: AnyDb, table: TableLike, where?: WhereObject, options?: SelectOptions): Promise<TRow[]>;
 function serial(name: string): ColumnBuilder<number>;
 function serverTimeoutOptionsFromEnv(env?: Readonly<Record<string, string | undefined>>): DbConnectionOptions;
@@ -198,11 +222,20 @@ type ColumnMeta = {
   identity?: boolean;
   bigintJsMode?: "number" | "bigint";
 };
+type ConnectionTenantDb = Omit<TenantDb, "unsafeRaw" | "unsafeRawAllTenants"> & {
+  unsafeRaw(): DbConnection;
+  unsafeRawAllTenants(): DbConnection;
+};
 type DbConnection = SQL | RawDbClient;
 type DbRow = Record<string, unknown>;
 type DbRunner = DbConnection | DbTx;
 type DbTx = TransactionSQL | RawDbClient;
-type EntityTable<E extends EntityDefinition = EntityDefinition> = TableColumns & BaseColumnsType<E> & SoftDeleteColumnsType & ColumnsForEntity<E["fields"]> & TenancyBrand<EntityTableTenancy<E>>;
+type EntityColumnRow<E extends EntityDefinition = EntityDefinition> = string extends keyof E["fields"] ? Record<string, unknown> : Flatten<RowOfColumns<BaseColumnsType<E>> & SoftDeleteRow<E> & ColumnRowForFields<E["fields"]>>;
+type EntityExecutorOf<E extends EntityDefinition> = EventStoreExecutor<EntityRow<E>>;
+type EntityRow<E extends EntityDefinition = EntityDefinition> = string extends keyof E["fields"] ? Record<string, unknown> : Flatten<RowOfColumns<BaseColumnsType<E>> & SoftDeleteRow<E> & RowForFields<E["fields"]>>; // The row `executor.list()` / `executor.detail()` return for entity `E`.
+type EntityTable<E extends EntityDefinition = EntityDefinition> = TableColumns & BaseColumnsType<E> & SoftDeleteColumnsType & ColumnsForEntity<E["fields"]> & TenancyBrand<EntityTableTenancy<E>> & {
+  __columnRow?: EntityColumnRow<E>;
+};
 type EntityTableMeta = {
   tableName: string;
   columns: ColumnMeta[];
@@ -212,16 +245,21 @@ type EntityTableMeta = {
   piiSubjectFields?: string[];
   tenancy?: "global";
   systemRowsReadable?: true;
+  entityEventVersion?: number;
 };
 type EventStoreExecutor<Row extends Record<string, unknown> = Record<string, unknown>> = {
-  create: (payload: Record<string, unknown>, user: SessionUser, db: TenantDb, options?: StreamTenantOption & { preSave?: PreSaveRunner; }) => Promise<WriteResult<SaveContext>>;
-  update: (payload: { id: EntityId; version?: number | undefined; changes: Record<string, unknown>; }, user: SessionUser, db: TenantDb, options?: StreamTenantOption & LockGuardOption & ParentVisibilityGateOption & { skipOptimisticLock?: boolean; ski…;
+  create: (payload: Record<string, unknown>, user: SessionUser, db: TenantDb, options?: ExecutorCreateOptions) => Promise<WriteResult<ExecutorSaveContext>>;
+  update: (payload: { id: EntityId; version?: number | undefined; changes: Record<string, unknown>; }, user: SessionUser, db: TenantDb, options?: ExecutorUpdateOptions) => Promise<WriteResult<ExecutorSaveContext>>;
+  createMany: (payloads: Record<string, unknown>[], user: SessionUser, db: TenantDb, options?: ExecutorCreateOptions) => Promise<WriteResult<ExecutorSaveContext[]>>;
+  updateMany: (payloads: { id: EntityId; version?: number | undefined; changes: Record<string, unknown>; }[], user: SessionUser, db: TenantDb, options?: ExecutorUpdateOptions) => Promise<WriteResult<ExecutorSaveContext[]>>;
   delete: (payload: { id: EntityId; }, user: SessionUser, db: TenantDb, options?: StreamTenantOption & LockGuardOption & ParentVisibilityGateOption & { expect?: Readonly<Record<string, string | number | boolean | null>>; }) => Promise<WriteResult<De…;
   forget: (payload: { id: EntityId; }, user: SessionUser, db: TenantDb, options?: StreamTenantOption & ParentVisibilityGateOption) => Promise<WriteResult<DeleteContext>>;
-  restore: (payload: { id: EntityId; }, user: SessionUser, db: TenantDb, options?: StreamTenantOption & ParentVisibilityGateOption) => Promise<WriteResult<SaveContext>>;
-  list: (payload: { cursor?: string | undefined; limit?: number | undefined; search?: string | undefined; sort?: string | undefined; sortDirection?: "asc" | "desc" | undefined; offset?: number | undefined; totalCount?: boolean | undefined; filter?…;
+  restore: (payload: { id: EntityId; }, user: SessionUser, db: TenantDb, options?: StreamTenantOption & ParentVisibilityGateOption) => Promise<WriteResult<ExecutorSaveContext>>;
+  list: (payload: { cursor?: string | undefined; limit?: number | undefined; search?: string | undefined; sort?: string | undefined; sortDirection?: "asc" | "desc" | undefined; offset?: number | undefined; totalCount?: boolean | undefined; fields?…;
   aggregate: (payload: ListAggregateRequest, user: SessionUser, db: TenantDb, runtimeOptions?: ListRuntimeOptions) => Promise<ListAggregateResult>; // Groups and measures over the same WHERE as `list` (filters, search, ownership, field-read gates); paging and sort are ignored.
   detail: (payload: { id: EntityId; }, user: SessionUser, db: TenantDb, options?: { parentVisibility?: ParentVisibilityOption; }) => Promise<Row | null>;
+  history: (payload: { id: EntityId; }, user: SessionUser, db: TenantDb, options?: StreamTenantOption & ParentVisibilityGateOption) => Promise<EntityHistoryEntry[] | null>;
+  listAsOf: (payload: { asOf: Temporal.Instant; }, user: SessionUser, db: TenantDb, options?: StreamTenantOption) => Promise<Readonly<Record<string, unknown>>[]>;
 };
 type ExecutorManagedRunner = DbRunner & ExecutorManagedWriteCapability;
 type ExecutorManagedTenantDb = TenantDbNonWrites & TenantDbWrites<EntityTableMeta> & ExecutorManagedWriteCapability;
@@ -233,11 +271,25 @@ type KnownTables = {
   has: (tableName: string) => boolean;
   readsSystemRows: (tableName: string) => boolean;
 };
-type MoneyRead = { // Shape of a single rehydrated money field — {amount major, currency, amountScaled exact integer value in MINOR_UNIT_SCALE units}.
+type MoneyRead = { // Shape of a single rehydrated money field — `{ amount (integer, minor units), currency }`.
   amount: number;
   currency: string;
-  amountScaled: number;
-  amountMinor: number;
+};
+type OutsideTransactionContext = {
+  db: Pick<HandlerDb, "outsideTransaction">;
+};
+type OwnedRecordSubject = {
+  subject: Extract<SubjectId, { kind: "record"; }>;
+  tenantId: TenantId;
+};
+type ProjectedEntityTarget<E extends EntityDefinition> = {
+  entityName: string;
+  entity: E;
+  table: EntityTableMeta;
+};
+type ProjectedEntityValues<E extends EntityDefinition> = Partial<Omit<EntityRow<E>, ProjectedRowMetaKey>>;
+type PublicCreateTenantDbOptions = Pick<CreateTenantDbOptions, "db" | "tenantId" | "tracer" | "meter" | "signal"> & {
+  mode?: "tenant";
 };
 type RowLevelSecurityMode = (typeof ROW_LEVEL_SECURITY_MODES)[number];
 type RowLevelSecurityScope =
@@ -274,6 +326,7 @@ type TenantDb = TenantDbNonWrites & TenantDbWrites<WritableTable>;
 type UncheckedSystemDb = {
   [SYSTEM_SCOPE_CHECK_BRAND]: true;
   assertTenantMatch(tenantId: TenantId): TenantDb;
+  scopedTo(tenantId: TenantId): TenantDb;
   assertRowsTenant<T>(rows: T[], tenantField: keyof T): T[];
   acknowledgeCrossTenant(reason: string): TenantDb;
   unsafeRaw(reason: string): DbRunner; // Raw unfiltered DbRunner, gated behind a mandatory non-empty `reason` for auditability.

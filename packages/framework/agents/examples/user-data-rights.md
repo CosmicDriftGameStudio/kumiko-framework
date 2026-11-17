@@ -8,7 +8,7 @@ DSGVO-compliant in 5 LOC: r.useExtension(EXT_USER_DATA, ...) haengt eine Domain 
 
 # user-data-rights
 
-GDPR-compliant domain wiring in ~5 lines: `r.useExtension(EXT_USER_DATA, …)`
+GDPR-compliant domain wiring in ~5 lines: `r.applyExtension({ name: EXT_USER_DATA, … })`
 hooks any entity into the forget cron, export ZIP, and magic-link pipeline.
 You write two hooks per entity — the framework runs the rest.
 
@@ -22,7 +22,9 @@ defineFeature("notes", (r) => {
   r.requires({ features: ["user-data-rights"] });
   r.entity({ name: "note", ...noteEntity });
 
-  r.useExtension(EXT_USER_DATA, "note", {
+  r.applyExtension({
+    name: EXT_USER_DATA,
+    entity: "note",
     export: async (ctx) => ({
       entity: "note",
       rows: await ctx.db
@@ -62,6 +64,13 @@ defineFeature("notes", (r) => {
 
 The integration test pins both paths.
 
+## Event-sourced entities
+
+For an entity whose rows go through the executor, `forgetOwnRowsDeleteHook` from
+`@cosmicdrift/kumiko-bundled-features/user-data-rights-defaults` replaces the hand-written loop. It
+forgets every row that names the user in one of `ownerFields` (default `userId`), trashed rows
+included, under both strategies. The recipe's `mute` entity uses `userId` and `mutedUserId`.
+
 ## Flow
 
 1. User creates notes → rows stored with `authorId`.
@@ -71,7 +80,7 @@ The integration test pins both paths.
 
 ## Tests
 
-Needs a running Postgres and `TEST_DATABASE_URL` set (e.g. `postgres://postgres:postgres@127.0.0.1:5432/postgres`, see `demo/.env.example`).
+Needs the Postgres from the repo root's `docker-compose.yml` (`docker compose up -d`); `TEST_DATABASE_URL` defaults to `postgresql://kumiko:kumiko@localhost:15432/kumiko_test`.
 
 ```bash
 bun test src/__tests__/feature.integration.test.ts
@@ -82,6 +91,7 @@ Step-by-step proof:
 1. Alice creates 2 notes → export bundle includes note snippet
 2. Deletion + expired grace → `runForgetCleanup` removes all notes
 3. Strategy `anonymize` → `authorId=null`, title/body remain
+4. Deletion + expired grace → every mute Alice set or received is forgotten, other users' mutes and other tenants stay
 
 ## Retention with files
 
@@ -106,6 +116,10 @@ const result = await runRetentionCleanup({
 });
 // result.hardDeleted === 1, bytes and file_refs row gone
 ```
+
+## Stream retention for short-lived state
+
+An entity that holds technical state (previews, run state) declares `streamRetention: { keepFor: "30d" }`. The job `data-retention:job:stream-retention` deletes every stream of that entity whose newest event is older than `keepFor`, together with the rows a rebuild would no longer recreate. Counters belong in an `r.storeTable` written with `ctx.db.upsert(..., { increment })` instead of an event per hit. `src/preview-snapshots.ts` holds the entity and `src/__tests__/stream-retention.integration.test.ts` drives the run with `runStreamRetention`.
 
 ## Full app vs this recipe
 
@@ -148,14 +162,8 @@ export const features = [
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
-import {
-  createComplianceProfilesFeature,
-  tenantComplianceProfileEntity,
-} from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
-import {
-  createDataRetentionFeature,
-  tenantRetentionOverrideEntity,
-} from "@cosmicdrift/kumiko-bundled-features/data-retention";
+import { createComplianceProfilesFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
+import { createDataRetentionFeature } from "@cosmicdrift/kumiko-bundled-features/data-retention";
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import {
   tenantMembershipEntity,
@@ -164,7 +172,6 @@ import {
 import {
   createUserFeature,
   USER_STATUS,
-  userEntity,
   userTable,
 } from "@cosmicdrift/kumiko-bundled-features/user";
 import {
@@ -175,20 +182,23 @@ import {
 import { insertOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { EXT_USER_DATA } from "@cosmicdrift/kumiko-framework/engine";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
+import { deleteRowViaEventStore, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { noteEntity, notesFeature, notesTable } from "../feature";
+import { muteEntity, mutesTable, type NoteRow, notesFeature, notesTable } from "../feature";
 
 let stack: TestStack;
 
 // Each test gets its own tenant and user, so rows from other tests never show up.
 let testNumber = 0;
 let TENANT_A = "";
+let TENANT_B = "";
 let ALICE_ID = "";
+let BOB_ID = "";
+let CAROL_ID = "";
 let ALICE_EMAIL = "";
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
@@ -207,10 +217,6 @@ beforeAll(async () => {
       notesFeature,
     ],
   });
-  await unsafeCreateEntityTable(stack.db, userEntity);
-  await unsafeCreateEntityTable(stack.db, noteEntity);
-  await unsafeCreateEntityTable(stack.db, tenantRetentionOverrideEntity);
-  await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
   await unsafeCreateEntityTable(stack.db, tenantMembershipEntity);
 });
 
@@ -222,12 +228,24 @@ beforeEach(() => {
   testNumber += 1;
   const suffix = String(testNumber).padStart(12, "0");
   TENANT_A = `00000000-0000-4000-8000-${suffix}`;
+  TENANT_B = `00000000-0000-4000-9000-${suffix}`;
   ALICE_ID = `11111111-1111-4111-8111-${suffix}`;
+  BOB_ID = `22222222-2222-4222-8222-${suffix}`;
+  CAROL_ID = `33333333-3333-4333-8333-${suffix}`;
   ALICE_EMAIL = `alice-${testNumber}@recipe.test`;
 });
 
 function noteId(index: number): string {
   return `aaaaaaaa-aaaa-4aaa-8aaa-${String(testNumber * 10 + index).padStart(12, "0")}`;
+}
+
+async function seedMute(
+  id: string,
+  tenantId: string,
+  userId: string,
+  mutedUserId: string,
+): Promise<void> {
+  await seedRowViaEventStore(stack.db, mutesTable, { id, tenantId, userId, mutedUserId });
 }
 
 async function seedAlice(opts: { gracePeriodEnd?: Instant; status?: string } = {}): Promise<void> {
@@ -292,7 +310,7 @@ describe("user-data-rights recipe :: EXT_USER_DATA-Hooks integrieren Notes-Domai
     });
     expect(result.processedUserIds).toContain(ALICE_ID);
 
-    const remaining = await selectMany(stack.db, notesTable, { tenantId: TENANT_A });
+    const remaining = await selectMany<NoteRow>(stack.db, notesTable, { tenantId: TENANT_A });
     expect(remaining.length).toBe(0);
   });
 
@@ -313,10 +331,48 @@ describe("user-data-rights recipe :: EXT_USER_DATA-Hooks integrieren Notes-Domai
       | undefined;
     await hooks?.delete?.({ db: stack.db, tenantId: TENANT_A, userId: ALICE_ID }, "anonymize");
 
-    const after = await selectMany(stack.db, notesTable, { tenantId: TENANT_A });
+    const after = await selectMany<NoteRow>(stack.db, notesTable, { tenantId: TENANT_A });
     expect(after).toHaveLength(1);
     expect(after[0]?.authorId).toBeNull();
     expect(after[0]?.title).toBe("stays-anonymous");
+  });
+});
+
+describe("forgetOwnRowsDeleteHook :: event-sourced mutes", () => {
+  test("the forget cron erases every mute naming the user once, trashed ones included, and keeps the rest", async () => {
+    await seedAlice({ status: USER_STATUS.DeletionRequested, gracePeriodEnd: PAST() });
+    const [setByAlice, aliceMuted, selfMute, trashed, unrelated, otherTenant] = [
+      noteId(5),
+      noteId(6),
+      noteId(7),
+      noteId(8),
+      noteId(9),
+      noteId(4),
+    ];
+    await seedMute(setByAlice, TENANT_A, ALICE_ID, BOB_ID);
+    await seedMute(aliceMuted, TENANT_A, BOB_ID, ALICE_ID);
+    await seedMute(selfMute, TENANT_A, ALICE_ID, ALICE_ID);
+    await seedMute(trashed, TENANT_A, ALICE_ID, CAROL_ID);
+    await seedMute(unrelated, TENANT_A, BOB_ID, CAROL_ID);
+    await seedMute(otherTenant, TENANT_B, ALICE_ID, BOB_ID);
+    await deleteRowViaEventStore(
+      stack.db,
+      { table: mutesTable, entity: muteEntity, entityName: "mute" },
+      { id: trashed },
+      { tenantId: TENANT_A },
+    );
+
+    const result = await runForgetCleanup({
+      db: stack.db,
+      registry: stack.registry,
+      now: NOW(),
+    });
+    expect(result.processedUserIds).toContain(ALICE_ID);
+
+    const remainingA = await selectMany(stack.db, mutesTable, { tenantId: TENANT_A });
+    expect(remainingA.map((r) => r.id)).toEqual([unrelated]);
+    const remainingB = await selectMany(stack.db, mutesTable, { tenantId: TENANT_B });
+    expect(remainingB.map((r) => r.id)).toEqual([otherTenant]);
   });
 });
 ```
@@ -332,7 +388,6 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
   createDataRetentionFeature,
   runRetentionCleanup,
-  tenantRetentionOverrideEntity,
 } from "@cosmicdrift/kumiko-bundled-features/data-retention";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
@@ -348,12 +403,8 @@ import {
   buildMultipartBody,
   patchFileInstanceofForBunTest,
 } from "@cosmicdrift/kumiko-testing/helpers";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
-import { retainedDocEntity, retainedDocsFeature } from "../retained-docs";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { retainedDocsFeature } from "../retained-docs";
 
 const CREATE = "retained-docs:write:retained-doc:create";
 const DETAIL = "retained-docs:query:retained-doc:detail";
@@ -369,8 +420,6 @@ beforeAll(async () => {
     features: [createFilesFeature(), createDataRetentionFeature(), retainedDocsFeature],
     files: { storageProvider: provider },
   });
-  await unsafeCreateEntityTable(stack.db, retainedDocEntity, "retained-doc");
-  await unsafeCreateEntityTable(stack.db, tenantRetentionOverrideEntity);
 });
 
 afterAll(async () => {
@@ -435,6 +484,64 @@ describe("user-data-rights recipe :: retention run removes a hardDelete entity's
 });
 ```
 
+### src/__tests__/stream-retention.integration.test.ts
+
+```ts
+// runStreamRetention is public API: an app test drives the stream pruning with its own `now`
+// and checks that the stream and the row of an entity with streamRetention are gone.
+
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import {
+  createDataRetentionFeature,
+  runStreamRetention,
+} from "@cosmicdrift/kumiko-bundled-features/data-retention";
+import { buildEntityTable, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { previewSnapshotEntity, previewSnapshotsFeature } from "../preview-snapshots";
+
+const CREATE = "preview-snapshots:write:preview-snapshot:create";
+const tenantId = testTenantId(62);
+const admin = createTestUser({ id: 62, tenantId, roles: ["Admin"] });
+
+let stack: TestStack;
+
+beforeAll(async () => {
+  stack = await setupTestStack({
+    features: [createDataRetentionFeature(), previewSnapshotsFeature],
+  });
+});
+
+afterAll(async () => {
+  await stack.cleanup();
+});
+
+describe("user-data-rights recipe :: stream retention prunes short-lived entities", () => {
+  test("after keepFor + 1 day the stream and the row are gone", async () => {
+    const { id } = await stack.http.writeOk<{ id: string }>(
+      CREATE,
+      { title: "draft preview" },
+      admin,
+    );
+    await stack.eventDispatcher?.runOnce();
+
+    const result = await runStreamRetention({
+      db: stack.db,
+      registry: stack.registry,
+      now: getTemporal()
+        .Now.instant()
+        .add({ hours: 31 * 24 }),
+    });
+
+    expect(result.deletedRows).toBe(1);
+    expect(await selectMany(stack.db, eventsTable, { aggregateId: id })).toEqual([]);
+    expect(await selectMany(stack.db, buildEntityTable(previewSnapshotEntity), { id })).toEqual([]);
+  });
+});
+```
+
 ### src/feature.ts
 
 ```ts
@@ -449,6 +556,8 @@ describe("user-data-rights recipe :: retention run removes a hardDelete entity's
 // title, body). Pins:
 //   1. The export hook delivers note rows as a JSON snippet into the export bundle.
 //   2. The delete hook removes note rows during the forget-cleanup cron.
+//   3. An event-sourced entity needs no hand-written loop: forgetOwnRowsDeleteHook forgets
+//      every mute the user set or received, trashed rows included.
 //
 // What is not in the recipe (see samples/apps/user-data-rights-demo
 // for a complete app):
@@ -456,6 +565,7 @@ describe("user-data-rights recipe :: retention run removes a hardDelete entity's
 //   - HTTP endpoints for create/list
 //   - Compliance profile wiring + cron scheduling
 
+import { forgetOwnRowsDeleteHook } from "@cosmicdrift/kumiko-bundled-features/user-data-rights-defaults";
 import {
   deleteMany,
   deriveEntityTableMeta,
@@ -464,6 +574,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
+  createEntityExecutor,
   createTextField,
   defineFeature,
   EXT_USER_DATA,
@@ -472,6 +583,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 
 export const noteEntity = createEntity({
+  name: "note",
   table: "store_notes",
   idType: "uuid",
   fields: {
@@ -496,7 +608,35 @@ export const noteEntity = createEntity({
 // Plain EntityTableMeta, NOT a branded EntityTable: store_notes is a deliberate
 // unmanaged direct-write store (r.storeTable below), so the forget hook may
 // updateMany/deleteMany it directly — the meta carries no executor-only brand.
-export const notesTable = deriveEntityTableMeta("note", noteEntity, { source: "unmanaged" });
+export type NoteRow = {
+  readonly id: string;
+  readonly authorId: string | null;
+  readonly title: string;
+  readonly body: string | null;
+};
+
+export const notesTable = deriveEntityTableMeta(noteEntity, { source: "unmanaged" });
+
+export const muteEntity = createEntity({
+  name: "mute",
+  table: "read_udr_recipe_mutes",
+  idType: "uuid",
+  softDelete: true,
+  fields: {
+    userId: createTextField({ personal: "ref", required: true }),
+    mutedUserId: createTextField({ personal: "ref", required: true }),
+  },
+});
+
+export const { table: mutesTable, executor: muteExecutor } = createEntityExecutor(muteEntity);
+
+// A mute names two users; when either is erased the row goes, so no mute points at a missing user.
+export const forgetMutes = forgetOwnRowsDeleteHook({
+  entityName: "mute",
+  table: mutesTable,
+  executor: muteExecutor,
+  ownerFields: ["userId", "mutedUserId"],
+});
 
 export const notesFeature = defineFeature("notes", (r) => {
   r.requires({ features: ["user-data-rights"] });
@@ -510,7 +650,7 @@ export const notesFeature = defineFeature("notes", (r) => {
   });
 
   const exportNotes: UserDataExportHook = async (ctx) => {
-    const rows = await selectMany(ctx.db, notesTable, {
+    const rows = await selectMany<NoteRow>(ctx.db, notesTable, {
       tenantId: ctx.tenantId,
       authorId: ctx.userId,
     });
@@ -518,8 +658,8 @@ export const notesFeature = defineFeature("notes", (r) => {
     return {
       entity: "note",
       rows: rows.map((row) => ({
-        id: String(row.id),
-        title: row.title ?? "",
+        id: row.id,
+        title: row.title,
         body: row.body ?? "",
       })),
     };
@@ -534,10 +674,46 @@ export const notesFeature = defineFeature("notes", (r) => {
     }
   };
 
-  r.useExtension(EXT_USER_DATA, "note", {
+  r.applyExtension({
+    name: EXT_USER_DATA,
+    entity: "note",
     export: exportNotes,
     delete: deleteNotes,
   });
+
+  r.entity(muteEntity);
+  r.applyExtension({ name: EXT_USER_DATA, entity: "mute", delete: forgetMutes });
+});
+```
+
+### src/preview-snapshots.ts
+
+```ts
+// Short-lived technical state as an event-sourced entity: streamRetention lets the data-retention
+// job prune whole streams whose newest event is older than keepFor, together with their rows.
+import {
+  createEntity,
+  createTextField,
+  defineEntityCreateHandler,
+  defineFeature,
+} from "@cosmicdrift/kumiko-framework/engine";
+
+export const previewSnapshotEntity = createEntity({
+  name: "preview-snapshot",
+  table: "read_preview_snapshots",
+  fields: {
+    title: createTextField({ personal: false, reason: "is_business_data", required: true }),
+  },
+  streamRetention: { keepFor: "30d" },
+});
+
+export const previewSnapshotsFeature = defineFeature("preview-snapshots", (r) => {
+  r.entity(previewSnapshotEntity);
+  r.writeHandler(
+    defineEntityCreateHandler("preview-snapshot", previewSnapshotEntity, {
+      access: { roles: ["Admin"] },
+    }),
+  );
 });
 ```
 
@@ -558,6 +734,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 
 export const retainedDocEntity = createEntity({
+  name: "retained-doc",
   table: "store_retained_docs",
   fields: {
     title: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -567,7 +744,7 @@ export const retainedDocEntity = createEntity({
 });
 
 export const retainedDocsFeature = defineFeature("retained-docs", (r) => {
-  r.entity({ name: "retained-doc", ...retainedDocEntity });
+  r.entity(retainedDocEntity);
   r.writeHandler(
     defineEntityCreateHandler("retained-doc", retainedDocEntity, {
       access: { roles: ["Admin"] },

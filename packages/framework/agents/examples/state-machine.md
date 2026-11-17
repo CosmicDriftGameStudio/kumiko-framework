@@ -21,7 +21,7 @@ Feature entry point: `src/feature.ts`.
 
 ## Tests
 
-Needs a running Postgres and `TEST_DATABASE_URL` set (e.g. `postgres://postgres:postgres@127.0.0.1:5432/postgres`, see `demo/.env.example`).
+Needs the Postgres from the repo root's `docker-compose.yml` (`docker compose up -d`); `TEST_DATABASE_URL` defaults to `postgresql://kumiko:kumiko@localhost:15432/kumiko_test`.
 
 ```bash
 cd samples/recipes/state-machine
@@ -467,6 +467,7 @@ const TRANSITION_CONFIG = {
 export const INVOICE_TRANSITIONS = defineTransitions(TRANSITION_CONFIG);
 
 export const invoiceEntity = createEntity({
+  name: "invoice",
   table: "read_sample_sm_invoices",
   fields: {
     title: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -479,7 +480,7 @@ export const invoiceEntity = createEntity({
   },
 });
 
-export const invoiceTable = buildEntityTable("invoice", invoiceEntity);
+export const invoiceTable = buildEntityTable(invoiceEntity);
 ```
 
 ### src/events.ts
@@ -580,7 +581,7 @@ import { createInvoiceTransitionHandlers } from "./handlers/transitions";
 export { invoiceEntity } from "./entities/invoice";
 
 export const stateMachineFeature = defineFeature("billing", (r) => {
-  r.entity({ name: "invoice", ...invoiceEntity });
+  r.entity(invoiceEntity);
 
   // Domain events — one per intent. Names live in events.ts so the reducer
   // and the projection stay in sync. The auto "invoice.created" event from
@@ -662,6 +663,7 @@ export function transitionHandler(opts: {
     schema: z.object({ id: z.uuid() }),
     access: opts.access,
     handler: async (event, ctx) => {
+      const streamVersion = await ctx.events.streamVersion(event.payload.id);
       const state = await loadInvoiceState(ctx, event.payload.id);
       if (!state) return failNotFound(ENTITY_NAME, event.payload.id);
 
@@ -678,6 +680,7 @@ export function transitionHandler(opts: {
         aggregateId: event.payload.id,
         aggregateType: ENTITY_NAME,
         payload: {},
+        expectedVersion: streamVersion,
       });
 
       return successResult(event.payload.id, opts.toStatus, state.status);
@@ -708,8 +711,8 @@ export function successResult(id: string, newStatus: InvoiceStatus, previousStat
 // stream, and inserts the projection row with status="draft" (entity-default).
 //
 // Schema is hand-written (not buildInsertSchema) because the public API
-// keeps amount + amountCurrency flat, while the entity stores them as a
-// money pair.
+// keeps amount + amountCurrency flat; the handler wraps them into the
+// { amount, currency } money pair (amount in minor units) the executor takes.
 
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
@@ -724,11 +727,18 @@ export const invoiceCreate = defineWriteHandler({
   name: "invoice:create",
   schema: z.object({
     title: z.string().min(1),
-    amount: z.number(),
+    amount: z.number().int(),
     amountCurrency: z.string().length(3),
   }),
   access: { roles: ["Admin"] },
-  handler: async (event, ctx) => invoiceExecutor.create(event.payload, event.user, ctx.db),
+  handler: async (event, ctx) => {
+    const { title, amount, amountCurrency } = event.payload;
+    return invoiceExecutor.create(
+      { title, amount: { amount, currency: amountCurrency } },
+      event.user,
+      ctx.db,
+    );
+  },
 });
 ```
 
@@ -787,6 +797,9 @@ export function createInvoiceTransitionHandlers(events: InvoiceEvents) {
     schema: z.object({ id: z.uuid() }),
     access: { roles: ["Accounting"] },
     handler: async (event, ctx) => {
+      // Read the stream version BEFORE the state: the append below only lands if nobody appended
+      // since this read, so the decision stays valid.
+      const streamVersion = await ctx.events.streamVersion(event.payload.id);
       const state = await loadInvoiceState(ctx, event.payload.id);
       if (!state) return failNotFound(ENTITY_NAME, event.payload.id);
 
@@ -800,6 +813,7 @@ export function createInvoiceTransitionHandlers(events: InvoiceEvents) {
         aggregateId: event.payload.id,
         aggregateType: ENTITY_NAME,
         payload: {},
+        expectedVersion: streamVersion,
       });
 
       return successResult(event.payload.id, "paid", state.status);
@@ -830,6 +844,7 @@ export function createInvoiceTransitionHandlers(events: InvoiceEvents) {
     access: adminOnly,
     // No skipTransitionGuard — pipeline auto-guards.
     handler: async (event, ctx) => {
+      const streamVersion = await ctx.events.streamVersion(event.payload.id);
       const state = await loadInvoiceState(ctx, event.payload.id);
       if (!state) return failNotFound(ENTITY_NAME, event.payload.id);
 
@@ -838,6 +853,7 @@ export function createInvoiceTransitionHandlers(events: InvoiceEvents) {
         aggregateId: event.payload.id,
         aggregateType: ENTITY_NAME,
         payload: {},
+        expectedVersion: streamVersion,
       });
 
       return successResult(event.payload.id, target, state.status);
@@ -857,6 +873,7 @@ export function createInvoiceTransitionHandlers(events: InvoiceEvents) {
     access: adminOnly,
     unsafeSkipTransitionGuard: true,
     handler: async (event, ctx) => {
+      const streamVersion = await ctx.events.streamVersion(event.payload.id);
       const state = await loadInvoiceState(ctx, event.payload.id);
       if (!state) return failNotFound(ENTITY_NAME, event.payload.id);
 
@@ -864,6 +881,7 @@ export function createInvoiceTransitionHandlers(events: InvoiceEvents) {
         aggregateId: event.payload.id,
         aggregateType: ENTITY_NAME,
         payload: { newStatus: event.payload.status, fromStatus: state.status as InvoiceStatus },
+        expectedVersion: streamVersion,
       });
 
       return successResult(event.payload.id, event.payload.status, state.status);

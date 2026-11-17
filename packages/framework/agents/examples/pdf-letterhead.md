@@ -23,7 +23,7 @@ A PDF layout with its own look, a letter with an address frame, and the transfer
 
 ## Tests
 
-Needs a running Postgres and `TEST_DATABASE_URL` set (e.g. `postgres://postgres:postgres@127.0.0.1:5432/postgres`, see `demo/.env.example`).
+Needs the Postgres from the repo root's `docker-compose.yml` (`docker compose up -d`); `TEST_DATABASE_URL` defaults to `postgresql://kumiko:kumiko@localhost:15432/kumiko_test`.
 
 ```bash
 cd samples/recipes/pdf-letterhead
@@ -48,32 +48,28 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/config";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import {
+  createRendererPuppeteerClientFeature,
+  RendererPuppeteerClientQueries,
+} from "@cosmicdrift/kumiko-bundled-features/renderer-puppeteer-client";
+import {
   createTemplateResolverFeature,
   DEFAULT_PDF_LAYOUT_SLUG_CONFIG_KEY,
   TemplateResolverHandlers,
   TemplateResolverQueries,
-  templateResourceEntity,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import {
   createTenantFeature,
-  tenantEntity,
   tenantMembershipsTable,
 } from "@cosmicdrift/kumiko-bundled-features/tenant";
-import { createUserFeature, userEntity } from "@cosmicdrift/kumiko-bundled-features/user";
+import { createUserFeature } from "@cosmicdrift/kumiko-bundled-features/user";
 import {
   createFilesFeature,
   createInMemoryFileProvider,
 } from "@cosmicdrift/kumiko-framework/files";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
-  createRendererPuppeteerClientFeature,
-  RendererPuppeteerClientQueries,
-  renderedPdfEntity,
-} from "@cosmicdrift/kumiko-renderer-puppeteer-client";
-import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import {
@@ -117,10 +113,6 @@ beforeAll(async () => {
       };
     },
   });
-  await unsafeCreateEntityTable(stack.db, userEntity);
-  await unsafeCreateEntityTable(stack.db, tenantEntity);
-  await unsafeCreateEntityTable(stack.db, templateResourceEntity);
-  await unsafeCreateEntityTable(stack.db, renderedPdfEntity, "rendered-pdf");
   await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
 
   await stack.http.writeOk(

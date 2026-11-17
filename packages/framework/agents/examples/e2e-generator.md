@@ -137,6 +137,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 
 export const productEntity = createEntity({
+  name: "product",
   table: "read_products",
   fields: {
     name: createTextField({
@@ -158,7 +159,7 @@ const editorWrite = { access: { roles: ["Admin", "Editor"] } } as const;
 export function createShopFeature(): FeatureDefinition {
   return defineFeature("shop", (r) => {
     r.systemScope();
-    r.crud("product", productEntity, {
+    r.crud(productEntity, {
       write: editorWrite,
       verbs: { list: false, detail: false, restore: false },
     });
@@ -167,12 +168,7 @@ export function createShopFeature(): FeatureDefinition {
       id: "product-list",
       type: "entityList",
       entity: "product",
-      columns: [
-        "name",
-        { field: "price", renderer: { format: "currency", symbol: "€" } },
-        "status",
-        "featured",
-      ],
+      columns: ["name", "price", "status", "featured"],
     });
 
     r.screen({

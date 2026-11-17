@@ -27,9 +27,19 @@ logic is yours.
 - **Read-modify-write with optimistic locking** — `increment` reads the
   current count, computes the new one, and updates with the version it
   read. Two concurrent increments cannot both succeed.
+- **`createMany` for many rows in one handler** — `create-many` writes all
+  events with one append statement and projects the rows in one savepoint;
+  one invalid row fails the whole batch, nothing is written.
 - **`skipOptimisticLock` for last-writer-wins** — `reset` deliberately
   bypasses the version check because the operation is admin-driven and
   resetting twice is semantically the same as resetting once.
+- **Named verbs** — `verbs` on the entity and `update(..., { verb })` write
+  `counter.archived` or `counter.reset` instead of `counter.updated`. The
+  executor checks the declared transition (`archive` fails with
+  `invalid_transition` unless the status is `open`) and sets the field.
+- **`history` and `listAsOf`** — `history({ id })` returns the lifecycle and
+  verb events of one counter, `listAsOf({ asOf })` folds the events up to an
+  instant into rows.
 - **Custom queries** — `counter:active` passes a server-side `filter`
   (`eq`/`ne`/`lt`/`gt`/`lte`/`gte`/`in`) and `totalCount` to the executor's
   list. Never filter a page in TypeScript: list is paginated, so rows after
@@ -64,15 +74,10 @@ bun kumiko test integration samples/custom-handlers
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-testing/helpers";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
-import { counterEntity, counterFeature } from "../feature";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { counterFeature } from "../feature";
 
 let stack: TestStack;
 
@@ -81,8 +86,6 @@ const user = createTestUser({ id: 2, roles: ["User"] });
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [counterFeature] });
-  await unsafeCreateEntityTable(stack.db, counterEntity);
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {
@@ -176,6 +179,45 @@ describe("custom write handler: increment", () => {
       user,
     );
     expect(error.code).toBe("not_found");
+  });
+});
+
+describe("custom write handler: create-many", () => {
+  test("creates every row with count 0", async () => {
+    const { ids } = await stack.http.writeOk<{ ids: string[] }>(
+      "counters:write:counter:create-many",
+      { names: ["batch-a", "batch-b", "batch-c"] },
+      admin,
+    );
+    expect(ids).toHaveLength(3);
+
+    const names: unknown[] = [];
+    for (const id of ids) {
+      const row = await stack.http.queryOk<Record<string, unknown>>(
+        "counters:query:counter:detail",
+        { id },
+        admin,
+      );
+      expect(row["count"]).toBe(0);
+      names.push(row["name"]);
+    }
+    expect(names).toEqual(["batch-a", "batch-b", "batch-c"]);
+  });
+
+  test("an invalid name fails the whole batch and writes no row", async () => {
+    const error = await stack.http.writeErr(
+      "counters:write:counter:create-many",
+      { names: ["ok", ""] },
+      admin,
+    );
+    expectErrorIncludes(error, "validation");
+
+    const active = await stack.http.queryOk<{ rows: Record<string, unknown>[] }>(
+      "counters:query:counter:active",
+      { minCount: 0 },
+      admin,
+    );
+    expect(active.rows.map((row) => row["name"])).not.toContain("ok");
   });
 });
 
@@ -307,6 +349,72 @@ describe("custom query handler: active counters", () => {
     expect(result.nextCursor).toBeNull();
   });
 });
+
+describe("named verbs and history", () => {
+  type HistoryEntry = { verb: string; at: string };
+
+  async function createCounter(name: string): Promise<string> {
+    const created = await stack.http.writeOk<SaveContext>(
+      "counters:write:counter:create",
+      { name },
+      admin,
+    );
+    return String(created.id);
+  }
+
+  function historyOf(id: string): Promise<HistoryEntry[] | null> {
+    return stack.http.queryOk<HistoryEntry[] | null>(
+      "counters:query:counter:history",
+      { id },
+      admin,
+    );
+  }
+
+  test("history lists lifecycle and verb events in order", async () => {
+    const id = await createCounter("verb-history");
+    await stack.http.writeOk("counters:write:counter:increment", { id, amount: 1 }, admin);
+    await stack.http.writeOk("counters:write:counter:archive", { id }, admin);
+
+    expect((await historyOf(id))?.map((entry) => entry.verb)).toEqual([
+      "created",
+      "updated",
+      "archived",
+    ]);
+  });
+
+  test("archiving twice is an invalid transition", async () => {
+    const id = await createCounter("archive-twice");
+    await stack.http.writeOk("counters:write:counter:archive", { id }, admin);
+
+    const error = await stack.http.writeErr("counters:write:counter:archive", { id }, admin);
+
+    expectErrorIncludes(error, "invalid_transition");
+  });
+
+  test("reset writes the reset verb", async () => {
+    const id = await createCounter("verb-reset");
+    await stack.http.writeOk("counters:write:counter:reset", { id }, admin);
+
+    expect((await historyOf(id))?.map((entry) => entry.verb)).toEqual(["created", "reset"]);
+  });
+
+  test("as-of the created event shows the counter as it was", async () => {
+    const id = await createCounter("as-of");
+    await stack.http.writeOk("counters:write:counter:increment", { id, amount: 7 }, admin);
+    const createdAt = (await historyOf(id))?.find((entry) => entry.verb === "created")?.at;
+    if (createdAt === undefined) throw new Error("expected a created entry");
+
+    const rows = await stack.http.queryOk<Record<string, unknown>[]>(
+      "counters:query:counter:as-of",
+      { asOf: createdAt },
+      admin,
+    );
+
+    const row = rows.find((candidate) => candidate["id"] === id);
+    expect(row?.["count"]).toBe(0);
+    expect(row?.["status"]).toBe("open");
+  });
+});
 ```
 
 ### src/feature.ts
@@ -314,12 +422,14 @@ describe("custom query handler: active counters", () => {
 ```ts
 // Custom Handlers Sample
 // Shows: writeHandler with business logic, queryHandler with a server-side filter,
-// handler that modifies payload before DB write.
+// handler that modifies payload before DB write, named entity verbs (counter.archived,
+// counter.reset) with a checked transition, and the executor's history and as-of reads.
 
 import {
   createEntity,
   createEntityExecutor,
   createNumberField,
+  createSelectField,
   createTextField,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -327,21 +437,27 @@ import { failNotFound } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 
 export const counterEntity = createEntity({
+  name: "counter",
   table: "read_sample_counters",
   fields: {
     name: createTextField({ personal: false, reason: "is_business_data", required: true }),
     count: createNumberField({ default: 0 }),
     lastIncrementedBy: createTextField({ personal: "ref" }),
+    status: createSelectField({ options: ["open", "archived"], default: "open" }),
+  },
+  verbs: {
+    archived: { transition: { field: "status", from: ["open"], to: "archived" } },
+    reset: {},
   },
 });
 
 export const counterFeature = defineFeature("counters", (r) => {
-  r.entity({ name: "counter", ...counterEntity });
+  r.entity(counterEntity);
 
   // createEntityExecutor bundles buildEntityTable + createEventStoreExecutor —
   // the same pair every custom write-handler opens with. Collapses 3 lines
   // + the { entityName } bookkeeping into one destructure.
-  const { executor: counterExecutor } = createEntityExecutor("counter", counterEntity);
+  const { executor: counterExecutor } = createEntityExecutor(counterEntity);
 
   // Standard create
   r.writeHandler({
@@ -349,6 +465,22 @@ export const counterFeature = defineFeature("counters", (r) => {
     schema: z.object({ name: z.string().min(1) }),
     handler: async (event, ctx) =>
       counterExecutor.create({ ...event.payload, count: 0 }, event.user, ctx.db),
+    access: { roles: ["Admin"] },
+  });
+
+  // Many rows in one handler: one append statement for all events, all or nothing
+  r.writeHandler({
+    name: "counter:create-many",
+    schema: z.object({ names: z.array(z.string().min(1)).min(1).max(100) }),
+    handler: async (event, ctx) => {
+      const result = await counterExecutor.createMany(
+        event.payload.names.map((name) => ({ name, count: 0 })),
+        event.user,
+        ctx.db,
+      );
+      if (!result.isSuccess) return result;
+      return { isSuccess: true, data: { ids: result.data.map((saved) => saved.id) } };
+    },
     access: { roles: ["Admin"] },
   });
 
@@ -391,8 +523,20 @@ export const counterFeature = defineFeature("counters", (r) => {
         { id: event.payload.id, changes: { count: 0, lastIncrementedBy: "" } },
         event.user,
         ctx.db,
-        { skipOptimisticLock: true },
+        { skipOptimisticLock: true, verb: "reset" },
       ),
+    access: { roles: ["Admin"] },
+  });
+
+  r.writeHandler({
+    name: "counter:archive",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (event, ctx) =>
+      // The executor checks the transition and sets status.
+      counterExecutor.update({ id: event.payload.id, changes: {} }, event.user, ctx.db, {
+        skipOptimisticLock: true,
+        verb: "archived",
+      }),
     access: { roles: ["Admin"] },
   });
 
@@ -429,6 +573,36 @@ export const counterFeature = defineFeature("counters", (r) => {
       openToAll: {
         reason:
           "any signed-in user may read a counter by id; the sample has no per-user counter ownership",
+      },
+    },
+  });
+
+  r.queryHandler({
+    name: "counter:history",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (query, ctx) =>
+      counterExecutor.history({ id: query.payload.id }, query.user, ctx.db),
+    access: {
+      openToAll: {
+        reason:
+          "any signed-in user may read a counter's history; the sample has no per-user counter ownership",
+      },
+    },
+  });
+
+  r.queryHandler({
+    name: "counter:as-of",
+    schema: z.object({ asOf: z.iso.datetime() }),
+    handler: async (query, ctx) =>
+      counterExecutor.listAsOf(
+        { asOf: Temporal.Instant.from(query.payload.asOf) },
+        query.user,
+        ctx.db,
+      ),
+    access: {
+      openToAll: {
+        reason:
+          "any signed-in user may read counters as of a past instant; the sample has no per-user counter ownership",
       },
     },
   });

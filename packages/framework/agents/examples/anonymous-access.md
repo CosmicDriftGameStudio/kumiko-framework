@@ -23,7 +23,7 @@ Feature entry point: `src/feature.ts`.
 
 ## Tests
 
-Needs a running Postgres and `TEST_DATABASE_URL` set (e.g. `postgres://postgres:postgres@127.0.0.1:5432/postgres`, see `demo/.env.example`).
+Needs the Postgres from the repo root's `docker-compose.yml` (`docker compose up -d`); `TEST_DATABASE_URL` defaults to `postgresql://kumiko:kumiko@localhost:15432/kumiko_test`.
 
 ```bash
 cd samples/recipes/anonymous-access
@@ -46,19 +46,9 @@ bun test
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { ANONYMOUS_USER_ID, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
-import {
-  anonymousAccessFeature,
-  guestOrderEntity,
-  guestOrderTable,
-  productEntity,
-} from "../feature";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { anonymousAccessFeature, guestOrderTable } from "../feature";
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
 
@@ -76,9 +66,6 @@ beforeAll(async () => {
     // tenant. No header, cookie, or resolver needed.
     anonymousAccess: { defaultTenantId: TENANT_ID },
   });
-  await unsafeCreateEntityTable(stack.db, productEntity);
-  await unsafeCreateEntityTable(stack.db, guestOrderEntity);
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {
@@ -203,6 +190,7 @@ import {
 import { z } from "zod";
 
 export const productEntity = createEntity({
+  name: "product",
   table: "shop_products",
   fields: {
     name: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -211,6 +199,7 @@ export const productEntity = createEntity({
 });
 
 export const guestOrderEntity = createEntity({
+  name: "guest-order",
   table: "shop_guest_orders",
   fields: {
     productId: createTextField({ personal: false, reason: "is_system_identifier", required: true }),
@@ -219,12 +208,12 @@ export const guestOrderEntity = createEntity({
   },
 });
 
-export const productTable = buildEntityTable("product", productEntity);
-export const guestOrderTable = buildEntityTable("guest-order", guestOrderEntity);
+export const productTable = buildEntityTable(productEntity);
+export const guestOrderTable = buildEntityTable(guestOrderEntity);
 
 export const anonymousAccessFeature = defineFeature("shop", (r) => {
-  r.entity({ name: "product", ...productEntity });
-  r.entity({ name: "guest-order", ...guestOrderEntity });
+  r.entity(productEntity);
+  r.entity(guestOrderEntity);
 
   // Public listing: anonymous + authenticated customers see it. Combining
   // the roles in one handler is preferred over duplicating the read path —

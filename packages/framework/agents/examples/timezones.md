@@ -116,15 +116,10 @@ boundary, the `todayRange` day-window, and the `fromCoordinates` provider seam.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import type { GeoTzProvider } from "@cosmicdrift/kumiko-framework/time";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
-import { deliveryEntity, timezonesFeature } from "../feature";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { timezonesFeature } from "../feature";
 
 let stack: TestStack;
 
@@ -142,8 +137,6 @@ beforeAll(async () => {
     features: [timezonesFeature],
     extraContext: { geoTzProvider: fakeGeoTz },
   });
-  await unsafeCreateEntityTable(stack.db, deliveryEntity);
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {
@@ -305,6 +298,7 @@ import { isValidIanaTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import { z } from "zod";
 
 export const deliveryEntity = createEntity({
+  name: "delivery",
   table: "read_sample_deliveries",
   fields: {
     label: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -329,7 +323,7 @@ const openRead = {
 } as const;
 
 export const timezonesFeature = defineFeature("timezones", (r) => {
-  r.crud("delivery", deliveryEntity, {
+  r.crud(deliveryEntity, {
     write,
     read: openRead,
     verbs: { delete: false, restore: false },

@@ -13,10 +13,11 @@ opt-in, tier-gated **custom CSS** — the framework generalization of the
 `legal-pages`/`wrapLayout` render pattern, hardened for untrusted tenant input.
 
 **What the recipe demonstrates:**
-- Compose `managed-pages` (+ its `config` dependency and the `managed-pages-css`
-  companion toggle) in `runProdApp({ features: [...] })`
+- Compose `managed-pages` with the `branding` feature (+ its `config` dependency and the
+  `branding-css` companion toggle) in `runProdApp({ features: [...] })`. Branding lives in its
+  own feature `branding`; managed-pages requires it and reads `branding:query:tokens` at render time
 - Required wirings: `anonymousAccess` + `extraContext` config plumbing
-- Single-tenant `resolveApexTenant` (multi-tenant resolves from the Host)
+- Single-tenant `resolveApexTenant`; multi-tenant omits it and uses the server's host resolution
 - The render boundary: published-only, Markdown raw-HTML escaped, per-tenant
   branding applied as scoped `:root` vars, custom CSS allowlist-sanitized and
   contained in a `<style data-tenant-css>` block
@@ -60,22 +61,21 @@ When the tests are green:
 // bin/main.ts
 import { runProdApp } from "@cosmicdrift/kumiko-server-runtime";
 import {
-  createManagedPagesFeature,
-  createManagedPagesCssFeature,
-} from "@cosmicdrift/kumiko-bundled-features/managed-pages";
+  createBrandingCssFeature,
+  createBrandingFeature,
+} from "@cosmicdrift/kumiko-bundled-features/branding";
+import { createManagedPagesFeature } from "@cosmicdrift/kumiko-bundled-features/managed-pages";
 
 await runProdApp({
   envSchema, // composeEnvSchema({ core: frameworkCoreEnvSchema, features })
   features: [
     createManagedPagesFeature({
-      // Host → tenantId. Single-tenant returns a constant; multi-tenant maps
-      // the subdomain / custom domain. NULL → 404 (no tenant for this host).
-      resolveApexTenant: (host) => resolveTenantForHost(host),
-      // Opt-in custom CSS (default false, fail-closed). The render-time
-      // sanitizer is the safety boundary; gate per tier with the companion.
-      allowCustomCss: true,
+      // Multi-tenant with host-routing: omit resolveApexTenant, the route uses the server's host resolution. Single-tenant: resolveApexTenant: () => SYSTEM_TENANT_ID.
     }),
-    createManagedPagesCssFeature(),
+    // Opt-in custom CSS (default false, fail-closed). The render-time
+    // sanitizer is the safety boundary; gate per tier with the companion.
+    createBrandingFeature({ allowCustomCss: true }),
+    createBrandingCssFeature(),
     /* ... your other features */
   ],
   // routes run anonymous; multi-tenant honors the per-page X-Tenant header
@@ -102,52 +102,48 @@ bunx kumiko-schema apply
 
 - Pages: TenantAdmin/SystemAdmin author via the `entityList`/`entityEdit`
   screens (`managed-pages:screen:page-list`); wire nav/workspace onto them.
-- Branding: the `configEdit` screen (`managed-pages:screen:branding-settings`)
+- Branding: the `configEdit` screen (`branding:screen:branding-settings`)
   or `config:write:set` against the `BRANDING_QN.*` keys
-  (`managed-pages:config:branding-{title,accent-color,...,custom-css}`).
+  (`branding:config:{title,accent-color,...,custom-css}`).
 
 ### 4. Per-tenant CSS gating
 
-`createManagedPagesCssFeature()` is `r.toggleable({ default: false })`. To gate
+`createBrandingCssFeature()` is `r.toggleable({ default: false })`. To gate
 custom CSS per tier, wire `feature-toggles`/`tier-engine` so the
-`managed-pages-css` toggle is on only for entitled tenants. **Without a toggle
+`branding-css` toggle is on only for entitled tenants. **Without a toggle
 runtime, `ctx.hasFeature` fails open** — the capability stays on. The fail-closed
 anchor is `allowCustomCss` (app-level opt-in); the toggle is the commercial gate.
 
 ## Custom wrapLayout (your own marketing chrome)
 
-A custom `wrapLayout` receives `branding` RAW and untrusted: `title`/
-`description` are length-capped at write but **not** HTML-escaped, and
-`customCss` is unsanitized. Emit every tenant value through the exported
-boundary helpers — never interpolate `branding.title` yourself (stored XSS):
+A custom `wrapLayout` receives ready-made parts: `titleHtml`, `descriptionHtml`,
+`langHtml`, `slugHtml`, `ogImageHtml`, `brandingStyleHtml`, `brandingHeaderHtml` and
+`bodyHtml`. All fields arrive escaped or sanitized, so raw values never reach a
+custom layout and every field can be interpolated as is.
 
 ```typescript illustration
-import {
-  brandingHeaderHtml,
-  brandingStyleBlock,
-  tenantStyleBlock,
-  TENANT_CONTENT_ATTR,
-} from "@cosmicdrift/kumiko-bundled-features/managed-pages";
+import { TENANT_CONTENT_ATTR } from "@cosmicdrift/kumiko-bundled-features/managed-pages";
 
 const wrapLayout = (o) => `<!doctype html>
-<html lang="${o.lang}">
+<html lang="${o.langHtml}">
 <head>
-  <title>${o.title}</title>
-  ${/* your layout CSS */ ""}
-  ${brandingStyleBlock(o.branding)}            <!-- escaped :root theme vars -->
-  ${tenantStyleBlock(o.branding.customCss)}    <!-- scoped + sanitized + contained -->
+  <title>${o.titleHtml}</title>
+  <meta name="description" content="${o.descriptionHtml}">
+  <style>/* your layout CSS */</style>
+  ${o.brandingStyleHtml}
 </head>
 <body>
-  ${brandingHeaderHtml(o.branding)}            <!-- escaped logo + title header -->
+  ${o.brandingHeaderHtml}
   <main ${TENANT_CONTENT_ATTR}>${o.bodyHtml}</main>
 </body>
 </html>`;
 ```
 
-`brandingHeaderHtml`/`brandingStyleBlock` escape + re-validate (hex/https) the
-branding tokens; `tenantStyleBlock` bakes in the scope selector so callers can't
-mis-scope and lose containment. The default skeleton (`wrapInLayout`) uses the
-exact same helpers.
+`brandingStyleHtml` holds the escaped `:root` theme vars plus the scoped,
+sanitized tenant CSS and goes after your own `<style>`; `brandingHeaderHtml` is
+the escaped logo and title header. Keep `TENANT_CONTENT_ATTR` on the content
+container so the tenant CSS stays contained. The default skeleton
+(`wrapInLayout`) uses the same helpers.
 
 ## Security posture
 
@@ -158,7 +154,7 @@ exact same helpers.
 | Draft leak to anonymous visitors                          | published-only; drafts → 404                                        |
 | `@import`/`url()`/`expression()`/`</style>` in custom CSS | allowlist-by-construction sanitizer (rebuilt from validated tokens) |
 | Scope-escape / overlay onto host chrome                   | scope-prefix + `position`/`isolation`/`overflow` containment        |
-| Untrusted tenant abusing CSS                              | tier-gate (`managed-pages-css`) + `allowCustomCss` opt-in           |
+| Untrusted tenant abusing CSS                              | tier-gate (`branding-css`) + `allowCustomCss` opt-in                |
 
 Custom-CSS sanitization for untrusted tenants is **best-effort defense-in-depth**:
 a tenant can still restyle its **own** page area within the clip. Keep it
@@ -235,23 +231,26 @@ describe("custom preview renderer", () => {
 
 ```ts
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { BRANDING_QN } from "@cosmicdrift/kumiko-bundled-features/branding";
 import {
   configValuesTable,
   createConfigAccessorFactory,
   createConfigResolver,
 } from "@cosmicdrift/kumiko-bundled-features/config";
-import { BRANDING_QN, pageEntity } from "@cosmicdrift/kumiko-bundled-features/managed-pages";
 import { seedPage } from "@cosmicdrift/kumiko-bundled-features/managed-pages/seeding";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { configFeature, managedPagesCssFeature, managedPagesFeature } from "../feature";
+import {
+  brandingCssFeature,
+  brandingFeature,
+  configFeature,
+  managedPagesFeature,
+} from "../feature";
 
 // Branding writes are tenant-scoped — the admin's tenantId must equal the
 // rendered tenant (SYSTEM_TENANT_ID here), or the config row lands in the wrong
@@ -268,7 +267,7 @@ const render = async (path: string): Promise<string> => {
 beforeAll(async () => {
   const resolver = createConfigResolver();
   stack = await setupTestStack({
-    features: [configFeature, managedPagesFeature, managedPagesCssFeature],
+    features: [configFeature, brandingFeature, managedPagesFeature, brandingCssFeature],
     // Single-tenant: resolveApexTenant returns SYSTEM_TENANT_ID, so the route's
     // X-Tenant header matches this defaultTenantId — no tenant_mismatch.
     anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID },
@@ -278,9 +277,7 @@ beforeAll(async () => {
       configAccessorFactory: createConfigAccessorFactory(registry, resolver),
     }),
   });
-  await unsafeCreateEntityTable(stack.db, pageEntity);
   await unsafePushTables(stack.db, { configValuesTable });
-  await createEventsTable(stack.db);
 
   await seedPage(stack.db, {
     tenantId: SYSTEM_TENANT_ID,
@@ -389,31 +386,34 @@ describe("recipe :: custom CSS (allowCustomCss, sanitized)", () => {
 ### src/feature.ts
 
 ```ts
-import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
 import {
-  createManagedPagesCssFeature,
-  createManagedPagesFeature,
-} from "@cosmicdrift/kumiko-bundled-features/managed-pages";
+  createBrandingCssFeature,
+  createBrandingFeature,
+} from "@cosmicdrift/kumiko-bundled-features/branding";
+import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
+import { createManagedPagesFeature } from "@cosmicdrift/kumiko-bundled-features/managed-pages";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 
-// managed-pages declares `r.requires({ features: ["config"] })` for its branding keys — the
+// branding declares `r.requires({ features: ["config"] })` for its keys — the
 // config feature must be in the stack (runProdApp auto-mounts it; setupTestStack
 // does not, so the recipe lists it explicitly).
 export const configFeature = createConfigFeature();
 
-// Single-tenant apex: every request maps to the one system tenant. A multi-
-// tenant app resolves the tenant from the request Host (subdomain / custom
-// domain) and returns the matching tenantId instead — see README.
+// Single-tenant: every host maps to the system tenant. A multi-tenant app with
+// host-routing (or another tenant resolver) omits resolveApexTenant; the route
+// then uses the server's host resolution.
 export const managedPagesFeature = createManagedPagesFeature({
   resolveApexTenant: () => SYSTEM_TENANT_ID,
-  allowCustomCss: true,
 });
+
+// Per-tenant branding lives in its own feature; managed-pages reads it at render time.
+export const brandingFeature = createBrandingFeature({ allowCustomCss: true });
 
 // Companion per-tenant toggle for the CSS-inject capability. Compose it and wire
 // feature-toggles to gate custom CSS per tier; without a toggle runtime,
 // `ctx.hasFeature` fails open and CSS stays on (the render-time sanitizer is the
 // safety boundary regardless).
-export const managedPagesCssFeature = createManagedPagesCssFeature();
+export const brandingCssFeature = createBrandingCssFeature();
 ```
 
 ### src/web/branded-preview.tsx

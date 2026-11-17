@@ -21,7 +21,7 @@ Feature entry point: `src/feature.ts`.
 
 ## Tests
 
-Needs a running Postgres and `TEST_DATABASE_URL` set (e.g. `postgres://postgres:postgres@127.0.0.1:5432/postgres`, see `demo/.env.example`).
+Needs the Postgres from the repo root's `docker-compose.yml` (`docker compose up -d`); `TEST_DATABASE_URL` defaults to `postgresql://kumiko:kumiko@localhost:15432/kumiko_test`.
 
 ```bash
 cd samples/recipes/auth-claims
@@ -196,7 +196,7 @@ describe("scenario 3: drift-warning when a hook returns an undeclared key", () =
 describe("scenario 4: auto-prefix prevents cross-feature collisions on same inner key", () => {
   test("two features returning the SAME inner key `teamId` coexist under separate prefixes", async () => {
     const billingWithTeamId = defineFeature("billing", (r) => {
-      const teamId = r.claimKey("teamId", { type: "string" });
+      const teamId = r.claimKey({ name: "teamId", type: "string" });
       r.authClaims(async (user) => (user.id === userAlice ? { teamId: "billing-A" } : {}));
       return { Claims: { teamId } as const };
     });
@@ -265,6 +265,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 
 export const teamMembershipEntity = createEntity({
+  name: "team-membership",
   table: "read_sample_auth_team_memberships",
   fields: {
     userId: createTextField({ personal: "ref", required: true }),
@@ -273,6 +274,7 @@ export const teamMembershipEntity = createEntity({
 });
 
 export const betaFlagsEntity = createEntity({
+  name: "beta-flag",
   table: "read_sample_auth_beta_flags",
   fields: {
     userId: createTextField({ personal: "ref", required: true }),
@@ -292,7 +294,7 @@ export type BetaFlagStore = Map<string, readonly string[]>;
 // without knowing or re-typing the qualified name.
 export function makeTeamsFeature(store: TeamStore) {
   return defineFeature("teams", (r) => {
-    const teamId = r.claimKey("teamId", { type: "string" });
+    const teamId = r.claimKey({ name: "teamId", type: "string" });
 
     r.authClaims(async (user: SessionUser) => {
       const value = store.get(user.id);
@@ -307,7 +309,7 @@ export function makeTeamsFeature(store: TeamStore) {
 // narrowing for non-scalar values.
 export function makeBetaFlagsFeature(store: BetaFlagStore) {
   return defineFeature("betaFlags", (r) => {
-    const flags = r.claimKey("flags", { type: "string[]" });
+    const flags = r.claimKey({ name: "flags", type: "string[]" });
 
     r.authClaims(async (user: SessionUser) => {
       const value = store.get(user.id);
@@ -334,7 +336,7 @@ export function makeBrokenFeature() {
 // warn for `rouge` but still merges both into the JWT (best-effort).
 export function makeDriftFeature(shouldFire: { value: boolean }) {
   return defineFeature("drift", (r) => {
-    r.claimKey("teamId", { type: "string" });
+    r.claimKey({ name: "teamId", type: "string" });
 
     r.authClaims(async () => {
       if (!shouldFire.value) return {};

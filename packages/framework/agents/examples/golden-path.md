@@ -43,6 +43,7 @@ src/__tests__/feature.integration.test.ts   write → read back, access, not fou
 
 ```ts
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { rebuildProjection } from "@cosmicdrift/kumiko-framework/pipeline";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { ticketingFeature } from "../feature";
@@ -141,6 +142,67 @@ describe("golden path: ticket", () => {
     expect(missing.code).toBe("not_found");
   });
 });
+
+describe("golden path: rebuild", () => {
+  async function closeTicket(id: string): Promise<void> {
+    await stack.http.writeOk("ticketing:write:ticket:close", { id, resolution: "Done" }, admin);
+  }
+
+  test("rebuilding the ticket entity keeps closed tickets closed", async () => {
+    const closedId = await openTicket("Closed before rebuild");
+    const openId = await openTicket("Still open");
+    await closeTicket(closedId);
+
+    await rebuildProjection("ticketing:projection:ticket-entity", {
+      db: stack.db,
+      registry: stack.registry,
+    });
+
+    expect(await readTicket(closedId)).toMatchObject({ isClosed: true });
+    expect(await readTicket(openId)).toMatchObject({ isClosed: false });
+  });
+
+  test("rebuilding the explicit ticket-status projection rebuilds the whole entity table", async () => {
+    const closedId = await openTicket("Closed ticket");
+    const openId = await openTicket("Open ticket");
+    await closeTicket(closedId);
+
+    await rebuildProjection("ticketing:projection:ticket-status", {
+      db: stack.db,
+      registry: stack.registry,
+    });
+
+    expect(await readTicket(openId)).toMatchObject({ title: "Open ticket", isClosed: false });
+    expect(await readTicket(closedId)).toMatchObject({ title: "Closed ticket", isClosed: true });
+  });
+
+  test("the ticket-status projection stamps modifiedAt and modifiedById from the close event, and a rebuild keeps them", async () => {
+    type StampedTicketRow = TicketRow & { modifiedAt: string | null; modifiedById: string | null };
+    const id = await openTicket("Stamped on close");
+    await closeTicket(id);
+
+    const before = await stack.http.queryOk<StampedTicketRow>(
+      "ticketing:query:ticket:detail",
+      { id },
+      agent,
+    );
+    expect(before.modifiedById).toBe(String(admin.id));
+    expect(before.modifiedAt).not.toBeNull();
+
+    await rebuildProjection("ticketing:projection:ticket-status", {
+      db: stack.db,
+      registry: stack.registry,
+    });
+
+    const after = await stack.http.queryOk<StampedTicketRow>(
+      "ticketing:query:ticket:detail",
+      { id },
+      agent,
+    );
+    expect(after.modifiedAt).toBe(before.modifiedAt);
+    expect(after.modifiedById).toBe(before.modifiedById);
+  });
+});
 ```
 
 ### src/feature.ts
@@ -159,6 +221,7 @@ import { failNotFound, failUnprocessable } from "@cosmicdrift/kumiko-framework/e
 import { z } from "zod";
 
 export const ticketEntity = createEntity({
+  name: "ticket",
   table: "read_golden_path_tickets",
   fields: {
     title: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -167,12 +230,9 @@ export const ticketEntity = createEntity({
 });
 
 export const ticketingFeature = defineFeature("ticketing", (r) => {
-  const { table: ticketTable, executor: ticketExecutor } = createEntityExecutor(
-    "ticket",
-    ticketEntity,
-  );
+  const { table: ticketTable, executor: ticketExecutor } = createEntityExecutor(ticketEntity);
 
-  r.crud("ticket", ticketEntity, {
+  r.crud(ticketEntity, {
     write: { access: { roles: ["Admin", "User"] } },
     read: { access: { roles: ["Admin", "User"] } },
     verbs: { update: false, delete: false },
@@ -187,6 +247,7 @@ export const ticketingFeature = defineFeature("ticketing", (r) => {
     schema: z.object({ id: z.uuid(), resolution: z.string().min(1) }),
     access: { roles: ["Admin"] },
     handler: async (event, ctx) => {
+      const streamVersion = await ctx.events.streamVersion(event.payload.id);
       const ticket = await ticketExecutor.detail({ id: event.payload.id }, event.user, ctx.db);
       if (!ticket) {
         return failNotFound("ticket", event.payload.id);
@@ -196,6 +257,7 @@ export const ticketingFeature = defineFeature("ticketing", (r) => {
         aggregateId: event.payload.id,
         aggregateType: "ticket",
         payload: { resolution: event.payload.resolution },
+        expectedVersion: streamVersion,
       });
       return { isSuccess: true as const, data: { id: event.payload.id } };
     },

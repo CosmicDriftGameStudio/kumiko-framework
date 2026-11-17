@@ -32,7 +32,7 @@ requests via `setupTestStack`.
 
 ## Run
 
-Needs a running Postgres and `TEST_DATABASE_URL` set (e.g. `postgres://postgres:postgres@127.0.0.1:5432/postgres`, see `demo/.env.example`).
+Needs the Postgres from the repo root's `docker-compose.yml` (`docker compose up -d`); `TEST_DATABASE_URL` defaults to `postgresql://kumiko:kumiko@localhost:15432/kumiko_test`.
 
 ```bash
 bun test            # pure-function seams + the seo-mounted integration test
@@ -51,7 +51,8 @@ bun run screenshot  # → screenshots/landing.png + lightbox.png
 // viewport, not derived from source — matches how the bug was first found.
 
 import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
-import { renderLanding, SAMPLE_PLANS } from "../src/feature";
+import { SAMPLE_PLANS } from "../src/constants";
+import { renderLanding } from "../src/feature";
 
 test("header keeps the page's horizontal padding below 1120px", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
@@ -99,8 +100,8 @@ import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 import type { Page } from "@playwright/test";
-import { HERO_SCREENSHOT } from "../src/constants";
-import { renderLanding, SAMPLE_PLANS } from "../src/feature";
+import { HERO_SCREENSHOT, SAMPLE_PLANS } from "../src/constants";
+import { renderLanding } from "../src/feature";
 
 const OUT_DIR = process.env["SCREENSHOT_DIR"] ?? resolve(import.meta.dirname, "../screenshots");
 const HERO_APP_PNG = resolve(OUT_DIR, "hero-app.png");
@@ -249,7 +250,8 @@ export default defineConfig({
 
 ```ts
 import { describe, expect, test } from "bun:test";
-import { buildLandingPage, renderLanding, SAMPLE_PLANS } from "../feature";
+import { SAMPLE_PLANS } from "../constants";
+import { buildLandingPage, renderLanding } from "../feature";
 
 describe("apex-landing: template-resolver seam", () => {
   test("uses the seeded block body when present", () => {
@@ -348,7 +350,8 @@ import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config
 import { createSeoFeature } from "@cosmicdrift/kumiko-bundled-features/seo";
 import { defineFeature, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
-import { renderLanding, SAMPLE_PLANS } from "../feature";
+import { SAMPLE_PLANS } from "../constants";
+import { renderLanding } from "../feature";
 
 const LANDING_URL = "https://tasklane.example/";
 
@@ -417,6 +420,49 @@ export const HERO_SCREENSHOT = {
   width: 720,
   height: 480,
 } as const;
+
+/** One plan as the app's `tier-engine` config exposes it. */
+export type PlanInfo = {
+  readonly key: string;
+  readonly name: string;
+  readonly tagline: string;
+  /** `null` = free or on-request; the renderer just shows the `amount` text. */
+  readonly monthlyEur: number | null;
+  /** Usage cap from the tier config; `Infinity` = unlimited. */
+  readonly maxProjects: number;
+  readonly benefits: readonly string[];
+  readonly featured?: boolean;
+};
+
+/** Sample plan config, as a `tier-engine`-backed app would expose it.
+ *  Used by the test and the screenshot runner. */
+export const SAMPLE_PLANS: readonly PlanInfo[] = [
+  {
+    key: "free",
+    name: "Free",
+    tagline: "For your first project",
+    monthlyEur: null,
+    maxProjects: 3,
+    benefits: ["Live planning board", "Up to 5 collaborators", "CSV export"],
+  },
+  {
+    key: "pro",
+    name: "Pro",
+    tagline: "For a growing team",
+    monthlyEur: 12,
+    maxProjects: 50,
+    benefits: ["Everything in Free", "Portfolio view", "Custom fields", "Priority support"],
+    featured: true,
+  },
+  {
+    key: "enterprise",
+    name: "Enterprise",
+    tagline: "For the whole org",
+    monthlyEur: null,
+    maxProjects: Number.POSITIVE_INFINITY,
+    benefits: ["Everything in Pro", "SSO & SCIM", "Dedicated instance", "SLA"],
+  },
+];
 ```
 
 ### src/feature.ts
@@ -443,26 +489,13 @@ import {
   type ApexPricingTier,
   renderApexPage,
 } from "@cosmicdrift/kumiko-renderer/headless/apex";
-import { HERO_SCREENSHOT } from "./constants";
+import { HERO_SCREENSHOT, type PlanInfo } from "./constants";
 
 // --- Inputs: shapes the surrounding features hand you -----------------------
 
 /** Editable copy as the `template-resolver` feature projects it: a content string
  *  per stable slug. A real app fills this Map from the template-resolver read model. */
 export type ContentBlocks = ReadonlyMap<string, string>;
-
-/** One plan as the app's `tier-engine` config exposes it. */
-export type PlanInfo = {
-  readonly key: string;
-  readonly name: string;
-  readonly tagline: string;
-  /** `null` = free or on-request; the renderer just shows the `amount` text. */
-  readonly monthlyEur: number | null;
-  /** Usage cap from the tier config; `Infinity` = unlimited. */
-  readonly maxProjects: number;
-  readonly benefits: readonly string[];
-  readonly featured?: boolean;
-};
 
 export type LandingInput = {
   /** From `template-resolver`. Omit a slug and the baked-in fallback is used, so the
@@ -699,34 +732,4 @@ export function buildLandingPage(input: LandingInput): ApexPage {
 export function renderLanding(input: LandingInput): string {
   return renderApexPage(buildLandingPage(input));
 }
-
-/** Sample plan config, as a `tier-engine`-backed app would expose it.
- *  Used by the test and the screenshot runner. */
-export const SAMPLE_PLANS: readonly PlanInfo[] = [
-  {
-    key: "free",
-    name: "Free",
-    tagline: "For your first project",
-    monthlyEur: null,
-    maxProjects: 3,
-    benefits: ["Live planning board", "Up to 5 collaborators", "CSV export"],
-  },
-  {
-    key: "pro",
-    name: "Pro",
-    tagline: "For a growing team",
-    monthlyEur: 12,
-    maxProjects: 50,
-    benefits: ["Everything in Free", "Portfolio view", "Custom fields", "Priority support"],
-    featured: true,
-  },
-  {
-    key: "enterprise",
-    name: "Enterprise",
-    tagline: "For the whole org",
-    monthlyEur: null,
-    maxProjects: Number.POSITIVE_INFINITY,
-    benefits: ["Everything in Pro", "SSO & SCIM", "Dedicated instance", "SLA"],
-  },
-];
 ```

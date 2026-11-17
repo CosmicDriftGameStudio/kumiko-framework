@@ -56,7 +56,7 @@ right role.
 
 ## Tests
 
-Needs a running Postgres and `TEST_DATABASE_URL` set (e.g. `postgres://postgres:postgres@127.0.0.1:5432/postgres`, see `demo/.env.example`).
+Needs the Postgres from the repo root's `docker-compose.yml` (`docker compose up -d`); `TEST_DATABASE_URL` defaults to `postgresql://kumiko:kumiko@localhost:15432/kumiko_test`.
 
 ```bash
 bun kumiko test integration samples/field-access
@@ -88,15 +88,10 @@ Covers all three roles reading and writing, including the expected
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { EntityId, SaveContext } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-testing/helpers";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
-import { employeeEntity, employeeFeature } from "../feature";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { employeeFeature } from "../feature";
 
 let stack: TestStack;
 
@@ -106,8 +101,6 @@ const employeeUser = createTestUser({ id: 3, roles: ["Employee"] });
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [employeeFeature] });
-  await unsafeCreateEntityTable(stack.db, employeeEntity);
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {
@@ -243,6 +236,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 
 export const employeeEntity = createEntity({
+  name: "employee",
   table: "read_sample_employees",
   fields: {
     name: createTextField({ personal: { of: "id" }, find: "none", required: true }),
@@ -261,7 +255,7 @@ export const employeeEntity = createEntity({
 const allRoles = { access: { roles: ["Admin", "Accounting", "Employee"] } } as const;
 
 export const employeeFeature = defineFeature("hr", (r) => {
-  r.crud("employee", employeeEntity, {
+  r.crud(employeeEntity, {
     write: allRoles,
     read: allRoles,
     verbs: { delete: false, list: false, restore: false },

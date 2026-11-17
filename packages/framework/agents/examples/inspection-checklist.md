@@ -175,13 +175,7 @@ import {
   buildMultipartBody,
   patchFileInstanceofForBunTest,
 } from "@cosmicdrift/kumiko-testing/helpers";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
-import { inspectionPlanEntity } from "../entities/inspection-plan";
-import { inspectionProtocolEntity } from "../entities/inspection-protocol";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { inspectionChecklistFeature } from "../feature";
 
 export const PROTOCOL_CREATE = "inspection-checklist:write:inspection-protocol:create";
@@ -230,8 +224,6 @@ export function useInspectionStack() {
       ],
       files: { storageProvider: createInMemoryFileProvider() },
     });
-    await unsafeCreateEntityTable(stack.db, inspectionPlanEntity, "inspection-plan");
-    await unsafeCreateEntityTable(stack.db, inspectionProtocolEntity, "inspection-protocol");
   });
 
   afterAll(async () => {
@@ -598,6 +590,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 
 export const inspectionPlanEntity = createEntity({
+  name: "inspection-plan",
   table: "read_sample_inspection_plans",
   fields: {
     name: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -613,7 +606,7 @@ export const inspectionPlanEntity = createEntity({
   },
 });
 
-export const inspectionPlanTable = buildEntityTable("inspection-plan", inspectionPlanEntity);
+export const inspectionPlanTable = buildEntityTable(inspectionPlanEntity);
 ```
 
 ### src/entities/inspection-protocol.ts
@@ -631,6 +624,7 @@ const isMeasurement = { field: "kind", eq: "measurement" } as const;
 const isNotOk = { field: "result", eq: "not_ok" } as const;
 
 export const inspectionProtocolEntity = createEntity({
+  name: "inspection-protocol",
   table: "read_sample_inspection_protocols",
   fields: {
     measuringDevice: createTextField({ personal: false, reason: "is_business_data" }),
@@ -687,10 +681,7 @@ export const inspectionProtocolEntity = createEntity({
   },
 });
 
-export const inspectionProtocolTable = buildEntityTable(
-  "inspection-protocol",
-  inspectionProtocolEntity,
-);
+export const inspectionProtocolTable = buildEntityTable(inspectionProtocolEntity);
 ```
 
 ### src/feature.ts
@@ -717,11 +708,11 @@ const inspectorAccess = { access: { roles: ["Admin", "Inspector"] } } as const;
 export const inspectionChecklistFeature = defineFeature("inspection-checklist", (r) => {
   r.requires({ features: ["files"] });
 
-  r.crud("inspection-plan", inspectionPlanEntity, {
+  r.crud(inspectionPlanEntity, {
     write: inspectorAccess,
     read: inspectorAccess,
   });
-  r.crud("inspection-protocol", inspectionProtocolEntity, {
+  r.crud(inspectionProtocolEntity, {
     write: inspectorAccess,
     read: inspectorAccess,
   });
@@ -740,11 +731,8 @@ import { z } from "zod";
 import { inspectionPlanEntity } from "../entities/inspection-plan";
 import { inspectionProtocolEntity } from "../entities/inspection-protocol";
 
-const { executor: planExecutor } = createEntityExecutor("inspection-plan", inspectionPlanEntity);
-const { executor: protocolExecutor } = createEntityExecutor(
-  "inspection-protocol",
-  inspectionProtocolEntity,
-);
+const { executor: planExecutor } = createEntityExecutor(inspectionPlanEntity);
+const { executor: protocolExecutor } = createEntityExecutor(inspectionProtocolEntity);
 
 const planRows = z.array(
   z.object({

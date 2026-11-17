@@ -22,7 +22,7 @@ Feature entry point: `src/feature.ts`.
 
 ## Tests
 
-Needs a running Postgres and `TEST_DATABASE_URL` set (e.g. `postgres://postgres:postgres@127.0.0.1:5432/postgres`, see `demo/.env.example`).
+Needs the Postgres from the repo root's `docker-compose.yml` (`docker compose up -d`); `TEST_DATABASE_URL` defaults to `postgresql://kumiko:kumiko@localhost:15432/kumiko_test`.
 
 ```bash
 cd samples/recipes/secrets-demo
@@ -62,7 +62,7 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import { createEnvMasterKeyProvider, createSecret } from "@cosmicdrift/kumiko-framework/secrets";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
@@ -147,7 +147,6 @@ beforeAll(async () => {
   await unsafePushTables(stack.db, {
     tenant_secrets: tenantSecretsTable,
   });
-  await createEventsTable(stack.db);
 
   // BullMQ-backed job runner. Triggering rotate via dispatch() routes
   // through the queue + worker just like production — not a direct call
@@ -180,10 +179,11 @@ describe("1. at-rest representation", () => {
       tenantAdmin,
     );
 
-    const [row] = await selectMany(stack.db, tenantSecretsTable, {
-      tenantId: tenantAdmin.tenantId,
-      key: STRIPE_API_KEY.name,
-    });
+    const [row] = await selectMany<{ readonly envelope: unknown; readonly kekVersion: number }>(
+      stack.db,
+      tenantSecretsTable,
+      { tenantId: tenantAdmin.tenantId, key: STRIPE_API_KEY.name },
+    );
     if (!row) throw new Error("row missing");
 
     const env = row.envelope as StoredEnvelope;
@@ -227,10 +227,11 @@ describe("3. feature code decrypts via audited path", () => {
     expect(result.chargeId).toContain("cust_42");
     expect(JSON.stringify(result)).not.toContain("sk_test_SuperSecretLivePlatz12345");
 
-    const after = await selectMany(stack.db, eventsTable, {
-      tenantId: tenantAdmin.tenantId,
-      type: TENANT_SECRET_READ_EVENT,
-    });
+    const after = await selectMany<{ readonly payload: Record<string, unknown> }>(
+      stack.db,
+      eventsTable,
+      { tenantId: tenantAdmin.tenantId, type: TENANT_SECRET_READ_EVENT },
+    );
     expect(after.length).toBe(before.length + 1);
 
     const newest = after[after.length - 1];
@@ -298,7 +299,9 @@ describe("5. KEK rotation via the core job + real BullMQ dispatch", () => {
 
     // Ciphertext byte-identical — only the DEK wrapper changed. Proves
     // rewrapDek's promise (cheap rotation on large tables).
-    const [full] = await selectMany(stack.db, tenantSecretsTable, { key: STRIPE_API_KEY.name });
+    const [full] = await selectMany<{ readonly envelope: unknown }>(stack.db, tenantSecretsTable, {
+      key: STRIPE_API_KEY.name,
+    });
     if (!full) throw new Error("row missing");
     expect((full.envelope as StoredEnvelope).kekVersion).toBe(2);
   });
@@ -462,7 +465,8 @@ export function createBillingFeature(): FeatureDefinition {
     // list known secrets (label + hint) so tenant-admin doesn't have to
     // guess the key name; rotation / audit work by qualified name. The
     // handle's .name is the QN the registrar built for us.
-    STRIPE_API_KEY = r.secret("stripe.apiKey", {
+    STRIPE_API_KEY = r.secret({
+      name: "stripe.apiKey",
       label: { de: "Stripe API-Schlüssel", en: "Stripe API Key" },
       hint: {
         de: "Aus dem Stripe-Dashboard unter Developers → API Keys.",
@@ -476,7 +480,8 @@ export function createBillingFeature(): FeatureDefinition {
       },
       scope: "tenant",
     });
-    WEBHOOK_SIGNING_KEY = r.secret("webhook.signingKey", {
+    WEBHOOK_SIGNING_KEY = r.secret({
+      name: "webhook.signingKey",
       label: { de: "Webhook-Signaturschlüssel", en: "Webhook signing key" },
       scope: "tenant",
     });

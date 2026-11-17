@@ -20,7 +20,7 @@ an `index.json` that a website or an agent can read.
   listed under `apiDocs.uiOnlyWrites` with a reason; without that entry the generator reports it.
 - **Texts come from the feature.** Titles, descriptions and field labels per locale use the
   keys `<handler qn>:title`, `:description` and `:field:<name>`; the German pages need the
-  German translations, the menu path to the token screen comes from the nav tree.
+  German translations, the menu path to the token screen comes from the nav tree. Texts that only the docs need can live in `apiDocs.translations` instead, a lazily loaded function, so they stay out of the server boot.
 - **Examples are recordings.** The integration test sends real requests with a token through
   `recordApiExample` from `@cosmicdrift/kumiko-testing/api-examples`. UUIDs, timestamps and
   tokens are replaced by fixed values, so a recording only changes when the API changes.
@@ -117,7 +117,7 @@ import {
   type NamedWebhookExample,
   resolveApiDocsConfig,
   WebhookExampleFileSchema,
-} from "@cosmicdrift/kumiko-bundled-features/agent-tools";
+} from "@cosmicdrift/kumiko-bundled-features/agent-tools/api-docs";
 import { allAppFeatures } from "@cosmicdrift/kumiko-framework/config";
 import { createRegistry } from "@cosmicdrift/kumiko-framework/engine";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime";
@@ -168,15 +168,17 @@ function readGolden(dir: string): Map<string, string> {
   );
 }
 
+const appName = PackageNameSchema.parse(
+  JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")),
+).name;
+const resolvedConfig = await resolveApiDocsConfig(config.apiDocs ?? {}, { appName });
+
 describe("api-docs golden", () => {
-  const appName = PackageNameSchema.parse(
-    JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")),
-  ).name;
   const generated = generateApiDocs({
     registry: createRegistry(
       composeFeatures(allAppFeatures(config), { includeBundled: config.includeBundled === true }),
     ),
-    config: resolveApiDocsConfig(config.apiDocs ?? {}, { appName }),
+    config: resolvedConfig,
     // Fixed so that a release does not turn the golden red.
     source: { framework: "0.0.0-recipe", app: { name: appName, version: "0.0.0" } },
     examples: readExamples(),
@@ -226,21 +228,13 @@ import {
   configValuesTable,
   createConfigFeature,
 } from "@cosmicdrift/kumiko-bundled-features/config";
-import {
-  apiTokenEntity,
-  PatHandlers,
-} from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
+import { PatHandlers } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
 import {
   createTenantFeature,
-  tenantEntity,
   tenantMembershipsTable,
 } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { seedTenantMembership } from "@cosmicdrift/kumiko-bundled-features/tenant/seeding";
-import {
-  createUserFeature,
-  UserHandlers,
-  userEntity,
-} from "@cosmicdrift/kumiko-bundled-features/user";
+import { createUserFeature, UserHandlers } from "@cosmicdrift/kumiko-bundled-features/user";
 import { entityEventName, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   formatWebhookPayloadIssues,
@@ -254,7 +248,6 @@ import { recordApiExample, recordWebhookExample } from "@cosmicdrift/kumiko-test
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { z } from "zod";
@@ -293,9 +286,6 @@ beforeAll(async () => {
         resolveTokenVerifier({ db: stack.db, registry: stack.registry }, raw),
     },
   });
-  await unsafeCreateEntityTable(stack.db, userEntity);
-  await unsafeCreateEntityTable(stack.db, tenantEntity);
-  await unsafeCreateEntityTable(stack.db, apiTokenEntity);
   await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
 
   const created = await stack.http.writeOk<{ id: string }>(
@@ -503,6 +493,7 @@ import { failNotFound, failUnprocessable } from "@cosmicdrift/kumiko-framework/e
 import { z } from "zod";
 
 export const ticketEntity = createEntity({
+  name: "ticket",
   table: "read_api_docs_tickets",
   webhookEvents: true,
   description: "A support request with a title, a priority and an open or closed status.",
@@ -516,12 +507,9 @@ export const ticketEntity = createEntity({
 const ticketAccess = { roles: ["Admin", "User"] } as const;
 
 export const ticketingFeature = defineFeature("ticketing", (r) => {
-  const { table: ticketTable, executor: ticketExecutor } = createEntityExecutor(
-    "ticket",
-    ticketEntity,
-  );
+  const { table: ticketTable, executor: ticketExecutor } = createEntityExecutor(ticketEntity);
 
-  r.crud("ticket", ticketEntity, {
+  r.crud(ticketEntity, {
     write: { access: ticketAccess },
     read: { access: ticketAccess },
     verbs: { delete: false },
@@ -554,6 +542,7 @@ export const ticketingFeature = defineFeature("ticketing", (r) => {
     schema: z.object({ id: z.uuid(), resolution: z.string().min(1) }),
     access: ticketAccess,
     handler: async (event, ctx) => {
+      const streamVersion = await ctx.events.streamVersion(event.payload.id);
       const ticket = await ticketExecutor.detail({ id: event.payload.id }, event.user, ctx.db);
       if (!ticket) return failNotFound("ticket", event.payload.id);
       if (ticket["status"] === "closed") return failUnprocessable("ticket_already_closed");
@@ -561,6 +550,7 @@ export const ticketingFeature = defineFeature("ticketing", (r) => {
         aggregateId: event.payload.id,
         aggregateType: "ticket",
         payload: { resolution: event.payload.resolution },
+        expectedVersion: streamVersion,
       });
       return { isSuccess: true as const, data: { id: event.payload.id } };
     },

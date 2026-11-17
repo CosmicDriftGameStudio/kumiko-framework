@@ -22,8 +22,7 @@ the option.
   itself still comes from the `auth` option or `composeFeatures`.
 - **`composeSecurityStack({ includeSessions })`**: `sessions`,
   `crypto-shredding`, `rate-limiting` and `audit`. Needs a KMS decision
-  (`kmsMode`) and fails with `rateLimit: false`. Replaces
-  `securityBaselineFeatures()`.
+  (`kmsMode`) and fails with `rateLimit: false`.
 - **`composeGdprStack({ tenantLifecycle, selfService })`**: `data-retention`
   and `compliance-profiles`, optionally `tenant-lifecycle`. `selfService` adds
   `sessions`, `user-data-rights` and `user-profile` (needs `mail`).

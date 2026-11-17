@@ -14,17 +14,19 @@ unchanged original and completes the request.
 
 ## What it shows
 
-- **Feature** - `createSignatureFeature({ retention, linkSecret, renderHtmlToPdf, deliverLink, signaturePageUrl })`.
-  Needs `files` and `user-data-rights` (exports and erases signer data); the test mounts user-data-rights with its own dependencies.
+- **Feature** - `createSignatureFeature({ retention, hostEntities, linkSecret, deliverLink, signaturePageUrl })`.
+  Needs `files`, `user-data-rights` (exports and erases signer data) and `renderer-puppeteer-client`
+  (prints the signature page); the test mounts user-data-rights with its own dependencies.
+- **Host** - every request belongs to a host row (`hostType`, `hostId`, one of `hostEntities`, here a
+  `lease`); a user sees and works on the request only while they can read that row.
 - **deliverLink** - `issue-link` hands the signing link to the app (mail) and returns only
   `{ signerId, linkSentAt }`: whoever may issue a link must not be able to sign with it.
-- **renderHtmlToPdf** - injected; in an app it is the client of `@cosmicdrift/kumiko-renderer-puppeteer-client`.
 - **Test** - `setupTestStack` and HTTP: request, issue-link, anonymous sign-by-link, sweep job, completed.
 
 ## Files
 
 ```
-src/feature.ts                              the feature with a link outbox and a stand-in printer
+src/feature.ts                              the feature with a link outbox
 src/__tests__/feature.integration.test.ts   request to completed request over HTTP
 ```
 
@@ -40,7 +42,11 @@ import { createDataRetentionFeature } from "@cosmicdrift/kumiko-bundled-features
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { createUserFeature } from "@cosmicdrift/kumiko-bundled-features/user";
 import { createUserDataRightsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
-import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import {
+  buildEntityTable,
+  createEventStoreExecutor,
+  createTenantDb,
+} from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createFilesFeature,
@@ -51,7 +57,7 @@ import {
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { PDFDocument } from "pdf-lib";
-import { deliveredLinks, signatureFeature } from "../feature";
+import { deliveredLinks, leaseEntity, leaseFeature, signatureFeature } from "../feature";
 
 const TENANT = testTenantId(1);
 const admin = createTestUser({ roles: ["TenantAdmin"], tenantId: TENANT });
@@ -71,6 +77,7 @@ beforeAll(async () => {
       createComplianceProfilesFeature(),
       createUserDataRightsFeature(),
       createFilesFeature(),
+      leaseFeature,
       signatureFeature,
     ],
     files: { storageProvider: provider },
@@ -95,8 +102,6 @@ async function seedContract(): Promise<string> {
   const db = createTenantDb({
     db: stack.db,
     tenantId: TENANT,
-    mode: "system",
-    reason: "recipe seeds the document the request refers to",
   });
   const created = await createEventStoreExecutor(fileRefsTable, fileRefEntity, {
     entityName: "fileRef",
@@ -105,6 +110,18 @@ async function seedContract(): Promise<string> {
     admin,
     db,
   );
+  if (!created.isSuccess) throw new Error(created.error.message);
+  return String(created.data.id);
+}
+
+async function seedLease(): Promise<string> {
+  const db = createTenantDb({
+    db: stack.db,
+    tenantId: TENANT,
+  });
+  const created = await createEventStoreExecutor(buildEntityTable(leaseEntity), leaseEntity, {
+    entityName: "lease",
+  }).create({ name: "Lease 1" }, admin, db);
   if (!created.isSuccess) throw new Error(created.error.message);
   return String(created.data.id);
 }
@@ -121,6 +138,8 @@ describe("signature recipe", () => {
         title: "Rental agreement",
         subjectType: "lease",
         subjectId: "lease-1",
+        hostType: "lease",
+        hostId: await seedLease(),
         signers: [{ name: "Ada", email: "ada@example.test" }],
       },
       admin,
@@ -159,26 +178,36 @@ describe("signature recipe", () => {
 
 ```ts
 import { createSignatureFeature } from "@cosmicdrift/kumiko-bundled-features/signature";
-import { PDFDocument } from "pdf-lib";
+import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+
+export const leaseEntity = createEntity({
+  name: "lease",
+  table: "recipe_signature_leases",
+  fields: {
+    name: createTextField({
+      required: true,
+      maxLength: 100,
+      personal: false,
+      reason: "technical_reference",
+    }),
+  },
+});
+
+// In an app the host is the record the document belongs to; a user sees its requests while they can read it.
+export const leaseFeature = defineFeature("signature-recipe-lease", (r) => {
+  r.entity(leaseEntity);
+});
 
 // In an app `deliverLink` sends a mail to the signer. The recipe keeps the links in a map so the
 // test can open them: the link is never part of a handler result.
 export const deliveredLinks = new Map<string, string>();
 
-// In an app this is `renderHtmlToPdf` from @cosmicdrift/kumiko-renderer-puppeteer-client, which
-// needs the print service; the recipe prints a blank page instead.
-async function printSignaturePage(): Promise<Uint8Array> {
-  const pdf = await PDFDocument.create();
-  pdf.addPage();
-  return pdf.save();
-}
-
 export const SIGNATURE_LINK_SECRET = "signature-recipe-link-secret-0123456789";
 
 export const signatureFeature = createSignatureFeature({
-  retention: { keepFor: "10y" },
+  retention: { keepFor: "10y", unfinishedKeepFor: "90d" },
   linkSecret: SIGNATURE_LINK_SECRET,
-  renderHtmlToPdf: printSignaturePage,
+  hostEntities: ["lease"],
   signaturePageUrl: "https://app.example/sign",
   deliverLink: async (_ctx, { signerId, url }) => {
     deliveredLinks.set(signerId, url);

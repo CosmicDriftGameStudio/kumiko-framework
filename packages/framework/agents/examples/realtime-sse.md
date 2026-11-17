@@ -22,7 +22,7 @@ Feature entry point: `src/feature.ts`.
 
 ## Tests
 
-Needs a running Postgres and `TEST_DATABASE_URL` set (e.g. `postgres://postgres:postgres@127.0.0.1:5432/postgres`, see `demo/.env.example`).
+Needs the Postgres from the repo root's `docker-compose.yml` (`docker compose up -d`); `TEST_DATABASE_URL` defaults to `postgresql://kumiko:kumiko@localhost:15432/kumiko_test`.
 
 ```bash
 cd samples/recipes/realtime-sse
@@ -42,14 +42,9 @@ bun test
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
-import { chatFeature, messageEntity, presenceFeature } from "../feature";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { chatFeature, presenceFeature } from "../feature";
 
 let stack: TestStack;
 
@@ -58,8 +53,6 @@ const user = createTestUser({ id: 2, roles: ["User"] });
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [chatFeature, presenceFeature] });
-  await unsafeCreateEntityTable(stack.db, messageEntity);
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {
@@ -191,6 +184,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 
 export const messageEntity = createEntity({
+  name: "message",
   table: "read_sample_messages",
   fields: {
     channel: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -204,7 +198,7 @@ const userWrite = { access: { roles: ["Admin", "User"] } } as const;
 const adminWrite = { access: { roles: ["Admin"] } } as const;
 
 export const chatFeature = defineFeature("chat", (r) => {
-  r.crud("message", messageEntity, {
+  r.crud(messageEntity, {
     write: userWrite,
     verbs: { list: false, detail: false, restore: false, delete: false },
   });

@@ -22,12 +22,12 @@ row stays exactly `{ id, title }`.
 - **Zero host changes** — `note` has no tag column, no `wireTagsFor`, no
   tag awareness. Tagging works anyway, because the tags feature owns its
   own tables.
-- **`tags:write:create-tag`** — adds a tag to the tenant's catalog
+- **`tags:write:tag:create`** — adds a tag to the tenant's catalog
   (`read_tags`). Takes an optional `color` (rendered as a colored chip by
   the web UI) and an optional `scope` (empty = global, or an entity type to
   restrict it to). Returns the tag's id.
-- **`tags:write:update-tag` / `delete-tag`** — rename / recolor / re-scope a
-  tag (optimistic-locked), or delete it (cascades over its assignments).
+- **`tags:write:tag:update` / `tag:delete`** — rename / recolor / re-scope a
+  tag (optimistic-locked, `{ id, version, changes }`), or delete it (cascades over its assignments).
 - **`tags:write:assign-tag` / `remove-tag`** — link/unlink a tag and an
   entity by `{ tagId, entityType, entityId }`. Both are idempotent:
   re-assigning is a no-op, removing a non-existent link still succeeds.
@@ -101,7 +101,7 @@ projection and composing in the app — never by joining across aggregates.
 
 ## Run
 
-Needs a running Postgres and `TEST_DATABASE_URL` set (e.g. `postgres://postgres:postgres@127.0.0.1:5432/postgres`, see `demo/.env.example`).
+Needs the Postgres from the repo root's `docker-compose.yml` (`docker compose up -d`); `TEST_DATABASE_URL` defaults to `postgresql://kumiko:kumiko@localhost:15432/kumiko_test`.
 
 ```bash
 bun test src/__tests__/feature.integration.test.ts
@@ -125,19 +125,10 @@ bun test src/__tests__/feature.integration.test.ts
 // This is the smallest evidence that an entity needs zero tag-wiring.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import {
-  createTagsFeature,
-  tagAssignmentEntity,
-  tagEntity,
-} from "@cosmicdrift/kumiko-bundled-features/tags";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTagsFeature } from "@cosmicdrift/kumiko-bundled-features/tags";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
-import { noteEntity, noteFeature } from "../feature";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { noteFeature } from "../feature";
 import { type TagClient, tagFlow } from "../usage";
 
 // Each test runs in its own tenant, so rows from other tests never show up.
@@ -149,16 +140,12 @@ const tagClient: TagClient = {
   write: <T>(type: string, payload: unknown) => stack.http.writeOk<T>(type, payload, admin),
   query: <T>(type: string, payload: unknown) => stack.http.queryOk<T>(type, payload, admin),
 };
-const tags = createTagsFeature();
+const tags = createTagsFeature({ parents: ["note"] });
 
 let stack: TestStack;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [tags, noteFeature] });
-  await unsafeCreateEntityTable(stack.db, tagEntity);
-  await unsafeCreateEntityTable(stack.db, tagAssignmentEntity);
-  await unsafeCreateEntityTable(stack.db, noteEntity);
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {
@@ -175,7 +162,7 @@ async function createNote(id: string, title: string) {
 }
 
 async function createTag(name: string): Promise<string> {
-  const tag = await stack.http.writeOk<{ id: string }>("tags:write:create-tag", { name }, admin);
+  const tag = await stack.http.writeOk<{ id: string }>("tags:write:tag:create", { name }, admin);
   return tag.id;
 }
 
@@ -282,7 +269,7 @@ describe("tags-basic recipe — assign + compose", () => {
 //
 // Flow (see the integration test):
 //   1. App-author defines a plain `note` entity — nothing tag-specific.
-//   2. A tenant creates a tag via `tags:write:create-tag`.
+//   2. A tenant creates a tag via `tags:write:tag:create`.
 //   3. The tag is attached to a note via `tags:write:assign-tag`
 //      with { tagId, entityType: "note", entityId: <noteId> }.
 //   4. "Which tags does this note have?" / "Which notes carry this tag?"
@@ -299,6 +286,7 @@ import { z } from "zod";
 // feature's promise: any entity is taggable as-is.
 
 export const noteEntity = createEntity({
+  name: "note",
   table: "read_sample_tags_notes",
   fields: {
     title: createTextField({
@@ -310,7 +298,7 @@ export const noteEntity = createEntity({
   },
 });
 
-const noteTable = buildEntityTable("note", noteEntity);
+const noteTable = buildEntityTable(noteEntity);
 
 const noteExecutor = createEventStoreExecutor(noteTable, noteEntity, { entityName: "note" });
 
@@ -322,7 +310,7 @@ export const noteFeature = defineFeature("note-management", (r) => {
   // dependency so the bundle is mounted.
   r.requires({ features: ["tags"] });
 
-  r.entity({ name: "note", ...noteEntity });
+  r.entity(noteEntity);
 
   r.writeHandler({
     name: "note:create",
@@ -367,7 +355,7 @@ export async function tagFlow(client: TagClient, noteId: string) {
   //    `color` (rendered as a colored chip by the web UI) and an optional
   //    `scope`: empty = global (offer on every entity), or an entity type to
   //    restrict it — here "note", so the picker only suggests it on notes.
-  const { id: tagId } = await client.write<{ id: string }>("tags:write:create-tag", {
+  const { id: tagId } = await client.write<{ id: string }>("tags:write:tag:create", {
     name: "important",
     color: "#2563eb",
     scope: "note",

@@ -26,6 +26,7 @@ function isRecordLocked(lockedWhen: FieldCondition | undefined, row: Readonly<Re
 function isUiAccessGranted(access: AccessRule | undefined, userRoles: string[] | undefined): boolean;
 function isUnusedFallbackOperand(screen: FormDerivationScreen, values: unknown, field: string): boolean; // True when `field` is only read as a `whenEmpty` operand of `listSum` derivations whose lists all have rows: nothing reads it, so it is locked rather than inviting an input that is silently dropped.
 function isWriteFormEditSection(section: EditSectionSpec): section is EditWriteFormSection;
+function parseFieldOptionsRef(raw: string): ParsedFieldOptionsRef | undefined;
 function pickEmptyStateText<Variant extends EmptyStateText & { when: FieldCondition; }, EmptyState extends EmptyStateText & { variants?: Variant[]; }>(emptyState: EmptyState | undefined, record: Readonly<Record<string, unknown>>): EmptyState | Variant | undefined; // Picks the first emptyState variant whose `when` matches the record, else the base emptyState.
 function resolveNavParentScreen(screens: ScreenDefinition[], detail: ScreenDefinition, getId: (screen: ScreenDefinition) => string): ScreenDefinition | undefined;
 function resolveTranslationValue(value: TranslationValue, locale: string, params?: Readonly<Record<string, unknown>>): string; // Resolve a TranslationValue to display text: a plural entry picks its CLDR category via `Intl.PluralRules` from `params.count`, falling back to `other` when `count` is missing, non-finite, or `locale` is invalid.
@@ -233,6 +234,7 @@ type DashboardPanelNarrow = { // Phone layout switch shared by every panel kind.
 type DashboardPanelQueryOptions = {
   params?: Readonly<Record<string, unknown>>; // Static, author-set query parameters merged on top of the screen's dynamic filterParams — lets a panel pin a value (e.g. a status facet) the screen-wide filter doesn't cover, without needing its own query.
   ignoreScreenFilter?: boolean; // The screen `filter` value is NOT merged into this panel's query (a tenant picker must not hit sources without a tenant column).
+  resultField?: string; // Reads `answer[resultField]` instead of the whole answer.
 };
 type DashboardPanelSpan = "half" | "full" | "third" | "two-thirds";
 type DashboardPanelVisibility = {
@@ -534,7 +536,7 @@ type FormDerivationScreen = {
   fields: Readonly<Record<string, FormFieldDefinition>>;
   derive?: Readonly<Record<string, FormFieldDerivation>>;
 };
-type FormWidth = "3xl" | "4xl" | "full";
+type FormWidth = "3xl" | "4xl" | "settings" | "full"; // "settings": 940px settings column (configEdit compact).
 type Formality = "formal" | "informal";
 type IconKey = NavIconKey;
 type ListBulkAction = ListBulkRowAction | ListBulkFormAction; // An action over checkbox-selected rows: a writeHandler row action per row (`rowAction`) or one form for all rows (`screen` + `idsField`).
@@ -585,6 +587,9 @@ type PageHelpTextSection = { // Free help text; `title` and `text` are i18n keys
   kind: "text";
   title: string;
   text: string;
+};
+type ParsedFieldOptionsRef = ParsedRefTarget & {
+  fieldName: string;
 };
 type ParsedRefTarget = {
   featureName: string;

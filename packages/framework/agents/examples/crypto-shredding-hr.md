@@ -87,9 +87,9 @@ deletion grace period.
 handler marked `agent: { risk: "high" }`. A job or an event consumer has no handler entry, so it must declare
 `irreversibleWithoutEntryHandler` on `r.job` or `r.multiStreamProjection`, or the gate refuses with
 `irreversible_operation_without_entry_handler`. The value names why no entry handler exists:
-`rebuildable-derived-data` (the data is derived and a rebuild recreates it), `high-risk-or-cron-pipeline`
-(a manually started or cron pipeline that is high-risk by design, like `purge-archived-comments`) or
-`per-dispatch-record-key` (the key belongs to one dispatch record). Hooks and routes never inherit the
+`rebuildable-derived-data` (the data is derived and a rebuild recreates it) or `high-risk-or-cron-pipeline`
+(a manually started or cron pipeline that is high-risk by design, like `purge-archived-comments`).
+Hooks and routes never inherit the
 declaration; they dispatch a `risk: "high"` handler instead.
 
 ## Source files
@@ -119,7 +119,7 @@ import {
   nullBlindIndexesForSubject,
 } from "@cosmicdrift/kumiko-framework/db";
 import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   resetBlindIndexKeyForTests,
@@ -127,12 +127,8 @@ import {
   resetTestTables,
   waitFor,
 } from "@cosmicdrift/kumiko-testing/helpers";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
-import { employeeEntity, hrCommentEntity, hrFeature } from "../feature";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { employeeEntity, hrFeature } from "../feature";
 
 let stack: TestStack;
 let kms: InMemoryKmsAdapter;
@@ -141,9 +137,6 @@ const admin = TestUsers.admin;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [hrFeature], jobs: { consumerLane: "worker" } });
-  await unsafeCreateEntityTable(stack.db, employeeEntity);
-  await unsafeCreateEntityTable(stack.db, hrCommentEntity);
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {
@@ -282,7 +275,7 @@ describe("crypto-shredding-hr", () => {
 });
 
 describe("crypto-shredding-hr — blind-index lookups", () => {
-  const employeeTable = buildEntityTable("employee", employeeEntity);
+  const employeeTable = buildEntityTable(employeeEntity);
 
   test("equality lookup by email works on the encrypted column — until the key is erased", async () => {
     const employeeId = await createEmployee();
@@ -318,6 +311,7 @@ import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumik
 import * as z from "zod";
 
 export const employeeEntity = createEntity({
+  name: "employee",
   table: "read_hr_employees",
   fields: {
     displayName: createTextField({ required: true, personal: "self", find: "none" }),
@@ -328,6 +322,7 @@ export const employeeEntity = createEntity({
 });
 
 export const hrCommentEntity = createEntity({
+  name: "hr-comment",
   table: "read_hr_comments",
   fields: {
     employeeId: createTextField({ personal: "ref", required: true }),
@@ -337,7 +332,7 @@ export const hrCommentEntity = createEntity({
   softDelete: true,
 });
 
-const hrCommentTable = buildEntityTable("hr-comment", hrCommentEntity);
+const hrCommentTable = buildEntityTable(hrCommentEntity);
 const hrCommentExecutor = createEventStoreExecutor(hrCommentTable, hrCommentEntity, {
   entityName: "hr-comment",
 });
@@ -348,13 +343,13 @@ const hrWrite = { access: { roles: ["Admin"] } } as const;
 const hrRead = { access: { roles: ["Admin"] } } as const;
 
 export const hrFeature = defineFeature("hr", (r) => {
-  r.crud("employee", employeeEntity, {
+  r.crud(employeeEntity, {
     write: hrWrite,
     read: hrRead,
     verbs: { update: false, delete: false, restore: false },
   });
 
-  r.crud("hr-comment", hrCommentEntity, {
+  r.crud(hrCommentEntity, {
     write: hrWrite,
     read: hrRead,
     verbs: { update: false, delete: false, restore: false, list: false },
@@ -362,20 +357,18 @@ export const hrFeature = defineFeature("hr", (r) => {
 
   // A job runs without a write-handler entry, so the irreversible-operation gate refuses
   // `forget` here unless the job declares why it may. Remove the declaration and the run fails.
-  r.job(
-    "purge-archived-comments",
-    {
-      trigger: { manual: true },
-      runIn: "worker",
-      irreversibleWithoutEntryHandler: "high-risk-or-cron-pipeline",
-    },
-    async (payload, ctx) => {
+  r.job({
+    name: "purge-archived-comments",
+    trigger: { manual: true },
+    runIn: "worker",
+    irreversibleWithoutEntryHandler: "high-risk-or-cron-pipeline",
+    handler: async (payload, ctx) => {
       const { commentIds } = purgeArchivedCommentsPayload.parse(payload);
       for (const id of commentIds) {
         const result = await hrCommentExecutor.forget({ id }, ctx.systemUser, ctx.db);
         if (!result.isSuccess) throw new Error(`purge of hr-comment ${id} failed`);
       }
     },
-  );
+  });
 });
 ```

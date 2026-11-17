@@ -94,7 +94,7 @@ aggregates.
 
 ## Run
 
-Needs a running Postgres and `TEST_DATABASE_URL` set (e.g. `postgres://postgres:postgres@127.0.0.1:5432/postgres`, see `demo/.env.example`).
+Needs the Postgres from the repo root's `docker-compose.yml` (`docker compose up -d`); `TEST_DATABASE_URL` defaults to `postgresql://kumiko:kumiko@localhost:15432/kumiko_test`.
 
 ```bash
 bun test src/__tests__/feature.integration.test.ts
@@ -116,19 +116,10 @@ bun test src/__tests__/feature.integration.test.ts
 // This is the smallest evidence that an entity needs zero notes-wiring.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import {
-  createNotesHistoryFeature,
-  noteEntryEntity,
-  noteMentionEntity,
-} from "@cosmicdrift/kumiko-bundled-features/notes-history";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createNotesHistoryFeature } from "@cosmicdrift/kumiko-bundled-features/notes-history";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
-import { taskEntity, taskFeature } from "../feature";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { taskFeature } from "../feature";
 import { type NotesClient, notesFlow } from "../usage";
 
 // Each test runs in its own tenant, so rows from other tests never show up.
@@ -144,11 +135,9 @@ const notesClient: NotesClient = {
 let stack: TestStack;
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [createNotesHistoryFeature(), taskFeature] });
-  await unsafeCreateEntityTable(stack.db, noteEntryEntity);
-  await unsafeCreateEntityTable(stack.db, noteMentionEntity);
-  await unsafeCreateEntityTable(stack.db, taskEntity);
-  await createEventsTable(stack.db);
+  stack = await setupTestStack({
+    features: [createNotesHistoryFeature({ parents: ["task"] }), taskFeature],
+  });
 });
 
 afterAll(async () => {
@@ -252,6 +241,7 @@ import { z } from "zod";
 // the feature's promise: any entity can carry a note history as-is.
 
 export const taskEntity = createEntity({
+  name: "task",
   table: "read_sample_notes_history_tasks",
   fields: {
     title: createTextField({
@@ -263,7 +253,7 @@ export const taskEntity = createEntity({
   },
 });
 
-const taskTable = buildEntityTable("task", taskEntity);
+const taskTable = buildEntityTable(taskEntity);
 
 const taskExecutor = createEventStoreExecutor(taskTable, taskEntity, { entityName: "task" });
 
@@ -275,7 +265,7 @@ export const taskFeature = defineFeature("task-management", (r) => {
   // declares the dependency so the bundle is mounted.
   r.requires({ features: ["notes-history"] });
 
-  r.entity({ name: "task", ...taskEntity });
+  r.entity(taskEntity);
 
   r.writeHandler({
     name: "task:create",

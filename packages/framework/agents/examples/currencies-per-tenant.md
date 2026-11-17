@@ -21,7 +21,7 @@ Feature entry point: `src/feature.ts`.
 
 ## Tests
 
-Needs a running Postgres and `TEST_DATABASE_URL` set (e.g. `postgres://postgres:postgres@127.0.0.1:5432/postgres`, see `demo/.env.example`).
+Needs the Postgres from the repo root's `docker-compose.yml` (`docker compose up -d`); `TEST_DATABASE_URL` defaults to `postgresql://kumiko:kumiko@localhost:15432/kumiko_test`.
 
 ```bash
 cd samples/recipes/currencies-per-tenant
@@ -52,13 +52,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-testing/helpers";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
-import { currencyEntity } from "../entities/currency";
-import { invoiceEntity } from "../entities/invoice";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { currenciesPerTenantFeature } from "../feature";
 
 // The executor returns the rehydrated read-form: money is the combined
@@ -75,9 +69,6 @@ beforeAll(async () => {
     features: [currenciesPerTenantFeature],
     systemHooks: [],
   });
-
-  await unsafeCreateEntityTable(stack.db, currencyEntity);
-  await unsafeCreateEntityTable(stack.db, invoiceEntity);
 
   // Tenant 1 creates their own currencies: EUR, USD, XYZ
   for (const { code, name } of [
@@ -259,6 +250,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 
 export const currencyEntity = createEntity({
+  name: "currency",
   table: "read_sample_mt_currencies",
   fields: {
     code: createTextField({ personal: false, reason: "is_reference_data", required: true }),
@@ -267,7 +259,7 @@ export const currencyEntity = createEntity({
   },
 });
 
-export const currencyTable = buildEntityTable("currency", currencyEntity);
+export const currencyTable = buildEntityTable(currencyEntity);
 ```
 
 ### src/entities/invoice.ts
@@ -281,6 +273,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 
 export const invoiceEntity = createEntity({
+  name: "invoice",
   table: "read_sample_mt_invoices",
   fields: {
     title: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -290,7 +283,7 @@ export const invoiceEntity = createEntity({
   defaultCurrency: "EUR",
 });
 
-export const invoiceTable = buildEntityTable("invoice", invoiceEntity);
+export const invoiceTable = buildEntityTable(invoiceEntity);
 ```
 
 ### src/feature.ts
@@ -317,8 +310,8 @@ export { currencyEntity } from "./entities/currency";
 export { invoiceEntity } from "./entities/invoice";
 
 export const currenciesPerTenantFeature = defineFeature("currenciesPerTenant", (r) => {
-  r.entity({ name: "currency", ...currencyEntity });
-  r.entity({ name: "invoice", ...invoiceEntity });
+  r.entity(currencyEntity);
+  r.entity(invoiceEntity);
 
   // No r.referenceData() — tenants create currencies themselves
   r.writeHandler(currencyCreate);
@@ -374,9 +367,9 @@ export const invoiceCreate = defineWriteHandler({
   name: "invoice:create",
   schema: z.object({
     title: z.string().min(1),
-    amount: z.number(),
+    amount: z.number().int(),
     amountCurrency: z.string().length(3),
-    shippingCost: z.number().optional(),
+    shippingCost: z.number().int().optional(),
     shippingCostCurrency: z.string().length(3).optional(),
   }),
   access: { roles: ["Admin"] },

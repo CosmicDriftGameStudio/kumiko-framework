@@ -73,7 +73,7 @@ carrier anyway instead of failing.
 
 ## Test
 
-Needs a running Postgres and `TEST_DATABASE_URL` set (e.g. `postgres://postgres:postgres@127.0.0.1:5432/postgres`, see `demo/.env.example`).
+Needs the Postgres from the repo root's `docker-compose.yml` (`docker compose up -d`); `TEST_DATABASE_URL` defaults to `postgresql://kumiko:kumiko@localhost:15432/kumiko_test`.
 
 ```bash
 bun test src/__tests__/feature.integration.test.ts
@@ -208,8 +208,8 @@ const adminUser = TestUsers.admin;
 let testDb: TestDb;
 let testRedis: TestRedis;
 
-const orderTable = buildEntityTable("order", orderEntity);
-const fulfillmentTable = buildEntityTable("fulfillment", fulfillmentEntity);
+const orderTable = buildEntityTable(orderEntity);
+const fulfillmentTable = buildEntityTable(fulfillmentEntity);
 
 beforeAll(async () => {
   [testDb, testRedis] = await Promise.all([createTestDb(), createTestRedis()]);
@@ -237,7 +237,7 @@ async function writeOrder(
   api: Awaited<ReturnType<typeof createApiEntrypoint>>,
   customerName: string,
   amount: number,
-): Promise<boolean> {
+): Promise<string | undefined> {
   const token = await api.jwt.sign(adminUser);
   const res = await api.app.request("/api/write", {
     method: "POST",
@@ -250,8 +250,8 @@ async function writeOrder(
       payload: { customerName, amount },
     }),
   });
-  const result = (await res.json()) as { isSuccess: boolean };
-  return result.isSuccess;
+  const result = (await res.json()) as { isSuccess: boolean; data?: { id: string } };
+  return result.isSuccess ? result.data?.id : undefined;
 }
 
 describe("api-worker-split", () => {
@@ -266,7 +266,7 @@ describe("api-worker-split", () => {
     });
     await api.start();
     try {
-      expect(await writeOrder(api, "Acme GmbH", 499)).toBe(true);
+      expect(await writeOrder(api, "Acme GmbH", 499)).toBeDefined();
 
       // Entity rows are written synchronously by the event-store executor —
       // present even in split mode.
@@ -308,14 +308,15 @@ describe("api-worker-split", () => {
 
     await Promise.all([api.start(), worker.start()]);
     try {
-      expect(await writeOrder(api, "Globex Ltd", 1299)).toBe(true);
+      const orderId = await writeOrder(api, "Globex Ltd", 1299);
+      expect(orderId).toBeDefined();
 
       // Worker's dispatcher applied the projection the API skipped…
       await waitFor(async () => {
         const activity = await selectMany<{ orderKey: string }>(testDb.db, orderActivityTable, {
           tenantId: adminUser.tenantId,
         });
-        expect(activity.some((row) => row.orderKey === "Globex Ltd")).toBe(true);
+        expect(activity.some((row) => row.orderKey === orderId)).toBe(true);
       });
 
       // …and the job wrote the fulfillment back through the WORKER's
@@ -328,7 +329,7 @@ describe("api-worker-split", () => {
           fulfillmentTable,
           { tenantId: adminUser.tenantId },
         );
-        expect(fulfillments.some((row) => row.orderKey === "Globex Ltd")).toBe(true);
+        expect(fulfillments.some((row) => row.orderKey === orderId)).toBe(true);
         expect(fulfillments[0]?.carrier).toBe("DHL");
       });
     } finally {
@@ -362,12 +363,13 @@ describe("api-worker-split", () => {
 
     await Promise.all([api.start(), worker.start()]);
     try {
-      expect(await writeOrder(api, "Initech AG", 250)).toBe(true);
+      const orderId = await writeOrder(api, "Initech AG", 250);
+      expect(orderId).toBeDefined();
       await waitFor(async () => {
         const fulfillments = await selectMany<{ orderKey: string }>(testDb.db, fulfillmentTable, {
           tenantId: adminUser.tenantId,
         });
-        expect(fulfillments.some((row) => row.orderKey === "Initech AG")).toBe(true);
+        expect(fulfillments.some((row) => row.orderKey === orderId)).toBe(true);
       });
       expect(busyChecks).toBe(2);
     } finally {
@@ -403,7 +405,6 @@ import {
   defineFeature,
   type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
 
 const openAccess = {
   access: {
@@ -421,6 +422,7 @@ const openAccess = {
 // always sees them, split or not.
 
 export const orderEntity = createEntity({
+  name: "order",
   table: "read_orders",
   fields: {
     customerName: createTextField({ personal: { of: "id" }, find: "none", required: true }),
@@ -430,6 +432,7 @@ export const orderEntity = createEntity({
 });
 
 export const fulfillmentEntity = createEntity({
+  name: "fulfillment",
   table: "read_fulfillments",
   fields: {
     orderKey: createTextField({ personal: false, reason: "is_system_identifier", required: true }),
@@ -474,29 +477,18 @@ export function setCarrierRetryAfter(fn: () => number): void {
   carrierRetryAfterMs = fn;
 }
 
-// Job payloads arrive as `Record<string, unknown>` (JobHandlerFn) — an
-// unchecked `as string` cast here would let a missing/non-string field
-// through silently, writing `orderKey: undefined` / `label: "label-
-// undefined"` instead of failing loudly. This recipe is a copy-paste
-// template, so the cast would get copied along with it.
-const processOrderPayloadSchema = z.object({
-  customerName: z.string().min(1),
-});
-
 export function createApiWorkerSplitFeature() {
   return defineFeature("orders", (r) => {
-    r.crud("order", orderEntity, { write: openAccess, read: openAccess });
-    r.crud("fulfillment", fulfillmentEntity, { write: openAccess, read: openAccess });
+    r.crud(orderEntity, { write: openAccess, read: openAccess });
+    r.crud(fulfillmentEntity, { write: openAccess, read: openAccess });
 
     // Heavy follow-up work, pinned to the worker lane: the API process only
     // enqueues (its BullMQ client, no consumer), the worker executes.
-    r.job(
-      "process-order",
-      {
-        trigger: { on: "orders:write:order:create" },
-        runIn: "worker",
-      },
-      async (payload, context) => {
+    r.job({
+      name: "process-order",
+      trigger: { on: "order.created" },
+      runIn: "worker",
+      handler: async (_payload, context) => {
         if (fulfillWrite === undefined) {
           throw new Error(
             "process-order: no fulfill-write bridge wired — bin/worker.ts must call setOrderFulfillWrite at boot",
@@ -512,7 +504,12 @@ export function createApiWorkerSplitFeature() {
             "process-order: job context has no triggeredBy.tenantId — expected an order.created-triggered job to always carry the triggering write's tenant",
           );
         }
-        const { customerName } = processOrderPayloadSchema.parse(payload);
+        // customerName is PII and arrives as ciphertext in the event payload, so the order's
+        // aggregate id is the key. A missing id would write "label-undefined" instead of failing.
+        const orderId = context.triggerEvent?.aggregateId;
+        if (orderId === undefined) {
+          throw new Error("process-order: job context has no triggerEvent.aggregateId");
+        }
         // Busy is not a failure: ctx.defer re-runs the job later without burning a retry.
         // Once the defer budget is used up (or the run is inline), try anyway and let a failure retry.
         const retryAfterMs = carrierRetryAfterMs();
@@ -520,9 +517,9 @@ export function createApiWorkerSplitFeature() {
         const result = await fulfillWrite({
           handlerQn: "orders:write:fulfillment:create",
           payload: {
-            orderKey: customerName,
+            orderKey: orderId,
             carrier: "DHL",
-            label: `label-${customerName}`,
+            label: `label-${orderId}`,
           },
           tenantId,
         });
@@ -530,28 +527,24 @@ export function createApiWorkerSplitFeature() {
           // Throwing lets BullMQ retry the job — a silently dropped
           // fulfillment would leave the order stuck "pending" forever.
           throw new Error(
-            `process-order: fulfillment create failed for order "${customerName}": ${result.error?.code ?? "unknown"}`,
+            `process-order: fulfillment create failed for order "${orderId}": ${result.error?.code ?? "unknown"}`,
           );
         }
       },
-    );
+    });
 
-    // Async read model, applied by the WORKER's event-dispatcher. Entity ids
-    // are generated at write time and are not part of the job payload — the
-    // projection keys off the natural key (customerName), the same way a
-    // background write-back would. Note the event type: the write-handler QN
-    // ("orders:write:order:create") triggers jobs synchronously, but the
-    // STORED event is the entity event "order.created" — that's what the
-    // async dispatcher routes on.
+    // Async read model, applied by the WORKER's event-dispatcher. The job and
+    // the projection both route on the stored entity event "order.created"; the
+    // projection keys off the event's aggregate id, the same key the job uses
+    // for the fulfillment.
     r.multiStreamProjection({
       name: "order-activity",
       table: orderActivityTable,
       apply: {
         "order.created": async (event, tx) => {
-          const payload = event.payload as { customerName: string };
           await insertOne(tx, orderActivityTable, {
             tenantId: event.tenantId,
-            orderKey: payload.customerName,
+            orderKey: event.aggregateId,
           });
         },
       },

@@ -15,13 +15,15 @@ Row-level ownership for read and write.
 - Entity- and field-level ownership rules
 - Straddle-safe checks across tenants/users
 
+`fromParent(field, entity)` lets a child entity inherit ownership instead of copying the scoping column: the `contractNote` entity grants a `TeamMember` exactly the notes whose `contractId` points at a contract that role may read (list, detail) or write (create, update, delete) under the contract's own access map.
+
 ## Source
 
 Feature entry point: `src/feature.ts`.
 
 ## Tests
 
-Needs a running Postgres and `TEST_DATABASE_URL` set (e.g. `postgres://postgres:postgres@127.0.0.1:5432/postgres`, see `demo/.env.example`).
+Needs the Postgres from the repo root's `docker-compose.yml` (`docker compose up -d`); `TEST_DATABASE_URL` defaults to `postgresql://kumiko:kumiko@localhost:15432/kumiko_test`.
 
 ```bash
 cd samples/recipes/ownership
@@ -42,12 +44,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-testing/helpers";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
-import { contractEntity, contractsFeature, teamsFeature } from "../feature";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { contractsFeature, teamsFeature } from "../feature";
 
 let stack: TestStack;
 
@@ -80,7 +78,6 @@ let { admin, teamMemberEng, teamMemberOps, driverAlice } = usersForTenant(testTe
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [teamsFeature, contractsFeature] });
-  await unsafeCreateEntityTable(stack.db, contractEntity, "contract");
 });
 
 afterAll(async () => {
@@ -227,6 +224,35 @@ describe("entity-level write: create/update/delete blocked on foreign rows", () 
   });
 });
 
+describe("fromParent: notes inherit access from their contract", () => {
+  test("TeamMember eng sees the eng note, not the ops note, and cannot add one to ops", async () => {
+    await stack.http.writeOk(
+      "contracts:write:contractNote:create",
+      { contractId: engRowId, text: "eng note" },
+      admin,
+    );
+    await stack.http.writeOk(
+      "contracts:write:contractNote:create",
+      { contractId: opsRowId, text: "ops note" },
+      admin,
+    );
+
+    const res = await stack.http.queryOk<{ rows: Array<{ text: string }> }>(
+      "contracts:query:contractNote:list",
+      {},
+      teamMemberEng,
+    );
+    expect(res.rows.map((row) => row.text)).toEqual(["eng note"]);
+
+    const err = await stack.http.writeErr(
+      "contracts:write:contractNote:create",
+      { contractId: opsRowId, text: "rogue" },
+      teamMemberEng,
+    );
+    expectErrorIncludes(err, "ownership_denied");
+  });
+});
+
 // --- Field-level WRITE ---
 
 describe("field-level write: individual fields rejected fail-loud", () => {
@@ -324,9 +350,11 @@ describe("admin-all short-circuit skips every ownership predicate", () => {
 
 import {
   createEntity,
+  createReferenceField,
   createTextField,
   defineFeature,
   from,
+  fromParent,
 } from "@cosmicdrift/kumiko-framework/engine";
 
 // The "teams" feature declares the teamId claim. Any other feature can
@@ -334,11 +362,12 @@ import {
 // cross-feature import needed. The boot-validator rejects a reference to a
 // claim no feature declared.
 export const teamsFeature = defineFeature("teams", (r) => {
-  r.claimKey("teamId", { type: "string" });
+  r.claimKey({ name: "teamId", type: "string" });
 });
 
 // Contract entity demonstrating the full access matrix.
 export const contractEntity = createEntity({
+  name: "contract",
   table: "read_ownership_contracts",
   softDelete: true,
   fields: {
@@ -392,11 +421,36 @@ export const contractEntity = createEntity({
   },
 });
 
+// A note has no teamId of its own: fromParent grants a TeamMember the notes whose contract that
+// same role may read (and write), so the scoping column is not copied into every child.
+export const contractNoteEntity = createEntity({
+  name: "contractNote",
+  table: "read_ownership_contract_notes",
+  fields: {
+    contractId: createReferenceField({
+      entity: "contract",
+      personal: false,
+      reason: "is_system_identifier",
+      required: true,
+    }),
+    text: createTextField({ personal: false, reason: "is_business_data", required: true }),
+  },
+  access: {
+    read: { Admin: "all", TeamMember: fromParent("contractId", "contract") },
+    write: { Admin: "all", TeamMember: fromParent("contractId", "contract") },
+  },
+});
+
 export const contractsFeature = defineFeature("contracts", (r) => {
   const contractAccess = { access: { roles: ["Admin", "TeamMember", "Driver"] } } as const;
-  r.crud("contract", contractEntity, {
+  r.crud(contractEntity, {
     write: contractAccess,
     read: contractAccess,
+  });
+  const noteAccess = { access: { roles: ["Admin", "TeamMember"] } } as const;
+  r.crud(contractNoteEntity, {
+    write: noteAccess,
+    read: noteAccess,
   });
 });
 ```

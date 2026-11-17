@@ -8,8 +8,8 @@ preSave, postSave, and the rest. Your logic, our plumbing.
 
 # Lifecycle hooks
 
-Attach behaviour to the four entity lifecycle moments: validation
-(reject bad input), postSave (log every change), preDelete (block delete
+Attach behaviour to the five entity lifecycle moments: validation
+(reject bad input), preSave (derive fields or reject the write), postSave (log every change), preDelete (block delete
 when an invariant says no), postDelete (log after commit). This recipe
 ships an `article` entity with hooks at each phase.
 
@@ -24,6 +24,7 @@ back.
   handler body executes. Returns either `null` (pass) or an array of
   `{ field, error }` objects (fail). Used here to reject titles
   containing the word "spam" and titles longer than 200 characters.
+- **`r.hook({ type: "preSave", target: [createRef, updateRef], handler })`** — runs inside the write before ownership checks and may return derived fields. Throwing a KumikoError (here `UnprocessableError("published_article_needs_content")` with `details.fields`) rejects the write with exactly that error, and no event is written; any other throw surfaces as `presave_hook_failed`. For `r.crud` entities the target is the handler name, for example `"article:create"`.
 - **`r.hook({ type: "postSave", target: { allOf: entityRef }, handler })`** — fires after every
   successful save (create or update) in the same transaction.
   `result.isNew` distinguishes create from update; `result.changes`
@@ -50,7 +51,7 @@ pick the right rollback semantics for each side effect.
 ## Source
 
 The whole feature lives in `src/feature.ts` (~100 lines). Integration
-tests exercise each of the four hook phases plus the rollback path on
+tests exercise each of the five hook phases plus the rollback path on
 preDelete violation.
 
 ```bash
@@ -67,15 +68,10 @@ bun kumiko test integration samples/lifecycle-hooks
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-testing/helpers";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
-import { articleEntity, articlesFeature, hookLog, reservedSlots } from "../feature";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { articlesFeature, hookLog, reservedSlots } from "../feature";
 
 let stack: TestStack;
 
@@ -83,8 +79,6 @@ const editor = createTestUser({ roles: ["Admin", "Editor"] });
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [articlesFeature] });
-  await unsafeCreateEntityTable(stack.db, articleEntity);
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {
@@ -95,6 +89,46 @@ beforeEach(() => {
   stack.events.reset();
   hookLog.length = 0;
   reservedSlots.clear();
+});
+
+describe("preSave hook", () => {
+  test("a thrown KumikoError rejects the create with its fields and writes nothing", async () => {
+    const error = await stack.http.writeErr(
+      "blog:write:article:create",
+      { title: "Empty", isPublished: true },
+      editor,
+    );
+
+    expect(error.httpStatus).toBe(422);
+    expectErrorIncludes(error, "published_article_needs_content");
+    expect(error.details).toMatchObject({ fields: [{ path: "content" }] });
+    expect(hookLog.some((entry) => entry.type === "created")).toBe(false);
+  });
+
+  test("an update that publishes a draft without content is rejected", async () => {
+    const draft = await stack.http.writeOk<SaveContext>(
+      "blog:write:article:create",
+      { title: "Draft" },
+      editor,
+    );
+
+    const error = await stack.http.writeErr(
+      "blog:write:article:update",
+      { id: draft.id, version: 1, changes: { isPublished: true } },
+      editor,
+    );
+
+    expect(error.httpStatus).toBe(422);
+    expectErrorIncludes(error, "published_article_needs_content");
+  });
+
+  test("a published article with content passes", async () => {
+    await stack.http.writeOk<SaveContext>(
+      "blog:write:article:create",
+      { title: "Ready", content: "Body", isPublished: true },
+      editor,
+    );
+  });
 });
 
 describe("validation hook: single handler", () => {
@@ -220,7 +254,7 @@ describe("preDelete + postDelete entity hooks", () => {
   test("preDelete blocks delete when the article is still published", async () => {
     const created = await stack.http.writeOk<SaveContext>(
       "blog:write:article:create",
-      { title: "Live Article" },
+      { title: "Live Article", content: "Body" },
       editor,
     );
     await stack.http.writeOk<SaveContext>(
@@ -290,7 +324,8 @@ describe("scheduleAfterRollback", () => {
 
 ```ts
 // Lifecycle Hooks Sample
-// Shows: validation hooks (reject bad data), postSave entity hooks (track changes),
+// Shows: validation hooks (reject bad data), preSave hooks (reject a write with a thrown KumikoError),
+// postSave entity hooks (track changes),
 // preDelete hooks (block delete on invariant violation), postDelete hooks
 // (log deletions after commit).
 
@@ -312,6 +347,7 @@ import {
 import * as z from "zod";
 
 export const articleEntity = createEntity({
+  name: "article",
   table: "read_sample_articles",
   fields: {
     // maxLength high so zod lets long titles through — the validation hook
@@ -337,7 +373,7 @@ export const reservedSlots = new Set<string>();
 const editorWrite = { access: { roles: ["Admin", "Editor"] } } as const;
 
 export const articlesFeature = defineFeature("blog", (r) => {
-  const article = r.entity({ name: "article", ...articleEntity });
+  const article = r.entity(articleEntity);
 
   const articleCreate = r.writeHandler(
     defineEntityCreateHandler("article", articleEntity, editorWrite),
@@ -391,6 +427,27 @@ export const articlesFeature = defineFeature("blog", (r) => {
         return [{ field: "title", error: "title_too_long" }];
       }
       return null;
+    },
+  });
+
+  // --- preSave hook on create and update: a published article needs content.
+  // The rule reads the effective value (change over stored row) because an update may send
+  // only isPublished. A thrown KumikoError reaches the caller unchanged and nothing is written.
+  r.hook({
+    type: "preSave",
+    target: [articleCreate, articleUpdate],
+    handler: async (changes, ctx) => {
+      const effective = (key: "content" | "isPublished"): unknown =>
+        key in changes ? changes[key] : ctx.previous[key];
+      const content = effective("content");
+      const hasContent = typeof content === "string" && content.trim() !== "";
+      if (effective("isPublished") !== true || hasContent) return changes;
+      throw new UnprocessableError("published_article_needs_content", {
+        i18nKey: "errors.publishedArticleNeedsContent",
+        details: {
+          fields: [{ path: "content", code: "required", i18nKey: "errors.validation.required" }],
+        },
+      });
     },
   });
 

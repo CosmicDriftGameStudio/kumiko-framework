@@ -25,7 +25,7 @@ Feature entry point: `src/feature.ts`.
 
 ## Tests
 
-Needs a running Postgres and `TEST_DATABASE_URL` set (e.g. `postgres://postgres:postgres@127.0.0.1:5432/postgres`, see `demo/.env.example`).
+Needs the Postgres from the repo root's `docker-compose.yml` (`docker compose up -d`); `TEST_DATABASE_URL` defaults to `postgresql://kumiko:kumiko@localhost:15432/kumiko_test`.
 
 ```bash
 cd samples/recipes/host-routing
@@ -48,16 +48,14 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/config";
 import {
   createTenantFeature,
-  tenantEntity,
   tenantMembershipsTable,
 } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { seedTenant } from "@cosmicdrift/kumiko-bundled-features/tenant/seeding";
-import { createUserFeature, userEntity } from "@cosmicdrift/kumiko-bundled-features/user";
+import { createUserFeature } from "@cosmicdrift/kumiko-bundled-features/user";
 import { createAnonymousUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { hostDispatch, hostRoutingFeature, routingOptions, storefrontFeature } from "../feature";
@@ -97,8 +95,6 @@ beforeAll(async () => {
     anonymousAccess: {},
     enrichAnonymousAccess: (base, deps) => resolveAnonymousAccessFromRegistry(base, deps),
   });
-  await unsafeCreateEntityTable(stack.db, userEntity);
-  await unsafeCreateEntityTable(stack.db, tenantEntity);
   await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
   for (const shop of SHOPS) await seedTenant(stack.db, shop);
 });

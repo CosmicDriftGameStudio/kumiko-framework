@@ -18,23 +18,38 @@ function createLateBoundHolder<T>(label?): LateBoundHolder<T>;
 function createManualClock(start: Temporal.Instant): ManualClock;
 function createMutableMasterKeyProvider(initial: MasterKeyProvider): MutableMasterKeyProvider;
 function createRecordingProvider(options?: ObservabilityOptions): RecordingProvider;
+function createTenantDb(options: CreateTenantDbOptions & { db: ExecutorManagedRunner; }): ExecutorManagedTenantDb;
+function createTenantDb(options: CreateTenantDbOptions & { db: DbConnection; }): ConnectionTenantDb;
+function createTenantDb(options: CreateTenantDbOptions): TenantDb;
+function createTenantDb(options: CreateTenantDbOptions & { db: ExecutorManagedRunner; }): ExecutorManagedTenantDb;
+function createTenantDb(options: CreateTenantDbOptions & { db: DbConnection; }): ConnectionTenantDb;
+function createTenantDb(options: CreateTenantDbOptions): TenantDb;
+function createTenantDb(options: CreateTenantDbOptions & { db: ExecutorManagedRunner; }): ExecutorManagedTenantDb;
+function createTenantDb(options: CreateTenantDbOptions & { db: DbConnection; }): ConnectionTenantDb;
+function createTenantDb(options: CreateTenantDbOptions): TenantDb;
+function createTenantDb(options: CreateTenantDbOptions & { db: ExecutorManagedRunner; }): ExecutorManagedTenantDb;
+function createTenantDb(options: CreateTenantDbOptions & { db: DbConnection; }): ConnectionTenantDb;
+function createTenantDb(options: CreateTenantDbOptions): TenantDb;
 function createTestEnvelopeCipher(keyBase64?: string, opts?: EnvelopeCipherOptions): EnvelopeCipher;
 function createTestMasterKeyProvider(keyBase64?: string): MasterKeyProvider;
 function createTestStoredEvent(overrides?: Partial<StoredEvent>): StoredEvent;
 function deleteRowViaEventStore(db: DbConnection, target: EventStoreWriteTarget, where: WhereObject, scope?: EventStoreWriteScope): Promise<void>;
-function deleteRows(db: AnyDb, table: SeedTable, where: WhereObject): Promise<number>;
+function deleteRows(db: AnyDb, table: SeedTable, where: WhereObject, options?: SeedOptions): Promise<number>;
 function deleteRowsViaEventStore(db: DbConnection, target: EventStoreWriteTarget, where: WhereObject, scope?: EventStoreWriteScope): Promise<void>; // Deletes every row matching `where`, each through its own event-store delete.
 function describeFileProviderContract(name: string, factory: () => FileStorageProvider | Promise<FileStorageProvider>): void;
 function expectError(result: WriteResult, matcher?: string): asserts result is { isSuccess: false; error: WriteErrorInfo; };
 function expectErrorIncludes(err: WriteErrorInfo | string | null | undefined, substring: string): void;
 function expectRoleRestrictedHandlersDenyForeignRole(stack: Pick<TestStack, "registry" | "http">, options?: { minimumHandlerCount?: number; probeUser?: SessionUser; }): Promise<CheckedHandlerCounts>; // Contract test: every role-restricted write/query handler in the stack rejects a signed-in caller who holds none of its roles with 403 access_denied, over real HTTP.
 function expectSuccess<T>(result: WriteResult<T>): asserts result is { isSuccess: true; data: T; };
+function fakePooledClientFailingWith(failures: unknown[], row: Record<string, unknown>): FakePooledClient;
 function generateE2ESpec(registry: Registry, options?: E2EGeneratorOptions): E2ETestSpec[];
 function generateZodFixture(schema: z.ZodTypeAny): unknown;
 function getSetCookieRaw(res: Response, name: string): string | undefined;
 function getSetCookieValue(res: Response, name: string): string | undefined;
 function getSetCookies(res: Response): Map<string, ParsedSetCookie>;
 function isRealProviderRun(env?: Readonly<Record<string, string | undefined>>): boolean;
+function liveMeiliConnection(): LiveMeiliConnection;
+function meiliAvailable(): Promise<boolean>;
 function patchFileInstanceofForBunTest(): void; // Patches File[Symbol.hasInstance] so that cross-realm Blob objects returned by Hono's parseBody() pass `instanceof File` checks in bun:test.
 function readSseFrames(response: Response, options: ReadSseFramesOptions): Promise<SseFrame[]>;
 function requireRealProviders(): void;
@@ -51,10 +66,12 @@ function tenantRowLevelSecurityScope(tenantId: TenantId): RowLevelSecurityScope;
 function terminateBackendsByApplicationName(admin: AdminClient, applicationName: string): Promise<void>;
 function testDatabaseUrl(): string;
 function updateRowViaEventStore(db: DbConnection, target: EventStoreWriteTarget, where: WhereObject, changes: Readonly<Record<string, unknown>>, scope?: EventStoreWriteScope): Promise<void>;
-function updateRows<TRow = unknown>(db: AnyDb, table: SeedTable, set: Record<string, unknown>, where: WhereObject): Promise<TRow[]>;
+function updateRows<TRow = unknown>(db: AnyDb, table: SeedTable, set: Record<string, unknown>, where: WhereObject, options?: SeedOptions): Promise<TRow[]>;
 function waitFor(fn: () => void | boolean | Promise<void | boolean>, options?: { delays?: number[]; }): Promise<void>; // Polls a condition with escalating timeouts.
 function withBootValidatorFixture(features: FeatureDefinition[]): FeatureDefinition[]; // Test-fixture helper: satisfy entityList + i18n boot rules without bloating every makeFeature.
-function withEnv<T>(overrides: Readonly<Record<string, string | undefined>>, run: () => T | Promise<T>): Promise<T>;
+function withEnv<T>(overrides: EnvOverrides, run: () => T | Promise<T>): Promise<T>;
+function withEnvForEachTest(overrides: EnvOverrides): void;
+function withEnvForSuite(overrides: EnvOverrides): void;
 function withoutAmbientTemporal<T>(fn: () => T | Promise<T>): Promise<T>; // Run `fn` with `globalThis.Temporal` deleted, then restore.
 function zipWithEntries(...entryNames: string[]): Uint8Array;
 ```
@@ -84,17 +101,19 @@ type BurstResult = {
   responses: Response[];
   statuses: Readonly<Record<number, number>>;
 };
-type ClearableTable = // EntityTableMeta, a built table, or a plain table name string.
-  | string
-  | {
-    tableName?: string;
-  }
-  | unknown
-;
+type ClearableTable = string | SchemaTable | EntityTableMeta; // EntityTableMeta, a built table, or a plain table name string.
 type ConsoleSpyLike = {
   mock: {
     calls: ReadonlyArray<ReadonlyArray<unknown>>;
   };
+};
+type CreateTenantDbOptions = ({ mode?: "tenant"; reason?: undefined; } | { mode: "system"; reason: string; }) & {
+  db: DbRunner;
+  tenantId: TenantId;
+  tracer?: Tracer;
+  meter?: Meter;
+  signal?: AbortSignal;
+  grants?: TenantDbGrants;
 };
 type E2EGeneratorOptions = {
   tenantPlaceholder?: string;
@@ -159,10 +178,20 @@ type EventStoreWriteTarget = {
   entity: ExecutorArgs[1];
   entityName: string;
 };
+type FakePooledClient = RawDbClient & {
+  options: {
+    max: number;
+  };
+  calls: { sql: string; params: unknown[] | undefined; }[];
+};
 type LateBoundHolder<T> = {
   set(value: T): void; // Store the concrete value.
   get(): T; // Fetch the concrete value or throw if set() hasn't been called yet.
   isReady(): boolean; // True after set() has been called.
+};
+type LiveMeiliConnection = {
+  url: string;
+  masterKey: string;
 };
 type ManualClock = Clock & {
   set(instant: Temporal.Instant): void;

@@ -21,7 +21,7 @@ Feature entry point: `src/feature.ts`.
 
 ## Tests
 
-Needs a running Postgres and `TEST_DATABASE_URL` set (e.g. `postgres://postgres:postgres@127.0.0.1:5432/postgres`, see `demo/.env.example`).
+Needs the Postgres from the repo root's `docker-compose.yml` (`docker compose up -d`); `TEST_DATABASE_URL` defaults to `postgresql://kumiko:kumiko@localhost:15432/kumiko_test`.
 
 ```bash
 cd samples/recipes/anonymous-access-multitenant
@@ -40,14 +40,9 @@ bun test
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { setTenantCookie } from "@cosmicdrift/kumiko-framework/api";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
-import { multiTenantShopFeature, productEntity } from "../feature";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { multiTenantShopFeature } from "../feature";
 import { createSubdomainResolver, extractSubdomain } from "../subdomain-resolver";
 
 const ACME_TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
@@ -95,8 +90,6 @@ beforeAll(async () => {
       resolverTrust: "fallback-only",
     },
   });
-  await unsafeCreateEntityTable(stack.db, productEntity);
-  await createEventsTable(stack.db);
 
   // Stamp test routes that exercise setTenantCookie. The framework gives
   // apps the helper; the route is app-territory.
@@ -295,16 +288,17 @@ import {
 import { z } from "zod";
 
 export const productEntity = createEntity({
+  name: "product",
   table: "mt_products",
   fields: {
     name: createTextField({ personal: false, reason: "is_business_data", required: true }),
   },
 });
 
-export const productTable = buildEntityTable("product", productEntity);
+export const productTable = buildEntityTable(productEntity);
 
 export const multiTenantShopFeature = defineFeature("mtshop", (r) => {
-  r.entity({ name: "product", ...productEntity });
+  r.entity(productEntity);
 
   // Public listing — every tenant has its own products, scoped by tenantId
   // automatically via the framework's tenant-isolation. Anonymous visitors

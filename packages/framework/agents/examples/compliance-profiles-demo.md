@@ -52,7 +52,7 @@ instead of hard-coding region rules.
 
 ## Tests
 
-Needs a running Postgres and `TEST_DATABASE_URL` set (e.g. `postgres://postgres:postgres@127.0.0.1:5432/postgres`, see `demo/.env.example`).
+Needs the Postgres from the repo root's `docker-compose.yml` (`docker compose up -d`); `TEST_DATABASE_URL` defaults to `postgresql://kumiko:kumiko@localhost:15432/kumiko_test`.
 
 ```bash
 # From kumiko-framework repo root:
@@ -100,17 +100,10 @@ try interactively, mount `complianceProfilesDemoFeatures` in your own
 //   - Sprachen: de
 //   - Tenant-Destroy-Grace: 60d (HR-Override)
 //   - Audit-Retention: 10y (HGB-Override)
-//   - Plus worksCouncilApprovalRequired
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { tenantComplianceProfileEntity } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { complianceProfilesDemoFeatures } from "../feature";
 
 const SET_PROFILE = "compliance-profiles:write:set-profile";
@@ -136,8 +129,6 @@ const tenantCHrAdmin = createTestUser({
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: complianceProfilesDemoFeatures });
-  await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
-  await createEventsTable(stack.db);
 
   // Onboarding-Setup: jeder Tenant-Admin waehlt sein Profile.
   await stack.http.writeOk(SET_PROFILE, { profileKey: "eu-dsgvo" }, tenantADachAdmin);
@@ -189,21 +180,18 @@ describe("compliance-profiles-demo :: cross-tenant isolation", () => {
     const result = await stack.http.queryOk<{
       profile: {
         key: string;
-        breach: { authorityContact: string; worksCouncilNotificationRequired?: boolean };
+        breach: { authorityContact: string };
         notifications: { languages: string[] };
         tenantDestroyGracePeriod: { days: number };
         auditLog: { retention: { years?: number } };
-        subProcessor: { worksCouncilApprovalRequired?: boolean };
       };
     }>(FOR_TENANT, {}, tenantCHrAdmin);
 
     expect(result.profile.key).toBe("de-hr-dsgvo-hgb");
     expect(result.profile.breach.authorityContact).toBe("Landes-Datenschutzbehörde");
-    expect(result.profile.breach.worksCouncilNotificationRequired).toBe(true);
     expect(result.profile.notifications.languages).toEqual(["de"]);
     expect(result.profile.tenantDestroyGracePeriod).toEqual({ days: 60 });
     expect(result.profile.auditLog.retention).toEqual({ years: 10 });
-    expect(result.profile.subProcessor.worksCouncilApprovalRequired).toBe(true);
   });
 
   test("Profile switch on the same tenant immediately shows new behavior", async () => {
@@ -254,19 +242,14 @@ describe("compliance-profiles-demo :: cross-tenant isolation", () => {
 
     const result = await stack.http.queryOk<{
       profile: {
-        userRights: {
-          gracePeriod: { days: number };
-          portabilityFormat: string[];
-          restrictionAllowed: boolean;
-        };
+        userRights: { gracePeriod: { days: number }; exportDownloadTtl: { days: number } };
         notifications: { languages: string[] };
       };
     }>(FOR_TENANT, {}, tenantEAdmin);
 
     expect(result.profile.userRights.gracePeriod).toEqual({ days: 90 });
     // Andere userRights aus swiss-dsg bleiben
-    expect(result.profile.userRights.portabilityFormat).toEqual(["json"]);
-    expect(result.profile.userRights.restrictionAllowed).toBe(true);
+    expect(result.profile.userRights.exportDownloadTtl).toEqual({ days: 7 });
     // Languages from swiss-dsg unchanged
     expect(result.profile.notifications.languages).toEqual(["de", "fr", "it", "en"]);
   });

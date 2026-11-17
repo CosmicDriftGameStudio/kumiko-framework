@@ -21,7 +21,7 @@ Feature entry point: `src/feature.ts`.
 
 ## Tests
 
-Needs a running Postgres and `TEST_DATABASE_URL` set (e.g. `postgres://postgres:postgres@127.0.0.1:5432/postgres`, see `demo/.env.example`).
+Needs the Postgres from the repo root's `docker-compose.yml` (`docker compose up -d`); `TEST_DATABASE_URL` defaults to `postgresql://kumiko:kumiko@localhost:15432/kumiko_test`.
 
 ```bash
 cd samples/recipes/access-control
@@ -35,21 +35,10 @@ bun test
 ```ts
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { z } from "zod";
-import {
-  accessControlFeature,
-  projectEntity,
-  projectTable,
-  taskEntity,
-  taskTable,
-} from "../feature";
+import { accessControlFeature, projectTable, taskTable } from "../feature";
 
 let stack: TestStack;
 const admin = TestUsers.admin; // { id: 1, tenantId: 1, roles: ["Admin"] }
@@ -57,9 +46,6 @@ const user = TestUsers.user; // { id: 2, tenantId: 1, roles: ["User"] }
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [accessControlFeature] });
-  await unsafeCreateEntityTable(stack.db, projectEntity);
-  await unsafeCreateEntityTable(stack.db, taskEntity);
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {
@@ -243,6 +229,7 @@ import { z } from "zod";
 export const AccessControlRoles = defineRoles(["Admin"] as const);
 
 export const projectEntity = createEntity({
+  name: "project",
   table: "read_ac_projects",
   fields: {
     name: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -251,6 +238,7 @@ export const projectEntity = createEntity({
 });
 
 export const taskEntity = createEntity({
+  name: "task",
   table: "read_ac_tasks",
   fields: {
     title: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -271,17 +259,17 @@ export const taskRelations = {
 
 // Relations flow into buildEntityTable — every belongsTo FK gets its own
 // index on this table.
-export const projectTable = buildEntityTable("project", projectEntity, {
+export const projectTable = buildEntityTable(projectEntity, {
   relations: projectRelations,
 });
-export const taskTable = buildEntityTable("task", taskEntity, {
+export const taskTable = buildEntityTable(taskEntity, {
   relations: taskRelations,
 });
 
 export const accessControlFeature = defineFeature("access-control", (r) => {
-  r.entity({ name: "project", ...projectEntity });
-  r.entity({ name: "task", ...taskEntity });
-  r.relation("task", "project", taskRelations.project);
+  r.entity(projectEntity);
+  r.entity(taskEntity);
+  r.relation({ entity: "task", name: "project", ...taskRelations.project });
 
   // Admin-only: standard create — no business logic, helper handles schema +
   // executor + handler-body.

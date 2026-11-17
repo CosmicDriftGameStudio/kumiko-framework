@@ -81,15 +81,10 @@ soft-delete + restore, and per-verb access boundaries (Editor vs Admin).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-testing/helpers";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
-import { taskEntity, taskFeature } from "../feature";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { taskFeature } from "../feature";
 
 let stack: TestStack;
 
@@ -98,8 +93,6 @@ const user = createTestUser({ id: 2, roles: ["User"] });
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [taskFeature] });
-  await unsafeCreateEntityTable(stack.db, taskEntity);
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {
@@ -385,6 +378,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 
 export const taskEntity = createEntity({
+  name: "task",
   table: "read_sample_tasks",
   fields: {
     title: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -408,7 +402,7 @@ const openRead = {
 } as const;
 
 export const taskFeature = defineFeature("tasks", (r) => {
-  r.crud("task", taskEntity, {
+  r.crud(taskEntity, {
     write: editorWrite,
     read: openRead,
     verbs: { delete: false, restore: false },

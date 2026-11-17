@@ -65,14 +65,7 @@ screen.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { EntityId, SaveContext } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
-import { contactEntity } from "../entities/contact";
-import { invoiceEntity } from "../entities/invoice";
-import { productEntity } from "../entities/product";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { embeddedFeature } from "../feature";
 
 let stack: TestStack;
@@ -86,9 +79,6 @@ beforeAll(async () => {
     features: [embeddedFeature],
     systemHooks: [],
   });
-  await unsafeCreateEntityTable(stack.db, contactEntity);
-  await unsafeCreateEntityTable(stack.db, productEntity);
-  await unsafeCreateEntityTable(stack.db, invoiceEntity);
 });
 
 afterAll(async () => {
@@ -180,7 +170,10 @@ describe("embedded validation", () => {
       { name: "No Address" },
       admin,
     );
-    expect(error).toBeDefined();
+    expect(error).toMatchObject({
+      code: "validation_error",
+      details: { fields: expect.arrayContaining([expect.objectContaining({ path: "address" })]) },
+    });
   });
 
   test("address with missing required sub-field fails", async () => {
@@ -192,7 +185,12 @@ describe("embedded validation", () => {
       },
       admin,
     );
-    expect(error).toBeDefined();
+    expect(error).toMatchObject({
+      code: "validation_error",
+      details: {
+        fields: expect.arrayContaining([expect.objectContaining({ path: "address.zip" })]),
+      },
+    });
   });
 });
 
@@ -287,7 +285,14 @@ describe("embedded list of like-shaped rows", () => {
       },
       admin,
     );
-    expect(error).toBeDefined();
+    expect(error).toMatchObject({
+      code: "validation_error",
+      details: {
+        fields: expect.arrayContaining([
+          expect.objectContaining({ path: "phoneNumbers.1.number" }),
+        ]),
+      },
+    });
   });
 
   test("field access is applied per row, the value stays an array", async () => {
@@ -378,7 +383,12 @@ describe("invoice line items with select/reference/derived/totals metadata", () 
       { customer: "Bad Unit", lines: [{ ...validLine, unit: "liters" }] },
       admin,
     );
-    expect(error).toBeDefined();
+    expect(error).toMatchObject({
+      code: "validation_error",
+      details: {
+        fields: expect.arrayContaining([expect.objectContaining({ path: "lines.0.unit" })]),
+      },
+    });
   });
 
   test("a line with a non-UUID product reference is rejected", async () => {
@@ -387,7 +397,12 @@ describe("invoice line items with select/reference/derived/totals metadata", () 
       { customer: "Bad Product", lines: [{ ...validLine, product: "not-a-uuid" }] },
       admin,
     );
-    expect(error).toBeDefined();
+    expect(error).toMatchObject({
+      code: "validation_error",
+      details: {
+        fields: expect.arrayContaining([expect.objectContaining({ path: "lines.0.product" })]),
+      },
+    });
   });
 
   test("an empty lines array violates minItems and is rejected", async () => {
@@ -396,7 +411,10 @@ describe("invoice line items with select/reference/derived/totals metadata", () 
       { customer: "No Lines", lines: [] },
       admin,
     );
-    expect(error).toBeDefined();
+    expect(error).toMatchObject({
+      code: "validation_error",
+      details: { fields: expect.arrayContaining([expect.objectContaining({ path: "lines" })]) },
+    });
   });
 
   test("more than maxItems lines is rejected", async () => {
@@ -406,7 +424,10 @@ describe("invoice line items with select/reference/derived/totals metadata", () 
       { customer: "Too Many Lines", lines: tooManyLines },
       admin,
     );
-    expect(error).toBeDefined();
+    expect(error).toMatchObject({
+      code: "validation_error",
+      details: { fields: expect.arrayContaining([expect.objectContaining({ path: "lines" })]) },
+    });
   });
 });
 
@@ -441,9 +462,9 @@ describe("invoice receive form derives its totals on the server", () => {
     // stack booted, so boot validation accepted the redirect to the invoice list.
     expect(totals).toEqual({
       invoiceNumber: "RE-2026-0042",
-      netTotal: eur(30.05),
-      vatTotal: eur(3.31),
-      grossTotal: eur(33.36),
+      netTotal: eur(3005),
+      vatTotal: eur(331),
+      grossTotal: eur(3336),
     });
   });
 
@@ -489,6 +510,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 
 export const contactEntity = createEntity({
+  name: "contact",
   table: "read_sample_contacts",
   fields: {
     name: createTextField({ required: true, personal: "self", find: "fuzzy" }),
@@ -521,7 +543,7 @@ export const contactEntity = createEntity({
   },
 });
 
-export const contactTable = buildEntityTable("contact", contactEntity);
+export const contactTable = buildEntityTable(contactEntity);
 ```
 
 ### src/entities/invoice.ts
@@ -539,6 +561,7 @@ import {
 // product, has a unit (select), and a derived amount (qty × unitPrice)
 // that the entity sums across all lines.
 export const invoiceEntity = createEntity({
+  name: "invoice",
   table: "read_sample_invoices",
   fields: {
     customer: createTextField({ personal: { of: "id" }, find: "none", required: true }),
@@ -567,7 +590,7 @@ export const invoiceEntity = createEntity({
   },
 });
 
-export const invoiceTable = buildEntityTable("invoice", invoiceEntity);
+export const invoiceTable = buildEntityTable(invoiceEntity);
 ```
 
 ### src/entities/product.ts
@@ -580,13 +603,14 @@ import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import { createEntity, createTextField } from "@cosmicdrift/kumiko-framework/engine";
 
 export const productEntity = createEntity({
+  name: "product",
   table: "read_sample_products",
   fields: {
     name: createTextField({ personal: false, reason: "is_business_data", required: true }),
   },
 });
 
-export const productTable = buildEntityTable("product", productEntity);
+export const productTable = buildEntityTable(productEntity);
 ```
 
 ### src/feature.ts
@@ -638,14 +662,14 @@ const openRead = {
 } as const;
 
 export const embeddedFeature = defineFeature("contacts", (r) => {
-  r.entity({ name: "contact", ...contactEntity });
+  r.entity(contactEntity);
 
   r.writeHandler(contactCreate);
   r.queryHandler(contactDetail);
   r.writeHandler(invoiceReceive);
 
-  r.crud("product", productEntity, { write: adminWrite, read: openRead });
-  r.crud("invoice", invoiceEntity, { write: adminWrite, read: openRead });
+  r.crud(productEntity, { write: adminWrite, read: openRead });
+  r.crud(invoiceEntity, { write: adminWrite, read: openRead });
 
   r.screen({
     id: "invoice-edit",

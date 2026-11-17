@@ -25,7 +25,7 @@ Feature entry point: `src/feature.ts`.
 
 ## Tests
 
-Needs a running Postgres and `TEST_DATABASE_URL` set (e.g. `postgres://postgres:postgres@127.0.0.1:5432/postgres`, see `demo/.env.example`).
+Needs the Postgres from the repo root's `docker-compose.yml` (`docker compose up -d`); `TEST_DATABASE_URL` defaults to `postgresql://kumiko:kumiko@localhost:15432/kumiko_test`.
 
 ```bash
 cd samples/recipes/documents
@@ -144,12 +144,14 @@ const text = () =>
   createTextField({ personal: false, reason: "is_business_data", required: true, maxLength: 120 });
 
 export const propertyEntity = createEntity({
+  name: "property",
   table: "read_sample_documents_properties",
   fields: { name: text() },
   access: { read: { PropertyReader: "all", TenantAdmin: "all" } },
 });
 
 export const contractEntity = createEntity({
+  name: "contract",
   table: "read_sample_documents_contracts",
   fields: { name: text(), propertyId: text(), file: createFileField() },
   access: { read: { ContractReader: "all", TenantAdmin: "all" } },
@@ -159,8 +161,8 @@ const access = { roles: ["PropertyReader", "ContractReader", "TenantAdmin"] };
 
 export const propertyManagement = defineFeature("property-management", (r) => {
   r.requires({ features: ["files", "documents"] });
-  r.entity({ name: "property", ...propertyEntity });
-  r.entity({ name: "contract", ...contractEntity });
+  r.entity(propertyEntity);
+  r.entity(contractEntity);
   for (const [name, entity] of [
     ["property", propertyEntity],
     ["contract", contractEntity],

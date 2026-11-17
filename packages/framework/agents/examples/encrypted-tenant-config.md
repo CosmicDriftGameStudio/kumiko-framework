@@ -94,7 +94,7 @@ const configResolver = createConfigResolver({ cipher });
 
 ## Tests
 
-Needs a running Postgres and `TEST_DATABASE_URL` set (e.g. `postgres://postgres:postgres@127.0.0.1:5432/postgres`, see `demo/.env.example`).
+Needs the Postgres from the repo root's `docker-compose.yml` (`docker compose up -d`); `TEST_DATABASE_URL` defaults to `postgresql://kumiko:kumiko@localhost:15432/kumiko_test`.
 
 ```bash
 bun test src/__tests__/feature.integration.test.ts
@@ -393,7 +393,7 @@ const chargeHandler = defineWriteHandler({
 
 export const billingFeature = defineFeature(FEATURE, (r) => {
   r.requires({ features: ["config"] });
-  r.config("stripe-api-key", stripeApiKeyDef);
+  r.config({ keys: { "stripe-api-key": stripeApiKeyDef } });
   r.writeHandler(chargeHandler);
   // No r.screen/r.nav: the `mask` entry on the key lets
   // buildConfigFeatureSchema derive the configEdit screen (••••••-masked,

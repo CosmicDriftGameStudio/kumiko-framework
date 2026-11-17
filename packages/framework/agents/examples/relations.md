@@ -21,7 +21,7 @@ Feature entry point: `src/feature.ts`.
 
 ## Tests
 
-Needs a running Postgres and `TEST_DATABASE_URL` set (e.g. `postgres://postgres:postgres@127.0.0.1:5432/postgres`, see `demo/.env.example`).
+Needs the Postgres from the repo root's `docker-compose.yml` (`docker compose up -d`); `TEST_DATABASE_URL` defaults to `postgresql://kumiko:kumiko@localhost:15432/kumiko_test`.
 
 ```bash
 cd samples/recipes/relations
@@ -37,30 +37,10 @@ bun test
 // Proves: hasMany relations, cascade delete, restrict delete
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
-import {
-  attachOutsideTransaction,
-  bridgeStub,
-  type HandlerContext,
-  type SaveContext,
-} from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import { createCascadeDeleteHook } from "@cosmicdrift/kumiko-framework/pipeline";
+import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
-import { createTestStoredEvent } from "@cosmicdrift/kumiko-testing/helpers";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
-import {
-  memberEntity,
-  memberTable,
-  relationsFeature,
-  taskEntity,
-  taskTable,
-  teamEntity,
-} from "../feature";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { relationsFeature } from "../feature";
 
 let stack: TestStack;
 
@@ -68,10 +48,6 @@ const admin = TestUsers.admin;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [relationsFeature] });
-  await unsafeCreateEntityTable(stack.db, teamEntity);
-  await unsafeCreateEntityTable(stack.db, memberEntity);
-  await unsafeCreateEntityTable(stack.db, taskEntity);
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {
@@ -81,16 +57,6 @@ afterAll(async () => {
 beforeEach(() => {
   stack.events.reset();
 });
-
-// The cascade hook runs against the same tenant-scoped db a dispatcher would hand it.
-function hookContext(): HandlerContext {
-  const db = createTenantDb({ db: stack.db, tenantId: admin.tenantId });
-  return {
-    ...bridgeStub({ user: admin }),
-    registry: stack.registry,
-    db: attachOutsideTransaction(db, undefined),
-  };
-}
 
 describe("restrict: team cannot be deleted with members", () => {
   test("delete team with members fails", async () => {
@@ -108,21 +74,8 @@ describe("restrict: team cannot be deleted with members", () => {
       admin,
     );
 
-    // Cascade hook would block this — test via hook directly
-    const cascadeHook = createCascadeDeleteHook(stack.registry, new Map([["member", memberTable]]));
-
-    await expect(
-      cascadeHook.fn(
-        {
-          kind: "delete",
-          id: team.id,
-          data: { tenantId: "00000000-0000-4000-8000-000000000001" },
-          entityName: "team",
-          event: createTestStoredEvent(),
-        },
-        hookContext(),
-      ),
-    ).rejects.toMatchObject({ code: "conflict", details: { reason: "delete_restricted" } });
+    const err = await stack.http.writeErr("org:write:team:delete", { id: team.id }, admin);
+    expect(err).toMatchObject({ code: "conflict", details: { reason: "delete_restricted" } });
   });
 
   test("delete empty team succeeds", async () => {
@@ -132,20 +85,7 @@ describe("restrict: team cannot be deleted with members", () => {
       admin,
     );
 
-    const cascadeHook = createCascadeDeleteHook(stack.registry, new Map([["member", memberTable]]));
-
-    await expect(
-      cascadeHook.fn(
-        {
-          kind: "delete",
-          id: team.id,
-          data: { tenantId: "00000000-0000-4000-8000-000000000001" },
-          entityName: "team",
-          event: createTestStoredEvent(),
-        },
-        hookContext(),
-      ),
-    ).resolves.toBeUndefined();
+    await stack.http.writeOk("org:write:team:delete", { id: team.id }, admin);
   });
 });
 
@@ -182,21 +122,8 @@ describe("cascade: deleting member removes tasks", () => {
       admin,
     );
 
-    // Run cascade hook
-    const cascadeHook = createCascadeDeleteHook(stack.registry, new Map([["task", taskTable]]));
+    await stack.http.writeOk("org:write:member:delete", { id: member.id }, admin);
 
-    await cascadeHook.fn(
-      {
-        kind: "delete",
-        id: member.id,
-        data: { tenantId: "00000000-0000-4000-8000-000000000001" },
-        entityName: "member",
-        event: createTestStoredEvent(),
-      },
-      hookContext(),
-    );
-
-    // Tasks should be gone
     const detail1 = await stack.http.queryOk<null>(
       "org:query:task:detail",
       { id: task1.id },
@@ -216,7 +143,6 @@ describe("cascade: deleting member removes tasks", () => {
 ### src/feature.ts
 
 ```ts
-import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createReferenceField,
@@ -225,6 +151,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 
 export const teamEntity = createEntity({
+  name: "team",
   table: "read_sample_teams",
   fields: {
     name: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -232,6 +159,7 @@ export const teamEntity = createEntity({
 });
 
 export const memberEntity = createEntity({
+  name: "member",
   table: "read_sample_members",
   fields: {
     name: createTextField({ personal: { of: "id" }, find: "none", required: true }),
@@ -246,16 +174,13 @@ export const memberEntity = createEntity({
 });
 
 export const taskEntity = createEntity({
+  name: "task",
   table: "read_sample_member_tasks",
   fields: {
     title: createTextField({ personal: false, reason: "is_business_data", required: true }),
     memberId: createReferenceField({ entity: "member", personal: "ref", required: true }),
   },
 });
-
-export const teamTable = buildEntityTable("team", teamEntity);
-export const memberTable = buildEntityTable("member", memberEntity);
-export const taskTable = buildEntityTable("task", taskEntity);
 
 const adminWrite = { access: { roles: ["Admin"] } } as const;
 const openRead = {
@@ -273,35 +198,43 @@ const createOnly = {
   detail: false,
 } as const;
 
-export const relationsFeature = defineFeature("org", (r) => {
-  const team = r.entity({ name: "team", ...teamEntity });
-  const member = r.entity({ name: "member", ...memberEntity });
+const createAndDelete = { ...createOnly, delete: true } as const;
 
-  r.relation(team, "members", {
+export const relationsFeature = defineFeature("org", (r) => {
+  const team = r.entity(teamEntity);
+  const member = r.entity(memberEntity);
+
+  r.relation({
+    entity: team,
+    name: "members",
     type: "hasMany",
     target: "member",
     foreignKey: "teamId",
     onDelete: "restrict",
   });
 
-  r.relation(member, "tasks", {
+  r.relation({
+    entity: member,
+    name: "tasks",
     type: "hasMany",
     target: "task",
     foreignKey: "memberId",
     onDelete: "cascade",
   });
 
-  r.crud("team", teamEntity, {
+  // onDelete runs automatically in the delete lifecycle: deleting a team is refused while
+  // members exist, deleting a member removes its tasks.
+  r.crud(teamEntity, {
     write: adminWrite,
-    verbs: createOnly,
+    verbs: createAndDelete,
     registerEntity: false,
   });
-  r.crud("member", memberEntity, {
+  r.crud(memberEntity, {
     write: adminWrite,
-    verbs: createOnly,
+    verbs: createAndDelete,
     registerEntity: false,
   });
-  r.crud("task", taskEntity, {
+  r.crud(taskEntity, {
     write: adminWrite,
     read: openRead,
     verbs: { ...createOnly, detail: true },

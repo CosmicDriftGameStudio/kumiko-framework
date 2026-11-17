@@ -86,12 +86,8 @@ rejection, and per-role access.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
-import { prospectEntity, prospectsFeature, suggestionEntity } from "../feature";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { prospectsFeature } from "../feature";
 
 let stack: TestStack;
 
@@ -109,8 +105,6 @@ async function seedSuggestion(overrides: Partial<Record<string, unknown>> = {}):
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [prospectsFeature] });
-  await unsafeCreateEntityTable(stack.db, suggestionEntity);
-  await unsafeCreateEntityTable(stack.db, prospectEntity);
 });
 
 afterAll(async () => {
@@ -283,6 +277,7 @@ import {
 // create, so `source`/`acceptedBy`/`acceptedAt` are never on the edit form
 // and a client can't set them itself.
 export const prospectEntity = createEntity({
+  name: "prospect",
   table: "read_sample_prospects",
   fields: {
     name: createTextField({ required: true, personal: "self", find: "fuzzy" }),
@@ -309,6 +304,7 @@ import {
 // Seeded via the standard CRUD create — `prospect:accept` is the only path
 // that ever moves it from "pending" to "accepted".
 export const suggestionEntity = createEntity({
+  name: "suggestion",
   table: "read_sample_suggestions",
   fields: {
     name: createTextField({ required: true, personal: "self", find: "fuzzy" }),
@@ -378,15 +374,15 @@ export const prospectsFeature = defineFeature("prospects", (r) => {
   // an admin set `{ status: "accepted" }` directly, skipping that path
   // entirely and leaving an "accepted" suggestion with no matching
   // prospect (see entities/suggestion.ts).
-  r.crud("suggestion", suggestionEntity, {
+  r.crud(suggestionEntity, {
     write: adminWrite,
     read: openRead,
     verbs: { update: false },
   });
-  r.entity({ name: "prospect", ...prospectEntity });
+  r.entity(prospectEntity);
 
-  const { executor: suggestionExecutor } = createEntityExecutor("suggestion", suggestionEntity);
-  const { executor: prospectExecutor } = createEntityExecutor("prospect", prospectEntity);
+  const { executor: suggestionExecutor } = createEntityExecutor(suggestionEntity);
+  const { executor: prospectExecutor } = createEntityExecutor(prospectEntity);
 
   // Custom handler: the client only ever sends the fields the user actually
   // edited (RenderEdit's onChange `changes`, same delta the controlled mode

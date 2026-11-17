@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled + signup)",
-  "featureCount": 95,
+  "featureCount": 89,
   "features": [
     {
       "name": "account-security",
@@ -35,7 +35,7 @@
     },
     {
       "name": "admin-shell",
-      "description": "Registers tenant-admin and platform-admin workspaces with provider nav into owner-feature screens (`tenant:screen:members`, `audit:screen:audit-log`, `audit:screen:audit-log-all-tenants`, `tenant:screen:tenant-list`, `jobs:screen:job-runs`, optional `tier-engine:screen:tier-admin`, optional `cap-overview:screen:my-caps`/`cap-overview:screen:tenant-cap-list`, optional `document-designer` template navs) and the two overview dashboards (the tenant one can be dropped with `includeTenantOverview: false`), built from the metrics list (`metrics` option, default DEFAULT_METRICS). Mount after user, tenant, audit, jobs, metrics and metrics-system; pass `workspaceIds` to match app URL conventions (e.g. Studio `d`/`s`, PublicStatus `admin`/`sysadmin`). Client: `adminShellClient()`, `tenantClient()`, `auditClient()`, `jobsClient()`, optional `tierEngineClient()`.",
+      "description": "Registers tenant-admin and platform-admin workspaces that collect every nav with adminArea \"tenant\" / \"platform\" of the mounted features (members, audit, jobs, event consumers, export jobs, feature toggles, caps, document templates, users, optional tier-admin/caps) and the two overview dashboards (the tenant one can be dropped with `includeTenantOverview: false`), built from the metrics list (`metrics` option, default DEFAULT_METRICS). Apps with their own workspaces set `registerWorkspaces: false` and `collectAdminArea` on them. Mount after user, tenant, audit, jobs, metrics and metrics-system; pass `workspaceIds` to match app URL conventions (e.g. Studio `d`/`s`, PublicStatus `admin`/`sysadmin`). Client: `adminShellClient()`, `tenantClient()`, `auditClient()`, `jobsClient()`, optional `tierEngineClient()`.",
       "toggleableDefault": null,
       "requires": [
         "user",
@@ -45,8 +45,7 @@
         "metrics",
         "metrics-system",
         "tier-engine",
-        "cap-overview",
-        "document-designer"
+        "cap-overview"
       ],
       "optionalRequires": [],
       "configReads": [],
@@ -63,29 +62,9 @@
       }
     },
     {
-      "name": "agent-tools",
-      "description": "Builds a tool catalog and an agent manifest from the mounted registry so an LLM agent can call handlers and understand the app's shape. A handler or entity without a `description` stays invisible to the agent by construction (see `resolveAgentExposure`), while a screen stays visible unless it opts out with `agent: { expose: false }` (see `isAgentVisibleScreen`) — this feature surfaces the resulting gaps at boot and via `kumiko agent lint` so an app author notices before an agent silently can't see a feature.",
-      "toggleableDefault": null,
-      "requires": [],
-      "optionalRequires": [],
-      "configReads": [],
-      "exposesApis": [],
-      "usesApis": [],
-      "extensionsUsed": [],
-      "configKeys": [],
-      "secrets": [],
-      "writeHandlers": [],
-      "uiHints": {
-        "displayLabel": "AI Agent Tools",
-        "category": "ai",
-        "recommended": false
-      }
-    },
-    {
       "name": "audit",
-      "description": "Exposes the framework's event store as a paginated, filterable audit log via the `audit:query:list` handler (accessible to `Admin` and `SystemAdmin` roles). No separate table or projection — the event store is the audit trail by construction: every entity write already records who, when, what entity, and the event payload with PII stripped. A SystemAdmin can pass `scope: \"system\"` to read the app-instance system events such as `app.started`, and reads the events of every tenant (system tenant excluded) through `audit:query:list-all-tenants` and the `audit-log-all-tenants` screen. Filter by `aggregateType`, `aggregateId`, `eventType`, `userId`, or time range. Also records `audit:event:escape-hatch-used` whenever a handler uses one of the framework's escape hatches (unsafeRaw, acknowledgeCrossTenant, db.global() writes, or a granted identity switch).",
+      "description": "Exposes the framework's event store as a paginated, filterable audit log via the `audit:query:list` handler (accessible to `Admin` and `SystemAdmin` roles). Write history comes from the event store: every entity write already records who, when, what entity, and the event payload with PII stripped. A SystemAdmin can pass `scope: \"system\"` to read the app-instance system events such as `app.started`, and reads the events of every tenant (system tenant excluded) through `audit:query:list-all-tenants` and the `audit-log-all-tenants` screen. Filter by `aggregateType`, `aggregateId`, `eventType`, `userId`, or time range. Also records `audit:event:escape-hatch-used` whenever a handler uses one of the framework's escape hatches (unsafeRaw, acknowledgeCrossTenant, db.global() writes, or a granted identity switch). Read accesses that need proof (e.g. a portal link opened) are recorded with `recordAccess(ctx, { subjectType, subjectId, action, details })` from `@cosmicdrift/kumiko-bundled-features/audit` into the `store_access_log` table outside the caller's transaction, readable by admins through `audit:query:access-log` and pruned per tenant after the compliance profile's audit-log retention (minimal profile without compliance-profiles) by the maintenance job `audit:job:access-log-retention`.",
       "toggleableDefault": null,
-      "adoptsBundledLists": true,
       "requires": [
         "tenant",
         "user",
@@ -204,7 +183,7 @@
     },
     {
       "name": "auth-foundation",
-      "description": "Declares auth-middleware extension points: `tokenVerifier` (Bearer), `sessionStore` (revocable JWT sid), optional `tenantResolver` + `tenantExistence` for anonymous multi-tenant. Provider-features register via r.useExtension; mount auth-foundation with the matching provider features.",
+      "description": "Declares auth-middleware extension points: `tokenVerifier` (Bearer), `sessionStore` (revocable JWT sid), optional `tenantResolver` + `tenantExistence` for anonymous multi-tenant. Provider-features register via r.applyExtension; mount auth-foundation with the matching provider features. The multi-provider `credentialRevoker` revokes every credential of a user (sessions, access tokens) on a password change or MFA state change.",
       "toggleableDefault": null,
       "requires": [],
       "optionalRequires": [],
@@ -234,7 +213,12 @@
       "configReads": [],
       "exposesApis": [],
       "usesApis": [],
-      "extensionsUsed": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "userData",
+          "entityName": "user-mfa"
+        }
+      ],
       "configKeys": [
         {
           "key": "required",
@@ -278,29 +262,6 @@
       }
     },
     {
-      "name": "auth-mfa-user-data",
-      "description": "GDPR (Art. 20 export / Art. 17 erasure) coverage for the `auth-mfa` feature's `user-mfa` entity. Mounts the EXT_USER_DATA export + delete hooks so 2FA enrollment status is included in the user-data export bundle and a user's TOTP secret + recovery codes are hard-deleted (via executor.forget, rebuild-safe) on a data-subject erasure request. Kept separate from `auth-mfa` so consumers without the user-data-rights pipeline don't pull a hard dependency — requires `user-data-rights`, optionalRequires `auth-mfa`.",
-      "toggleableDefault": null,
-      "requires": [
-        "user-data-rights"
-      ],
-      "optionalRequires": [
-        "auth-mfa"
-      ],
-      "configReads": [],
-      "exposesApis": [],
-      "usesApis": [],
-      "extensionsUsed": [
-        {
-          "extensionName": "userData",
-          "entityName": "user-mfa"
-        }
-      ],
-      "configKeys": [],
-      "secrets": [],
-      "writeHandlers": []
-    },
-    {
       "name": "auth-self-registration",
       "description": "Runtime on/off switch for the auth-email-password self-signup flow. Handler-less: composing it registers \"auth-self-registration\" as a toggleable feature (default ON). auth-email-password's signup-request handler and its `signupRegistrationStatus` query both read `ctx.hasFeature(\"auth-self-registration\")` — the query stays reachable when the toggle is off (deliberately not gated itself) so the public signup page can hide its own link/form. Only meaningful when `signup` is configured on `createAuthEmailPasswordFeature` — compose alongside it, then flip via the feature-toggles admin screen.",
       "toggleableDefault": true,
@@ -316,7 +277,7 @@
     },
     {
       "name": "billing-foundation",
-      "description": "Plugin host for subscription billing. Manages the `read_subscriptions` projection table and exposes 5 domain events (subscription created/updated/canceled, invoice paid/failed) appended by the foundation's own `billing-foundation:write:process-event` write-handler after provider plugins verify and normalize each webhook. Also manages a separate `read_payments` projection table (one row per one-off-payment) fed by its own `payment-received` event and `billing-foundation:write:process-payment-event` write-handler. Also ships `billing-foundation:write:create-checkout-session` and `billing-foundation:write:create-portal-session` write-handlers, a `billing-foundation:query:subscription:list` query handler, and a `createSubscriptionWebhookRoute` factory for the `/api/subscription/webhook/:providerName` extraRoute. `createBillingFoundationFeature({ baseUrl, catalog })` additionally derives a `billing-foundation:query:billing-plans` query, `start-plan-checkout`/`switch-plan` write-handlers, a `plan-switch-preview` query and a dormant billing-plans dashboard screen/panel from the catalog. Several providers can be mounted at once: new checkouts are offered by every enabled provider (enabled means keys set and billingLive on, or simply mounted for plugins without `isBillingEnabled`), the customer picks one in the plan panel and `start-plan-checkout` takes a `providerName`. An existing subscription stays with the provider that stored it, so the plan list and every switch follow that provider. A plan switch is either hosted (`createPlanSwitchSession` answers a url) or in-app (`previewPlanSwitch` shows the proration, `applyPlanSwitch` runs after the customer confirms; `switch-plan` then answers `{ applied: true }` and records the consent). `consumerProtection.providerTexts` overrides the checkout note and the VAT note per provider. Also ships `billing-foundation:write:sync-subscription` (pulls a provider plugin's live subscription state via `retrieveSubscription` and appends drift as a `subscription.updated` event, which catches changes made on the provider's own dashboard that never reached us as a webhook) and the `sync-subscriptions` job (manual-trigger + runOnBoot, perTenant) that dispatches it. Low-level building block: use `subscription-stripe`, `subscription-mollie` or `subscription-paddle` unless you are writing a new payment provider.",
+      "description": "Plugin host for subscription billing. Manages the `read_subscriptions` projection table and exposes 5 domain events (subscription created/updated/canceled, invoice paid/failed) appended by the foundation's own `billing-foundation:write:process-event` write-handler after provider plugins verify and normalize each webhook. Also manages a separate `read_payments` projection table (one row per one-off-payment) fed by its own `payment-received` event and `billing-foundation:write:process-payment-event` write-handler. Also ships `billing-foundation:write:create-checkout-session` and `billing-foundation:write:create-portal-session` write-handlers, a `billing-foundation:query:subscription:list` query handler, and a `createSubscriptionWebhookRoute` factory for the `/api/subscription/webhook/:providerName` extraRoute. `createBillingFoundationFeature({ baseUrl, catalog })` additionally derives a `billing-foundation:query:billing-plans` query, `start-plan-checkout`/`switch-plan` write-handlers, a `plan-switch-preview` query and a dormant billing-plans dashboard screen/panel from the catalog. Several providers can be mounted at once: new checkouts are offered by every enabled provider (enabled means keys set and billingLive on, or simply mounted for plugins without `isBillingEnabled`), the customer picks one in the plan panel and `start-plan-checkout` takes a `providerName`. An existing subscription stays with the provider that stored it, so the plan list and every switch follow that provider. A plan switch is either hosted (`createPlanSwitchSession` answers a url) or in-app (`previewPlanSwitch` shows the proration, `applyPlanSwitch` runs after the customer confirms; `switch-plan` then answers `{ applied: true }` and records the consent). `consumerProtection.providerTexts` overrides the checkout note and the VAT note per provider. Also ships `billing-foundation:write:sync-subscription` (pulls a provider plugin's live subscription state via `retrieveSubscription` and appends drift as a `subscription.updated` event, which catches changes made on the provider's own dashboard that never reached us as a webhook) and the `sync-subscriptions` job (daily in the maintenance window, perTenant) that dispatches it. Low-level building block: use `subscription-stripe`, `subscription-mollie` or `subscription-paddle` unless you are writing a new payment provider.",
       "toggleableDefault": null,
       "requires": [
         "tenant-lifecycle",
@@ -339,6 +300,7 @@
       "configKeys": [],
       "secrets": [],
       "writeHandlers": [
+        "billing-foundation:write:apply-subscription-snapshot",
         "billing-foundation:write:create-checkout-session",
         "billing-foundation:write:create-portal-session",
         "billing-foundation:write:process-event",
@@ -353,10 +315,224 @@
       }
     },
     {
-      "name": "cap-counter",
-      "description": "Tracks per-tenant usage against configurable limits using two complementary storage models: calendar-period counters (one projection row per tenant/capName/period, reset implicitly by period rollover) and rolling-window counters (append-only event stream, no projection). Use `enforceCap` / `enforceRollingCap` (or the `withCapEnforcement` / `withRollingCapEnforcement` handler wrappers) in your write-handlers to check limits with soft-warn and hard-block tolerances; call `enforceCapAndMaybeNotify` when you also want to trigger a delivery notification on soft-threshold hits.",
+      "name": "branding",
+      "description": "Tenant branding tokens (title, description, site URL, accent colour, logo, layout preset, optional custom CSS) read by managed pages, mail and PDF renderers and the document designer; set via config:write:set on branding:config:*, read via branding:query:tokens. Keys are write-validated (hex colour, https URLs, FileRef id) and readable anonymously so public pages can render them; a configEdit self-service screen (`branding:screen:branding-settings`) edits them. Raw custom CSS exists only when the app passes allowCustomCss and is additionally gated per tenant by the branding-css toggle. Requires `config`.",
       "toggleableDefault": null,
-      "adoptsBundledLists": true,
+      "requires": [
+        "config"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [
+        {
+          "key": "accent-color",
+          "qualifiedName": "branding:config:accent-color",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "validated": false,
+          "options": null,
+          "bounds": null,
+          "pattern": {
+            "regex": "^$|^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+          },
+          "writeRoles": [
+            "system",
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        },
+        {
+          "key": "custom-css",
+          "qualifiedName": "branding:config:custom-css",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "validated": false,
+          "options": null,
+          "bounds": null,
+          "pattern": {
+            "regex": "^[\\s\\S]{0,8000}$"
+          },
+          "writeRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        },
+        {
+          "key": "description",
+          "qualifiedName": "branding:config:description",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "validated": false,
+          "options": null,
+          "bounds": null,
+          "pattern": {
+            "regex": "^[\\s\\S]{0,500}$"
+          },
+          "writeRoles": [
+            "system",
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        },
+        {
+          "key": "layout-preset",
+          "qualifiedName": "branding:config:layout-preset",
+          "type": "select",
+          "scope": "tenant",
+          "default": "centered",
+          "encrypted": false,
+          "computed": false,
+          "validated": false,
+          "options": [
+            "minimal",
+            "centered",
+            "wide"
+          ],
+          "bounds": null,
+          "pattern": null,
+          "writeRoles": [
+            "system",
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        },
+        {
+          "key": "logo-file",
+          "qualifiedName": "branding:config:logo-file",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "validated": false,
+          "options": null,
+          "bounds": null,
+          "pattern": {
+            "regex": "^$|^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+          },
+          "writeRoles": [
+            "system",
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        },
+        {
+          "key": "logo-url",
+          "qualifiedName": "branding:config:logo-url",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "validated": false,
+          "options": null,
+          "bounds": null,
+          "pattern": {
+            "regex": "^$|^https://[^\\s\"'<>]{1,2000}$"
+          },
+          "writeRoles": [
+            "system",
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        },
+        {
+          "key": "site-url",
+          "qualifiedName": "branding:config:site-url",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "validated": false,
+          "options": null,
+          "bounds": null,
+          "pattern": {
+            "regex": "^$|^https://[^\\s\"'<>]{1,2000}$"
+          },
+          "writeRoles": [
+            "system",
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        },
+        {
+          "key": "title",
+          "qualifiedName": "branding:config:title",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "validated": false,
+          "options": null,
+          "bounds": null,
+          "pattern": {
+            "regex": "^[\\s\\S]{0,200}$"
+          },
+          "writeRoles": [
+            "system",
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        }
+      ],
+      "secrets": [],
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "Branding",
+        "category": "content",
+        "recommended": false
+      }
+    },
+    {
+      "name": "cap-counter",
+      "description": "Tracks per-tenant usage against configurable limits using two storage models: calendar-period counters (rows in the store table store_cap_counters per tenant/capName/period plus optional per-subject rows, booked with an atomic upsert; period rollover starts a new row) and rolling-window counters (hourly usage buckets in a store table, summed over the last N days). Wrap write-handlers with `withCapEnforcement` (or call `enforceCap` / `enforceCapAndMaybeNotify`) for calendar caps with soft-warn and hard-block tolerances; book rolling usage through the SystemAdmin-only `increment-rolling` handler and read it with `readRollingCapUsage`.",
+      "toggleableDefault": null,
       "requires": [],
       "optionalRequires": [],
       "configReads": [],
@@ -380,7 +556,6 @@
       "name": "cap-overview",
       "description": "Read-only visibility into per-tenant tier assignment and cap usage. SystemAdmin gets a platform-wide tenant list with usage bars; tenant admins (or the roles in `usageVisibleTo`) get their own tenant's usage as dashboard cards. Reads tier-engine, billing-foundation, and tenant data plus app-owned usage tables via caller-supplied CapSpec callbacks — never writes.",
       "toggleableDefault": null,
-      "adoptsBundledLists": true,
       "requires": [
         "tenant",
         "tier-engine",
@@ -501,32 +676,6 @@
       }
     },
     {
-      "name": "channel-push",
-      "description": "Delivers push notifications through a `PushTransport` (bring your own FCM/APNs adapter or use `createInMemoryPushTransport()` for tests) registered as the `push` channel in the delivery system. Requires `delivery`; supply a `PushChannelOptions` with a transport and a resolver that maps a user ID to their device token.",
-      "toggleableDefault": null,
-      "requires": [
-        "delivery"
-      ],
-      "optionalRequires": [],
-      "configReads": [],
-      "exposesApis": [],
-      "usesApis": [],
-      "extensionsUsed": [
-        {
-          "extensionName": "deliveryChannel",
-          "entityName": "push"
-        }
-      ],
-      "configKeys": [],
-      "secrets": [],
-      "writeHandlers": [],
-      "uiHints": {
-        "displayLabel": "Push Channel",
-        "category": "notifications",
-        "recommended": false
-      }
-    },
-    {
       "name": "channel-slack",
       "description": "Posts delivery notifications to a Slack incoming webhook, registered as the `slack` channel in the delivery system. Tenant-owned chat target: reach it only via `ctx.notify(type, { route: { slack: \"<connection name>\" } })`. The webhook URL is a tenant secret under `channel-slack:webhooks.<connection name>`; only the connection name is logged. Requires `delivery` and `secrets`. Host allowlist (hooks.slack.com), https-only and the request timeout are app options of `createChannelSlackFeature(opts)`, never tenant config.",
       "toggleableDefault": null,
@@ -616,16 +765,22 @@
     },
     {
       "name": "channel-whatsapp",
-      "description": "WhatsApp Business (Meta Cloud API) as a two-way channel, not a delivery channel. Inbound: mount `createWhatsappWebhookRoutes()` via `extraRoutes` (default path `/api/channel-whatsapp/webhook/:tenantId`, the tenant id is part of the URL because the secrets are tenant-scoped); GET answers Meta's `hub.challenge` handshake, POST checks `X-Hub-Signature-256` over the raw body and normalizes each message and status. Events: `channel-whatsapp:event:message-received` (sender, wamid, type text|audio|image|interactive_button|other, text, button payload, `contextWamid`, media id and mime type, `phoneNumberId`), `status-updated` (sent|delivered|read|failed|other) and `throttled` (sender over the per-number limit). Sender number, text, button payload and status recipient are PII, stored as tenant-key ciphertext; read them with `readWhatsappMessagePii`. A redelivered wamid is stored once and answered 200; a failed dispatch answers 500 so Meta redelivers. Outbound: `createWhatsappClient(opts)` gives `sendText`, `sendTemplate`, `sendButtons`, `sendMedia` (each takes the sending `phoneNumberId` and answers `{ ok: true, wamid }` or a typed failure) and `fetchMedia` (media id to bytes and mime type; the URL from the Graph answer is checked against `allowedHosts` before the token is sent). Tenant secrets `channel-whatsapp:secret:access-token`, `app-secret` and `verify-token`. App options of `createChannelWhatsappFeature(opts)`: `apiBaseUrl`, `apiVersion` (default v21.0), `allowedHosts` (default graph.facebook.com and lookaside.fbsbx.com), `requireHttps` (default true; boot fails on a mismatch), `timeoutMs`, `mediaMaxBytes`, `transport` (in-memory Meta for tests), `senderRateLimits` (default 30 per hour and 200 per day per sender and tenant) and `rateLimit` (flood guard of the inbound handlers; cannot be disabled while a sender limit is set). Requires `secrets`. A worker-run job triggered by `message-received` attaches the business process.",
+      "description": "WhatsApp Business (Meta Cloud API) as a two-way channel, not a delivery channel. Inbound: mount `createWhatsappWebhookRoutes()` via `extraRoutes` (default path `/api/channel-whatsapp/webhook/:tenantId`, the tenant id is part of the URL because the secrets are tenant-scoped); GET answers Meta's `hub.challenge` handshake, POST checks `X-Hub-Signature-256` over the raw body and normalizes each message and status. Events: `channel-whatsapp:event:message-received` (sender, wamid, type text|audio|image|interactive_button|other, text, button payload, `contextWamid`, media id and mime type, `phoneNumberId`), `status-updated` (sent|delivered|read|failed|other) and `throttled` (sender over the per-number limit). Sender number, text, button payload and status recipient are PII, stored as ciphertext under a record key per stream; the maintenance job `whatsapp-event-retention` erases those keys after 30 days and tenant destroy erases all of them, so a consuming job reads them with `readWhatsappMessagePii` (and `readWhatsappStatusPii`, `readWhatsappThrottledPii`) and copies what it keeps into its own entities. A redelivered wamid is stored once and answered 200; a failed dispatch answers 500 so Meta redelivers. Outbound: `createWhatsappClient(opts)` gives `sendText`, `sendTemplate`, `sendButtons`, `sendMedia` (each takes the sending `phoneNumberId` and answers `{ ok: true, wamid }` or a typed failure) and `fetchMedia` (media id to bytes and mime type; the URL from the Graph answer is checked against `allowedHosts` before the token is sent). Tenant secrets `channel-whatsapp:secret:access-token`, `app-secret` and `verify-token`. App options of `createChannelWhatsappFeature(opts)`: `apiBaseUrl`, `apiVersion` (default v21.0), `allowedHosts` (default graph.facebook.com and lookaside.fbsbx.com), `requireHttps` (default true; boot fails on a mismatch), `timeoutMs`, `mediaMaxBytes`, `transport` (in-memory Meta for tests), `senderRateLimits` (default 30 per hour and 200 per day per sender and tenant) and `rateLimit` (flood guard of the inbound handlers; cannot be disabled while a sender limit is set). Requires `secrets` and `tenant-lifecycle`. A worker-run job triggered by `message-received` attaches the business process.",
       "toggleableDefault": null,
       "requires": [
-        "secrets"
+        "secrets",
+        "tenant-lifecycle"
       ],
       "optionalRequires": [],
       "configReads": [],
       "exposesApis": [],
       "usesApis": [],
-      "extensionsUsed": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "tenantData",
+          "entityName": "whatsapp-retention-cursor"
+        }
+      ],
       "configKeys": [],
       "secrets": [
         {
@@ -696,7 +851,7 @@
     },
     {
       "name": "compliance-profiles-ops",
-      "description": "Platform-wide SystemAdmin counterpart to `compliance-profiles`' `needs-profile` query (#2089): `tenants-missing-profile` lists every enabled tenant with no row in `tenantComplianceProfile` at all, tenant-wide instead of scoped to the caller's own tenant. Mount alongside `compliance-profiles` and `tenant` when an operator UI needs to see which tenants still silently run on `minimal-no-region`.",
+      "description": "Platform-wide SystemAdmin counterpart to `compliance-profiles`' `needs-profile` query: `tenants-missing-profile` lists every enabled tenant with no row in `tenantComplianceProfile` at all, tenant-wide instead of scoped to the caller's own tenant. Mount alongside `compliance-profiles` and `tenant` when an operator UI needs to see which tenants still silently run on `minimal-no-region`.",
       "toggleableDefault": null,
       "requires": [
         "compliance-profiles",
@@ -740,7 +895,7 @@
     },
     {
       "name": "crypto-shredding",
-      "description": "Operator-level crypto-shredding trigger. `forget-subject` erases a user or tenant subject key in the configured KMS adapter, making every PII field encrypted under it permanently unreadable (reads render the `[[erased]]` sentinel), and appends a `subject-forgotten` audit event. Requires a KMS adapter (`runProdApp({ kms })`). The automated Art.-17 deletion pipeline in `user-data-rights` erases keys itself; this command covers manual forgets (authority requests, operator recovery, tenant destroy).",
+      "description": "Operator-level crypto-shredding trigger. `forget-subject` forgets the subject's rows of entities that declare `forgetWithSubject`, purges its search documents, files and blind indexes, closes a user's login and appends a `subject-forgotten` event in one transaction; the `subject-key-eraser` consumer then erases the subject key in the configured KMS adapter, making every PII field encrypted under it permanently unreadable (reads render the `[[erased]]` sentinel). Requires a KMS adapter (`runProdApp({ kms })`). The automated Art.-17 deletion pipeline in `user-data-rights` erases keys itself; this command covers manual forgets (authority requests, operator recovery, tenant destroy).",
       "toggleableDefault": null,
       "requires": [],
       "optionalRequires": [],
@@ -808,9 +963,8 @@
     },
     {
       "name": "delivery",
-      "description": "The notification dispatch core: call `ctx.notify(notificationType, { to, route, data, priority, idempotencyKey })` from any handler to fan out a notification across all registered channels (email, in-app, push). Inside a write handler the delivery runs after the write has committed (the call returns `{ kind: \"deferred\" }`, a rolled-back write sends nothing); `immediate: true` delivers synchronously and returns `{ kind: \"dispatched\", deliveries }`. It stores per-user channel preferences in the `notification-preference` entity, opt-outs for no-account recipient addresses in `notification-address-opt-out` (keyed by a blind-index hash, never the plaintext address), logs every attempt to `store_delivery_attempts`, and enforces idempotency and rate-limiting — add `channel-email`, `channel-in-app`, or `channel-push` on top to actually send anything. Unsubscribe/resubscribe links are served by `createUnsubscribeRoutes({ secret })` mounted via the app's `extraRoutes` at `/api/delivery/unsubscribe` and `/api/delivery/resubscribe`: `GET /unsubscribe?token=` renders a confirmation page (no write), `POST /unsubscribe` performs the opt-out (RFC 8058 one-click, token from the form body or query), `POST /resubscribe` undoes it (JSON `{token}` or form body only, never the query — reachable by a mail-client link prefetcher) — sign links with `signUnsubscribeToken` / `signAddressUnsubscribeToken` using the same secret. `channel-email` sets `List-Unsubscribe` / `List-Unsubscribe-Post` automatically when a message's `data.unsubscribeUrl` points at the unsubscribe route. A notification declared with `unsubscribe: true` gets that link from delivery itself when the service has `unsubscribeLinks` (the `runProdApp` and `runDevApp` option `unsubscribe: { secret }` mounts the routes and wires it; base URL from `auth.publicOrigin`, `auth.mail.baseUrl` or `APP_BASE_URL`): user recipients get a user token, `route` recipients an address token (needs a blind-index key, otherwise no link); a `data.unsubscribeUrl` from the caller wins. `unsubscribe.tenantOrigin: (ctx) => origin | null` points the link at the tenant's own host (subdomain or custom domain, must serve this app's `/api`); null, a throw or a non-https value fall back to the app origin. The token carries the mail's locale, so the confirmation and result pages render in the mail's language. An app serving its own (e.g. legacy) unsubscribe links renders the same result page with `renderUnsubscribeResultPage({ kind, locale })`. To react to a no-account opt-out (e.g. remove the app's own subscriber row), declare `r.job(name, { trigger: { on: DeliveryHandlers.unsubscribeAddress } }, handler)` on a lane the app consumes: it runs after each committed opt-out, also an idempotent repeat, with `unsubscribeAddressPayloadSchema` (`addressHash`, `notificationType`, `channel`) as payload and the tenant in `ctx.triggeredBy.tenantId`; match the subscriber via `hashUnsubscribeAddress(email)`. Declare `unsubscribeUrl` as an optional template variable if the mail body shows it. A job that sends an opt-in notification (e.g. a daily digest) reads the members who switched it on from the job-only query `delivery:query:opted-in-user-ids` (`{ notificationType, channel }` answers `{ userIds }`).",
+      "description": "The notification dispatch core: call `ctx.notify(notificationType, { to, route, data, priority, idempotencyKey })` from any handler to fan out a notification across all registered channels (email, in-app, Slack, Discord, Teams). Inside a write handler the delivery runs after the write has committed (the call returns `{ kind: \"deferred\" }`, a rolled-back write sends nothing); `immediate: true` delivers synchronously and returns `{ kind: \"dispatched\", deliveries }`. It stores per-user channel preferences in the `notification-preference` entity, opt-outs for no-account recipient addresses in `notification-address-opt-out` (keyed by a blind-index hash, never the plaintext address), logs every attempt to `store_delivery_attempts`, and enforces idempotency and rate-limiting — add `channel-email`, `channel-in-app` or a chat channel on top to actually send anything. Unsubscribe/resubscribe links are served by `createUnsubscribeRoutes({ secret })` mounted via the app's `extraRoutes` at `/api/delivery/unsubscribe` and `/api/delivery/resubscribe`: `GET /unsubscribe?token=` renders a confirmation page (no write), `POST /unsubscribe` performs the opt-out (RFC 8058 one-click, token from the form body or query), `POST /resubscribe` undoes it (JSON `{token}` or form body only, never the query — reachable by a mail-client link prefetcher) — sign links with `signUnsubscribeToken` / `signAddressUnsubscribeToken` using the same secret. `channel-email` sets `List-Unsubscribe` / `List-Unsubscribe-Post` automatically when a message's `data.unsubscribeUrl` points at the unsubscribe route. A notification declared with `unsubscribe: true` gets that link from delivery itself when the service has `unsubscribeLinks` (the `runProdApp` and `runDevApp` option `unsubscribe: { secret }` mounts the routes and wires it; base URL from `auth.publicOrigin`, `auth.mail.baseUrl` or `APP_BASE_URL`): user recipients get a user token, `route` recipients an address token (needs a blind-index key, otherwise no link); a `data.unsubscribeUrl` from the caller wins. `unsubscribe.tenantOrigin: (ctx) => origin | null` points the link at the tenant's own host (subdomain or custom domain, must serve this app's `/api`); null, a throw or a non-https value fall back to the app origin. The token carries the mail's locale, so the confirmation and result pages render in the mail's language. An app serving its own (e.g. legacy) unsubscribe links renders the same result page with `renderUnsubscribeResultPage({ kind, locale })`. To react to a no-account opt-out (e.g. remove the app's own subscriber row), declare `r.job({ name, trigger: { on: DELIVERY_ADDRESS_UNSUBSCRIBED_EVENT }, handler })` on a lane the app consumes: it runs after each committed opt-out, also an idempotent repeat, with `unsubscribeAddressPayloadSchema` (`addressHash`, `notificationType`, `channel`) as payload and the tenant in `ctx.triggeredBy.tenantId`; match the subscriber via `hashUnsubscribeAddress(email)`. Declare `unsubscribeUrl` as an optional template variable if the mail body shows it. A job that sends an opt-in notification (e.g. a daily digest) reads the members who switched it on from the job-only query `delivery:query:opted-in-user-ids` (`{ notificationType, channel }` answers `{ userIds }`).",
       "toggleableDefault": null,
-      "adoptsBundledLists": true,
       "requires": [
         "tenant"
       ],
@@ -862,7 +1016,7 @@
     },
     {
       "name": "document-designer",
-      "description": "Template overview and layout editor: lists the mail, PDF and layout templates of a tenant (platform admins see the system templates and how many tenants customised each) and edits the mail layout and the PDF letterhead in the browser. Mount after template-resolver and, for the branding rail, managed-pages. Client: `documentDesignerClient()`; admin-shell lists the navs with `includeDocumentDesigner`. The tenant overview and the editors are for SystemAdmin only; the `access` option adds roles (normally `templateEditAccess(tenantEditable)` of the template-resolver mount), and the server still enforces per template which of them may save.",
+      "description": "Template overview and layout editor: lists the mail, PDF and layout templates of a tenant (platform admins see the system templates and how many tenants customised each) and edits the mail layout and the PDF letterhead in the browser. Mount after template-resolver and, for the branding rail, mount the branding feature. Client: `documentDesignerClient()`; the navs carry adminArea tenant/platform, so admin-shell and any workspace with collectAdminArea list them. The tenant overview and the editors are for SystemAdmin only; the `access` option adds roles (normally `templateEditAccess(tenantEditable)` of the template-resolver mount), and the server still enforces per template which of them may save.",
       "toggleableDefault": null,
       "requires": [
         "template-resolver"
@@ -883,12 +1037,13 @@
     },
     {
       "name": "document-draft",
-      "description": "Document drafts: one editable copy of a PDF document template per object (for example a lease contract). A draft is created from a template or one of its variants with the values for its placeholders, changed with the structured operations of template patch-draft or the editor, and finalized to a stored PDF through the injected print function; the template stays unchanged. Revise reopens a finalized draft. Body, variables and the last change are personal data of the draft, which is its own crypto-shredding subject.",
+      "description": "Document drafts: one editable copy of a PDF document template per object (for example a lease contract). A draft is created from a template or one of its variants with the values for its placeholders, changed with the structured operations of template patch-draft or the editor, and finalized to a stored PDF through the print client; the template stays unchanged. Revise reopens a finalized draft. Body, variables and the last change are personal data of the draft, which is its own crypto-shredding subject.",
       "toggleableDefault": null,
       "requires": [
         "files",
         "template-resolver",
-        "user-data-rights"
+        "user-data-rights",
+        "renderer-puppeteer-client"
       ],
       "optionalRequires": [],
       "configReads": [],
@@ -997,7 +1152,6 @@
       "name": "documents",
       "description": "Filed documents with title, category, issue and expiry date and one file, shown on the records they are linked to. A document is visible only through a linked record the viewer can read, and only while the record that owns its file is readable too, so linking never widens access to the file. Documents arrive through capture rules (a file saved into a configured field) or through the system-only import for migrations, which keeps the caller's id, refuses an id another record already uses, and stamps createdAt with the import time (issuedAt carries the business date; the event store does not backdate); users link, unlink, edit and delete them. Read a record's documents with for-record, count expired and expiring ones with expiry-overview, list them with an expiry state and an expiring filter with overview (the documents list screen), and add the documents tab to a record screen with documentsTab().",
       "toggleableDefault": null,
-      "adoptsBundledLists": true,
       "requires": [
         "files"
       ],
@@ -1026,7 +1180,6 @@
       "name": "feature-toggles",
       "description": "Persists per-feature enabled/disabled state in the `store_global_feature_state` table and exposes a `set` write-handler plus `list`/`registered` query-handlers so operators can flip features at runtime without redeploying. Each API instance keeps an in-memory `GlobalFeatureToggleRuntime` snapshot (initialize it via `createFeatureToggleRuntime`, pass a `() => runtime` accessor to `createFeatureTogglesFeature`) that the dispatcher gate reads on every request; a `toggle-cache-sync` multi-stream projection with `delivery: \"shared\"` syncs the snapshot across instances whenever a `toggle-set` event is appended.",
       "toggleableDefault": null,
-      "adoptsBundledLists": true,
       "requires": [],
       "optionalRequires": [],
       "configReads": [],
@@ -1045,8 +1198,31 @@
       }
     },
     {
+      "name": "field-approval",
+      "description": "Four-eyes approval for payment-relevant fields. A host field declares `access.approve: [roles]`; the executor then refuses a direct change by anyone without one of those roles (403 field_approval_required). The caller files the change with request-change, which stores it as a pending request; a different person holding an approve role applies it with approve-change or declines it with reject-change (the requester may also withdraw). pending-changes lists the open requests the caller may decide or has filed. The requested value is encrypted under the host record's subject, so forgetting the host makes it unreadable. Mount with createFieldApprovalFeature({ parents: [<host entities>] }).",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [
+        "field-approval:write:approve-change",
+        "field-approval:write:reject-change",
+        "field-approval:write:request-change"
+      ],
+      "uiHints": {
+        "displayLabel": "Field approval",
+        "category": "data",
+        "recommended": false
+      }
+    },
+    {
       "name": "file-derivatives",
-      "description": "Declares the `derivativeRenderer` extension point. `ctx.services.derivatives.variant(fileRefId, spec, name)` derives a variant of a tracked FileRef the first time it's requested and reuses the stored result afterwards (derive-on-first-use, keyed by a hash of the spec). Mount at least one `derivatives-*` renderer feature alongside this one — without a registered renderer for the FileRef's MIME type, every `variant(...)` call throws. Also declares the `derivativePublicPredicate` extension point (`r.useExtension(EXT_DERIVATIVE_PUBLIC_PREDICATE, '<entityType>', { isPublic })`) and, when `createFileDerivativesFeature({resolveApexTenant})` is passed a host-resolver, mounts an anonymous `GET {basePath}/:fileRefId/:variant` route that serves any variant name the FileRef's field declared in its `variants` for a FileRef whose entityType has a registered predicate returning true — default-deny (404) otherwise, same as an unknown FileRef or an undeclared variant name. The route's only rate-limit (`per: \"ip\"`) depends on the server's `trustedProxyHops` matching the deployment's actual reverse-proxy count — at the default 0 it ignores `x-forwarded-for` entirely, so every caller shares one bucket until that's configured. `publicTenantResolution: \"fileRef\"` keeps resolveApexTenant as the host gate but reads the variant from the FileRef row's own tenant instead of the host's, so one shared platform host serves every tenant's public variants — each FileRef-tenant's own `isPublic` predicate still default-denies. Also declares the `derivativeOverlayResolver` extension point (`r.useExtension(EXT_DERIVATIVE_OVERLAY_RESOLVER, '<entityType>', { resolve })`), used to turn a variant's `overlays[].dataToken` into the actual QR payload for that FileRef's entityType before the variant is rendered — a variant declaring a `qr` overlay throws at request-time if no resolver is registered for the FileRef's entityType.",
+      "description": "Declares the `derivativeRenderer` extension point. `ctx.services.derivatives.variant(fileRefId, spec, name)` derives a variant of a tracked FileRef the first time it's requested and reuses the stored result afterwards (derive-on-first-use, keyed by a hash of the spec). Mount at least one `derivatives-*` renderer feature alongside this one — without a registered renderer for the FileRef's MIME type, every `variant(...)` call throws. Also declares the `derivativePublicPredicate` extension point (`r.applyExtension({ name: EXT_DERIVATIVE_PUBLIC_PREDICATE, entity: '<entityType>', isPublic })`) and, when `createFileDerivativesFeature({resolveApexTenant})` is passed a host-resolver, mounts an anonymous `GET {basePath}/:fileRefId/:variant` route that serves any variant name the FileRef's field declared in its `variants` for a FileRef whose entityType has a registered predicate returning true — default-deny (404) otherwise, same as an unknown FileRef or an undeclared variant name. The route's only rate-limit (`per: \"ip\"`) depends on the server's `trustedProxyHops` matching the deployment's actual reverse-proxy count — at the default 0 it ignores `x-forwarded-for` entirely, so every caller shares one bucket until that's configured. `publicTenantResolution: \"fileRef\"` keeps resolveApexTenant as the host gate but reads the variant from the FileRef row's own tenant instead of the host's, so one shared platform host serves every tenant's public variants — each FileRef-tenant's own `isPublic` predicate still default-denies. Also declares the `derivativeOverlayResolver` extension point (`r.applyExtension({ name: EXT_DERIVATIVE_OVERLAY_RESOLVER, entity: '<entityType>', resolve })`), used to turn a variant's `overlays[].dataToken` into the actual QR payload for that FileRef's entityType before the variant is rendered — a variant declaring a `qr` overlay throws at request-time if no resolver is registered for the FileRef's entityType.",
       "toggleableDefault": null,
       "requires": [
         "file-foundation",
@@ -1092,7 +1268,6 @@
           "bounds": null,
           "pattern": null,
           "writeRoles": [
-            "TenantAdmin",
             "SystemAdmin"
           ],
           "readRoles": [
@@ -1211,7 +1386,6 @@
           "bounds": null,
           "pattern": null,
           "writeRoles": [
-            "TenantAdmin",
             "SystemAdmin"
           ],
           "readRoles": [
@@ -1232,7 +1406,6 @@
           "bounds": null,
           "pattern": null,
           "writeRoles": [
-            "TenantAdmin",
             "SystemAdmin"
           ],
           "readRoles": [
@@ -1325,7 +1498,7 @@
     },
     {
       "name": "files-tenant-data",
-      "description": "GDPR coverage for the `files` feature's `fileRef` entity: tenant-destroy row purge (EXT_TENANT_DATA) and full storage-prefix binary wipe (EXT_STORAGE_PROVIDER), plus a manual backfill/GC job that sweeps derivatives orphaned by a forget/tenant-destroy that ran before #2461 wired binary cleanup into those flows. Requires `tenant-lifecycle`, optionalRequires `files`.",
+      "description": "GDPR coverage for the `files` feature's `fileRef` entity: tenant-destroy row purge (EXT_TENANT_DATA) and full storage-prefix binary wipe (EXT_STORAGE_PROVIDER). Requires `tenant-lifecycle`, optionalRequires `files`.",
       "toggleableDefault": null,
       "requires": [
         "tenant-lifecycle"
@@ -1350,21 +1523,30 @@
       "secrets": [],
       "writeHandlers": [],
       "uiHints": {
-        "displayLabel": "Files · Tenant-Destroy & Derivative GC",
+        "displayLabel": "Files · Tenant Destroy",
         "category": "compliance",
         "recommended": false
       }
     },
     {
       "name": "folders",
-      "description": "Generic, host-agnostic hierarchical folders for any entity. Owns two event-sourced entities — the per-tenant `folder` tree (`read_folders`, self-referential via parentId) and SINGLE-membership `folder-assignment` rows keyed by (entityType, entityId) (`read_folder_assignments`) — so filing an entity adds NO column to the host and needs no relational pivot or JOIN. The folder catalog uses the generic entity handlers (create, update [= rename, optimistic-locked], delete, list, detail); set-folder puts/moves an entity into a folder (one folder per entity) and clear-folder unfiles it (both idempotent). Read which folder an entity is in, or which entities a folder holds, by listing `folder-assignment` filtered on `entityId` or `folderId`. Every path uses one access rule — adopt the host's model with createFoldersFeature({ access: { openToAll: { reason } } }) or pin roles. Pass { toggleable: { default: false } } to make the whole feature tier-gatable via the tier-engine (no host hook).",
+      "description": "Generic, host-agnostic hierarchical folders for any entity. Owns two event-sourced entities — the per-tenant `folder` tree (`read_folders`, self-referential via parentId) and SINGLE-membership `folder-assignment` rows keyed by (entityType, entityId) (`read_folder_assignments`) — so filing an entity adds NO column to the host and needs no relational pivot or JOIN. The folder catalog uses the generic entity handlers (create, update [= rename, optimistic-locked], delete, list, detail); set-folder puts/moves an entity into a folder (one folder per entity) and clear-folder unfiles it (both idempotent). Read which folder an entity is in, or which entities a folder holds, by listing `folder-assignment` filtered on `entityId` or `folderId`. Every path uses one access rule — adopt the host's model with createFoldersFeature({ access: { openToAll: { reason } } }) or pin roles. Mount with createFoldersFeature({ parents: [<host entities>] }). Pass { toggleable: { default: false } } to make the whole feature tier-gatable via the tier-engine (no host hook).",
       "toggleableDefault": null,
       "requires": [],
       "optionalRequires": [],
       "configReads": [],
       "exposesApis": [],
       "usesApis": [],
-      "extensionsUsed": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "userData",
+          "entityName": "folder"
+        },
+        {
+          "extensionName": "userData",
+          "entityName": "folder-assignment"
+        }
+      ],
       "configKeys": [],
       "secrets": [],
       "writeHandlers": [
@@ -1381,33 +1563,6 @@
       }
     },
     {
-      "name": "folders-user-data",
-      "description": "GDPR (Art. 20 export / Art. 17 erasure) coverage for the `folders` feature's `folder` + `folder-assignment` entities. Mounts the EXT_USER_DATA export + delete hooks so a tenant's folder tree and its entity-to-folder assignments are included in the user-data export bundle and erased on a tenant-scoped forget (single-user tenants only; multi-user + anonymize are no-ops since folder rows carry no per-user PII). Kept separate from `folders` so folder consumers without the user-data-rights pipeline don't pull a hard dependency — requires `user-data-rights`, optionalRequires `folders`.",
-      "toggleableDefault": null,
-      "requires": [
-        "user-data-rights"
-      ],
-      "optionalRequires": [
-        "folders"
-      ],
-      "configReads": [],
-      "exposesApis": [],
-      "usesApis": [],
-      "extensionsUsed": [
-        {
-          "extensionName": "userData",
-          "entityName": "folder"
-        },
-        {
-          "extensionName": "userData",
-          "entityName": "folder-assignment"
-        }
-      ],
-      "configKeys": [],
-      "secrets": [],
-      "writeHandlers": []
-    },
-    {
       "name": "form-draft",
       "description": "Per-user, per-tenant working copy of an in-progress form, saved BEFORE the real domain entity exists. Owns one event-sourced entity, `form-draft` (`read_form_drafts`), keyed by a caller-assigned draftKey (typically screenId + optional hostEntityId), unique per (tenant, owner, draftKey). `save` upserts the draft blob ({ values, stepIndex, savedAt } — savedAt stamped server-side), `discard` deletes it (called once the real submit succeeds), `get` resumes it, `list` finds a user's open drafts for a given screenId (draftKey prefix match) — the fallback when a client-generated draftId is lost. Ownership is enforced by a per-row owner filter in every handler, not by roles — a foreign user's save/discard/get/list for someone else's draftKey never sees or touches that row. Never holds anything that already lives in a domain stream; the consuming app is responsible for discarding once the domain write succeeds. A daily cron job hard-deletes drafts past a configurable retention window (`form-draft:config:retention-days`, SystemAdmin-writable, default 30 days).",
       "toggleableDefault": null,
@@ -1418,7 +1573,12 @@
       "configReads": [],
       "exposesApis": [],
       "usesApis": [],
-      "extensionsUsed": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "userData",
+          "entityName": "form-draft"
+        }
+      ],
       "configKeys": [
         {
           "key": "retention-days",
@@ -1456,29 +1616,6 @@
       }
     },
     {
-      "name": "form-draft-user-data",
-      "description": "GDPR (Art. 20 export / Art. 17 erasure) coverage for the `form-draft` feature's `form-draft` entity. Mounts the EXT_USER_DATA export hook so a user's saved drafts are included in the user-data export bundle, and a delete hook that physically removes the user's own draft rows on forget. Kept separate from `form-draft` so form-draft consumers without the user-data-rights pipeline don't pull a hard dependency — requires `user-data-rights`, optionalRequires `form-draft`.",
-      "toggleableDefault": null,
-      "requires": [
-        "user-data-rights"
-      ],
-      "optionalRequires": [
-        "form-draft"
-      ],
-      "configReads": [],
-      "exposesApis": [],
-      "usesApis": [],
-      "extensionsUsed": [
-        {
-          "extensionName": "userData",
-          "entityName": "form-draft"
-        }
-      ],
-      "configKeys": [],
-      "secrets": [],
-      "writeHandlers": []
-    },
-    {
       "name": "handbook-knowledge",
       "description": "Gives the AI agent the app's handbook as two read-only query tools: `list-pages` returns the catalog of task and screen pages with the questions each answers, `read-page` returns one page in the caller's language with a fallback to the default language and a fixed length cap. The pages come from a build-time JSON (`kumiko handbuch knowledge`), so no table, projection or search index is involved and the handbook text stays public content.",
       "toggleableDefault": null,
@@ -1501,7 +1638,6 @@
       "name": "helpdesk",
       "description": "Helpdesk inbox: an anonymous browser client (GET /helpdesk/client.js) submits questions, contact requests, bug reports and wishes behind a honeypot, a minimum submit time and a single-use proof-of-work challenge; signed-in users file reports from the admin. Every request is stored platform-wide and every SystemAdmin is notified by mail, optionally also in a Telegram chat (option `telegram`, off by default); the notification names only the kind, the app and a link, never name, address, phone, subject or message, because mail and Telegram cannot be shredded. SystemAdmins reply by mail (Reply-To set, attachments, quoting the original) and mark requests done; a website sender gets a fixed acknowledgement, a signed-in reporter a copy and an in-app note. Personal data is crypto-shredding-ready and the EXT_USER_DATA hooks export and erase a user's requests.",
       "toggleableDefault": null,
-      "adoptsBundledLists": true,
       "requires": [
         "config",
         "delivery",
@@ -1519,10 +1655,6 @@
         {
           "extensionName": "userData",
           "entityName": "helpdesk-request"
-        },
-        {
-          "extensionName": "userData",
-          "entityName": "contact-request"
         },
         {
           "extensionName": "userData",
@@ -1592,9 +1724,8 @@
     },
     {
       "name": "inbound-mail-foundation",
-      "description": "Plugin host for inbound e-mail (inbox federation) — provider plugins (inbound-provider-imap, later M365 Graph / Gmail REST) register at the `inboundMailProvider` extension point with verify/fetch and optional oauth/watch (live push) and send. `sendMailFromAccount(ctx, { accountId, message })` sends from a connected mailbox through its provider (From = the mailbox address, no fallback to the app sender) and answers typed failures (not configured, login rejected, server unreachable, rejected, invalid message); app write handlers call it from `beforeTransaction` (it sends at once and a rollback cannot recall the mail), it is no endpoint of its own. The foundation owns three event-sourced streams (mail-account lifecycle, inbound-message with exactly-once ingest via deterministic aggregate ids, mail-thread rollup) and their projections `read_mail_accounts`/`read_inbound_messages`/`read_mail_threads`; PII fields are envelope-encrypted per tenant subject key before every append (crypto-shredding on tenant destroy). Wire `createInboundMailConnectRoutes` (OAuth connect + anonymous callback outside /api) and `createInboundMailSupervisor` (IDLE watch with backoff + reconciliation poll) in bin/server.ts. Consume `inbound-mail-foundation:event:inbound-message-received` from app features to attach business processes.",
+      "description": "Plugin host for inbound e-mail (inbox federation) — provider plugins (inbound-provider-imap, later M365 Graph / Gmail REST) register at the `inboundMailProvider` extension point with verify/fetch and optional oauth/watch (live push) and send. `sendMailFromAccount(ctx, { accountId, message })` sends from a connected mailbox through its provider (From = the mailbox address, no fallback to the app sender) and answers typed failures (not configured, login rejected, server unreachable, rejected, invalid message); with an `idempotencyKey` a repeat of a finished send returns the stored result instead of sending again, and a send that started but never finished answers `mail_send_outcome_unknown` (the stored keys live in `store_mail_outbound_sends`); app write handlers call it from `beforeTransaction` (it sends at once and a rollback cannot recall the mail), it is no endpoint of its own. The foundation owns two event-sourced streams (mail-account lifecycle, inbound-message with exactly-once ingest via deterministic aggregate ids) and their projections `read_mail_accounts`/`read_inbound_messages`; PII fields are envelope-encrypted before every append: message fields under a record key per message (erased on forget, retention and tenant destroy), the mailbox address under the tenant subject key. Wire `createInboundMailConnectRoutes` (OAuth connect + anonymous callback outside /api) and `createInboundMailSupervisor` (IDLE watch with backoff + reconciliation poll) in bin/server.ts. Consume `inbound-mail-foundation:event:inbound-message-received` from app features to attach business processes.",
       "toggleableDefault": null,
-      "adoptsBundledLists": true,
       "requires": [
         "tenant-lifecycle"
       ],
@@ -1610,10 +1741,6 @@
         {
           "extensionName": "tenantData",
           "entityName": "inbound-message"
-        },
-        {
-          "extensionName": "tenantData",
-          "entityName": "mail-thread"
         }
       ],
       "configKeys": [],
@@ -1699,7 +1826,6 @@
       "name": "jobs",
       "description": "Persistence and operator tooling for background jobs registered via `r.job(...)`. Every job execution writes directly into `store_job_runs` (current status + duration) and `store_job_run_logs` (per-line log rows) from the BullMQ callbacks — no event stream in between (#2243). A daily `retention-cleanup` job deletes runs (and their logs) older than `retentionDays`; an hourly `stale-run-sweep` job marks runs stuck at status `running` past `staleRunTimeoutHours` as `failed` (#2246 — a crashed worker never fires the completion callback, so nothing else ever revisits the row). Exposes `jobs:write:trigger` (manual run) and `jobs:write:retry` (operator retry of a failed run), plus `jobs:query:list`, `jobs:query:details`, and `jobs:query:catalog` (manual jobs) for the operator UI. A job that declares `tenantVisibleFailure` also records its last failed attempt per tenant and subject in `store_tenant_job_failures`, which the tenant itself reads through `jobs:query:failures` — a translation key only, never the provider's message (fw#3079). A job that declares `tenantVisibleRun` also keeps its run state per tenant and subject in `store_tenant_job_runs` (queued, running, plus the latest completed or failed run, no payload, error text or logs), which the tenant reads through `jobs:query:tenant-runs` (fw#3616); the stale-run sweep fails its stuck `running` rows and drops `queued` rows older than `retentionDays`.",
       "toggleableDefault": null,
-      "adoptsBundledLists": true,
       "requires": [],
       "optionalRequires": [],
       "configReads": [],
@@ -1724,7 +1850,7 @@
     },
     {
       "name": "ledger",
-      "description": "Double-entry bookkeeping primitive. Owns two event-sourced entities — the per-tenant `account` chart of accounts (`read_ledger_accounts`, self-referential via parentId, typed asset/liability/equity/income/expense) and immutable `transaction` journal entries (`read_ledger_transactions`) whose balanced posting lines are embedded as jsonb (Σ amount = 0, signed integer minor units). The account catalog uses the generic entity handlers (create, update, list, detail); create-transaction books a balanced entry (Σ=0 and ≥2 distinct accounts enforced at the command boundary, referential integrity against accounts checked) and reverse-transaction books its Storno mirror — there is deliberately NO transaction update/delete, so a posted entry is an immutable fact and the audit trail stays intact. Recurring schedules (`read_ledger_schedules`) layer Dauerauftrag templates on top — a schedule names debit/credit accounts, an amount, a monthly interval and an optional caller-assigned `sourceRef` key (filterable, to find a schedule again), from which the Soll (forecast) is a pure projection (projectSchedule) needing no bookings, and confirm-schedule-period materialises one period as an idempotent, reversal-aware balanced entry referencing scheduleReference(id, period); only confirming writes. Balances and reports (balance sheet, P&L, cashflow) derive as pure queries over the postings. Everything financial — banking, accounting, rent cashflow, credits, invoices — models as accounts + balanced transactions on top. Pin roles with createLedgerFeature({ roles }) or adopt the host model with { access }; pass { toggleable: { default: false } } to tier-gate the whole feature.",
+      "description": "Double-entry bookkeeping primitive. Owns two event-sourced entities — the per-tenant `account` chart of accounts (`read_ledger_accounts`, self-referential via parentId, typed asset/liability/equity/income/expense) and immutable `transaction` journal entries (`read_ledger_transactions`) whose balanced posting lines are embedded as jsonb (Σ amount = 0, signed integer minor units). The account catalog uses the generic entity handlers (create, update, list, detail); create-transaction books a balanced entry (Σ=0 and ≥2 distinct accounts enforced at the command boundary, referential integrity against accounts checked) and reverse-transaction books its Storno mirror — there is deliberately NO transaction update/delete, so a posted entry is an immutable fact and the audit trail stays intact. Recurring schedules (`read_ledger_schedules`) layer Dauerauftrag templates on top — a schedule names debit/credit accounts, an amount, a monthly interval and an optional caller-assigned `sourceRef` key (filterable, to find a schedule again), from which the Soll (forecast) is a pure projection (projectSchedule) needing no bookings, and confirm-schedule-period materialises one period as an idempotent, reversal-aware balanced entry carrying the scheduleId/period columns on the transaction; only confirming writes. ensure-accounts idempotently creates missing chart entries by code and returns their ids. report:subject-totals returns net posting totals per subject, account and optionally period, and schedule-actuals returns the posted (and Storno) entries of given schedules shaped for mergeScheduleActuals. Balances and reports (balance sheet, P&L, cashflow) derive as pure queries over the postings. Everything financial — banking, accounting, rent cashflow, credits, invoices — models as accounts + balanced transactions on top. Pin roles with createLedgerFeature({ roles }) or adopt the host model with { access }; pass { toggleable: { default: false } } to tier-gate the whole feature.",
       "toggleableDefault": null,
       "requires": [],
       "optionalRequires": [],
@@ -1739,6 +1865,7 @@
         "ledger:write:account:update",
         "ledger:write:confirm-schedule-period",
         "ledger:write:create-transaction",
+        "ledger:write:ensure-accounts",
         "ledger:write:reverse-transaction",
         "ledger:write:schedule:create",
         "ledger:write:schedule:update"
@@ -1993,212 +2120,18 @@
     },
     {
       "name": "managed-pages",
-      "description": "Tenant-editable, server-rendered public pages with per-tenant branding. Stores one `page` (Markdown or editor-document HTML body, per `bodyFormat`) per `(tenantId, slug, lang)` in the `read_pages` entity table with a `published` gate plus `description`/`ogImage` SEO meta. Registers an anonymous `GET {basePath}/:slug` route that resolves the tenant from the request Host via the app-supplied `resolveApexTenant`, serves only published pages (drafts → 404), renders Markdown through the hardened `page-render` core and document bodies through the template-resolver document sanitizer, and isolates per-tenant content with `Vary: Host`. Ships TenantAdmin/SystemAdmin admin screens (`entityList` + `entityEdit`) backed by convention CRUD handlers (`managed-pages:write:page:{create,update,delete}`, `managed-pages:query:page:{list,detail}`); the app wires nav/workspace onto `managed-pages:screen:page-list`. Also exposes `managed-pages:query:by-tenant-published` (anonymous, SQL-filtered on `published`) for sitemap/discovery consumers such as the `seo` feature. Branding (via `config`, scope tenant): `branding-{title,description,site-url,accent-color,logo-url,layout-preset,custom-css}` keys with write-time validation (hex color, https URLs), a `configEdit` self-service screen (`managed-pages:screen:branding-settings`), and a `managed-pages:query:branding` read that the render path applies as scoped `:root` CSS vars + a logo/title header. Also exposes `managed-pages:write:set` (idempotent slug-keyed upsert, SystemAdmin cross-tenant via `tenantIdOverride`) as a provisioning API. Requires `config` + `anonymousAccess` wired at app bootstrap.",
+      "description": "Tenant-editable, server-rendered public pages with per-tenant branding. Stores one `page` (Markdown or editor-document HTML body, per `bodyFormat`) per `(tenantId, slug, lang)` in the `read_pages` entity table with a `published` gate plus `description`/`ogImage` SEO meta. Registers an anonymous `GET {basePath}/:slug` route that resolves the tenant from the request Host through the server's host resolution (`deps.hostTenantId`) or an app-supplied `resolveApexTenant`, serves only published pages (drafts → 404), renders Markdown through the hardened `page-render` core and document bodies through the template-resolver document sanitizer, and isolates per-tenant content with `Vary: Host`. Ships TenantAdmin/SystemAdmin admin screens (`entityList` + `entityEdit`) backed by convention CRUD handlers (`managed-pages:write:page:{create,update,delete}`, `managed-pages:query:page:{list,detail}`); the app wires nav/workspace onto `managed-pages:screen:page-list`. Also exposes `managed-pages:query:by-tenant-published` (anonymous, SQL-filtered on `published`) for sitemap/discovery consumers such as the `seo` feature. Branding comes from the branding feature (branding:query:tokens); the render path applies it as scoped `:root` CSS vars + a logo/title header. Also exposes `managed-pages:write:set` (idempotent slug-keyed upsert, SystemAdmin cross-tenant via `tenantIdOverride`) as a provisioning API. Requires `config`, `branding` + `anonymousAccess` wired at app bootstrap.",
       "toggleableDefault": null,
-      "adoptsBundledLists": true,
       "requires": [
-        "config"
+        "config",
+        "branding"
       ],
       "optionalRequires": [],
       "configReads": [],
       "exposesApis": [],
       "usesApis": [],
       "extensionsUsed": [],
-      "configKeys": [
-        {
-          "key": "branding-accent-color",
-          "qualifiedName": "managed-pages:config:branding-accent-color",
-          "type": "text",
-          "scope": "tenant",
-          "default": "",
-          "encrypted": false,
-          "computed": false,
-          "validated": false,
-          "options": null,
-          "bounds": null,
-          "pattern": {
-            "regex": "^$|^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
-          },
-          "writeRoles": [
-            "system",
-            "TenantAdmin",
-            "Admin",
-            "SystemAdmin"
-          ],
-          "readRoles": [
-            "all"
-          ]
-        },
-        {
-          "key": "branding-custom-css",
-          "qualifiedName": "managed-pages:config:branding-custom-css",
-          "type": "text",
-          "scope": "tenant",
-          "default": "",
-          "encrypted": false,
-          "computed": false,
-          "validated": false,
-          "options": null,
-          "bounds": null,
-          "pattern": {
-            "regex": "^[\\s\\S]{0,8000}$"
-          },
-          "writeRoles": [
-            "TenantAdmin",
-            "Admin",
-            "SystemAdmin"
-          ],
-          "readRoles": [
-            "all"
-          ]
-        },
-        {
-          "key": "branding-description",
-          "qualifiedName": "managed-pages:config:branding-description",
-          "type": "text",
-          "scope": "tenant",
-          "default": "",
-          "encrypted": false,
-          "computed": false,
-          "validated": false,
-          "options": null,
-          "bounds": null,
-          "pattern": {
-            "regex": "^[\\s\\S]{0,500}$"
-          },
-          "writeRoles": [
-            "system",
-            "TenantAdmin",
-            "Admin",
-            "SystemAdmin"
-          ],
-          "readRoles": [
-            "all"
-          ]
-        },
-        {
-          "key": "branding-layout-preset",
-          "qualifiedName": "managed-pages:config:branding-layout-preset",
-          "type": "select",
-          "scope": "tenant",
-          "default": "centered",
-          "encrypted": false,
-          "computed": false,
-          "validated": false,
-          "options": [
-            "minimal",
-            "centered",
-            "wide"
-          ],
-          "bounds": null,
-          "pattern": null,
-          "writeRoles": [
-            "system",
-            "TenantAdmin",
-            "Admin",
-            "SystemAdmin"
-          ],
-          "readRoles": [
-            "all"
-          ]
-        },
-        {
-          "key": "branding-logo-file",
-          "qualifiedName": "managed-pages:config:branding-logo-file",
-          "type": "text",
-          "scope": "tenant",
-          "default": "",
-          "encrypted": false,
-          "computed": false,
-          "validated": false,
-          "options": null,
-          "bounds": null,
-          "pattern": {
-            "regex": "^$|^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
-          },
-          "writeRoles": [
-            "system",
-            "TenantAdmin",
-            "Admin",
-            "SystemAdmin"
-          ],
-          "readRoles": [
-            "all"
-          ]
-        },
-        {
-          "key": "branding-logo-url",
-          "qualifiedName": "managed-pages:config:branding-logo-url",
-          "type": "text",
-          "scope": "tenant",
-          "default": "",
-          "encrypted": false,
-          "computed": false,
-          "validated": false,
-          "options": null,
-          "bounds": null,
-          "pattern": {
-            "regex": "^$|^https://[^\\s\"'<>]{1,2000}$"
-          },
-          "writeRoles": [
-            "system",
-            "TenantAdmin",
-            "Admin",
-            "SystemAdmin"
-          ],
-          "readRoles": [
-            "all"
-          ]
-        },
-        {
-          "key": "branding-site-url",
-          "qualifiedName": "managed-pages:config:branding-site-url",
-          "type": "text",
-          "scope": "tenant",
-          "default": "",
-          "encrypted": false,
-          "computed": false,
-          "validated": false,
-          "options": null,
-          "bounds": null,
-          "pattern": {
-            "regex": "^$|^https://[^\\s\"'<>]{1,2000}$"
-          },
-          "writeRoles": [
-            "system",
-            "TenantAdmin",
-            "Admin",
-            "SystemAdmin"
-          ],
-          "readRoles": [
-            "all"
-          ]
-        },
-        {
-          "key": "branding-title",
-          "qualifiedName": "managed-pages:config:branding-title",
-          "type": "text",
-          "scope": "tenant",
-          "default": "",
-          "encrypted": false,
-          "computed": false,
-          "validated": false,
-          "options": null,
-          "bounds": null,
-          "pattern": {
-            "regex": "^[\\s\\S]{0,200}$"
-          },
-          "writeRoles": [
-            "system",
-            "TenantAdmin",
-            "Admin",
-            "SystemAdmin"
-          ],
-          "readRoles": [
-            "all"
-          ]
-        }
-      ],
+      "configKeys": [],
       "secrets": [],
       "writeHandlers": [
         "managed-pages:write:page:create",
@@ -2261,35 +2194,10 @@
     },
     {
       "name": "notes-history",
-      "description": "Generic, host-agnostic, append-only note history for any entity. Owns one event-sourced entity, `note-entry` (`read_note_entries`), keyed by (entityType, entityId) — so attaching notes adds NO column to the host entity and needs no relational pivot or JOIN. Provides a `create` write-handler (author stamped server-side from the caller, never client-supplied) and a `list` query filterable on entityId. Deliberately append-only: no update or delete handler is registered — a correction is a new entry, not an edit, so who-said-what-when stays reconstructable. Every path uses one access rule — adopt the host's model with createNotesHistoryFeature({ access: { openToAll: { reason } } }) or pin roles with createNotesHistoryFeature({ roles }).",
+      "description": "Generic, host-agnostic, append-only note history for any entity. Owns one event-sourced entity, `note-entry` (`read_note_entries`), keyed by (entityType, entityId) — so attaching notes adds NO column to the host entity and needs no relational pivot or JOIN. Provides a `create` write-handler (author stamped server-side from the caller, never client-supplied) and a `list` query filterable on entityId. Deliberately append-only: no update or delete handler is registered — a correction is a new entry, not an edit, so who-said-what-when stays reconstructable. Every path uses one access rule — adopt the host's model with createNotesHistoryFeature({ access: { openToAll: { reason } } }) or pin roles with createNotesHistoryFeature({ roles }). Mount with createNotesHistoryFeature({ parents: [<host entities>] }).",
       "toggleableDefault": null,
       "requires": [],
       "optionalRequires": [],
-      "configReads": [],
-      "exposesApis": [],
-      "usesApis": [],
-      "extensionsUsed": [],
-      "configKeys": [],
-      "secrets": [],
-      "writeHandlers": [
-        "notes-history:write:add-note"
-      ],
-      "uiHints": {
-        "displayLabel": "Notes",
-        "category": "data",
-        "recommended": false
-      }
-    },
-    {
-      "name": "notes-history-user-data",
-      "description": "GDPR (Art. 20 export / Art. 17 erasure) coverage for the `notes-history` feature's `note-entry` and `note-mention` entities. Mounts the export hook so a user's authored notes are included in the user-data export bundle; the note-entry delete hook crypto-shreds the row-subject key of each note that structurally @-mentions the forgotten user (`note-mention`) or hangs on the user as host entity (regardless of the host entity's retention strategy: the note text is free PII, the host's anonymize/blockDelete protects the row, not the content), keeping the append-only history intact for all other notes. The manual `crypto-shredding` forget-subject command reaches the same notes for user and record subjects through the exported `eraseNoteBodiesReachingSubject`, and the export lists them under `note-mention`. `note-mention`'s own hooks are a no-op — it is a plain FK pointer, not separately exportable content. Kept separate from `notes-history` so notes consumers without the user-data-rights pipeline don't pull a hard dependency — requires `user-data-rights`, optionalRequires `notes-history`.",
-      "toggleableDefault": null,
-      "requires": [
-        "user-data-rights"
-      ],
-      "optionalRequires": [
-        "notes-history"
-      ],
       "configReads": [],
       "exposesApis": [],
       "usesApis": [],
@@ -2305,7 +2213,14 @@
       ],
       "configKeys": [],
       "secrets": [],
-      "writeHandlers": []
+      "writeHandlers": [
+        "notes-history:write:add-note"
+      ],
+      "uiHints": {
+        "displayLabel": "Notes",
+        "category": "data",
+        "recommended": false
+      }
     },
     {
       "name": "pat-scope-labels",
@@ -2325,7 +2240,6 @@
       "name": "personal-access-tokens",
       "description": "Long-lived, revocable Personal Access Tokens for headless HTTP-API access. Stores SHA-256 token hashes in the `store_api_tokens` direct-write table; the plaintext is returned once at creation. `create`/`revoke`/`mine` manage a user's own tokens and `available-scopes` lists the app-declared scope catalog. Bearer tokens carrying the PAT prefix are resolved before jwt.verify (roles resolved live, granted scopes enforced fail-closed at the API boundary) — registered as an auth-foundation tokenVerifier provider, resolved generically by the middleware. Pass { toggleable: { default: false } } to tier-gate the whole feature.",
       "toggleableDefault": null,
-      "adoptsBundledLists": true,
       "requires": [
         "user",
         "tenant",
@@ -2339,6 +2253,10 @@
         {
           "extensionName": "tokenVerifier",
           "entityName": "pat"
+        },
+        {
+          "extensionName": "credentialRevoker",
+          "entityName": "personal-access-tokens"
         }
       ],
       "configKeys": [],
@@ -2398,7 +2316,6 @@
       "name": "readiness",
       "description": "One-call tenant-onboarding probe: `readiness:query:status` rolls up every config key and secret declared `required: true` across all mounted features and reports which still lack a usable value for the calling tenant, plus a single `ready` boolean. Provider-features under an `r.extensionSelector`-declared extension point count only while their provider is the selected one — a tenant on the inmemory mail transport is not blocked by unset SMTP keys. Mount it (together with `config` and `secrets`) when an admin UI needs a settings checklist before the first mail-send or file-write; the per-concern lists stay available via `config:query:readiness` and `secrets:query:list`. `readiness:write:run-probes` runs the live probes features register with `r.probe` (mail, files, mailboxes, PDF service and more) as a job; the system-check screen shows the latest run and the history once `nav` is passed.",
       "toggleableDefault": null,
-      "adoptsBundledLists": true,
       "requires": [
         "config",
         "secrets"
@@ -2423,7 +2340,7 @@
     },
     {
       "name": "renderer-foundation",
-      "description": "Plugin registry for content rendering (mail HTML, PDF, images): call `foundation.createRendererForTenant({ tenantId, kind })` at render time to get the right renderer plugin selected by kind, with tenant-level overrides via the `rendererPluginByKind` config key. Requires `template-resolver` (declared via `r.requires`). Low-level building block — add `renderer-mail-html` (or write a custom plugin via `r.useExtension(\"renderer\", name, { kinds, render })`) rather than using this feature alone.",
+      "description": "Plugin registry for content rendering (mail HTML, PDF, images): call `selectRendererPlugin(collectRendererPlugins(registry), kind)` at render time to get the renderer plugin for a kind, which is the default plugin for that kind when mounted, otherwise the first mounted plugin serving it. Requires `template-resolver` (declared via `r.requires`). Low-level building block — add `renderer-mail-html` (or write a custom plugin via `r.applyExtension({ name: \"renderer\", entity: name, kinds, render })`) rather than using this feature alone.",
       "toggleableDefault": null,
       "requires": [
         "template-resolver"
@@ -2463,32 +2380,6 @@
       "configKeys": [],
       "secrets": [],
       "writeHandlers": []
-    },
-    {
-      "name": "renderer-pdf",
-      "description": "Renderer plugin for `kind=\"document-pdf\"` that draws a table document (title, meta lines, weighted columns, repeating header, page footer) as a PDF in pure JavaScript, without a browser or Puppeteer service. `payload.variables` must be a `PdfTableDocument`. Requires `renderer-foundation`; mount a Puppeteer-based plugin instead when you need HTML/CSS layouts.",
-      "toggleableDefault": null,
-      "requires": [
-        "renderer-foundation"
-      ],
-      "optionalRequires": [],
-      "configReads": [],
-      "exposesApis": [],
-      "usesApis": [],
-      "extensionsUsed": [
-        {
-          "extensionName": "renderer",
-          "entityName": "pdf"
-        }
-      ],
-      "configKeys": [],
-      "secrets": [],
-      "writeHandlers": [],
-      "uiHints": {
-        "displayLabel": "Renderer · PDF tables",
-        "category": "notifications",
-        "recommended": false
-      }
     },
     {
       "name": "renderer-puppeteer-client",
@@ -2680,9 +2571,8 @@
     },
     {
       "name": "sessions",
-      "description": "Tracks signed-in clients in the `store_user_sessions` table (one row per JWT, keyed by the `sid`/`jti` claim) and exposes handlers for `mine` (list your sessions), `revoke`, and `revokeAllOthers`. Session creation and revocation on the hot auth path are handled by `createSessionCallbacks()`, wired into `buildServer({ auth: { ... } })` outside the dispatcher; the same callbacks are also registered as an auth-foundation sessionStore provider, resolvable generically via `resolveSessionStore()`. The feature also ships a manual-trigger cleanup job for pruning expired rows and an optional `autoRevokeOnPasswordChange` hook that mass-revokes all sessions for a user whenever their `passwordHash` changes.",
+      "description": "Tracks signed-in clients in the `store_user_sessions` table (one row per JWT, keyed by the `sid`/`jti` claim) and exposes handlers for `mine` (list your sessions), `revoke`, and `revokeAllOthers`. Session creation and revocation on the hot auth path are handled by `createSessionCallbacks()`, wired into `buildServer({ auth: { ... } })` outside the dispatcher; the same callbacks are also registered as an auth-foundation sessionStore provider, resolvable generically via `resolveSessionStore()`. The feature also ships a daily maintenance-window cleanup job that prunes expired and revoked rows, and registers as an auth-foundation credentialRevoker, so a password change or MFA state change revokes the user's sessions in the same transaction.",
       "toggleableDefault": null,
-      "adoptsBundledLists": true,
       "requires": [
         "user",
         "auth-foundation"
@@ -2697,6 +2587,10 @@
         {
           "extensionName": "sessionStore",
           "entityName": "default"
+        },
+        {
+          "extensionName": "credentialRevoker",
+          "entityName": "sessions"
         }
       ],
       "configKeys": [],
@@ -2714,12 +2608,12 @@
     },
     {
       "name": "signature",
-      "description": "Signature requests: a signed-in user asks several people to sign one PDF of the tenant. Each signer draws a signature on a display in person or through a link in the URL fragment (14 days, limited opens, revocable, single-use, one answer for every rejection). The last signature moves the request to all-signed; a job renders a signature page through the injected print function, appends it to the unchanged original and completes the request. Events completed, declined, expired and failed report the outcome; signer name, email, image, IP and user agent are personal data.",
+      "description": "Signature requests: a signed-in user asks several people to sign one PDF of the tenant. Every request belongs to a host row of an entity named in `hostEntities`; a user sees and works on a request only while that row is readable to them. Each signer draws a signature on a display in person or through a link in the URL fragment (14 days, limited opens, revocable, single-use, one answer for every rejection). The last signature moves the request to all-signed; a job renders a signature page through the print client, appends it to the unchanged original and completes the request. Events completed, declined, expired and failed report the outcome; signer name, email, image, IP and user agent are personal data.",
       "toggleableDefault": null,
-      "adoptsBundledLists": true,
       "requires": [
         "files",
-        "user-data-rights"
+        "user-data-rights",
+        "renderer-puppeteer-client"
       ],
       "optionalRequires": [],
       "configReads": [],
@@ -2739,6 +2633,7 @@
         "signature:write:expire",
         "signature:write:fail",
         "signature:write:finish",
+        "signature:write:forget-signer",
         "signature:write:issue-link",
         "signature:write:link-decline",
         "signature:write:link-open",
@@ -2784,7 +2679,7 @@
     },
     {
       "name": "subscription-paddle",
-      "description": "Paddle Billing provider plugin for `billing-foundation`. Paddle acts as merchant of record: it sells to the customer and issues invoice and VAT, so the consumer-protection texts for this provider come from `consumerProtection.providerTexts`. Reads its API key and webhook secret from system config keys with `backing:\"secrets\"` (envelope-encrypted in the secrets store under the system tenant), the public Paddle.js `client-token`, a `billingLive` master switch and an `environment` key (sandbox | live). `environment` is its own key because Paddle serves sandbox and live from different API hosts and a live key must never hit the sandbox host or the other way round; `billingLive` only decides whether checkouts are offered at all. All of them are runtime config, so keys rotate and prod goes live without a redeploy, and the `mask` on each derives the sysadmin settings screen and nav. Mount via `createSubscriptionPaddleFeature({ priceToTier })`; the optional `apiKey`/`webhookSecret`/`clientToken` options are env to config bridge fallbacks (`PADDLE_API_KEY`, `PADDLE_WEBHOOK_SECRET`, `PADDLE_CLIENT_TOKEN`). The plugin always mounts; `createCheckoutSession` throws `feature_disabled` unless `billingLive` is true, and billing counts as enabled only with the API key present. Webhooks arrive at `/webhooks/subscription/paddle` when mounted through the server-runtime `billing.paddle` boot option, or at `/api/subscription/webhook/paddle` when `createSubscriptionWebhookRoute` is mounted by hand and are verified with the `Paddle-Signature` header (HMAC-SHA256 over `ts:rawBody` keyed with the raw secret, any `h1` may match, 5 minute tolerance). Paddle.js can open checkouts with arbitrary `customData` from the browser, so `custom_data.tenantId` only locates the tenant stream: billing-foundation keeps a checkout ledger and accepts a webhook only for a transaction the server opened itself (a `subscription.created` must name it in `transaction_id`), so events for prices outside `priceToTier`, without a tenant or for foreign transactions are dropped. The `backfill-checkout-ledger` job ledgers Paddle checkouts that were open when the ledger was introduced, then goes quiet. Paddle has no hosted checkout page, so the feature serves the Default Payment Link itself at `/billing/paddle-checkout` (the Default Payment Link in the Paddle dashboard must point to `<APP_BASE_URL>/billing/paddle-checkout`; it is the only source, because checkouts are created without a `checkout.url`). Create subscription prices in the Paddle catalog with quantity minimum and maximum 1; for one-off packs set the quantity limits on purpose, because the payment event carries `quantity` and the app has to multiply its credits by it: an anonymous page with its own CSP that loads Paddle.js from cdn.paddle.com, the one external script this framework allows, and opens the overlay for the transaction. Implements checkout, customer portal, cancel and resume, `retrievePrices` (batched, 10-minute TTL cache), `retrieveSubscription` for the sync job, and an in-app plan switch: `previewPlanSwitch` shows the proration before the customer confirms, `applyPlanSwitch` changes the plan without a hosted page and waits for the `subscription.updated` webhook to move the tier.",
+      "description": "Paddle Billing provider plugin for `billing-foundation`. Paddle acts as merchant of record: it sells to the customer and issues invoice and VAT, so the consumer-protection texts for this provider come from `consumerProtection.providerTexts`. Reads its API key and webhook secret from system config keys with `backing:\"secrets\"` (envelope-encrypted in the secrets store under the system tenant), the public Paddle.js `client-token`, a `billingLive` master switch and an `environment` key (sandbox | live). `environment` is its own key because Paddle serves sandbox and live from different API hosts and a live key must never hit the sandbox host or the other way round; `billingLive` only decides whether checkouts are offered at all. All of them are runtime config, so keys rotate and prod goes live without a redeploy, and the `mask` on each derives the sysadmin settings screen and nav. Mount via `createSubscriptionPaddleFeature({ priceToTier })`; the optional `apiKey`/`webhookSecret`/`clientToken` options are env to config bridge fallbacks (`PADDLE_API_KEY`, `PADDLE_WEBHOOK_SECRET`, `PADDLE_CLIENT_TOKEN`). The plugin always mounts; `createCheckoutSession` throws `feature_disabled` unless `billingLive` is true, and billing counts as enabled only with the API key present. Webhooks arrive at `/webhooks/subscription/paddle` when mounted through the server-runtime `billing.paddle` boot option, or at `/api/subscription/webhook/paddle` when `createSubscriptionWebhookRoute` is mounted by hand and are verified with the `Paddle-Signature` header (HMAC-SHA256 over `ts:rawBody` keyed with the raw secret, any `h1` may match, 5 minute tolerance). Paddle.js can open checkouts with arbitrary `customData` from the browser, so `custom_data.tenantId` only locates the tenant stream: billing-foundation keeps a checkout ledger and accepts a webhook only for a transaction the server opened itself (a `subscription.created` must name it in `transaction_id`), so events for prices outside `priceToTier`, without a tenant or for foreign transactions are dropped. Paddle has no hosted checkout page, so the feature serves the Default Payment Link itself at `/billing/paddle-checkout` (the Default Payment Link in the Paddle dashboard must point to `<APP_BASE_URL>/billing/paddle-checkout`; it is the only source, because checkouts are created without a `checkout.url`). Create subscription prices in the Paddle catalog with quantity minimum and maximum 1; for one-off packs set the quantity limits on purpose, because the payment event carries `quantity` and the app has to multiply its credits by it: an anonymous page with its own CSP that loads Paddle.js from cdn.paddle.com, the one external script this framework allows, and opens the overlay for the transaction. Implements checkout, customer portal, cancel and resume, `retrievePrices` (batched, 10-minute TTL cache), `retrieveSubscription` for the sync job, and an in-app plan switch: `previewPlanSwitch` shows the proration before the customer confirms, `applyPlanSwitch` changes the plan without a hosted page and waits for the `subscription.updated` webhook to move the tier.",
       "toggleableDefault": null,
       "requires": [
         "billing-foundation",
@@ -2913,9 +2808,7 @@
         }
       ],
       "secrets": [],
-      "writeHandlers": [
-        "subscription-paddle:write:ledger-backfill-marker"
-      ],
+      "writeHandlers": [],
       "uiHints": {
         "displayLabel": "Billing · Paddle",
         "category": "billing",
@@ -3021,9 +2914,8 @@
     },
     {
       "name": "tags",
-      "description": "Generic, host-agnostic tagging for any entity. Owns two event-sourced entities — the per-tenant `tag` catalog (`read_tags`, with optional `color` and `scope`) and `tag-assignment` join rows keyed by (entityType, entityId) (`read_tag_assignments`) — so tagging adds NO column to the host entity and needs no relational pivot or JOIN. Catalog screens are declarative (`entityList` + `entityEdit`) and use convention QNs `tag:{create,update,delete}`; TagManager/TagPicker keep `create-tag`/`update-tag`/`delete-tag`. Also: `assign-tag` (idempotent), `remove-tag` (idempotent) and list queries for the catalog and the assignments. Read which tags an entity has, or which entities carry a tag, by listing `tag-assignment` filtered on `entityId` or `tagId` and composing in the read-layer. A tag with empty `scope` is global; a `scope` of an entityType restricts it to that type in the picker. Every path uses one access rule — adopt the host's model with createTagsFeature({ access: { openToAll: { reason } } }) or pin roles with createTagsFeature({ roles }). Pass { toggleable: { default: false } } to make the whole feature tier-gatable via the tier-engine (no host hook).",
+      "description": "Generic, host-agnostic tagging for any entity. Owns two event-sourced entities — the per-tenant `tag` catalog (`read_tags`, with optional `color` and `scope`) and `tag-assignment` join rows keyed by (entityType, entityId) (`read_tag_assignments`) — so tagging adds NO column to the host entity and needs no relational pivot or JOIN. The catalog is written through `tag:create`, `tag:update` (`{ id, version, changes }`) and `tag:delete` (cascades over the assignments and refuses while a record the caller cannot see still carries the tag), used by the declarative catalog screens and by TagManager/TagPicker alike. Also: `assign-tag` (idempotent), `remove-tag` (idempotent) and list queries for the catalog and the assignments. Read which tags an entity has, or which entities carry a tag, by listing `tag-assignment` filtered on `entityId` or `tagId` and composing in the read-layer. A tag with empty `scope` is global; a `scope` of an entityType restricts it to that type in the picker. Every path uses one access rule — adopt the host's model with createTagsFeature({ access: { openToAll: { reason } } }) or pin roles with createTagsFeature({ roles }). Mount with createTagsFeature({ parents: [<host entities>] }). Pass { toggleable: { default: false } } to make the whole feature tier-gatable via the tier-engine (no host hook).",
       "toggleableDefault": null,
-      "adoptsBundledLists": true,
       "requires": [],
       "optionalRequires": [],
       "configReads": [],
@@ -3034,13 +2926,10 @@
       "secrets": [],
       "writeHandlers": [
         "tags:write:assign-tag",
-        "tags:write:create-tag",
-        "tags:write:delete-tag",
         "tags:write:remove-tag",
         "tags:write:tag:create",
         "tags:write:tag:delete",
-        "tags:write:tag:update",
-        "tags:write:update-tag"
+        "tags:write:tag:update"
       ],
       "uiHints": {
         "displayLabel": "Tags",
@@ -3050,14 +2939,19 @@
     },
     {
       "name": "template-resolver",
-      "description": "Every piece of editable text lives here, in one entity: mail bodies, notification texts, PDF document templates, AI prompts and plain text blocks. What a record is used for is the `kind` (`notification`, `mail`, `mail-layout`, `document-pdf`, `pdf-layout`, `ai-prompt`, `text-block`, `snippet`, `image-snapshot`).\n\nReading is one call — `ctx.templateResolver.resolveTemplate({ tenantId, slug, kind, locale })`. It walks four levels: tenant+locale, system+locale, tenant+fallback-locale, system+fallback-locale. A tenant overrides a system default by simply having its own record; no application code changes. Writing programmatically goes through the `upsertSystem`, `upsertTenant`, `publish` and `archive` write handlers; a SystemAdmin retires or restores a system default with `publishSystem` and `archiveSystem`, and a tenant drops its override with `resetToSystem`. Saving a draft over an active template keeps the active version served and stores the edit beside it (column `draft`); `publish` makes it the served version, `discardDraft` / `discardDraftSystem` throws it away.\n\nEditing templates is for SystemAdmin only. A TenantAdmin edits only the templates the app unlocks at the mount site, `createTemplateResolverFeature({ tenantEditable: [{ kind: \"mail\", slug: \"status-update\", access: { roles: [\"TenantAdmin\"] } }] })`, and every write handler enforces that on the server (override, draft, publish, archive, reset, copy-locale, import, resources, `set`). Each entry carries the `access` roles allowed to edit it, because a bundled feature cannot know the host's roles. The same list decides delivery: a tenant override is served (mail, PDF, layouts, text blocks) only while its template is listed in tenantEditable; otherwise the system version is served. A locked override stays stored, a SystemAdmin sees it in the overview marked as not delivered, and listing the template makes it effective again. Tenant rows of a collection mounted with `access` are always served. A collection mounted without `access` is SystemAdmin only.\n\nText an editor should be able to change belongs in a collection, declared at mount: `createTemplateResolverFeature({ collections: [{ id, kind, access: { roles }, nav }] })`. It appears in the navigation, and `access` is part of the mount because a bundled feature cannot know the host's roles. Each collection gets its own `<id>-list` / `<id>-item` / `<id>-set` handlers, so the dispatcher enforces the separation.\n\nHow a collection is edited follows from `contentFormat`: `plain` gives a text area that stores text, `document` a WYSIWYG document editor that stores sanitized HTML (bold, italic, headings, lists, links, variable chips). Both offer the collection's `variableSchema` as insertable chips and a preview rendered with sample data — an editor sees what `{{firstName}}` becomes without sending a mail. An app can register its own editor for a format; the last `clientFeature` that registers a format wins (a conflict logs a warning).\n\nA collection is tenant-wide by default. With `ownership: \"user\"` every user keeps their own entries — mail signatures being the obvious case. Those rows live in the separate `user-content-entry` entity and count as user data, so mounting one also requires the `template-resolver-user-data` feature and a migration on the app side.\n\n`validate` dry-runs the write pipeline for a draft (sanitizer, layout rules, placeholders) and reports what the template uses and misses. `export-bundle` / `import-bundle` (and `import-bundle-system`) move one template with all locales and resource files between tenants or environments; `copy-locale` starts a translation from an existing locale. Layouts are structured: a mail or PDF layout is `data-header` / `data-content` / `data-signature` / `data-footer` regions, and mjml layout source is system-only.\n\n`preview` renders a draft (or the stored template) with sample values taken from the `example` of each declared variable, through the same gates and the same mail renderer as a real send, and returns subject, html, `displayHtml` (the html with cid images as data URIs for an editor), text, attachments (inline images and files) and `checks` (images resolved, plain text present, size under 10 MiB, required placeholders used); nothing is saved or sent. `send-test` mails that rendering to the calling user's own address only, subject prefixed with `[TEST]`, at most 10 per user and hour; it needs `delivery`, `channel-email` and `renderer-mail-html` to be mounted. `send-test-status` tells an editor beforehand whether that send can work for the caller (`canSend`, else `reason` `no_channel` or `no_address`), never returning the address.\n\nImages used by a template (`<img data-resource=\"logo\">`) are uploaded with `resourceUpload`, which re-encodes them, stores a file and links it under the key; `resourceRemove` unlinks it. `linkedResources` is written only through these two handlers. With `purpose: \"attachment\"` and a `fileName`, `resourceUpload` stores a PDF, PNG or JPEG as a file attachment of a mail template (original bytes, at most 10) that the mail renderer attaches after the inline images. `resourceLinkPdf` instead links a `document-pdf` template under a key: every mail sent from the template then carries that PDF, rendered at send time with the mail's own variables and locale, under a file name pattern such as `invoice-{{number}}.pdf`; files and linked PDFs share the limit of 10.\n\nReplaces the former `text-content` feature; its blocks now live here as kind `text-block`.",
+      "description": "Every piece of editable text lives here, in one entity: mail bodies, notification texts, PDF document templates, AI prompts and plain text blocks. What a record is used for is the `kind` (`notification`, `mail`, `mail-layout`, `document-pdf`, `pdf-layout`, `ai-prompt`, `text-block`, `snippet`, `image-snapshot`).\n\nReading is one call — `ctx.templateResolver.resolveTemplate({ tenantId, slug, kind, locale })`. It walks four levels: tenant+locale, system+locale, tenant+fallback-locale, system+fallback-locale. A tenant overrides a system default by simply having its own record; no application code changes. Writing programmatically goes through the `upsertSystem`, `upsertTenant`, `publish` and `archive` write handlers; a SystemAdmin retires or restores a system default with `publishSystem` and `archiveSystem`, and a tenant drops its override with `resetToSystem`. Saving a draft over an active template keeps the active version served and stores the edit beside it (column `draft`); `publish` makes it the served version, `discardDraft` / `discardDraftSystem` throws it away.\n\nEditing templates is for SystemAdmin only. A TenantAdmin edits only the templates the app unlocks at the mount site, `createTemplateResolverFeature({ tenantEditable: [{ kind: \"mail\", slug: \"status-update\", access: { roles: [\"TenantAdmin\"] } }] })`, and every write handler enforces that on the server (override, draft, publish, archive, reset, copy-locale, import, resources, `set`). Each entry carries the `access` roles allowed to edit it, because a bundled feature cannot know the host's roles. The same list decides delivery: a tenant override is served (mail, PDF, layouts, text blocks) only while its template is listed in tenantEditable; otherwise the system version is served. A locked override stays stored, a SystemAdmin sees it in the overview marked as not delivered, and listing the template makes it effective again. Tenant rows of a collection mounted with `access` are always served. A collection mounted without `access` is SystemAdmin only.\n\nText an editor should be able to change belongs in a collection, declared at mount: `createTemplateResolverFeature({ collections: [{ id, kind, access: { roles }, nav }] })`. It appears in the navigation, and `access` is part of the mount because a bundled feature cannot know the host's roles. Each collection gets its own `<id>-list` / `<id>-item` / `<id>-set` handlers, so the dispatcher enforces the separation.\n\nHow a collection is edited follows from `contentFormat`: `plain` gives a text area that stores text, `document` a WYSIWYG document editor that stores sanitized HTML (bold, italic, headings, lists, links, variable chips). Both offer the collection's `variableSchema` as insertable chips and a preview rendered with sample data — an editor sees what `{{firstName}}` becomes without sending a mail. An app can register its own editor for a format; the last `clientFeature` that registers a format wins (a conflict logs a warning).\n\nA collection is tenant-wide by default. With `ownership: \"user\"` every user keeps their own entries — mail signatures being the obvious case. Those rows live in the separate `user-content-entry` entity and count as user data, so mounting one registers the user-data hooks for that entity and needs a migration on the app side.\n\n`validate` dry-runs the write pipeline for a draft (sanitizer, layout rules, placeholders) and reports what the template uses and misses. `export-bundle` / `import-bundle` (and `import-bundle-system`) move one template with all locales and resource files between tenants or environments; `copy-locale` starts a translation from an existing locale. Layouts are structured: a mail or PDF layout is `data-header` / `data-content` / `data-signature` / `data-footer` regions, and mjml layout source is system-only.\n\n`preview` renders a draft (or the stored template) with sample values taken from the `example` of each declared variable, through the same gates and the same mail renderer as a real send, and returns subject, html, `displayHtml` (the html with cid images as data URIs for an editor), text, attachments (inline images and files) and `checks` (images resolved, plain text present, size under 10 MiB, required placeholders used); nothing is saved or sent. `send-test` mails that rendering to the calling user's own address only, subject prefixed with `[TEST]`, at most 10 per user and hour; it needs `delivery`, `channel-email` and `renderer-mail-html` to be mounted. `send-test-status` tells an editor beforehand whether that send can work for the caller (`canSend`, else `reason` `no_channel` or `no_address`), never returning the address.\n\nImages used by a template (`<img data-resource=\"logo\">`) are uploaded with `resourceUpload`, which re-encodes them, stores a file and links it under the key; `resourceRemove` unlinks it. `linkedResources` is written only through these two handlers. With `purpose: \"attachment\"` and a `fileName`, `resourceUpload` stores a PDF, PNG or JPEG as a file attachment of a mail template (original bytes, at most 10) that the mail renderer attaches after the inline images. `resourceLinkPdf` instead links a `document-pdf` template under a key: every mail sent from the template then carries that PDF, rendered at send time with the mail's own variables and locale, under a file name pattern such as `invoice-{{number}}.pdf`; files and linked PDFs share the limit of 10.\n\nReplaces the former `text-content` feature; its blocks now live here as kind `text-block`.",
       "toggleableDefault": null,
       "requires": [],
       "optionalRequires": [],
       "configReads": [],
       "exposesApis": [],
       "usesApis": [],
-      "extensionsUsed": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "userData",
+          "entityName": "user-content-entry"
+        }
+      ],
       "configKeys": [
         {
           "key": "default-pdf-layout-slug",
@@ -3140,33 +3034,9 @@
       }
     },
     {
-      "name": "template-resolver-user-data",
-      "description": "GDPR (Art. 20 export / Art. 17 erasure) coverage for the `template-resolver` feature's `user-content-entry` entity — the per-user half of the content store (mail signatures, personal reply snippets). Mounts the EXT_USER_DATA export hook so a user's own entries land in the export bundle; the delete hook is a deliberate no-op because `content` is annotated `userOwned`, so erasure runs via crypto-shredding (destroying the owner's subject key) rather than a physical delete, which would not survive an event replay. Mount this whenever `createTemplateResolverFeature` declares a collection with `ownership: \"user\"` — the boot guard otherwise refuses the entity. Requires `user-data-rights`, optionalRequires `template-resolver`.",
-      "toggleableDefault": null,
-      "requires": [
-        "user-data-rights"
-      ],
-      "optionalRequires": [
-        "template-resolver"
-      ],
-      "configReads": [],
-      "exposesApis": [],
-      "usesApis": [],
-      "extensionsUsed": [
-        {
-          "extensionName": "userData",
-          "entityName": "user-content-entry"
-        }
-      ],
-      "configKeys": [],
-      "secrets": [],
-      "writeHandlers": []
-    },
-    {
       "name": "tenant",
       "description": "Registers the three core multi-tenancy entities — `tenant`, `tenant-membership`, and `tenant-invitation` (DB tables `read_tenants`, `read_tenant_memberships`, and `read_tenant_invitations`) — along with write handlers for create/update/disable/enable/addMember/removeMember/updateMemberRoles and the matching queries. It also declares a set of per-tenant config keys (companyName, timezone, locale, SMTP credentials) and system-only keys (priceModel, maxUsers) via `r.config({ keys: { ... } })`. Use this feature in every multi-tenant app; membership resolution and invitation flows depend on it, and `auth-email-password` requires it.",
       "toggleableDefault": null,
-      "adoptsBundledLists": true,
       "requires": [
         "config"
       ],
@@ -3419,7 +3289,6 @@
           "options": [
             "de",
             "en",
-            "fr",
             "es"
           ],
           "bounds": null,
@@ -3662,6 +3531,10 @@
           "entityName": "tenant-retention-override"
         },
         {
+          "extensionName": "tenantData",
+          "entityName": "access-log"
+        },
+        {
           "extensionName": "tenantLifecycleStatus",
           "entityName": "tenant-lifecycle"
         }
@@ -3787,7 +3660,6 @@
       "name": "user",
       "description": "Manages the cross-tenant user identity: the `read_users` table holds each user's email, `displayName`, global `roles`, `emailVerified` flag, and lifecycle `status` (active / restricted / deletionRequested / deleted). Because users exist above any individual tenant, the feature runs with `r.systemScope()` — membership and tenant-specific roles live in the `tenant` feature instead. Add this feature whenever your app needs a persistent, tenant-agnostic user record that auth and GDPR pipelines can reference.",
       "toggleableDefault": null,
-      "adoptsBundledLists": true,
       "requires": [],
       "optionalRequires": [],
       "configReads": [],
@@ -3813,9 +3685,8 @@
     },
     {
       "name": "user-data-rights",
-      "description": "Implements GDPR Art. 15 (access / `my-audit-log` query), Art. 17 (erasure / `request-deletion` + `cancel-deletion`, plus the anonymous email-verified `request-deletion-by-email` + `confirm-deletion-by-token` flow for lockout-safe self-service, + cron cleanup with grace period), Art. 18 (restriction / `restrict-account` + `lift-restriction`), and Art. 20 (portability / async `request-export` → ZIP via `file-foundation`, Magic-Link download) as first-class HTTP handlers and cron jobs. Each domain feature opts in by calling `r.useExtension(EXT_USER_DATA, \"<entity>\", { export, delete })` — the feature then orchestrates the export and forget pipelines across all registered hooks automatically. When `mail-foundation` and a `mail-transport-*` are mounted, it also sends the four GDPR notifications (export ready/failed, deletion requested/executed) itself with no app callback code, rendered in each recipient’s locale. Requires `user`, `data-retention`, `compliance-profiles`, and `sessions`.",
+      "description": "Implements GDPR Art. 15 (access / `my-audit-log` query), Art. 17 (erasure / `request-deletion` + `cancel-deletion`, plus the anonymous email-verified `request-deletion-by-email` + `confirm-deletion-by-token` flow for lockout-safe self-service, + cron cleanup with grace period), Art. 18 (restriction / `restrict-account` + `lift-restriction`), and Art. 20 (portability / async `request-export` → ZIP via `file-foundation`, Magic-Link download) as first-class HTTP handlers and cron jobs. Each domain feature opts in by calling `r.applyExtension({ name: EXT_USER_DATA, entity: \"<entity>\", export, delete })` — the feature then orchestrates the export and forget pipelines across all registered hooks automatically. When `mail-foundation` and a `mail-transport-*` are mounted, it also sends the GDPR notifications (export ready/failed, deletion requested/executed) itself with no app callback code, rendered in each recipient’s locale. The anonymous deletion flow sends its verify mail itself through delivery. Requires `user`, `data-retention`, `compliance-profiles`, and `sessions`.",
       "toggleableDefault": null,
-      "adoptsBundledLists": true,
       "requires": [
         "user",
         "data-retention",
@@ -3984,7 +3855,6 @@
       "name": "waitlist",
       "description": "Public waitlist: an anonymous, rate-limited `submit` handler collects name, email and optional company, portfolio and message (a honeypot field and per-email dedupe keep bots and repeat submits out, and the response body is identical whether or not an address was already listed), and mails the submitter a confirmation. SystemAdmins review entries in a list screen and invite or reject them; an invite creates the entrant's own tenant (or joins one shared tenant) and mails an accept link with the configured membership role, never a global role. Entries are platform-wide, their personal data is crypto-shredding-ready, and the EXT_USER_DATA hooks export and erase entries matching a user's email.",
       "toggleableDefault": null,
-      "adoptsBundledLists": true,
       "requires": [
         "tenant",
         "auth-email-password",
