@@ -480,7 +480,7 @@ describe("template-resolver :: draft beside the active version", () => {
       { id },
       admin,
     );
-    expect(refusedForTenant).toBeDefined();
+    expect(refusedForTenant).toMatchObject({ code: "access_denied", httpStatus: 403 });
     await stack.http.writeOk(TemplateResolverHandlers.discardDraftSystem, { id }, systemAdmin);
 
     const working = await findWorking(id, systemAdmin);

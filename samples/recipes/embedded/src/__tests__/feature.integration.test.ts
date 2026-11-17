@@ -114,7 +114,10 @@ describe("embedded validation", () => {
       { name: "No Address" },
       admin,
     );
-    expect(error).toBeDefined();
+    expect(error).toMatchObject({
+      code: "validation_error",
+      details: { fields: expect.arrayContaining([expect.objectContaining({ path: "address" })]) },
+    });
   });
 
   test("address with missing required sub-field fails", async () => {
@@ -126,7 +129,12 @@ describe("embedded validation", () => {
       },
       admin,
     );
-    expect(error).toBeDefined();
+    expect(error).toMatchObject({
+      code: "validation_error",
+      details: {
+        fields: expect.arrayContaining([expect.objectContaining({ path: "address.zip" })]),
+      },
+    });
   });
 });
 
@@ -221,7 +229,12 @@ describe("embedded list of like-shaped rows", () => {
       },
       admin,
     );
-    expect(error).toBeDefined();
+    expect(error).toMatchObject({
+      code: "validation_error",
+      details: {
+        fields: expect.arrayContaining([expect.objectContaining({ path: "phoneNumbers.1.number" })]),
+      },
+    });
   });
 
   test("field access is applied per row, the value stays an array", async () => {
@@ -312,7 +325,12 @@ describe("invoice line items with select/reference/derived/totals metadata", () 
       { customer: "Bad Unit", lines: [{ ...validLine, unit: "liters" }] },
       admin,
     );
-    expect(error).toBeDefined();
+    expect(error).toMatchObject({
+      code: "validation_error",
+      details: {
+        fields: expect.arrayContaining([expect.objectContaining({ path: "lines.0.unit" })]),
+      },
+    });
   });
 
   test("a line with a non-UUID product reference is rejected", async () => {
@@ -321,7 +339,12 @@ describe("invoice line items with select/reference/derived/totals metadata", () 
       { customer: "Bad Product", lines: [{ ...validLine, product: "not-a-uuid" }] },
       admin,
     );
-    expect(error).toBeDefined();
+    expect(error).toMatchObject({
+      code: "validation_error",
+      details: {
+        fields: expect.arrayContaining([expect.objectContaining({ path: "lines.0.product" })]),
+      },
+    });
   });
 
   test("an empty lines array violates minItems and is rejected", async () => {
@@ -330,7 +353,10 @@ describe("invoice line items with select/reference/derived/totals metadata", () 
       { customer: "No Lines", lines: [] },
       admin,
     );
-    expect(error).toBeDefined();
+    expect(error).toMatchObject({
+      code: "validation_error",
+      details: { fields: expect.arrayContaining([expect.objectContaining({ path: "lines" })]) },
+    });
   });
 
   test("more than maxItems lines is rejected", async () => {
@@ -340,7 +366,10 @@ describe("invoice line items with select/reference/derived/totals metadata", () 
       { customer: "Too Many Lines", lines: tooManyLines },
       admin,
     );
-    expect(error).toBeDefined();
+    expect(error).toMatchObject({
+      code: "validation_error",
+      details: { fields: expect.arrayContaining([expect.objectContaining({ path: "lines" })]) },
+    });
   });
 });
 

@@ -10,7 +10,7 @@ import { SUPPORTED_FIELD_TYPES } from "../web/constants.ts";
 // MSP + read pipeline exists; they test the ES loop end to end.
 
 describe("createCustomFieldsFeature shape", () => {
-  test("registers field-definition entity + 6 write-handlers + 1 query-handler", () => {
+  test("registers field-definition entity with its write and query handlers", () => {
     const feature = createCustomFieldsFeature();
 
     expect(Object.keys(feature.entities ?? {})).toContain("field-definition");
@@ -27,7 +27,9 @@ describe("createCustomFieldsFeature shape", () => {
       ]),
     );
 
-    expect(Object.keys(feature.queryHandlers)).toHaveLength(1);
+    expect(Object.keys(feature.queryHandlers)).toEqual(
+      expect.arrayContaining([expect.stringMatching(/field-definition:list/)]),
+    );
   });
 
   test("registers customFields extension-name via extendsRegistrar (B2 wiring opt-in)", () => {

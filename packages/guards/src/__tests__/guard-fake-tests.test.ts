@@ -225,3 +225,59 @@ describe("guard-fake-tests: test modifiers and self comparisons", () => {
     expect(violations).toHaveLength(0);
   });
 });
+
+describe("guard-fake-tests — existence-only checks on error results", () => {
+  test("toBeDefined on a writeErr result is reported", () => {
+    const violations = run(`
+      test("t", async () => { const error = await stack.http.writeErr("x", {}, u); expect(error).toBeDefined(); });
+    `);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.message).toContain("ERROR EXISTS ONLY");
+  });
+
+  test("toBeTruthy on a field of a queryErr result is reported", () => {
+    const violations = run(`
+      test("t", async () => { const err = await api.queryErr("x"); expect(err.code).toBeTruthy(); });
+    `);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.message).toContain("ERROR EXISTS ONLY");
+  });
+
+  test("not.toBeNull on a writeErr result is reported", () => {
+    const violations = run(`
+      test("t", async () => { const error = await stack.http.writeErr("x", {}, u); expect(error).not.toBeNull(); });
+    `);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.message).toContain("ERROR EXISTS ONLY");
+  });
+
+  test("an inline awaited writeErr call is reported", () => {
+    const violations = run(`
+      test("t", async () => { expect(await stack.http.writeErr("x", {}, u)).toBeDefined(); });
+    `);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.message).toContain("ERROR EXISTS ONLY");
+  });
+
+  test("asserting the error code is allowed", () => {
+    const violations = run(`
+      test("t", async () => { const error = await stack.http.writeErr("x", {}, u); expect(error.code).toBe("validation_error"); });
+    `);
+    expect(violations).toHaveLength(0);
+  });
+
+  test("a same-named variable from another call is resolved by symbol, not by name", () => {
+    const violations = run(`
+      test("one", async () => { const error = await stack.http.writeErr("x", {}, u); expect(error.code).toBe("x"); });
+      test("two", async () => { const error = await stack.http.queryOk("x", {}, u); expect(error).toBeDefined(); });
+    `);
+    expect(violations).toHaveLength(0);
+  });
+
+  test("an existence check on a non-error result is allowed", () => {
+    const violations = run(`
+      test("t", async () => { const result = await guard.checkStockCap("x"); expect(result).toBeDefined(); });
+    `);
+    expect(violations).toHaveLength(0);
+  });
+});

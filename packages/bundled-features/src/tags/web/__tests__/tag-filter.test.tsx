@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { fileURLToPath } from "node:url";
 import { entityListSchema } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createStaticLocaleResolver,
@@ -69,7 +70,11 @@ const StubPicker = ({
     pick urgent
   </button>
 );
-mock.module("../tag-picker", () => ({ TagPicker: StubPicker }));
+mockModuleForFile(
+  fileURLToPath(new URL("../tag-picker.tsx", import.meta.url)),
+  await import("../tag-picker.tsx"),
+  { TagPicker: StubPicker },
+);
 
 function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
   return (

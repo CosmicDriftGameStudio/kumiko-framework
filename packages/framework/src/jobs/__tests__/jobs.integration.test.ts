@@ -34,6 +34,7 @@ import {
 } from "../job-runner.ts";
 import { purgeRawRedisKeys } from "./purge-raw-redis-keys.ts";
 import { createReleaseGate } from "./release-gate.ts";
+import { waitForNoPendingJobs } from "./wait-for-no-pending-jobs.ts";
 
 // --- Shared state ---
 
@@ -57,6 +58,8 @@ function clearLog() {
 
 // --- Feature with test jobs ---
 
+const skipJobGate = createReleaseGate();
+
 const testFeature = defineFeature("test", (r) => {
   // Scenario 1: Boot job
   r.job("bootSync", { trigger: { manual: true }, runOnBoot: true }, async (payload) => {
@@ -76,7 +79,7 @@ const testFeature = defineFeature("test", (r) => {
   // Concurrency: skip — if running, skip new
   r.job("skipJob", { trigger: { manual: true }, concurrency: "skip" }, async (payload) => {
     jobLog.push({ name: "test:job:skip-job", payload, timestamp: Date.now() });
-    await sleep(500); // Simulate long-running job
+    await skipJobGate.wait();
   });
 
   // Concurrency: parallel — multiple can run
@@ -87,7 +90,6 @@ const testFeature = defineFeature("test", (r) => {
   // Concurrency: replace — cancel old, start new
   r.job("replaceJob", { trigger: { manual: true }, concurrency: "replace" }, async (payload) => {
     jobLog.push({ name: "test:job:replace-job", payload, timestamp: Date.now() });
-    await sleep(200);
   });
 
   // Concurrency: debounce — wait until quiet, then run once
@@ -465,33 +467,23 @@ describe("concurrency: parallel", () => {
 describe("concurrency: skip", () => {
   test("skip mode prevents duplicate execution", async () => {
     clearLog();
-    await withRunner(async (runner) => {
-      // First job takes 500ms
-      await runner.dispatch("test:job:skip-job", { n: 1 });
-
-      // Try dispatching multiple times while first is running
-      let skippedCount = 0;
-      // @timeout-exception: #3118 paces repeated dispatch attempts, nothing to poll for
-      for (let i = 0; i < 5; i++) {
-        await sleep(50);
-        const id = await runner.dispatch("test:job:skip-job", { n: i + 2 });
-        if (id === "skipped") skippedCount++;
-      }
-
-      // Wait until the first (running) job finishes so its log entry lands.
-      // Skip-mode guarantees max one job at a time, so we only ever need to
-      // see a single entry to know the run settled.
-      await waitFor(() => {
-        const entries = jobLog.filter((e) => e.name === "test:job:skip-job");
-        expect(entries.length).toBeGreaterThanOrEqual(1);
+    skipJobGate.hold();
+    try {
+      await withRunner(async (runner) => {
+        await runner.dispatch("test:job:skip-job", { n: 1 });
+        await waitFor(() => {
+          expect(jobLog.filter((e) => e.name === "test:job:skip-job")).toHaveLength(1);
+        });
+        for (let i = 0; i < 5; i++) {
+          expect(await runner.dispatch("test:job:skip-job", { n: i + 2 })).toBe("skipped");
+        }
+        skipJobGate.release();
+        await waitForNoPendingJobs(runner);
+        expect(jobLog.filter((e) => e.name === "test:job:skip-job")).toHaveLength(1);
       });
-
-      // At least some should have been skipped
-      expect(skippedCount).toBeGreaterThan(0);
-      // Should not have run all 6 times
-      const entries = jobLog.filter((e) => e.name === "test:job:skip-job");
-      expect(entries.length).toBeLessThan(6);
-    });
+    } finally {
+      skipJobGate.release();
+    }
   });
 });
 
@@ -648,15 +640,11 @@ describe("concurrency: sequential", () => {
         },
         { delays: [200, 400, 800] },
       );
-      // Tiny grace so BullMQ marks the failed job done and our finally
-      // ran — otherwise the lock-release race could outlast the next
-      // dispatch's acquire attempt.
-      await sleep(150);
-
       // No surviving lock for this job-name in Redis — the value-matched
       // DEL ran in finally.
-      const surviving = await testRedis.redis.keys("kumiko:lock:seq:*sequential-fail-job");
-      expect(surviving.length).toBe(0);
+      await waitFor(async () => {
+        expect(await testRedis.redis.keys("kumiko:lock:seq:*sequential-fail-job")).toHaveLength(0);
+      });
 
       // Fresh dispatch must run — proves the lock isn't blocking new
       // arrivals after the throw.
@@ -994,7 +982,7 @@ describe("error handling", () => {
       await runner.dispatch("test:job:per-tenant-fanout", { n: 1 });
       // Wrapper throws before fan-out (and before onJobFailed) — settle, then
       // prove the worker still consumes.
-      await sleep(300);
+      await waitForNoPendingJobs(runner);
       expect(jobLog.filter((e) => e.name === "test:job:per-tenant-fanout")).toHaveLength(0);
 
       await runner.dispatch("test:job:manual-report", { after: "perTenant-miss" });
@@ -1050,7 +1038,7 @@ describe("error handling", () => {
           const runs = jobLog.filter((e) => e.name === "test:job:per-tenant-with-system");
           expect(runs).toHaveLength(2);
         });
-        await sleep(300);
+        await waitForNoPendingJobs(runner);
         const runs = jobLog.filter((e) => e.name === "test:job:per-tenant-with-system");
         expect(runs.map((e) => e.payload["ranFor"]).sort()).toEqual(
           ["with-system-c", SYSTEM_TENANT_ID].sort(),
@@ -1070,7 +1058,7 @@ describe("error handling", () => {
         await waitFor(() => {
           expect(jobLog.filter((e) => e.name === "test:job:per-tenant-fanout")).toHaveLength(1);
         });
-        await sleep(300);
+        await waitForNoPendingJobs(runner);
         expect(jobLog.filter((e) => e.name === "test:job:per-tenant-fanout")).toHaveLength(1);
       },
       { getActiveTenantIds: async () => tenants },
@@ -1085,7 +1073,7 @@ describe("error handling", () => {
         await waitFor(() => {
           expect(jobLog.filter((e) => e.name === "test:job:per-tenant-only-one")).toHaveLength(1);
         });
-        await sleep(300);
+        await waitForNoPendingJobs(runner);
         const runs = jobLog.filter((e) => e.name === "test:job:per-tenant-only-one");
         expect(runs.map((e) => e.payload["ranFor"])).toEqual([ONLY_TENANT_ID]);
       },
@@ -1098,7 +1086,7 @@ describe("error handling", () => {
     await withRunner(
       async (runner) => {
         await runner.dispatch("test:job:per-tenant-only-one", {});
-        await sleep(300);
+        await waitForNoPendingJobs(runner);
         expect(jobLog.filter((e) => e.name === "test:job:per-tenant-only-one")).toHaveLength(0);
 
         await runner.dispatch("test:job:manual-report", { after: "only-tenants-miss" });
@@ -1345,11 +1333,11 @@ describe("perTenant wrapper re-run for the same trigger", () => {
       await completedWrapper?.remove();
       await rawQueue.add("_perTenant:multidedup:job:fanout", {}, { jobId: wrapperJobId });
 
-      // Give the second run's fan-out a chance to land. It re-derives the
-      // SAME child ids as the first run, so BullMQ's existing-jobId add()
-      // should return the already-completed children rather than re-run
-      // the handler.
-      await sleep(500);
+      // Wait for the second wrapper run and any fan-out it re-derived to settle.
+      await waitFor(async () => {
+        expect(await rawQueue.getJobState(wrapperJobId)).toBe("completed");
+      });
+      await waitForNoPendingJobs(runner);
     } finally {
       await runner.stop();
       await rawQueue.close();
@@ -1550,7 +1538,6 @@ describe("boot gates", () => {
       // The gate's own message must survive — which blocks are missing is the
       // entire operational value, and onJobFailed runs before the re-throw.
       await expect(runner.start()).rejects.toThrow(GATE_FAILURE);
-      await sleep(300);
       // The gate aborted start() before any further boot wiring ran: the
       // runOnBoot job was never even enqueued, and never executed.
       const bootJob = await queue.getJob(bootJobIdForJobName(afterGateName));
@@ -1581,9 +1568,9 @@ describe("boot gates", () => {
     });
     queue.on("error", () => {});
     try {
-      await queue.add("queuedgate:job:pending", {});
+      const pendingJob = await queue.add("queuedgate:job:pending", {});
       await expect(runner.start()).rejects.toThrow(GATE_FAILURE);
-      await sleep(300);
+      expect(await pendingJob.getState()).toBe("waiting");
       expect(executed).toEqual([]);
     } finally {
       await queue.close();

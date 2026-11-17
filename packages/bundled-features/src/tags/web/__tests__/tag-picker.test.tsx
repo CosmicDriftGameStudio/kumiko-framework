@@ -10,17 +10,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactNode, useState } from "react";
 import { TagsQueries } from "../constants.ts";
 import { defaultTranslations } from "../i18n.ts";
-import type { TagPicker as TagPickerComponent } from "../tag-picker.tsx";
-
-// tag-filter.test.tsx and tag-section.test.tsx register a process-wide
-// mock.module stub on the resolved "../tag-picker" path; the query-string
-// specifier loads the real component past it. It goes through a variable
-// because tsc cannot resolve the suffixed specifier, so the namespace type
-// comes from the type-only import above.
-const REAL_TAG_PICKER_SPECIFIER = "../tag-picker?real=tag-picker-test";
-const { TagPicker } = (await import(REAL_TAG_PICKER_SPECIFIER)) as {
-  readonly TagPicker: typeof TagPickerComponent;
-};
+import { TagPicker } from "../tag-picker.tsx";
 
 type TagRow = { id: string; name: string; color?: string; scope?: string; version: number };
 type AssignmentRow = { tagId: string };

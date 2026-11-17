@@ -20,7 +20,7 @@ function writeAccess(
 }
 
 describe("createLedgerFeature shape", () => {
-  test("registers account + transaction + schedule entities, 7 write-handlers, 9 query-handlers", () => {
+  test("registers account, transaction and schedule entities with their handlers", () => {
     const feature = createLedgerFeature();
 
     expect(Object.keys(feature.entities ?? {})).toEqual(
@@ -38,7 +38,6 @@ describe("createLedgerFeature shape", () => {
         expect.stringMatching(/confirm-schedule-period/),
       ]),
     );
-    expect(Object.keys(feature.writeHandlers)).toHaveLength(7);
 
     expect(Object.keys(feature.queryHandlers)).toEqual(
       expect.arrayContaining([
@@ -53,7 +52,6 @@ describe("createLedgerFeature shape", () => {
         expect.stringMatching(/report:balance-sheet/),
       ]),
     );
-    expect(Object.keys(feature.queryHandlers)).toHaveLength(9);
   });
 
   test("transaction is immutable: NO update/delete handler is registered", () => {

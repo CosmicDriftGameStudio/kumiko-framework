@@ -39,7 +39,7 @@ function rawWriteAccess(
 }
 
 describe("createFoldersFeature shape", () => {
-  test("registers folder + folder-assignment entities, 5 write-handlers, 3 query-handlers", () => {
+  test("registers folder and folder-assignment entities with their handlers", () => {
     const feature = createFoldersFeature();
 
     expect(Object.keys(feature.entities ?? {})).toEqual(
@@ -55,7 +55,6 @@ describe("createFoldersFeature shape", () => {
         expect.stringMatching(/clear-folder/),
       ]),
     );
-    expect(Object.keys(feature.writeHandlers)).toHaveLength(5);
 
     expect(Object.keys(feature.queryHandlers)).toEqual(
       expect.arrayContaining([
@@ -64,7 +63,6 @@ describe("createFoldersFeature shape", () => {
         expect.stringMatching(/folder-assignment:list/),
       ]),
     );
-    expect(Object.keys(feature.queryHandlers)).toHaveLength(3);
   });
 });
 

@@ -4,8 +4,11 @@
  *   (a) Always-true assertions: expect(true).toBe(true), expect(1).toBe(1),
  *       or a value compared with itself
  *   (b) Test bodies with zero expect() calls
+ *   (c) An existence-only check (toBeDefined/toBeTruthy/not.toBeNull/
+ *       not.toBeUndefined) on a writeErr/queryErr result, which always
+ *       returns an error object
  *
- * Both are silent failures — they count as "passing" but prove nothing. In
+ * All are silent failures — they count as "passing" but prove nothing. In
  * integration tests this is particularly toxic, since the whole point is to
  * prove wiring against the real stack.
  *
@@ -34,7 +37,7 @@ const SCAN: ScanSpec = {
 interface Violation {
   file: string;
   line: number;
-  kind: "tautology" | "no-expect";
+  kind: "tautology" | "no-expect" | "error-existence";
   detail: string;
 }
 
@@ -87,6 +90,68 @@ function isSelfComparison(call: CallExpression): boolean {
   if (actual === undefined || expected === undefined) return false;
   if (containsCallOrNew(actual)) return false;
   return withoutWhitespace(actual.getText()) === withoutWhitespace(expected.getText());
+}
+
+const ERROR_RESULT_METHODS: ReadonlySet<string> = new Set(["writeErr", "queryErr"]);
+const EXISTENCE_ONLY_MATCHERS: ReadonlySet<string> = new Set(["toBeDefined", "toBeTruthy"]);
+const NEGATED_EXISTENCE_MATCHERS: ReadonlySet<string> = new Set(["toBeNull", "toBeUndefined"]);
+const ERROR_RESULT_FIELDS: ReadonlySet<string> = new Set([
+  "code",
+  "httpStatus",
+  "message",
+  "i18nKey",
+]);
+
+function isErrorResultCall(node: Node): boolean {
+  const inner = node.isKind(SyntaxKind.AwaitExpression) ? node.getExpression() : node;
+  if (!inner.isKind(SyntaxKind.CallExpression)) return false;
+  const callee = inner.getExpression();
+  return (
+    callee.isKind(SyntaxKind.PropertyAccessExpression) && ERROR_RESULT_METHODS.has(callee.getName())
+  );
+}
+
+// Resolved by symbol, never by name, so a same-named variable from another
+// scope (e.g. `error` from a queryOk call) is not mistaken for an error result.
+function isErrorResultValue(node: Node, sf: SourceFile): boolean {
+  if (isErrorResultCall(node)) return true;
+  if (node.isKind(SyntaxKind.PropertyAccessExpression)) {
+    return ERROR_RESULT_FIELDS.has(node.getName()) && isErrorResultValue(node.getExpression(), sf);
+  }
+  if (!node.isKind(SyntaxKind.Identifier)) return false;
+  return (node.getSymbol()?.getDeclarations() ?? []).some((decl) => {
+    if (decl.getSourceFile() !== sf || !decl.isKind(SyntaxKind.VariableDeclaration)) return false;
+    const init = decl.getInitializer();
+    return init !== undefined && isErrorResultCall(init);
+  });
+}
+
+function isExpectCall(node: Node): node is CallExpression {
+  return node.isKind(SyntaxKind.CallExpression) && node.getExpression().getText() === "expect";
+}
+
+// writeErr/queryErr return an error object or throw, so asserting only that
+// the result exists can never fail.
+function isExistenceOnlyErrorCheck(call: CallExpression, sf: SourceFile): boolean {
+  const matcher = call.getExpression();
+  if (!matcher.isKind(SyntaxKind.PropertyAccessExpression)) return false;
+  const target = matcher.getExpression();
+  let expectCall: Node;
+  if (EXISTENCE_ONLY_MATCHERS.has(matcher.getName())) {
+    expectCall = target;
+  } else if (
+    NEGATED_EXISTENCE_MATCHERS.has(matcher.getName()) &&
+    target.isKind(SyntaxKind.PropertyAccessExpression) &&
+    target.getName() === "not"
+  ) {
+    expectCall = target.getExpression();
+  } else {
+    return false;
+  }
+  if (!isExpectCall(expectCall)) return false;
+  const args = expectCall.getArguments();
+  const actual = args[0];
+  return args.length === 1 && actual !== undefined && isErrorResultValue(actual, sf);
 }
 
 // Helpers that internally call `expect(...)` and assert something —
@@ -185,6 +250,17 @@ function scanFile(sf: SourceFile): Violation[] {
       continue;
     }
 
+    // (c) existence-only check on a writeErr/queryErr result
+    if (isExistenceOnlyErrorCheck(call, sf)) {
+      violations.push({
+        file: path.relative(ROOT, sf.getFilePath()),
+        line: call.getStartLineNumber(),
+        kind: "error-existence",
+        detail: text.slice(0, 60),
+      });
+      continue;
+    }
+
     // (b) no-expect: it/test with empty expect count
     if (!isTestCall(call, aliases)) continue;
     const args = call.getArguments();
@@ -208,19 +284,25 @@ function scanFile(sf: SourceFile): Violation[] {
   return violations;
 }
 
+const VIOLATION_LABELS: Record<Violation["kind"], string> = {
+  tautology: "TAUTOLOGY",
+  "error-existence":
+    "ERROR EXISTS ONLY (writeErr/queryErr always return an error; assert its code or details)",
+  "no-expect": "NO EXPECT",
+};
+
 export const guard: AstGuard = {
   name: "Fake-Test Guard",
   scan: SCAN,
-  hint: "Test without expect() or with a tautology — check real behavior, not existence.",
+  hint: "Test without expect(), with a tautology, or an existence-only check on a writeErr/queryErr result — check real behavior, not existence.",
   run(files) {
     const violations: Array<{ file: string; line: number; message: string }> = [];
     for (const sf of files) {
       for (const v of scanFile(sf)) {
-        const label = v.kind === "tautology" ? "TAUTOLOGY" : "NO EXPECT";
         violations.push({
           file: v.file,
           line: v.line,
-          message: `${label}: ${v.detail}`,
+          message: `${VIOLATION_LABELS[v.kind]}: ${v.detail}`,
         });
       }
     }

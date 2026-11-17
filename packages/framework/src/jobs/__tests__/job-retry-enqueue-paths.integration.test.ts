@@ -9,7 +9,7 @@
 // eventually" would pass without the fix there.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { sleep, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createTestRedis,
   type TestRedis,
@@ -19,6 +19,7 @@ import { Queue } from "bullmq";
 import { createRegistry, defineFeature } from "../../engine/index.ts";
 import type { AppContext, TenantId } from "../../engine/types/index.ts";
 import { bootJobIdForJobName, createJobRunner, type JobMeta } from "../job-runner.ts";
+import { waitForNoPendingJobs } from "./wait-for-no-pending-jobs.ts";
 
 let testRedis: TestRedis;
 let redisUrl: string;
@@ -218,7 +219,7 @@ describe("job retries on every enqueue path", () => {
       // A wrapper retry re-derives the same child ids from its own stable
       // BullMQ job id, so a late second fan-out would be a no-op on
       // existing-jobId add() — but nothing should even attempt one here.
-      await sleep(400);
+      await waitForNoPendingJobs(runner);
       for (const tenantId of tenants) {
         expect(handlerCalls.get(tenantId)).toBe(1);
       }

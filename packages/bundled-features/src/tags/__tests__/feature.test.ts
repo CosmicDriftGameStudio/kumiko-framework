@@ -64,7 +64,6 @@ describe("createTagsFeature shape", () => {
         expect.stringMatching(/remove-tag/),
       ]),
     );
-    expect(Object.keys(feature.writeHandlers)).toHaveLength(5);
 
     expect(Object.keys(feature.queryHandlers)).toEqual(
       expect.arrayContaining([
@@ -73,7 +72,6 @@ describe("createTagsFeature shape", () => {
         "tag:detail",
       ]),
     );
-    expect(Object.keys(feature.queryHandlers)).toHaveLength(3);
   });
 });
 

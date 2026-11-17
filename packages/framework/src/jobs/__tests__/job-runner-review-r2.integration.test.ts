@@ -2,7 +2,7 @@
 // worker and real Redis.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { sleep, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createTestDb,
   createTestRedis,
@@ -20,6 +20,7 @@ import { createPrometheusMeter } from "../../observability/index.ts";
 import { createDistributedLock } from "../../pipeline/distributed-lock.ts";
 import { RedisKeys } from "../../pipeline/redis-keys.ts";
 import { createJobRunner, type JobOutcomeMeta } from "../job-runner.ts";
+import { waitForNoPendingJobs } from "./wait-for-no-pending-jobs.ts";
 
 let testRedis: TestRedis;
 let testDb: TestDb;
@@ -189,7 +190,7 @@ describe("tenantVisibleFailure subject config error", () => {
     try {
       await runner.dispatch("subjectcfg:job:tracked", { docId: { nested: true } });
       await waitFor(() => failed.length > 0);
-      await sleep(500);
+      await waitForNoPendingJobs(runner);
       expect(started).toEqual(["subjectcfg:job:tracked"]);
       expect(failed).toHaveLength(1);
       expect(failed[0]?.error).toContain('subjectFields["docId"] must be a primitive');
@@ -303,7 +304,7 @@ describe("sequential lock conflict on a retry attempt", () => {
       await waitFor(() => finalFlags.length >= 2);
       expect(finalFlags[1]).toBe(true);
 
-      await sleep(800);
+      await waitForNoPendingJobs(runner);
       expect(handlerCalls).toBe(2);
     } finally {
       await rawQueue.close();

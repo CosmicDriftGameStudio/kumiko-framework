@@ -603,7 +603,11 @@ describe("managed-pages :: Branding (Config + Render)", () => {
       { key: BRANDING_QN.customCss, value: ".x { color: red; }" },
       adminA,
     );
-    expect(error).toBeTruthy();
+    expect(error).toMatchObject({
+      code: "not_found",
+      httpStatus: 404,
+      i18nKey: "config.errors.unknownKey",
+    });
   });
 
   test("valid Branding (Hex + https + Preset) is set and applied in rendering", async () => {
