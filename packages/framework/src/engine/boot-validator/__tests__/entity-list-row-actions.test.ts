@@ -3,7 +3,7 @@ import { withBootValidatorFixture } from "@cosmicdrift/kumiko-testing/helpers";
 import * as z from "zod";
 import { validateBoot as validateBootRaw } from "../../boot-validator.ts";
 import { defineFeature } from "../../define-feature.ts";
-import { createEntity, createTextField } from "../../factories.ts";
+import { createDerivedField, createEntity, createTextField } from "../../factories.ts";
 import { from } from "../../ownership.ts";
 
 function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
@@ -214,6 +214,16 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
           ...createEntity({
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
             softDelete: opts.softDelete ?? false,
+            derivedFields: {
+              archivable: createDerivedField({
+                valueType: "boolean",
+                derive: (row) => row["name"] !== "",
+              }),
+              displayName: createDerivedField({
+                valueType: "text",
+                sql: { kind: "coalesce", fields: ["name"] },
+              }),
+            },
           }),
         });
         r.screen({
@@ -256,6 +266,26 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("visible.field on unknown Field → Throw", () => {
       expect(() => validateBoot([makeFeature({ visibleField: "ghost" })])).toThrow(
         /visible\.field references unknown field "ghost"/,
+      );
+    });
+
+    test("visible.field on a JS derived field → no throw", () => {
+      expect(() => validateBoot([makeFeature({ visibleField: "archivable" })])).not.toThrow();
+    });
+
+    test("visible.field on a SQL derived field → no throw", () => {
+      expect(() => validateBoot([makeFeature({ visibleField: "displayName" })])).not.toThrow();
+    });
+
+    test("visible.field on an unknown field lists the derived fields as known", () => {
+      expect(() => validateBoot([makeFeature({ visibleField: "ghost" })])).toThrow(
+        /visible\.field references unknown field "ghost"\. Known fields: archivable, displayName, name\./,
+      );
+    });
+
+    test("payload pick of a derived field → throws (derived values are display-only)", () => {
+      expect(() => validateBoot([makeFeature({ pick: ["id", "archivable"] })])).toThrow(
+        /payload references unknown field "archivable"/,
       );
     });
 

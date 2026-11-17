@@ -44,6 +44,7 @@ type EntityListFields = {
   readonly entityDef: EntityDefinition;
   readonly fieldNames: ReadonlySet<string>;
   readonly columnFieldNames: ReadonlySet<string>;
+  readonly derivedFieldNames: ReadonlySet<string>;
   readonly rowMeta: ReadonlySet<string>;
 };
 
@@ -54,15 +55,14 @@ function resolveEntityListFields(
 ): EntityListFields {
   const entityDef = resolveScreenEntity(ctx, screenId, entityName);
   const fieldNames = new Set(Object.keys(entityDef.fields));
-  // List columns may also name a read-time derived field (not a stored column).
-  // Deliberately NOT added to `fieldNames`, so filtering one still fails; only a
-  // `sortable` SQL derived field may be the defaultSort (see isSortableSqlDerivedField).
-  const columnFieldNames =
-    entityDef.derivedFields !== undefined
-      ? new Set([...fieldNames, ...Object.keys(entityDef.derivedFields)])
-      : fieldNames;
+  // List columns and a row action's visible.field may name a read-time derived
+  // field (not a stored column). It stays out of `fieldNames`, so filtering,
+  // extractors and entityId on it still fail, and only a `sortable` SQL derived
+  // field may be the defaultSort (see isSortableSqlDerivedField).
+  const derivedFieldNames = new Set(Object.keys(entityDef.derivedFields ?? {}));
+  const columnFieldNames = new Set([...fieldNames, ...derivedFieldNames]);
   const rowMeta = rowMetaFieldNames(entityDef.softDelete ?? false);
-  return { entityDef, fieldNames, columnFieldNames, rowMeta };
+  return { entityDef, fieldNames, columnFieldNames, derivedFieldNames, rowMeta };
 }
 
 function validateEntityListColumns(
@@ -266,6 +266,7 @@ function validateEntityListRowAction(
       ? fields.fieldNames
       : new Set([...fields.fieldNames, ...decoration.names]),
     fields.rowMeta,
+    fields.derivedFieldNames,
   );
 }
 
@@ -362,6 +363,7 @@ function validateEntityListExpandableRow(
       action,
       fields.fieldNames,
       fields.rowMeta,
+      fields.derivedFieldNames,
     );
   }
 }

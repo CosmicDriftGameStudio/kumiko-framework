@@ -215,13 +215,18 @@ export function validateActionHasIcon(
   }
 }
 
+const NO_DERIVED_FIELDS: ReadonlySet<string> = new Set();
+
 // Pin an action's declarative field references against the entity
 // fields — a typo in pick/map source fields or visible.field would otherwise
 // silently yield `undefined` in the payload or permanently wrong visibility
 // (same "typo only surfaces on click" class as navigate/handler). Exported for
 // query-output-columns.ts, which reuses it against a projectionDetail's
 // outputSchema-derived record shape instead of an entity's field map
-// (relatedList toolbarActions' visible/params).
+// (relatedList toolbarActions' visible/params). visible.field may also name a
+// read-time derived field of the entity (derivedFieldNames), because the list
+// handler puts it on every row; extractors and entityId may not, because a
+// derived value is display-only.
 export function validateActionFieldRefs(
   featureName: string,
   screenId: string,
@@ -230,6 +235,7 @@ export function validateActionFieldRefs(
   action: RowAction | ToolbarAction | RelatedListToolbarAction,
   fieldNames: ReadonlySet<string>,
   rowMeta: ReadonlySet<string>,
+  derivedFieldNames: ReadonlySet<string> = NO_DERIVED_FIELDS,
 ): void {
   // ToolbarAction.payload is a STATIC record (no row context) — only real
   // pick/map extractors are checked against the field names.
@@ -264,12 +270,14 @@ export function validateActionFieldRefs(
     visible !== undefined &&
     typeof visible !== "boolean" &&
     !rowMeta.has(visible.field) &&
-    !fieldNames.has(visible.field)
+    !fieldNames.has(visible.field) &&
+    !derivedFieldNames.has(visible.field)
   ) {
+    const knownWithDerived = [...fieldNames, ...derivedFieldNames].sort().join(", ") || "(none)";
     throw bootRuleError(SCREEN_ACTION_RULES.actionVisibleUnknownField, {
       message:
         `[Feature ${featureName}] Screen "${screenId}" ${actionKind} "${actionId}" ` +
-        `visible.field references unknown field "${visible.field}". Known fields: ${known()}.`,
+        `visible.field references unknown field "${visible.field}". Known fields: ${knownWithDerived}.`,
     });
   }
   if (entityId !== undefined && entityId !== "id" && !fieldNames.has(entityId)) {

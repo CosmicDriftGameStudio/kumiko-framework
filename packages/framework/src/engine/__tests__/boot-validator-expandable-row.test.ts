@@ -4,7 +4,7 @@ import type { EntityListExpandableRow } from "@cosmicdrift/kumiko-types/screen";
 import * as z from "zod";
 import { validateBoot as validateBootRaw } from "../boot-validator.ts";
 import { defineFeature } from "../define-feature.ts";
-import { createEntity, createTextField } from "../factories.ts";
+import { createDerivedField, createEntity, createTextField } from "../factories.ts";
 
 function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   validateBootRaw(withBootValidatorFixture(features));
@@ -23,6 +23,12 @@ function campaignFeature(expandableRow: EntityListExpandableRow) {
       name: "campaign",
       ...createEntity({
         fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        derivedFields: {
+          launched: createDerivedField({
+            valueType: "boolean",
+            derive: (row) => row["name"] !== "",
+          }),
+        },
       }),
     });
     r.queryHandler({
@@ -153,6 +159,25 @@ describe("validateBoot — entityList.expandableRow", () => {
         }),
       ]),
     ).toThrow(/toolbarAction "mark-posted".*"ghost"/);
+  });
+
+  test("a toolbarAction visible condition on a derived field of the host entity boots", () => {
+    expect(() =>
+      validateBoot([
+        campaignFeature({
+          ...validRow,
+          toolbarActions: [
+            {
+              kind: "writeHandler",
+              id: "mark-posted",
+              label: "Mark posted",
+              handler: "campaigns:write:mark-posted",
+              visible: { field: "launched", eq: true },
+            },
+          ],
+        }),
+      ]),
+    ).not.toThrow();
   });
 
   test("an entity that resolves to a registered entity boots", () => {
