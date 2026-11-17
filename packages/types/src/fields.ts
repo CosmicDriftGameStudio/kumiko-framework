@@ -1063,6 +1063,23 @@ export const NO_WIDGET_FIELD_TYPES: readonly FieldDefinition["type"][] = ["jsonb
 
 export type TransitionMap = Readonly<Record<string, readonly string[]>>;
 
+/** A named update event of an entity: `executor.update(..., { verb })` appends `<entity>.<verb>`
+ *  with the `updated` payload. A transition sets `field` to `to` and requires the current value in `from`. */
+export type EntityVerbDef = {
+  readonly transition?: {
+    readonly field: string;
+    readonly from: readonly string[];
+    readonly to: string;
+  };
+};
+
+export function isDeclaredEntityVerb(
+  entity: Pick<EntityDefinition, "verbs"> | undefined,
+  verb: string,
+): boolean {
+  return entity?.verbs !== undefined && Object.hasOwn(entity.verbs, verb);
+}
+
 /** Composite index on an entity. Columns are referenced by field name
  *  (camelCase). `buildEntityTable` maps them to snake_case column names and
  *  names the index by convention:
@@ -1167,6 +1184,8 @@ export type EntityDefinition<
   readonly lockedWhen?: FieldCondition;
   /** Allowed state transitions per field. Boot validates against select options. */
   readonly transitions?: Readonly<Record<string, TransitionMap>>;
+  /** Named update events, keyed by the event verb (`<entity>.<verb>`). Boot rejects lifecycle names. */
+  readonly verbs?: Readonly<Record<string, EntityVerbDef>>;
   /** Composite indexes over multiple fields. Single-column foreign-key indexes
    *  and the tenant_id index are still created automatically by
    *  `buildEntityTable`; this list is only for custom indexes explicitly

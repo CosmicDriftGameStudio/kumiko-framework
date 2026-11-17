@@ -348,6 +348,15 @@
 | <a id="entity-list-unknown-column"></a>`entity-list/unknown-column` | Every column without a label names an entity field, derived field or row-meta column. | Fix the column field name or give the column a label. | `packages/framework/src/engine/boot-validator/entity-list-screens-rules.ts` |
 | <a id="entity-list-unknown-named-filter"></a>`entity-list/unknown-named-filter` | Every screen namedFilters id is declared in the entity's namedFilters. | Declare the rule in EntityDefinition.namedFilters or remove the id from the screen. | `packages/framework/src/engine/boot-validator/entity-list-screens-rules.ts` |
 
+## entity-verb
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="entity-verb-invalid-name"></a>`entity-verb/invalid-name` | A declared entity verb is a camelCase word without dots or colons. | Rename the verb to match ^[a-z][a-zA-Z0-9]*$. | `packages/framework/src/engine/boot-validator/entity-structure-rules.ts` |
+| <a id="entity-verb-reserved-name"></a>`entity-verb/reserved-name` | A declared entity verb is not a lifecycle verb (created, updated, deleted, restored, forgotten). | Rename the verb. | `packages/framework/src/engine/boot-validator/entity-structure-rules.ts` |
+| <a id="entity-verb-transition-field"></a>`entity-verb/transition-field` | A verb transition names a select field of the entity. | Point the transition at a select field. | `packages/framework/src/engine/boot-validator/entity-structure-rules.ts` |
+| <a id="entity-verb-transition-state"></a>`entity-verb/transition-state` | A verb transition uses options of the field, a non-empty from list, and only pairs the entity's transitions allow. | Use existing options and keep from/to inside entity.transitions. | `packages/framework/src/engine/boot-validator/entity-structure-rules.ts` |
+
 ## env-schema
 
 | Rule | Summary | Fix | Source |

@@ -20,7 +20,7 @@
 //      before writing — loadById() for update/delete/forget, db.fetchOne() for
 //      restore — so the aggregateId is already tenant-validated on arrival.
 //   2. create sets tenantId explicitly from event.tenantId, never derived from
-import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
+import { type EntityDefinition, isDeclaredEntityVerb } from "@cosmicdrift/kumiko-types/fields";
 
 //      the TenantDb wrapper default.
 // The missing TenantDb wrapper in this function is therefore not a hole.
@@ -34,6 +34,7 @@ import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 //                        via executor.forget(). Rebuild replays created→forgotten
 //                        → the row is gone, making this rebuild-safe (unlike a
 //                        direct deleteMany).
+// A verb declared in entity.verbs (<entity>.<verb>) is applied like updated.
 //
 // Domain events (r.defineEvent) on the same aggregate are NOT handled here —
 // they never went through the Executor in the live path and must be handled by
@@ -79,13 +80,17 @@ export type ApplyResult =
   | { readonly kind: "applied"; readonly verb: AutoVerb; readonly row: DbRow | null }
   | { readonly kind: "skipped" };
 
-/** Parses event.type into an AutoVerb when the event is an auto-verb
- *  for the given aggregate; otherwise returns null (a domain event). */
-export function parseAutoVerb(event: StoredEvent): AutoVerb | null {
+/** Parses event.type into an AutoVerb for the given aggregate. A verb declared in entity.verbs
+ *  maps to "updated" (same payload and apply); anything else returns null (a domain event). */
+export function parseAutoVerb(
+  event: StoredEvent,
+  entity: EntityDefinition | undefined,
+): AutoVerb | null {
   const prefix = `${event.aggregateType}.`;
   if (!event.type.startsWith(prefix)) return null;
   const verb = event.type.slice(prefix.length);
-  return isOneOf(AUTO_VERBS, verb) ? verb : null;
+  if (isOneOf(AUTO_VERBS, verb)) return verb;
+  return isDeclaredEntityVerb(entity, verb) ? "updated" : null;
 }
 
 // Events written by the old PII backfill can hold ciphertext in file/image uuid
@@ -253,7 +258,7 @@ async function applyEntityEventInScope(
   entity: EntityDefinition,
   tx: ExecutorManagedRunner,
 ): Promise<ApplyResult> {
-  const verb = parseAutoVerb(event);
+  const verb = parseAutoVerb(event, entity);
   if (verb === null) return { kind: "skipped" };
   const softDelete = entity.softDelete ?? false;
 

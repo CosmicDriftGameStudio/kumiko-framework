@@ -132,6 +132,7 @@ export function buildImplicitProjection(
   if (entity.softDelete) {
     apply[`${entityName}.restored`] = handler;
   }
+  for (const verb of Object.keys(entity.verbs ?? {})) apply[`${entityName}.${verb}`] = handler;
   // r.extendEntityProjection: merge extension applies into the rebuild
   // replay. Collisions with lifecycle applies (or another extension) are
   // authoring bugs — fail at boot, not by silently overwriting a handler.

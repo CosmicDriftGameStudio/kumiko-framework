@@ -1,5 +1,9 @@
 import type { WebhookEntityVerb, WebhookEventContract } from "@cosmicdrift/kumiko-types/feature";
-import type { EntityDefinition, FieldDefinition } from "@cosmicdrift/kumiko-types/fields";
+import {
+  type EntityDefinition,
+  type FieldDefinition,
+  isDeclaredEntityVerb,
+} from "@cosmicdrift/kumiko-types/fields";
 import * as z from "zod";
 import { DEFAULT_CURRENCIES } from "./field-helpers.ts";
 import { personalFieldNames } from "./personal-data-fields.ts";
@@ -159,6 +163,19 @@ function entityVerbOf(
   return verb === undefined ? undefined : { entity: qualifiedName.slice(0, dot), verb };
 }
 
+function declaredVerbOf(
+  qualifiedName: string,
+  entities: ReadonlyMap<string, EntityDefinition>,
+): { entity: string; verb: string } | undefined {
+  const dot = qualifiedName.lastIndexOf(".");
+  if (dot <= 0) return undefined;
+  const entityName = qualifiedName.slice(0, dot);
+  const verb = qualifiedName.slice(dot + 1);
+  return isDeclaredEntityVerb(entities.get(entityName), verb)
+    ? { entity: entityName, verb }
+    : undefined;
+}
+
 export type WebhookContractResolver = {
   /** Declared contract, or one derived from an entity lifecycle event (`entity.verb`). */
   get(qualifiedName: string): WebhookEventContract | undefined;
@@ -188,17 +205,39 @@ export function createWebhookContractResolver(
       if (!derived.has(qualifiedName)) {
         const target = entityVerbOf(qualifiedName);
         const entity = target === undefined ? undefined : entities.get(target.entity);
-        derived.set(
-          qualifiedName,
-          target === undefined || entity === undefined || entity.webhookEvents !== true
-            ? undefined
-            : entityContract(
-                target.entity,
-                target.verb,
-                entity,
-                excluded.get(target.entity) ?? new Set(),
-              ),
-        );
+        if (target !== undefined) {
+          derived.set(
+            qualifiedName,
+            entity === undefined || entity.webhookEvents !== true
+              ? undefined
+              : entityContract(
+                  target.entity,
+                  target.verb,
+                  entity,
+                  excluded.get(target.entity) ?? new Set(),
+                ),
+          );
+        } else {
+          const declaredVerb = declaredVerbOf(qualifiedName, entities);
+          const verbEntity =
+            declaredVerb === undefined ? undefined : entities.get(declaredVerb.entity);
+          derived.set(
+            qualifiedName,
+            declaredVerb === undefined || verbEntity === undefined || verbEntity.webhookEvents !== true
+              ? undefined
+              : {
+                  ...entityContract(
+                    declaredVerb.entity,
+                    "updated",
+                    verbEntity,
+                    excluded.get(declaredVerb.entity) ?? new Set(),
+                  ),
+                  qn: qualifiedName,
+                  wireName: qualifiedName,
+                  description: `A ${declaredVerb.entity} was ${declaredVerb.verb}.`,
+                },
+          );
+        }
       }
       return derived.get(qualifiedName);
     },

@@ -4,6 +4,7 @@ import type {
   ExecutorUpdateOptions,
   ParentVisibilityOption,
 } from "@cosmicdrift/kumiko-types/event-store-executor-types";
+import { isDeclaredEntityVerb } from "@cosmicdrift/kumiko-types/fields";
 import type { EntityId } from "@cosmicdrift/kumiko-types/identifiers";
 import type { TenantDb } from "@cosmicdrift/kumiko-types/tenant-db-types";
 import type { ZodType } from "zod";
@@ -33,6 +34,7 @@ import {
   writeFailure,
 } from "../errors/index.ts";
 import { isSubjectErasedConflict } from "../errors/subject-erased.ts";
+import { buildInvalidTransitionDetails } from "../errors/transition-details.ts";
 import {
   ArchivedStreamError,
   IdempotentAppendConflictError as EventStoreIdempotentAppendConflict,
@@ -621,11 +623,42 @@ export function createWriteVerbs(
     if ("failure" in preSaveResult) return preSaveResult.failure;
     const changes = preSaveResult.data;
 
-    assertFieldWritesAllowed(db, "update", changes);
-    const approvalRequired = fieldApprovalFailure(user, changes, previous);
+    const verbName = updateOptions?.verb;
+    const verbDef = verbName === undefined ? undefined : entity.verbs?.[verbName];
+    if (
+      verbName !== undefined &&
+      (verbDef === undefined || !isDeclaredEntityVerb(entity, verbName))
+    ) {
+      throw new InternalError({
+        message: `update: verb "${verbName}" is not declared in verbs of entity "${entityName}"`,
+      });
+    }
+    const transition = verbDef?.transition;
+    let verbChanges: Record<string, unknown> = changes;
+    if (transition !== undefined) {
+      const submitted = changes[transition.field];
+      if (submitted !== undefined && submitted !== transition.to) {
+        throw new InternalError({
+          message: `update with verb "${verbName}" on "${entityName}": changes.${transition.field} is ${JSON.stringify(submitted)}, the verb sets "${transition.to}"`,
+        });
+      }
+      const current = previous[transition.field];
+      if (typeof current !== "string" || !transition.from.includes(current)) {
+        return writeFailure(
+          new UnprocessableError(FrameworkReasons.invalidTransition, {
+            i18nKey: "errors.invalidTransition",
+            details: buildInvalidTransitionDetails(String(current ?? ""), transition.to, []),
+          }),
+        );
+      }
+      verbChanges = { ...changes, [transition.field]: transition.to };
+    }
+
+    assertFieldWritesAllowed(db, "update", verbChanges);
+    const approvalRequired = fieldApprovalFailure(user, verbChanges, previous);
     if (approvalRequired) return approvalRequired;
 
-    const mergedNew: Record<string, unknown> = { ...previous, ...changes };
+    const mergedNew: Record<string, unknown> = { ...previous, ...verbChanges };
     const guardFailure =
       updateOwnershipFailure({
         entity,
@@ -635,7 +668,7 @@ export function createWriteVerbs(
         id: payload.id,
         submittedChanges,
         previous,
-        changes,
+        changes: verbChanges,
         mergedNew,
       }) ??
       recordLockedFailure(previous, payload.id, user, updateOptions) ??
@@ -663,11 +696,11 @@ export function createWriteVerbs(
     if (versionConflict) return versionConflict;
 
     const { flatChangesPlain, flatChanges, encryptedPrevious, changedPrevious } =
-      await encryptUpdatePayload(user, streamTenantId, previous, changes, mergedNew, updateOptions);
+      await encryptUpdatePayload(user, streamTenantId, previous, verbChanges, mergedNew, updateOptions);
     return {
       id: payload.id,
       previous,
-      changes,
+      changes: verbChanges,
       changedPrevious,
       flatChangesPlain,
       streamTenant,
@@ -678,7 +711,8 @@ export function createWriteVerbs(
         aggregateType: entityName,
         tenantId: streamTenant,
         expectedVersion: currentVersion,
-        type: entityEventName(entityName, "updated"),
+        type:
+          verbName === undefined ? entityEventName(entityName, "updated") : `${entityName}.${verbName}`,
         eventVersion,
         payload: { changes: flatChanges, previous: encryptedPrevious },
         metadata: buildEventMetadata(user),

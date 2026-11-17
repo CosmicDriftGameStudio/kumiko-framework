@@ -9,6 +9,7 @@
 
 import { describe, expect, test } from "bun:test";
 import type { StoredEvent } from "../../event-store/index.ts";
+import { createEntity, createTextField } from "../../engine/index.ts";
 import { parseAutoVerb } from "../apply-entity-event.ts";
 
 function event(overrides: Partial<StoredEvent>): StoredEvent {
@@ -35,35 +36,68 @@ describe("parseAutoVerb", () => {
     ["user.deleted", "deleted"],
     ["user.restored", "restored"],
   ] as const)("'%s' → '%s'", (type, verb) => {
-    expect(parseAutoVerb(event({ type }))).toBe(verb);
+    expect(parseAutoVerb(event({ type }), undefined)).toBe(verb);
   });
 
   test("domain event on the same aggregate → null", () => {
-    expect(parseAutoVerb(event({ type: "user.password-changed" }))).toBeNull();
+    expect(parseAutoVerb(event({ type: "user.password-changed" }), undefined)).toBeNull();
   });
 
   test("auto-verb suffix on the wrong aggregate → null", () => {
     // type "tenant.created" on a user aggregate is defensively treated as a
     // domain event by the user ImplicitProjection, not as its own auto-verb.
-    expect(parseAutoVerb(event({ aggregateType: "user", type: "tenant.created" }))).toBeNull();
+    expect(
+      parseAutoVerb(event({ aggregateType: "user", type: "tenant.created" }), undefined),
+    ).toBeNull();
   });
 
   test("kebab-case Aggregate (incident-update.created)", () => {
     expect(
-      parseAutoVerb(event({ aggregateType: "incident-update", type: "incident-update.created" })),
+      parseAutoVerb(
+        event({ aggregateType: "incident-update", type: "incident-update.created" }),
+        undefined,
+      ),
     ).toBe("created");
   });
 
   test("custom verb → null", () => {
-    expect(parseAutoVerb(event({ type: "user.imported" }))).toBeNull();
+    expect(parseAutoVerb(event({ type: "user.imported" }), undefined)).toBeNull();
   });
 
   test("type without dot separator → null", () => {
-    expect(parseAutoVerb(event({ type: "userCreated" }))).toBeNull();
+    expect(parseAutoVerb(event({ type: "userCreated" }), undefined)).toBeNull();
   });
 
   test("type with nested prefix → null", () => {
     // "user.profile.updated" has two dots, so it is not a clean auto-verb
-    expect(parseAutoVerb(event({ type: "user.profile.updated" }))).toBeNull();
+    expect(parseAutoVerb(event({ type: "user.profile.updated" }), undefined)).toBeNull();
+  });
+
+  describe("declared entity verbs", () => {
+    const withVerbs = createEntity({
+      name: "user",
+      fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+      verbs: { archived: {} },
+    });
+    const withoutVerbs = createEntity({
+      name: "user",
+      fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+    });
+
+    test("a declared verb parses as updated", () => {
+      expect(parseAutoVerb(event({ type: "user.archived" }), withVerbs)).toBe("updated");
+    });
+
+    test("an undeclared verb stays a domain event", () => {
+      expect(parseAutoVerb(event({ type: "user.archived" }), withoutVerbs)).toBeNull();
+    });
+
+    test("an inherited object key is not a declared verb", () => {
+      expect(parseAutoVerb(event({ type: "user.toString" }), withVerbs)).toBeNull();
+    });
+
+    test("a lifecycle verb keeps its own meaning with an entity", () => {
+      expect(parseAutoVerb(event({ type: "user.created" }), withVerbs)).toBe("created");
+    });
   });
 });

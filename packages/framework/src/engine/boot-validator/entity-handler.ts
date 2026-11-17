@@ -1121,6 +1121,68 @@ export function validateTransitions(feature: FeatureDefinition): void {
   }
 }
 
+// --- Entity verb validation ---
+
+const LIFECYCLE_VERB_NAMES: ReadonlySet<string> = new Set([
+  "created",
+  "updated",
+  "deleted",
+  "restored",
+  "forgotten",
+]);
+const ENTITY_VERB_NAME = /^[a-z][a-zA-Z0-9]*$/;
+
+export function validateEntityVerbs(feature: FeatureDefinition): void {
+  for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
+    if (!entity.verbs) continue;
+
+    for (const [verbName, def] of Object.entries(entity.verbs)) {
+      const where = `Verb "${verbName}" on entity "${entityName}" in feature "${feature.name}"`;
+      if (LIFECYCLE_VERB_NAMES.has(verbName)) {
+        throw bootRuleError(ENTITY_STRUCTURE_RULES.entityVerbReservedName, {
+          message: `${where} is a lifecycle verb; rename it.`,
+        });
+      }
+      if (!ENTITY_VERB_NAME.test(verbName)) {
+        throw bootRuleError(ENTITY_STRUCTURE_RULES.entityVerbInvalidName, {
+          message: `${where} must match ${ENTITY_VERB_NAME.source}.`,
+        });
+      }
+      const transition = def.transition;
+      if (!transition) continue;
+
+      const field = entity.fields[transition.field];
+      if (!field || field.type !== "select") {
+        throw bootRuleError(ENTITY_STRUCTURE_RULES.entityVerbTransitionField, {
+          message: `${where} has a transition on "${transition.field}", which is ${field ? `of type "${field.type}"` : "not a field of the entity"} (must be a select field).`,
+        });
+      }
+      const validOptions = new Set(field.options);
+      if (transition.from.length === 0) {
+        throw bootRuleError(ENTITY_STRUCTURE_RULES.entityVerbTransitionState, {
+          message: `${where} has an empty "from" list on "${transition.field}".`,
+        });
+      }
+      for (const state of [...transition.from, transition.to]) {
+        if (!validOptions.has(state)) {
+          throw bootRuleError(ENTITY_STRUCTURE_RULES.entityVerbTransitionState, {
+            message: `${where} uses "${state}" on "${transition.field}", which is not a valid option. Valid: ${[...validOptions].join(", ")}`,
+          });
+        }
+      }
+      const allowedMap = entity.transitions?.[transition.field];
+      if (!allowedMap) continue;
+      for (const from of transition.from) {
+        if (!(allowedMap[from] ?? []).includes(transition.to)) {
+          throw bootRuleError(ENTITY_STRUCTURE_RULES.entityVerbTransitionState, {
+            message: `${where} moves "${from}" → "${transition.to}" on "${transition.field}", which entity.transitions does not allow.`,
+          });
+        }
+      }
+    }
+  }
+}
+
 // --- extendSchema column collision detection ---
 
 export function validateExtendSchemaCollisions(feature: FeatureDefinition): void {

@@ -597,6 +597,8 @@ export function createEntity<const F, const T extends EntityTenancy = "tenant">(
   readonly searchWeight?: number;
   readonly defaultCurrency?: string;
   readonly transitions?: Readonly<Record<string, Readonly<Record<string, readonly string[]>>>>;
+  /** See EntityDefinition.verbs. */
+  readonly verbs?: EntityDefinition["verbs"];
   /** See EntityDefinition.lockedWhen. */
   readonly lockedWhen?: EntityDefinition["lockedWhen"];
   readonly indexes?: readonly EntityIndexDef[];

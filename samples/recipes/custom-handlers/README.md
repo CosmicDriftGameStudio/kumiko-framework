@@ -25,6 +25,13 @@ logic is yours.
 - **`skipOptimisticLock` for last-writer-wins** — `reset` deliberately
   bypasses the version check because the operation is admin-driven and
   resetting twice is semantically the same as resetting once.
+- **Named verbs** — `verbs` on the entity and `update(..., { verb })` write
+  `counter.archived` or `counter.reset` instead of `counter.updated`. The
+  executor checks the declared transition (`archive` fails with
+  `invalid_transition` unless the status is `open`) and sets the field.
+- **`history` and `listAsOf`** — `history({ id })` returns the lifecycle and
+  verb events of one counter, `listAsOf({ asOf })` folds the events up to an
+  instant into rows.
 - **Custom queries** — `counter:active` passes a server-side `filter`
   (`eq`/`ne`/`lt`/`gt`/`lte`/`gte`/`in`) and `totalCount` to the executor's
   list. Never filter a page in TypeScript: list is paginated, so rows after

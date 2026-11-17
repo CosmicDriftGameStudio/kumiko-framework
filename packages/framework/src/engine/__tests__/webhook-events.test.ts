@@ -3,6 +3,7 @@ import * as z from "zod";
 import { defineFeature } from "../define-feature.ts";
 import { createEntity, createTextField } from "../factories.ts";
 import { createRegistry } from "../registry.ts";
+import { createWebhookContractResolver } from "../webhook-contracts.ts";
 import {
   formatWebhookPayloadIssues,
   parseWebhookPayload,
@@ -314,6 +315,56 @@ describe("derived entity contracts", () => {
     expect(registry.getWebhookEventContract("plane.created")).toBeUndefined();
     expect(registry.getWebhookEventContract("car.renamed")).toBeUndefined();
     expect(registry.getWebhookEventContract("garage:car:created")).toBeUndefined();
+  });
+
+  describe("declared entity verbs", () => {
+    const ticketFields = {
+      title: createTextField({ personal: false, reason: "test_fixture" }),
+    };
+    const withWebhooks = createEntity({
+      name: "ticket",
+      table: "webhook_tickets",
+      webhookEvents: true,
+      fields: ticketFields,
+      verbs: { archived: {} },
+    });
+    const withoutWebhooks = createEntity({
+      name: "note",
+      table: "webhook_notes",
+      fields: ticketFields,
+      verbs: { archived: {} },
+    });
+    const features = [
+      defineFeature("support", (r) => {
+        r.entity(withWebhooks);
+        r.entity(withoutWebhooks);
+      }),
+    ];
+    const resolver = createWebhookContractResolver(features);
+
+    test("a declared verb derives an updated-shaped contract under its own name", () => {
+      const contract = resolver.get("ticket.archived");
+      expect(contract).toMatchObject({
+        qn: "ticket.archived",
+        wireName: "ticket.archived",
+        origin: "entity",
+        entity: "ticket",
+        verb: "updated",
+      });
+      if (contract === undefined) throw new Error("expected a derived contract");
+      const result = toEntityWebhookPayload(contract, {
+        aggregateId: ID,
+        payload: { changes: { title: "T" }, previous: { title: "S" } },
+      });
+      expect(result).toEqual({
+        ok: true,
+        payload: { id: ID, changes: { title: "T" }, previous: { title: "S" } },
+      });
+    });
+
+    test("without webhookEvents there is no contract", () => {
+      expect(resolver.get("note.archived")).toBeUndefined();
+    });
   });
 });
 

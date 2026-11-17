@@ -10,6 +10,7 @@ import {
   type Registry,
   type SessionUser,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { isDeclaredEntityVerb } from "@cosmicdrift/kumiko-types/fields";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 
 export type AuditPayloadFilter = (
@@ -102,7 +103,10 @@ export function createAuditPayloadFilter(
     if (visibility === "unrestricted") return payload;
     if (visibility === null) return null;
     if (visibility.restrictedFields.size === 0) return payload;
-    const isLifecycleEvent = LIFECYCLE_VERBS.some((verb) => type === `${aggregateType}.${verb}`);
+    const isLifecycleEvent =
+      LIFECYCLE_VERBS.some((verb) => type === `${aggregateType}.${verb}`) ||
+      (type.startsWith(`${aggregateType}.`) &&
+        isDeclaredEntityVerb(registry.getEntity(aggregateType), type.slice(aggregateType.length + 1)));
     if (!isLifecycleEvent) return null;
     return stripLifecyclePayload(payload, visibility.restrictedFields);
   };

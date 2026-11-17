@@ -151,6 +151,9 @@ export type ExecutorUpdateOptions = StreamTenantOption &
   ParentVisibilityGateOption & {
     skipOptimisticLock?: boolean;
     skipUnchanged?: boolean;
+    // A verb declared in the entity's `verbs`: appended as `<entity>.<verb>` instead of `<entity>.updated`;
+    // a verb with a transition sets its field and checks the current state.
+    verb?: string;
     // Server-code only (never forwarded by the generic update handler): also
     // update a soft-deleted row, e.g. to move it with its parent so a later
     // restore lands consistently. Tenant and ownership checks still apply;
@@ -173,6 +176,15 @@ export type ExecutorUpdateOptions = StreamTenantOption &
     // so a pii/encrypted field can't be used here.
     expect?: Readonly<Record<string, string | number | boolean | null>>;
   };
+
+export type EntityHistoryEntry = {
+  readonly version: number;
+  readonly at: Temporal.Instant;
+  readonly by: string;
+  // A lifecycle verb (created, updated, deleted, restored, forgotten) or a verb declared in entity.verbs.
+  readonly verb: string;
+  readonly changes: Readonly<Record<string, unknown>>;
+};
 
 // `Row` is the shape list()/detail() hand back; create/update payloads stay untyped. The default
 // keeps every untyped use compiling, and an executor typed to an entity row stays assignable to it.
@@ -284,4 +296,18 @@ export type EventStoreExecutor<Row extends Record<string, unknown> = Record<stri
     db: TenantDb,
     options?: { readonly parentVisibility?: ParentVisibilityOption },
   ) => Promise<Row | null>;
+
+  history: (
+    payload: { id: EntityId },
+    user: SessionUser,
+    db: TenantDb,
+    options?: StreamTenantOption & ParentVisibilityGateOption,
+  ) => Promise<readonly EntityHistoryEntry[] | null>;
+
+  listAsOf: (
+    payload: { asOf: Temporal.Instant },
+    user: SessionUser,
+    db: TenantDb,
+    options?: StreamTenantOption,
+  ) => Promise<readonly Readonly<Record<string, unknown>>[]>;
 };

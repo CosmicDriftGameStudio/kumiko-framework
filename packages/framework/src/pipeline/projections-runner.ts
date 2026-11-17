@@ -67,7 +67,7 @@ function liveProjectionsForEvent(event: StoredEvent, registry: Registry) {
 
 // Only domain events: an auto-verb event is written to the row by the executor itself.
 function implicitEntityProjectionFor(event: StoredEvent, registry: Registry) {
-  if (parseAutoVerb(event) !== null) return undefined;
+  if (parseAutoVerb(event, registry.getEntity(event.aggregateType)) !== null) return undefined;
   return registry
     .getProjectionsForSource(event.aggregateType)
     .find((proj) => proj.isImplicit === true && proj.source === event.aggregateType);

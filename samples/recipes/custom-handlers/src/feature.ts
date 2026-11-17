@@ -1,11 +1,13 @@
 // Custom Handlers Sample
 // Shows: writeHandler with business logic, queryHandler with a server-side filter,
-// handler that modifies payload before DB write.
+// handler that modifies payload before DB write, named entity verbs (counter.archived,
+// counter.reset) with a checked transition, and the executor's history and as-of reads.
 
 import {
   createEntity,
   createEntityExecutor,
   createNumberField,
+  createSelectField,
   createTextField,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -13,21 +15,27 @@ import { failNotFound } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 
 export const counterEntity = createEntity({
+  name: "counter",
   table: "read_sample_counters",
   fields: {
     name: createTextField({ personal: false, reason: "is_business_data", required: true }),
     count: createNumberField({ default: 0 }),
     lastIncrementedBy: createTextField({ personal: "ref" }),
+    status: createSelectField({ options: ["open", "archived"], default: "open" }),
+  },
+  verbs: {
+    archived: { transition: { field: "status", from: ["open"], to: "archived" } },
+    reset: {},
   },
 });
 
 export const counterFeature = defineFeature("counters", (r) => {
-  r.entity({ name: "counter", ...counterEntity });
+  r.entity(counterEntity);
 
   // createEntityExecutor bundles buildEntityTable + createEventStoreExecutor —
   // the same pair every custom write-handler opens with. Collapses 3 lines
   // + the { entityName } bookkeeping into one destructure.
-  const { executor: counterExecutor } = createEntityExecutor("counter", counterEntity);
+  const { executor: counterExecutor } = createEntityExecutor(counterEntity);
 
   // Standard create
   r.writeHandler({
@@ -93,8 +101,20 @@ export const counterFeature = defineFeature("counters", (r) => {
         { id: event.payload.id, changes: { count: 0, lastIncrementedBy: "" } },
         event.user,
         ctx.db,
-        { skipOptimisticLock: true },
+        { skipOptimisticLock: true, verb: "reset" },
       ),
+    access: { roles: ["Admin"] },
+  });
+
+  r.writeHandler({
+    name: "counter:archive",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (event, ctx) =>
+      // The executor checks the transition and sets status.
+      counterExecutor.update({ id: event.payload.id, changes: {} }, event.user, ctx.db, {
+        skipOptimisticLock: true,
+        verb: "archived",
+      }),
     access: { roles: ["Admin"] },
   });
 
@@ -131,6 +151,31 @@ export const counterFeature = defineFeature("counters", (r) => {
       openToAll: {
         reason:
           "any signed-in user may read a counter by id; the sample has no per-user counter ownership",
+      },
+    },
+  });
+
+  r.queryHandler({
+    name: "counter:history",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (query, ctx) => counterExecutor.history({ id: query.payload.id }, query.user, ctx.db),
+    access: {
+      openToAll: {
+        reason:
+          "any signed-in user may read a counter's history; the sample has no per-user counter ownership",
+      },
+    },
+  });
+
+  r.queryHandler({
+    name: "counter:as-of",
+    schema: z.object({ asOf: z.iso.datetime() }),
+    handler: async (query, ctx) =>
+      counterExecutor.listAsOf({ asOf: Temporal.Instant.from(query.payload.asOf) }, query.user, ctx.db),
+    access: {
+      openToAll: {
+        reason:
+          "any signed-in user may read counters as of a past instant; the sample has no per-user counter ownership",
       },
     },
   });

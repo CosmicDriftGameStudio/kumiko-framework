@@ -1,5 +1,9 @@
 import type { JobDefinition } from "@cosmicdrift/kumiko-types/config";
-import type { EntityDefinition, EntityEventMigration } from "@cosmicdrift/kumiko-types/fields";
+import {
+  type EntityDefinition,
+  type EntityEventMigration,
+  isDeclaredEntityVerb,
+} from "@cosmicdrift/kumiko-types/fields";
 import type { EventPiiFields, EventUpcastFn, NameOrRef } from "@cosmicdrift/kumiko-types/handlers";
 import { isRateLimitDisabled } from "@cosmicdrift/kumiko-types/handlers";
 import { parseTenantId } from "@cosmicdrift/kumiko-types/identifiers";
@@ -589,8 +593,13 @@ export function buildEntityEventUpcasterChains(state: RegistryState): void {
     const eventVersion = entity.eventVersion ?? 1;
     const steps = entityEventMigrationSteps(entityName, eventVersion, entity.eventMigrations ?? []);
     if (eventVersion === 1) continue;
-    for (const verb of ENTITY_LIFECYCLE_VERBS) {
-      const key = entityEventName(entityName, verb);
+    // A declared verb carries the updated payload shape, so its upcaster adapts like updated.
+    const shapes: readonly (readonly [string, EntityLifecycleVerb])[] = [
+      ...ENTITY_LIFECYCLE_VERBS.map((verb) => [verb, verb] as const),
+      ...Object.keys(entity.verbs ?? {}).map((verb) => [verb, "updated"] as const),
+    ];
+    for (const [eventVerb, shapeVerb] of shapes) {
+      const key = entityEventName(entityName, eventVerb);
       if (state.eventUpcasterMap.has(key) || state.eventMap.has(key)) {
         throw new Error(
           `Entity event type "${key}" collides with an already registered event; event types must be unique.`,
@@ -598,7 +607,7 @@ export function buildEntityEventUpcasterChains(state: RegistryState): void {
       }
       const chain = new Map<number, EventUpcastFn>();
       for (const [from, transform] of steps) {
-        chain.set(from, adaptRowTransformToPayload(verb, transform));
+        chain.set(from, adaptRowTransformToPayload(shapeVerb, transform));
       }
       state.eventUpcasterMap.set(key, { currentVersion: eventVersion, chain });
     }
@@ -682,6 +691,8 @@ export function validateProjectionApplyKeys(state: RegistryState): void {
     for (const src of rebuildSources) {
       if (state.entityMap.has(src) || extensionSources.includes(src)) {
         for (const verb of ENTITY_LIFECYCLE_VERBS) validEventTypes.add(`${src}.${verb}`);
+        for (const verb of Object.keys(state.entityMap.get(src)?.verbs ?? {}))
+          validEventTypes.add(`${src}.${verb}`);
       }
     }
     // Domain events are valid apply-keys for any projection. They arrive via
@@ -992,9 +1003,10 @@ function isEntityLifecycleEventType(state: RegistryState, name: string): boolean
   const dot = name.lastIndexOf(".");
   if (dot < 0) return false;
   const verb = name.slice(dot + 1);
+  const entity = state.entityMap.get(name.slice(0, dot));
   return (
-    state.entityMap.has(name.slice(0, dot)) &&
-    isOneOf(ENTITY_LIFECYCLE_VERBS, verb)
+    entity !== undefined &&
+    (isOneOf(ENTITY_LIFECYCLE_VERBS, verb) || isDeclaredEntityVerb(entity, verb))
   );
 }
 

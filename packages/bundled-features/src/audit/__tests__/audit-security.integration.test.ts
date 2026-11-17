@@ -6,6 +6,7 @@ import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   createEntity,
+  createEntityExecutor,
   createTextField,
   defineEntityCreateHandler,
   defineEntityUpdateHandler,
@@ -30,6 +31,7 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { SYSTEM_TENANT_ID, SYSTEM_USER_ID } from "@cosmicdrift/kumiko-types/identifiers";
+import * as z from "zod";
 import { createConfigFeature } from "../../config/feature.ts";
 import { hashPassword } from "../../shared/index.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
@@ -67,6 +69,7 @@ const dossierEntity = createEntity({
 });
 
 const memoEntity = createEntity({
+  name: "memo",
   table: "audit_sec_memos",
   fields: {
     name: createTextField({ required: true, personal: false, reason: "technical_reference" }),
@@ -77,6 +80,7 @@ const memoEntity = createEntity({
     }),
     pin: createTextField({ personal: "tenant", find: "secret", writeOnly: true }),
   },
+  verbs: { reviewed: {} },
 });
 
 const restrictedHandlerAccess = { access: { roles: ["HR", "TenantAdmin"] } };
@@ -87,6 +91,19 @@ const restrictedFeature = defineFeature("audit-sec-restricted", (r) => {
   r.writeHandler(defineEntityCreateHandler("dossier", dossierEntity, restrictedHandlerAccess));
   r.writeHandler(defineEntityCreateHandler("memo", memoEntity, restrictedHandlerAccess));
   r.writeHandler(defineEntityUpdateHandler("memo", memoEntity, restrictedHandlerAccess));
+  const { executor: memoExecutor } = createEntityExecutor(memoEntity);
+  r.writeHandler({
+    name: "memo:review",
+    schema: z.object({ id: z.uuid(), salary: z.string() }),
+    handler: async (event, ctx) =>
+      memoExecutor.update(
+        { id: event.payload.id, changes: { salary: event.payload.salary } },
+        event.user,
+        ctx.db,
+        { skipOptimisticLock: true, verb: "reviewed" },
+      ),
+    ...restrictedHandlerAccess,
+  });
 });
 
 let stack: TestStack;
@@ -323,6 +340,24 @@ describe("audit payload follows entity read rules", () => {
     const hrCreatedPayload = rowOfType(forHr, "memo.created").payload;
     expect(hrCreatedPayload).toMatchObject({ name: "Memo", salary: "100000" });
     expect(hrCreatedPayload).not.toHaveProperty("pin");
+  });
+
+  test("a declared verb event is stripped like updated instead of withheld", async () => {
+    const created = await stack.http.writeOk<{ id: string }>(
+      "audit-sec-restricted:write:memo:create",
+      { name: "Memo", salary: "100000" },
+      hrTenantAdmin(),
+    );
+    await stack.http.writeOk(
+      "audit-sec-restricted:write:memo:review",
+      { id: created.id, salary: "130000" },
+      hrTenantAdmin(),
+    );
+
+    const reviewedPayload = rowOfType(await listFor("memo", tenantAdmin()), "memo.reviewed").payload;
+    expect(reviewedPayload).not.toBeNull();
+    expect(reviewedPayload?.["changes"]).not.toHaveProperty("salary");
+    expect(reviewedPayload?.["previous"]).not.toHaveProperty("salary");
   });
 });
 

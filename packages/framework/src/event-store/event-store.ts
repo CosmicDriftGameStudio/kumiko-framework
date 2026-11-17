@@ -435,6 +435,33 @@ export async function loadAggregateAsOf(
   });
 }
 
+// Every stream of one aggregate type up to a point in time, for asOf reads of a whole entity.
+// ponytail: archived streams are included; filter them when an archive-aware asOf read is needed.
+export async function loadAggregateTypeAsOf(
+  db: DbRunner,
+  aggregateType: string,
+  tenantId: TenantId,
+  asOf: Temporal.Instant,
+): Promise<readonly StoredEvent[]> {
+  if (aggregateType === "") {
+    throw new Error("loadAggregateTypeAsOf: aggregateType must be a non-empty string");
+  }
+  return inEventStreamScope(tenantId, async () => {
+    const rows = await selectMany<SelectedEvent>(
+      db,
+      eventsTable,
+      { tenantId, aggregateType, createdAt: { lte: asOf } },
+      {
+        orderBy: [
+          { col: "aggregateId", direction: "asc" },
+          { col: "version", direction: "asc" },
+        ],
+      },
+    );
+    return rows.map(toStoredEvent);
+  });
+}
+
 // Cheapest possible read of "what's the latest version on this stream?". The
 // CRUD executor uses this as expectedVersion for its append, so a domain
 // event appended via ctx.events.append between two CRUD writes doesn't cause
