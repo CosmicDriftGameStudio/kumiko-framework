@@ -9,6 +9,7 @@ import {
   registerMfaVerifyRoute,
 } from "./auth-routes-mfa.ts";
 import { registerSessionRoutes } from "./auth-routes-session.ts";
+import { registerSessionExchangeRoute } from "./auth-routes-session-exchange.ts";
 import { registerSignupRoutes } from "./auth-routes-signup.ts";
 import {
   registerAccountUnlockRoutes,
@@ -71,6 +72,7 @@ export function createAuthRoutes(
 ): Hono {
   const ctx = createAuthRouteContext(dispatcher, jwt, config);
   registerLoginRoute(ctx);
+  registerSessionExchangeRoute(ctx);
   registerMfaVerifyRoute(ctx);
   registerMfaPreauthEnableStartRoute(ctx);
   registerMfaPreauthConfirmRoute(ctx);

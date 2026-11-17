@@ -1265,6 +1265,16 @@
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
     },
+    "samples/recipes/session-exchange": {
+      "name": "@cosmicdrift/kumiko-sample-session-exchange",
+      "dependencies": {
+        "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
+    },
     "samples/recipes/session-revocation": {
       "name": "@cosmicdrift/kumiko-sample-session-revocation",
       "dependencies": {
@@ -1697,6 +1707,8 @@
     "@cosmicdrift/kumiko-sample-security-baseline": ["@cosmicdrift/kumiko-sample-security-baseline@workspace:samples/recipes/security-baseline"],
 
     "@cosmicdrift/kumiko-sample-seed-migration": ["@cosmicdrift/kumiko-sample-seed-migration@workspace:samples/recipes/seed-migration"],
+
+    "@cosmicdrift/kumiko-sample-session-exchange": ["@cosmicdrift/kumiko-sample-session-exchange@workspace:samples/recipes/session-exchange"],
 
     "@cosmicdrift/kumiko-sample-session-revocation": ["@cosmicdrift/kumiko-sample-session-revocation@workspace:samples/recipes/session-revocation"],
 

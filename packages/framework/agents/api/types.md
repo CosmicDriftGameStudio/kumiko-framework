@@ -42,8 +42,10 @@ type AuthRoutesConfig = {
   membershipQuery: string;
   userQuery?: string;
   loginHandler?: string;
+  sessionExchangeHandlers?: Readonly<Record<string, string>>;
   loginErrorStatusMap?: Readonly<Record<string, number>>;
   loginRateLimit?: LoginRateLimiter | null;
+  sessionExchangeRateLimit?: LoginRateLimiter | null;
   mfaVerifyHandler?: string;
   switchTenantMfaGateHandler?: string;
   mfaVerifyErrorStatusMap?: Readonly<Record<string, number>>;

@@ -123,3 +123,24 @@ const RequestTokenBody = z.object({
   email: z.email(),
   returnTo: returnToField,
 });
+
+// A handler failure answers with the status the route maps its reason to, else
+// with the error's own status. Shared so the auth routes cannot drift apart.
+export function handlerFailureResponse(
+  c: Context,
+  error: { readonly code: string; readonly httpStatus: number; readonly details?: unknown },
+  statusMap: Readonly<Record<string, number>>,
+) {
+  const details = error.details;
+  const reason =
+    typeof details === "object" &&
+    details !== null &&
+    "reason" in details &&
+    typeof details.reason === "string"
+      ? details.reason
+      : error.code;
+  // @cast-boundary engine-payload — statusMap value union narrows to the http-status union
+  const status = (statusMap[reason] ?? error.httpStatus) as PublicAuthErrorStatus;
+  // c.json (not Response.json) keeps headers middleware set via c.header before next().
+  return c.json({ isSuccess: false, error }, status);
+}

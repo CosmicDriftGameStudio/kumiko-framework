@@ -1,12 +1,11 @@
-import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import type { DeliveryChannel } from "../delivery/index.ts";
+import type { ChannelContext, DeliveryChannel } from "../delivery/index.ts";
 import type { PushTransport } from "./types.ts";
 
 export type PushChannelOptions = {
   readonly transport: PushTransport;
   readonly resolveToken: (
     userId: string,
-    ctx: { db: unknown; tenantId: TenantId },
+    ctx: Pick<ChannelContext, "db" | "tenantId">,
   ) => Promise<string | null>;
 };
 

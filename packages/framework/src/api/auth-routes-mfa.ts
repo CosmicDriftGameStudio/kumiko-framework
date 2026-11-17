@@ -6,7 +6,7 @@ import { SYSTEM_TENANT_ID } from "../engine/types/index.ts";
 import { Routes } from "./api-constants.ts";
 import { inMemoryLoginRateLimiterFallback } from "./auth-rate-limiters.ts";
 import type { AuthRouteContext } from "./auth-routes-context.ts";
-import type { PublicAuthErrorStatus } from "./auth-routes-shared.ts";
+import { handlerFailureResponse } from "./auth-routes-shared.ts";
 
 // Body schema for POST /auth/mfa/verify. challengeToken is opaque to the
 // framework — it's minted and verified entirely by the mfaVerifyHandler
@@ -88,12 +88,7 @@ export function registerMfaVerifyRoute(ctx: AuthRouteContext): void {
       );
 
       if (!result.isSuccess) {
-        // @cast-boundary error-details — KumikoError.details shape is per-error
-        const reason =
-          (result.error.details as { reason?: string } | undefined)?.reason ?? result.error.code;
-        // @cast-boundary engine-payload — statusMap value union narrows to the http-status union
-        const status = (statusMap[reason] ?? result.error.httpStatus) as PublicAuthErrorStatus;
-        return c.json({ isSuccess: false, error: result.error }, status);
+        return handlerFailureResponse(c, result.error, statusMap);
       }
 
       // @cast-boundary engine-payload — generic dispatcher.write result for mfa-verify handler
@@ -172,12 +167,7 @@ export function registerMfaPreauthEnableStartRoute(ctx: AuthRouteContext): void 
       );
 
       if (!result.isSuccess) {
-        // @cast-boundary error-details — KumikoError.details shape is per-error
-        const reason =
-          (result.error.details as { reason?: string } | undefined)?.reason ?? result.error.code;
-        // @cast-boundary engine-payload — statusMap value union narrows to the http-status union
-        const status = (statusMap[reason] ?? result.error.httpStatus) as PublicAuthErrorStatus;
-        return c.json({ isSuccess: false, error: result.error }, status);
+        return handlerFailureResponse(c, result.error, statusMap);
       }
 
       // @cast-boundary engine-payload — generic dispatcher.write result for
@@ -235,12 +225,7 @@ export function registerMfaPreauthConfirmRoute(ctx: AuthRouteContext): void {
       );
 
       if (!result.isSuccess) {
-        // @cast-boundary error-details — KumikoError.details shape is per-error
-        const reason =
-          (result.error.details as { reason?: string } | undefined)?.reason ?? result.error.code;
-        // @cast-boundary engine-payload — statusMap value union narrows to the http-status union
-        const status = (statusMap[reason] ?? result.error.httpStatus) as PublicAuthErrorStatus;
-        return c.json({ isSuccess: false, error: result.error }, status);
+        return handlerFailureResponse(c, result.error, statusMap);
       }
 
       // @cast-boundary engine-payload — generic dispatcher.write result for mfa-preauth-confirm handler

@@ -76,6 +76,8 @@ export type LoginResult =
 
 type Membership = { readonly tenantId: TenantId; readonly roles: readonly string[] };
 
+const MembershipList = z.array(z.object({ tenantId: z.string(), roles: z.array(z.string()) }));
+
 // result is always a WriteFailure at construction (every reject() call site
 // passes one) — typing it that way, not WriteResult<LoginResult>, lets other
 // handlers with a different success-data type reuse these gates unchanged.
@@ -284,6 +286,56 @@ export async function gateBuildSession(
   const session: SessionUser =
     Object.keys(claims).length > 0 ? { ...baseSession, claims } : baseSession;
   return { kind: "auth-session", session };
+}
+
+export type VerifiedUserLookup = { readonly email: string } | { readonly userId: string };
+
+// Login gate chain AFTER an app-defined method (ID token, email code) proved
+// the identity: account status, membership choice, claims. No password or
+// lockout gate. A lookup by email requires a verified address,
+// otherwise an attacker who pre-registered the victim's email with a known
+// password would share the account the victim later reaches via this method.
+// A lookup by userId trusts that the app linked the identity itself. There is
+// no MFA gate: boot refuses to combine auth-mfa with sessionExchangeHandlers.
+export async function sessionForVerifiedUser(
+  ctx: HandlerContext,
+  lookup: VerifiedUserLookup,
+): Promise<WriteResult<{ readonly kind: "auth-session"; readonly session: SessionUser }>> {
+  const systemUser = createSystemUser(SYSTEM_USER_ID);
+  const found = parseAuthUserRow(
+    await ctx.dispatch.queryAs(
+      systemUser,
+      UserQueries.findForAuth,
+      "email" in lookup ? { email: lookup.email } : { id: lookup.userId },
+    ),
+  );
+  if (!found || found.isDeleted) return invalidCredentials();
+
+  if ("email" in lookup) {
+    const emailGate = gateEnforceEmailVerified(found, true);
+    if (!emailGate.ok) return emailGate.result;
+  }
+
+  const statusGate = gateEnforceAccountStatus(found);
+  if (!statusGate.ok) return statusGate.result;
+
+  const memberships = MembershipList.parse(
+    await ctx.dispatch.queryAs(systemUser, TENANT_MEMBERSHIPS_QUERY, { userId: found.id }),
+  );
+
+  const membershipGate = await gateResolveMembership(ctx, found, memberships);
+  if (!membershipGate.ok) return membershipGate.result;
+  const { chosen, mergedRoles } = membershipGate.value;
+
+  const session = await gateBuildSession(
+    ctx,
+    found.id,
+    chosen.tenantId,
+    mergedRoles,
+    found.timezone,
+    found.locale,
+  );
+  return { isSuccess: true, data: session };
 }
 
 // Login — unauthenticated entry point. The route is wired public (no JWT

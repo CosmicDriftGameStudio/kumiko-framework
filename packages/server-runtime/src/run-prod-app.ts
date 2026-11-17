@@ -54,6 +54,7 @@ import type { SeedAdminOptions } from "@cosmicdrift/kumiko-bundled-features/auth
 import type {
   ExtraRouteDefinition,
   KumikoServeEnv,
+  LoginRateLimiter,
   PostAuthLandingResolver,
   SseBroker,
 } from "@cosmicdrift/kumiko-framework/api";
@@ -236,6 +237,12 @@ export type RunProdAppAuthOptions = {
   readonly admin?: SeedAdminOptions;
   /** Optional override of the login error → HTTP status map. */
   readonly loginErrorStatusMap?: Readonly<Record<string, number>>;
+  /** Method → QN of an anonymous write handler that verifies the identity itself
+   *  and returns `{ kind: "auth-session", session }`; served by POST /auth/session-exchange. */
+  readonly sessionExchangeHandlers?: Readonly<Record<string, string>>;
+  /** Rate limit for POST /auth/session-exchange (IP + method, no reset). Unset reuses the login
+   *  limiter; `null` disables. */
+  readonly sessionExchangeRateLimit?: LoginRateLimiter | null;
   /** Wires all five mail flows (passwordReset, emailVerification, signup,
    *  invite, accountUnlock) from `auth.mail.baseUrl` plus the default paths,
    *  mailing via delivery (ctx.notify).
