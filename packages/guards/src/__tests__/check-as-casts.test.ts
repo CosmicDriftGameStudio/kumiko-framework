@@ -119,8 +119,20 @@ describe("cast baseline file", () => {
     expect(violations[0]?.message).toContain("--write-baseline");
   });
 
-  test("fewer suspect casts than the baseline is no violation", () => {
+  test("fewer suspect casts than the baseline is a stale-baseline violation", () => {
     writeValidBaseline({ "src/a.ts": { string: 3 } });
+    const violations = reportBaseline([suspectSite("src/a.ts", 5)], file);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.file).toBe("src/a.ts");
+    expect(violations[0]?.line).toBe(5);
+    expect(violations[0]?.message).toContain("under baseline");
+    expect(violations[0]?.message).toContain("baseline=3 current=1");
+    expect(violations[0]?.message).toContain("--write-baseline");
+  });
+
+  test("a baseline without generated and totalSuspect loads", () => {
+    writeFileSync(file, JSON.stringify({ format: 2, perFile: { "src/a.ts": { string: 1 } } }));
+    expect(loadBaseline(file).kind).toBe("ok");
     expect(reportBaseline([suspectSite("src/a.ts", 5)], file)).toEqual([]);
   });
 

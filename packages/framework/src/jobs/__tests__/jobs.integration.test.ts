@@ -1423,7 +1423,7 @@ describe("handleEvent maxPerTenant", () => {
         // active until the release, and a wrongly enqueued third would start at once
         // (worker concurrency 5) and log, so polling the log catches it.
         await runner.handleEvent("test:event:capped-event", { n: 3 }, user);
-        // @timeout-exception: #3118 asserts a negative (stays capped) at each checkpoint
+        // kumiko-lint-ignore test-timeouts #3118 asserts a negative (stays capped) at each checkpoint
         for (const delayMs of [50, 100, 200, 400]) {
           await sleep(delayMs);
           const startedNow = jobLog.filter((e) => e.name === "test:job:per-tenant-limited-event");

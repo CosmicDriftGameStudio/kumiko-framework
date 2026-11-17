@@ -186,6 +186,55 @@ export async function loadRows(db: unknown): Promise<unknown[]> { return []; }`,
     expect(messages[0]).toContain('cites "src/__tests__/missing.integration.test.ts"');
   });
 
+  test("file-wide pragma with an existing test exempts every untested export", () => {
+    expect(
+      run({
+        [LIB]: `// kumiko-lint-ignore-file lib-test-coverage integration-covered via rows.integration.test.ts
+export async function loadRows(db: unknown): Promise<unknown[]> { return []; }
+export function mapRow(row: unknown): unknown { return row; }`,
+        "/src/__tests__/rows.integration.test.ts": `test("x", () => {});`,
+      }),
+    ).toHaveLength(0);
+  });
+
+  test("file-wide pragma citing a missing test is one violation on line 1", () => {
+    const project = new Project({ useInMemoryFileSystem: true });
+    project.createSourceFile(
+      LIB,
+      `// kumiko-lint-ignore-file lib-test-coverage integration-covered via src/__tests__/missing.integration.test.ts
+export async function loadRows(db: unknown): Promise<unknown[]> { return []; }
+export function mapRow(row: unknown): unknown { return row; }`,
+    );
+    const { violations } = guard.run(project.getSourceFiles());
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.line).toBe(1);
+    expect(violations[0]?.message).toContain('cites "src/__tests__/missing.integration.test.ts"');
+  });
+
+  test("file-wide pragma without a cited test is one violation on line 1", () => {
+    const project = new Project({ useInMemoryFileSystem: true });
+    project.createSourceFile(
+      LIB,
+      `// kumiko-lint-ignore-file lib-test-coverage integration-covered by the loader flow
+export async function loadRows(db: unknown): Promise<unknown[]> { return []; }`,
+    );
+    const { violations } = guard.run(project.getSourceFiles());
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.line).toBe(1);
+    expect(violations[0]?.message).toContain("cites no test file");
+  });
+
+  test("file-wide pragma after the first statement does not exempt the exports", () => {
+    expect(
+      run({
+        [LIB]: `export async function loadRows(db: unknown): Promise<unknown[]> { return []; }
+// kumiko-lint-ignore-file lib-test-coverage integration-covered via rows.integration.test.ts
+export function mapRow(row: unknown): unknown { return row; }`,
+        "/src/__tests__/rows.integration.test.ts": `test("x", () => {});`,
+      }),
+    ).toEqual([expect.stringContaining("No test imports this lib module")]);
+  });
+
   test("a bare basename citation matches by path suffix", () => {
     expect(
       run({

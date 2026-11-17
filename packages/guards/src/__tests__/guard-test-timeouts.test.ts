@@ -178,9 +178,9 @@ describe("test-timeouts guard — timeout argument on declarations", () => {
     ).toEqual([]);
   });
 
-  test("a complete @timeout-exception marker suppresses a timeout argument", () => {
+  test("a complete test-timeouts ignore marker suppresses a timeout argument", () => {
     expect(
-      found('// @timeout-exception: #1 sidecar cold start\ntest("a", () => {}, 60_000);'),
+      found('// kumiko-lint-ignore test-timeouts #1 sidecar cold start\ntest("a", () => {}, 60_000);'),
     ).toEqual([]);
   });
 });
@@ -215,10 +215,10 @@ describe("test-timeouts guard — no violation", () => {
     ).toEqual([]);
   });
 
-  test("a complete @timeout-exception marker on the line above suppresses the finding", () => {
+  test("a complete test-timeouts ignore marker on the line above suppresses the finding", () => {
     expect(
       messages(
-        "// @timeout-exception: #3120 cold-start of the sidecar takes 40s\ntest.setTimeout(60_000);",
+        "// kumiko-lint-ignore test-timeouts #3120 cold-start of the sidecar takes 40s\ntest.setTimeout(60_000);",
       ),
     ).toEqual([]);
   });
@@ -226,7 +226,7 @@ describe("test-timeouts guard — no violation", () => {
   test("a complete marker on the loop line suppresses a sleep loop", () => {
     expect(
       messages(
-        "export async function p() {\n  while (!ready()) { // @timeout-exception: #12 external queue has no callback\n    await sleep(10);\n  }\n}",
+        "export async function p() {\n  while (!ready()) { // kumiko-lint-ignore test-timeouts #12 external queue has no callback\n    await sleep(10);\n  }\n}",
       ),
     ).toEqual([]);
   });
@@ -243,14 +243,21 @@ describe("test-timeouts guard — no violation", () => {
 
 describe("test-timeouts guard — incomplete marker", () => {
   test.each([
-    ["no issue number", "// @timeout-exception: cold start"],
-    ["no reason", "// @timeout-exception: #3120"],
-    ["no colon", "// @timeout-exception #3120 cold start"],
-    ["bare tag", "// @timeout-exception"],
+    ["no issue number", "// kumiko-lint-ignore test-timeouts cold start"],
+    ["no reason", "// kumiko-lint-ignore test-timeouts #3120"],
+    ["bare tag", "// kumiko-lint-ignore test-timeouts"],
   ])("%s does not suppress and is called out", (_label, marker) => {
     const found = messages(`${marker}\ntest.setTimeout(60_000);`);
     expect(found).toHaveLength(1);
-    expect(found[0]).toContain("incomplete @timeout-exception marker");
+    expect(found[0]).toContain("incomplete kumiko-lint-ignore test-timeouts marker");
+  });
+
+  test("the retired @timeout-exception marker is no longer read", () => {
+    const found = messages(
+      "// @timeout-exception: #3120 cold-start of the sidecar takes 40s\ntest.setTimeout(60_000);",
+    );
+    expect(found).toHaveLength(1);
+    expect(found[0]).not.toContain("incomplete");
   });
 });
 

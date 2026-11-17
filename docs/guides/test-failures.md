@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-09-25
+verified: 2026-11-17
 ---
 
 # When a test goes red
@@ -54,7 +54,7 @@ If a wait cannot be expressed as a condition, mark the line (or the loop
 statement) directly above or on it:
 
 ```ts illustration
-// @timeout-exception: #1234 sidecar has no readiness signal, cold start takes 40s
+// kumiko-lint-ignore test-timeouts #1234 sidecar has no readiness signal, cold start takes 40s
 test.setTimeout(60_000);
 ```
 

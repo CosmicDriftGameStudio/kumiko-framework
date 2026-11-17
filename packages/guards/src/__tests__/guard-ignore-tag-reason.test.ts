@@ -12,6 +12,7 @@ describe("ignore-tag-reason guard", () => {
   test.each([
     "// kumiko-lint-ignore raw-sql",
     "// kumiko-lint-ignore raw-sql legacy",
+    "// kumiko-lint-ignore-file lib-test-coverage ok",
     "// kumiko-lint-ignore raw-sql todo: later",
     "// kumiko-lint-ignore cross-feature-import invite-flow",
     "// kumiko-lint-ignore cross-feature-import two words",
@@ -30,6 +31,7 @@ describe("ignore-tag-reason guard", () => {
   test.each([
     "// kumiko-lint-ignore raw-sql migration reads the catalog table directly",
     "/* kumiko-lint-ignore raw-sql the catalog has no entity */",
+    "// kumiko-lint-ignore-file lib-test-coverage integration-covered via packages/x/y.test.ts",
     "const a = 1; // kumiko-lint-ignore raw-sql,comment-lang fixture text for the parser",
     "// kumiko-lint-ignore comment-issue-ref-only <reason>",
     "// Opt-out: add kumiko-lint-ignore anywhere in the sentence",

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { baselineRatchet, compareToBaseline } from "../_lib/guard-kit";
@@ -101,6 +101,43 @@ describe("baselineRatchet", () => {
         message: "hit(s) over baseline: baseline=1 current=3 (+2). fix it",
       },
     ]);
+  });
+
+  test("check() reports a smaller count as a stale baseline", () => {
+    const ratchet = baselineRatchet({ file, formatVersion: 1, unit: "hit(s)" });
+    ratchet.write({ "a.ts": 3 });
+    const violations = ratchet.check({ "a.ts": 1 }, "fix it", { resolveLine: () => 8 });
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.file).toBe("a.ts");
+    expect(violations[0]?.line).toBe(8);
+    expect(violations[0]?.message).toContain("under baseline: baseline=3 current=1");
+    expect(violations[0]?.message).toContain("--write-baseline");
+  });
+
+  test("check() reports a regression and a stale entry in the same run", () => {
+    const ratchet = baselineRatchet({ file, formatVersion: 1, unit: "hit(s)" });
+    ratchet.write({ "a.ts": 1, "b.ts": 3 });
+    const violations = ratchet.check({ "a.ts": 2, "b.ts": 1 }, "fix it");
+    expect(violations).toHaveLength(2);
+    expect(violations.map((v) => v.file).sort()).toEqual(["a.ts", "b.ts"]);
+    expect(violations.some((v) => v.message.includes("over baseline"))).toBe(true);
+    expect(violations.some((v) => v.message.includes("under baseline"))).toBe(true);
+  });
+
+  test("write() stores only format and perFile", () => {
+    const ratchet = baselineRatchet({ file, formatVersion: 1, unit: "hit(s)" });
+    ratchet.write({ "a.ts": 2 });
+    const written: unknown = JSON.parse(readFileSync(file, "utf-8"));
+    expect(written).toEqual({ format: 1, perFile: { "a.ts": 2 } });
+  });
+
+  test("check() still reads an old baseline carrying generated and total", () => {
+    writeFileSync(
+      file,
+      JSON.stringify({ format: 1, generated: "2020-01-01", total: 2, perFile: { "a.ts": 2 } }),
+    );
+    const ratchet = baselineRatchet({ file, formatVersion: 1, unit: "hit(s)" });
+    expect(ratchet.check({ "a.ts": 2 }, "fix it")).toEqual([]);
   });
 
   test("check() defaults regression line to 1 without a resolveLine callback", () => {

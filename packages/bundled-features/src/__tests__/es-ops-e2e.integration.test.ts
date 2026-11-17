@@ -1,4 +1,4 @@
-// @no-server-stack: The seed runner is boot-time code, not an HTTP route.
+// kumiko-lint-ignore-file test-stack-drift The seed runner is boot-time code, not an HTTP route.
 // setupTestStack/buildServer would create a Hono app that we do not need:
 // the seed runner calls dispatcher.write directly before entrypoint.start().
 // This matches the run-prod-app.ts integration, where createDispatcher is

@@ -29,7 +29,7 @@ test("Content +: create a new page → appears live in the Nav-Tree", async ({ p
 
   // Visual proof (not committed): sidebar with Content + newly created page.
   if (process.env["SCREENSHOT"] === "1") {
-    // @template-drift-exception: #3121 ad hoc local debug dump (/tmp), not a docs-pipeline capture
+    // kumiko-lint-ignore test-template-drift #3121 ad hoc local debug dump (/tmp), not a docs-pipeline capture
     await page.screenshot({ path: "/tmp/content-nav-demo.png" });
   }
 });

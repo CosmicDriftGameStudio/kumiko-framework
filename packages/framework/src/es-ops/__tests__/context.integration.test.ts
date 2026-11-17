@@ -1,4 +1,4 @@
-// @no-server-stack: covers the SeedMigrationContext read helpers (ctx.db only); the
+// kumiko-lint-ignore-file test-stack-drift covers the SeedMigrationContext read helpers (ctx.db only); the
 // feature-less dispatcher is only needed to build the context, there is no HTTP path.
 //
 // The user/tenant entities live in bundled-features, which the framework package cannot

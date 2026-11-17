@@ -18,7 +18,8 @@
 // a color map — a test for those would be a fake test). IO loaders already
 // covered by an integration test over HTTP carry the ignore tag with a
 // truthful justification; the tag must cite the covering test file, and the
-// guard checks that the file exists.
+// guard checks that the file exists. One file-wide tag in the leading comment
+// (`kumiko-lint-ignore-file lib-test-coverage <reason>`) exempts all exports of the file.
 //
 // Deliberately out of scope: re-exports (`export { foo } from "./bar"`) do not
 // count as their own callable — the source file "./bar" carries its own
@@ -30,7 +31,7 @@ import { dirname, resolve } from "node:path";
 import { Node, type SourceFile, SyntaxKind } from "ts-morph";
 import { type AstGuard, type GuardViolation, runStandalone, type ScanSpec } from "./_lib/guard-kit";
 import { escapeRegExp } from "./_lib/handler-name-forms";
-import { ignoreTagLine } from "./_lib/ignore-tag";
+import { FILE_IGNORE_TAG_PREFIX, fileIgnoreTagLine, ignoreTagLine } from "./_lib/ignore-tag";
 
 // isTestFile() classifies by regex on the file's own path, not by which within-glob matched it, so lib/ vs. test classification stays correct regardless of scan-scope resolution.
 const SCAN: ScanSpec = {
@@ -39,10 +40,11 @@ const SCAN: ScanSpec = {
   kinds: ["library", "app"],
   within: ["lib/**/*.{ts,tsx}", "**/lib/**/*.{ts,tsx}", "**/*.test.ts", "**/*.test.tsx"],
 };
-const IGNORE_TAG = "kumiko-lint-ignore lib-test-coverage";
+const GUARD_SLUG = "lib-test-coverage";
+const IGNORE_TAG = `kumiko-lint-ignore ${GUARD_SLUG}`;
 
 const CITED_TEST_RE = /[\w./-]+\.test\.tsx?\b/g;
-const TAG_REASON_RE = /kumiko-lint-ignore\s+\S+\s*(.*)$/;
+const TAG_REASON_RE = /kumiko-lint-ignore(?:-file)?\s+\S+\s*(.*)$/;
 
 type Export = { readonly name: string; readonly node: Node };
 
@@ -147,13 +149,27 @@ function citationProblem(tagLine: string, testFiles: readonly SourceFile[]): str
     : `cites "${missing}", but no test file matches that path`;
 }
 
+function exceptionViolation(
+  sf: SourceFile,
+  line: number,
+  subject: string,
+  problem: string,
+): GuardViolation {
+  return {
+    file: sf.getFilePath(),
+    line,
+    message: `lib-test-coverage ignore tag on ${subject} ${problem}`,
+  };
+}
+
 export const guard: AstGuard = {
   name: "Lib-Test-Coverage Guard (App-Repos)",
   scan: SCAN,
   hint:
     "Every lib file with an exported function needs a test that imports from the " +
     "module and references each function by name. IO loaders that an " +
-    `integration test covers: // ${IGNORE_TAG} integration-covered via <path/to/x.integration.test.ts> (the cited test file must exist)`,
+    `integration test covers: // ${IGNORE_TAG} integration-covered via <path/to/x.integration.test.ts> (the cited test file must exist). ` +
+    `A whole file: // ${FILE_IGNORE_TAG_PREFIX} ${GUARD_SLUG} integration-covered via <path/to/x.test.ts> in the leading comment`,
   run(files: readonly SourceFile[]) {
     const violations: GuardViolation[] = [];
     const testFiles: SourceFile[] = [];
@@ -164,6 +180,14 @@ export const guard: AstGuard = {
         libFiles.push(sf);
     }
     for (const sf of libFiles) {
+      const fileTag = fileIgnoreTagLine(sf, GUARD_SLUG);
+      if (fileTag !== undefined) {
+        const fileProblem = citationProblem(fileTag, testFiles);
+        if (fileProblem !== undefined) {
+          violations.push(exceptionViolation(sf, 1, "this file", fileProblem));
+        }
+        continue;
+      }
       const relevant: Export[] = [];
       for (const e of exportedCallables(sf)) {
         const tagLine = ignoreTagLine(e.node, IGNORE_TAG);
@@ -173,11 +197,9 @@ export const guard: AstGuard = {
         }
         const problem = citationProblem(tagLine, testFiles);
         if (problem === undefined) continue;
-        violations.push({
-          file: sf.getFilePath(),
-          line: e.node.getStartLineNumber(),
-          message: `lib-test-coverage ignore tag on "${e.name}" ${problem}`,
-        });
+        violations.push(
+          exceptionViolation(sf, e.node.getStartLineNumber(), `"${e.name}"`, problem),
+        );
       }
       if (relevant.length === 0) continue;
 

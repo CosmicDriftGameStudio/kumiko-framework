@@ -13,7 +13,7 @@
  */
 
 import { existsSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
-import { relative as pathRelative, resolve, sep } from "node:path";
+import { basename, relative as pathRelative, resolve, sep } from "node:path";
 import { Project, type SourceFile } from "ts-morph";
 import { type BaselineRegression, compareToBaseline, findRepoRootFor } from "./baseline-compare";
 import {
@@ -188,10 +188,10 @@ export function isLocalFinding<T extends { readonly file: string }>(item: T): bo
   return !item.file.startsWith("../");
 }
 
+// No generated/total fields: parallel PRs that freeze different files must not collide on them.
+// Older files that still carry them load fine, the extra fields are ignored.
 type BaselinePayload = {
   readonly format: number;
-  readonly generated: string;
-  readonly total: number;
   readonly perFile: Record<string, number>;
 };
 
@@ -216,12 +216,7 @@ export function baselineRatchet(args: {
       Object.entries(current).sort(([a], [b]) => a.localeCompare(b)),
     );
     const total = Object.values(perFile).reduce((sum, count) => sum + count, 0);
-    const payload: BaselinePayload = {
-      format: args.formatVersion,
-      generated: Temporal.Now.instant().toString().slice(0, 10),
-      total,
-      perFile,
-    };
+    const payload: BaselinePayload = { format: args.formatVersion, perFile };
     writeFileSync(args.file, `${JSON.stringify(payload, null, 2)}\n`);
     console.log(`  Baseline written: ${args.file} (total ${total})`);
   };
@@ -281,19 +276,27 @@ export function baselineRatchet(args: {
     const drift = driftMessage(raw, driftHint);
     if (drift !== undefined) return baselineProblem(drift);
     const baseline = raw as BaselinePayload;
-    const { regressions, reduced } = compareToBaseline(current, baseline.perFile);
-    if (regressions.length === 0) {
+    const { regressions, reductions } = compareToBaseline(current, baseline.perFile);
+    const violations = [
+      ...regressionViolations(
+        regressions,
+        (regression) =>
+          `${args.unit} over baseline: baseline=${regression.baseline} current=${regression.current} (+${regression.current - regression.baseline}). ${remediation}`,
+        opts?.resolveLine,
+      ),
+      ...regressionViolations(
+        reductions,
+        (reduction) =>
+          `${args.unit} under baseline: baseline=${reduction.baseline} current=${reduction.current}. The baseline ${basename(args.file)} has headroom that would let new findings in unnoticed; tighten it with \`--write-baseline\` and commit it.`,
+        opts?.resolveLine,
+      ),
+    ];
+    if (violations.length === 0) {
+      const frozen = Object.values(baseline.perFile).reduce((sum, count) => sum + count, 0);
       const total = Object.values(current).reduce((sum, count) => sum + count, 0);
-      console.log(`  ✓ Baseline (${baseline.total}) — current ${total}`);
-      if (reduced > 0) console.log(`  ✓ ${reduced} ${args.unit} reduced since baseline.`);
-      return [];
+      console.log(`  ✓ Baseline (${frozen}) — current ${total}`);
     }
-    return regressionViolations(
-      regressions,
-      (regression) =>
-        `${args.unit} over baseline: baseline=${regression.baseline} current=${regression.current} (+${regression.current - regression.baseline}). ${remediation}`,
-      opts?.resolveLine,
-    );
+    return violations;
   };
 
   const handleCli = (current: Readonly<Record<string, number>>): boolean => {

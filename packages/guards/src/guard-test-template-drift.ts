@@ -25,7 +25,7 @@
  * `samples/recipes/**` are never scanned.
  *
  * Opt-out on the finding's own line or the line above:
- * `// @template-drift-exception: #<issue> <technical reason>`.
+ * `// kumiko-lint-ignore test-template-drift #<issue> <technical reason>`.
  *
  * Usage (framework dev checkout):
  *   bun guards/guard-test-template-drift.ts
@@ -42,6 +42,7 @@ import {
   runStandalone,
   type ScanSpec,
 } from "./_lib/guard-kit";
+import { lineHasIgnoreTag } from "./_lib/ignore-tag";
 import { type RepoRoot, resolveRepoRoots } from "./_lib/roots";
 
 const SCAN: ScanSpec = {
@@ -64,8 +65,8 @@ const SCAN: ScanSpec = {
 
 const TESTING_DIR = "/packages/testing/";
 const RECIPES_DIR = "/samples/recipes/";
-const EXCEPTION_TAG = "@template-drift-exception";
-const COMPLETE_EXCEPTION = /@template-drift-exception:\s*#\d+\s+\S/;
+const EXCEPTION_TAG = "kumiko-lint-ignore test-template-drift";
+const COMPLETE_EXCEPTION = /kumiko-lint-ignore test-template-drift\s+#\d+\s+\S/;
 
 const CONFIG_FILENAME = /(?:^|\/)playwright[^/]*\.config\.tsx?$/;
 const DEFINE_APP_E2E_CONFIG = "defineAppE2eConfig";
@@ -99,7 +100,7 @@ function exceptionNote(node: Node): "allowed" | "incomplete" | "none" {
   const line = node.getStartLineNumber();
   const nearby = [lines[line - 1] ?? "", lines[line - 2] ?? ""];
   if (nearby.some((text) => COMPLETE_EXCEPTION.test(text))) return "allowed";
-  return nearby.some((text) => text.includes(EXCEPTION_TAG)) ? "incomplete" : "none";
+  return nearby.some((text) => lineHasIgnoreTag(text, EXCEPTION_TAG)) ? "incomplete" : "none";
 }
 
 function withExceptionNote(node: Node, message: string): string | undefined {
@@ -254,7 +255,7 @@ export function scanTemplateDrift(
   return findings.sort((a, b) => a.line - b.line);
 }
 
-const REMEDIATION = `Mark a deliberate exception with \`// ${EXCEPTION_TAG}: #<issue> <technical reason>\`.`;
+const REMEDIATION = `Mark a deliberate exception with \`// ${EXCEPTION_TAG} #<issue> <technical reason>\`.`;
 
 const HINT =
   "Apps consume the e2e/screenshot template through defineAppE2eConfig, not a hand-rolled Playwright config or a local viewport/DPR/screenshot reimplementation. See https://github.com/CosmicDriftGameStudio/kumiko-framework/blob/main/docs/guides/testing-standard.md.";

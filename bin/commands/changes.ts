@@ -169,13 +169,17 @@ function slugify(value: string): string {
     .slice(0, 48) || "change";
 }
 
-function renderChangeset(packageName: string, change: PendingChange, bump: "minor" | "patch"): string {
+const AFFECTS_ALL = "all";
+
+function renderChangeset(packageName: string, change: PendingChange, bump: "minor" | "patch", affectsAll: boolean): string {
   const lines = ["---", `"${packageName}": ${bump}`, "---", "", change.title, ""];
   if (change.detail) lines.push(change.detail, "");
   lines.push("<!-- kumiko-changes", `feature: ${change.feature}`, `type: ${change.type}`, `title: ${change.title}`);
   if (change.migration) lines.push("migration: |", ...change.migration.split("\n").map((line) => `  ${line}`));
   if (change.codemod) lines.push(`codemod: ${change.codemod}`);
   if (change.manualAfterCodemod) lines.push("manualAfterCodemod: true");
+  if (change.affects) lines.push(`affects: ${change.affects.join(", ")}`);
+  else if (affectsAll) lines.push(`affects: ${AFFECTS_ALL}`);
   lines.push("-->", "");
   return lines.join("\n");
 }
@@ -221,6 +225,7 @@ function toChangesJsonEntry(entry: ChangelogEntry): ChangelogEntry {
     ...(entry.migration ? { migration: entry.migration } : {}),
     ...(entry.codemod ? { codemod: entry.codemod } : {}),
     ...(entry.manualAfterCodemod ? { manualAfterCodemod: true } : {}),
+    ...(entry.affects ? { affects: entry.affects } : {}),
   };
 }
 
@@ -231,7 +236,7 @@ export function findChangesFiles(repoRoot: string): string[] {
 }
 
 function entryKey(entry: ChangelogEntry): string {
-  return [entry.version, entry.type, entry.title, entry.detail ?? "", entry.migration ?? "", entry.codemod ?? "", entry.manualAfterCodemod ? "manual" : ""].join("\0");
+  return [entry.version, entry.type, entry.title, entry.detail ?? "", entry.migration ?? "", entry.codemod ?? "", entry.manualAfterCodemod ? "manual" : "", (entry.affects ?? []).join("\u0001")].join("\0");
 }
 
 function readEntries(path: string): ChangelogEntry[] {
@@ -277,6 +282,16 @@ function runAdd(ctx: Parameters<typeof changesCommand.run>[0], args: ReturnType<
   if (manualAfterCodemod && !codemod) {
     return ctx.out.err("  --manual-after-codemod requires --codemod."), 1;
   }
+  const affectsFlag = getStringFlag(args, "affects")?.trim();
+  if (affectsFlag !== undefined && type !== "breaking") return ctx.out.err("  --affects is only allowed with --breaking."), 1;
+  if (type === "breaking" && !affectsFlag && (!codemod || manualAfterCodemod)) {
+    return ctx.out.err('  --breaking requires --affects "<symbol or import path>, ..." (or --affects all) unless it has a --codemod without --manual-after-codemod.'), 1;
+  }
+  const affectsParts = (affectsFlag ?? "").split(",").map((part) => part.trim()).filter((part) => part !== "");
+  if (affectsParts.includes(AFFECTS_ALL) && affectsParts.length > 1) {
+    return ctx.out.err('  --affects "all" must be the only entry.'), 1;
+  }
+  const affectsAll = affectsParts.length === 1 && affectsParts[0] === AFFECTS_ALL;
   const feature = explicitFeature ?? deriveFeatureFromCwd(repoRoot, ctx.cwd);
   if (!feature) return ctx.out.err(`  Pass --feature explicitly. Available: ${listAvailableFeatures(repoRoot).join(", ")}`), 1;
   const target = resolveFeatureTarget(repoRoot, feature);
@@ -289,6 +304,7 @@ function runAdd(ctx: Parameters<typeof changesCommand.run>[0], args: ReturnType<
     ...(migration ? { migration } : {}),
     ...(codemod ? { codemod } : {}),
     ...(manualAfterCodemod ? { manualAfterCodemod: true } : {}),
+    ...(affectsParts.length > 0 && !affectsAll ? { affects: affectsParts } : {}),
     source: "kumiko changes add",
   };
   const changesetDir = join(repoRoot, ".changeset");
@@ -298,7 +314,7 @@ function runAdd(ctx: Parameters<typeof changesCommand.run>[0], args: ReturnType<
   let counter = 2;
   while (existsSync(join(changesetDir, fileName))) fileName = `${base}-${counter++}.md`;
   const path = join(changesetDir, fileName);
-  writeFileSync(path, renderChangeset(target.packageName, change, type === "fix" ? "patch" : "minor"), "utf-8");
+  writeFileSync(path, renderChangeset(target.packageName, change, type === "fix" ? "patch" : "minor", affectsAll), "utf-8");
   ctx.out.log(path);
   return 0;
 }
@@ -344,6 +360,7 @@ function runFold(ctx: Parameters<typeof changesCommand.run>[0], args: ReturnType
           ...(change.migration ? { migration: change.migration } : {}),
           ...(change.codemod ? { codemod: change.codemod } : {}),
           ...(change.manualAfterCodemod ? { manualAfterCodemod: true } : {}),
+          ...(change.affects ? { affects: change.affects } : {}),
         });
         const entries = pending.get(target.changelogPath) ?? [];
         if (!entries.some((existing) => entryKey(existing) === entryKey(entry))) entries.push(entry);
@@ -387,7 +404,7 @@ export const changesCommand = defineCommand({
   description: "Create and fold structured Changeset changelog entries",
   help: [
     "Usage:",
-    '  kumiko changes add --breaking --title "..." --migration "..." [--feature <name>] [--codemod <path> [--manual-after-codemod]]',
+    '  kumiko changes add --breaking --title "..." --migration "..." [--feature <name>] [--codemod <path> [--manual-after-codemod]] [--affects "<symbol>, <path>" | --affects all]',
     '  kumiko changes add --improvement|--fix --title "..." [--feature <name>] [--detail "..."]',
     "  kumiko changes fold --status <changeset-status.json> [--dry-run]",
   ].join("\n"),

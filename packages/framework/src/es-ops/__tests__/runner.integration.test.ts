@@ -1,4 +1,4 @@
-// @no-server-stack: the seed runner is boot-time code — dispatcher.write runs
+// kumiko-lint-ignore-file test-stack-drift the seed runner is boot-time code — dispatcher.write runs
 // immediately before entrypoint.start() (run-prod-app pattern), so no HTTP route is needed.
 //
 // Integration test against real Postgres and the real dispatcher. Verifies:

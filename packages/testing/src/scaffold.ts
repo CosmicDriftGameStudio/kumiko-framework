@@ -39,7 +39,7 @@ const RULES_MARKDOWN = [
   "- Three classes, told apart by file name: `*.test.ts` (unit, no services), `*.integration.test.ts` (real Postgres/Redis stack), `e2e/*.spec.ts` (Playwright against a booted app).",
   "- Run them with `bun run test`, `bun run test:integration` and `bun run e2e`. Integration and e2e need `docker compose up -d` and a `.env` (copy `.env.example`).",
   `- Real-provider tests only run with \`${REAL_PROVIDERS_ENV}=1\`, via \`bun run test:real\` / \`bun run e2e:real\`, locally and never in CI.`,
-  "- Tests run in parallel by default. Timeouts, retries and workers live in the scripts, the bunfig files and `playwright.config.ts`; never raise them inside a test. The only exception carries a marker: `// @timeout-exception: #<issue> <reason>`.",
+  "- Tests run in parallel by default. Timeouts, retries and workers live in the scripts, the bunfig files and `playwright.config.ts`; never raise them inside a test. The only exception carries a marker: `// kumiko-lint-ignore test-timeouts #<issue> <reason>`.",
   "- Every flow seeds its own tenant: `seedTenant(stack)` in integration tests, the `seedTenant` fixture in e2e. No shared tenant, no widened seed helper.",
   "- Red or flaky? Diagnose the cause first (https://github.com/CosmicDriftGameStudio/kumiko-framework/blob/main/docs/guides/test-failures.md). A longer timeout, a retry or `serial` is not a fix.",
   "- Why the setup looks this way, and the old-pattern → new-pattern table: https://github.com/CosmicDriftGameStudio/kumiko-framework/blob/main/docs/guides/testing-standard.md.",

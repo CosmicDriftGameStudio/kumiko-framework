@@ -13,7 +13,7 @@ test("FloatingPanel moves, resizes, keeps the page usable and restores geometry"
   const panel = page.getByTestId("floating-panel-demo");
   await expect(panel).toBeVisible();
   if (shotDir) {
-    // @template-drift-exception: #3372 ad hoc local debug dump, not a docs-pipeline capture
+    // kumiko-lint-ignore test-template-drift #3372 ad hoc local debug dump, not a docs-pipeline capture
     await page.screenshot({ path: `${shotDir}/floating-panel-default.png` });
   }
 
@@ -52,7 +52,7 @@ test("FloatingPanel moves, resizes, keeps the page usable and restores geometry"
   expect(resized.width).toBeGreaterThan(moved.width);
   expect(resized.height).toBeGreaterThan(moved.height);
   if (shotDir) {
-    // @template-drift-exception: #3372 ad hoc local debug dump, not a docs-pipeline capture
+    // kumiko-lint-ignore test-template-drift #3372 ad hoc local debug dump, not a docs-pipeline capture
     await page.screenshot({ path: `${shotDir}/floating-panel-moved-resized.png` });
   }
 
@@ -80,7 +80,7 @@ test("FloatingPanel moves, resizes, keeps the page usable and restores geometry"
     })
     .toEqual([0, 0, 390, 844]);
   if (shotDir) {
-    // @template-drift-exception: #3372 ad hoc local debug dump, not a docs-pipeline capture
+    // kumiko-lint-ignore test-template-drift #3372 ad hoc local debug dump, not a docs-pipeline capture
     await page.screenshot({ path: `${shotDir}/floating-panel-narrow.png` });
   }
 });
@@ -113,7 +113,7 @@ test("widget catalog renders and ModeSwitch toggles", async ({ page }) => {
   await expect(drawer).toBeVisible();
   await expect(drawer.getByText("Message")).toBeVisible();
   if (process.env["SCREENSHOT"] === "1") {
-    // @template-drift-exception: #3121 ad hoc local debug dump (/tmp), not a docs-pipeline capture
+    // kumiko-lint-ignore test-template-drift #3121 ad hoc local debug dump (/tmp), not a docs-pipeline capture
     await page.screenshot({ path: "/tmp/widgets-drawer-open.png", fullPage: true });
   }
   await drawer.getByRole("button", { name: "Cancel" }).click();
@@ -162,7 +162,7 @@ test("widget catalog renders and ModeSwitch toggles", async ({ page }) => {
   await expect(page.getByText("No message selected")).toBeHidden();
 
   if (process.env["SCREENSHOT"] === "1") {
-    // @template-drift-exception: #3121 ad hoc local debug dump (/tmp), not a docs-pipeline capture
+    // kumiko-lint-ignore test-template-drift #3121 ad hoc local debug dump (/tmp), not a docs-pipeline capture
     await page.screenshot({ path: "/tmp/widgets-catalog.png", fullPage: true });
   }
 });
@@ -189,7 +189,7 @@ test("declarative dashboard screen renders stat, chart and list panels", async (
   await expect(page.getByText("API-Timeout eu-central")).toBeVisible();
 
   if (process.env["SCREENSHOT"] === "1") {
-    // @template-drift-exception: #3121 ad hoc local debug dump (/tmp), not a docs-pipeline capture
+    // kumiko-lint-ignore test-template-drift #3121 ad hoc local debug dump (/tmp), not a docs-pipeline capture
     await page.screenshot({ path: "/tmp/widgets-dashboard.png", fullPage: true });
   }
 });
@@ -220,7 +220,7 @@ test("SectionNavLayout lists the sections beside the content on a wide viewport"
   await expect(demo.getByRole("button", { name: "Billing" })).toBeVisible();
   await expect(demo.getByRole("button", { name: "Security" })).toBeVisible();
   if (shotDir) {
-    // @template-drift-exception: #3372 ad hoc local debug dump, not a docs-pipeline capture
+    // kumiko-lint-ignore test-template-drift #3372 ad hoc local debug dump, not a docs-pipeline capture
     await demo.screenshot({ path: `${shotDir}/section-nav-layout.png` });
   }
 });
@@ -245,7 +245,7 @@ test("round-two studio variants render on the widgets page", async ({ page }) =>
     await demo.scrollIntoViewIfNeeded();
     await expect(demo).toBeVisible();
     if (shotDir) {
-      // @template-drift-exception: #3372 ad hoc local debug dump, not a docs-pipeline capture
+      // kumiko-lint-ignore test-template-drift #3372 ad hoc local debug dump, not a docs-pipeline capture
       await demo.screenshot({ path: `${shotDir}/${block}.png` });
     }
   }

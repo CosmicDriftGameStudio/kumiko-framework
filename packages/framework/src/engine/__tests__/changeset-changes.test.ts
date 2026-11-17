@@ -21,7 +21,7 @@ describe("parseChangesetChanges", () => {
 
   test("parses manualAfterCodemod and rejects it without a codemod", () => {
     const block = (fields: string) =>
-      `---\n"@cosmicdrift/kumiko-framework": minor\n---\n\n<!-- kumiko-changes\nfeature: framework\ntype: breaking\ntitle: Partly automated\nmigration: Review the rest\n${fields}\n-->`;
+      `---\n"@cosmicdrift/kumiko-framework": minor\n---\n\n<!-- kumiko-changes\nfeature: framework\ntype: breaking\ntitle: Partly automated\nmigration: Review the rest\naffects: oldCall\n${fields}\n-->`;
 
     const [change] = parseChangesetChanges(
       block("codemod: scripts/codemod/migrate-db-raw.ts\nmanualAfterCodemod: true"),
@@ -42,7 +42,7 @@ describe("parseChangesetChanges", () => {
 
   test("parses multiple blocks with multiline migration", () => {
     const changes = parseChangesetChanges(
-      `---\n"@cosmicdrift/kumiko-framework": minor\n---\n\n<!-- kumiko-changes\nfeature: framework\ntype: breaking\ntitle: Removes the old flow\nmigration: |\n  Replace the old call.\n  Then run the migration.\n-->\n\n<!-- kumiko-changes\nfeature: sessions\ntype: fix\ntitle: Fixes session cleanup\n-->`,
+      `---\n"@cosmicdrift/kumiko-framework": minor\n---\n\n<!-- kumiko-changes\nfeature: framework\ntype: breaking\ntitle: Removes the old flow\nmigration: |\n  Replace the old call.\n  Then run the migration.\naffects: oldCall\n-->\n\n<!-- kumiko-changes\nfeature: sessions\ntype: fix\ntitle: Fixes session cleanup\n-->`,
       ".changeset/two-features.md",
     );
 
@@ -58,7 +58,7 @@ describe("parseChangesetChanges", () => {
 
   test("keeps a blank line inside a multiline block as a paragraph break, not a truncation", () => {
     const changes = parseChangesetChanges(
-      `---\n"@cosmicdrift/kumiko-framework": minor\n---\n\n<!-- kumiko-changes\nfeature: framework\ntype: breaking\ntitle: Removes the old flow\nmigration: |\n  First paragraph.\n\n  Second paragraph after a blank line.\n-->`,
+      `---\n"@cosmicdrift/kumiko-framework": minor\n---\n\n<!-- kumiko-changes\nfeature: framework\ntype: breaking\ntitle: Removes the old flow\nmigration: |\n  First paragraph.\n\n  Second paragraph after a blank line.\naffects: all\n-->`,
       ".changeset/blank-line.md",
     );
 
@@ -67,7 +67,7 @@ describe("parseChangesetChanges", () => {
 
   test("a trailing blank line ends the block's content and the next key parses as its own field", () => {
     const changes = parseChangesetChanges(
-      `---\n"@cosmicdrift/kumiko-framework": minor\n---\n\n<!-- kumiko-changes\nfeature: framework\ntype: breaking\ntitle: Removes the old flow\ndetail: |\n  A.\n\nmigration: |\n  B.\n-->`,
+      `---\n"@cosmicdrift/kumiko-framework": minor\n---\n\n<!-- kumiko-changes\nfeature: framework\ntype: breaking\ntitle: Removes the old flow\ndetail: |\n  A.\n\nmigration: |\n  B.\naffects: all\n-->`,
       ".changeset/trailing-blank.md",
     );
 
@@ -77,7 +77,7 @@ describe("parseChangesetChanges", () => {
 
   test("a whitespace-only line with fewer than two spaces inside a block is a paragraph break", () => {
     const changes = parseChangesetChanges(
-      `---\n"@cosmicdrift/kumiko-framework": minor\n---\n\n<!-- kumiko-changes\nfeature: framework\ntype: breaking\ntitle: Removes the old flow\nmigration: |\n  First.\n \n  Second.\n-->`,
+      `---\n"@cosmicdrift/kumiko-framework": minor\n---\n\n<!-- kumiko-changes\nfeature: framework\ntype: breaking\ntitle: Removes the old flow\nmigration: |\n  First.\n \n  Second.\naffects: all\n-->`,
       ".changeset/space-line.md",
     );
 
@@ -91,6 +91,74 @@ describe("parseChangesetChanges", () => {
         ".changeset/breaking.md",
       ),
     ).toThrow('breaking change "Removes the old flow" missing migration field');
+  });
+
+  describe("affects", () => {
+    const changeset = (type: string, fields: string) =>
+      `---\n"@cosmicdrift/kumiko-framework": minor\n---\n\n<!-- kumiko-changes\nfeature: framework\ntype: ${type}\ntitle: Removes the old flow\n${fields}\n-->`;
+
+    test("parses a comma separated list", () => {
+      const [change] = parseChangesetChanges(
+        changeset("breaking", "migration: Rename it\naffects: fooBar, @cosmicdrift/old-pkg ,baz"),
+        ".changeset/affects.md",
+      );
+      expect(change?.affects).toEqual(["fooBar", "@cosmicdrift/old-pkg", "baz"]);
+    });
+
+    test("`all` satisfies the rule and is not carried into the change", () => {
+      const [change] = parseChangesetChanges(
+        changeset("breaking", "migration: Rename it\naffects: all"),
+        ".changeset/affects.md",
+      );
+      expect(change?.affects).toBeUndefined();
+    });
+
+    test("`all` next to other entries is rejected", () => {
+      expect(() =>
+        parseChangesetChanges(
+          changeset("breaking", "migration: Rename it\naffects: all, fooBar"),
+          ".changeset/affects.md",
+        ),
+      ).toThrow(/must be the only entry/);
+    });
+
+    test("a manual breaking change without affects throws", () => {
+      expect(() =>
+        parseChangesetChanges(
+          changeset("breaking", "migration: Rename it"),
+          ".changeset/affects.md",
+        ),
+      ).toThrow(/must declare `affects:`/);
+    });
+
+    test("manualAfterCodemod keeps the affects duty", () => {
+      expect(() =>
+        parseChangesetChanges(
+          changeset(
+            "breaking",
+            "migration: Rename it\ncodemod: scripts/codemod/migrate-db-raw.ts\nmanualAfterCodemod: true",
+          ),
+          ".changeset/affects.md",
+        ),
+      ).toThrow(/must declare `affects:`/);
+    });
+
+    test("a breaking change with a codemod and without manualAfterCodemod needs no affects", () => {
+      const [change] = parseChangesetChanges(
+        changeset("breaking", "migration: Run the codemod\ncodemod: scripts/codemod/migrate-db-raw.ts"),
+        ".changeset/affects.md",
+      );
+      expect(change?.affects).toBeUndefined();
+    });
+
+    test("affects on an improvement throws", () => {
+      expect(() =>
+        parseChangesetChanges(
+          changeset("improvement", "affects: fooBar"),
+          ".changeset/affects.md",
+        ),
+      ).toThrow(/only allowed on breaking/);
+    });
   });
 
   test("rejects an unknown type", () => {

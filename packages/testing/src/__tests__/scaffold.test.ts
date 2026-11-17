@@ -87,7 +87,7 @@ describe("renderTestSetup", () => {
       "*.integration.test.ts",
       "e2e/*.spec.ts",
       "KUMIKO_REAL_PROVIDERS=1",
-      "@timeout-exception",
+      "kumiko-lint-ignore test-timeouts",
       "seedTenant",
       "bunx --bun playwright",
       "docs/guides/test-failures.md",

@@ -9,11 +9,12 @@ export type PendingChange = {
   readonly migration?: string;
   readonly codemod?: string;
   readonly manualAfterCodemod?: boolean;
+  readonly affects?: readonly string[];
   readonly source: string;
 };
 
 const BLOCK_RE = /<!--\s*kumiko-changes\s*\n([\s\S]*?)\n\s*-->/g;
-const KEY_RE = /^(feature|type|title|detail|migration|codemod|manualAfterCodemod):(?:\s(.*))?$/;
+const KEY_RE = /^(feature|type|title|detail|migration|codemod|manualAfterCodemod|affects):(?:\s(.*))?$/;
 
 function requiredField(fields: ReadonlyMap<string, string>, field: string, source: string): string {
   const value = fields.get(field)?.trim();
@@ -117,6 +118,38 @@ function parseManualAfterCodemod(fields: ReadonlyMap<string, string>, source: st
   return raw === "true";
 }
 
+const AFFECTS_ALL = "all";
+
+// `affects: all` declares "every app is touched": it satisfies the breaking-change rule but stays
+// out of the entry, so the upgrade scan never auto-resolves it.
+function parseAffects(
+  fields: ReadonlyMap<string, string>,
+  type: ChangelogType,
+  source: string,
+): { readonly declared: boolean; readonly list?: readonly string[] } {
+  const raw = fields.get("affects");
+  if (raw === undefined) return { declared: false };
+  if (type !== "breaking") {
+    throw new Error(`${source}: kumiko-changes affects is only allowed on breaking changes`);
+  }
+  const parts = raw
+    .split(",")
+    .map((part) => part.trim())
+    .filter((part) => part !== "");
+  if (parts.length === 0) throw new Error(`${source}: kumiko-changes affects must not be empty`);
+  if (parts.includes(AFFECTS_ALL)) {
+    if (parts.length > 1) {
+      throw new Error(`${source}: kumiko-changes affects "all" must be the only entry`);
+    }
+    return { declared: true };
+  }
+  return { declared: true, list: parts };
+}
+
+function needsAffects(change: PendingChange): boolean {
+  return change.type === "breaking" && (!change.codemod || change.manualAfterCodemod === true);
+}
+
 function buildChange(
   fields: ReadonlyMap<string, string>,
   prose: readonly string[],
@@ -131,6 +164,7 @@ function buildChange(
   const migration = fields.get("migration")?.trim();
   const codemod = fields.get("codemod")?.trim();
   const manualAfterCodemod = parseManualAfterCodemod(fields, source);
+  const affects = parseAffects(fields, rawType, source);
   const change: PendingChange = {
     feature,
     type: rawType,
@@ -139,10 +173,16 @@ function buildChange(
     ...(migration ? { migration } : {}),
     ...(codemod ? { codemod } : {}),
     ...(manualAfterCodemod ? { manualAfterCodemod: true } : {}),
+    ...(affects.list ? { affects: affects.list } : {}),
     source,
   };
   const validation = validateChangelog({ version: "0.0.0", ...change });
   if (validation.length > 0) throw new Error(`${source}: ${validation.join("; ")}`);
+  if (needsAffects(change) && !affects.declared) {
+    throw new Error(
+      `${source}: breaking change needing manual work must declare \`affects:\` (symbols, import paths or \`all\`)`,
+    );
+  }
   return change;
 }
 

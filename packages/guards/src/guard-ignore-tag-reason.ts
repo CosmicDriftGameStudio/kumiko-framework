@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Ignore-Tag-Reason Guard: every `kumiko-lint-ignore <slug> <reason>` and `biome-ignore[-all|-start] <rule>: <reason>` comment states a real reason.
+ * Ignore-Tag-Reason Guard: every `kumiko-lint-ignore <slug> <reason>` (or file-wide `kumiko-lint-ignore-file <slug> <reason>`) and `biome-ignore[-all|-start] <rule>: <reason>` comment states a real reason.
  * A missing reason, a generic one (`todo`, `legacy`, ...) or one shorter than three words ("invite-flow")
  * only silences a guard without telling the next reader why the exception is safe. Existing hits are
  * frozen per file in `.kumiko-ignore-tag-reason-baseline.json` and may not grow. A missing baseline file counts as an empty baseline, so every existing hit fails until it is frozen with `--write-baseline`.
@@ -38,7 +38,7 @@ const EXCLUDE = /(\.d\.(ts|tsx)$|\/dist\/)/;
 const COMMENT_MARKER_PREFIX_RE = /^\s*(?:\/\/+|\/\*+|\*+)?\s*/;
 const COMMENT_CLOSE_SUFFIX_RE = /\s*\*\/\s*\}?\s*$/;
 // Not anchored: lineHasIgnoreTag honours the tag anywhere in a line, so a prefixed tag must be checked too.
-const TAG_LINE_RE = /\bkumiko-lint-ignore\s+(\S+)(?:\s+(.*))?$/;
+const TAG_LINE_RE = /\bkumiko-lint-ignore(?:-file)?\s+(\S+)(?:\s+(.*))?$/;
 // Only the rules that replaced deleted guards inherit the reason check; other biome-ignore rules never had one.
 const BIOME_TAG_LINE_RE =
   /\bbiome-ignore(?:-all|-start)?\s+(lint\/(?:plugin|style\/(?:noProcessEnv|noInlineStyles|noRestrictedImports|noRestrictedGlobals))\S*?)\s*:\s*(.*)$/;

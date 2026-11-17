@@ -371,6 +371,19 @@ describe("raw-sql marker baseline", () => {
     }
   });
 
+  test("a baseline entry for a marker that is gone fails as stale", async () => {
+    const logSpy = spyOn(console, "log").mockImplementation(() => {});
+    try {
+      await withRepo({ "src/x.ts": "export const x = 1;\n" }, { "src/x.ts::needs FOR UPDATE": 1 }, async (root) => {
+        const outcome = await check.run([root]);
+        expect(outcome.violations).toHaveLength(1);
+        expect(outcome.violations[0]?.message).toContain("under baseline");
+      });
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+
   test("same file with a reworded reason → violation", async () => {
     const logSpy = spyOn(console, "log").mockImplementation(() => {});
     try {
@@ -426,7 +439,7 @@ describe("raw-sql marker baseline", () => {
         await check.writeBaseline?.([root]);
         expect(existsSync(join(dir, BASELINE))).toBe(true);
         const written = JSON.parse(readFileSync(join(dir, BASELINE), "utf-8"));
-        expect(written.perFile).toEqual({ "src/x.ts::needs FOR UPDATE": 1 });
+        expect(written).toEqual({ format: 1, perFile: { "src/x.ts::needs FOR UPDATE": 1 } });
         expect((await check.run([root])).violations).toEqual([]);
       });
     } finally {

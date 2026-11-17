@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-09-24
+verified: 2026-11-17
 evidence: "kumiko-platform#353 (App-Mounting 2.0); Scaffold: kumiko add feature (dev-server); framework#2509 (boot-validator outputSchema); framework#2501 (projectionDetail header/metrics/tabs)"
 ---
 
@@ -109,7 +109,9 @@ dem Pfad, ein `// @runtime client`-Marker ist unnötig und wird von
   (`guard-no-logic-in-views`). Jede exportierte `lib/`-Funktion braucht einen
   Test, der aus dem Modul importiert und sie namentlich referenziert
   (`guard-lib-test-coverage`). Begründete Ausnahme:
-  `// kumiko-lint-ignore no-logic-in-views <Grund>` bzw. `lib-test-coverage`.
+  `// kumiko-lint-ignore no-logic-in-views <Grund>` bzw. `lib-test-coverage`. Für eine ganze Datei steht
+  `// kumiko-lint-ignore-file lib-test-coverage integration-covered via <pfad/zu/x.test.ts>`
+  im Kopf-Kommentar vor dem ersten Statement (der zitierte Test muss existieren).
 
 ## Warum
 

@@ -1,4 +1,6 @@
-import { type Node, SyntaxKind } from "ts-morph";
+import { type Node, type SourceFile, SyntaxKind } from "ts-morph";
+
+export const FILE_IGNORE_TAG_PREFIX = "kumiko-lint-ignore-file";
 
 function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -43,4 +45,14 @@ export function ignoreTagLine(node: Node, tag: string): string | undefined {
  *  tag then sits above the `<Element`. */
 export function hasIgnoreTag(node: Node, tag: string): boolean {
   return ignoreTagLine(node, tag) !== undefined;
+}
+
+/** File-wide form: `// kumiko-lint-ignore-file <slug> <reason>` in the leading
+ *  comment block, before the first statement. A marker further down (or inside
+ *  a string literal) does not count. Returns the tagged line so callers can read the reason. */
+export function fileIgnoreTagLine(sourceFile: SourceFile, slug: string): string | undefined {
+  const fullText = sourceFile.getFullText();
+  const head = fullText.slice(0, sourceFile.getStatements()[0]?.getStart() ?? fullText.length);
+  const tag = `${FILE_IGNORE_TAG_PREFIX} ${slug}`;
+  return head.split("\n").find((line) => lineHasIgnoreTag(line, tag));
 }

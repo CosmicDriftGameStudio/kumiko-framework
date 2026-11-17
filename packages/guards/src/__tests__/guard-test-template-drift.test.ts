@@ -153,7 +153,7 @@ describe("scanTemplateDrift", () => {
       "/private/repo/packages/app/e2e/_helpers/shot.ts",
       'import type { Page } from "@playwright/test";\n' +
         "export const shot = async (page: Page) => {\n" +
-        "  // @template-drift-exception: #3118 handbook screenshot, not covered by captureScreenshot's fit modes\n" +
+        "  // kumiko-lint-ignore test-template-drift #3118 handbook screenshot, not covered by captureScreenshot's fit modes\n" +
         '  await page.screenshot({ path: "out.png" });\n' +
         "};\n",
     );
@@ -161,12 +161,24 @@ describe("scanTemplateDrift", () => {
     expect(findings).toEqual([]);
   });
 
+  test("the retired @template-drift-exception marker no longer suppresses", () => {
+    const sf = sourceFileAt(
+      "/private/repo/packages/app/e2e/_helpers/shot.ts",
+      'import type { Page } from "@playwright/test";\n' +
+        "export const shot = async (page: Page) => {\n" +
+        "  // @template-drift-exception: #3118 handbook screenshot, not covered by captureScreenshot's fit modes\n" +
+        '  await page.screenshot({ path: "out.png" });\n' +
+        "};\n",
+    );
+    expect(scanTemplateDrift(sf, [])).toHaveLength(1);
+  });
+
   test("an incomplete exception marker still flags, with a note", () => {
     const sf = sourceFileAt(
       "/private/repo/packages/app/e2e/_helpers/shot.ts",
       'import type { Page } from "@playwright/test";\n' +
         "export const shot = async (page: Page) => {\n" +
-        "  // @template-drift-exception: TODO\n" +
+        "  // kumiko-lint-ignore test-template-drift TODO\n" +
         '  await page.screenshot({ path: "out.png" });\n' +
         "};\n",
     );

@@ -39,3 +39,18 @@ Features are found as `src/features/<feature>/` and `bundled-features/src/<featu
 `--features-root <dir>` one whose children are features. A target that already exists in
 `web/` and a marker no path rule covers (for example `dev` outside `dev/`) are reported as
 `manual` and left alone. `--check` exits 1 while anything is left.
+
+## guard-markers-to-lint-ignore
+
+The retired guard opt-out markers move to the one marker syntax: `@no-server-stack: X` becomes
+`kumiko-lint-ignore-file test-stack-drift X`, `@timeout-exception: X` becomes
+`kumiko-lint-ignore test-timeouts X` and `@template-drift-exception: X` becomes
+`kumiko-lint-ignore test-template-drift X`. Only comment lines of `.ts`, `.tsx` and `.mts` files change;
+the reason text stays as written. A reason the `ignore-tag-reason` guard reports as too weak
+(fewer than three real words) has to be rewritten by hand.
+
+```bash
+bun node_modules/@cosmicdrift/kumiko-feature-ast/src/scripts/codemod/guard-markers-to-lint-ignore.ts <dir> [--check | --dry-run | --write] [--no-format]
+```
+
+Without a mode flag it writes. `--check` exits 1 while any marker is left.

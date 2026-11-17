@@ -62,6 +62,8 @@ describe("changes add", () => {
       "Use the new flow",
       "--detail",
       "Update callers first.",
+      "--affects",
+      "oldFlow, legacyFlow",
       "--feature",
       "framework",
     ]);
@@ -73,6 +75,7 @@ describe("changes add", () => {
     const written = readFileSync(path, "utf-8");
     expect(written).toContain('"@cosmicdrift/kumiko-framework": minor');
     expect(written).toContain("migration: |\n  Use the new flow");
+    expect(written).toContain("affects: oldFlow, legacyFlow");
     expect(readFileSync(join(cwd, "packages/framework/src/changes.json"), "utf-8")).toBe("[]");
   });
 
@@ -247,6 +250,74 @@ describe("changes add validation and round-trips", () => {
     expect(second.logs[0]).toEndWith(".changeset/framework-same-title-2.md");
   });
 
+  test("a manual breaking change without --affects is rejected", async () => {
+    const cwd = tmp(frameworkFixture());
+
+    const result = await run(cwd, [
+      "add",
+      "--breaking",
+      "--title",
+      "Remove it",
+      "--migration",
+      "Use the new flow",
+      "--feature",
+      "framework",
+    ]);
+
+    expect(result.exit).toBe(1);
+    expect(result.errs.join("\n")).toContain("--breaking requires --affects");
+    expect(existsSync(join(cwd, ".changeset"))).toBe(false);
+  });
+
+  test("--affects all is written as `all` and --affects needs --breaking", async () => {
+    const cwd = tmp(frameworkFixture());
+    const breaking = ["add", "--breaking", "--title", "Remove it", "--migration", "Use the new flow", "--feature", "framework"];
+
+    const added = await run(cwd, [...breaking, "--affects", "all"]);
+    expect(added.exit).toBe(0);
+    expect(readFileSync(added.logs[0]!, "utf-8")).toContain("\naffects: all\n");
+
+    const onFix = await run(cwd, ["add", "--fix", "--title", "A fix", "--affects", "oldFlow", "--feature", "framework"]);
+    expect(onFix.exit).toBe(1);
+    expect(onFix.errs.join("\n")).toContain("--affects is only allowed with --breaking");
+  });
+
+  test("--affects survives parse and fold", async () => {
+    const cwd = tmp(frameworkFixture());
+    const added = await run(cwd, [
+      "add",
+      "--breaking",
+      "--title",
+      "Remove the old flow",
+      "--migration",
+      "Use the new flow",
+      "--affects",
+      "oldFlow, @cosmicdrift/old-pkg",
+      "--feature",
+      "framework",
+    ]);
+    expect(added.exit).toBe(0);
+    const id = added.logs[0]!.slice(added.logs[0]!.lastIndexOf(sep) + 1, -3);
+    writeFileSync(
+      join(cwd, ".changeset-status.json"),
+      JSON.stringify({
+        changesets: [{ id }],
+        releases: [{ name: "@cosmicdrift/kumiko-framework", newVersion: "0.277.0", changesets: [id] }],
+      }),
+    );
+
+    expect((await run(cwd, ["fold", "--status", join(cwd, ".changeset-status.json")])).exit).toBe(0);
+    expect(JSON.parse(readFileSync(join(cwd, "packages/framework/src/changes.json"), "utf-8"))).toEqual([
+      {
+        version: "0.277.0",
+        type: "breaking",
+        title: "Remove the old flow",
+        migration: "Use the new flow",
+        affects: ["oldFlow", "@cosmicdrift/old-pkg"],
+      },
+    ]);
+  });
+
   test("--codemod survives parse and fold", async () => {
     const cwd = tmp({
       ...frameworkFixture(),
@@ -297,7 +368,7 @@ describe("changes add validation and round-trips", () => {
       ...frameworkFixture(),
       "packages/feature-ast/src/scripts/codemod/my-codemod.ts": "export {};\n",
     });
-    const baseArgs = ["add", "--breaking", "--title", "Rename the thing", "--migration", "Review", "--feature", "framework"];
+    const baseArgs = ["add", "--breaking", "--title", "Rename the thing", "--migration", "Review", "--affects", "oldName", "--feature", "framework"];
 
     const withoutCodemod = await run(cwd, [...baseArgs, "--manual-after-codemod"]);
     expect(withoutCodemod.exit).toBe(1);
@@ -330,6 +401,7 @@ describe("changes add validation and round-trips", () => {
         migration: "Review",
         codemod: "scripts/codemod/my-codemod.ts",
         manualAfterCodemod: true,
+        affects: ["oldName"],
       },
     ]);
   });
@@ -467,7 +539,7 @@ describe("changes fold", () => {
 
   test("fold skips changesets absent from the status and keeps same-title breaking changes with different detail", async () => {
     const block = (detail: string) =>
-      `---\n"@cosmicdrift/kumiko-framework": minor\n---\n\nx\n\n<!-- kumiko-changes\nfeature: framework\ntype: breaking\ntitle: Same title\ndetail: ${detail}\nmigration: Rename it\n-->\n`;
+      `---\n"@cosmicdrift/kumiko-framework": minor\n---\n\nx\n\n<!-- kumiko-changes\nfeature: framework\ntype: breaking\ntitle: Same title\ndetail: ${detail}\nmigration: Rename it\naffects: all\n-->\n`;
     const cwd = tmp({
       ...frameworkFixture(),
       ".changeset/a.md": block("first"),
@@ -491,7 +563,7 @@ describe("changes fold", () => {
       `---\n"@cosmicdrift/kumiko-framework": ${bump}\n---\n\nx\n\n<!-- kumiko-changes\nfeature: framework\ntype: ${type}\ntitle: ${title}\ndetail: ${detail}\n${extra}-->\n`;
     const cwd = tmp({
       ...frameworkFixture(),
-      ".changeset/a-breaking.md": changeset("breaking", "Breaking change", "breaking prose", "minor", "migration: Rename it\n"),
+      ".changeset/a-breaking.md": changeset("breaking", "Breaking change", "breaking prose", "minor", "migration: Rename it\naffects: all\n"),
       ".changeset/b-fix.md": changeset("fix", "A fix", "fix prose", "patch"),
       ".changeset/c-improvement.md": changeset("improvement", "An improvement", "improvement prose", "patch"),
       ".changeset-status.json": JSON.stringify({

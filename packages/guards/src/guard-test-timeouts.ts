@@ -18,7 +18,7 @@
  * `yield`s (slow-producer generator), are work simulation and never flagged.
  *
  * Opt-out on the finding's own line or the line above (loop statement for
- * (c)): `// @timeout-exception: #<issue> <technical reason>`. A marker
+ * (c)): `// kumiko-lint-ignore test-timeouts #<issue> <technical reason>`. A marker
  * without an issue number or a reason does not count and is called out in
  * the message.
  *
@@ -42,6 +42,7 @@ import {
   runStandalone,
   type ScanSpec,
 } from "./_lib/guard-kit";
+import { lineHasIgnoreTag } from "./_lib/ignore-tag";
 import { type RepoRoot, resolveRepoRoots } from "./_lib/roots";
 import {
   canonicalCalleeText,
@@ -65,8 +66,8 @@ const SCAN: ScanSpec = {
   ],
 };
 
-const EXCEPTION_TAG = "@timeout-exception";
-const COMPLETE_EXCEPTION = /@timeout-exception:\s*#\d+\s+\S/;
+const EXCEPTION_TAG = "kumiko-lint-ignore test-timeouts";
+const COMPLETE_EXCEPTION = /kumiko-lint-ignore test-timeouts\s+#\d+\s+\S/;
 
 const LOOP_LABELS: ReadonlyMap<SyntaxKind, string> = new Map([
   [SyntaxKind.WhileStatement, "while"],
@@ -140,7 +141,7 @@ function exceptionNote(node: Node): "allowed" | "incomplete" | "none" {
   const line = node.getStartLineNumber();
   const nearby = [lines[line - 1] ?? "", lines[line - 2] ?? ""];
   if (nearby.some((text) => COMPLETE_EXCEPTION.test(text))) return "allowed";
-  return nearby.some((text) => text.includes(EXCEPTION_TAG)) ? "incomplete" : "none";
+  return nearby.some((text) => lineHasIgnoreTag(text, EXCEPTION_TAG)) ? "incomplete" : "none";
 }
 
 function hasTimeoutProperty(node: Node | undefined): boolean {
@@ -244,7 +245,7 @@ export function scanTimeouts(
   return findings.sort((a, b) => a.line - b.line);
 }
 
-const REMEDIATION = `Wait for a condition (\`waitFor\`, \`expect.poll\`) instead of raising timeouts or sleeping, or mark the line with \`// ${EXCEPTION_TAG}: #<issue> <technical reason>\`.`;
+const REMEDIATION = `Wait for a condition (\`waitFor\`, \`expect.poll\`) instead of raising timeouts or sleeping, or mark the line with \`// ${EXCEPTION_TAG} #<issue> <technical reason>\`.`;
 
 const HINT =
   "Diagnose in this order: (1) reproduce a single run (`--repeat-each`, single file), (2) check shared state and missing isolation (one tenant per flow), (3) wait for a condition, not for time (`waitFor`, `expect.poll`), (4) check the seed, (5) only then change the central template via an issue — never per app. See https://github.com/CosmicDriftGameStudio/kumiko-framework/blob/main/docs/guides/test-failures.md.";

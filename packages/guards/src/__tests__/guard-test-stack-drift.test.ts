@@ -34,7 +34,7 @@ describe("scanFile", () => {
     const sf = parseSource(
       "/repo/packages/framework/src/guard.integration.test.ts",
       `import { createDispatcher } from "@cosmicdrift/kumiko-framework";
-const fixture = "// @no-server-stack: fixture payload";
+const fixture = "// kumiko-lint-ignore-file test-stack-drift fixture payload";
 const dispatcher = createDispatcher({});
 `,
     );
@@ -44,12 +44,34 @@ const dispatcher = createDispatcher({});
   test("a real comment marker still opts the file out", () => {
     const sf = parseSource(
       "/repo/packages/framework/src/guard.integration.test.ts",
-      `// @no-server-stack: legacy harness
+      `// kumiko-lint-ignore-file test-stack-drift pure unit harness without any server
 import { createDispatcher } from "@cosmicdrift/kumiko-framework";
 const dispatcher = createDispatcher({});
 `,
     );
     expect(scanFile(sf)).toBeNull();
+  });
+
+  test("the same marker after the first statement does not opt the file out", () => {
+    const sf = parseSource(
+      "/repo/packages/framework/src/guard.integration.test.ts",
+      `import { createDispatcher } from "@cosmicdrift/kumiko-framework";
+// kumiko-lint-ignore-file test-stack-drift pure unit harness without any server
+const dispatcher = createDispatcher({});
+`,
+    );
+    expect(scanFile(sf)).not.toBeNull();
+  });
+
+  test("the retired @no-server-stack marker no longer opts the file out", () => {
+    const sf = parseSource(
+      "/repo/packages/framework/src/guard.integration.test.ts",
+      `// @no-server-stack: pure redis adapter test, no server needed
+import { createDispatcher } from "@cosmicdrift/kumiko-framework";
+const dispatcher = createDispatcher({});
+`,
+    );
+    expect(scanFile(sf)).not.toBeNull();
   });
 
   test("blocks a .integration.test.ts that builds a parallel stack", () => {
@@ -114,10 +136,10 @@ const poller = createOutboxPoller({});`,
     expect(scanFile(sf)).toBeNull();
   });
 
-  test("respects the @no-server-stack opt-out marker", () => {
+  test("respects the file-wide test-stack-drift ignore marker", () => {
     const sf = parseSource(
       "/repo/packages/framework/src/adapter.integration.test.ts",
-      `// @no-server-stack: pure redis adapter test, no server needed
+      `// kumiko-lint-ignore-file test-stack-drift pure redis adapter test, no server needed
 import { createDispatcher } from "@cosmicdrift/kumiko-framework";
 
 const dispatcher = createDispatcher({});`,

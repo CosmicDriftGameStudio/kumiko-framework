@@ -41,8 +41,8 @@
  * than per file, so moving a cast between files does not trip it. Same
  * missing-file behavior (warning only) as the suspect baseline.
  *
- * Reductions (current < baseline) are allowed but do NOT update the baseline
- * automatically — run `--write-baseline` after cleanup commits.
+ * Reductions (current < baseline) fail as a stale baseline: the headroom would let
+ * new casts in unnoticed, so run `--write-baseline` after cleanup commits.
  *
  * Usage:
  *   bun guards/check-as-casts.ts                  # compare against baseline
@@ -514,10 +514,9 @@ function isSiblingFile(file: string): boolean {
 
 const BASELINE_FORMAT_VERSION = 2;
 
+// Older files that still carry generated/totalSuspect load fine, the extra fields are ignored.
 type Baseline = {
   format: number;
-  generated: string;
-  totalSuspect: number;
   perFile: Record<string, Record<string, number>>;
 };
 
@@ -587,8 +586,6 @@ function writeBaseline(all: readonly Site[]): void {
   const repoLocalSuspects = repoLocal(suspectByFileAndTarget(all));
   const payload: Baseline = {
     format: BASELINE_FORMAT_VERSION,
-    generated: Temporal.Now.instant().toString().slice(0, 10),
-    totalSuspect: totalOf(repoLocalSuspects),
     perFile: Object.fromEntries(
       Object.entries(repoLocalSuspects)
         .sort(([a], [b]) => a.localeCompare(b))
@@ -600,7 +597,7 @@ function writeBaseline(all: readonly Site[]): void {
   };
   writeFileSync(baselinePath, `${JSON.stringify(payload, null, 2)}\n`);
   console.log(`\n  Baseline written: ${baselinePath}`);
-  console.log(`  Total suspect: ${payload.totalSuspect} (repo-local)`);
+  console.log(`  Total suspect: ${totalOf(repoLocalSuspects)} (repo-local)`);
   legitRatchet.write(legitCountsByPackage(all));
 }
 
@@ -641,21 +638,11 @@ export function loadBaseline(file: string): BaselineLoad {
   if (record["format"] !== BASELINE_FORMAT_VERSION) {
     return { kind: "format-drift", format: record["format"] };
   }
-  const { generated, totalSuspect, perFile } = record;
-  if (
-    typeof generated !== "string" ||
-    typeof totalSuspect !== "number" ||
-    !isCountsByFile(perFile)
-  ) {
-    return {
-      kind: "invalid",
-      detail: "expected { format, generated: string, totalSuspect: number, perFile: object }",
-    };
+  const { perFile } = record;
+  if (!isCountsByFile(perFile)) {
+    return { kind: "invalid", detail: "expected { format, perFile: object }" };
   }
-  return {
-    kind: "ok",
-    baseline: { format: BASELINE_FORMAT_VERSION, generated, totalSuspect, perFile },
-  };
+  return { kind: "ok", baseline: { format: BASELINE_FORMAT_VERSION, perFile } };
 }
 
 type CastRegression = { file: string; target: string; baseline: number; current: number };
@@ -663,9 +650,9 @@ type CastRegression = { file: string; target: string; baseline: number; current:
 function compareCastsToBaseline(
   current: Record<string, Record<string, number>>,
   baselinePerFile: Record<string, Record<string, number>>,
-): { regressions: CastRegression[]; reduced: number } {
+): { regressions: CastRegression[]; reductions: CastRegression[] } {
   const regressions: CastRegression[] = [];
-  let reduced = 0;
+  const reductions: CastRegression[] = [];
   const allFiles = new Set([...Object.keys(current), ...Object.keys(baselinePerFile)]);
   for (const file of allFiles) {
     const baselineTargets = baselinePerFile[file] ?? {};
@@ -677,11 +664,11 @@ function compareCastsToBaseline(
       if (count > expected) {
         regressions.push({ file, target, baseline: expected, current: count });
       } else if (count < expected) {
-        reduced += expected - count;
+        reductions.push({ file, target, baseline: expected, current: count });
       }
     }
   }
-  return { regressions, reduced };
+  return { regressions, reductions };
 }
 
 const CAST_OPTIONS_HINT =
@@ -714,6 +701,22 @@ function regressionViolation(regression: CastRegression, all: readonly Site[]): 
     file: regression.file,
     line: firstNew?.line ?? 1,
     message: `Suspect cast regression: \`as ${regression.target}\` baseline=${regression.baseline}, current=${regression.current}. ${CAST_OPTIONS_HINT}`,
+  };
+}
+
+function staleBaselineViolation(reduction: CastRegression, all: readonly Site[]): GuardViolation {
+  const firstRemaining = all
+    .filter(
+      (s) =>
+        s.file === reduction.file &&
+        s.target === reduction.target &&
+        s.category.startsWith("suspect-"),
+    )
+    .sort((a, b) => a.line - b.line)[0];
+  return {
+    file: reduction.file,
+    line: firstRemaining?.line ?? 1,
+    message: `suspect casts \`as ${reduction.target}\` under baseline: baseline=${reduction.baseline} current=${reduction.current}. The baseline ${path.basename(baselinePath)} has headroom that would let new findings in unnoticed; tighten it with \`bun packages/guards/src/check-as-casts.ts --write-baseline\` and commit it.`,
   };
 }
 
@@ -755,25 +758,21 @@ export function reportBaseline(
     ];
   }
   const baselinePerFile = loaded.kind === "ok" ? loaded.baseline.perFile : {};
-  const baselineTotal = loaded.kind === "ok" ? loaded.baseline.totalSuspect : 0;
+  const baselineTotal = totalOf(baselinePerFile);
 
-  const { regressions, reduced } = compareCastsToBaseline(repoLocalSuspects, baselinePerFile);
+  const { regressions, reductions } = compareCastsToBaseline(repoLocalSuspects, baselinePerFile);
   if (regressions.length > 0) {
     printCastRegressions(regressions);
   }
   const unknownReasons = findUnknownReasons(all).filter((s) => !isSiblingFile(s.file));
   const violations = [
     ...regressions.map((r) => regressionViolation(r, all)),
+    ...reductions.map((r) => staleBaselineViolation(r, all)),
     ...unknownReasons.map(unknownReasonViolation),
   ];
   if (violations.length > 0) return violations;
 
   console.log(`\n  ✓ Baseline (${baselineTotal}) — current ${repoLocalTotal}`);
-  if (reduced > 0) {
-    console.log(
-      `  ✓ ${reduced} suspect cast(s) reduced since baseline. Run \`--write-baseline\` if appropriate.`,
-    );
-  }
   return [];
 }
 

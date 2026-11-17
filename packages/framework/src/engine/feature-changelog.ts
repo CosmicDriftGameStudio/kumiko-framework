@@ -23,6 +23,8 @@ export type ChangelogEntry = {
   readonly codemod?: string;
   /** The codemod only covers part of the migration: the entry is also recorded as pending manual work after it ran. */
   readonly manualAfterCodemod?: boolean;
+  /** Breaking entries only: symbols or import paths an app mentions when the change touches it. `kumiko-upgrade --apply` marks the entry not-applicable when none of them occurs in the app. */
+  readonly affects?: readonly string[];
 };
 
 export type FeatureChangelog = {
@@ -59,7 +61,29 @@ function isChangelogEntry(value: unknown): value is ChangelogEntry {
   ) {
     return false;
   }
+  if (value["affects"] !== undefined && !isNonEmptyStringArray(value["affects"])) return false;
   return true;
+}
+
+function isNonEmptyStringArray(value: unknown): value is readonly string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string" && item !== "");
+}
+
+function validateAffects(entry: ChangelogEntry): string[] {
+  const { affects } = entry;
+  if (affects === undefined) return [];
+  if (entry.type !== "breaking") {
+    return [`change "${entry.title}" sets affects but is not breaking`];
+  }
+  if (affects.length === 0) return [`breaking change "${entry.title}" has empty affects field`];
+  const errors: string[] = [];
+  if (affects.some((item) => item.trim() === "")) {
+    errors.push(`breaking change "${entry.title}" has an empty affects entry`);
+  }
+  if (new Set(affects).size !== affects.length) {
+    errors.push(`breaking change "${entry.title}" lists an affects entry twice`);
+  }
+  return errors;
 }
 
 export function validateChangelog(entry: ChangelogEntry): string[] {
@@ -73,6 +97,7 @@ export function validateChangelog(entry: ChangelogEntry): string[] {
   if (entry.manualAfterCodemod && !entry.codemod) {
     errors.push(`change "${entry.title}" sets manualAfterCodemod without a codemod field`);
   }
+  errors.push(...validateAffects(entry));
   return errors;
 }
 

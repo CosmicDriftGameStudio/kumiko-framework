@@ -1626,6 +1626,93 @@ describe("upgrade command — --apply: one run, open manual entries survive", ()
   });
 });
 
+describe("upgrade command — --apply: affects scan resolves untouched breaking entries", () => {
+  const INSTALLED = "0.349.0";
+  const ENTRY = { version: "0.348.0", title: "fooBar renamed" };
+  const entryId = manualEntryId(ENTRY.version, ENTRY.title);
+
+  function fixture(options: {
+    readonly affects?: readonly string[];
+    readonly appFiles?: Record<string, string>;
+    readonly gitInit: boolean;
+  }): string {
+    const cwd = tmp({
+      "packages/bundled-features/package.json": JSON.stringify({ version: INSTALLED }),
+      "packages/framework/src/changes.json": JSON.stringify([
+        {
+          ...ENTRY,
+          type: "breaking",
+          migration: "rename it by hand",
+          ...(options.affects ? { affects: options.affects } : {}),
+        },
+      ]),
+      ".kumiko/upgrade-state.json": JSON.stringify({
+        version: "0.345.0",
+        appliedAt: "2024-01-01T00:00:00Z",
+        codemods: [],
+      }),
+      "app.ts": "export const unrelated = 1;\n",
+      ...options.appFiles,
+    });
+    if (options.gitInit) Bun.spawnSync(["git", "init", "-q"], { cwd });
+    return cwd;
+  }
+
+  async function apply(cwd: string): Promise<number> {
+    return runUpgradeCli(["--apply"], cwd, makeSpyOutput().out, { repoRoot: REAL_REPO_ROOT });
+  }
+
+  test("an entry whose affects appear nowhere in the app is resolved as not-applicable", async () => {
+    const cwd = fixture({ affects: ["fooBar"], gitInit: true });
+    const spy = makeSpyOutput();
+
+    const exit = await runUpgradeCli(["--apply"], cwd, spy.out, { repoRoot: REAL_REPO_ROOT });
+
+    expect(exit).toBe(0);
+    const marker = readMarkerFile(cwd);
+    expect(marker.pendingManual ?? []).toEqual([]);
+    expect(marker.resolvedManual).toEqual([
+      expect.objectContaining({ id: entryId, resolution: "not-applicable" }),
+    ]);
+    expect(marker.resolvedManual?.[0]?.reason).toContain('"fooBar"');
+    expect(spy.logs.join("\n")).toContain("fooBar renamed: not applicable");
+  });
+
+  test("an untracked app file that mentions an affects entry keeps the entry pending", async () => {
+    const cwd = fixture({
+      affects: ["fooBar"],
+      appFiles: { "src/feature.ts": "export const x = fooBar();\n" },
+      gitInit: true,
+    });
+
+    expect(await apply(cwd)).toBe(0);
+
+    const marker = readMarkerFile(cwd);
+    expect(marker.pendingManual?.map((entry) => entry.id)).toEqual([entryId]);
+    expect(marker.resolvedManual ?? []).toEqual([]);
+  });
+
+  test("a target that is not a git repository keeps the entry pending", async () => {
+    const cwd = fixture({ affects: ["fooBar"], gitInit: false });
+
+    expect(await apply(cwd)).toBe(0);
+
+    const marker = readMarkerFile(cwd);
+    expect(marker.pendingManual?.map((entry) => entry.id)).toEqual([entryId]);
+    expect(marker.resolvedManual ?? []).toEqual([]);
+  });
+
+  test("an entry without affects stays pending", async () => {
+    const cwd = fixture({ gitInit: true });
+
+    expect(await apply(cwd)).toBe(0);
+
+    const marker = readMarkerFile(cwd);
+    expect(marker.pendingManual?.map((entry) => entry.id)).toEqual([entryId]);
+    expect(marker.resolvedManual ?? []).toEqual([]);
+  });
+});
+
 describe("upgrade command — CHANGELOG.md, --verbose and repeated --apply", () => {
   const INSTALLED = "0.349.0";
   const MANUAL = {
