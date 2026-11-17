@@ -2,7 +2,7 @@ import type { AggregateRow, AggregateSpec } from "@cosmicdrift/kumiko-types/aggr
 import type { EntityTableMeta } from "@cosmicdrift/kumiko-types/entity-table-meta-types";
 import type { DbConnection } from "@cosmicdrift/kumiko-types/db-connection";
 import type { ExecutorManagedRunner } from "@cosmicdrift/kumiko-types/executor-brand";
-import type { HandlerDb } from "@cosmicdrift/kumiko-types/handlers";
+import type { EscapeHatchReporter, HandlerDb } from "@cosmicdrift/kumiko-types/handlers";
 import type { Meter, Tracer } from "@cosmicdrift/kumiko-types/observability";
 import type { SchemaTable } from "@cosmicdrift/kumiko-types/schema-table-types";
 import type { TenancyBrand } from "@cosmicdrift/kumiko-types/tenancy-brand";
@@ -11,6 +11,7 @@ import {
   type ExecutorManagedTenantDb,
   type GlobalTableDb,
   type TenantDb,
+  type TenantDbMode,
   type TenantDbUpsertOptions,
 } from "@cosmicdrift/kumiko-types/tenant-db-types";
 import {
@@ -58,6 +59,7 @@ import {
   crossTenantUseReporters,
   declaredUnsafeRawRunners,
   hasGrant,
+  type PersonalDataGate,
   personalDataGates,
   runnerPersonalDataGates,
   type TenantDbGrants,
@@ -203,9 +205,27 @@ export function createTenantDataDestroyDb(
 
 // Untyped JS callers or an `as` cast can still hand in undefined; a scoped handle
 // without a tenant would bind `tenant_id = NULL` instead of failing loudly.
-function buildTenantDb(
-  options: Omit<CreateTenantDbOptions, "tenantId"> & { readonly tenantId: TenantId | undefined },
-): TenantDb {
+type BuildTenantDbOptions = Omit<CreateTenantDbOptions, "tenantId"> & {
+  readonly tenantId: TenantId | undefined;
+};
+
+type TenantDbBuildScope = {
+  readonly db: DbRunner;
+  readonly tenantId: TenantId;
+  readonly mode: TenantDbMode;
+  readonly modeOptions: TenantDbModeOptions;
+  readonly tracer: Tracer | undefined;
+  readonly meter: Meter | undefined;
+  readonly signal: AbortSignal | undefined;
+  readonly grants: TenantDbGrants | undefined;
+  readonly report: EscapeHatchReporter;
+  readonly personalDataGate: PersonalDataGate | undefined;
+  readonly projectionRegistry: Registry | undefined;
+  readonly rebindGrants: TenantDbGrants | undefined;
+  readonly withDbSpan: ReturnType<typeof createTenantDbStatementRunner>;
+};
+
+function resolveTenantDbScope(options: BuildTenantDbOptions): TenantDbBuildScope {
   const {
     db: givenDb,
     tenantId: requestedTenantId,
@@ -240,6 +260,34 @@ function buildTenantDb(
     ...modeOptions,
     tenantId,
   });
+  return {
+    db,
+    tenantId,
+    mode,
+    modeOptions,
+    tracer,
+    meter,
+    signal,
+    grants,
+    report,
+    personalDataGate,
+    projectionRegistry,
+    rebindGrants,
+    withDbSpan,
+  };
+}
+
+function foreignTenantOnGlobalWrite(
+  table: Table | EntityTableMeta,
+  tenantIdValue: unknown,
+  message: string = `db.global(${tableNameOf(table)}): tenantId "${String(tenantIdValue)}" is not SYSTEM_TENANT_ID — a "global" table's rows must carry the system tenant, not an arbitrary tenant's id.`,
+): AccessDeniedError | undefined {
+  if (!isForeignTenantId(tenantIdValue)) return undefined;
+  return new AccessDeniedError({ message });
+}
+
+function createTenantDbChecks(scope: TenantDbBuildScope) {
+  const { db, mode, tenantId, grants, personalDataGate } = scope;
 
   // Reads see own-tenant rows + reference data (tenantId === SYSTEM_TENANT_ID).
   // Writes never touch reference rows — those are system-mode only.
@@ -281,32 +329,9 @@ function buildTenantDb(
     return { ...data, tenantId };
   }
 
-  function missingEscapeHatch(table: Table | EntityTableMeta): AccessDeniedError | undefined {
-    if (hasGrant(grants?.globalWrites)) return undefined;
-    return new AccessDeniedError({
-      message:
-        `db.global(${tableNameOf(table)}): write rejected — declare ` +
-        `\`escapeHatch: { reason: "...", grants: ["globalWrites"] }\` on the write handler to allow ` +
-        "writes through db.global().",
-    });
-  }
-
   function writesDenied(operation: string): InternalError | undefined {
     const reason = grants?.writesDeniedReason;
     return reason === undefined ? undefined : tenantDbWritesDeniedError(operation, reason);
-  }
-
-  function globalWriteReason(): string {
-    return grants?.globalWrites?.reason ?? "";
-  }
-
-  // The table is the audit target: process-level dedup would otherwise collapse a cron's
-  // writes to several global tables into one audit entry.
-  function reportGlobalWrite(table: Table | EntityTableMeta): void {
-    report("global-write", globalWriteReason(), {
-      id: tableNameOf(table),
-      tenantId: tenantId ?? SYSTEM_TENANT_ID,
-    });
   }
 
   function personalDataDenied(
@@ -321,15 +346,6 @@ function buildTenantDb(
       if (e instanceof AccessDeniedError) return e;
       throw e;
     }
-  }
-
-  function foreignTenantOnGlobalWrite(
-    table: Table | EntityTableMeta,
-    tenantIdValue: unknown,
-    message: string = `db.global(${tableNameOf(table)}): tenantId "${String(tenantIdValue)}" is not SYSTEM_TENANT_ID — a "global" table's rows must carry the system tenant, not an arbitrary tenant's id.`,
-  ): AccessDeniedError | undefined {
-    if (!isForeignTenantId(tenantIdValue)) return undefined;
-    return new AccessDeniedError({ message });
   }
 
   // A tenant-mode write against a "global" table can never match (rows carry SYSTEM_TENANT_ID, writeWhere pins the caller's tenant), so reject loudly instead of silently affecting zero rows.
@@ -383,6 +399,49 @@ function buildTenantDb(
     if (hasExecutorManagedWriteCapability(db)) return bunDeleteMany(db, table, where);
     assertWritableTable(table);
     return bunDeleteMany(db, table, where);
+  }
+
+  return {
+    readWhere,
+    writeWhere,
+    insertValues,
+    writesDenied,
+    personalDataDenied,
+    tenantWriteOnGlobalTable,
+    tenantIdInSetDenied,
+    insertRow,
+    updateRows,
+    deleteRows,
+  };
+}
+
+type TenantDbChecks = ReturnType<typeof createTenantDbChecks>;
+
+function createGlobalTable(scope: TenantDbBuildScope, checks: TenantDbChecks): TenantDb["global"] {
+  const { db, grants, report, tenantId, withDbSpan } = scope;
+  const { writesDenied, personalDataDenied, insertRow, updateRows, deleteRows } = checks;
+
+  function missingEscapeHatch(table: Table | EntityTableMeta): AccessDeniedError | undefined {
+    if (hasGrant(grants?.globalWrites)) return undefined;
+    return new AccessDeniedError({
+      message:
+        `db.global(${tableNameOf(table)}): write rejected — declare ` +
+        `\`escapeHatch: { reason: "...", grants: ["globalWrites"] }\` on the write handler to allow ` +
+        "writes through db.global().",
+    });
+  }
+
+  function globalWriteReason(): string {
+    return grants?.globalWrites?.reason ?? "";
+  }
+
+  // The table is the audit target: process-level dedup would otherwise collapse a cron's
+  // writes to several global tables into one audit entry.
+  function reportGlobalWrite(table: Table | EntityTableMeta): void {
+    report("global-write", globalWriteReason(), {
+      id: tableNameOf(table),
+      tenantId: tenantId ?? SYSTEM_TENANT_ID,
+    });
   }
 
   function globalTable<TTable extends (SchemaTable | EntityTableMeta) & TenancyBrand<"global">>(
@@ -460,44 +519,54 @@ function buildTenantDb(
     } as GlobalTableDb<TTable>;
   }
 
-  function grantedUnsafeRawRunner(reach: UnsafeRawReach, declaredStepReason?: string): DbRunner {
-    // Ahead of the grant check: a declared escapeHatch must not buy a raw runner here either.
-    if (grants?.memberReadOnly) {
-      throw memberResolutionReadOnlyDenied();
-    }
-    if (!hasGrant(grants?.unsafeRaw)) {
-      throw new AccessDeniedError({
-        message:
-          `ctx.db.${reach === "all-tenants" ? "unsafeRawAllTenants" : "unsafeRaw"}(): rejected — ` +
-          'declare `escapeHatch: { reason: "...", grants: ["unsafeRaw"] }` on ' +
-          "the handler or hook to allow unsafeRaw.",
-      });
-    }
-    // Engine-forwarded steps carry their own declared reason; otherwise the grant's reason is audited.
-    report("unsafe-raw", declaredStepReason ?? grants?.unsafeRaw?.reason ?? "");
-    const bound = boundRunner(
-      reach === "all-tenants"
-        ? unsafeRawScopedRunner(withoutExecutorManagedWrites(db))
-        : withRowLevelSecurityScope(
-            withoutExecutorManagedWrites(db),
-            tenantDbRowLevelSecurityScope(modeOptions, tenantId),
-          ),
-      personalDataGate,
-      projectionRegistry,
-      false,
-    );
-    unsafeRawRunners.add(bound);
-    return bound;
+  return globalTable;
+}
+
+function grantedUnsafeRawRunner(
+  scope: TenantDbBuildScope,
+  reach: UnsafeRawReach,
+  declaredStepReason?: string,
+): DbRunner {
+  const { grants, report, db, modeOptions, tenantId, personalDataGate, projectionRegistry } = scope;
+  // Ahead of the grant check: a declared escapeHatch must not buy a raw runner here either.
+  if (grants?.memberReadOnly) {
+    throw memberResolutionReadOnlyDenied();
   }
+  if (!hasGrant(grants?.unsafeRaw)) {
+    throw new AccessDeniedError({
+      message:
+        `ctx.db.${reach === "all-tenants" ? "unsafeRawAllTenants" : "unsafeRaw"}(): rejected — ` +
+        'declare `escapeHatch: { reason: "...", grants: ["unsafeRaw"] }` on ' +
+        "the handler or hook to allow unsafeRaw.",
+    });
+  }
+  // Engine-forwarded steps carry their own declared reason; otherwise the grant's reason is audited.
+  report("unsafe-raw", declaredStepReason ?? grants?.unsafeRaw?.reason ?? "");
+  const bound = boundRunner(
+    reach === "all-tenants"
+      ? unsafeRawScopedRunner(withoutExecutorManagedWrites(db))
+      : withRowLevelSecurityScope(
+          withoutExecutorManagedWrites(db),
+          tenantDbRowLevelSecurityScope(modeOptions, tenantId),
+        ),
+    personalDataGate,
+    projectionRegistry,
+    false,
+  );
+  unsafeRawRunners.add(bound);
+  return bound;
+}
 
-  const tenantDb: TenantDb = {
-    tenantId,
-    mode,
-    global: globalTable,
-
-    unsafeRaw: () => grantedUnsafeRawRunner("own-scope"),
-    unsafeRawAllTenants: () => grantedUnsafeRawRunner("all-tenants"),
-
+function createTenantDbReads(
+  scope: TenantDbBuildScope,
+  checks: TenantDbChecks,
+): Pick<
+  TenantDb,
+  "selectMany" | "fetchOne" | "count" | "advisoryXactLock" | "databaseNow" | "aggregate"
+> {
+  const { db, tenantId, withDbSpan } = scope;
+  const { readWhere } = checks;
+  return {
     selectMany<T = Record<string, unknown>>(
       table: Table | EntityTableMeta,
       where?: WhereObject,
@@ -536,7 +605,26 @@ function buildTenantDb(
       const filter = readWhere(table, where);
       return withDbSpan("select", table, async () => bunAggregateWhere(db, table, spec, filter));
     },
+  };
+}
 
+function createTenantDbWrites(
+  scope: TenantDbBuildScope,
+  checks: TenantDbChecks,
+): Pick<TenantDb, "insertOne" | "upsert" | "updateMany" | "deleteMany"> {
+  const { db, mode, tenantId, withDbSpan } = scope;
+  const {
+    writesDenied,
+    personalDataDenied,
+    insertValues,
+    insertRow,
+    updateRows,
+    deleteRows,
+    tenantWriteOnGlobalTable,
+    tenantIdInSetDenied,
+    writeWhere,
+  } = checks;
+  return {
     insertOne<T = Record<string, unknown>>(
       table: Table | EntityTableMeta,
       values: Record<string, unknown>,
@@ -626,8 +714,26 @@ function buildTenantDb(
       return withDbSpan("delete", table, async () => deleteRows(table, filter));
     },
   };
+}
 
-  declaredUnsafeRawRunners.set(tenantDb, (reason) => grantedUnsafeRawRunner("all-tenants", reason));
+function registerTenantDbBindings(tenantDb: TenantDb, scope: TenantDbBuildScope): void {
+  const {
+    db,
+    tenantId,
+    mode,
+    modeOptions,
+    tracer,
+    meter,
+    signal,
+    grants,
+    report,
+    personalDataGate,
+    projectionRegistry,
+    rebindGrants,
+  } = scope;
+  declaredUnsafeRawRunners.set(tenantDb, (reason) =>
+    grantedUnsafeRawRunner(scope, "all-tenants", reason),
+  );
   unsafeRawRebinders.set(tenantDb, (grant) =>
     createTenantDb({
       db,
@@ -705,6 +811,23 @@ function buildTenantDb(
   }
   if (personalDataGate) personalDataGates.set(tenantDb, personalDataGate);
   if (projectionRegistry) bindProjectionRegistry(tenantDb, projectionRegistry);
+}
+
+function buildTenantDb(options: BuildTenantDbOptions): TenantDb {
+  const scope = resolveTenantDbScope(options);
+  const checks = createTenantDbChecks(scope);
+  const tenantDb: TenantDb = {
+    tenantId: scope.tenantId,
+    mode: scope.mode,
+    global: createGlobalTable(scope, checks),
+
+    unsafeRaw: () => grantedUnsafeRawRunner(scope, "own-scope"),
+    unsafeRawAllTenants: () => grantedUnsafeRawRunner(scope, "all-tenants"),
+
+    ...createTenantDbReads(scope, checks),
+    ...createTenantDbWrites(scope, checks),
+  };
+  registerTenantDbBindings(tenantDb, scope);
   return tenantDb;
 }
 
