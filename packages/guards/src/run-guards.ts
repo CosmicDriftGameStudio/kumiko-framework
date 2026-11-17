@@ -42,7 +42,9 @@ import { guard as noLogicInViews } from "./guard-no-logic-in-views";
 import { guard as rlsSessionSettings } from "./guard-rls-session-settings";
 import { guard as screenConventions } from "./guard-screen-conventions";
 import { guard as securityPluginSuppression } from "./guard-security-plugin-suppression";
+import { guard as seedRuntimeImports } from "./guard-seed-runtime-imports";
 import { guard as tenantEscalation } from "./guard-tenant-escalation";
+import { guard as testEnvWrites } from "./guard-test-env-writes";
 import { guard as testEsRowWrites } from "./guard-test-es-row-writes";
 import { guard as testTemplateDrift } from "./guard-test-template-drift";
 import { guard as testTimeouts } from "./guard-test-timeouts";
@@ -67,6 +69,8 @@ export const GUARDS = [
   appFeatureStructure,
   libTestCoverage,
   testTimeouts,
+  testEnvWrites,
+  seedRuntimeImports,
   testEsRowWrites,
   testTemplateDrift,
   fileSize,

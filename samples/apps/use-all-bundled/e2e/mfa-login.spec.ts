@@ -22,7 +22,7 @@
 
 import { base32Decode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import { currentTotpCode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa/testing";
-import { CSRF_COOKIE_NAME, clearSession, expect, test } from "@cosmicdrift/kumiko-testing/e2e";
+import { CSRF_COOKIE_NAME, clearSession, E2E_TIMEOUT_MS, expect, test } from "@cosmicdrift/kumiko-testing/e2e";
 import type { Page } from "@playwright/test";
 
 const DISPLAY_NAME = "MFA E2E";
@@ -35,7 +35,7 @@ async function csrfFrom(page: Page): Promise<string> {
 async function expectShell(page: Page): Promise<void> {
   await page.goto("/");
   await expect(page.getByRole("button", { name: DISPLAY_NAME })).toBeVisible({
-    timeout: 10_000,
+    timeout: E2E_TIMEOUT_MS.navigation,
   });
 }
 
@@ -81,7 +81,7 @@ async function ensureSessionForDisable(
     // The sixth digit submits on its own; a Verify click would race the disabled button.
     await Promise.all([
       page.waitForResponse((r) => r.url().includes("/api/auth/mfa/verify") && r.ok(), {
-        timeout: 10_000,
+        timeout: E2E_TIMEOUT_MS.navigation,
       }),
       codeField.fill(currentTotpCode(secret)),
     ]);
@@ -137,10 +137,10 @@ test("MFA enable → logout → login challenges → TOTP → shell", async ({ p
     await page.getByLabel("Password").fill(password);
     await page.getByRole("button", { name: "Sign in" }).click();
 
-    await expect(page.getByLabel("Code")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByLabel("Code")).toBeVisible({ timeout: E2E_TIMEOUT_MS.navigation });
     await Promise.all([
       page.waitForResponse((r) => r.url().includes("/api/auth/mfa/verify") && r.ok(), {
-        timeout: 10_000,
+        timeout: E2E_TIMEOUT_MS.navigation,
       }),
       page.getByLabel("Code").fill(currentTotpCode(secret)),
     ]);

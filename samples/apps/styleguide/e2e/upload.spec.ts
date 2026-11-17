@@ -30,6 +30,6 @@ test("Avatar-Upload: Datei → /api/files → Preview + Change-Button", async ({
   // (Scope the selector to the avatar field — "Save changes" otherwise also contains
   //  "Change" and triggers strict mode.)
   const avatar = page.getByTestId("field-avatar");
-  await expect(avatar.locator('img[src^="/api/files/"]')).toBeVisible({ timeout: 5000 });
+  await expect(avatar.locator('img[src^="/api/files/"]')).toBeVisible();
   await expect(avatar.getByRole("button", { name: "Change" })).toBeVisible();
 });

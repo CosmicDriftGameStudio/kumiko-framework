@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { STANDARD_APP_SCRIPTS } from "@cosmicdrift/kumiko-dev-server/managed-files";
 import { runManagedCheckStep } from "../check-managed";
 import { runScriptsCheckStep } from "../check-scripts";
 
@@ -94,5 +95,43 @@ describe("runManagedCheckStep on an adopted app", () => {
     const { out, logs } = capture();
     expect(await runManagedCheckStep(out, repo, [])).toBe(1);
     expect(logs.join("\n")).toContain("✗ kumiko/schema.ts: differs from the template");
+  });
+});
+
+describe("runScriptsCheckStep test command timeouts", () => {
+  function appWithScripts(overrides: Record<string, string>): string {
+    const repo = appRepo({ name: "shop-app", config: DEFINED_CONFIG });
+    const scripts: Record<string, string> = Object.fromEntries(
+      STANDARD_APP_SCRIPTS.map((name) => [name, "echo ok"]),
+    );
+    scripts.test = "bun test --dots";
+    scripts["test:unit"] = "bun test --dots";
+    scripts["test:integration"] = "bun kumiko-testing integration";
+    scripts["test:integration:ci"] = "bun kumiko-testing integration";
+    scripts["test:real"] = "bun --config=bunfig.real.toml test --timeout=240000";
+    scripts["test:dom"] = "bun test --dots --config=bunfig.dom.toml";
+    writeFileSync(
+      join(repo, "package.json"),
+      JSON.stringify({ name: "shop-app", scripts: { ...scripts, ...overrides } }),
+    );
+    return repo;
+  }
+
+  test("fails an adopted app whose test:dom raises the timeout", async () => {
+    const { out, logs } = capture();
+    const repo = appWithScripts({
+      "test:dom": "bun test --dots --config=bunfig.dom.toml --timeout=15000",
+    });
+
+    expect(await runScriptsCheckStep(out, repo, [])).toBe(1);
+    expect(logs.join("\n")).toContain("TEST_TIMEOUT_MS.dom");
+  });
+
+  test("passes an adopted app whose test commands match their class", async () => {
+    const { out, logs } = capture();
+    const repo = appWithScripts({});
+
+    expect(await runScriptsCheckStep(out, repo, [])).toBe(0);
+    expect(logs.join("\n")).toContain("all standard scripts present");
   });
 });

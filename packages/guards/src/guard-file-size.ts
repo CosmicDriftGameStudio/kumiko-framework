@@ -1,10 +1,11 @@
 #!/usr/bin/env bun
 /**
- * File Size Guard — production files above 1200 lines are frozen in
+ * File Size Guard — production files above 1200 lines and test files (unit,
+ * integration, e2e specs) above 1500 lines are frozen in
  * `.kumiko-file-size-baseline.json` (key = file, value = line count) and may
- * not grow; a new file above the threshold is a violation. A missing baseline file counts as an empty baseline, so every existing hit fails until it is frozen with `--write-baseline`.
+ * not grow; a new file above its threshold is a violation. A missing baseline file counts as an empty baseline, so every existing hit fails until it is frozen with `--write-baseline`.
  *
- * Excluded: tests, declaration files, generated files and the translation
+ * Excluded: declaration files, generated files and the translation
  * data in the locale packages' `src/strings.ts`.
  */
 
@@ -25,15 +26,24 @@ import { resolveRepoRoots } from "./_lib/roots";
 const ROOT = process.cwd();
 
 const SCAN: ScanSpec = {
-  scope: "source",
+  scope: "source+tests",
   extensions: ["ts", "tsx"],
-  frameworkWithin: ["packages/*/src/**"],
+  frameworkWithin: ["packages/*/src/**", "packages/*/e2e/**"],
+  extraGlobs: [
+    "e2e/**/*.{ts,tsx}",
+    "packages/*/e2e/**/*.{ts,tsx}",
+    "samples/apps/*/e2e/**/*.{ts,tsx}",
+  ],
 };
 
 export const MAX_FILE_LINES = 1200;
 
-const EXCLUDE =
-  /(__tests__|\.test\.(ts|tsx)$|\.integration\.(ts|tsx)$|\.d\.(ts|tsx)$|\.generated\.(ts|tsx)$|\/generated\/|\/locale-[^/]+\/src\/strings\.ts$)/;
+export const MAX_TEST_FILE_LINES = 1500;
+
+const ALWAYS_EXCLUDED =
+  /(\.d\.(ts|tsx)$|\.generated\.(ts|tsx)$|\/generated\/|\/locale-[^/]+\/src\/strings\.ts$)/;
+const TEST_FILE =
+  /(\/__tests__\/|\.test\.(ts|tsx)$|\.integration\.(ts|tsx)$|\.spec\.(ts|tsx)$|\/e2e[^/]*\/)/;
 
 const fileSizeBaseline = baselineRatchet({
   file: path.join(ROOT, ".kumiko-file-size-baseline.json"),
@@ -51,9 +61,11 @@ export function oversizedFileLines(
 ): Record<string, number> {
   const counts: Record<string, number> = {};
   for (const sf of files) {
-    if (EXCLUDE.test(sf.getFilePath())) continue;
+    const filePath = sf.getFilePath();
+    if (ALWAYS_EXCLUDED.test(filePath)) continue;
+    const limit = TEST_FILE.test(filePath) ? MAX_TEST_FILE_LINES : MAX_FILE_LINES;
     const lines = lineCountOf(sf.getFullText());
-    if (lines <= MAX_FILE_LINES) continue;
+    if (lines <= limit) continue;
     counts[relFromRepoRoot(sf.getFilePath(), roots)] = lines;
   }
   return counts;
@@ -63,7 +75,7 @@ function localOnly(counts: Readonly<Record<string, number>>): Record<string, num
   return Object.fromEntries(Object.entries(counts).filter(([file]) => isLocalFinding({ file })));
 }
 
-const REMEDIATION = `Split the file below ${MAX_FILE_LINES + 1} lines (cut along a responsibility seam), do not grow a frozen one.`;
+const REMEDIATION = `Production files stay at ${MAX_FILE_LINES} lines, test files at ${MAX_TEST_FILE_LINES}: split the file by behaviour (cut along a responsibility seam), do not grow a frozen one.`;
 
 export const guard: AstGuard = {
   name: "File Size",

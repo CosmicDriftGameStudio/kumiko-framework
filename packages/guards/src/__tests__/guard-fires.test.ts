@@ -204,6 +204,16 @@ const ENFORCING: Record<string, Violating> = {
     code: "declare function sleep(ms: number): Promise<void>;\ndeclare function ready(): boolean;\nexport async function poll() { while (!ready()) { await sleep(10); } }",
     expectedMessage: /while loop polls with sleep/,
   },
+  "test-env-writes": {
+    path: `${PKG}/features/x/__tests__/x.test.ts`,
+    code: 'process.env.FOO = "1";',
+    expectedMessage: /direct env write\(s\)/,
+  },
+  "seed-runtime-imports": {
+    path: `${CWD}/packages/app/seeds/demo.ts`,
+    code: 'import { x } from "@cosmicdrift/kumiko-framework/engine";\nexport const y = x;',
+    expectedMessage: /runtime import of/,
+  },
   "Test-ES-Row-Writes Guard": {
     path: `${PKG}/features/x/__tests__/x.integration.test.ts`,
     code: 'import { updateRows } from "@cosmicdrift/kumiko-testing/helpers";\ndeclare const db: never;\nexport const run = () => updateRows(db, {} as never, {}, {});',

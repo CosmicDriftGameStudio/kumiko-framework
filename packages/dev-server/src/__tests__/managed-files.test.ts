@@ -390,6 +390,50 @@ describe("script standard", () => {
     expect(report.appExtras).toEqual(["eval:triage"]);
   });
 
+  describe("test command timeouts", () => {
+    const GOOD = {
+      test: "bun test --dots",
+      "test:dom": "bun test --dots --config=bunfig.dom.toml .test.tsx",
+      "test:real": "bun --config=bunfig.real.toml test --timeout=240000 real.test.ts",
+      "test:integration": "bun kumiko-testing integration",
+      "test:e2e": "bunx --bun playwright test",
+      check: "bun run test && bun run lint",
+    };
+    const errorsOf = (scripts: Record<string, string>): readonly string[] =>
+      checkAppScripts(scripts, { hasUi: true }).testCommandErrors;
+
+    test("accepts commands that match their class", () => {
+      expect(errorsOf(GOOD)).toEqual([]);
+    });
+
+    test("flags a dom script with a raised timeout", () => {
+      const errors = errorsOf({
+        ...GOOD,
+        "test:dom": "bun test --dots --config=bunfig.dom.toml --timeout=15000 .test.tsx",
+      });
+      expect(errors).toEqual([expect.stringContaining("--timeout=5000 (TEST_TIMEOUT_MS.dom)")]);
+    });
+
+    test("flags a real script without --timeout", () => {
+      const errors = errorsOf({ ...GOOD, "test:real": "bun --config=bunfig.real.toml test" });
+      expect(errors).toEqual([expect.stringContaining("TEST_TIMEOUT_MS.real")]);
+    });
+
+    test("flags integration tests that bypass kumiko-testing", () => {
+      const errors = errorsOf({
+        ...GOOD,
+        "test:integration": "bun test --config=bunfig.integration.toml",
+      });
+      expect(errors).toContainEqual(expect.stringContaining("must delegate to"));
+    });
+
+    test("skips configs it does not know", () => {
+      expect(
+        errorsOf({ ...GOOD, "test:lib-coverage": "bun test src --config=bunfig.coverage.toml" }),
+      ).toEqual([]);
+    });
+  });
+
   test("test:dom is only required with uiRoots", () => {
     expect(checkAppScripts({}, { hasUi: false }).missing).not.toContain("test:dom");
     expect(checkAppScripts({}, { hasUi: true }).missing).toContain("test:dom");

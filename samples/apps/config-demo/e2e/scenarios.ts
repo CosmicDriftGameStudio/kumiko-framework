@@ -1,5 +1,5 @@
 // @runtime test
-import { CSRF_COOKIE_NAME, type Scenario } from "@cosmicdrift/kumiko-testing/e2e";
+import { CSRF_COOKIE_NAME, E2E_TIMEOUT_MS, type Scenario } from "@cosmicdrift/kumiko-testing/e2e";
 import type { Page } from "@playwright/test";
 
 async function writeConfig(
@@ -44,7 +44,7 @@ export const SCENARIOS: readonly Scenario[] = [
 
       // 2. Auf Formular warten
       const form = page.locator('[data-testid="render-edit-form"]');
-      await form.waitFor({ state: "visible", timeout: 10_000 });
+      await form.waitFor({ state: "visible", timeout: E2E_TIMEOUT_MS.navigation });
 
       // 3. Set tenant values → tenant badge (green) on this screen
       await writeConfig(page, "config-demo:config:site-name", "Config Demo", "tenant");

@@ -4,7 +4,7 @@
 // new page appears LIVE in the sidebar tree (SSE via treeEntities ["page"]) —
 // without a reload. Exactly the "Content + → pricing" flow.
 
-import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
+import { E2E_TIMEOUT_MS, expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 
 test("Content +: create a new page → appears live in the Nav-Tree", async ({ page }) => {
   await page.goto("/item-list");
@@ -25,7 +25,7 @@ test("Content +: create a new page → appears live in the Nav-Tree", async ({ p
 
   // SSE-Refresh: die frisch angelegte Seite taucht im Nav-Tree auf, ohne
   // dass die Seite neu geladen wurde.
-  await expect(page.getByText(title)).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(title)).toBeVisible({ timeout: E2E_TIMEOUT_MS.poll });
 
   // Visual proof (not committed): sidebar with Content + newly created page.
   if (process.env["SCREENSHOT"] === "1") {

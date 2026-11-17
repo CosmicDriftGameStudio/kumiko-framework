@@ -194,6 +194,64 @@ describe("test-timeouts guard — timeout argument on declarations", () => {
   });
 });
 
+describe("test-timeouts guard — Playwright files", () => {
+  const E2E = `${process.cwd()}/samples/apps/x/e2e/flow.spec.ts`;
+  const PW_DECLS =
+    "declare const mailTest: any;\ndeclare const slowTest: any;\ndeclare const testInfo: any;\n" +
+    "declare const socket: any;\ndeclare const expect: any;\n" +
+    "declare const E2E_TIMEOUT_MS: any;\n" +
+    "declare function defineConfig(c: unknown): unknown;\ndeclare function waitFor(f: () => void, o: unknown): void;\n";
+  const pw = (code: string, path = E2E): string[] => messages(PW_DECLS + code, path);
+
+  test("flags setTimeout on an extended test object", () => {
+    const found = pw(
+      'import { test as e2eTest } from "@cosmicdrift/kumiko-testing/e2e";\nconst mailTest2 = e2eTest.extend({});\nmailTest2.setTimeout(900_000);',
+    );
+    expect(found).toEqual([expect.stringContaining("mailTest2.setTimeout")]);
+  });
+
+  test("flags slow() and testInfo.setTimeout", () => {
+    expect(pw("slowTest.slow();")).toHaveLength(1);
+    expect(pw("testInfo.setTimeout(60_000);")).toHaveLength(1);
+  });
+
+  test("ignores a two-arg setTimeout and bun test files", () => {
+    expect(pw("socket.setTimeout(500, () => {});")).toEqual([]);
+    expect(messages(`${PW_DECLS}mailTest.setTimeout(900_000);`)).toEqual([]);
+  });
+
+  test("flags a literal timeout, not an E2E_TIMEOUT_MS class", () => {
+    expect(
+      pw('await expect(page.getByText("x")).toBeVisible({ timeout: 30_000 });'),
+    ).toEqual([expect.stringContaining("literal Playwright timeout")]);
+    expect(pw("await expect(page).toBeVisible({ timeout: E2E_TIMEOUT_MS.poll });")).toEqual([]);
+  });
+
+  test("does not check Playwright config files or bun test files", () => {
+    expect(
+      pw(
+        "export default defineConfig({ timeout: 30_000 });",
+        `${process.cwd()}/samples/apps/x/playwright.config.ts`,
+      ),
+    ).toEqual([]);
+    expect(
+      messages(`${PW_DECLS}waitFor(() => {}, { timeout: 2000 });`, `${DIR}/__tests__/x.test.ts`),
+    ).toEqual([]);
+  });
+
+  test("reports a test() timeout option once", () => {
+    expect(pw('test("x", { timeout: 30_000 }, async () => {});')).toHaveLength(1);
+  });
+
+  test("a complete marker suppresses a literal timeout", () => {
+    expect(
+      pw(
+        "// kumiko-lint-ignore test-timeouts #1 pdf render in CI\nawait expect(page).toBeVisible({ timeout: 30_000 });",
+      ),
+    ).toEqual([]);
+  });
+});
+
 describe("test-timeouts guard — no violation", () => {
   test("a bare sleep or setTimeout outside a loop is work simulation", () => {
     expect(

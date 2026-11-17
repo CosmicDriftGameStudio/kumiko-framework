@@ -14,6 +14,12 @@
  *   (c) sleep loops — a `while`/`do`/`for`/`for…of`/`for…in` whose body calls
  *       `sleep(...)`/`Bun.sleep(...)` or awaits a `new Promise` that only
  *       runs `setTimeout` (hand-rolled polling; use `waitFor`/`expect.poll`)
+ *   (c') in Playwright files (`e2e*` dirs, `*.spec.ts`): a one-argument
+ *       `<identifier>.setTimeout(ms)` or `<identifier>.slow()` on any test
+ *       object, e.g. one built with `base.extend(...)`
+ *   (d) in Playwright files: a number literal on a `timeout` property — use an
+ *       `E2E_TIMEOUT_MS` class from `@cosmicdrift/kumiko-testing/e2e`.
+ *       Playwright config files are not checked.
  * A single `sleep()`/`setTimeout` outside a loop, and a sleeping loop that
  * `yield`s (slow-producer generator), are work simulation and never flagged.
  *
@@ -32,7 +38,14 @@
  * Consumer (via the published `kumiko-guards` CLI):
  *   kumiko-guards guards --guard=test-timeouts
  */
-import { type CallExpression, Node, type SourceFile, SyntaxKind, type Type } from "ts-morph";
+import {
+  type CallExpression,
+  Node,
+  type PropertyAssignment,
+  type SourceFile,
+  SyntaxKind,
+  type Type,
+} from "ts-morph";
 import {
   type AstGuard,
   type GuardOutcome,
@@ -84,6 +97,13 @@ const SET_DEFAULT_TIMEOUT_CALLEE = /(^|\.)setDefaultTimeout$/;
 const DESCRIBE_CONFIGURE_CALLEE = /(^|\.)describe\.configure$/;
 
 const HOOK_DECLARATION_CALLEE = /^(beforeAll|beforeEach|afterAll|afterEach)$/;
+
+const PLAYWRIGHT_FILE = /(^|\/)e2e[^/]*\/|\.spec\.tsx?$/;
+const PLAYWRIGHT_CONFIG = /(^|\/)playwright[^/]*\.config\.tsx?$/;
+
+function isPlaywrightFile(file: string): boolean {
+  return PLAYWRIGHT_FILE.test(file) && !PLAYWRIGHT_CONFIG.test(file);
+}
 
 export interface Finding {
   file: string;
@@ -203,6 +223,7 @@ function declarationTimeoutReason(
 function raisedTimeoutReason(
   call: CallExpression,
   aliases: ReadonlyMap<string, string>,
+  playwright: boolean,
 ): string | undefined {
   const callee = call.getExpression();
   const calleeText = canonicalCalleeText(callee.getText(), aliases);
@@ -214,10 +235,30 @@ function raisedTimeoutReason(
   if (DESCRIBE_CONFIGURE_CALLEE.test(calleeText) && call.getArguments().some(hasTimeoutProperty)) {
     return `${calleeText}(…) raises the timeout instead of fixing the cause`;
   }
+  // Extended Playwright test objects (`base.extend(...)`, also imported from helpers) are not
+  // resolvable here, so a one-arg setTimeout on any identifier in Playwright files is the raise.
+  if (
+    playwright &&
+    Node.isPropertyAccessExpression(callee) &&
+    Node.isIdentifier(callee.getExpression()) &&
+    ((callee.getName() === "setTimeout" && call.getArguments().length === 1) ||
+      callee.getName() === "slow")
+  ) {
+    return `${callee.getText()}(…) raises the timeout instead of fixing the cause`;
+  }
   if (Node.isPropertyAccessExpression(callee) && callee.getName() === "waitForTimeout") {
     return `${calleeText}(…) waits for time, not for a condition`;
   }
   return undefined;
+}
+
+function isLiteralTimeoutProperty(prop: PropertyAssignment): boolean {
+  const name = prop.getNameNode();
+  const isTimeoutName =
+    (Node.isIdentifier(name) && name.getText() === "timeout") ||
+    (Node.isStringLiteral(name) && name.getLiteralText() === "timeout");
+  const initializer = prop.getInitializer();
+  return isTimeoutName && initializer !== undefined && Node.isNumericLiteral(initializer);
 }
 
 function withExceptionNote(node: Node, message: string): string | undefined {
@@ -241,9 +282,25 @@ export function scanTimeouts(
     }
   };
   const aliases = testFrameworkAliases(sf);
+  const playwright = isPlaywrightFile(file);
+  const reportedCalls = new Set<Node>();
   for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
-    const reason = raisedTimeoutReason(call, aliases);
-    if (reason !== undefined) add(call, reason);
+    const reason = raisedTimeoutReason(call, aliases, playwright);
+    if (reason !== undefined) {
+      reportedCalls.add(call);
+      add(call, reason);
+    }
+  }
+  if (playwright) {
+    for (const prop of sf.getDescendantsOfKind(SyntaxKind.PropertyAssignment)) {
+      if (!isLiteralTimeoutProperty(prop)) continue;
+      const enclosingCall = prop.getFirstAncestorByKind(SyntaxKind.CallExpression);
+      if (enclosingCall !== undefined && reportedCalls.has(enclosingCall)) continue;
+      add(
+        prop,
+        "literal Playwright timeout — use an E2E_TIMEOUT_MS class from @cosmicdrift/kumiko-testing/e2e",
+      );
+    }
   }
   for (const [kind, label] of LOOP_LABELS) {
     for (const loop of sf.getDescendantsOfKind(kind)) {
@@ -255,10 +312,10 @@ export function scanTimeouts(
   return findings.sort((a, b) => a.line - b.line);
 }
 
-const REMEDIATION = `Wait for a condition (\`waitFor\`, \`expect.poll\`) instead of raising timeouts or sleeping, or mark the line with \`// ${EXCEPTION_TAG} #<issue> <technical reason>\`.`;
+const REMEDIATION = `Wait for a condition (\`waitFor\`, \`expect.poll\`) instead of raising timeouts or sleeping, use an E2E_TIMEOUT_MS class instead of a number in Playwright files, or mark the line with \`// ${EXCEPTION_TAG} #<issue> <technical reason>\`.`;
 
 const HINT =
-  "Diagnose in this order: (1) reproduce a single run (`--repeat-each`, single file), (2) check shared state and missing isolation (one tenant per flow), (3) wait for a condition, not for time (`waitFor`, `expect.poll`), (4) check the seed, (5) only then change the central template via an issue — never per app. See https://github.com/CosmicDriftGameStudio/kumiko-framework/blob/main/docs/guides/test-failures.md.";
+  "Diagnose in this order: (1) reproduce a single run (`--repeat-each`, single file), (2) check shared state and missing isolation (one tenant per flow), (3) wait for a condition, not for time (`waitFor`, `expect.poll`); use an E2E_TIMEOUT_MS class instead of a number, (4) check the seed, (5) only then change the central template via an issue — never per app. See https://github.com/CosmicDriftGameStudio/kumiko-framework/blob/main/docs/guides/test-failures.md.";
 
 function analyse(files: readonly SourceFile[], roots: readonly RepoRoot[]): GuardOutcome {
   const findings: Finding[] = [];
