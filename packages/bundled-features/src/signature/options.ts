@@ -1,7 +1,6 @@
 import type { AccessRule, HandlerContext, SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import type { RateLimitDeclaration } from "@cosmicdrift/kumiko-types/handlers";
 import type { PdfOptions } from "../renderer-foundation/index.ts";
-import type { SubjectScopeContext } from "../shared/index.ts";
 import type { SignatureRetention } from "./entity.ts";
 
 // Injected by the app (renderer-puppeteer-client's `renderHtmlToPdf`): bundled-features cannot
@@ -28,17 +27,6 @@ export type DeliverSignatureLink = (
   delivery: SignatureLinkDelivery,
 ) => Promise<void>;
 
-export type SignatureSubject = {
-  readonly subjectType: string;
-  readonly subjectId: string;
-};
-
-export type AuthorizeSignatureSubject = (
-  ctx: SubjectScopeContext,
-  user: SessionUser,
-  subject: SignatureSubject,
-) => Promise<boolean>;
-
 export type SignatureOptions = {
   /** keepFor: how long requests and signers are kept, counted from creation (hard delete). unfinishedKeepFor: signers of declined, expired, failed or cancelled requests are anonymized this long after the request's last change. Both in data-retention keepFor syntax. */
   readonly retention: SignatureRetention;
@@ -52,10 +40,8 @@ export type SignatureOptions = {
   readonly signaturePageUrl: string;
   /** Access rule of the signed-in handlers, queries, screens and nav. Default `{ roles: ["TenantAdmin", "TenantMember"] }`; set it when the app hands out other roles. The link handlers stay anonymous. */
   readonly access?: AccessRule;
-  /** Runs for every signed-in handler and query on the subject of the request, except for `unscopedRoles`. `false` answers like "does not exist". Without it every user with `access` sees every request of the tenant. Needs a non-empty `linkSecret`, which also seals the list cursor. */
-  readonly authorizeSubject?: AuthorizeSignatureSubject;
-  /** Roles that skip `authorizeSubject`, e.g. admins. */
-  readonly unscopedRoles?: readonly string[];
+  /** Entity names a request may belong to (`hostType`). A user sees and works on a request only while its host row is readable to them; the names must be registered entities without their own `parentRef`. */
+  readonly hostEntities: readonly [string, ...string[]];
 };
 
 export const LINK_RATE_LIMIT: RateLimitDeclaration = {

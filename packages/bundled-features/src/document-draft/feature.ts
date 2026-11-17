@@ -3,7 +3,6 @@ import {
   EXT_USER_DATA,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createSubjectScope } from "../shared/index.ts";
 import { createDocumentDraftEntity } from "./entity.ts";
 import { createBlocksQuery } from "./handlers/blocks.query.ts";
 import { createBySubjectQuery } from "./handlers/by-subject.query.ts";
@@ -23,8 +22,7 @@ export function createDocumentDraftFeature<TUpload>(
   opts: DocumentDraftOptions<TUpload>,
 ): FeatureDefinition {
   const access = opts.access ?? DEFAULT_DOCUMENT_DRAFT_ACCESS;
-  const scope = createSubjectScope(opts);
-  const entity = createDocumentDraftEntity(opts.retention);
+  const entity = createDocumentDraftEntity(opts.retention, opts.subjectTypes);
 
   return defineFeature(DOCUMENT_DRAFT_FEATURE, (r) => {
     r.describe(
@@ -36,14 +34,14 @@ export function createDocumentDraftFeature<TUpload>(
 
     r.entity({ name: "documentDraft", ...entity });
 
-    r.writeHandler(createCreateHandler(access, scope, opts.subjectTypes));
-    r.writeHandler(createPatchHandler(access, scope));
-    r.writeHandler(createSaveHandler(access, scope));
-    r.writeHandler(createFinalizeHandler(access, scope, opts.pdf));
-    r.writeHandler(createReviseHandler(access, scope));
-    r.writeHandler(createDiscardHandler(access, scope));
-    r.queryHandler(createBlocksQuery(access, scope, opts.subjectScreens));
-    r.queryHandler(createBySubjectQuery(access, scope));
+    r.writeHandler(createCreateHandler(access, opts.subjectTypes));
+    r.writeHandler(createPatchHandler(access));
+    r.writeHandler(createSaveHandler(access));
+    r.writeHandler(createFinalizeHandler(access, opts.pdf));
+    r.writeHandler(createReviseHandler(access));
+    r.writeHandler(createDiscardHandler(access));
+    r.queryHandler(createBlocksQuery(access, opts.subjectScreens));
+    r.queryHandler(createBySubjectQuery(access));
     r.screen(createDocumentDraftEditorScreen(access));
 
     // A draft belongs to the object it was made for, not to the acting user: the app erases it

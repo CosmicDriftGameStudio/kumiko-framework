@@ -1,6 +1,5 @@
 import { type AccessRule, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { ValidationError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import type { SubjectScope } from "../../shared/index.ts";
 import {
   documentViolationsToFieldIssues,
   sanitizeDocumentHtml,
@@ -12,7 +11,7 @@ import { DOCUMENT_DRAFT_LAST_CHANGE_SOURCE, DOCUMENT_DRAFT_STATUS } from "../web
 
 type SaveData = { readonly id: string; readonly version: number };
 
-export function createSaveHandler(access: AccessRule, scope: SubjectScope) {
+export function createSaveHandler(access: AccessRule) {
   return defineWriteHandler<"save", typeof SaveDraftSchema, SaveData>({
     name: "save",
     schema: SaveDraftSchema,
@@ -23,7 +22,7 @@ export function createSaveHandler(access: AccessRule, scope: SubjectScope) {
     handler: async (event, ctx) => {
       const { id, base, content } = event.payload;
       const user = event.user;
-      const draft = await loadScopedDraft(ctx, user, scope, id);
+      const draft = await loadScopedDraft(ctx, user, id);
       if (draft === null) return draftNotFound(id);
       if (draft.status !== DOCUMENT_DRAFT_STATUS.Open)
         return notInStatus(DOCUMENT_DRAFT_STATUS.Open);

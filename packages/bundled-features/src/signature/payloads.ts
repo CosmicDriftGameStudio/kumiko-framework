@@ -21,6 +21,8 @@ export const RequestSignatureSchema = z.object({
   level: z.literal(SIGNATURE_LEVEL.Simple).default(SIGNATURE_LEVEL.Simple),
   subjectType: z.string().trim().min(1).max(100),
   subjectId: z.string().trim().min(1).max(100),
+  hostType: z.string().min(1).max(100),
+  hostId: z.string().min(1).max(100),
   expiresInDays: z.number().int().min(1).max(MAX_VALIDITY_DAYS).optional(),
   signers: z.array(SignerInputSchema).min(1).max(MAX_SIGNERS_PER_REQUEST),
 });

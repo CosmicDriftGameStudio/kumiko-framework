@@ -4,7 +4,6 @@ import {
   UnprocessableError,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
-import type { SubjectScope } from "../../shared/index.ts";
 import { signerExecutor } from "../entity.ts";
 import { discardGeneratedFile } from "../files.ts";
 import {
@@ -12,6 +11,7 @@ import {
   isOpenRequest,
   isUnsignedSigner,
   loadRequestOfSigner,
+  requestHostIsVisible,
 } from "../lib.ts";
 import { SignInPersonSchema } from "../payloads.ts";
 import {
@@ -24,7 +24,7 @@ import { SIGNATURE_METHOD, SIGNATURE_REQUEST_STATUS } from "../web/constants.ts"
 
 export type SignInPersonData = { readonly requestStatus: string };
 
-export function createSignInPersonHandler(access: AccessRule, scope: SubjectScope) {
+export function createSignInPersonHandler(access: AccessRule) {
   return defineWriteHandler<"sign-in-person", typeof SignInPersonSchema, SignInPersonData>({
     name: "sign-in-person",
     schema: SignInPersonSchema,
@@ -37,7 +37,7 @@ export function createSignInPersonHandler(access: AccessRule, scope: SubjectScop
       const signer = await signerExecutor.detail({ id: event.payload.signerId }, user, ctx.db);
       if (signer === null) return writeFailure(new NotFoundError("signer", event.payload.signerId));
       const request = await loadRequestOfSigner(ctx, user, signer);
-      if (request !== null && !(await scope.allowsRequest(ctx, user, request))) {
+      if (request !== null && !(await requestHostIsVisible(ctx, user, request))) {
         return writeFailure(new NotFoundError("signer", event.payload.signerId));
       }
       const now = ctx.tz.now();

@@ -8,9 +8,11 @@ import {
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import { joinRowParentIsVisible } from "../shared/index.ts";
 import { requestExecutor, signerExecutor } from "./entity.ts";
 import {
   SIGNATURE_INVALID_LINK_REASON,
+  SIGNATURE_REQUEST_ENTITY,
   SIGNATURE_REQUEST_STATUS,
   SIGNATURE_SIGNER_STATUS,
   type SignatureRequestStatus,
@@ -64,6 +66,21 @@ export async function listSigners(
     ctx.db,
   );
   return found.rows;
+}
+
+// The request is a join row on its host; write handlers load it raw, so they check the host here.
+export function requestHostIsVisible(
+  ctx: Pick<HandlerContext, "registry" | "db">,
+  user: SessionUser,
+  request: RequestRow,
+): Promise<boolean> {
+  return joinRowParentIsVisible(
+    ctx.registry,
+    SIGNATURE_REQUEST_ENTITY,
+    { hostType: request.hostType, hostId: request.hostId },
+    user,
+    ctx.db,
+  );
 }
 
 export function versionOf(row: { readonly version?: unknown }): number | undefined {

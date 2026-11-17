@@ -48,6 +48,7 @@ const SIGNER_PERSONAL = { personal: "self", find: "none" } as const;
 
 export function createSignatureRequestEntity(
   retention: Pick<SignatureRetention, "keepFor"> = { keepFor: DEFAULT_SIGNATURE_RETENTION_KEEP_FOR },
+  hostEntities?: readonly string[],
 ) {
   return createEntity({
     table: "read_signature_requests",
@@ -87,6 +88,20 @@ export function createSignatureRequestEntity(
         reason: "technical_reference",
         maxLength: 100,
       }),
+      hostType: createTextField({
+        required: false,
+        personal: false,
+        reason: "technical_reference",
+        filterable: true,
+        maxLength: 100,
+      }),
+      hostId: createTextField({
+        required: false,
+        personal: false,
+        reason: "technical_reference",
+        filterable: true,
+        maxLength: 100,
+      }),
       status: createSelectField({
         options: REQUEST_STATUS_OPTIONS,
         required: true,
@@ -120,9 +135,16 @@ export function createSignatureRequestEntity(
         sortable: true,
       }),
     },
+    // A request is visible only while its host row is readable through the host entity's own read rules.
+    parentRef: {
+      entityTypeField: "hostType",
+      entityIdField: "hostId",
+      ...(hostEntities !== undefined && { allowedTypes: hostEntities }),
+    },
     indexes: [
       { columns: ["tenantId", "status"] },
       { columns: ["tenantId", "subjectType", "subjectId"] },
+      { columns: ["tenantId", "hostType", "hostId"] },
     ],
   });
 }

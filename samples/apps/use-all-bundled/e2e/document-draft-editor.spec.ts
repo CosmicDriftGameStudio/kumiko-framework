@@ -35,9 +35,11 @@ async function createDraft(page: Page): Promise<string> {
     key: "file-foundation:config:provider",
     value: "inmemory",
   });
+  const folder = await postWrite(page, "folders:write:folder:create", { name: "Draft host" });
+  const folderId = CreatedDraftSchema.parse(await folder.json()).data.id;
   const res = await postWrite(page, "document-draft:write:create", {
-    subjectType: "lease",
-    subjectId: "lease-e2e-1",
+    subjectType: "folder",
+    subjectId: folderId,
     templateSlug: INVOICE_TEMPLATE_SLUG,
     locale: "de",
     variables: { number: "2026-0200", recipientName: "Mareike Jansen" },

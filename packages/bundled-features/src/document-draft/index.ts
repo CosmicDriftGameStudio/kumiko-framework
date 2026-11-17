@@ -1,7 +1,6 @@
 export type { DocumentDraftRetention } from "./entity.ts";
 export { createDocumentDraftFeature } from "./feature.ts";
 export type {
-  AuthorizeDocumentDraftSubject,
   DocumentDraftOptions,
   DocumentDraftPdf,
   DocumentDraftRenderArgs,

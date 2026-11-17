@@ -69,6 +69,7 @@ import {
   SignatureInternalHandlers,
   SignatureJobs,
 } from "../web/constants.ts";
+import { leaseHostFeature, seedLease } from "./lease-host.ts";
 import { makePng, toBase64 } from "./png-fixture.ts";
 
 const LINK_SECRET = "signature-test-link-secret-0123456789";
@@ -142,7 +143,9 @@ beforeAll(async () => {
       createUserDataRightsFeature(),
       createFilesFeature(),
       deliveryOutboxFeature,
+      leaseHostFeature,
       createSignatureFeature({
+        hostEntities: ["lease"],
         retention: { keepFor: "10y", unfinishedKeepFor: "0h" },
         linkSecret: LINK_SECRET,
         renderHtmlToPdf: async (html) => {
@@ -249,6 +252,8 @@ async function requestSignatures(signerNames: readonly string[]): Promise<Reques
       title: "Rental agreement",
       subjectType: "lease",
       subjectId: "lease-1",
+      hostType: "lease",
+      hostId: await seedLease(stack.db, TENANT, USER),
       signers: signerNames.map((name, index) => ({ name, email: `signer${index}@example.test` })),
     },
     USER,
@@ -815,6 +820,8 @@ describe("signature :: boundaries", () => {
         title: "Notes",
         subjectType: "lease",
         subjectId: "lease-1",
+        hostType: "lease",
+        hostId: await seedLease(stack.db, TENANT, USER),
         signers: [{ name: "Ada" }],
       },
       USER,
@@ -830,6 +837,8 @@ describe("signature :: boundaries", () => {
         title: "Locked",
         subjectType: "lease",
         subjectId: "lease-1",
+        hostType: "lease",
+        hostId: await seedLease(stack.db, TENANT, USER),
         signers: [{ name: "Ada" }],
       },
       USER,
@@ -891,6 +900,8 @@ describe("signature :: user data rights", () => {
         title: "Rental agreement",
         subjectType: "lease",
         subjectId: "lease-1",
+        hostType: "lease",
+        hostId: await seedLease(stack.db, TENANT, USER),
         signers: [
           { name: "Ada", email: "Ada@Example.test" },
           { name: "Grace", email: "grace@example.test" },

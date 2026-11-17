@@ -1,13 +1,11 @@
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import type { SubjectScope } from "../../shared/index.ts";
 import { signerExecutor } from "../entity.ts";
-import { loadRequestOfSigner } from "../lib.ts";
 import { SignerIdSchema } from "../payloads.ts";
 import { eraseSignerRows, signerEraseContext } from "../user-data.ts";
 
-export function createForgetSignerHandler(scope: SubjectScope) {
+export function createForgetSignerHandler() {
   return defineWriteHandler<"forget-signer", typeof SignerIdSchema, { readonly forgotten: true }>({
     name: "forget-signer",
     schema: SignerIdSchema,
@@ -19,10 +17,6 @@ export function createForgetSignerHandler(scope: SubjectScope) {
       const user = event.user;
       const signer = await signerExecutor.detail({ id: event.payload.signerId }, user, ctx.db);
       if (signer === null) return writeFailure(new NotFoundError("signer", event.payload.signerId));
-      const request = await loadRequestOfSigner(ctx, user, signer);
-      if (request !== null && !(await scope.allowsRequest(ctx, user, request))) {
-        return writeFailure(new NotFoundError("signer", event.payload.signerId));
-      }
       await eraseSignerRows(signerEraseContext(ctx, user), [signer], "delete");
       return { isSuccess: true, data: { forgotten: true } };
     },

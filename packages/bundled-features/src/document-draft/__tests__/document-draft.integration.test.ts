@@ -3,7 +3,18 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
-import { createTenantDb, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import {
+  buildEntityTable,
+  createEventStoreExecutor,
+  createTenantDb,
+  selectMany,
+} from "@cosmicdrift/kumiko-framework/db";
+import {
+  createEntity,
+  createTextField,
+  defineFeature,
+  type EntityDefinition,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createFileRefFromUploadedBytes,
@@ -42,7 +53,11 @@ const BASE = "lease-contract";
 const OWN_VARIANT = `${BASE}:commercial`;
 const FOREIGN_VARIANT = "other-contract:short";
 const SUBJECT_TYPE = "lease";
-const SUBJECT = "lease-1";
+let SUBJECT: string;
+let FORGET_SUBJECT: string;
+let KEEP_SUBJECT: string;
+let DISCARD_SUBJECT: string;
+let TRAIL_SUBJECT: string;
 const CLAUSE = "Haustiere sind erlaubt.";
 const STUB_PDF = new TextEncoder().encode("%PDF-1.4\n%%EOF");
 const SECRET_TENANT_NAME = "Geheim Mieterin";
@@ -52,13 +67,72 @@ const REPEAT_BODY =
 
 const TENANT = testTenantId(9801);
 const admin = createTestUser({ id: 9801, roles: ["TenantAdmin"], tenantId: TENANT });
-const allowedMember = createTestUser({ id: 9802, roles: ["TenantMember"], tenantId: TENANT });
-const blockedMember = createTestUser({ id: 9803, roles: ["TenantMember"], tenantId: TENANT });
+const allowedMember = createTestUser({
+  id: 9802,
+  roles: ["TenantMember"],
+  tenantId: TENANT,
+  claims: { team: "team-a" },
+});
+const blockedMember = createTestUser({
+  id: 9803,
+  roles: ["TenantMember"],
+  tenantId: TENANT,
+  claims: { team: "team-b" },
+});
 const foreignAdmin = createTestUser({
   id: 9804,
   roles: ["TenantAdmin"],
   tenantId: testTenantId(9804),
 });
+
+const leaseEntity = createEntity({
+  table: "document_draft_test_leases",
+  fields: {
+    teamId: createTextField({
+      required: true,
+      maxLength: 64,
+      personal: false,
+      reason: "technical_reference",
+    }),
+  },
+  access: {
+    read: {
+      TenantAdmin: "all",
+      TenantMember: {
+        kind: "where",
+        where: (user, ctx) => ({
+          sqlText: `${ctx.tableName}.team_id = $${ctx.paramStart}`,
+          params: [user.claims?.["team"] ?? null],
+        }),
+      },
+    },
+  } satisfies NonNullable<EntityDefinition["access"]>,
+});
+
+const leaseHostFeature = defineFeature("document-draft-test-lease-host", (r) => {
+  r.entity({ name: SUBJECT_TYPE, ...leaseEntity });
+});
+
+const leaseExecutor = createEventStoreExecutor(
+  buildEntityTable(SUBJECT_TYPE, leaseEntity),
+  leaseEntity,
+  { entityName: SUBJECT_TYPE },
+);
+
+async function seedLease(teamId: string): Promise<string> {
+  const created = await leaseExecutor.create(
+    { teamId },
+    admin,
+    createTenantDb({
+      db: stack.db,
+      tenantId: TENANT,
+      mode: "system",
+      reason: "test seeds the subject row",
+    }),
+  );
+  if (!created.isSuccess) throw new Error(`lease create failed: ${created.error.message}`);
+  return String(created.data.id);
+}
 
 const provider = createInMemoryFileProvider();
 const renderCalls: DocumentDraftRenderArgs[] = [];
@@ -128,6 +202,7 @@ beforeAll(async () => {
       createComplianceProfilesFeature(),
       createUserDataRightsFeature(),
       createFilesFeature(),
+      leaseHostFeature,
       createConfigFeature(),
       createTenantFeature(),
       createTemplateResolverFeature({
@@ -163,9 +238,6 @@ beforeAll(async () => {
             };
           },
         },
-        authorizeSubject: async (_ctx, user, subject) =>
-          user.id === allowedMember.id && subject.subjectId === SUBJECT,
-        unscopedRoles: ["TenantAdmin"],
       }),
     ],
     files: { storageProvider: provider },
@@ -174,6 +246,12 @@ beforeAll(async () => {
       configAccessorFactory: createConfigAccessorFactory(deps.registry, resolver),
     }),
   });
+
+  SUBJECT = await seedLease("team-a");
+  FORGET_SUBJECT = await seedLease("team-a");
+  KEEP_SUBJECT = await seedLease("team-a");
+  DISCARD_SUBJECT = await seedLease("team-a");
+  TRAIL_SUBJECT = await seedLease("team-a");
 
   const system = (payload: Record<string, unknown>) =>
     stack.http.writeOk(TemplateResolverHandlers.upsertSystem, payload, TestUsers.systemAdmin);
@@ -444,11 +522,11 @@ describe("finalize and revise", () => {
   });
 
   test("discard hides the draft from by-subject", async () => {
-    const created = await create({ subjectId: "lease-discard" });
+    const created = await create({ subjectId: DISCARD_SUBJECT });
     const listed = () =>
       stack.http.queryOk<{ id: string }[]>(
         DocumentDraftQueries.bySubject,
-        { subjectType: SUBJECT_TYPE, subjectId: "lease-discard" },
+        { subjectType: SUBJECT_TYPE, subjectId: DISCARD_SUBJECT },
         admin,
       );
     expect((await listed()).map((row) => row.id)).toEqual([created.id]);
@@ -463,7 +541,7 @@ describe("finalize and revise", () => {
 
 describe("event trail and erasure", () => {
   test("each patch is an event with the user and the ops, not readable in the event store", async () => {
-    const created = await create({ subjectId: "lease-trail" });
+    const created = await create({ subjectId: TRAIL_SUBJECT });
     await stack.http.writeOk(
       DocumentDraftHandlers.patch,
       { id: created.id, base: created.version, ops: [insertClause()] },
@@ -487,8 +565,8 @@ describe("event trail and erasure", () => {
   });
 
   test("forgetDocumentDraftsOfSubject makes the body unreadable and leaves other subjects alone", async () => {
-    const erased = await create({ subjectId: "lease-forget" });
-    const kept = await create({ subjectId: "lease-keep" });
+    const erased = await create({ subjectId: FORGET_SUBJECT });
+    const kept = await create({ subjectId: KEEP_SUBJECT });
     await stack.http.writeOk(
       DocumentDraftHandlers.patch,
       { id: erased.id, base: erased.version, ops: [insertClause()] },
@@ -503,7 +581,7 @@ describe("event trail and erasure", () => {
     });
     const result = await forgetDocumentDraftsOfSubject(
       { db, user: admin },
-      { subjectType: SUBJECT_TYPE, subjectId: "lease-forget" },
+      { subjectType: SUBJECT_TYPE, subjectId: FORGET_SUBJECT },
     );
     expect(result).toEqual({ erased: 1 });
 
@@ -536,7 +614,7 @@ describe("access", () => {
     expect(renderCalls).toEqual([]);
   });
 
-  test("authorizeSubject false answers not found, true lets the user through", async () => {
+  test("a subject the user cannot read answers not found, one they can read lets them through", async () => {
     const created = await create();
     for (const [type, payload] of [
       [
@@ -591,5 +669,6 @@ describe("access", () => {
 
     const own = await create({}, allowedMember);
     expect((await blocksOf(own.id, allowedMember)).id).toBe(own.id);
+    expect((await blocksOf(own.id, admin)).id).toBe(own.id);
   });
 });

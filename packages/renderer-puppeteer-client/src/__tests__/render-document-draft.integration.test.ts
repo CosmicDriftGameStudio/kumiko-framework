@@ -32,7 +32,17 @@ import {
 import { createUserFeature } from "@cosmicdrift/kumiko-bundled-features/user";
 import { createUserDataRightsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
-import { selectMany } from "@cosmicdrift/kumiko-framework/db";
+import {
+  buildEntityTable,
+  createEventStoreExecutor,
+  createTenantDb,
+  selectMany,
+} from "@cosmicdrift/kumiko-framework/db";
+import {
+  createEntity,
+  createTextField,
+  defineFeature,
+} from "@cosmicdrift/kumiko-framework/engine";
 import {
   createFilesFeature,
   createInMemoryFileProvider,
@@ -81,6 +91,25 @@ const ENV_KEYS = ["PUPPETEER_SERVICE_URL", "PUPPETEER_AUTH_TOKEN"] as const;
 const savedEnv = new Map<string, string | undefined>();
 
 const admin = createTestUser({ id: 9711, roles: ["TenantAdmin"], tenantId: testTenantId(9711) });
+const leaseEntity = createEntity({
+  table: "render_draft_test_leases",
+  fields: {
+    name: createTextField({
+      required: true,
+      maxLength: 100,
+      personal: false,
+      reason: "technical_reference",
+    }),
+  },
+});
+const leaseHostFeature = defineFeature("render-draft-test-lease-host", (r) => {
+  r.entity({ name: SUBJECT_TYPE, ...leaseEntity });
+});
+const leaseExecutor = createEventStoreExecutor(
+  buildEntityTable(SUBJECT_TYPE, leaseEntity),
+  leaseEntity,
+  { entityName: SUBJECT_TYPE },
+);
 const provider = createInMemoryFileProvider();
 let stack: TestStack;
 
@@ -96,6 +125,7 @@ beforeAll(async () => {
       createComplianceProfilesFeature(),
       createUserDataRightsFeature(),
       createFilesFeature(),
+      leaseHostFeature,
       createConfigFeature(),
       createTenantFeature(),
       createTemplateResolverFeature(),
@@ -161,13 +191,28 @@ afterEach(() => {
   }
 });
 
+async function seedLease(): Promise<string> {
+  const created = await leaseExecutor.create(
+    { name: "Lease" },
+    admin,
+    createTenantDb({
+      db: stack.db,
+      tenantId: admin.tenantId,
+      mode: "system",
+      reason: "test seeds the subject row",
+    }),
+  );
+  if (!created.isSuccess) throw new Error(`lease create failed: ${created.error.message}`);
+  return String(created.data.id);
+}
+
 describe("finalize with renderPdfBeforeTransaction", () => {
   test("prints the edited draft body with the layout of the template and stores the PDF", async () => {
     const created = await stack.http.writeOk<{ id: string; version: number }>(
       DocumentDraftHandlers.create,
       {
         subjectType: SUBJECT_TYPE,
-        subjectId: "lease-1",
+        subjectId: await seedLease(),
         templateSlug: SLUG,
         variables: { partyName: TENANT_NAME },
       },

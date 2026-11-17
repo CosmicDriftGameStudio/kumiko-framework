@@ -49,6 +49,7 @@ const ADOPTING_FEATURES: Readonly<Record<string, () => FeatureDefinition>> = {
     createSignatureFeature({
       retention: { keepFor: "10y", unfinishedKeepFor: "90d" },
       linkSecret: "test-secret",
+      hostEntities: ["lease"],
       signaturePageUrl: "https://example.test/sign",
       renderHtmlToPdf: async () => new Uint8Array(),
       deliverLink: async () => {},

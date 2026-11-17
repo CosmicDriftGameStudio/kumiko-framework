@@ -13,6 +13,7 @@ import { renderHtmlToPdf } from "@cosmicdrift/kumiko-renderer-puppeteer-client";
 
 createSignatureFeature({
   retention: { keepFor: "10y", unfinishedKeepFor: "90d" },
+  hostEntities: ["lease"],
   linkSecret: process.env.SIGNATURE_LINK_SECRET,
   renderHtmlToPdf,
 });
@@ -27,17 +28,19 @@ the `files` feature. Order of signatures is free.
 | ------------------ | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `retention`        | required                                     | `{ keepFor, unfinishedKeepFor }`; keepFor counts from creation and hard-deletes, see Retention below                                                                      |
 | `renderHtmlToPdf`  | required                                     | Renders the signature page; an outage leaves `all-signed`, the job retries                                                                                                |
+| `hostEntities`     | required                                     | Entity names a request may belong to (`hostType`); registered entities without their own `parentRef`. A user sees a request only while its host row is readable to them     |
 | `linkSecret`       | required                                     | HMAC secret of the links; empty rejects every link                                                                                                                        |
 | `deliverLink`      | required                                     | `(ctx, delivery)`: sends the link to the signer (mail) inside `issue-link`'s transaction; `delivery.issuedBy` is the issuing user. The token is never in a handler result |
 | `signaturePageUrl` | required                                     | URL of the app's signature page; the token is appended as `#<token>`                                                                                                      |
 | `access`           | `{ roles: ["TenantAdmin", "TenantMember"] }` | `AccessRule` of the signed-in handlers, queries, screens and nav; set it when the app hands out other roles. Link handlers stay anonymous                                 |
 
-Subject scope: `authorizeSubject(ctx, user, { subjectType, subjectId })` limits requests to the
-subjects a user may see. It runs for every signed-in handler and query; `false` answers like a missing
-record. `unscopedRoles` (e.g. `["TenantAdmin"]`) skip it. For a scoped user `signatureRequest:list` keeps only the
-rows of allowed subjects, reading up to ten base pages per answer (it can still hold fewer rows than `limit`), and has no `total`; screens
-and nav stay at `access`. `signatureSigner:list` needs a `requestId` eq filter, otherwise 403. `request` also
-refuses a document the caller cannot open through `GET /files/:id`. The list cursor of a scoped user is sealed with a key derived from `linkSecret`, so `authorizeSubject` throws at startup without a non-empty `linkSecret`.
+Host gate: every request names a host row, `hostType` (one of `hostEntities`) and `hostId` in the
+`request` payload. `signatureRequest` declares a `parentRef` on it, so the list and detail filter in SQL
+and the write handlers (`request`, `sign-in-person`, `issue-link`, `revoke-link`, `cancel`) answer 404
+like a missing record. Who sees what is decided by `access.read` of the host entity. `signatureSigner:list`
+needs exactly one `requestId` eq filter, otherwise 403; a request whose host the user cannot read gives an
+empty page. `subjectType`/`subjectId` are a free label, e.g. the purpose of the document. `request` also
+refuses a document the caller cannot open through `GET /files/:id`.
 
 ## Retention
 

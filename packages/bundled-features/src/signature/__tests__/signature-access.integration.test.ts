@@ -20,6 +20,7 @@ import { createUserFeature } from "../../user/index.ts";
 import { createUserDataRightsFeature } from "../../user-data-rights/feature.ts";
 import { createSignatureFeature } from "../feature.ts";
 import { SignatureHandlers, SignatureQueries } from "../web/constants.ts";
+import { leaseHostFeature, seedLease } from "./lease-host.ts";
 
 const TENANT = testTenantId(8);
 const CUSTOM_ROLE_USER = createTestUser({ id: 1, tenantId: TENANT, roles: ["CustomRole"] });
@@ -42,7 +43,9 @@ beforeAll(async () => {
       createComplianceProfilesFeature(),
       createUserDataRightsFeature(),
       createFilesFeature(),
+      leaseHostFeature,
       createSignatureFeature({
+        hostEntities: ["lease"],
         retention: { keepFor: "10y", unfinishedKeepFor: "90d" },
         linkSecret: "signature-access-test-link-secret-0123456789",
         renderHtmlToPdf: async () => new Uint8Array(),
@@ -91,6 +94,8 @@ async function requestPayload() {
     title: "Rental agreement",
     subjectType: "lease",
     subjectId: "lease-1",
+    hostType: "lease",
+    hostId: await seedLease(stack.db, TENANT, CUSTOM_ROLE_USER),
     signers: [{ name: "Ada", email: "ada@example.test" }],
   };
 }

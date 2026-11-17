@@ -1,6 +1,5 @@
 import { type AccessRule, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError } from "@cosmicdrift/kumiko-framework/errors";
-import type { SubjectScope } from "../../shared/index.ts";
 import {
   allowedBlocksFor,
   diffTemplateBlocks,
@@ -14,7 +13,6 @@ import { DOCUMENT_DRAFT_ENTITY } from "../web/constants.ts";
 
 export function createBlocksQuery(
   access: AccessRule,
-  scope: SubjectScope,
   subjectScreens: Readonly<Record<string, string>> = {},
 ) {
   return defineQueryHandler({
@@ -24,7 +22,7 @@ export function createBlocksQuery(
     description:
       "Reads a document draft as a list of blocks with stable ids (b0, b1, ...) for structured editing with patch: each block has its type, its text with {{name}} placeholders and its settings. Also returns the draft's subject, template, status, revision, the frozen variables, the variable schema, the screen its subject type returns to (subjectScreen, or null) and the settings, the deviations from the template text (blocks added, removed or changed) and the block types allowed in a PDF document. version is the base that patch, save, finalize, revise and discard expect back.",
     handler: async (query, ctx) => {
-      const draft = await loadScopedDraft(ctx, query.user, scope, query.payload.id);
+      const draft = await loadScopedDraft(ctx, query.user, query.payload.id);
       if (draft === null) throw new NotFoundError(DOCUMENT_DRAFT_ENTITY, query.payload.id);
       const subjectType = String(draft.subjectType);
       const body = String(draft.body);

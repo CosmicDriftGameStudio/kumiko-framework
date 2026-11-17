@@ -1,5 +1,4 @@
 import { hash as argonHash, verify as argonVerify } from "@node-rs/argon2";
-import { isIdentityV3Hash, verifyIdentityV3Hash } from "./identity-v3-hash.ts";
 
 // OWASP-recommended argon2id parameters (2024 guidance):
 //   memoryCost: 19 MiB, timeCost: 2, parallelism: 1
@@ -21,18 +20,9 @@ export async function hashPassword(password: string): Promise<string> {
   return argonHash(password, HASH_OPTIONS);
 }
 
-// Returns true if the password matches. Never throws on wrong passwords —
-// only on malformed hash strings (which would be a bug, not a login attempt).
-//
-// Two verifier paths:
-//   - argon2id (default, what `hashPassword` produces)
-//   - ASP.NET Core Identity V3 (verify-only, for legacy migrations from .NET
-//     stacks). Sniffed via the format marker; on a successful match the
-//     application can rehash to argon2 at the next password-change event.
+// Returns true if the password matches an argon2id hash. Never throws: an unparseable hash
+// (including foreign formats) counts as a mismatch.
 export async function verifyPassword(hashString: string, password: string): Promise<boolean> {
-  if (isIdentityV3Hash(hashString)) {
-    return verifyIdentityV3Hash(password, hashString);
-  }
   try {
     return await argonVerify(hashString, password);
   } catch {

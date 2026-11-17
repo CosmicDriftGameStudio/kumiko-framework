@@ -5,7 +5,11 @@ import { createDataRetentionFeature } from "@cosmicdrift/kumiko-bundled-features
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { createUserFeature } from "@cosmicdrift/kumiko-bundled-features/user";
 import { createUserDataRightsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
-import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import {
+  buildEntityTable,
+  createEventStoreExecutor,
+  createTenantDb,
+} from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createFilesFeature,
@@ -16,7 +20,7 @@ import {
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { PDFDocument } from "pdf-lib";
-import { deliveredLinks, signatureFeature } from "../feature";
+import { deliveredLinks, leaseEntity, leaseFeature, signatureFeature } from "../feature";
 
 const TENANT = testTenantId(1);
 const admin = createTestUser({ roles: ["TenantAdmin"], tenantId: TENANT });
@@ -36,6 +40,7 @@ beforeAll(async () => {
       createComplianceProfilesFeature(),
       createUserDataRightsFeature(),
       createFilesFeature(),
+      leaseFeature,
       signatureFeature,
     ],
     files: { storageProvider: provider },
@@ -74,6 +79,22 @@ async function seedContract(): Promise<string> {
   return String(created.data.id);
 }
 
+async function seedLease(): Promise<string> {
+  const db = createTenantDb({
+    db: stack.db,
+    tenantId: TENANT,
+    mode: "system",
+    reason: "recipe seeds the host row the request belongs to",
+  });
+  const created = await createEventStoreExecutor(
+    buildEntityTable("lease", leaseEntity),
+    leaseEntity,
+    { entityName: "lease" },
+  ).create({ name: "Lease 1" }, admin, db);
+  if (!created.isSuccess) throw new Error(created.error.message);
+  return String(created.data.id);
+}
+
 describe("signature recipe", () => {
   test("a link is delivered, never returned, and the last signature completes the request", async () => {
     const { requestId, signerIds } = await stack.http.writeOk<{
@@ -86,6 +107,8 @@ describe("signature recipe", () => {
         title: "Rental agreement",
         subjectType: "lease",
         subjectId: "lease-1",
+        hostType: "lease",
+        hostId: await seedLease(),
         signers: [{ name: "Ada", email: "ada@example.test" }],
       },
       admin,

@@ -6,8 +6,10 @@ unchanged original and completes the request.
 
 ## What it shows
 
-- **Feature** - `createSignatureFeature({ retention, linkSecret, renderHtmlToPdf, deliverLink, signaturePageUrl })`.
+- **Feature** - `createSignatureFeature({ retention, hostEntities, linkSecret, renderHtmlToPdf, deliverLink, signaturePageUrl })`.
   Needs `files` and `user-data-rights` (exports and erases signer data); the test mounts user-data-rights with its own dependencies.
+- **Host** - every request belongs to a host row (`hostType`, `hostId`, one of `hostEntities`, here a
+  `lease`); a user sees and works on the request only while they can read that row.
 - **deliverLink** - `issue-link` hands the signing link to the app (mail) and returns only
   `{ signerId, linkSentAt }`: whoever may issue a link must not be able to sign with it.
 - **renderHtmlToPdf** - injected; in an app it is the client of `@cosmicdrift/kumiko-renderer-puppeteer-client`.

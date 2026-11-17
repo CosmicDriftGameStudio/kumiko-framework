@@ -32,12 +32,19 @@ const DRAFT_PERSONAL_JSON = { personal: "self" } as const;
 
 export function createDocumentDraftEntity(
   retention: DocumentDraftRetention = { keepFor: DEFAULT_DOCUMENT_DRAFT_RETENTION_KEEP_FOR },
+  subjectTypes?: readonly string[],
 ) {
   return createEntity({
     table: "read_document_drafts",
     description:
       "One editable copy of a PDF document template for one object (for example a lease contract): the template text with its {{placeholders}} frozen at creation, changed with the same structured operations as a template, then finalized to a stored PDF. The template itself stays unchanged; body, variables and the last change are personal data of the draft.",
     retention: { keepFor: retention.keepFor, strategy: "hardDelete", reference: "createdAt" },
+    // A draft is visible only while its subject row is readable through the subject entity's own read rules.
+    parentRef: {
+      entityTypeField: "subjectType",
+      entityIdField: "subjectId",
+      ...(subjectTypes !== undefined && { allowedTypes: subjectTypes }),
+    },
     fields: {
       subjectType: createTextField({
         required: true,

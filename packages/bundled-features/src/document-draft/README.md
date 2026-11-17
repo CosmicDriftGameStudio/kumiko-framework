@@ -27,12 +27,10 @@ createDocumentDraftFeature({
 
 | Option             | Default                                      | Effect                                                                                                               |
 | ------------------ | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `subjectTypes`     | required                                     | The kinds of object a draft belongs to; `create` refuses any other (400)                                             |
+| `subjectTypes`     | required                                     | Entity names a draft belongs to; `create` refuses any other (400), a subject row the user cannot read answers 404 everywhere                                           |
 | `pdf`              | required                                     | `render` prints the draft before the transaction and uploads it, `store` stores the file in the finalize transaction |
 | `retention`        | `{ keepFor: "10y" }`                         | How long drafts are kept, counted from creation, hard delete                                                         |
 | `access`           | `{ roles: ["TenantAdmin", "TenantMember"] }` | `AccessRule` of all handlers and queries                                                                             |
-| `authorizeSubject` | none                                         | `(ctx, user, { subjectType, subjectId })`; `false` answers like a missing draft. Runs in every handler and query     |
-| `unscopedRoles`    | none                                         | Roles that skip `authorizeSubject`, e.g. `["TenantAdmin"]`                                                           |
 | `subjectScreens`   | none                                         | Screen id per subject type that the editor returns to after finalize or discard, opened with the subject id          |
 
 ## Handlers and queries
@@ -80,5 +78,4 @@ belongs to is erased, call `forgetDocumentDraftsOfSubject(ctx, { subjectType, su
 purges the draft rows and erases their keys, so the old events stay unreadable. Without a KMS the
 key erase does nothing and the old events keep plaintext.
 
-`authorizeSubject` needs the full handler context, so `finalize` checks it inside its transaction,
-after printing: a caller who may not see the subject gets 404 and nothing is stored.
+The subject check runs in `beforeTransaction` of `finalize` too, so a caller who may not read the subject gets 404 before anything is printed.

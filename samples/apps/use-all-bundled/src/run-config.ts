@@ -367,19 +367,21 @@ export const APP_FEATURES = [
   // PUPPETEER_SERVICE_URL + PUPPETEER_AUTH_TOKEN and only asked when a PDF is generated.
   createRendererPuppeteerClientFeature(),
   // signature: needs files; the print function is the real client, asked only when a request completes.
-  // deliverLink is smoke-only: boot never sends a link.
+  // folder stands in for a host; deliverLink is smoke-only: boot never sends a link.
   createSignatureFeature({
     retention: { keepFor: "10y", unfinishedKeepFor: "90d" },
     renderHtmlToPdf,
     linkSecret: SMOKE_HMAC_SECRET,
     signaturePageUrl: "https://use-all-bundled.example/sign",
+    hostEntities: ["folder"],
     deliverLink: async () => {
       /* smoke-only */
     },
   }),
   // document-draft: the app hands over the client's print and store functions as they are.
+  // folder stands in for a host.
   createDocumentDraftFeature({
-    subjectTypes: ["lease"],
+    subjectTypes: ["folder"],
     pdf: { render: renderPdfBeforeTransaction, store: storeRenderedPdf },
   }),
   createHandbookKnowledgeFeature({

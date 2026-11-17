@@ -6,11 +6,9 @@ import type {
   WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { DocumentPdfDraft } from "../renderer-foundation/index.ts";
-import type { SubjectScopeOptions } from "../shared/index.ts";
 import type { DocumentDraftRetention } from "./entity.ts";
 
-export type AuthorizeDocumentDraftSubject = NonNullable<SubjectScopeOptions["authorizeSubject"]>;
-export type DocumentDraftSubject = Parameters<AuthorizeDocumentDraftSubject>[2];
+export type DocumentDraftSubject = { readonly subjectType: string; readonly subjectId: string };
 
 export type DocumentDraftRenderArgs = {
   readonly slug: string;
@@ -38,8 +36,8 @@ export type DocumentDraftPdf<TUpload> = {
   ) => Promise<WriteResult<{ readonly fileRefId: string; readonly fileName: string }>>;
 };
 
-export type DocumentDraftOptions<TUpload> = SubjectScopeOptions & {
-  /** The kinds of object a draft can belong to, e.g. `lease`; create refuses any other. */
+export type DocumentDraftOptions<TUpload> = {
+  /** Entity names a draft may belong to; a user sees and works on a draft only while its subject row is readable to them. Must be registered entities without their own `parentRef`. */
   readonly subjectTypes: readonly [string, ...string[]];
   readonly pdf: DocumentDraftPdf<TUpload>;
   /** How long drafts are kept, data-retention keepFor syntax, counted from creation. Default 10y. */
