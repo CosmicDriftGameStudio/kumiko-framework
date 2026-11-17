@@ -43,6 +43,12 @@ export {
   ISOLATED_E2E_PROJECT_NAME,
   resolveE2eWorkers,
 } from "./define-app-e2e-config";
+export {
+  defineProdBootE2eConfig,
+  type ProdBootE2eConfigInput,
+  prodBootEnvDefaults,
+} from "./define-prod-boot-e2e-config";
+export { expectProdBootSecure } from "./expect-prod-boot-secure";
 export { type MailCaptureOptions, mailCapture } from "./mail-capture";
 export {
   decodeHtmlAttribute,

@@ -135,16 +135,16 @@ only; explicit projections and `r.storeTable` are out of scope.
 when its `id` equals the `aggregate_id` of a source event. An
 `r.extendEntityProjection` extension whose applies write a different id for events
 on its `sources` declares that derivation as `rowIdOf`; the guard then matches live
-rows against `rowIdOf` of the source events instead. Typical case: workflow-run
-events, whose aggregate id does not include the tenant, feeding a table with a
+rows against `rowIdOf` of the source events instead. Typical case: events whose
+aggregate id does not include the tenant, feeding a table with a
 single-column `id` primary key through a tenant-salted id:
 
 ```ts
-r.extendEntityProjection("wf-run-view", {
-  sources: [WORKFLOW_AGGREGATE_TYPE],
-  rowIdOf: ({ tenantId, aggregateId }) => uuidv5(`${tenantId}|${aggregateId}`, RUN_VIEW_NS),
+r.extendEntityProjection("order-view", {
+  sources: ["order"],
+  rowIdOf: ({ tenantId, aggregateId }) => uuidv5(`${tenantId}|${aggregateId}`, ORDER_VIEW_NS),
   apply: {
-    [WORKFLOW_RUN_STARTED_TYPE]: async (event, tx) => {
+    "shop:event:order.placed": async (event, tx) => {
       // inserts the row with id = the same uuidv5(tenantId|aggregateId)
     },
   },

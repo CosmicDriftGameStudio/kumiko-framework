@@ -269,8 +269,6 @@ export {
 export { queryByRef } from "./query-by-ref.ts";
 export { defineRoles } from "./define-roles.ts";
 export { defineStep, getStep } from "./define-step.ts";
-export type { WorkflowDefinition } from "./define-workflow.ts";
-export { computeDefinitionFingerprint, defineWorkflow } from "./define-workflow.ts";
 export type { ToggleReader } from "./effective-features.ts";
 export { computeEffectiveFeatures, isToggleableFeature } from "./effective-features.ts";
 export {
@@ -468,24 +466,6 @@ export {
 } from "./soft-delete-cleanup.ts";
 export type { TransitionGraph } from "./state-machine.ts";
 export { defineTransitions, guardTransition } from "./state-machine.ts";
-export { evaluateEventMatch } from "./steps/_event-match.ts";
-export {
-  STEP_DISPATCH_AGGREGATE_TYPE,
-  STEP_DISPATCH_FAILED_TYPE,
-  STEP_DISPATCH_REQUESTED_TYPE,
-  STEP_DISPATCHED_TYPE,
-  WORKFLOW_AGGREGATE_TYPE,
-  WORKFLOW_RESUMED_TYPE,
-  WORKFLOW_RETRY_SCHEDULED_TYPE,
-  WORKFLOW_RUN_COMPLETED_TYPE,
-  WORKFLOW_RUN_FAILED_TYPE,
-  WORKFLOW_RUN_STARTED_TYPE,
-  WORKFLOW_WAITING_FOR_EVENT_TYPE,
-  WORKFLOW_WAITING_TYPE,
-} from "./steps/_step-dispatch-constants.ts";
-export { describeWorkflowStepError } from "./steps/describe-workflow-step-error.ts";
-export { unwrapWorkflowStepError, WorkflowStepError } from "./steps/workflow-step-error.ts";
-export { WORKFLOW_SYSTEM_EVENT_DEFS } from "./steps/workflow-system-events.ts";
 export {
   ANONYMOUS_ROLE,
   ANONYMOUS_USER_ID,
@@ -537,7 +517,6 @@ export type {
   TenantId,
 } from "./types/index.ts";
 export type {
-  AwaitedEventType,
   PipelineCtx,
   StepInstance,
   StepResolver,

@@ -17,7 +17,7 @@
 // NavDefinition, WorkspaceDefinition, JobDefinition-options, MetricOptions,
 // etc. are NOT hand-modeled here — that would fork a second, driftable
 // catalogue of their shape. They're accepted via `z.custom` (plain object,
-// or a RawRefSentinel/AiStepOpaqueArgs — the extractor's own "couldn't
+// or a RawRefSentinel — the extractor's own "couldn't
 // resolve this statically" markers) and, for EntityDefinition only,
 // additionally checked for field-type membership via the shared
 // `findUnknownEntityFieldTypes` helper (kept in sync with `extractEntity`).
@@ -802,69 +802,6 @@ const envSchemaSchema = z
   })
   .strict();
 
-const aiStepOpaqueArgsSchema = z.custom<{ readonly __raw: string }>(isRawRefSentinel, {
-  message: "must be an unresolved reference ({ __raw })",
-});
-
-const aiStepPolicySchema = z
-  .object({
-    enabled: z.boolean(),
-    providerId: z.string().optional(),
-    model: z.string().optional(),
-    params: z.custom<Record<string, unknown>>(isPlainObject, {
-      message: "params must be a plain object",
-    }),
-  })
-  .strict();
-
-const stringOrAiOpaqueSchema = z.union([z.string(), aiStepOpaqueArgsSchema]);
-const aiStepPolicyOrOpaqueSchema = z.union([aiStepPolicySchema, aiStepOpaqueArgsSchema]);
-
-const aiGenerateSchema = z
-  .object({
-    kind: z.literal("ai.generate"),
-    source: sourceFieldSchema,
-    argsSource: aiStepOpaqueArgsSchema.optional(),
-    stepKey: stringOrAiOpaqueSchema.optional(),
-    promptKey: stringOrAiOpaqueSchema.optional(),
-    promptFallback: stringOrAiOpaqueSchema.optional(),
-    defaults: aiStepPolicyOrOpaqueSchema.optional(),
-    paramsSchemaSource: sourceBodySchema.optional(),
-    inputBody: sourceBodySchema.optional(),
-  })
-  .strict();
-
-const aiExtractSchema = z
-  .object({
-    kind: z.literal("ai.extract"),
-    source: sourceFieldSchema,
-    argsSource: aiStepOpaqueArgsSchema.optional(),
-    stepKey: stringOrAiOpaqueSchema.optional(),
-    promptKey: stringOrAiOpaqueSchema.optional(),
-    promptFallback: stringOrAiOpaqueSchema.optional(),
-    defaults: aiStepPolicyOrOpaqueSchema.optional(),
-    paramsSchemaSource: sourceBodySchema.optional(),
-    outputSchemaSource: sourceBodySchema.optional(),
-    instructionsBody: sourceBodySchema.optional(),
-    documentBody: sourceBodySchema.optional(),
-  })
-  .strict();
-
-const aiClassifySchema = z
-  .object({
-    kind: z.literal("ai.classify"),
-    source: sourceFieldSchema,
-    argsSource: aiStepOpaqueArgsSchema.optional(),
-    stepKey: stringOrAiOpaqueSchema.optional(),
-    promptKey: stringOrAiOpaqueSchema.optional(),
-    promptFallback: stringOrAiOpaqueSchema.optional(),
-    defaults: aiStepPolicyOrOpaqueSchema.optional(),
-    paramsSchemaSource: sourceBodySchema.optional(),
-    actions: z.array(z.object({ type: z.string(), description: z.string() }).strict()).optional(),
-    inputBody: sourceBodySchema.optional(),
-  })
-  .strict();
-
 // =============================================================================
 // Catch-all
 // =============================================================================
@@ -921,9 +858,6 @@ export const PATTERN_SCHEMAS_BY_KIND = {
   defineEvent: defineEventSchema,
   extendsRegistrar: extendsRegistrarSchema,
   envSchema: envSchemaSchema,
-  "ai.generate": aiGenerateSchema,
-  "ai.extract": aiExtractSchema,
-  "ai.classify": aiClassifySchema,
   unknown: unknownPatternSchema,
 } satisfies Record<FeaturePatternKind, z.ZodTypeAny>;
 
@@ -965,9 +899,6 @@ export const patternSchema = z.discriminatedUnion("kind", [
   defineEventSchema,
   extendsRegistrarSchema,
   envSchemaSchema,
-  aiGenerateSchema,
-  aiExtractSchema,
-  aiClassifySchema,
   unknownPatternSchema,
 ]);
 

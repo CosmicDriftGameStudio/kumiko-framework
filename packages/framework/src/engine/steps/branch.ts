@@ -31,7 +31,6 @@ import { runStepList } from "../run-pipeline.ts";
 import type { PipelineCtx, StepInstance, StepResolver } from "../types/step.ts";
 import { validateNoReturnSteps } from "./_no-return-guard.ts";
 import { resolveRequired } from "./_resolver-utils.ts";
-import { SUSPEND_SENTINEL } from "./_step-dispatch-constants.ts";
 
 type BranchArgs = {
   readonly if: StepResolver<boolean>;
@@ -39,7 +38,7 @@ type BranchArgs = {
   readonly onFalse?: readonly StepInstance[];
 };
 
-defineStep<BranchArgs, undefined | typeof SUSPEND_SENTINEL>({
+defineStep<BranchArgs, undefined>({
   kind: "branch",
   subPaths: ["onTrue", "onFalse"],
   run: async (args, ctx: PipelineCtx) => {
@@ -54,14 +53,7 @@ defineStep<BranchArgs, undefined | typeof SUSPEND_SENTINEL>({
     const stepsAcc = ctx.steps as Record<string, unknown>;
     const scopeAcc = ctx.scope as Record<string, unknown>;
 
-    const outcome = await runStepList(
-      branchSteps,
-      ctx.event,
-      ctx,
-      stepsAcc,
-      scopeAcc,
-      ctx.workflow,
-    );
+    const outcome = await runStepList(branchSteps, ctx.event, ctx, stepsAcc, scopeAcc);
     if (outcome.kind === "return") {
       // Build-time guard (validateNoReturnSteps) rejects any return-step
       // inside onTrue/onFalse. If we land here at runtime, someone
@@ -69,9 +61,6 @@ defineStep<BranchArgs, undefined | typeof SUSPEND_SENTINEL>({
       // builder. Fail loud rather than silently bubbling the return up to
       // the outer pipeline (would shadow Q12).
       throw new Error("r.step.return is not allowed inside r.step.branch onTrue/onFalse (Q12)");
-    }
-    if (outcome.kind === "suspended") {
-      return SUSPEND_SENTINEL;
     }
   },
 });

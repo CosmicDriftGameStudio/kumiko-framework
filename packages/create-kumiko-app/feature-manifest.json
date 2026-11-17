@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled + signup)",
-  "featureCount": 97,
+  "featureCount": 95,
   "features": [
     {
       "name": "account-security",
@@ -2757,27 +2757,6 @@
       }
     },
     {
-      "name": "step-dispatcher",
-      "description": "Internal system feature that drains deferred Tier-2 side-effects (currently `webhook.send` and `mail.send`) after their originating transaction commits. An `r.multiStreamProjection` on the `kumiko:system:step.dispatch-requested` system event enqueues one `step-dispatcher:job:deliver` BullMQ job per dispatch (Redis carries only the stream id and tenant, never the request payload). The job performs the actual HTTP or mail delivery and appends `kumiko:system:step.dispatched` or `kumiko:system:step.dispatch-failed` back onto the same stream, so the outcome is recorded in the event log without a separate status table. Transient failures (network error, timeout, 5xx, 408, 429, any mail adapter failure) are retried 3 times with exponential backoff; the outcome is recorded after the final attempt and the payload key is erased only then. A request that still has no outcome after 24 hours (job stalled or lost, or its final attempt could not record one) is closed by the daily `step-dispatcher:job:sweep-abandoned` cron (it pages through all such requests; requests that already have an outcome are not swept) with a generic `dispatch-failed` event and its payload key is erased. Permanent failures (invalid url, blocked host, other 4xx, unavailable auth secret) are recorded immediately. At most 2 deliveries per tenant run at once (`maxPerTenant` with `onLimit: \"defer\"`), so a slow receiver of one tenant does not delay other tenants. Requires a job runner (Redis) and a worker consuming the job's default `worker` lane; without a job runner the projection fails loudly. Mount this feature explicitly via `createStepDispatcherFeature()` in your app's feature list alongside any features that use `r.step.webhook.send` or `r.step.mail.send`. Requires the `secrets` feature (`createSecretsFeature()`) to be mounted — `webhook.send` auth resolves per-tenant through it, under `step-dispatcher:webhook-auth.<name>`. Every `webhook.send` request carries `Idempotency-Key: <dispatch stream id>`, stable across retries and redeliveries of the same dispatch request; an explicit `Idempotency-Key` in `headers` takes precedence.",
-      "toggleableDefault": null,
-      "requires": [
-        "secrets"
-      ],
-      "optionalRequires": [],
-      "configReads": [],
-      "exposesApis": [],
-      "usesApis": [],
-      "extensionsUsed": [],
-      "configKeys": [],
-      "secrets": [],
-      "writeHandlers": [],
-      "uiHints": {
-        "displayLabel": "Step Dispatcher · Deferred Side-Effects",
-        "category": "infrastructure",
-        "recommended": false
-      }
-    },
-    {
       "name": "subscription-mollie",
       "description": "Mollie payment provider plugin for `billing-foundation`, covering the DACH/EU mid-market use case. Mount via `createSubscriptionMollieFeature({ apiKey, webhookUrl, priceToTier, priceToConfig })` — the factory validates that `priceToTier` and `priceToConfig` keys are identical at boot time. Implements `verifyAndParseWebhook` (lazy Mollie-API fetch + heuristic event-type mapping) and `createCheckoutSession` (customer + first-payment with `sequenceType=\"first\"`); `createPortalSession` and `cancelSubscription` are not available because Mollie has no customer portal and requires a `customerId` that the plugin contract does not carry.",
       "toggleableDefault": null,
@@ -4035,57 +4014,7 @@
         "category": "data",
         "recommended": false
       }
-    },
-    {
-      "name": "workflow-runner",
-      "description": "Writes the run-envelope (`workflow.run-started` / `workflow.run-completed` / `workflow.run-failed`) for a workflow run onto its `workflow-run` aggregate stream. Provides `startAndRunWorkflow` and `registerEventTrigger` for consumer features to wire up `defineWorkflow`-based workflows against domain events. Registers no workflows itself. Runs the resume loop for suspended `wait`/`retry`/`waitForEvent` steps (`resume-due-runs` job + `resume-run` handler); `registerEventTrigger` wires an event-wakeup subscriber per workflow that declares `awaits` so a `waitForEvent` step resumes as soon as its awaited event arrives, not just on timeout.",
-      "toggleableDefault": null,
-      "requires": [],
-      "optionalRequires": [],
-      "configReads": [],
-      "exposesApis": [],
-      "usesApis": [],
-      "extensionsUsed": [],
-      "configKeys": [],
-      "secrets": [],
-      "writeHandlers": [
-        "workflow-runner:write:resume-run"
-      ],
-      "uiHints": {
-        "displayLabel": "Workflow Runner",
-        "category": "infrastructure",
-        "recommended": false
-      }
     }
   ],
-  "systemEvents": [
-    {
-      "name": "kumiko:system:workflow.retry.scheduled",
-      "version": 1
-    },
-    {
-      "name": "kumiko:system:workflow.run-completed",
-      "version": 1
-    },
-    {
-      "name": "kumiko:system:workflow.run-failed",
-      "version": 1
-    },
-    {
-      "name": "kumiko:system:workflow.run-started",
-      "version": 1
-    },
-    {
-      "name": "kumiko:system:workflow.step.resumed",
-      "version": 1
-    },
-    {
-      "name": "kumiko:system:workflow.step.waiting",
-      "version": 1
-    },
-    {
-      "name": "kumiko:system:workflow.step.waiting-for-event",
-      "version": 1
-    }
-  ]
+  "systemEvents": []
 }

@@ -43,30 +43,6 @@ export type PipelineCtx<
   readonly event: WriteEvent<TPayload>;
   readonly steps: Readonly<Record<string, unknown>>;
   readonly scope: Readonly<Record<string, unknown>>;
-  // Workflow-run context — present only when running inside defineWorkflow.
-  // Tier-3 steps use this to write suspension events onto the correct
-  // aggregate stream and for the Resume-Loop to re-hydrate state.
-  readonly workflow?: {
-    readonly runId: string;
-    readonly workflowName: string;
-    /** Current step index in the pipeline — set by the executor before each step. */
-    readonly stepIndex: number;
-    /**
-     * Retry attempt counter for the current workflow.retry step.
-     * Set by the workflow-engine resume-loop on re-entry; starts at 1.
-     * Absent (undefined) means first attempt.
-     */
-    readonly retryAttempt?: number;
-    /**
-     * Snapshot-at-Start fingerprint of the workflow definition that
-     * started this run. Propagated into every suspension event payload so
-     * the resume-loop can detect library-upgrades that changed the closure
-     * source and surface them as a typed failure instead of running a
-     * stale-vs-new mix of steps. Optional only for legacy callers; the
-     * workflow-runner sets it on every newly-started run.
-     */
-    readonly definitionFingerprint?: string;
-  };
 };
 
 /**
@@ -75,36 +51,6 @@ export type PipelineCtx<
  * uniform — every step accepts both forms via a normalise helper.
  */
 export type StepResolver<T, TPayload = unknown> = T | ((ctx: PipelineCtx<TPayload>) => T);
-
-// Branded event-type string — the only route r.step.waitForEvent's `event`
-// can reach a value. A workflow's `awaits` declaration (workflow-resume-loop.md)
-// is the only source of these; buildPipelineSteps mints them from that
-// declaration's raw strings when it builds the closure's `awaits` binding.
-// A raw string literal at waitForEvent.event is a compile error, so a typo
-// in the awaited key surfaces at build time instead of a run that waits
-// forever.
-export type AwaitedEventType = string & { readonly __awaitedEvent: unique symbol };
-
-// Serializable AST for r.step.waitForEvent's `match` argument. Persisted
-// verbatim into the waiting-for-event suspension payload (jsonb), so it
-// must survive a JSON round-trip — a closure cannot.
-export type EventMatchValue = string | number | boolean | null;
-
-export type EventMatchOp =
-  | { readonly kind: "eq"; readonly value: EventMatchValue }
-  | { readonly kind: "ne"; readonly value: EventMatchValue }
-  | { readonly kind: "in"; readonly values: readonly EventMatchValue[] }
-  | { readonly kind: "gt"; readonly value: number | string }
-  | { readonly kind: "gte"; readonly value: number | string }
-  | { readonly kind: "lt"; readonly value: number | string }
-  | { readonly kind: "lte"; readonly value: number | string };
-
-export type EventMatchExpr =
-  | { readonly kind: "and"; readonly nodes: readonly EventMatchExpr[] }
-  | { readonly kind: "or"; readonly nodes: readonly EventMatchExpr[] }
-  | { readonly kind: "atom"; readonly path: readonly string[]; readonly op: EventMatchOp };
-
-export type EventMatch = { readonly version: 1; readonly expr: EventMatchExpr };
 
 export type StepDef<TArgs = unknown, TResult = unknown> = {
   readonly kind: StepKind;
@@ -122,8 +68,7 @@ export type StepDef<TArgs = unknown, TResult = unknown> = {
   readonly subPaths?: readonly string[];
   // Step-vocabulary tier. Tier-1 implicit, Tier-2+ requires
   // r.requires.step("<kind>") in the owning feature. Default 1 (implicit).
-  // Tier-3 is only available inside defineWorkflow.
-  readonly tier?: 1 | 2 | 3;
+  readonly tier?: 1 | 2;
   // Runtime: resolve the args against the ctx, perform the work, return
   // the value to land in steps.{resultKey}. Thrown errors propagate to
   // the dispatcher's catch.
@@ -161,23 +106,9 @@ export type StepInstance = {
  *   `stepsPipeline<{ greeting: string }, { echoed: string }>(...)`
  * Better DX is a known follow-up — see step-vocabulary.md M.1-Followups.
  */
-export type PipelineDef<
-  TPayload = unknown,
-  _TData = unknown,
-  TAwaits extends Record<string, AwaitedEventType> = Record<string, AwaitedEventType>,
-> = {
+export type PipelineDef<TPayload = unknown, _TData = unknown> = {
   readonly __kind: "pipeline";
-  // Raw (unbranded) awaits map, set by defineWorkflow — absent for
-  // non-workflow pipelines (plain defineWriteHandler perform).
-  // buildPipelineSteps reads it and brands it into the closure's `awaits`
-  // binding, so every existing buildPipelineSteps caller keeps working
-  // unchanged. Deliberately typed as plain strings, NOT `TAwaits` — an
-  // extra covariant occurrence of TAwaits here (alongside its contravariant
-  // occurrence in `build`'s parameter) breaks TypeScript's contextual
-  // inference for a `stepsPipeline(...)` passed inline as `steps` (verified
-  // empirically).
-  readonly awaits?: Readonly<Record<string, string>>;
-  readonly build: (ctx: PipelineBuildCtx<TPayload, TAwaits>) => readonly StepInstance[];
+  readonly build: (ctx: PipelineBuildCtx<TPayload>) => readonly StepInstance[];
 };
 
 /**
@@ -199,16 +130,9 @@ export type PipelineDef<
  * skip validation. See validate-projection-allowlist.ts for the
  * boot-side mechanics.
  */
-export type PipelineBuildCtx<
-  TPayload = unknown,
-  TAwaits extends Record<string, AwaitedEventType> = Record<string, AwaitedEventType>,
-> = {
+export type PipelineBuildCtx<TPayload = unknown> = {
   readonly event: WriteEvent<TPayload>;
   readonly r: StepBuilder;
-  // Declared awaited events (workflow-resume-loop.md) — the only way
-  // r.step.waitForEvent's `event` arg can reference an event type. `{}` for
-  // non-workflow pipelines and workflows without an `awaits` declaration.
-  readonly awaits: TAwaits;
 };
 
 /**
@@ -324,32 +248,7 @@ export type StepNamespace = {
     readonly do: readonly StepInstance[];
     readonly concurrency?: 1;
   }) => StepInstance;
-  // Tier-2 namespace. Each builder requires r.requires.step("<kind>")
-  // in the owning feature; boot-validation enforces.
-  readonly webhook: {
-    readonly send: (args: {
-      readonly url: StepResolver<string>;
-      readonly method?: "POST" | "PUT" | "PATCH";
-      readonly headers?: StepResolver<Readonly<Record<string, string>>>;
-      readonly body?: StepResolver<unknown>;
-      // Name inside the tenant-owned secrets namespace
-      // `step-dispatcher:webhook-auth.<secret>` (secrets feature). Resolved
-      // per-tenant at dispatch time — never a global/env-scoped secret.
-      readonly auth?:
-        | { readonly kind: "bearer"; readonly secret: string }
-        | { readonly kind: "header"; readonly name: string; readonly secret: string };
-      readonly mode: "deferred";
-    }) => StepInstance;
-  };
-  readonly mail: {
-    readonly send: (args: {
-      readonly to: StepResolver<string | readonly string[]>;
-      readonly subject: StepResolver<string>;
-      readonly body: StepResolver<string>;
-      readonly from?: StepResolver<string>;
-      readonly mode: "deferred";
-    }) => StepInstance;
-  };
+  // Tier-2: requires r.requires.step("callFeature") in the owning feature.
   readonly callFeature: (
     name: string,
     opts: {
@@ -358,20 +257,6 @@ export type StepNamespace = {
       readonly as?: import("./handlers.ts").SessionUser;
     },
   ) => StepInstance;
-  // --- Tier-3 / Workflow-only steps ---
-  // Only available inside defineWorkflow ({ steps: stepsPipeline(...) }).
-  // Runtime guard: throws when used inside sync defineWriteHandler.
-  readonly wait: (args: { readonly for: StepResolver<string> }) => StepInstance;
-  readonly waitForEvent: (args: {
-    readonly event: AwaitedEventType;
-    readonly match?: StepResolver<EventMatch>;
-    readonly timeout: StepResolver<string>;
-  }) => StepInstance;
-  readonly retry: (args: {
-    readonly times: number;
-    readonly backoff: "exponential" | "linear";
-    readonly do: readonly StepInstance[];
-  }) => StepInstance;
 };
 
 // SaveContext is the result-type of aggregate.create / aggregate.update;

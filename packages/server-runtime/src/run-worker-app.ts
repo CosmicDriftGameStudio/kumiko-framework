@@ -60,6 +60,7 @@ import type { BillingBootOption } from "./boot-options/billing-option.ts";
 import type { FileStorageBootOption } from "./boot-options/file-storage-option.ts";
 import type { KmsMode } from "./boot-options/kms-mode.ts";
 import type { MailBootOption } from "./boot-options/mail-option.ts";
+import { prodKmsModeDefault } from "./boot-options/prod-boot-defaults.ts";
 import { resolveBootOptionWiring } from "./boot-options/resolve-boot-options.ts";
 import { assertStackBootRequirements } from "./boot-options/stack-boot-requirements.ts";
 import {
@@ -160,7 +161,7 @@ export type RunWorkerAppOptions = {
   readonly mail?: MailBootOption;
   /** Same as RunProdAppOptions["fileStorage"]: mounts the file providers the worker's file jobs use. */
   readonly fileStorage?: FileStorageBootOption;
-  /** Same as RunProdAppOptions["kmsMode"]; cannot be combined with `kms` / `blindIndexKey` / `allowPlaintextPii`. */
+  /** Same as RunProdAppOptions["kmsMode"], including the production default; cannot be combined with `kms` / `blindIndexKey` / `allowPlaintextPii`. */
   readonly kmsMode?: KmsMode;
   /** Same as RunProdAppOptions["billing"]: mounts the configured subscription providers so the registry matches the API. The webhook route belongs to the API process. */
   readonly billing?: BillingBootOption;
@@ -230,8 +231,10 @@ function wireHookDb(db: DbConnection, options: RunWorkerAppOptions): DbConnectio
   return appHookScopedRunner(db, options.rowLevelSecurity ?? DEFAULT_ROW_LEVEL_SECURITY_MODE);
 }
 
-export async function runWorkerApp(options: RunWorkerAppOptions): Promise<WorkerAppHandle> {
+export async function runWorkerApp(rawOptions: RunWorkerAppOptions): Promise<WorkerAppHandle> {
   assertSeedModeNotInProduction();
+  const kmsMode = prodKmsModeDefault(rawOptions, rawOptions.envSource ?? process.env);
+  const options: RunWorkerAppOptions = { ...rawOptions, ...(kmsMode !== undefined && { kmsMode }) };
   const resolvedEnvSource = await resolveGatedEnvSource(options);
   if (resolvedEnvSource === undefined) return makeBootModeHandle();
   const log = installProcessLogger(options.extraContext, "runWorkerApp");

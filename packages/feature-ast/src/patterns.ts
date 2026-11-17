@@ -654,51 +654,6 @@ export type EnvSchemaPattern = {
   readonly schemaBody: SourceLocation;
 };
 
-/** Live-editable policy defaults for an AI pipeline step instance. */
-export type AiStepPolicy = {
-  readonly enabled: boolean;
-  readonly providerId?: string;
-  readonly model?: string;
-  readonly params: Record<string, unknown>;
-};
-
-/** Preserves an unresolvable argument reference across parse → render. */
-export type AiStepOpaqueArgs = {
-  readonly __raw: string;
-};
-
-type AiStepCommonPatternFields = {
-  readonly source: SourceLocation;
-  /** Whole-args reference when the spec is not an inline/same-file object. */
-  readonly argsSource?: AiStepOpaqueArgs;
-  readonly stepKey?: string | AiStepOpaqueArgs;
-  readonly promptKey?: string | AiStepOpaqueArgs;
-  readonly promptFallback?: string | AiStepOpaqueArgs;
-  readonly defaults?: AiStepPolicy | AiStepOpaqueArgs;
-  readonly paramsSchemaSource?: SourceLocation;
-};
-
-// `aiGenerateStep({...})` inside `stepsPipeline` — Tier-3 freeform generation.
-export type AiGeneratePattern = AiStepCommonPatternFields & {
-  readonly kind: "ai.generate";
-  readonly inputBody?: SourceLocation;
-};
-
-// `aiExtractStep({...})` — schema-driven structured extraction.
-export type AiExtractPattern = AiStepCommonPatternFields & {
-  readonly kind: "ai.extract";
-  readonly outputSchemaSource?: SourceLocation;
-  readonly instructionsBody?: SourceLocation;
-  readonly documentBody?: SourceLocation;
-};
-
-// `aiClassifyStep({...})` — action-catalogue classification.
-export type AiClassifyPattern = AiStepCommonPatternFields & {
-  readonly kind: "ai.classify";
-  readonly actions?: readonly { readonly type: string; readonly description: string }[];
-  readonly inputBody?: SourceLocation;
-};
-
 // Catch-all — r.* calls the visitor doesn't recognise. Designer renders
 // "unknown call (cannot edit)", AI patcher leaves them unchanged. When
 // an UnknownPattern shows up in the wild it's a signal that a new r.*
@@ -754,9 +709,6 @@ export type FeaturePattern =
   | DefineEventPattern
   | ExtendsRegistrarPattern
   | EnvSchemaPattern
-  | AiGeneratePattern
-  | AiExtractPattern
-  | AiClassifyPattern
   // Catch-all
   | UnknownPattern;
 
@@ -815,9 +767,6 @@ const EDITABILITY_BY_KIND: Readonly<Record<FeaturePatternKind, Editability>> = {
   projection: "mixed",
   multiStreamProjection: "mixed",
   defineEvent: "mixed",
-  "ai.generate": "mixed",
-  "ai.extract": "mixed",
-  "ai.classify": "mixed",
   authClaims: "opaque",
   extendsRegistrar: "opaque",
   envSchema: "opaque",

@@ -13,7 +13,6 @@ import {
   populateMetricsAndSecrets,
   populateProjectionsAndTables,
   populateScreensNavWorkspaces,
-  populateSystemEvents,
   populateTranslations,
 } from "./registry-ingest.ts";
 import { populateReadModelEntities } from "./registry-read-models.ts";
@@ -74,7 +73,6 @@ export function createRegistry(rawFeatures: readonly FeatureDefinition[]): Regis
     populateScreensNavWorkspaces(state, feature);
   }
 
-  populateSystemEvents(state);
   finalizeWorkspaceNavMembership(state);
   populateHandlerEntityMappings(state, features);
   validateExtensionSelectors(state);

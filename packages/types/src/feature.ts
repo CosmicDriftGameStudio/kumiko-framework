@@ -298,7 +298,7 @@ export type FeatureDefinition = {
   // if a step targets a non-listed table or one that's already an
   // r.entity-registered aggregate-table. See step-vocabulary.md Q10.
   readonly requiredProjections: ReadonlySet<string>;
-  // Tier-2 step kinds opted-in via r.requires.step("webhook.send").
+  // Tier-2 step kinds opted-in via r.requires.step("callFeature").
   readonly requiredSteps: ReadonlySet<string>;
   // Declared via r.toggleable({ default }). Presence makes the feature
   // operator-switchable via the feature-toggles bundled feature; absence

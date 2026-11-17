@@ -83,12 +83,6 @@ export const FEATURE_CONSTRUCTORS: Readonly<Record<string, ScaffoldFeatureEntry>
     exportName: "createCapCounterFeature",
     callExpression: "createCapCounterFeature()",
   },
-  "step-dispatcher": {
-    name: "step-dispatcher",
-    importPath: "@cosmicdrift/kumiko-bundled-features/step-dispatcher",
-    exportName: "createStepDispatcherFeature",
-    callExpression: "createStepDispatcherFeature()",
-  },
 
   // --- Storage ---
   files: {

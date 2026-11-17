@@ -399,16 +399,6 @@ describe("addPattern — error paths", () => {
     const sf = makeSourceFile("export const x = 1;");
     expect(() => addPattern(sf, newSecretPattern)).toThrow(/no defineFeature/);
   });
-
-  test("throws for ai.* kinds (must target a workflow steps array)", () => {
-    const sf = makeSourceFile(`
-import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-defineFeature("ai-host", (r) => {});
-`);
-    expect(() =>
-      addPattern(sf, { kind: "ai.generate", stepKey: "generate" } as FeaturePattern),
-    ).toThrow(/ai\.generate steps must be inserted into a defineWorkflow/);
-  });
 });
 
 describe("callMatchesId — positional and object-form lookups", () => {
@@ -726,65 +716,6 @@ defineFeature("inventory", (r) => {
     ).toThrow(/no call found/);
   });
 });
-describe("ai step patterns — shorthand stepKey", () => {
-  const AI_STEP_FIXTURE = `
-import { defineFeature, defineWorkflow, stepsPipeline } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
-
-const paramsSchema = z.object({});
-const stepKey = "generate";
-
-defineFeature("ai-demo", (r) => {
-  defineWorkflow({
-    name: "demo",
-    steps: stepsPipeline(() => [
-      aiGenerateStep({
-        stepKey,
-        promptKey: "demo:generate",
-        promptFallback: "Write.",
-        paramsSchema,
-        defaults: { enabled: true, params: {} },
-        input: (ctx) => ctx.event.label,
-      }),
-    ]),
-  });
-});
-`;
-
-  test("removePattern finds ai.generate with shorthand stepKey", () => {
-    const sf = makeSourceFile(AI_STEP_FIXTURE);
-    removePattern(sf, { kind: "ai.generate", stepKey: "generate" });
-    const reparsed = parseSourceFile(sf);
-    expect(reparsed.errors).toEqual([]);
-    expect(reparsed.patterns.filter((p) => p.kind.startsWith("ai."))).toEqual([]);
-  });
-
-  test("replacePattern finds ai.generate with shorthand stepKey", () => {
-    const sf = makeSourceFile(AI_STEP_FIXTURE);
-    const replacement: FeaturePattern = {
-      kind: "ai.generate",
-      source: SAMPLE_LOC,
-      stepKey: "generate",
-      promptKey: "demo:generate",
-      promptFallback: "Updated.",
-      defaults: { enabled: true, params: {} },
-      paramsSchemaSource: { ...SAMPLE_LOC, raw: "paramsSchema" },
-      inputBody: { ...SAMPLE_LOC, raw: "(ctx) => ctx.event.label" },
-    };
-    replacePattern(sf, { kind: "ai.generate", stepKey: "generate" }, replacement);
-    const reparsed = parseSourceFile(sf);
-    expect(reparsed.errors).toEqual([]);
-    expect(reparsed.patterns).toContainEqual(
-      expect.objectContaining({
-        kind: "ai.generate",
-        stepKey: "generate",
-        promptFallback: "Updated.",
-      }),
-    );
-    expect(sf.getFullText()).toContain("defineWorkflow");
-  });
-});
-
 describe("callMatchesId — positional hooks, referenceData and literal stepKey", () => {
   test("removePattern picks the positional hook whose string target matches", () => {
     const sf = makeSourceFile(`
@@ -835,24 +766,5 @@ defineFeature("geo", (r) => {
     removePattern(sf, { kind: "referenceData", entityName: "currency" });
     expect(sf.getFullText()).not.toContain('"currency"');
     expect(sf.getFullText()).toContain('r.referenceData("country"');
-  });
-
-  test("removePattern finds ai.generate by a string-literal stepKey", () => {
-    const sf = makeSourceFile(`
-import { defineFeature, defineWorkflow, stepsPipeline } from "@cosmicdrift/kumiko-framework/engine";
-
-defineFeature("ai-demo", (r) => {
-  defineWorkflow({
-    name: "demo",
-    steps: stepsPipeline(() => [
-      aiGenerateStep({ stepKey: "summary", promptKey: "demo:summary" }),
-      aiGenerateStep({ stepKey: "title", promptKey: "demo:title" }),
-    ]),
-  });
-});
-`);
-    removePattern(sf, { kind: "ai.generate", stepKey: "title" });
-    expect(sf.getFullText()).toContain('stepKey: "summary"');
-    expect(sf.getFullText()).not.toContain('stepKey: "title"');
   });
 });

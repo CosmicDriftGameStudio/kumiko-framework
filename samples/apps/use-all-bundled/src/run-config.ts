@@ -79,7 +79,6 @@ import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-fea
 import { createSecretsFeature } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { createSeoFeature } from "@cosmicdrift/kumiko-bundled-features/seo";
 import { createSignatureFeature } from "@cosmicdrift/kumiko-bundled-features/signature";
-import { createStepDispatcherFeature } from "@cosmicdrift/kumiko-bundled-features/step-dispatcher";
 import { createSubscriptionMollieFeature } from "@cosmicdrift/kumiko-bundled-features/subscription-mollie";
 import { createSubscriptionPaddleFeature } from "@cosmicdrift/kumiko-bundled-features/subscription-paddle";
 import { createSubscriptionStripeFeature } from "@cosmicdrift/kumiko-bundled-features/subscription-stripe";
@@ -95,7 +94,6 @@ import { createUserDataRightsFeature } from "@cosmicdrift/kumiko-bundled-feature
 import { createUserDataRightsDefaultsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights-defaults";
 import { createUserProfileFeature } from "@cosmicdrift/kumiko-bundled-features/user-profile";
 import { createWaitlistFeature } from "@cosmicdrift/kumiko-bundled-features/waitlist";
-import { createWorkflowRunnerFeature } from "@cosmicdrift/kumiko-bundled-features/workflow-runner";
 import {
   composeFileStack,
   composeMailStack,
@@ -270,11 +268,6 @@ export const APP_FEATURES = [
 
   // jobs
   createJobsFeature(),
-  createStepDispatcherFeature(),
-  // workflow-runner: no entities/MSPs/handlers of its own — reserves the
-  // manifest slot and provides startAndRunWorkflow/registerEventTrigger for
-  // consumer features to wire up defineWorkflow-based workflows.
-  createWorkflowRunnerFeature(),
 
   // compliance / DSGVO
   createComplianceProfilesFeature(),

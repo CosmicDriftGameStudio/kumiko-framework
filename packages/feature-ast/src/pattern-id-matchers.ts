@@ -1,9 +1,5 @@
 import { type CallExpression, type Node, SyntaxKind } from "ts-morph";
-import {
-  readNameLiteral,
-  readNameOrRef,
-  resolveSameFileObjectLiteral,
-} from "./extractors/shared.ts";
+import { readNameLiteral, readNameOrRef } from "./extractors/shared.ts";
 import type { PatternId } from "./patch.ts";
 import type { MembersByKind } from "./patterns.ts";
 
@@ -49,9 +45,6 @@ const PATTERN_ID_MATCHERS: PatternIdMatchers = {
   multiStreamProjection: matchProjectionCall,
   defineEvent: matchDefineEventCall,
   extendsRegistrar: matchExtendsRegistrarCall,
-  "ai.generate": matchAiStepCall,
-  "ai.extract": matchAiStepCall,
-  "ai.classify": matchAiStepCall,
 };
 
 export function callMatchesId(call: CallExpression, id: PatternId): boolean {
@@ -191,31 +184,6 @@ function matchExtendsRegistrarCall(
   id: PatternIdOfKind["extendsRegistrar"],
 ): boolean {
   return matchFirstArgString(call, id.extensionName);
-}
-
-function matchAiStepCall(
-  call: CallExpression,
-  id: PatternIdOfKind["ai.generate" | "ai.extract" | "ai.classify"],
-): boolean {
-  return readAiStepKey(call) === id.stepKey;
-}
-
-function readAiStepKey(call: CallExpression): string | undefined {
-  const arg = call.getArguments()[0];
-  if (!arg) return undefined;
-  const obj = resolveSameFileObjectLiteral(arg);
-  if (!obj) return undefined;
-  const prop = obj.getProperty("stepKey");
-  if (!prop) return undefined;
-  const assign = prop.asKind(SyntaxKind.PropertyAssignment);
-  if (assign) {
-    const init = assign.getInitializer();
-    if (!init) return undefined;
-    return readNameLiteral(init);
-  }
-  const shorthand = prop.asKind(SyntaxKind.ShorthandPropertyAssignment);
-  if (shorthand) return readNameLiteral(shorthand.getNameNode());
-  return undefined;
 }
 
 // Resolves an argument the same way the extractors do (readNameLiteral):

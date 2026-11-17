@@ -27,6 +27,14 @@ export const E2E_PORTS = {
   "show-pony/screenshots": 4193,
   "offlot-app/e2e": 4320,
   "offlot-app/screenshots": 4332,
+  "publicstatus/prod-boot": 4340,
+  "money-horse/prod-boot": 4341,
+  "solon/prod-boot": 4342,
+  "phronexsis/prod-boot": 4343,
+  "show-pony/prod-boot": 4344,
+  "offlot-app/prod-boot": 4345,
+  "kumiko-studio/prod-boot": 4346,
+  "timeline-murder/prod-boot": 4347,
 } as const;
 
 export type E2ePortKey = keyof typeof E2E_PORTS;

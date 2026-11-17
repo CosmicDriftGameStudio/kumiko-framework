@@ -24,11 +24,6 @@
 import { isRawRefSentinel } from "./extractors/shared.ts";
 import type {
   AdoptsBundledListsPattern,
-  AiClassifyPattern,
-  AiExtractPattern,
-  AiGeneratePattern,
-  AiStepOpaqueArgs,
-  AiStepPolicy,
   AuthClaimsPattern,
   ClaimKeyPattern,
   ConfigPattern,
@@ -126,9 +121,6 @@ const PATTERN_RENDERERS: PatternRenderers = {
   exposesApi: renderExposesApi,
   treeActions: renderTreeActions,
   envSchema: renderEnvSchema,
-  "ai.generate": renderAiGenerate,
-  "ai.extract": renderAiExtract,
-  "ai.classify": renderAiClassify,
   unknown: renderUnknown,
 };
 
@@ -454,66 +446,6 @@ function renderHook(p: HookPattern): string {
   if (p.phase !== undefined) lines.push(`  phase: ${JSON.stringify(p.phase)},`);
   if (p.escapeHatch !== undefined) lines.push(`  escapeHatch: ${renderValue(p.escapeHatch)},`);
   lines.push("});");
-  return lines.join("\n");
-}
-
-function renderEditableString(value: string | AiStepOpaqueArgs): string {
-  return typeof value === "string" ? JSON.stringify(value) : value.__raw;
-}
-
-function renderEditableDefaults(value: AiStepPolicy | AiStepOpaqueArgs): string {
-  if (isRawRefSentinel(value)) return value.__raw;
-  return renderValue(value);
-}
-
-function renderAiStepCommonFields(
-  lines: string[],
-  p: AiGeneratePattern | AiExtractPattern | AiClassifyPattern,
-): void {
-  if (p.stepKey !== undefined) lines.push(`  stepKey: ${renderEditableString(p.stepKey)},`);
-  if (p.promptKey !== undefined) lines.push(`  promptKey: ${renderEditableString(p.promptKey)},`);
-  if (p.promptFallback !== undefined) {
-    lines.push(`  promptFallback: ${renderEditableString(p.promptFallback)},`);
-  }
-  if (p.paramsSchemaSource !== undefined) {
-    lines.push(`  paramsSchema: ${p.paramsSchemaSource.raw},`);
-  }
-  if (p.defaults !== undefined) {
-    lines.push(`  defaults: ${renderEditableDefaults(p.defaults)},`);
-  }
-}
-
-function renderAiGenerate(p: AiGeneratePattern): string {
-  if (p.argsSource) return `aiGenerateStep(${p.argsSource.__raw})`;
-  const lines: string[] = ["aiGenerateStep({"];
-  renderAiStepCommonFields(lines, p);
-  if (p.inputBody !== undefined) lines.push(`  input: ${p.inputBody.raw},`);
-  lines.push("})");
-  return lines.join("\n");
-}
-
-function renderAiExtract(p: AiExtractPattern): string {
-  if (p.argsSource) return `aiExtractStep(${p.argsSource.__raw})`;
-  const lines: string[] = ["aiExtractStep({"];
-  renderAiStepCommonFields(lines, p);
-  if (p.outputSchemaSource !== undefined) {
-    lines.push(`  outputSchema: ${p.outputSchemaSource.raw},`);
-  }
-  if (p.instructionsBody !== undefined) {
-    lines.push(`  instructions: ${p.instructionsBody.raw},`);
-  }
-  if (p.documentBody !== undefined) lines.push(`  document: ${p.documentBody.raw},`);
-  lines.push("})");
-  return lines.join("\n");
-}
-
-function renderAiClassify(p: AiClassifyPattern): string {
-  if (p.argsSource) return `aiClassifyStep(${p.argsSource.__raw})`;
-  const lines: string[] = ["aiClassifyStep({"];
-  renderAiStepCommonFields(lines, p);
-  if (p.actions !== undefined) lines.push(`  actions: ${renderValue(p.actions)},`);
-  if (p.inputBody !== undefined) lines.push(`  input: ${p.inputBody.raw},`);
-  lines.push("})");
   return lines.join("\n");
 }
 

@@ -85,6 +85,7 @@ import type { FileStorageBootOption } from "./boot-options/file-storage-option.t
 import type { KmsMode } from "./boot-options/kms-mode.ts";
 import type { MailBootOption } from "./boot-options/mail-option.ts";
 import type { PreviewLoginOption } from "./boot-options/preview-login-option.ts";
+import { prodKmsModeDefault, prodStaticDirDefault } from "./boot-options/prod-boot-defaults.ts";
 import type { SignalsOption } from "./boot-options/process-signals.ts";
 import type { ProdSeedsConfig } from "./boot-options/seed-shortcuts.ts";
 import type { SystemWireDeps } from "./extra-routes-deps.ts";
@@ -441,9 +442,10 @@ export type AppRuntimeOptions = {
    *  aborts. */
   readonly blindIndexKey?: string;
   /** Short form over `kms` / `blindIndexKey` / `allowPlaintextPii` that wires
-   *  the subject-key KMS from the env; not combinable with them. Unset keeps
-   *  today's behavior: no KMS unless `kms` is passed, and the PII boot gate
-   *  aborts when PII fields exist without one. See `KmsMode`.
+   *  the subject-key KMS from the env; not combinable with them. Unset: `"optional"`
+   *  with `NODE_ENV=production` unless `kms` / `blindIndexKey` / `allowPlaintextPii`
+   *  is passed; otherwise no KMS unless `kms` is passed, and the PII boot gate aborts
+   *  when PII fields exist without one. See `KmsMode`.
    *  In runDevApp it replaces the dev KMS default and cannot be combined with `kms` / `blindIndexKey`.
    *  @example
    *  kmsMode: "required" */
@@ -553,7 +555,8 @@ export type RunProdAppOptions = AppRuntimeOptions & {
   readonly anonymousAccess?: AnonymousAccessOption;
   /** Static-file root for HTML / assets. Served on the catch-all route
    *  for any path that doesn't match an /api/ handler. Use this for the
-   *  public status page HTML, embed widget JS, etc. */
+   *  public status page HTML, embed widget JS, etc.
+   *  Unset with `NODE_ENV=production`: `"./dist"` when that folder exists. */
   readonly staticDir?: string;
   /** Host-aware routing hook for multi-tenant + multi-app deployments
    *  (e.g. publicstatus's `<sub>.publicstatus.eu` (public page) +
@@ -726,10 +729,18 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
 }
 
 async function bootProdApp(
-  options: RunProdAppOptions,
+  rawOptions: RunProdAppOptions,
   registerAbortCleanup: RegisterBootAbortCleanup,
 ): Promise<ProdAppHandle> {
   assertSeedModeNotInProduction();
+  const defaultsEnv = rawOptions.envSource ?? process.env;
+  const kmsMode = prodKmsModeDefault(rawOptions, defaultsEnv);
+  const staticDir = prodStaticDirDefault(rawOptions.staticDir, defaultsEnv);
+  const options: RunProdAppOptions = {
+    ...rawOptions,
+    ...(kmsMode !== undefined && { kmsMode }),
+    ...(staticDir !== undefined && { staticDir }),
+  };
   // 0. Env-Schema validation + dry-run modes. Runs FIRST so:
   //    - operators can introspect env-requirements without a real boot
   //      (no DB connection needed, KUMIKO_DRY_RUN_ENV=… → render + exit)

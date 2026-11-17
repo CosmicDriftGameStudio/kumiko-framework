@@ -503,55 +503,6 @@ describe("validateProjectionAllowlist", () => {
     );
   });
 
-  it("rejects use of a tier-2 step without r.requires.step(...) declaration (Q9)", () => {
-    const sneakyFeature = defineFeature("step-discovery-missing", (r) => {
-      // Note: NO r.requires.step("webhook.send")
-      r.writeHandler(
-        defineWriteHandler({
-          name: "sneak",
-          schema: z.object({}),
-          access: { roles: ["Admin"] },
-          perform: stepsPipeline<Record<string, never>, { ok: true }>(({ r }) => [
-            r.step.webhook.send({
-              url: "https://hooks.example/sneak",
-              mode: "deferred",
-              body: () => ({}),
-            }),
-            r.step.return({ isSuccess: true as const, data: { ok: true } }),
-          ]),
-        }),
-      );
-    });
-
-    expect(() => validateProjectionAllowlist([sneakyFeature])).toThrow(
-      /did not declare it via r\.requires\.step\("webhook\.send"\)/,
-    );
-  });
-
-  it("rejects mail.send without r.requires.step(...) declaration", () => {
-    const sneakyMail = defineFeature("step-discovery-mail-missing", (r) => {
-      r.writeHandler(
-        defineWriteHandler({
-          name: "sneak",
-          schema: z.object({}),
-          access: { roles: ["Admin"] },
-          perform: stepsPipeline<Record<string, never>, { ok: true }>(({ r }) => [
-            r.step.mail.send({
-              to: "x@y.com",
-              subject: "hi",
-              body: "hello",
-              mode: "deferred",
-            }),
-            r.step.return({ isSuccess: true as const, data: { ok: true } }),
-          ]),
-        }),
-      );
-    });
-    expect(() => validateProjectionAllowlist([sneakyMail])).toThrow(
-      /did not declare it via r\.requires\.step\("mail\.send"\)/,
-    );
-  });
-
   it("rejects callFeature without r.requires.step(...) declaration", () => {
     const sneakyCall = defineFeature("step-discovery-call-missing", (r) => {
       r.writeHandler(
@@ -576,17 +527,16 @@ describe("validateProjectionAllowlist", () => {
 
   it("accepts a tier-2 step when r.requires.step(...) is declared", () => {
     const happyFeature = defineFeature("step-discovery-happy", (r) => {
-      r.requires.step("webhook.send");
+      r.requires.step("callFeature");
       r.writeHandler(
         defineWriteHandler({
           name: "ok",
           schema: z.object({}),
           access: { roles: ["Admin"] },
           perform: stepsPipeline<Record<string, never>, { ok: true }>(({ r }) => [
-            r.step.webhook.send({
-              url: "https://hooks.example/ok",
-              mode: "deferred",
-              body: () => ({}),
+            r.step.callFeature("subResult", {
+              handler: "other:write:do",
+              payload: () => ({}),
             }),
             r.step.return({ isSuccess: true as const, data: { ok: true } }),
           ]),

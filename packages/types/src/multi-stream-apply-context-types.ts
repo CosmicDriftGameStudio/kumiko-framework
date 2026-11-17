@@ -47,9 +47,8 @@ export type MultiStreamApplyContext<TMap extends object = KumikoEventTypeMap> = 
   // Derive-on-first-use variants, mirrors AppContext.derivatives. Present
   // exactly when `files` is — same file-foundation-provider precondition.
   readonly derivatives?: DerivativesContext;
-  // Tenant-scoped secret reads for side-effect MSPs (e.g. step-dispatcher's
-  // webhook auth), audited via the read's own auditCtx. Present when the
-  // app booted with the secrets feature; undefined otherwise.
+  // Tenant-scoped secret reads for side-effect MSPs, audited via the read's own auditCtx.
+  // Present when the app booted with the secrets feature; undefined otherwise.
   readonly secrets?: SecretsContext;
   // Enqueue a job. Present when the app has a job runner; undefined otherwise.
   // Enqueue only, and an MSP apply is redelivered at-least-once: pass a stable

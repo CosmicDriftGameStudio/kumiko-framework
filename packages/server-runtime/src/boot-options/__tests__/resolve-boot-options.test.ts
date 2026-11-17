@@ -111,6 +111,24 @@ describe("fileStorage option", () => {
     ).toThrow(/S3_REGION, S3_ACCESS_KEY, S3_SECRET_KEY/);
   });
 
+  test("FILE_STORAGE_PROVIDER=inmemory aborts a production boot", () => {
+    expect(() =>
+      resolveFileStorageOption(
+        { provider: "s3-env" },
+        { ...base, isProduction: true, envSource: { ...S3_ENV, FILE_STORAGE_PROVIDER: "inmemory" } },
+      ),
+    ).toThrow(/FILE_STORAGE_PROVIDER=inmemory/);
+  });
+
+  test("FILE_STORAGE_PROVIDER=inmemory is accepted outside production", () => {
+    expect(
+      resolveFileStorageOption(
+        { provider: "s3-env" },
+        { ...base, isProduction: false, envSource: { ...S3_ENV, FILE_STORAGE_PROVIDER: "inmemory" } },
+      ).provider,
+    ).toBe("s3-env");
+  });
+
   test('"auto" outside production falls back to inmemory', () => {
     const resolved = resolveFileStorageOption(
       { provider: "auto" },

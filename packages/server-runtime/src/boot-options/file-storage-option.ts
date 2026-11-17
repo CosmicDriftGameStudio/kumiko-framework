@@ -12,7 +12,7 @@ import {
 export type FileStorageProviderName = "s3-env" | "inmemory";
 
 /** Mounts the file provider feature(s) for `file-foundation` and makes the
- *  chosen one the default (`FILE_STORAGE_PROVIDER`, an explicit env value wins).
+ *  chosen one the default (`FILE_STORAGE_PROVIDER`, an explicit env value wins, except `inmemory` with `NODE_ENV=production`).
  *  - `"s3-env"`: one bucket from `S3_BUCKET` / `S3_REGION` / `S3_ACCESS_KEY` /
  *    `S3_SECRET_KEY` (optional `S3_ENDPOINT`, `S3_FORCE_PATH_STYLE`); missing
  *    values abort the boot.
@@ -146,6 +146,11 @@ export function resolveFileStorageOption(
   if (wanted.has("inmemory") && deps.isProduction) {
     throw new Error(
       '[runProdApp] fileStorage "inmemory" loses every file on restart — not allowed with NODE_ENV=production.',
+    );
+  }
+  if (deps.isProduction && deps.envSource[FILE_STORAGE_PROVIDER_ENV] === "inmemory") {
+    throw new Error(
+      `[runProdApp] ${FILE_STORAGE_PROVIDER_ENV}=inmemory loses every file on restart — not allowed with NODE_ENV=production.`,
     );
   }
   const named = additional.filter(isNamedS3FileProvider);

@@ -187,6 +187,20 @@ export async function dropTestDb(baseUrl: string, dbName: string): Promise<void>
   }
 }
 
+// createTestDb also creates the events table, which would hide a missing migration.
+export async function createEmptyDatabase(baseUrl: string, dbName: string): Promise<void> {
+  const admin = createDbConnection({
+    url: adminUrlOf(baseUrl),
+    maxConnections: 1,
+    rowLevelSecurity: "off",
+  });
+  try {
+    await createDatabase(admin.db, dbName, undefined, undefined);
+  } finally {
+    await admin.close();
+  }
+}
+
 const testDbTemplates = new Map<string, Promise<void>>();
 
 // One build per template and process; other workers of the run wait on the

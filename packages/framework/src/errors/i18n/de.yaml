@@ -240,7 +240,7 @@ irreversible_operation_without_entry_handler:
 
     Ein Job oder eine Multi-Stream-Projektion, die das darf, deklariert
     `irreversibleWithoutEntryHandler` (`"rebuildable-derived-data"`,
-    `"high-risk-or-cron-pipeline"` oder `"per-dispatch-record-key"`). Eine Route, ein
+    `"high-risk-or-cron-pipeline"`). Eine Route, ein
     `afterCommit`-Hook oder ein Agent-Tool-Call dispatcht stattdessen einen
     Write-Handler mit `agent: { risk: "high" }`; Hooks und Agent-Tool-Calls erben die
     Deklaration des umgebenden Jobs nie.

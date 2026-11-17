@@ -2,7 +2,6 @@
 // audit stance: a label key for the log, or "technical" to hide them behind the facet.
 // The boot-registry test fails for a bundled event type that has neither.
 
-import { WORKFLOW_SYSTEM_EVENT_DEFS } from "@cosmicdrift/kumiko-framework/engine";
 import { ESCAPE_HATCH_USED_EVENT } from "./escape-hatch-audit-sink.ts";
 
 export const TECHNICAL_EVENT = "technical" as const;
@@ -73,17 +72,9 @@ export const AUDIT_EVENT_STANCES: Readonly<Record<string, AuditEventStance>> = {
 // own. Below SystemAdmin the audit log leaves these streams out entirely.
 export const SYSTEM_ADMIN_ONLY_AGGREGATE_TYPES: readonly string[] = ["probe-run"];
 
-// Framework system events (kumiko:system:*) are engine plumbing, never audit-worthy on their own.
-export const FRAMEWORK_SYSTEM_EVENT_TYPES: readonly string[] = [
-  ...WORKFLOW_SYSTEM_EVENT_DEFS.keys(),
-];
-
-export const TECHNICAL_EVENT_TYPES: readonly string[] = [
-  ...Object.entries(AUDIT_EVENT_STANCES)
-    .filter(([, stance]) => stance === TECHNICAL_EVENT)
-    .map(([type]) => type),
-  ...FRAMEWORK_SYSTEM_EVENT_TYPES,
-];
+export const TECHNICAL_EVENT_TYPES: readonly string[] = Object.entries(AUDIT_EVENT_STANCES)
+  .filter(([, stance]) => stance === TECHNICAL_EVENT)
+  .map(([type]) => type);
 
 export function eventLabelKeyOf(type: string): string | null {
   const stance = AUDIT_EVENT_STANCES[type];

@@ -3,20 +3,11 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import {
-  type FeatureDefinition,
-  qn,
-  toKebab,
-  WORKFLOW_SYSTEM_EVENT_DEFS,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { type FeatureDefinition, qn, toKebab } from "@cosmicdrift/kumiko-framework/engine";
 import { createBillingFoundationFeature } from "../../billing-foundation/index.ts";
 import { createHelpdeskFeature } from "../../helpdesk/index.ts";
 import { createPersonalAccessTokensFeature } from "../../personal-access-tokens/index.ts";
-import {
-  AUDIT_EVENT_STANCES,
-  FRAMEWORK_SYSTEM_EVENT_TYPES,
-  TECHNICAL_EVENT,
-} from "../event-classification.ts";
+import { AUDIT_EVENT_STANCES, TECHNICAL_EVENT } from "../event-classification.ts";
 import { AUDIT_I18N } from "../web/i18n.ts";
 
 const BUNDLED_ROOT = join(import.meta.dir, "../..");
@@ -89,7 +80,6 @@ const eventTypes: readonly string[] = [
       qn(toKebab(feature.name), "event", toKebab(shortName)),
     ),
   ),
-  ...WORKFLOW_SYSTEM_EVENT_DEFS.keys(),
 ];
 
 describe("audit event classification", () => {
@@ -105,7 +95,6 @@ describe("audit event classification", () => {
 
   test("every event type has an English label or a technical stance", () => {
     const unclassified = eventTypes.filter((type) => {
-      if (FRAMEWORK_SYSTEM_EVENT_TYPES.includes(type)) return false;
       const stance = AUDIT_EVENT_STANCES[type];
       if (stance === undefined) return true;
       return stance !== TECHNICAL_EVENT && AUDIT_I18N[stance.labelKey] === undefined;

@@ -71,7 +71,7 @@ const S3_ENV_FROM_MINIO = {
 const S3_FORCE_PATH_STYLE_ENV = "S3_FORCE_PATH_STYLE";
 
 // Precedence per key: shell/CI environment, then the app's `.env`, then the local-dev default.
-function infraEnvDefaults(): Record<string, string> {
+export function infraEnvDefaults(): Record<string, string> {
   const dotenv = appDotenvValues();
   const definedInAppDotenv = new Set(Object.keys(dotenv));
   const serviceEnv = Object.entries(SERVICE_ENV_DEFAULTS).flatMap<readonly [string, string]>(([key, value]) => {

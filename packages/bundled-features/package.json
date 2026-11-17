@@ -181,9 +181,7 @@
     "./managed-pages": "./src/managed-pages/index.ts",
     "./managed-pages/web": "./src/managed-pages/web/index.ts",
     "./managed-pages/seeding": "./src/managed-pages/seeding.ts",
-    "./seo": "./src/seo/index.ts",
-    "./step-dispatcher": "./src/step-dispatcher/index.ts",
-    "./workflow-runner": "./src/workflow-runner/index.ts"
+    "./seo": "./src/seo/index.ts"
   },
   "dependencies": {
     "@cosmicdrift/kumiko-framework": "workspace:*",
@@ -860,14 +858,6 @@
       "./seo": {
         "types": "./dist/seo/index.d.ts",
         "default": "./dist/seo/index.js"
-      },
-      "./step-dispatcher": {
-        "types": "./dist/step-dispatcher/index.d.ts",
-        "default": "./dist/step-dispatcher/index.js"
-      },
-      "./workflow-runner": {
-        "types": "./dist/workflow-runner/index.d.ts",
-        "default": "./dist/workflow-runner/index.js"
       }
     }
   },
