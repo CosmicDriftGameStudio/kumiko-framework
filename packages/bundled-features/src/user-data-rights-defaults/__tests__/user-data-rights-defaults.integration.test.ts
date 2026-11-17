@@ -23,11 +23,7 @@ import {
   createTextField,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  createInMemoryFileProvider,
-  deriveKey,
-  fileRefsTable,
-} from "@cosmicdrift/kumiko-framework/files";
+import { createFilesFeature, createInMemoryFileProvider, deriveKey, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import { seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -40,7 +36,6 @@ import { createComplianceProfilesFeature } from "../../compliance-profiles/index
 import { createConfigFeature } from "../../config/index.ts";
 import { createDataRetentionFeature } from "../../data-retention/index.ts";
 import { createFileFoundationFeature } from "../../file-foundation/index.ts";
-import { createFilesFeature } from "../../files/index.ts";
 import { createSessionsFeature } from "../../sessions/index.ts";
 import {
   createUserFeature,

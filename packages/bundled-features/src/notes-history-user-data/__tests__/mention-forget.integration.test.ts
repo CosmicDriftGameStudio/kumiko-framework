@@ -25,7 +25,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/db";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
+import { createFilesFeature, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
@@ -50,7 +50,6 @@ import {
   tenantRetentionOverrideEntity,
 } from "../../data-retention/index.ts";
 import { tenantRetentionOverrideTable } from "../../data-retention/schema/tenant-retention-override.ts";
-import { createFilesFeature } from "../../files/index.ts";
 import {
   createNotesHistoryFeature,
   NotesHistoryHandlers,

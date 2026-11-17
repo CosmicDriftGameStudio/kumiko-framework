@@ -3,11 +3,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { defineFeature, FILE_PROVIDER_CONFIG_KEY } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  createInMemoryFileProvider,
-  fileRefsTable,
-  type InMemoryFileProvider,
-} from "@cosmicdrift/kumiko-framework/files";
+import { createFilesFeature, createInMemoryFileProvider, fileRefsTable, type InMemoryFileProvider } from "@cosmicdrift/kumiko-framework/files";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import {
@@ -25,7 +21,6 @@ import {
 import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.ts";
 import { createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";
-import { createFilesFeature } from "../../files/index.ts";
 import { createDeclaredKeysFeature } from "../../secrets/__tests__/declared-keys-feature.ts";
 import { createSecretsFeature } from "../../secrets/feature.ts";
 import { createSecretsContext } from "../../secrets/secrets-context.ts";

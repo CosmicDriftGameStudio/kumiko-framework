@@ -9,12 +9,7 @@ import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-feature
 import { createTenantDb, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { bridgeStub, type JobContext, SYSTEM_USER_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import {
-  createInMemoryFileProvider,
-  type FileStorageProvider,
-  fileRefsTable,
-  type InMemoryFileProvider,
-} from "@cosmicdrift/kumiko-framework/files";
+import { createFilesFeature, createInMemoryFileProvider, fileRefsTable, type FileStorageProvider, type InMemoryFileProvider } from "@cosmicdrift/kumiko-framework/files";
 import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -35,7 +30,6 @@ import {
   createFileFoundationFeature,
   makeTenantStorageProviderResolver,
 } from "../../file-foundation/index.ts";
-import { createFilesFeature } from "../../files/index.ts";
 import { createSessionsFeature, userSessionEntity } from "../../sessions/index.ts";
 import { tenantMembershipEntity } from "../../tenant/membership-table.ts";
 import { createUserFeature, userEntity, userTable } from "../../user/index.ts";

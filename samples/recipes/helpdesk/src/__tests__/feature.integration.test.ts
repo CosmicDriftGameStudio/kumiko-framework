@@ -10,13 +10,13 @@ import { createDataRetentionFeature } from "@cosmicdrift/kumiko-bundled-features
 import { createDeliveryFeature } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { createFileFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/file-foundation";
 import { createFileProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/file-provider-inmemory";
-import { createFilesFeature } from "@cosmicdrift/kumiko-bundled-features/files";
 import { createNotesHistoryFeature } from "@cosmicdrift/kumiko-bundled-features/notes-history";
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { createTenantFeature } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { createUserFeature } from "@cosmicdrift/kumiko-bundled-features/user";
 import { createUserDataRightsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { createFilesFeature } from "@cosmicdrift/kumiko-framework/files";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { helpdeskFeature } from "../feature";
 

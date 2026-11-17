@@ -46,7 +46,7 @@ export type FilesFeatureOptions = {
 // `r.entity` exposes the table to PII boot validation and the userData/tenantData
 // extensions, and registers the implicit entity projection used by
 // rebuildProjection. It lives in the framework next to file-routes and
-// fileRefsTable; bundled-features/files only re-exports it.
+// fileRefsTable.
 export const FILES_FEATURE = "files" as const;
 
 function assertValidSweepGraceHours(option: string, hours: number): void {

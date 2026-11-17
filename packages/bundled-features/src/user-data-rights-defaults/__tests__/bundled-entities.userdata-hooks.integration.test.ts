@@ -15,6 +15,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { asRawClient, createTenantDb, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createFilesFeature } from "@cosmicdrift/kumiko-framework/files";
 import { seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -34,7 +35,6 @@ import {
   deliveryAttemptsTable,
   notificationPreferenceEntity,
 } from "../../delivery/index.ts";
-import { createFilesFeature } from "../../files/index.ts";
 import { createJobsFeature, jobRunLogsTable, jobRunsTable } from "../../jobs/index.ts";
 import {
   apiTokenEntity,

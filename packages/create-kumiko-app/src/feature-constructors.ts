@@ -93,7 +93,7 @@ export const FEATURE_CONSTRUCTORS: Readonly<Record<string, ScaffoldFeatureEntry>
   // --- Storage ---
   files: {
     name: "files",
-    importPath: "@cosmicdrift/kumiko-bundled-features/files",
+    importPath: "@cosmicdrift/kumiko-framework/files",
     exportName: "createFilesFeature",
     callExpression: "createFilesFeature()",
   },

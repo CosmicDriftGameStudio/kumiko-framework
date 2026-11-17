@@ -3,6 +3,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createFilesFeature } from "@cosmicdrift/kumiko-framework/files";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.ts";
@@ -10,7 +11,6 @@ import { AuthErrors, AuthHandlers } from "../../auth-email-password/web/constant
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
 import { createConfigFeature } from "../../config/index.ts";
 import { createDataRetentionFeature } from "../../data-retention/index.ts";
-import { createFilesFeature } from "../../files/index.ts";
 import { createSessionsFeature } from "../../sessions/index.ts";
 import { createTenantFeature } from "../../tenant/index.ts";
 import { createUserFeature } from "../../user/feature.ts";

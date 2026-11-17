@@ -1,4 +1,4 @@
-// Files-feature integration tests.
+// files feature integration tests.
 //
 // Tests grouped by behavioral depth:
 //   1. Feature-definition smoke test (boot validation passes)
@@ -7,8 +7,8 @@
 //   3. DDL consistency: fileRefsTable (buildEntityTable) and fileRefEntity
 //      point to the same PostgreSQL structure (drift guard)
 
-import { defineFeature, EXT_USER_DATA } from "@cosmicdrift/kumiko-framework/engine";
-import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
+import { defineFeature, EXT_USER_DATA } from "../../engine/index.ts";
+import { fileRefsTable } from "../file-ref-table.ts";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 
 // Native dialect exposes column metadata on the `columns` array (EntityTableMeta)

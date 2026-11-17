@@ -15,11 +15,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/crypto";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import {
-  createInMemoryFileProvider,
-  type FileStorageProvider,
-  fileRefsTable,
-} from "@cosmicdrift/kumiko-framework/files";
+import { createFilesFeature, createInMemoryFileProvider, fileRefsTable, type FileStorageProvider } from "@cosmicdrift/kumiko-framework/files";
 import {
   createProjectionStateTable,
   rebuildProjection,
@@ -55,7 +51,6 @@ import {
 } from "../../data-retention/index.ts";
 import { createFileFoundationFeature } from "../../file-foundation/index.ts";
 import { createFileProviderInMemoryFeature } from "../../file-provider-inmemory/index.ts";
-import { createFilesFeature } from "../../files/index.ts";
 import { createSessionsFeature } from "../../sessions/index.ts";
 import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.ts";
 import { createUserFeature, userEntity, userTable } from "../../user/index.ts";

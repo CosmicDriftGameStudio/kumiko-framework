@@ -60,7 +60,7 @@ import {
 export { SCAFFOLD_STARTERS, type ScaffoldStarter } from "./scaffold-blank-starter.ts";
 
 // Single bundled-feature entry the scaffolder mounts into run-config.ts.
-// importPath is the from-spec ("@cosmicdrift/kumiko-bundled-features/files"),
+// importPath is the from-spec ("@cosmicdrift/kumiko-bundled-features/jobs"),
 // exportName the named import, callExpression the form that lands in the
 // APP_FEATURES array literal — `${exportName}()` for factory-style features.
 export type ScaffoldFeatureEntry = {

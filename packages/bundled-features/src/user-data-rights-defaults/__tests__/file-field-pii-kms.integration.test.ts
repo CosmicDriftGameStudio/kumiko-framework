@@ -18,7 +18,7 @@ import {
   createTextField,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createInMemoryFileProvider } from "@cosmicdrift/kumiko-framework/files";
+import { createFilesFeature, createInMemoryFileProvider } from "@cosmicdrift/kumiko-framework/files";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   buildMultipartBody,
@@ -26,7 +26,6 @@ import {
   resetPiiSubjectKmsForTests,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
-import { createFilesFeature } from "../../files/index.ts";
 import { fileRefDeleteHook } from "../index.ts";
 
 const admin = TestUsers.admin;

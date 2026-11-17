@@ -19,12 +19,7 @@ import {
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import {
-  buildStorageKey,
-  createInMemoryFileProvider,
-  fileRefEntity,
-  fileRefsTable,
-} from "@cosmicdrift/kumiko-framework/files";
+import { buildStorageKey, createFilesFeature, createInMemoryFileProvider, fileRefEntity, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
@@ -53,7 +48,6 @@ import {
   tenantRetentionOverrideTable,
 } from "../../data-retention/index.ts";
 import { resolveTenantRetentionPreset } from "../../data-retention/resolve-tenant-preset.ts";
-import { createFilesFeature } from "../../files/index.ts";
 import { createFilesTenantDataFeature } from "../../files-tenant-data/index.ts";
 import { createSessionsFeature } from "../../sessions/index.ts";
 import { userSessionTable } from "../../sessions/schema/user-session.ts";

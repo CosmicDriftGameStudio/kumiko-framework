@@ -11,7 +11,6 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/channel-email";
 import { createComplianceProfilesFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
 import { createDeliveryFeature } from "@cosmicdrift/kumiko-bundled-features/delivery";
-import { createFilesFeature } from "@cosmicdrift/kumiko-bundled-features/files";
 import { createManagedPagesFeature } from "@cosmicdrift/kumiko-bundled-features/managed-pages";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import {
@@ -21,6 +20,7 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { createTenantLifecycleFeature } from "@cosmicdrift/kumiko-bundled-features/tenant-lifecycle";
 import { createDocumentDesignerFeature } from "@cosmicdrift/kumiko-document-designer";
+import { createFilesFeature } from "@cosmicdrift/kumiko-framework/files";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
 import { localeEs } from "@cosmicdrift/kumiko-locale-es";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";

@@ -19,7 +19,6 @@ import {
   deliveryAttemptsTable,
   notificationPreferencesTable,
 } from "@cosmicdrift/kumiko-bundled-features/delivery";
-import { createFilesFeature } from "@cosmicdrift/kumiko-bundled-features/files";
 import { createMailFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/mail-foundation";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
@@ -39,6 +38,7 @@ import {
 import { createUserDataRightsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import { createUserDataRightsDefaultsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights-defaults";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createFilesFeature } from "@cosmicdrift/kumiko-framework/files";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";

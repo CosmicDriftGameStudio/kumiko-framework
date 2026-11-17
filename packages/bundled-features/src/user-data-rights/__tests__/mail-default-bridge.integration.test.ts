@@ -15,7 +15,7 @@ import { isPiiCiphertext } from "@cosmicdrift/kumiko-framework/crypto";
 import { asRawClient, createTenantDb, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
+import { createFilesFeature, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import { createTzContext, getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
 import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
@@ -39,7 +39,6 @@ import {
   createDataRetentionFeature,
   tenantRetentionOverrideEntity,
 } from "../../data-retention/index.ts";
-import { createFilesFeature } from "../../files/index.ts";
 import { createMailFoundationFeature } from "../../mail-foundation/index.ts";
 import {
   clearInbox,

@@ -18,6 +18,7 @@ import {
   EXT_USER_DATA,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createFilesFeature } from "@cosmicdrift/kumiko-framework/files";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
@@ -38,7 +39,6 @@ import {
   createDataRetentionFeature,
   tenantRetentionOverrideEntity,
 } from "../../data-retention/index.ts";
-import { createFilesFeature } from "../../files/index.ts";
 import {
   createNotesHistoryFeature,
   NotesHistoryHandlers,

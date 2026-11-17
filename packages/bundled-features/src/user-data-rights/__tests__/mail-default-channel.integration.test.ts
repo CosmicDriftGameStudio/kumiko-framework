@@ -8,7 +8,7 @@ import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-feature
 import { createTenantDb, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
+import { createFilesFeature, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import { createTzContext, getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
 import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
@@ -36,7 +36,6 @@ import {
 } from "../../data-retention/index.ts";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.ts";
 import { deliveryAttemptsTable, notificationPreferencesTable } from "../../delivery/tables.ts";
-import { createFilesFeature } from "../../files/index.ts";
 import { createMailFoundationFeature, tenantMailTransport } from "../../mail-foundation/index.ts";
 import {
   clearInbox,

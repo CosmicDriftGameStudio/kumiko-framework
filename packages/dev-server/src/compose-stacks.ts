@@ -34,7 +34,6 @@ import { createDeliveryFeature } from "@cosmicdrift/kumiko-bundled-features/deli
 import { createFileFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/file-foundation";
 import { createFileProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/file-provider-inmemory";
 import { createFileProviderS3Feature } from "@cosmicdrift/kumiko-bundled-features/file-provider-s3";
-import { createFilesFeature } from "@cosmicdrift/kumiko-bundled-features/files";
 import { createJobsFeature } from "@cosmicdrift/kumiko-bundled-features/jobs";
 import {
   createLegalPagesFeature,
@@ -70,6 +69,7 @@ import {
   type WaitlistOptions,
 } from "@cosmicdrift/kumiko-bundled-features/waitlist";
 import type { BootOptionName, FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import { createFilesFeature } from "@cosmicdrift/kumiko-framework/files";
 import {
   createRendererMailHtmlFeature,
   type MailBrandSuffixResolver,

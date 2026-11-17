@@ -12,11 +12,7 @@ import {
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import {
-  createInMemoryFileProvider,
-  fileRefsTable,
-  type InMemoryFileProvider,
-} from "@cosmicdrift/kumiko-framework/files";
+import { createFilesFeature, createInMemoryFileProvider, fileRefsTable, type InMemoryFileProvider } from "@cosmicdrift/kumiko-framework/files";
 import {
   buildMultipartBody,
   patchFileInstanceofForBunTest,
@@ -34,7 +30,6 @@ import {
   createDataRetentionFeature,
   tenantRetentionOverrideEntity,
 } from "../../data-retention/index.ts";
-import { createFilesFeature } from "../../files/index.ts";
 import { createSessionsFeature, userSessionEntity } from "../../sessions/index.ts";
 import { tenantMembershipEntity } from "../../tenant/membership-table.ts";
 import { createUserFeature, userEntity, userTable } from "../../user/index.ts";

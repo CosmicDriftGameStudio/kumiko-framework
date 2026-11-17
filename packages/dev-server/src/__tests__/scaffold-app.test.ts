@@ -121,7 +121,7 @@ describe("scaffoldApp", () => {
       features: [
         {
           name: "files",
-          importPath: "@cosmicdrift/kumiko-bundled-features/files",
+          importPath: "@cosmicdrift/kumiko-framework/files",
           exportName: "createFilesFeature",
           callExpression: "createFilesFeature()",
         },

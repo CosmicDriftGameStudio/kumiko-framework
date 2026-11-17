@@ -22,14 +22,7 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { append, loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
-import {
-  buildStorageKey,
-  createInMemoryFileProvider,
-  fileRefEntity,
-  fileRefsTable,
-  type InMemoryFileProvider,
-  tenantExportPrefix,
-} from "@cosmicdrift/kumiko-framework/files";
+import { buildStorageKey, createFilesFeature, createInMemoryFileProvider, fileRefEntity, fileRefsTable, tenantExportPrefix, type InMemoryFileProvider } from "@cosmicdrift/kumiko-framework/files";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
@@ -51,7 +44,6 @@ import {
 import { createConfigFeature } from "../../config/index.ts";
 import { createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";
-import { createFilesFeature } from "../../files/index.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantMembershipEntity } from "../../tenant/index.ts";
 import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.ts";

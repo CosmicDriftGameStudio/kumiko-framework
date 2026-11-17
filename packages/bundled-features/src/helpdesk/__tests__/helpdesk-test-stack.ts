@@ -7,6 +7,7 @@ import {
   SYSTEM_USER_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createFilesFeature, fileRefEntity } from "@cosmicdrift/kumiko-framework/files";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import { type ManualClock, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -44,7 +45,6 @@ import {
   makeTenantStorageProviderResolver,
 } from "../../file-foundation/index.ts";
 import { createFileProviderInMemoryFeature } from "../../file-provider-inmemory/index.ts";
-import { createFilesFeature, fileRefEntity } from "../../files/index.ts";
 import { noteEntryEntity, noteMentionEntity } from "../../notes-history/entity.ts";
 import { createNotesHistoryFeature } from "../../notes-history/feature.ts";
 import { createSecretsFeature } from "../../secrets/feature.ts";

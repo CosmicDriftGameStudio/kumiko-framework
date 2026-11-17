@@ -26,9 +26,9 @@ import { createComplianceProfilesFeature } from "@cosmicdrift/kumiko-bundled-fea
 import { createDataRetentionFeature } from "@cosmicdrift/kumiko-bundled-features/data-retention";
 import { createFileFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/file-foundation";
 import { createFileProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/file-provider-inmemory";
-import { createFilesFeature } from "@cosmicdrift/kumiko-bundled-features/files";
 import { createUserDataRightsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import { createUserDataRightsDefaultsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights-defaults";
+import { createFilesFeature } from "@cosmicdrift/kumiko-framework/files";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
 import { todosFeature } from "./feature";
 

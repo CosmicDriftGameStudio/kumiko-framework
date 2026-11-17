@@ -32,7 +32,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, type UserDataHookCtx } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import { fileRefEntity, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
+import { createFilesFeature, fileRefEntity, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
   expectSuccess,
@@ -50,7 +50,6 @@ import {
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
 import { configValueEntity, createConfigFeature } from "../../config/index.ts";
 import { createDataRetentionFeature } from "../../data-retention/index.ts";
-import { createFilesFeature } from "../../files/index.ts";
 import { createSessionsFeature, userSessionEntity } from "../../sessions/index.ts";
 import {
   createTenantFeature,

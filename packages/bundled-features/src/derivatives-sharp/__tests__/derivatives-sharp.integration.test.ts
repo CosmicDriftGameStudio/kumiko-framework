@@ -6,7 +6,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { createInMemoryFileProvider } from "@cosmicdrift/kumiko-framework/files";
+import { createFilesFeature, createInMemoryFileProvider } from "@cosmicdrift/kumiko-framework/files";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   buildMultipartBody,
@@ -18,7 +18,6 @@ import * as z from "zod";
 import { createConfigFeature } from "../../config/index.ts";
 import { createFileDerivativesFeature } from "../../file-derivatives/index.ts";
 import { createFileFoundationFeature } from "../../file-foundation/index.ts";
-import { createFilesFeature } from "../../files/index.ts";
 import { createDerivativesSharpFeature } from "../feature.ts";
 import { imageMetadata } from "../render.ts";
 
