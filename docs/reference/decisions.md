@@ -574,7 +574,7 @@ Rejected: a dedicated facet-count handler (it would duplicate the where builder 
 
 ### 2026-11-17 escapeHatch names its grants
 
-**`escapeHatch` requires `grants`; a declaration without them no longer unlocks all four.** This replaces the default "absent means all of ESCAPE_HATCH_GRANTS". The default existed for convenience, made most declarations broader than needed and hid from review what a handler can do. An empty default was rejected because a declaration that grants nothing has no meaning. The extension escape hatch keeps `{ reason }` only, because it only ever means unsafeRaw. 2026-10-21 (unsafeRaw implies crossTenantReads) stays.
+**`escapeHatch` requires `grants`; a declaration without them no longer unlocks all four.** This replaces the default "absent means all of ESCAPE_HATCH_GRANTS". The default existed for convenience, made most declarations broader than needed and hid from review what a handler can do. An empty default was rejected because a declaration that grants nothing has no meaning. The extension escape hatch keeps `{ reason }` only, because it only ever means unsafeRaw. Entity-handler options also stay reason-only, because they only lift the tenant filtering of the one convention handler and grant none of the four rights. 2026-10-21 (unsafeRaw implies crossTenantReads) stays.
 
 ### 2026-11-17 Typed dispatch goes through handler contracts
 

@@ -36,7 +36,7 @@ function isDeliveredOrQueued(delivery: NotifyDelivery): boolean {
 // caller retries on nor fail a notify() that already dispatched.
 export async function releaseIdempotencyIfNothingDelivered(args: {
   readonly redis: Redis | undefined;
-  readonly log: Logger;
+  readonly log: Pick<Logger, "warn">;
   readonly tenantId: TenantId;
   readonly key: string | undefined;
   readonly deliveries: readonly NotifyDelivery[];

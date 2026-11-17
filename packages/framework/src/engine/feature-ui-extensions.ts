@@ -2,6 +2,7 @@ import type {
   ExtensionSelectorPanel,
   RegistrarExtensionDef,
 } from "@cosmicdrift/kumiko-types/config";
+import type { ExtensionOptionsFor } from "@cosmicdrift/kumiko-types/extension-options-map";
 import type { BootCheckFn, StoreTableOptions } from "@cosmicdrift/kumiko-types/feature";
 import type { HookDefinition } from "@cosmicdrift/kumiko-types/feature-registrar";
 import type { EscapeHatchDeclaration, NameOrRef } from "@cosmicdrift/kumiko-types/handlers";
@@ -312,11 +313,9 @@ export function buildUiExtensionsMethods<TName extends string>(
     extendsRegistrar(extensionName: string, def: RegistrarExtensionDef): void {
       state.registrarExtensions[extensionName] = def;
     },
-    applyExtension(definition: {
-      readonly name: string;
-      readonly entity: NameOrRef;
-      readonly [option: string]: unknown;
-    }): void {
+    applyExtension<N extends string>(
+      definition: { readonly name: N; readonly entity: NameOrRef } & ExtensionOptionsFor<N>,
+    ): void {
       const { name: extensionName, entity: resolvedEntityRef, ...resolvedOptions } = definition;
       const resolvedEntityName = resolveName(resolvedEntityRef);
       const optionsBag: Record<string, unknown> = resolvedOptions;

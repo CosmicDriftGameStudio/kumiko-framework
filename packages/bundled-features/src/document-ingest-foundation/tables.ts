@@ -1,6 +1,5 @@
 import {
   defineUnmanagedTable,
-  type EntityTableMeta,
   instant,
   integer,
   table as pgTable,
@@ -28,7 +27,7 @@ export const documentIngestProgressTable = pgTable(
 
 // Unmanaged: a display-only progress row needs no version or audit columns. The unique index
 // is the conflict target of the upsert in reportIngestProgress.
-export const documentIngestProgressTableMeta: EntityTableMeta = defineUnmanagedTable({
+export const documentIngestProgressTableMeta = defineUnmanagedTable({
   tableName: "store_document_ingest_progress",
   indexes: [
     { name: INGEST_PROGRESS_FILE_REF_UNIQUE, columns: ["tenant_id", "file_ref_id"], unique: true },

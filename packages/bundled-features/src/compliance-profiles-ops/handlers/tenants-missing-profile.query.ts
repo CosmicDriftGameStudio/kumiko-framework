@@ -48,6 +48,6 @@ export const tenantsMissingProfileQuery = defineQueryHandler({
   },
 });
 
-interface TenantsMissingProfileResponse {
+export interface TenantsMissingProfileResponse {
   readonly tenants: readonly { readonly id: TenantId; readonly name: string }[];
 }

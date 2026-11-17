@@ -96,7 +96,7 @@ function buildUncheckedSystemDb(
     if (gate && !hasGrant(gate.grant)) {
       throw new AccessDeniedError({
         message:
-          'ctx.systemDb.unsafeRaw(reason): rejected — declare `escapeHatch: { reason: "..." }` on ' +
+          'ctx.systemDb.unsafeRaw(reason): rejected — declare `escapeHatch: { reason: "...", grants: ["unsafeRaw"] }` on ' +
           `${gate.deniedCallerLabel} to allow unsafeRaw.`,
       });
     }

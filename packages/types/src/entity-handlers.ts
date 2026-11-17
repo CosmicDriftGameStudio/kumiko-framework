@@ -2,10 +2,12 @@ import type { EntityDefinition } from "./fields.ts";
 import type {
   AccessRule,
   AgentHandlerHints,
-  EscapeHatchDeclaration,
   QueryHandlerDef,
   WriteHandlerDef,
 } from "./handlers.ts";
+
+/** Reason-only: it lifts the tenant filter of one convention handler and grants none of the escape-hatch rights. */
+export type EntityHandlerEscapeHatch = { readonly reason: string };
 
 export type EntityHandlerOptions = {
   readonly access: AccessRule;
@@ -20,7 +22,7 @@ export type EntityHandlerOptions = {
    *  `access` must be SystemAdmin-only. Unlike `escapeHatch` on a
    *  hand-written handler this does NOT grant `ctx.db.unsafeRaw`,
    *  `db.global()` writes or identity switches. */
-  readonly escapeHatch?: EscapeHatchDeclaration;
+  readonly escapeHatch?: EntityHandlerEscapeHatch;
 };
 
 /** Options for the generic create/update handlers. */

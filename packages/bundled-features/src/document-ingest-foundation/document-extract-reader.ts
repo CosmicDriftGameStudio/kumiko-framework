@@ -1,6 +1,6 @@
 import { PII_ERASED_SENTINEL } from "@cosmicdrift/kumiko-framework/crypto";
 import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
-import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
+import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { documentExtractsTable, type IngestPage } from "./entity.ts";
 import { documentExtractExecutor } from "./executor.ts";
@@ -56,7 +56,7 @@ export async function listDocumentExtractSummaries(
 }
 
 export async function loadDocumentExtract(
-  ctx: Pick<HandlerContext, "db" | "user">,
+  ctx: { readonly db: TenantDb; readonly user: SessionUser },
   fileRefId: string,
 ): Promise<LoadedDocumentExtract | null> {
   const summary = (await listDocumentExtractSummaries(ctx.db, [fileRefId])).get(fileRefId);

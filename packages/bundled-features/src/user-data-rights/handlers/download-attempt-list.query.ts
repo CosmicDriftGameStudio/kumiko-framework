@@ -11,7 +11,6 @@ export const downloadAttemptListQuery = defineEntityListHandler(
     access: { roles: access.systemAdmin },
     agent: { risk: "high" },
     escapeHatch: {
-      grants: ["crossTenantReads"],
       reason:
         "SystemAdmin DPO triage of invalid export-download attempts needs every tenant's rows to spot brute-force patterns across tenants",
     },

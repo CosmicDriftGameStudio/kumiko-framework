@@ -37,6 +37,7 @@ export type { SchemaTable } from "./dialect.ts";
 export {
   boolean,
   extractTableName,
+  bigint,
   index,
   instant,
   integer,
