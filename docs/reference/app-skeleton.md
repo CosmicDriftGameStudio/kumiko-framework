@@ -28,12 +28,13 @@ evidence: "kumiko new app scaffold, packages/dev-server/src/managed-files/regist
 | `.husky/pre-push` | managed | Pre-push hook; app additions go to `scripts/pre-push-extra.sh` |
 | `bunfig.toml`, `bunfig.integration.toml`, `bunfig.real.toml`, `bunfig.dom.toml` | managed | Test configs; `bunfig.dom.toml` only with `uiRoots`. Extra sections such as `[install.scopes]` survive the sync |
 | `kumiko/schema.ts` | managed | `FEATURES` and `ENTITY_METAS` derived from `kumiko.config.ts` |
+| `bin/kumiko.ts` | managed | Calls `runStandaloneCli` (`@cosmicdrift/kumiko-server-runtime/standalone-cli`) for `schema`, `consumer` and `events` with `FEATURES`, `envSchema` from `bin/env-schema.ts` and `requireKms` under `NODE_ENV=production`; bundled to `dist-server/kumiko.js` |
 | `biome.json` | preset | `{ "extends": ["@cosmicdrift/kumiko-framework/biome"] }` |
 | `tsconfig.json` | preset | `extends: "@cosmicdrift/kumiko-framework/tsconfig.app.json"` |
 | `kumiko.config.ts` | preset | `defineAppConfig(...)`, see below |
 | `bin/server.ts` | seed | Dev server (`runDevApp`) |
 | `bin/env-schema.ts` | seed | Env contract of the production processes |
-| `bin/main.ts`, `bin/kumiko.ts` | app | Production boot; `bin/kumiko.ts` calls `runStandaloneCli` (`@cosmicdrift/kumiko-server-runtime/standalone-cli`) for `schema`, `consumer` and `events`, bundled to `dist-server/kumiko.js` |
+| `bin/main.ts` | app | Production boot |
 | `src/run-config.ts`, `src/features/`, `src/client.tsx` | app | Features and the web entry |
 | `e2e/_helpers/`, `src/__tests__/_setup.ts` | app | Shared e2e helpers and integration stack setup |
 | `kumiko.json` | app | Repo manifest: kind, source roots, `uiRoots` |

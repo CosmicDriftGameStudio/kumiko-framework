@@ -63,6 +63,7 @@ type ReadsOutcome = {
   readonly titles?: readonly string[];
   readonly foreignTitle?: string | undefined;
   readonly count?: number;
+  readonly aggregateCount?: number | null;
   readonly foreignEventTenants?: readonly string[];
   readonly unsafeRawCode?: string;
 };
@@ -78,6 +79,7 @@ async function readAcrossTenants(
     tenantId: foreignTenantId,
   });
   const count = await reads.count(noteTable);
+  const [aggregateRow] = await reads.aggregate(noteTable, { measure: { fn: "count" } });
   const events = await reads.selectMany<{ tenantId: string }>(eventsTable, {
     tenantId: foreignTenantId,
   });
@@ -92,6 +94,7 @@ async function readAcrossTenants(
     titles: all.map((n) => n.title).sort(),
     foreignTitle: foreign?.title,
     count,
+    aggregateCount: aggregateRow?.value ?? null,
     foreignEventTenants: events.map((e) => e.tenantId),
     ...(unsafeRawCode !== undefined && { unsafeRawCode }),
   };
@@ -266,6 +269,7 @@ describe("ctx.crossTenantReads on handlers", () => {
     expect(result.titles).toEqual(["foreign-note", "own-note"]);
     expect(result.foreignTitle).toBe("foreign-note");
     expect(result.count).toBe(2);
+    expect(result.aggregateCount).toBe(2);
     expect(result.unsafeRawCode).toBe("access_denied");
     // Targetless reads dedup inside the report window: one audit event, while the meter counts every call.
     const reads = auditEvents.filter((e) => e.kind === "cross-tenant-read");
@@ -280,7 +284,7 @@ describe("ctx.crossTenantReads on handlers", () => {
       (e) =>
         e.name === "kumiko_escape_hatch_uses_total" && e.labels?.["kind"] === "cross-tenant-read",
     );
-    expect(meteredReads).toHaveLength(4);
+    expect(meteredReads).toHaveLength(5);
   });
 
   test("the events table can be read for a foreign tenant", async () => {

@@ -11,6 +11,7 @@
 // bidx recomputed automatically there; this sweep covers the rows left
 // behind (foreign entities with userOwned fields).
 
+import type { SubjectId } from "../crypto/kms-adapter.ts";
 import { collectLookupableFields } from "../crypto/blind-index.ts";
 import { subjectCiphertextLikePattern } from "../crypto/ciphertext-pattern.ts";
 import { quoteIdent } from "./sql-identifier.ts";
@@ -73,6 +74,62 @@ export async function nullBlindIndexesForSubject(
           );
         }
       }
+    },
+  );
+}
+
+// Fields declared personal { of, whenAbsent: "self" } were encrypted under the row's
+// record key while the owner was empty; the created event keeps that ciphertext after the
+// owner is set. Forgetting the owner must erase those record keys too.
+// Soft-deleted rows count (their events remain); rows already hard-deleted are not found.
+export async function recordSubjectsOwnedByUser(
+  db: DbRunner,
+  features: ReadonlyMap<string, FeatureDefinition>,
+  userId: string,
+): Promise<readonly SubjectId[]> {
+  return runInSystemRowLevelSecurityScope(
+    "owned record subjects of a forgotten user span tenants",
+    async () => {
+      const candidates: {
+        entityName: string;
+        tableName: string;
+        ownerColumns: readonly string[];
+      }[] = [];
+      for (const feature of features.values()) {
+        for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
+          const ownerColumns = new Set<string>();
+          for (const field of Object.values(entity.fields)) {
+            if ("userOwned" in field && field.userOwned?.whenAbsent === "self") {
+              ownerColumns.add(toSnakeCase(field.userOwned.ownerField));
+            }
+          }
+          if (ownerColumns.size === 0) continue;
+          candidates.push({
+            entityName,
+            tableName: resolveTableName(entityName, entity, undefined),
+            ownerColumns: [...ownerColumns],
+          });
+        }
+      }
+      const existing = await existingTableNames(
+        db,
+        candidates.map((c) => c.tableName),
+      );
+      const subjects: SubjectId[] = [];
+      for (const { entityName, tableName, ownerColumns } of candidates) {
+        if (!existing.has(tableName)) continue;
+        const columns = await columnNamesOf(db, tableName);
+        const present = ownerColumns.filter((column) => columns.has(column));
+        if (present.length === 0) continue;
+        const ownerMatch = present.map((column) => `${quoteIdent(column)}::text = $1`).join(" OR ");
+        const rows = await executeRawQueryRead<{ id: string }>(
+          db,
+          `SELECT id::text AS id FROM ${quoteIdent(tableName)} WHERE ${ownerMatch}`,
+          [userId],
+        );
+        for (const row of rows) subjects.push({ kind: "record", entity: entityName, id: row.id });
+      }
+      return subjects;
     },
   );
 }

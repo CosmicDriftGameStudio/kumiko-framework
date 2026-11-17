@@ -129,6 +129,22 @@ describe("buildEntityTable — entity.indexes", () => {
   });
 });
 
+describe("buildEntityTable — base column indexes", () => {
+  test("a base time column maps to its snake_case column", () => {
+    const entity = createEntity({
+      fields: {
+        status: createTextField({ personal: false, reason: "test_fixture" }),
+      },
+      indexes: [{ columns: ["tenantId", "status", "insertedAt"] }],
+    });
+    const table = buildEntityTable("timelineCase", entity);
+    const index = getTableConfig(table).indexes.find(
+      (i) => i.config.columns.map((c) => c.name).join(",") === "tenant_id,status,inserted_at",
+    );
+    expect(index?.config.unique).toBe(false);
+  });
+});
+
 describe("validateBoot — entity.indexes", () => {
   test("a typo in a column name throws", () => {
     const feature = defineFeature("widgetFeature", (r) => {
@@ -202,6 +218,34 @@ describe("validateBoot — entity.indexes", () => {
       });
     });
     expect(() => validateBoot([feature])).not.toThrow();
+  });
+
+  test("row-meta time columns are allowed in indexes", () => {
+    const feature = defineFeature("widgetFeature", (r) => {
+      r.entity({
+        name: "widget",
+        fields: { key: createTextField({ personal: false, reason: "test_fixture" }) },
+        indexes: [
+          { columns: ["tenantId", "insertedAt"] },
+          { columns: ["tenantId", "key", "modifiedAt"] },
+        ],
+      });
+    });
+    expect(() => validateBoot([feature])).not.toThrow();
+  });
+
+  test("deletedAt is a base column only on softDelete entities", () => {
+    const featureFor = (softDelete: boolean) =>
+      defineFeature("widgetFeature", (r) => {
+        r.entity({
+          name: "widget",
+          fields: { key: createTextField({ personal: false, reason: "test_fixture" }) },
+          ...(softDelete && { softDelete: true }),
+          indexes: [{ columns: ["tenantId", "deletedAt"] }],
+        });
+      });
+    expect(() => validateBoot([featureFor(false)])).toThrow(/does not match any field/);
+    expect(() => validateBoot([featureFor(true)])).not.toThrow();
   });
 });
 

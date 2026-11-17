@@ -374,7 +374,7 @@ async function processUser(args: {
   try {
     await runInSubTransaction(db, async (tx) => {
       const subject = { kind: "user" as const, userId };
-      await eraseSubjectData({
+      const ownedRecordSubjects = await eraseSubjectData({
         registry,
         db: tx,
         subject,
@@ -467,6 +467,13 @@ async function processUser(args: {
             eraseReason: "user-data-rights:forget",
           },
         );
+        for (const recordSubject of ownedRecordSubjects) {
+          await kms.eraseKey(recordSubject, {
+            requestId: "user-data-rights:run-forget-cleanup",
+            userId,
+            eraseReason: "user-data-rights:forget",
+          });
+        }
       }
 
       // Same sub-tx as the hooks: a hook throw never reaches the flip, so the user stays DeletionRequested for the next run.

@@ -21,6 +21,10 @@ export function createCrossTenantReads(
       report("cross-tenant-read", reason);
       return systemModeDb.count(table, where);
     },
+    aggregate(table, spec, where) {
+      report("cross-tenant-read", reason);
+      return systemModeDb.aggregate(table, spec, where);
+    },
   };
 }
 

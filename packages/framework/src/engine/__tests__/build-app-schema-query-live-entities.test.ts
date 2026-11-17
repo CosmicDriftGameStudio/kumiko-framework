@@ -11,6 +11,16 @@ const bannerEntity = {
   fields: { label: { type: "text" } },
 } as unknown as EntityDefinition;
 
+const nodeEntity = {
+  table: "driver_nodes",
+  fields: { label: { type: "text" } },
+} as unknown as EntityDefinition;
+
+const scenarioEntity = {
+  table: "scenarios",
+  fields: { label: { type: "text" } },
+} as unknown as EntityDefinition;
+
 const openAccess = { openToAll: { reason: "test handler callable by any signed-in test user" } };
 
 function features() {
@@ -42,12 +52,33 @@ function features() {
 }
 
 describe("buildAppSchema queryLiveEntities", () => {
-  test("projects only handlers with liveEntities, keyed by the dispatched query QN", () => {
+  test("projects the handler's entity and its liveEntities, keyed by the dispatched query QN", () => {
     const app = buildAppSchema(createRegistry(features()));
     const content = app.features.find((f) => f.featureName === "content");
     const other = app.features.find((f) => f.featureName === "other");
-    expect(content?.queryLiveEntities).toEqual({ "content:query:banner:overview": ["banner"] });
+    expect(content?.queryLiveEntities).toEqual({
+      "content:query:banner:overview": ["banner"],
+      "content:query:banner:plain": ["banner"],
+    });
     expect(other?.queryLiveEntities).toBeUndefined();
+  });
+
+  test("a camelCase entity keeps its name, the QN is kebab", () => {
+    const graph = defineFeature("graph", (r) => {
+      r.entity({ name: "driverNode", ...nodeEntity });
+      r.queryHandler({
+        name: "driverNode:list",
+        schema: z.object({}),
+        handler: async () => ({ rows: [] }),
+        access: openAccess,
+        liveEntities: ["scenario"],
+      });
+      r.entity({ name: "scenario", ...scenarioEntity });
+    });
+    const app = buildAppSchema(createRegistry([graph]));
+    expect(app.features.find((f) => f.featureName === "graph")?.queryLiveEntities).toEqual({
+      "graph:query:driver-node:list": ["scenario", "driverNode"],
+    });
   });
 
   test("the tenant feature strip drops the projection of a disabled feature", () => {

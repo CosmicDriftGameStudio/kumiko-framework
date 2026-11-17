@@ -7,6 +7,7 @@ import type {
 import type { QueryHandlerDef, RateLimitPer } from "@cosmicdrift/kumiko-types/handlers";
 import { declaredRateLimitOptions, isRateLimitDisabled } from "@cosmicdrift/kumiko-types/handlers";
 import { ZodObject } from "zod";
+import { rowMetaFieldNames } from "../../db/table-builder.ts";
 import { holdsFileRefs } from "../../files/file-field-slots.ts";
 import { access as accessPresets } from "../config-helpers.ts";
 import { parseRefTarget } from "../parse-ref-target.ts";
@@ -528,10 +529,14 @@ export function validateLocatedTimestamps(feature: FeatureDefinition): void {
 // that index automatically. Composite forms remain allowed
 // (`["tenantId", "key"]` is useful); only the tenantId-only single-column
 // form is rejected.
+//
+// Row-meta base columns (insertedAt, modifiedAt, ..., soft-delete columns only on softDelete
+// entities) are indexable; both table paths map them to their snake_case column.
 export function validateEntityIndexes(feature: FeatureDefinition): void {
   for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
     if (!entity.indexes) continue;
     const fieldNames = new Set(Object.keys(entity.fields));
+    const baseColumns = rowMetaFieldNames(entity.softDelete === true);
     for (const [idx, def] of entity.indexes.entries()) {
       const where = `Feature "${feature.name}", entity "${entityName}", indexes[${idx}]`;
       if (def.columns.length === 0) {
@@ -540,12 +545,13 @@ export function validateEntityIndexes(feature: FeatureDefinition): void {
         });
       }
       for (const col of def.columns) {
-        if (col === "tenantId" || col === "id" || col === "version") continue; // base columns
+        if (baseColumns.has(col)) continue;
         if (!fieldNames.has(col)) {
           throw bootRuleError(ENTITY_STRUCTURE_RULES.indexUnknownColumn, {
             message:
               `${where}: column "${col}" does not match any field in the entity. ` +
-              `Available fields: ${[...fieldNames].join(", ")}.`,
+              `Available fields: ${[...fieldNames].join(", ")}. ` +
+              `Base columns: ${[...baseColumns].join(", ")}.`,
           });
         }
         const field = entity.fields[col];

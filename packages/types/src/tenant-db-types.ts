@@ -41,7 +41,7 @@ export type GlobalTableDb<TTable> = GlobalReads &
 export type TenantDbMode = "tenant" | "system";
 
 // Read-only, tenant-unfiltered subset of TenantDb for jobs that declared the unsafeRaw grant.
-export type CrossTenantReads = Pick<TenantDb, "selectMany" | "fetchOne" | "count">;
+export type CrossTenantReads = Pick<TenantDb, "selectMany" | "fetchOne" | "count" | "aggregate">;
 
 // Generic over the table so ExecutorManagedTenantDb can accept event-fed tables; the plain
 // TenantDb only accepts Writable ones.

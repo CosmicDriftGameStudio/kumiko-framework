@@ -7,9 +7,13 @@ import {
   configureBlindIndexKey,
   configurePiiSubjectKms,
   InMemoryKmsAdapter,
+  KeyErasedError,
   PII_ERASED_SENTINEL,
+  subjectIdToKey,
 } from "@cosmicdrift/kumiko-framework/crypto";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   resetBlindIndexKeyForTests,
@@ -26,6 +30,7 @@ import { createCryptoShreddingFeature } from "../feature.ts";
 
 const FORGET = "crypto-shredding:write:forget-subject";
 const CREATE = "forget-self-probe:write:slip:create";
+const UPDATE = "forget-self-probe:write:slip:update";
 const LIST = "forget-self-probe:query:slip:list";
 const DETAIL = "forget-self-probe:query:slip:detail";
 const REASON = "authority request #3811 (Art. 17 ownerless row)";
@@ -56,6 +61,7 @@ const dpoUser = {
 };
 
 let stack: TestStack;
+let kms: InMemoryKmsAdapter;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [createCryptoShreddingFeature(), probeFeature] });
@@ -67,7 +73,8 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await resetEventStore(stack, ["read_forget_self_probe_slips"]);
-  configurePiiSubjectKms(new InMemoryKmsAdapter());
+  kms = new InMemoryKmsAdapter();
+  configurePiiSubjectKms(kms);
   configureBlindIndexKey(Buffer.alloc(32, 7).toString("base64"));
 });
 
@@ -119,5 +126,30 @@ describe("crypto-shredding :: forgetting a record's self fields whenAbsent", () 
     expect(untouched["name"]).toBe("owned name");
     expect(untouched["code"]).toBe("owned-code");
     expect(await idsWithCode("owned-code")).toEqual([owned]);
+  });
+
+  test("forgetting the owner erases the record key that sealed the row's ownerless phase", async () => {
+    const id = await createSlip({ name: "early name", code: "early-code" });
+    const control = await createSlip({ name: "never owned" });
+    await stack.http.writeOk(UPDATE, { id, version: 1, changes: { ownerId: OWNER } }, dpoUser);
+    const recordSubject = { kind: "record" as const, entity: "slip", id };
+
+    const events = await selectMany<{ payload: unknown }>(stack.db, eventsTable, {
+      aggregateId: id,
+    });
+    expect(JSON.stringify(events.map((e) => e.payload))).toContain(
+      `:${subjectIdToKey(recordSubject)}:`,
+    );
+    await kms.getKey(recordSubject);
+
+    await stack.http.writeOk(
+      FORGET,
+      { subject: { kind: "user", userId: OWNER }, reason: REASON },
+      dpoUser,
+    );
+    await drainEventConsumers(stack, [SUBJECT_KEY_ERASER_CONSUMER_NAME]);
+
+    await expect(kms.getKey(recordSubject)).rejects.toBeInstanceOf(KeyErasedError);
+    expect((await detail(control))["name"]).toBe("never owned");
   });
 });

@@ -374,14 +374,14 @@ async function forgetSubjectRows(ctx: HandlerContext, subject: SubjectId): Promi
   }
 }
 
-// Manual crypto-shred for a DPO / platform operator. Forgets the subject's opted-in rows and derived data and appends subject-forgotten in one transaction; the subject-key-eraser consumer erases the DEK after commit (reads then render "[[erased]]").
+// Manual crypto-shred for a DPO / platform operator. Forgets the subject's opted-in rows and derived data (for a user also the record keys of rows the user owns) and appends subject-forgotten in one transaction; the subject-key-eraser consumer erases the DEK after commit (reads then render "[[erased]]").
 // Forget is final — the adapter keeps a tombstone. The automated Art.-17 path (user-data-rights forget-cleanup) erases keys inside its per-user sub-tx and shares the erasure core (eraseSubjectData).
 export const forgetSubjectWrite = defineWriteHandler({
   name: "forget-subject",
   schema: forgetSubjectSchema,
   access: { roles: [ROLES.DataProtectionOfficer, ROLES.SystemAdmin] },
   description:
-    "Irreversibly crypto-shreds one user, tenant or record subject: forgets the rows of entities that declare forgetWithSubject, purges its search documents, files and blind indexes, closes the user's login and has its encryption key erased right after commit, for supervisory-authority requests and operator recovery outside the automated Art. 17 cleanup pipeline.",
+    "Irreversibly crypto-shreds one user, tenant or record subject: forgets the rows of entities that declare forgetWithSubject, erases the record keys of rows the user owns, purges its search documents, files and blind indexes, closes the user's login and has its encryption key erased right after commit, for supervisory-authority requests and operator recovery outside the automated Art. 17 cleanup pipeline.",
   // Erasing the subject key is irreversible: there is no undo, so an agent must
   // not be able to reach it at all.
   agent: { expose: false, risk: "high" },
@@ -458,7 +458,7 @@ export const forgetSubjectWrite = defineWriteHandler({
       ctx.registry.features,
       raw,
     );
-    await eraseSubjectData({
+    const ownedRecordSubjects = await eraseSubjectData({
       registry: ctx.registry,
       db: crossTenantRunner,
       subject,
@@ -487,6 +487,19 @@ export const forgetSubjectWrite = defineWriteHandler({
       payload: { subjectKey, reason: event.payload.reason, forgottenBy: event.user.id },
       expectedVersion: 0,
     });
+    for (const recordSubject of ownedRecordSubjects) {
+      await ctx.events.unsafeAppend({
+        aggregateId: generateId(),
+        aggregateType: CRYPTO_SHREDDING_AGGREGATE_TYPE,
+        type: SUBJECT_FORGOTTEN_EVENT_NAME,
+        payload: {
+          subjectKey: subjectIdToKey(recordSubject),
+          reason: event.payload.reason,
+          forgottenBy: event.user.id,
+        },
+        expectedVersion: 0,
+      });
+    }
     return { isSuccess: true as const, data: { subjectKey } };
   },
 });

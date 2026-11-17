@@ -34,6 +34,7 @@ const entityWithDefaults = createEntity({
     settings: { type: "jsonb" },
     lines: { type: "jsonb", emptyValue: "array" },
   },
+  indexes: [{ columns: ["tenantId", "insertedAt"] }],
 });
 
 function byName<T extends { name: string }>(items: readonly T[]): readonly T[] {

@@ -12,6 +12,7 @@ export {
   recordEventsOwnedExclusivelyByTenant,
   recordRowExistsInTenant,
   recordRowOwningTenantId,
+  recordSubjectsOwnedByUser,
   subjectRowExistsInTenant,
 } from "./blind-index-cleanup.ts";
 export { BUN_SQL_CONNECTION_ERROR_CODES } from "./bun-sql-connection-codes.ts";
