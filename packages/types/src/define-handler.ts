@@ -144,6 +144,13 @@ export type QueryHandlerDefinition<
    *  access to this query receive /api/sse change signals (no field values)
    *  for these entities. Every name must be a registered entity. */
   readonly liveEntities?: readonly string[];
+  /** The entity whose field read rules and writeOnly mask apply to the result (a row, an array
+   *  of rows or `{ rows }`). It does not map the handler to the entity: no effect on live
+   *  signals, access or hooks. */
+  readonly resultEntity?: string;
+  /** Marks a query whose result holds no entity rows (options, counts, derived values), so no
+   *  field filter applies. Excludes `resultEntity`. */
+  readonly unfilteredResult?: { readonly reason: string };
 };
 
 // --- Stream Handler Definition ---

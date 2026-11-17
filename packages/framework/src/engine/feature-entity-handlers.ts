@@ -21,6 +21,7 @@ import type { RelationDefinition } from "@cosmicdrift/kumiko-types/relations";
 import type * as z from "zod";
 import type { ZodType } from "zod";
 import { toTableName } from "../db/table-builder.ts";
+import { assertReason } from "./escape-hatch-reason.ts";
 import { bootRuleError } from "./boot-validator/boot-rule.ts";
 import { DEFINITION_HANDLER_RULES } from "./boot-validator/definition-handlers-rules.ts";
 import { HANDLER_ACCESS_RULES } from "./boot-validator/entity-handler-access-rules.ts";
@@ -229,6 +230,14 @@ export function buildEntityHandlerMethods<TName extends string>(
       if (!isObjectArgument(def)) throwObjectArgumentRequired(name, "queryHandler");
       assertHandlerHasAccess(name, "queryHandler", def.name, def.access);
       assertHandlerNameFree(state, name, "query", def.name);
+      if (def.resultEntity !== undefined && def.unfilteredResult !== undefined) {
+        throw new Error(
+          `queryHandler "${def.name}" in feature "${name}" sets both resultEntity and unfilteredResult; pick one.`,
+        );
+      }
+      if (def.unfilteredResult !== undefined) {
+        assertReason(`queryHandler "${def.name}" unfilteredResult`, def.unfilteredResult.reason);
+      }
       // A generated entity handler checks its escapeHatch when it is built, but a
       // spread of it can add escapeHatch afterwards; the registered object is
       // what the dispatcher trusts, so the check runs on it again.
@@ -245,6 +254,8 @@ export function buildEntityHandlerMethods<TName extends string>(
         ...(def.rateLimit && { rateLimit: def.rateLimit }),
         ...(def.outputSchema && { outputSchema: def.outputSchema }),
         ...(def.liveEntities && { liveEntities: def.liveEntities }),
+        ...(def.resultEntity && { resultEntity: def.resultEntity }),
+        ...(def.unfilteredResult && { unfilteredResult: def.unfilteredResult }),
         ...(def.escapeHatch && { escapeHatch: def.escapeHatch }),
         // Carry the definePagedQueryHandler brand through — this rebuild
         // drops any field not explicitly listed.

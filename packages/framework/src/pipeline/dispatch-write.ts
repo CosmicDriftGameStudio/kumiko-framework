@@ -1,6 +1,6 @@
-import type { JobTriggerEvent, WriteHandlerDef, WriteResult } from "@cosmicdrift/kumiko-types/handlers";
+import type { WriteHandlerDef, WriteResult } from "@cosmicdrift/kumiko-types/handlers";
 import type { SaveContext } from "@cosmicdrift/kumiko-types/hooks";
-import type { DbRow, DbRunner, DbTx } from "../db/connection.ts";
+import type { DbRunner, DbTx } from "../db/connection.ts";
 import { ConfigScopes } from "../engine/constants.ts";
 import { HookPhases } from "../engine/hook-helpers.ts";
 import type { HandlerContext, SessionUser } from "../engine/types/index.ts";
@@ -324,7 +324,6 @@ type SettleWriteArgs = {
   readonly origin: WriteOrigin;
   readonly tx: DbTx | undefined;
   readonly afterCommitHooks: AfterCommitHook[];
-  readonly parsedPayload: unknown;
   readonly reservation: ConsumedReservation | undefined;
   readonly isPerCommand: boolean;
   readonly handlerContext: HandlerContext;
@@ -353,33 +352,13 @@ async function runWriteLifecycle(
   return undefined;
 }
 
-function jobTriggerEventOf(result: WriteResult): JobTriggerEvent | undefined {
-  if (!result.isSuccess) return undefined;
-  const lifecycle =
-    result.lifecycle ?? (isLifecycleResult(result.data) ? result.data : undefined);
-  // skip: isLifecycleResult only checks `kind`, an untyped result can lack its event
-  if (!lifecycle?.event) return undefined;
-  const { event } = lifecycle;
-  return { id: event.id, aggregateId: event.aggregateId, headers: event.metadata.headers ?? {} };
-}
-
 function scheduleWriteAfterCommit(
   ctx: DispatchContext,
   type: string,
   user: SessionUser,
-  parsedPayload: unknown,
   result: WriteResult,
   afterCommitHooks: AfterCommitHook[],
 ): void {
-  const { jobRunner } = ctx;
-  // jobRunner has external side-effects (BullMQ enqueue) — must NOT
-  // fire for rolled-back writes. Defer to afterCommit.
-  if (jobRunner) {
-    const eventData = (parsedPayload ?? {}) as DbRow; // @cast-boundary engine-payload
-    const triggerEvent = jobTriggerEventOf(result);
-    afterCommitHooks.push(() => jobRunner.handleEvent(type, eventData, user, triggerEvent));
-  }
-
   invalidateTenantTimezoneCache(ctx, type, user, result);
   // Again after commit: a query landing between the drop above and the
   // commit would read the pre-write row (tx not yet visible) and
@@ -409,7 +388,6 @@ async function settleSuccessfulWrite(
     ctx,
     args.type,
     args.user,
-    args.parsedPayload,
     args.result,
     args.afterCommitHooks,
   );
@@ -451,7 +429,6 @@ async function executeWriteInner(
     origin,
     tx,
     afterCommitHooks,
-    parsedPayload: gated.parsedPayload,
     reservation: gated.reservation,
     isPerCommand,
     handlerContext,

@@ -14,7 +14,7 @@ describe.each(BAD_REASONS)(
         defineFeature("test", (r) => {
           r.job(
             "sweep",
-            { trigger: { on: "test:write:thing:create" }, escapeHatch: { reason } },
+            { trigger: { on: "test:event:thing-created" }, escapeHatch: { reason } },
             async () => {},
           );
         }),

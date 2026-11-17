@@ -147,6 +147,12 @@ export {
   resolveInboundProviderForKey,
 } from "./provider-factory.ts";
 export {
+  OUTBOUND_SEND_STATUSES,
+  type OutboundSendStatus,
+  outboundMailSendEntity,
+  outboundMailSendsTable,
+} from "./outbound-send-entities.ts";
+export {
   QUARANTINE_REASON_CODES,
   type QuarantineReasonCode,
   quarantineEntity,

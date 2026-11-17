@@ -157,6 +157,9 @@ export const hostFeature = defineFeature("doc-fixtures", (r) => {
       schema: z.object({}),
       access: openToAll,
       liveEntities: ["vault"],
+      unfilteredResult: {
+        reason: "returns an empty object, only names the vault entity for live signals",
+      },
       description: "Test query that names the vault entity in liveEntities without reading it.",
       handler: async () => ({}),
     }),

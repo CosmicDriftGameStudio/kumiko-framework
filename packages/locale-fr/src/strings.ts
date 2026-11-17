@@ -2432,6 +2432,8 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
     "Le serveur sortant est injoignable. Réessayez plus tard.",
   "inboundMail.send.errors.rejected":
     "Le serveur sortant a refusé le message. Vérifiez l'adresse du destinataire.",
+  "inboundMail.send.errors.outcomeUnknown":
+    "Impossible de savoir si ce message a été envoyé. Vérifiez le dossier des messages envoyés avant de le renvoyer.",
   "inboundMail.send.errors.invalidMessage":
     "Le message n'a pas été envoyé : un destinataire, l'objet ou la référence de réponse est invalide.",
   "inboundMail.send.errors.attachmentInvalid":

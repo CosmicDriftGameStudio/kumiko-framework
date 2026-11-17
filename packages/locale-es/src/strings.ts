@@ -2400,6 +2400,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "No se puede acceder al servidor de salida. Inténtalo más tarde.",
   "inboundMail.send.errors.rejected":
     "El servidor de salida rechazó el correo. Revisa la dirección del destinatario.",
+  "inboundMail.send.errors.outcomeUnknown":
+    "No está claro si este correo se envió. Revisa la carpeta de enviados del buzón antes de volver a enviarlo.",
   "inboundMail.send.errors.invalidMessage":
     "El correo no se envió: un destinatario, el asunto o la referencia de respuesta no es válido.",
   "inboundMail.send.errors.attachmentInvalid":

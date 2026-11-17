@@ -2427,6 +2427,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Der Postausgangsserver ist nicht erreichbar. Versuche es später noch einmal.",
   "inboundMail.send.errors.rejected":
     "Der Postausgangsserver hat die Mail abgelehnt. Prüfe die Empfängeradresse.",
+  "inboundMail.send.errors.outcomeUnknown":
+    "Unklar, ob diese Mail gesendet wurde. Sieh im Ordner Gesendet des Postfachs nach, bevor du sie noch einmal sendest.",
   "inboundMail.send.errors.invalidMessage":
     "Die Mail wurde nicht gesendet: Ein Empfänger, der Betreff oder der Antwortbezug ist ungültig.",
   "inboundMail.send.errors.attachmentInvalid":

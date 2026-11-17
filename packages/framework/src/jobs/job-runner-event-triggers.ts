@@ -7,7 +7,7 @@ import type { JobRunIn, Registry, SessionUser } from "../engine/types/index.ts";
 import {
   buildRetryBullOpts,
   captureTraceContext,
-  catchUpJobId,
+  eventTriggeredJobId,
   eventTriggerMatches,
   stampGatedWriteOrigin,
   TRACE_CONTEXT_KEY,
@@ -94,7 +94,15 @@ export function createJobEventTriggers(
         // skip: other trigger types (cron, manual) do not respond to events;
         // catchUp jobs are fed by their own consumer (handleCatchUpEvent).
         if (!eventTriggerMatches(jobDef.trigger, eventName, payload)) continue;
-        await enqueueEventTriggeredJob(name, jobDef, eventName, payload, user, triggerEvent);
+        await enqueueEventTriggeredJob(
+          name,
+          jobDef,
+          eventName,
+          payload,
+          user,
+          triggerEvent,
+          triggerEvent === undefined ? undefined : eventTriggeredJobId(name, triggerEvent.id),
+        );
       }
     },
     async handleCatchUpEvent(
@@ -119,7 +127,7 @@ export function createJobEventTriggers(
           payload,
           user,
           triggerEvent,
-          catchUpJobId(jobName, triggerEvent.id),
+          eventTriggeredJobId(jobName, triggerEvent.id),
         );
       }
     },

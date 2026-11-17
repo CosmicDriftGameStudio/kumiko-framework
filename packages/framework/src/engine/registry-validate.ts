@@ -3,6 +3,7 @@ import type { EntityDefinition, EntityEventMigration } from "@cosmicdrift/kumiko
 import type { EventPiiFields, EventUpcastFn, NameOrRef } from "@cosmicdrift/kumiko-types/handlers";
 import { isRateLimitDisabled } from "@cosmicdrift/kumiko-types/handlers";
 import { parseTenantId } from "@cosmicdrift/kumiko-types/identifiers";
+import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type {
   PostDeleteHookFn,
   PostSaveHookFn,
@@ -27,6 +28,7 @@ import type {
 import {
   buildImplicitProjection,
   hasFieldAccessRules,
+  hasReadRestrictedFields,
   mergeExplicitProjectionsIntoImplicit,
   qualify,
 } from "./registry-state.ts";
@@ -398,26 +400,46 @@ export function validateFieldAccessHandlersAreEntityMapped(
   // Validate: handlers in features with field-access rules must be entity-mapped.
   // Without entity mapping, field-level access checks are silently skipped (security gap).
   for (const feature of features) {
-    if (!hasFieldAccessRules(feature)) continue;
+    const hasFieldAccess = hasFieldAccessRules(feature);
+    const hasReadRestrictions = hasReadRestrictedFields(feature);
 
-    for (const handlerName of Object.keys(feature.writeHandlers ?? {})) {
-      const qualified = qualify(feature.name, "write", handlerName);
-      if (!state.handlerEntityMap.has(qualified)) {
-        throw new Error(
-          `Write handler "${qualified}" is not mapped to any entity, but feature "${feature.name}" has field-level access rules. ` +
-            `Name must follow "entity:verb" convention (e.g. "user:create") or use create/update/delete on a matching entity.`,
-        );
+    if (hasFieldAccess) {
+      for (const handlerName of Object.keys(feature.writeHandlers ?? {})) {
+        const qualified = qualify(feature.name, "write", handlerName);
+        if (!state.handlerEntityMap.has(qualified)) {
+          throw new Error(
+            `Write handler "${qualified}" is not mapped to any entity, but feature "${feature.name}" has field-level access rules. ` +
+              `Name must follow "entity:verb" convention (e.g. "user:create") or use create/update/delete on a matching entity.`,
+          );
+        }
       }
     }
 
-    // Query handlers: only those with a colon must resolve (typo protection).
-    for (const handlerName of Object.keys(feature.queryHandlers ?? {})) {
-      if (!handlerName.includes(":")) continue;
+    for (const [handlerName, handler] of Object.entries(feature.queryHandlers ?? {})) {
       const qualified = qualify(feature.name, "query", handlerName);
-      if (!state.handlerEntityMap.has(qualified)) {
+      if (handler.resultEntity !== undefined && !state.entityMap.has(handler.resultEntity)) {
         throw new Error(
-          `Query handler "${qualified}" looks entity-bound but no matching entity exists. ` +
-            `Either fix the entity name, or use a name without colons for standalone queries.`,
+          `Query handler "${qualified}" resultEntity "${handler.resultEntity}" is not a registered entity.`,
+        );
+      }
+      if (handlerName.includes(":")) {
+        // Query handlers with a colon must resolve (typo protection).
+        if (hasFieldAccess && !state.handlerEntityMap.has(qualified)) {
+          throw new Error(
+            `Query handler "${qualified}" looks entity-bound but no matching entity exists. ` +
+              `Either fix the entity name, or use a name without colons for standalone queries.`,
+          );
+        }
+        continue;
+      }
+      if (
+        hasReadRestrictions &&
+        handler.resultEntity === undefined &&
+        handler.unfilteredResult === undefined
+      ) {
+        throw new Error(
+          `Query handler "${qualified}" returns data of feature "${feature.name}", whose entities have read-restricted or writeOnly fields, but declares no resultEntity. ` +
+            `Set resultEntity to the entity whose rows it returns, or unfilteredResult: { reason } when it returns no entity rows.`,
         );
       }
     }
@@ -871,12 +893,11 @@ export function validateEntityHookTargets(
 }
 
 export function resolveJobTriggers(state: RegistryState): void {
-  // Job event triggers must reference an existing write/query handler OR an
-  // existing r.defineEvent registration. The latter is delivered async via the
-  // job-trigger event-consumer (server.ts), not the synchronous write-handler
-  // dispatch path — see createJobTriggerEventConsumer in
-  // pipeline/job-trigger-consumer.ts. Short names are qualified against the job's own
-  // feature and written back, because the job runner matches by exact QN.
+  // Job event triggers must reference an r.defineEvent registration or an
+  // entity lifecycle event; handler names are rejected. Both are delivered by
+  // the job-trigger event consumer (pipeline/job-trigger-consumer.ts). Short
+  // event names are qualified against the job's own feature and written back,
+  // because the job runner matches by exact QN.
   const allHandlers = allHandlerQns(state);
   for (const [jobName, jobDef] of state.jobMap) {
     if (!("on" in jobDef.trigger)) continue;
@@ -889,7 +910,7 @@ export function resolveJobTriggers(state: RegistryState): void {
       : resolveTrigger(triggerOn);
     if (jobDef.trigger.catchUp) {
       const targets = isNameOrRefList(resolvedOn) ? resolvedOn : [resolvedOn];
-      const notEvents = targets.filter((qn) => !state.eventMap.has(qn) || allHandlers.has(qn));
+      const notEvents = targets.filter((qn) => !state.eventMap.has(qn));
       if (notEvents.length > 0) {
         throw new Error(
           `Job "${jobName}" sets trigger.catchUp but ${notEvents.map((qn) => `"${qn}"`).join(", ")} ` +
@@ -927,18 +948,38 @@ function resolveJobTriggerName(
   featureName: string | undefined,
   trigger: string,
 ): string {
-  if (allHandlers.has(trigger) || state.eventMap.has(trigger)) return trigger;
-  const candidates =
+  if (state.eventMap.has(trigger) || isEntityLifecycleEventType(state, trigger)) return trigger;
+  const qualifyAs = (types: readonly ("write" | "query" | "event")[]): string[] =>
     featureName === undefined
       ? []
-      : (["write", "query", "event"] as const).flatMap((type) =>
-          qualifyShortTriggerName(featureName, type, trigger),
-        );
-  const match = candidates.find((qn) => allHandlers.has(qn) || state.eventMap.has(qn));
-  if (match !== undefined) return match;
+      : types.flatMap((type) => qualifyShortTriggerName(featureName, type, trigger));
+  const eventCandidates = qualifyAs(["event"]);
+  const eventMatch = eventCandidates.find((qn) => state.eventMap.has(qn));
+  if (eventMatch !== undefined) return eventMatch;
+  const handlerMatch = [trigger, ...qualifyAs(["write", "query"])].find((qn) =>
+    allHandlers.has(qn),
+  );
+  if (handlerMatch !== undefined) {
+    throw new Error(
+      `Job "${jobName}" triggers on handler "${handlerMatch}". Jobs trigger on events only: a handler trigger ` +
+        `fired after the commit and was lost when the process died before the enqueue. Append an r.defineEvent ` +
+        `event in the handler (ctx.events.append) and trigger on it, or trigger on the entity event ` +
+        `"<entity>.created|updated|deleted|restored|forgotten".`,
+    );
+  }
   throw new Error(
-    `Job "${jobName}" triggers on "${trigger}" but no handler or event with that name exists. ` +
-      `Tried: ${[trigger, ...candidates].map((name) => `"${name}"`).join(", ")}`,
+    `Job "${jobName}" triggers on "${trigger}" but no event with that name exists. ` +
+      `Tried: ${[trigger, ...eventCandidates].map((name) => `"${name}"`).join(", ")}`,
+  );
+}
+
+function isEntityLifecycleEventType(state: RegistryState, name: string): boolean {
+  const dot = name.lastIndexOf(".");
+  if (dot < 0) return false;
+  const verb = name.slice(dot + 1);
+  return (
+    state.entityMap.has(name.slice(0, dot)) &&
+    isOneOf(ENTITY_LIFECYCLE_VERBS, verb)
   );
 }
 

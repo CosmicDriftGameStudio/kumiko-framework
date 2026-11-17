@@ -20,7 +20,6 @@ import { fetchOne, selectMany, sql } from "@cosmicdrift/kumiko-framework/db";
 import {
   createRegistry,
   defineFeature,
-  defineWriteHandler,
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
@@ -674,16 +673,8 @@ describe("jobs:write:retry decrypts payload before dispatch", () => {
   const fanOutRuns: Record<string, unknown>[] = [];
   const eventRuns: Record<string, unknown>[] = [];
 
-  const pingWrite = defineWriteHandler({
-    name: "ping",
-    description: "Test-only: the write handler the event-triggered job listens on.",
-    schema: z.object({}),
-    access: { roles: ["Admin"] },
-    handler: async () => ({ isSuccess: true as const, data: {} }),
-  });
-
   const retryAppFeature = defineFeature("retryapp", (r) => {
-    r.writeHandler(pingWrite);
+    r.defineEvent("pinged", z.object({}), { piiFields: "none" });
     r.job("captureImport", { trigger: { manual: true } }, async (payload, ctx) => {
       capturedPayloads.push(payload);
       capturedTriggeredBy.push(ctx.triggeredBy?.id ?? null);
@@ -691,7 +682,7 @@ describe("jobs:write:retry decrypts payload before dispatch", () => {
     r.job("fanOut", { trigger: { manual: true }, perTenant: true }, async (payload) => {
       fanOutRuns.push(payload);
     });
-    r.job("onPing", { trigger: { on: "retryapp:write:ping" } }, async (payload) => {
+    r.job("onPing", { trigger: { on: "pinged" } }, async (payload) => {
       eventRuns.push(payload);
     });
   });

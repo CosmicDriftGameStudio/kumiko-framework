@@ -20,30 +20,48 @@ const retryRuns: [number, boolean][] = [];
 const singleRuns: [number, boolean][] = [];
 
 const attemptFixtureFeature = defineFeature("attemptfixture", (r) => {
+  r.defineEvent("trigger-retry", z.object({}), { piiFields: "none" });
   r.writeHandler({
     name: "trigger-retry",
     schema: z.object({}),
-    handler: async () => ({ isSuccess: true as const, data: {} }),
+    handler: async (_event, ctx) => {
+      await ctx.events.append({
+        aggregateId: crypto.randomUUID(),
+        aggregateType: "trigger-retry-request",
+        type: "attemptfixture:event:trigger-retry",
+        payload: {},
+      });
+      return { isSuccess: true as const, data: {} };
+    },
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
   r.job(
     "retry",
-    { trigger: { on: "attemptfixture:write:trigger-retry" }, retries: 2 },
+    { trigger: { on: "attemptfixture:event:trigger-retry" }, retries: 2 },
     async (_payload, ctx) => {
       retryRuns.push([ctx.attempt, ctx.finalAttempt]);
       if (ctx.attempt < 3) throw new Error(`fails on attempt ${ctx.attempt}`);
     },
   );
 
+  r.defineEvent("trigger-single", z.object({}), { piiFields: "none" });
   r.writeHandler({
     name: "trigger-single",
     schema: z.object({}),
-    handler: async () => ({ isSuccess: true as const, data: {} }),
+    handler: async (_event, ctx) => {
+      await ctx.events.append({
+        aggregateId: crypto.randomUUID(),
+        aggregateType: "trigger-single-request",
+        type: "attemptfixture:event:trigger-single",
+        payload: {},
+      });
+      return { isSuccess: true as const, data: {} };
+    },
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
   r.job(
     "single",
-    { trigger: { on: "attemptfixture:write:trigger-single" } },
+    { trigger: { on: "attemptfixture:event:trigger-single" } },
     async (_payload, ctx) => {
       singleRuns.push([ctx.attempt, ctx.finalAttempt]);
     },

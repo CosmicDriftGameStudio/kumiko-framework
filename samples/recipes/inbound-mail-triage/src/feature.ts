@@ -12,22 +12,23 @@
 //   inbound-provider-inmemory — scriptable provider (tests/demos)
 //   mail-triage (this file)   — the app-side consumer
 //
-// The trigger fires AFTER every successful ingest-message write — that
-// includes idempotent replays (duplicate ingest returns success). The
-// triage store is therefore keyed by providerMessageId: replays
-// overwrite instead of duplicating. Key your side-effects the same way.
+// The job triggers on the stored inbound-message-received event, which the
+// foundation appends exactly once per message (deterministic aggregate id),
+// so an idempotent replay of the ingest creates no second event. The triage
+// store is keyed by the message id (the event's aggregate id) all the same:
+// the trigger is at-least-once, so key your side-effects the same way.
 
 import {
-  InboundMailFoundationHandlers,
-  type RawInboundMessage,
+  INBOUND_MESSAGE_RECEIVED_EVENT_QN,
+  inboundMessageEventPayloadSchema,
 } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 
 export type TriageItem = {
-  readonly from: string;
-  readonly subject: string;
+  readonly messageId: string;
+  readonly accountId: string;
   readonly scope: string;
-  readonly threadHint: string | null;
+  readonly threadHint: string;
 };
 
 // In-memory store so the integration-test can assert the job ran with
@@ -38,27 +39,27 @@ export const triageInbox = new Map<string, TriageItem>();
 export function createMailTriageFeature(): FeatureDefinition {
   return defineFeature("mail-triage", (r) => {
     r.describe(
-      "Sample consumer for inbound-mail-foundation: a worker-lane job triggered by the ingest-message write-handler turns every inbound mail into a triage item.",
+      "Sample consumer for inbound-mail-foundation: a worker-lane job triggered by the inbound-message-received event turns every inbound mail into a triage item.",
     );
     r.requires({ features: ["inbound-mail-foundation"] });
 
-    // The job receives the dispatcher-validated ingest payload — i.e.
-    // the PLAINTEXT normalized mail (PII encryption happens inside the
-    // handler right before the event append, so consumers on the
-    // handler-trigger path never deal with ciphertext).
+    // from and subject are PII ciphertext in the event payload. Plaintext is read through
+    // InboundMailFoundationQueries.listMessages / messageContent, so the triage item keeps ids only.
     r.job(
       "triage-inbound",
       {
-        trigger: { on: InboundMailFoundationHandlers.ingestMessage },
+        trigger: { on: INBOUND_MESSAGE_RECEIVED_EVENT_QN },
         runIn: "worker",
       },
-      async (rawPayload) => {
-        // Dispatcher-validated ingest payload — one cast at the job boundary
-        // to the foundation's own message shape instead of per-field casts.
-        const payload = rawPayload as unknown as RawInboundMessage;
-        triageInbox.set(payload.providerMessageId, {
-          from: payload.from,
-          subject: payload.subject,
+      async (rawPayload, context) => {
+        const messageId = context.triggerEvent?.aggregateId;
+        if (messageId === undefined) {
+          throw new Error("triage-inbound: job context has no triggerEvent.aggregateId");
+        }
+        const payload = inboundMessageEventPayloadSchema.parse(rawPayload);
+        triageInbox.set(messageId, {
+          messageId,
+          accountId: payload.accountId,
           scope: payload.scope,
           threadHint: payload.messageIdHeader,
         });

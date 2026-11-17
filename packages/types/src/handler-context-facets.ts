@@ -16,7 +16,7 @@ import type {
 import type { TenantId } from "./identifiers.ts";
 import type { Logger } from "./logger.ts";
 import type { Meter, MetricsHandle, Tracer } from "./observability/index.ts";
-import type { TenantDb, UncheckedSystemDb } from "./tenant-db-types.ts";
+import type { TenantDb } from "./tenant-db-types.ts";
 
 /**
  * `ctx.db` plus `outsideTransaction`: the same tenant scoping, but never bound to the handler's
@@ -194,14 +194,8 @@ export type ReservationContext<TMap extends object = KumikoEventTypeMap> = Omit<
   readonly lifecycle: Omit<HandlerLifecycle, "afterCommit" | "afterRollback">;
 };
 
-/** ctx of `beforeTransaction`: external I/O and reads only, so the outside-transaction handles are gone too.
- *  A long external call that must also write (metering, provenance) belongs in `transaction: "perCommand"`. */
-export type BeforeTransactionContext<TMap extends object = KumikoEventTypeMap> = Omit<
-  ReservationContext<TMap>,
-  "db" | "systemDb"
-> & {
-  readonly db: TenantDb & { readonly outsideTransaction: undefined };
-  readonly systemDb?: Omit<UncheckedSystemDb, "outsideTransaction"> & {
-    readonly outsideTransaction: undefined;
-  };
-};
+/** ctx of `beforeTransaction`: external I/O and reads, same surface as the reservation phase.
+ *  `ctx.db` stays read-only. Writes that must survive a failing request (metering, provenance,
+ *  idempotency records) go through `ctx.db.outsideTransaction`. */
+export type BeforeTransactionContext<TMap extends object = KumikoEventTypeMap> =
+  ReservationContext<TMap>;

@@ -394,8 +394,8 @@ export function eventTriggerMatches(
 }
 
 // BullMQ rejects ":" in custom ids; job QNs and event ids contain them or dashes.
-export function catchUpJobId(jobName: string, eventId: string): string {
-  return `catchup.${jobName.replaceAll(":", ".")}.${eventId}`;
+export function eventTriggeredJobId(jobName: string, eventId: string): string {
+  return `event.${jobName.replaceAll(":", ".")}.${eventId}`;
 }
 
 // BullMQ sweeps queue-wide: any job finishing with keepJobs set can evict

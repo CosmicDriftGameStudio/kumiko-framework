@@ -10,7 +10,6 @@
 
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { registerBuiltInProbes } from "./built-in-probes.ts";
-import { ReadinessWrites } from "./constants.ts";
 import { latestResultsQuery } from "./handlers/latest-results.query.ts";
 import { latestSummaryQuery } from "./handlers/latest-summary.query.ts";
 import { runDetailQuery } from "./handlers/run-detail.query.ts";
@@ -67,7 +66,7 @@ export function createReadinessFeature(options: ReadinessFeatureOptions = {}) {
       r.writeHandler(runProbesWrite);
       r.job({
         name: "run-probes",
-        trigger: { on: ReadinessWrites.runProbes },
+        trigger: { on: "probe-run.created" },
         runIn: "worker",
         retries: 0,
         escapeHatch: {

@@ -8,9 +8,11 @@
 import type { HandlerContext, WriteResult } from "@cosmicdrift/kumiko-framework/engine";
 import {
   failNotFound,
+  InternalError,
   UnprocessableError,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { type MailAccountRow, toMailAccountRecord } from "./account-record.ts";
 import { InboundMailAccountStatuses } from "./constants.ts";
 import { isVisibleToCaller } from "./handlers/scope-visibility.ts";
@@ -22,6 +24,7 @@ import {
   type OutboundMailSent,
   outboundMailMessageSchema,
 } from "./outbound-mail.ts";
+import { type OutboundSendStatus, outboundMailSendsTable } from "./outbound-send-entities.ts";
 import { mailAccountsProjectionTable } from "./projection.ts";
 import {
   isInboundAuthError,
@@ -53,6 +56,10 @@ export const MAIL_SEND_ERRORS = {
     reason: "mail_send_attachment_invalid",
     i18nKey: "inboundMail.send.errors.attachmentInvalid",
   },
+  outcomeUnknown: {
+    reason: "mail_send_outcome_unknown",
+    i18nKey: "inboundMail.send.errors.outcomeUnknown",
+  },
   attachmentsTooLarge: {
     reason: "mail_send_attachments_too_large",
     i18nKey: "inboundMail.send.errors.attachmentsTooLarge",
@@ -70,6 +77,8 @@ export type SendMailFromAccountContext = Pick<
 export type SendMailFromAccountInput = {
   readonly accountId: string;
   readonly message: OutboundMailMessage;
+  /** Makes the send retry-safe: the same key never sends twice. Needs `ctx.db.outsideTransaction`. */
+  readonly idempotencyKey?: string;
 };
 
 const HANDLER_NAME = "inbound-mail-foundation:send-from-account";
@@ -93,16 +102,85 @@ function isSendableBy(row: MailAccountRow, user: SendMailFromAccountContext["use
   return row.status !== InboundMailAccountStatuses.disconnected && isVisibleToCaller(row, user);
 }
 
+type OutboundSendRecord = {
+  readonly id: string;
+  readonly status: OutboundSendStatus;
+  readonly messageIdHeader: string | null;
+  readonly attachmentFileIds: readonly string[];
+};
+
+type SendRecordDb = NonNullable<SendMailFromAccountContext["db"]["outsideTransaction"]>;
+
+function fetchSendRecord(
+  recordDb: SendRecordDb,
+  idempotencyKey: string,
+): Promise<OutboundSendRecord | undefined> {
+  return recordDb.fetchOne<OutboundSendRecord>(outboundMailSendsTable, { idempotencyKey });
+}
+
+// A "sending" record without a result means the send may or may not have gone out (crash, or a
+// parallel call still running), so the key answers outcomeUnknown instead of sending a second copy.
+function resultOfRecordedSend(record: OutboundSendRecord): WriteResult<OutboundMailSent> {
+  if (record.status === "sent" && record.messageIdHeader !== null) {
+    return {
+      isSuccess: true,
+      data: {
+        messageIdHeader: record.messageIdHeader,
+        attachmentFileIds: record.attachmentFileIds,
+      },
+    };
+  }
+  return sendFailure("outcomeUnknown");
+}
+
+// Returns the claim's id, or the recorded outcome when the key was used before.
+async function claimSend(
+  recordDb: SendRecordDb,
+  idempotencyKey: string,
+  accountId: string,
+): Promise<{ readonly claimId: string } | { readonly recorded: OutboundSendRecord }> {
+  const claimId = crypto.randomUUID();
+  try {
+    await recordDb.insertOne(outboundMailSendsTable, {
+      id: claimId,
+      idempotencyKey,
+      accountId,
+      status: "sending" satisfies OutboundSendStatus,
+      claimedAt: Temporal.Now.instant().toString(),
+    });
+    return { claimId };
+  } catch (err) {
+    // A parallel call claimed the same key between the lookup and the insert.
+    const recorded = await fetchSendRecord(recordDb, idempotencyKey);
+    if (recorded) return { recorded };
+    throw err;
+  }
+}
+
 // Sends immediately and cannot be rolled back. Call it from a handler's `beforeTransaction`
 // (its ctx fits here): in the handler body the request transaction would stay open for the whole
 // SMTP/IMAP round trip, and a later rollback would not recall the mail. Pass the result on as the
-// hook's data; a client retry after a failed handler still sends a second copy.
+// hook's data. Retry-safe only with an idempotencyKey: a repeat of a finished send returns its
+// stored result, and after a crash the same key answers outcomeUnknown. Without a key a client
+// retry after a failed handler sends a second copy.
 export async function sendMailFromAccount(
   ctx: SendMailFromAccountContext,
   input: SendMailFromAccountInput,
 ): Promise<WriteResult<OutboundMailSent>> {
   const message = outboundMailMessageSchema.safeParse(input.message);
   if (!message.success) return sendFailure("invalidMessage");
+
+  const { idempotencyKey } = input;
+  const recordDb = ctx.db.outsideTransaction;
+  if (idempotencyKey !== undefined) {
+    if (!recordDb) {
+      throw new InternalError({
+        message: "sendMailFromAccount: idempotencyKey needs ctx.db.outsideTransaction",
+      });
+    }
+    const recorded = await fetchSendRecord(recordDb, idempotencyKey);
+    if (recorded) return resultOfRecordedSend(recorded);
+  }
 
   const row = await ctx.db.fetchOne<MailAccountRow>(mailAccountsProjectionTable, {
     id: input.accountId,
@@ -123,8 +201,27 @@ export async function sendMailFromAccount(
   const resolved = await resolveOutboundAttachments(ctx, attachmentFileIds);
   if (!resolved.isSuccess) return sendFailure(resolved.failure);
 
+  let claimId: string | undefined;
+  if (idempotencyKey !== undefined && recordDb) {
+    const claim = await claimSend(recordDb, idempotencyKey, account.id);
+    if ("recorded" in claim) return resultOfRecordedSend(claim.recorded);
+    claimId = claim.claimId;
+  }
+
   try {
     const sent = await plugin.send(providerCtx, account, message.data, resolved.attachments);
+    if (claimId !== undefined && recordDb) {
+      await recordDb.updateMany(
+        outboundMailSendsTable,
+        {
+          status: "sent" satisfies OutboundSendStatus,
+          messageIdHeader: sent.messageIdHeader,
+          attachmentFileIds: resolved.fileIds,
+          sentAt: Temporal.Now.instant().toString(),
+        },
+        { id: claimId },
+      );
+    }
     return {
       isSuccess: true,
       data: {
@@ -135,7 +232,12 @@ export async function sendMailFromAccount(
     };
   } catch (err) {
     const failure = sendFailureOf(err);
+    // An unexpected error leaves the claim in place: the mail may have gone out.
     if (!failure) throw err;
+    // A typed failure means the server did not take the mail, so the key is free for a retry.
+    if (claimId !== undefined && recordDb) {
+      await recordDb.deleteMany(outboundMailSendsTable, { id: claimId });
+    }
     ctx.obs.log.warn("mail send from account failed", {
       accountId: account.id,
       reason: MAIL_SEND_ERRORS[failure].reason,

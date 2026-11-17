@@ -224,6 +224,8 @@ describe("r.job trigger.catchUp boot validation", () => {
         async () => {},
       );
     });
-    await expect(setupTestStack({ features: [broken] })).rejects.toThrow(/catchUp/);
+    await expect(setupTestStack({ features: [broken] })).rejects.toThrow(
+      /Jobs trigger on events only/,
+    );
   });
 });

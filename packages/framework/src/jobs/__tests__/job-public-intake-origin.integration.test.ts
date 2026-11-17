@@ -88,6 +88,8 @@ const secretsFeature = defineFeature("secrets", (r) => {
 
 const jobsFeature = defineFeature("jobsx", (r) => {
   r.defineEvent("leaked", z.object({ value: z.string() }), { piiFields: "none" });
+  r.defineEvent("sourced-no-declare", z.object({ value: z.string() }), { piiFields: "none" });
+  r.defineEvent("sourced-declare", z.object({ value: z.string() }), { piiFields: "none" });
 
   r.job("write-direct", { trigger: { manual: true }, retries: 0 }, async (payload, ctx) => {
     try {
@@ -118,7 +120,7 @@ const jobsFeature = defineFeature("jobsx", (r) => {
 
   r.job(
     "on-trigger-no-declare",
-    { trigger: { on: "jobsx:write:trigger-source-no-declare" }, retries: 0 },
+    { trigger: { on: "jobsx:event:sourced-no-declare" }, retries: 0 },
     async (payload, ctx) => {
       try {
         await ctx.db.insertOne(secretDirectTable, {
@@ -132,7 +134,7 @@ const jobsFeature = defineFeature("jobsx", (r) => {
   );
   r.job(
     "on-trigger-declare",
-    { trigger: { on: "jobsx:write:trigger-source-declare" }, retries: 0 },
+    { trigger: { on: "jobsx:event:sourced-declare" }, retries: 0 },
     async (payload, ctx) => {
       try {
         await ctx.db.insertOne(secretDirectTable, {
@@ -233,14 +235,30 @@ const jobsFeature = defineFeature("jobsx", (r) => {
   r.writeHandler({
     name: "trigger-source-no-declare",
     schema: z.object({ value: z.string() }),
-    handler: async (event) => ({ isSuccess: true as const, data: { value: event.payload.value } }),
+    handler: async (event, ctx) => {
+      await ctx.events.unsafeAppend({
+        aggregateId: crypto.randomUUID(),
+        aggregateType: "jobsx-leak",
+        type: "jobsx:event:sourced-no-declare",
+        payload: { value: event.payload.value },
+      });
+      return { isSuccess: true as const, data: { value: event.payload.value } };
+    },
     access: { roles: ["anonymous"] },
     rateLimit: RATE_LIMIT,
   });
   r.writeHandler({
     name: "trigger-source-declare",
     schema: z.object({ value: z.string() }),
-    handler: async (event) => ({ isSuccess: true as const, data: { value: event.payload.value } }),
+    handler: async (event, ctx) => {
+      await ctx.events.unsafeAppend({
+        aggregateId: crypto.randomUUID(),
+        aggregateType: "jobsx-leak",
+        type: "jobsx:event:sourced-declare",
+        payload: { value: event.payload.value },
+      });
+      return { isSuccess: true as const, data: { value: event.payload.value } };
+    },
     access: { roles: ["anonymous"], personalData: "public-intake" },
     rateLimit: RATE_LIMIT,
   });
@@ -436,7 +454,7 @@ describe("job/event write-origin inheritance", () => {
     expect(await rowCount()).toBe(0);
   });
 
-  test("sync handler-QN job trigger (afterCommit) — blocked without declaration", async () => {
+  test("job trigger on an event the handler appends — blocked without declaration", async () => {
     await expectBlocked(
       "jobsx:write:trigger-source-no-declare",
       "leak-trigger",
@@ -446,7 +464,7 @@ describe("job/event write-origin inheritance", () => {
     expect(await rowCount()).toBe(0);
   });
 
-  test("sync handler-QN job trigger (afterCommit) — allowed once declared", async () => {
+  test("job trigger on an event the handler appends — allowed once declared", async () => {
     await expectAllowed("jobsx:write:trigger-source-declare", "leak-trigger-declared");
     expect(gatedFailures).toHaveLength(0);
   });

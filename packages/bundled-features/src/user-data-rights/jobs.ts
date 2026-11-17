@@ -32,7 +32,6 @@ import {
   runForgetCleanup,
   sanitizeReasonForLog,
 } from "./run-forget-cleanup.ts";
-import { UserDataRightsHandlers } from "./web/constants.ts";
 
 const RUN_EXPORT_JOBS_REASON = "processes pending export jobs across every tenant";
 const RUN_FORGET_CLEANUP_REASON = "executes overdue Art.17 forget requests across every tenant";
@@ -137,9 +136,10 @@ export function registerUserDataRightsJobs(
   });
 
   // "replace", not "skip": a request arriving during a pass must still get its own run; claims are version-locked.
+  // An isExisting click creates no event; the pass that is already running picks that row up.
   r.job({
     name: "run-requested-export",
-    trigger: { on: UserDataRightsHandlers.requestExport },
+    trigger: { on: "export-job.created" },
     concurrency: "replace",
     escapeHatch: { reason: RUN_EXPORT_JOBS_REASON },
     handler: runExport,

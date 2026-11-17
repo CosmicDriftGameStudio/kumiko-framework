@@ -6,15 +6,10 @@
 // upload route appends it via the raw event-store executor, not a write-handler
 // dispatch.
 //
-// Not covered here: a job triggered on a write/query-handler QN still
-// firing exactly once (unaffected by the new consumer). The full suite
-// stays green (e.g. the lane-routing sample), but that's not a positive
-// test of the partition guard — no stored event's `type` is ever a
-// handler QN in practice (entity events are "entity.verb"; custom
-// write-handlers like lane-routing's don't append to the store at all),
-// so `getWriteHandler`/`getQueryHandler` in the new consumer's handler is
-// defense-in-depth for an input shape the framework doesn't currently
-// produce, not something exercised end-to-end by any test today.
+// Also covered: every `trigger.on` job runs through this consumer, so a job on
+// an entity lifecycle event (`item.created`) runs once with its row id, and a
+// redelivered event enqueues no second run (deterministic job id per job and
+// event).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
@@ -25,11 +20,17 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { entityEventName } from "../../db/index.ts";
-import { defineFeature, type JobContext } from "../../engine/index.ts";
+import {
+  createEntity,
+  createTextField,
+  defineFeature,
+  type JobContext,
+} from "../../engine/index.ts";
 import { append, loadAggregate } from "../../event-store/index.ts";
 import { createInMemoryFileProvider, type InMemoryFileProvider } from "../../files/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { generateId } from "../../utils/index.ts";
+import { createJobTriggerEventConsumer } from "../job-trigger-consumer.ts";
 
 const ITEM_REQUESTED_EVENT_QN = "job-trigger-fixture:event:item-requested";
 const FILE_REF_CREATED = entityEventName("fileRef", "created");
@@ -42,6 +43,18 @@ const processedItems: Array<{
 }> = [];
 
 const versionedNotes: string[] = [];
+
+const itemEntity = createEntity({
+  table: "read_job_trigger_consumer_items",
+  fields: {
+    title: createTextField({ personal: false, reason: "is_business_data", required: true }),
+  },
+});
+
+const itemRuns: Array<{
+  readonly triggerName: string | undefined;
+  readonly aggregateId: string | undefined;
+}> = [];
 
 const jobTriggerFixtureFeature = defineFeature("job-trigger-fixture", (r) => {
   r.defineEvent("item-requested", z.object({ fileRefId: z.string().min(1) }), {
@@ -65,6 +78,14 @@ const jobTriggerFixtureFeature = defineFeature("job-trigger-fixture", (r) => {
         });
       },
     },
+  });
+
+  r.crud("item", itemEntity, {
+    write: { access: { roles: ["Admin"] } },
+    read: { access: { roles: ["Admin"] } },
+  });
+  r.job("count-item", { trigger: { on: "item.created" }, runIn: "worker" }, async (_payload, ctx) => {
+    itemRuns.push({ triggerName: ctx.triggerName, aggregateId: ctx.triggerEvent?.aggregateId });
   });
 
   // Under test: only reachable via createJobTriggerEventConsumer, since
@@ -202,6 +223,7 @@ afterAll(async () => {
 beforeEach(() => {
   processedItems.length = 0;
   versionedNotes.length = 0;
+  itemRuns.length = 0;
   provider.clear();
   alphaProcessed.length = 0;
   betaProcessed.length = 0;
@@ -277,6 +299,43 @@ describe("job-trigger event consumer", () => {
       await stack.drainJobs();
       expect(versionedNotes).toEqual(["from-v1"]);
     });
+  });
+});
+
+describe("job-trigger event consumer — entity lifecycle events and redelivery", () => {
+  test("a job on <entity>.created runs once with the row id and the event name", async () => {
+    const created = await stack.http.writeOk<{ id: string }>(
+      "job-trigger-fixture:write:item:create",
+      { title: "a" },
+      TestUsers.admin,
+    );
+    await stack.drainJobs();
+
+    expect(itemRuns).toEqual([{ triggerName: "item.created", aggregateId: created.id }]);
+  });
+
+  test("a redelivered event enqueues the job once", async () => {
+    const created = await stack.http.writeOk<{ id: string }>(
+      "job-trigger-fixture:write:item:create",
+      { title: "b" },
+      TestUsers.admin,
+    );
+    await stack.drainJobs();
+    expect(itemRuns).toHaveLength(1);
+
+    const stored = await loadAggregate(stack.db, created.id, TestUsers.admin.tenantId);
+    const itemCreated = stored.find((e) => e.type === "item.created");
+    if (itemCreated === undefined) throw new Error("item.created event was not stored");
+    if (stack.jobRunner === undefined) throw new Error("test stack has no jobRunner");
+
+    const consumer = createJobTriggerEventConsumer(stack.jobRunner, stack.registry, {
+      db: stack.db,
+      upcasters: stack.registry.getEventUpcasters(),
+    });
+    await consumer.handler(itemCreated);
+    await stack.drainJobs();
+
+    expect(itemRuns).toHaveLength(1);
   });
 });
 

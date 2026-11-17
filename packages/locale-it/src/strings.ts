@@ -2408,6 +2408,8 @@ export const localeItBundle: Readonly<Record<string, string>> = {
     "Il server in uscita non è raggiungibile. Riprova più tardi.",
   "inboundMail.send.errors.rejected":
     "Il server in uscita ha rifiutato la mail. Controlla l'indirizzo del destinatario.",
+  "inboundMail.send.errors.outcomeUnknown":
+    "Non è chiaro se questa mail sia stata inviata. Controlla la cartella della posta inviata prima di inviarla di nuovo.",
   "inboundMail.send.errors.invalidMessage":
     "La mail non è stata inviata: un destinatario, l'oggetto o il riferimento di risposta non è valido.",
   "inboundMail.send.errors.attachmentInvalid":

@@ -16,11 +16,13 @@ import {
   defineWriteHandler,
   type SessionUser,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createJobRunner,
   type JobRunner,
   serializeJobSubject,
 } from "@cosmicdrift/kumiko-framework/jobs";
+import { createEventConsumerStateTable } from "@cosmicdrift/kumiko-framework/pipeline";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -67,7 +69,15 @@ const generateWrite = defineWriteHandler({
   description: "Test-only: starts the text generation for one campaign.",
   schema: z.object({ campaignId: z.string(), mode: z.enum(["fail", "hold", "succeed"]) }),
   access: { roles: ["Admin"] },
-  handler: async (event) => ({ isSuccess: true as const, data: { ...event.payload } }),
+  handler: async (event, ctx) => {
+    await ctx.events.append({
+      aggregateId: crypto.randomUUID(),
+      aggregateType: "generation-requested",
+      type: "app:event:generation-requested",
+      payload: { campaignId: event.payload.campaignId, mode: event.payload.mode },
+    });
+    return { isSuccess: true as const, data: { ...event.payload } };
+  },
 });
 
 const plainWrite = defineWriteHandler({
@@ -75,17 +85,31 @@ const plainWrite = defineWriteHandler({
   description: "Test-only: starts a job without tenantVisibleRun.",
   schema: z.object({ campaignId: z.string() }),
   access: { roles: ["Admin"] },
-  handler: async (event) => ({ isSuccess: true as const, data: { ...event.payload } }),
+  handler: async (event, ctx) => {
+    await ctx.events.append({
+      aggregateId: crypto.randomUUID(),
+      aggregateType: "plain-requested",
+      type: "app:event:plain-requested",
+      payload: { campaignId: event.payload.campaignId },
+    });
+    return { isSuccess: true as const, data: { ...event.payload } };
+  },
 });
 
 const appFeature = defineFeature("app", (r) => {
+  r.defineEvent(
+    "generation-requested",
+    z.object({ campaignId: z.string(), mode: z.enum(["fail", "hold", "succeed"]) }),
+    { piiFields: "none" },
+  );
+  r.defineEvent("plain-requested", z.object({ campaignId: z.string() }), { piiFields: "none" });
   r.writeHandler(generateWrite);
   r.writeHandler(plainWrite);
 
   r.job(
     "generateTexts",
     {
-      trigger: { on: "app:write:generate" },
+      trigger: { on: "generation-requested" },
       tenantVisibleRun: { subjectFields: ["campaignId"] },
     },
     async (payload) => {
@@ -97,7 +121,7 @@ const appFeature = defineFeature("app", (r) => {
     },
   );
 
-  r.job("plainJob", { trigger: { on: "app:write:plain" } }, async () => {});
+  r.job("plainJob", { trigger: { on: "plain-requested" } }, async () => {});
 
   r.job(
     "unrecoverable",
@@ -130,6 +154,7 @@ let app: Hono;
 let jwt: JwtHelper;
 let enqueuer: JobRunner;
 let worker: JobRunner;
+let eventDispatcher: Awaited<ReturnType<typeof buildServer>>["eventDispatcher"];
 
 beforeAll(async () => {
   testDb = await createTestDb();
@@ -137,6 +162,8 @@ beforeAll(async () => {
   db = testDb.db;
 
   const registry = createRegistry([appFeature, createJobsFeature()]);
+  await createEventsTable(db);
+  await createEventConsumerStateTable(db);
   await unsafePushTables(db, {
     jobRunsTable,
     jobRunLogsTable,
@@ -170,6 +197,7 @@ beforeAll(async () => {
   });
   app = server.app;
   jwt = server.jwt;
+  eventDispatcher = server.eventDispatcher;
 
   await enqueuer.start();
 });
@@ -220,6 +248,8 @@ async function generate(
     payload: { campaignId, mode },
   });
   expect((await res.json()).isSuccess).toBe(true);
+  // The job-trigger event consumer enqueues the job from the stored event.
+  await eventDispatcher?.runOnce();
 }
 
 describe("jobs:query:tenant-runs", () => {
@@ -247,6 +277,7 @@ describe("jobs:query:tenant-runs", () => {
       payload: { campaignId: "c1" },
     });
     expect((await res.json()).isSuccess).toBe(true);
+    await eventDispatcher?.runOnce();
     expect(await runs(userA, { jobName: "app:job:plain-job" })).toHaveLength(0);
     expect(
       (await selectMany(db, tenantJobRunsTable, {})).filter(

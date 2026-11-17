@@ -25,13 +25,24 @@ const appFeature = defineFeature("app", (r) => {
       description: "Test-only: starts a job that always fails.",
       schema: z.object({ campaignId: z.string() }),
       access: { roles: ["Admin"] },
-      handler: async (event) => ({ isSuccess: true as const, data: { ...event.payload } }),
+      handler: async (event, ctx) => {
+        await ctx.events.append({
+          aggregateId: crypto.randomUUID(),
+          aggregateType: "generation-request",
+          type: "app:event:generation-requested",
+          payload: { campaignId: event.payload.campaignId },
+        });
+        return { isSuccess: true as const, data: { ...event.payload } };
+      },
     }),
   );
+  r.defineEvent("generation-requested", z.object({ campaignId: z.string() }), {
+    piiFields: "none",
+  });
   r.job(
     "generateTexts",
     {
-      trigger: { on: "app:write:generate" },
+      trigger: { on: "generation-requested" },
       retries: 0,
       tenantVisibleFailure: { messageKey: FAILURE_KEY, subjectFields: ["campaignId"] },
     },

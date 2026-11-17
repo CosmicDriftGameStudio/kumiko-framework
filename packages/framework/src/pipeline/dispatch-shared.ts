@@ -82,7 +82,6 @@ import { applyMemberResolutionReadOnly } from "./handler-context-member-resoluti
 import { buildNotifyFacet } from "./handler-context-notify.ts";
 import { buildObservabilityFacet } from "./handler-context-observability.ts";
 import {
-  applyBeforeTransactionReadOnly,
   denyEventStoreSurfaces,
   denyTransactionBoundSurfaces,
   withoutTransactionDenied,
@@ -264,7 +263,7 @@ export async function buildHandlerContext(
     ...(configFacet.config && { config: configFacet.config }),
     services: buildContextServices(scope.context, {
       ...fileFragment,
-      ...buildRuntimeServices(scope),
+      ...buildRuntimeServices(scope, sinks.notifyCommitSink),
       ...notifyFacet.factoryServices,
     }),
     lifecycle: {
@@ -299,11 +298,9 @@ export async function buildHandlerContext(
     ? applyMemberResolutionReadOnly(scopedContext)
     : scopedContext;
   const phasedContext =
-    phase === "reservation"
+    phase === "reservation" || phase === "beforeTransaction"
       ? denyTransactionBoundSurfaces(memberSafeContext)
-      : phase === "beforeTransaction"
-        ? applyBeforeTransactionReadOnly(memberSafeContext)
-        : memberSafeContext;
+      : memberSafeContext;
   finalContext.current = phasedContext;
   return phasedContext;
 }

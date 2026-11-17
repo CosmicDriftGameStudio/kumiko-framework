@@ -508,3 +508,22 @@ export function hasFieldAccessRules(feature: FeatureDefinition): boolean {
   }
   return false;
 }
+
+/** True if a field of any entity in the feature is stripped or masked for some readers: an
+ *  `access.read` rule (array or record form), a writeOnly text field, or an embedded sub-field
+ *  with its own `access.read`. */
+export function hasReadRestrictedFields(feature: FeatureDefinition): boolean {
+  for (const entity of Object.values(feature.entities ?? {})) {
+    for (const field of Object.values(entity.fields)) {
+      if (field.access?.read !== undefined) return true;
+      if (field.type === "text" && field.writeOnly === true) return true;
+      if (
+        field.type === "embedded" &&
+        Object.values(field.schema).some((subField) => subField.access?.read !== undefined)
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
+}

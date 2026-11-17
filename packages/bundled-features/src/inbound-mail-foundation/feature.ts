@@ -78,6 +78,7 @@ import {
   inboundMessagesProjectionTable,
   mailAccountsProjectionTable,
 } from "./projection.ts";
+import { outboundMailSendsTable } from "./outbound-send-entities.ts";
 import { quarantineTable } from "./quarantine-entities.ts";
 import { createMailQuarantineScreen } from "./quarantine-screens.ts";
 import { registerInboundMailRetentionJob } from "./retention-job.ts";
@@ -96,7 +97,7 @@ export function createInboundMailFoundationFeature(options: InboundMailRoleOptio
     (r) => {
       r.adoptsBundledLists();
       r.describe(
-        "Plugin host for inbound e-mail (inbox federation) — provider plugins (inbound-provider-imap, later M365 Graph / Gmail REST) register at the `inboundMailProvider` extension point with verify/fetch and optional oauth/watch (live push) and send. `sendMailFromAccount(ctx, { accountId, message })` sends from a connected mailbox through its provider (From = the mailbox address, no fallback to the app sender) and answers typed failures (not configured, login rejected, server unreachable, rejected, invalid message); app write handlers call it from `beforeTransaction` (it sends at once and a rollback cannot recall the mail), it is no endpoint of its own. The foundation owns two event-sourced streams (mail-account lifecycle, inbound-message with exactly-once ingest via deterministic aggregate ids) and their projections `read_mail_accounts`/`read_inbound_messages`; PII fields are envelope-encrypted before every append: message fields under a record key per message (erased on forget, retention and tenant destroy), the mailbox address under the tenant subject key. Wire `createInboundMailConnectRoutes` (OAuth connect + anonymous callback outside /api) and `createInboundMailSupervisor` (IDLE watch with backoff + reconciliation poll) in bin/server.ts. Consume `inbound-mail-foundation:event:inbound-message-received` from app features to attach business processes.",
+        "Plugin host for inbound e-mail (inbox federation) — provider plugins (inbound-provider-imap, later M365 Graph / Gmail REST) register at the `inboundMailProvider` extension point with verify/fetch and optional oauth/watch (live push) and send. `sendMailFromAccount(ctx, { accountId, message })` sends from a connected mailbox through its provider (From = the mailbox address, no fallback to the app sender) and answers typed failures (not configured, login rejected, server unreachable, rejected, invalid message); with an `idempotencyKey` a repeat of a finished send returns the stored result instead of sending again, and a send that started but never finished answers `mail_send_outcome_unknown` (the stored keys live in `store_mail_outbound_sends`); app write handlers call it from `beforeTransaction` (it sends at once and a rollback cannot recall the mail), it is no endpoint of its own. The foundation owns two event-sourced streams (mail-account lifecycle, inbound-message with exactly-once ingest via deterministic aggregate ids) and their projections `read_mail_accounts`/`read_inbound_messages`; PII fields are envelope-encrypted before every append: message fields under a record key per message (erased on forget, retention and tenant destroy), the mailbox address under the tenant subject key. Wire `createInboundMailConnectRoutes` (OAuth connect + anonymous callback outside /api) and `createInboundMailSupervisor` (IDLE watch with backoff + reconciliation poll) in bin/server.ts. Consume `inbound-mail-foundation:event:inbound-message-received` from app features to attach business processes.",
       );
       r.uiHints({
         displayLabel: "Inbound Mail · Foundation",
@@ -221,6 +222,9 @@ export function createInboundMailFoundationFeature(options: InboundMailRoleOptio
         reason: "read_side.mail_seen_messages_direct_write",
       });
 
+      r.storeTable(outboundMailSendsTable, {
+        reason: "read_side.mail_outbound_sends_direct_write",
+      });
       r.storeTable(quarantineTable, {
         reason: "read_side.mail_quarantine_direct_write",
       });

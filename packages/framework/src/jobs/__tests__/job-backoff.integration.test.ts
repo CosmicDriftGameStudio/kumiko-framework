@@ -2,8 +2,8 @@
 // `delay` — BullMQ's fixed/exponential backoff strategies compute
 // NaN/undefined without it (falsy), so a job with `backoff` set retried
 // immediately instead of waiting. These tests assert real inter-attempt
-// gaps via a real HTTP write that triggers the job through `trigger.on`,
-// same delivery path as dispatch-write.ts's afterCommitHooks.
+// gaps via a real HTTP write that appends an event, which triggers the job
+// through `trigger.on` via the job-trigger event consumer.
 //
 // Only lower bounds are asserted (never upper) — BullMQ schedules the next
 // attempt at failureTime + delay using the same wall clock this test reads,
@@ -24,10 +24,19 @@ function gapsBetween(starts: readonly number[]): number[] {
 }
 
 const backoffFixtureFeature = defineFeature("backofffixture", (r) => {
+  r.defineEvent("trigger-exponential-default", z.object({}), { piiFields: "none" });
   r.writeHandler({
     name: "trigger-exponential-default",
     schema: z.object({}),
-    handler: async () => ({ isSuccess: true as const, data: {} }),
+    handler: async (_event, ctx) => {
+      await ctx.events.append({
+        aggregateId: crypto.randomUUID(),
+        aggregateType: "trigger-exponential-default-request",
+        type: "backofffixture:event:trigger-exponential-default",
+        payload: {},
+      });
+      return { isSuccess: true as const, data: {} };
+    },
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
   // AC: retries: 3, backoff: "exponential" — fails once, succeeds on retry 2.
@@ -35,7 +44,7 @@ const backoffFixtureFeature = defineFeature("backofffixture", (r) => {
   r.job(
     "exponential-default",
     {
-      trigger: { on: "backofffixture:write:trigger-exponential-default" },
+      trigger: { on: "backofffixture:event:trigger-exponential-default" },
       retries: 3,
       backoff: "exponential",
     },
@@ -45,17 +54,26 @@ const backoffFixtureFeature = defineFeature("backofffixture", (r) => {
     },
   );
 
+  r.defineEvent("trigger-exponential-custom", z.object({}), { piiFields: "none" });
   r.writeHandler({
     name: "trigger-exponential-custom",
     schema: z.object({}),
-    handler: async () => ({ isSuccess: true as const, data: {} }),
+    handler: async (_event, ctx) => {
+      await ctx.events.append({
+        aggregateId: crypto.randomUUID(),
+        aggregateType: "trigger-exponential-custom-request",
+        type: "backofffixture:event:trigger-exponential-custom",
+        payload: {},
+      });
+      return { isSuccess: true as const, data: {} };
+    },
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
   // Per-job configurable + growing: delayMs 50 → gaps 50, 100, 200ms.
   r.job(
     "exponential-custom",
     {
-      trigger: { on: "backofffixture:write:trigger-exponential-custom" },
+      trigger: { on: "backofffixture:event:trigger-exponential-custom" },
       retries: 3,
       backoff: { type: "exponential", delayMs: 50 },
     },
@@ -66,16 +84,25 @@ const backoffFixtureFeature = defineFeature("backofffixture", (r) => {
     },
   );
 
+  r.defineEvent("trigger-fixed-custom", z.object({}), { piiFields: "none" });
   r.writeHandler({
     name: "trigger-fixed-custom",
     schema: z.object({}),
-    handler: async () => ({ isSuccess: true as const, data: {} }),
+    handler: async (_event, ctx) => {
+      await ctx.events.append({
+        aggregateId: crypto.randomUUID(),
+        aggregateType: "trigger-fixed-custom-request",
+        type: "backofffixture:event:trigger-fixed-custom",
+        payload: {},
+      });
+      return { isSuccess: true as const, data: {} };
+    },
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
   r.job(
     "fixed-custom",
     {
-      trigger: { on: "backofffixture:write:trigger-fixed-custom" },
+      trigger: { on: "backofffixture:event:trigger-fixed-custom" },
       retries: 1,
       backoff: { type: "fixed", delayMs: 300 },
     },

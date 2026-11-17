@@ -135,18 +135,13 @@ const testFeature = defineFeature("test", (r) => {
       await perTenantJobs.wait();
     },
   );
-  r.writeHandler({
-    name: "capped-event",
-    schema: z.object({ n: z.number() }),
-    handler: async (event) => ({ isSuccess: true, data: { n: event.payload.n } }),
-    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
-  });
+  r.defineEvent("capped-event", z.object({ n: z.number() }), { piiFields: "none" });
   // Event-triggered twin — exercises handleEvent's maxPerTenant guard
   // (dispatch and handleEvent share isOverPerTenantLimit).
   r.job(
     "perTenantLimitedEvent",
     {
-      trigger: { on: "test:write:capped-event" },
+      trigger: { on: "test:event:capped-event" },
       concurrency: "parallel",
       maxPerTenant: 2,
     },
@@ -160,18 +155,13 @@ const testFeature = defineFeature("test", (r) => {
     },
   );
 
-  r.writeHandler({
-    name: "retry-event-trigger",
-    schema: z.object({ n: z.number() }),
-    handler: async (event) => ({ isSuccess: true, data: { n: event.payload.n } }),
-    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
-  });
+  r.defineEvent("retry-event-trigger", z.object({ n: z.number() }), { piiFields: "none" });
   // Event-triggered job with retries — proves handleEvent passes
   // retries/backoff to the queue the same way dispatch() does (fw
   // job-runner retries regression, solon).
   r.job(
     "eventRetrySucceeds",
-    { trigger: { on: "test:write:retry-event-trigger" }, retries: 2 },
+    { trigger: { on: "test:event:retry-event-trigger" }, retries: 2 },
     async (payload) => {
       eventRetryAttemptCount += 1;
       jobLog.push({ name: "test:job:event-retry-succeeds", payload, timestamp: Date.now() });
@@ -1435,8 +1425,8 @@ describe("handleEvent maxPerTenant", () => {
       perTenantJobs.hold();
       try {
         const user = { ...TestUsers.admin, tenantId: "cap-tenant-evt" };
-        await runner.handleEvent("test:write:capped-event", { n: 1 }, user);
-        await runner.handleEvent("test:write:capped-event", { n: 2 }, user);
+        await runner.handleEvent("test:event:capped-event", { n: 1 }, user);
+        await runner.handleEvent("test:event:capped-event", { n: 2 }, user);
         await waitFor(() => {
           const started = jobLog.filter((e) => e.name === "test:job:per-tenant-limited-event");
           expect(started.length).toBe(2);
@@ -1444,7 +1434,7 @@ describe("handleEvent maxPerTenant", () => {
         // Third must be skipped by the maxPerTenant guard. The two started jobs stay
         // active until the release, and a wrongly enqueued third would start at once
         // (worker concurrency 5) and log, so polling the log catches it.
-        await runner.handleEvent("test:write:capped-event", { n: 3 }, user);
+        await runner.handleEvent("test:event:capped-event", { n: 3 }, user);
         // @timeout-exception: #3118 asserts a negative (stays capped) at each checkpoint
         for (const delayMs of [50, 100, 200, 400]) {
           await sleep(delayMs);
@@ -1464,7 +1454,7 @@ describe("handleEvent retries", () => {
     eventRetryAttemptCount = 0;
     await withRunner(async (runner) => {
       const user = { ...TestUsers.admin, tenantId: "retry-tenant-evt" };
-      await runner.handleEvent("test:write:retry-event-trigger", { n: 1 }, user);
+      await runner.handleEvent("test:event:retry-event-trigger", { n: 1 }, user);
       // Without retries/backoff reaching the queue, the job fails on
       // attempt 1 and BullMQ never retries — this would time out.
       await waitFor(() => {
@@ -1761,15 +1751,10 @@ describe("boot gates", () => {
     );
     rejects(
       defineFeature("onlyten2", (r) => {
-        r.writeHandler({
-          name: "ping",
-          schema: z.object({}),
-          handler: async () => ({ isSuccess: true, data: {} }),
-          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
-        });
+        r.defineEvent("ping", z.object({}), { piiFields: "none" });
         r.job(
           "sweep",
-          { trigger: { on: "onlyten2:write:ping" }, perTenant: true, onlyTenants: [ONLY_TENANT_ID] },
+          { trigger: { on: "onlyten2:event:ping" }, perTenant: true, onlyTenants: [ONLY_TENANT_ID] },
           async () => {},
         );
       }),

@@ -379,13 +379,14 @@ export type JobTrigger =
   // The handler payload includes `_triggerName: string` so the code knows
   // which trigger fired.
   //
-  // Two delivery semantics depend on what `on` resolves to: a write/query-handler
-  // QN dispatches synchronously from dispatch-write.ts's afterCommitHooks —
-  // effectively once. An r.defineEvent QN (e.g. one an r.multiStreamProjection
-  // appends via ctx.events.unsafeAppend) dispatches asynchronously through the
-  // job-trigger event consumer (createJobTriggerEventConsumer,
-  // pipeline/job-trigger-consumer.ts) — cursor delivery, at-least-once. Handlers
-  // triggered on an r.defineEvent QN must be idempotent.
+  // `on` names an r.defineEvent event (qualified, or the own feature's short
+  // name) or an entity lifecycle event `<entityName>.<created|updated|deleted|
+  // restored|forgotten>`. Every trigger runs through the job-trigger event
+  // consumer (createJobTriggerEventConsumer, pipeline/job-trigger-consumer.ts):
+  // at-least-once, with a deterministic job id per job and event, so a
+  // redelivery is a no-op while the job is retained. Handlers must still be
+  // idempotent. A write/query handler QN is rejected at boot: that trigger fired
+  // after the commit and was lost when the process died before the enqueue.
   | {
       readonly on: import("./handlers.ts").NameOrRef | readonly import("./handlers.ts").NameOrRef[];
       // Equality filter on top-level payload fields, checked before enqueue —
@@ -395,8 +396,8 @@ export type JobTrigger =
       // store (own consumer `job:<jobQn>`), including events appended before
       // the job existed. A deterministic job id (job QN + event id) makes a
       // redelivery a no-op while the job is still retained in the queue. Every
-      // `on` entry must be an r.defineEvent event, not a handler QN. The job
-      // is not fired by the synchronous handler path. The job receives the
+      // `on` entry must be an r.defineEvent event (not an entity lifecycle
+      // event, not a handler QN). The job receives the
       // payload upcast to the event's current version. Adding catchUp to a
       // running app runs the job for the whole history of every tenant, so its
       // side effects (mails, webhooks) must be safe to repeat for old events.

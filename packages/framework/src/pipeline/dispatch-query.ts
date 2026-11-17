@@ -206,8 +206,10 @@ async function runQueryHandler(
     }
   }
 
-  // Field-level read filter — only applies to entity-bound results.
-  const entity = entityName ? registry.getEntity(entityName) : undefined;
+  // Field-level read filter: the handler's mapped entity, or the entity it declares as resultEntity.
+  // entityName alone still feeds the hooks above.
+  const filterEntityName = entityName ?? handler.resultEntity;
+  const entity = filterEntityName ? registry.getEntity(filterEntityName) : undefined;
   if (entity && !isAggregate && result && typeof result === "object") {
     if (Array.isArray(result)) {
       result = result.map((row: Record<string, unknown>) => filterReadFields(entity, row, user));

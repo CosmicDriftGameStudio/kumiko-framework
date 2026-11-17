@@ -1,6 +1,6 @@
-// The beforeTransaction phase has no write need at all. ctx.db.outsideTransaction was already
-// dropped; ctx.systemDb.outsideTransaction (r.systemScope() handlers) was a second door to the same
-// durable writes and is pinned shut here, next to the surfaces the reservation phase also denies.
+// The reservation and beforeTransaction phases share one context: the surfaces bound to the
+// not-yet-open transaction are denied, while the outside-transaction handles stay for writes
+// that must survive a failing request (metering, provenance, idempotency records).
 import { describe, expect, test } from "bun:test";
 import type { NotifyFn, NotifyOptions } from "@cosmicdrift/kumiko-types/handlers";
 import type { DbRunner } from "../../db/connection.ts";
@@ -11,10 +11,7 @@ import type { HandlerContext } from "../../engine/types/index.ts";
 import { InternalError } from "../../errors/index.ts";
 import { testTenantId } from "../../seeding/seed-users.ts";
 import { attachOutsideTransaction } from "../attach-outside-transaction.ts";
-import {
-  applyBeforeTransactionReadOnly,
-  denyTransactionBoundSurfaces,
-} from "../handler-context-phase-denials.ts";
+import { denyTransactionBoundSurfaces } from "../handler-context-phase-denials.ts";
 
 const own = testTenantId(1);
 const dispatchedNotify: NotifyFn = async () => ({ kind: "dispatched", deliveries: [] });
@@ -67,27 +64,25 @@ function expectNoNotifyFactories(services: HandlerContext["services"]): void {
   expect(services._notifyAfterCommitFactory).toBeUndefined();
 }
 
-describe("applyBeforeTransactionReadOnly", () => {
-  test("closes ctx.systemDb.outsideTransaction without replacing the systemDb", () => {
+describe("denyTransactionBoundSurfaces (reservation and beforeTransaction phases)", () => {
+  test("keeps the outside-transaction handles without replacing the systemDb", () => {
     const wired = systemScopeContext();
-    expect(wired.systemDb?.outsideTransaction).toBeDefined();
-
-    const phased = applyBeforeTransactionReadOnly(wired);
+    const phased = denyTransactionBoundSurfaces(wired);
 
     expect(phased.systemDb).toBe(wired.systemDb);
-    expect(phased.systemDb?.outsideTransaction).toBeUndefined();
-    expect(Reflect.get(phased.db, "outsideTransaction")).toBeUndefined();
+    expect(phased.systemDb?.outsideTransaction).toBeDefined();
+    expect(Reflect.get(phased.db, "outsideTransaction")).toBeDefined();
   });
 
   test("the systemDb stays usable for in-transaction checks", () => {
     const wired = systemScopeContext();
-    const phased = applyBeforeTransactionReadOnly(wired);
+    const phased = denyTransactionBoundSurfaces(wired);
 
     expect(phased.systemDb?.assertTenantMatch(own)).toBe(wired.systemDb?.assertTenantMatch(own));
   });
 
   test("denies the surfaces bound to the not-yet-open transaction", () => {
-    const phased = applyBeforeTransactionReadOnly(systemScopeContext());
+    const phased = denyTransactionBoundSurfaces(systemScopeContext());
 
     expect(() => phased.lifecycle.afterCommit?.(async () => {})).toThrow(InternalError);
     expect(() => phased.lifecycle.afterRollback?.(async () => {})).toThrow(InternalError);
@@ -99,21 +94,9 @@ describe("applyBeforeTransactionReadOnly", () => {
 
   test("keeps the cancellation signal and the preSave runner", () => {
     const wired = systemScopeContext();
-    const phased = applyBeforeTransactionReadOnly(wired);
+    const phased = denyTransactionBoundSurfaces(wired);
 
     expect(phased.lifecycle.signal).toBe(wired.lifecycle.signal);
     expect(phased.lifecycle.runPreSave).toBe(wired.lifecycle.runPreSave);
-  });
-});
-
-describe("denyTransactionBoundSurfaces (reservation phase)", () => {
-  test("keeps the outside-transaction handles reservations write through", () => {
-    const wired = systemScopeContext();
-    const phased = denyTransactionBoundSurfaces(wired);
-
-    expect(phased.systemDb?.outsideTransaction).toBeDefined();
-    expect(Reflect.get(phased.db, "outsideTransaction")).toBeDefined();
-    expect(() => phased.lifecycle.afterCommit?.(async () => {})).toThrow(InternalError);
-    expectNoNotifyFactories(phased.services);
   });
 });

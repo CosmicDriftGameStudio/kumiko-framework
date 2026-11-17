@@ -91,8 +91,8 @@ export type ApiEntrypointOptions = BaseEntrypointOptions & {
   readonly metrics?: ServerOptions["metrics"];
   readonly extraRoutes?: ServerOptions["extraRoutes"];
   // Job-enqueue surface for the API process. Required whenever the registry
-  // defines event-triggered jobs: command-dispatcher fires handleEvent as
-  // an afterCommit-hook — without a jobRunner the enqueue silently drops.
+  // defines event-triggered jobs: the job-trigger event consumer enqueues
+  // event-triggered jobs — without a jobRunner the enqueue silently drops.
   //
   // `runLocalJobs: true` additionally starts a BullMQ worker for the "api"
   // lane inside this API process. Only useful for short, CPU-light jobs —
@@ -165,10 +165,7 @@ export type AllInOneEntrypoint = Omit<ApiEntrypoint, "mode"> &
 // three parallel edits — one helper, one place to maintain.
 
 // Merge an internally-built jobRunner into the caller's dispatcherOptions
-// so the command-dispatcher fires handleEvent as an afterCommit-hook for
-// event-triggered jobs (dispatcher.ts:997). Without this plumbing,
-// `r.job({ trigger: { on: … } })` silently drops on every write — that
-// was the hidden gap.
+// so the job-trigger event consumer enqueues event-triggered jobs through it.
 //
 // Caller-supplied `dispatcherOptions.jobRunner` wins (tests sometimes
 // inject a mock runner directly).

@@ -130,6 +130,9 @@ export const INBOUND_MAIL_FOUNDATION_I18N: Readonly<Record<string, { readonly en
   [MAIL_SEND_ERRORS.rejected.i18nKey]: {
     en: "The outgoing mail server refused the mail. Check the recipient address.",
   },
+  [MAIL_SEND_ERRORS.outcomeUnknown.i18nKey]: {
+    en: "It is unclear whether this mail was sent. Check the mailbox's sent folder before you send it again.",
+  },
   [MAIL_SEND_ERRORS.invalidMessage.i18nKey]: {
     en: "The mail was not sent: a recipient, the subject or the reply reference is invalid.",
   },

@@ -614,6 +614,68 @@ describe("createRegistry", () => {
     expect(() => createRegistry([feature])).not.toThrow();
   });
 
+  describe("custom queries in a feature with a writeOnly field", () => {
+    const openAccess = {
+      openToAll: { reason: "test handler callable by any signed-in test user" },
+    } as const;
+
+    function featureWithQuery(
+      queryExtras: { resultEntity?: string; unfilteredResult?: { reason: string } },
+    ) {
+      return defineFeature("vault", (r) => {
+        r.entity({
+          name: "secret",
+          ...createEntity({
+            table: "secrets",
+            fields: {
+              apiKey: createTextField({ personal: "tenant", find: "secret", writeOnly: true }),
+            },
+          }),
+        });
+        r.queryHandler({
+          name: "overview",
+          schema: z.object({}),
+          handler: async () => ({ rows: [] }),
+          access: openAccess,
+          ...queryExtras,
+        });
+      });
+    }
+
+    test("a query without resultEntity or unfilteredResult fails the boot", () => {
+      expect(() => createRegistry([featureWithQuery({})])).toThrow(
+        /vault:query:overview.*declares no resultEntity/i,
+      );
+    });
+
+    test("resultEntity lets the feature boot", () => {
+      expect(() => createRegistry([featureWithQuery({ resultEntity: "secret" })])).not.toThrow();
+    });
+
+    test("a placeholder unfilteredResult reason fails the boot", () => {
+      expect(() =>
+        createRegistry([featureWithQuery({ unfilteredResult: { reason: "todo" } })]),
+      ).toThrow(/unfilteredResult/);
+    });
+
+    test("a resultEntity that is not registered fails the boot", () => {
+      expect(() => createRegistry([featureWithQuery({ resultEntity: "ghost" })])).toThrow(
+        /resultEntity "ghost" is not a registered entity/,
+      );
+    });
+
+    test("resultEntity together with unfilteredResult fails the boot", () => {
+      expect(() =>
+        createRegistry([
+          featureWithQuery({
+            resultEntity: "secret",
+            unfilteredResult: { reason: "returns only a count, never secret rows" },
+          }),
+        ]),
+      ).toThrow(/both resultEntity and unfilteredResult/);
+    });
+  });
+
   test("throws when dotted query handler references unknown entity (typo protection)", () => {
     const feature = defineFeature("hr", (r) => {
       r.entity({
@@ -674,15 +736,17 @@ describe("createRegistry", () => {
         }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
-      // Standalone queries — no dot, intentionally not entity-bound
+      // Standalone queries — no colon, intentionally not entity-bound; they declare that no employee rows leave
       r.queryHandler({
         name: "dashboard",
+        unfilteredResult: { reason: "returns a fixed aggregate, no employee rows" },
         schema: z.object({}),
         handler: async () => ({ total: 42 }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.queryHandler({
         name: "orgChart",
+        unfilteredResult: { reason: "returns a fixed aggregate, no employee rows" },
         schema: z.object({}),
         handler: async () => [],
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
@@ -2438,7 +2502,7 @@ describe("registry boot validation", () => {
       r.job("myJob", { trigger: { on: "ghost-handler" } }, async () => {});
     });
 
-    expect(() => createRegistry([feature])).toThrow(/my-job.*ghost-handler.*no handler/i);
+    expect(() => createRegistry([feature])).toThrow(/my-job.*ghost-handler.*no event/i);
   });
 
   test("multi-trigger: r.job accepts an array of trigger refs", () => {
@@ -2459,7 +2523,7 @@ describe("registry boot validation", () => {
       // One job body, two triggers — a DRY pattern for fan-out cases.
       r.job(
         "fanout",
-        { trigger: { on: ["shop:write:order:create", "shop:write:order:cancel"] } },
+        { trigger: { on: ["order.created", "order.deleted"] } },
         async () => {},
       );
     });
@@ -2467,7 +2531,7 @@ describe("registry boot validation", () => {
     const job = registry.getJob("shop:job:fanout");
     expect(job).toBeDefined();
     if (job && "on" in job.trigger) {
-      expect(job.trigger.on).toEqual(["shop:write:order:create", "shop:write:order:cancel"]);
+      expect(job.trigger.on).toEqual(["order.created", "order.deleted"]);
     }
   });
 
@@ -2480,14 +2544,14 @@ describe("registry boot validation", () => {
         handler: async () => ({ isSuccess: true, data: null }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
-      // create exists, cancel does not — the second trigger is dangling
+      // order.created is an entity event, ghost.created names no entity — the second trigger is dangling
       r.job(
         "fanout",
-        { trigger: { on: ["shop:write:order:create", "shop:write:order:ghost"] } },
+        { trigger: { on: ["order.created", "ghost.created"] } },
         async () => {},
       );
     });
-    expect(() => createRegistry([feature])).toThrow(/fanout.*ghost.*no handler/i);
+    expect(() => createRegistry([feature])).toThrow(/fanout.*ghost.*no event/i);
   });
 
   test("throws for extension usage referencing non-existent extension", () => {

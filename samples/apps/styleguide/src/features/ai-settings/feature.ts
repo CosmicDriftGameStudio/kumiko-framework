@@ -59,6 +59,7 @@ export const aiSettingsFeature = defineFeature("ai-settings", (r) => {
   r.crud("connection", connectionEntity, { write: open, read: openRead });
   r.queryHandler({
     name: "connection-options",
+    unfilteredResult: { reason: "returns select options, never connection rows" },
     schema: noPayload,
     handler: async (query, ctx) => {
       const page = await executor.list({ limit: 100 }, query.user, ctx.db);
@@ -74,6 +75,7 @@ export const aiSettingsFeature = defineFeature("ai-settings", (r) => {
 
   r.queryHandler({
     name: "model-options",
+    unfilteredResult: { reason: "returns select options, never connection rows" },
     schema: connectionIdPayload,
     handler: async (query, ctx) => {
       const { connectionId } = query.payload;
@@ -87,6 +89,7 @@ export const aiSettingsFeature = defineFeature("ai-settings", (r) => {
 
   r.queryHandler({
     name: "step-options",
+    unfilteredResult: { reason: "returns select options, never connection rows" },
     schema: noPayload,
     handler: async () => ({ rows: AI_STEPS }),
     ...openRead,
@@ -94,6 +97,7 @@ export const aiSettingsFeature = defineFeature("ai-settings", (r) => {
 
   r.queryHandler({
     name: "all-model-options",
+    unfilteredResult: { reason: "returns select options, never connection rows" },
     schema: noPayload,
     handler: async () => ({
       rows: PROVIDERS.flatMap((provider) =>

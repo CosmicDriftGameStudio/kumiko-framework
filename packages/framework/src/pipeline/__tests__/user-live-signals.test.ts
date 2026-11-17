@@ -49,3 +49,24 @@ describe("createUserLiveSignals", () => {
     expect(warnings).toHaveLength(1);
   });
 });
+
+describe("createUserLiveSignals with a commit sink", () => {
+  test("sends no frame until the scheduled hook runs", async () => {
+    const pushed: Pushed[] = [];
+    const scheduled: (() => Promise<void> | void)[] = [];
+    const signals = createUserLiveSignals(
+      brokerRecording(pushed),
+      TENANT,
+      { warn: () => {} },
+      (hook) => scheduled.push(hook),
+    );
+    await signals.push(["u1", "u2"], { type: "x:event:changed" });
+
+    expect(pushed).toEqual([]);
+    expect(scheduled).toHaveLength(1);
+
+    for (const hook of scheduled) await hook();
+
+    expect(pushed.map((frame) => (frame.data as { userId: string }).userId)).toEqual(["u1", "u2"]);
+  });
+});

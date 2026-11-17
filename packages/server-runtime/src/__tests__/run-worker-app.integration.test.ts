@@ -70,14 +70,20 @@ const workerProbeEntity = createEntity({
 
 const workerProbeFeature = defineFeature("worker-probe", (r) => {
   r.entity({ name: "probe", ...workerProbeEntity });
+  r.defineEvent("pinged", z.object({ note: z.string() }), { piiFields: "none" });
   r.writeHandler({
     name: "ping",
     schema: z.object({ note: z.string() }),
     access: { roles: ["SystemAdmin"] },
-    handler: async (event) => ({
-      isSuccess: true as const,
-      data: { note: (event.payload as { note: string }).note },
-    }),
+    handler: async (event, ctx) => {
+      await ctx.events.append({
+        aggregateId: crypto.randomUUID(),
+        aggregateType: "probe-ping",
+        type: "worker-probe:event:pinged",
+        payload: { note: event.payload.note },
+      });
+      return { isSuccess: true as const, data: { note: event.payload.note } };
+    },
   });
   // The job's only purpose: prove Temporal is already defined by the time
   // the handler runs. Before, there was no framework-side boot path for this
@@ -89,7 +95,7 @@ const workerProbeFeature = defineFeature("worker-probe", (r) => {
   );
   r.job(
     "record-ping",
-    { trigger: { on: "worker-probe:write:ping" }, runIn: "worker" },
+    { trigger: { on: "pinged" }, runIn: "worker" },
     async (payload) => {
       const temporalWasDefined =
         typeof (globalThis as { Temporal?: unknown }).Temporal === "object";

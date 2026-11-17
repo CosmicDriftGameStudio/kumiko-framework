@@ -67,6 +67,7 @@ const feature = defineFeature("wo", (r) => {
   // Returns only a boolean so the secret itself never leaves the server.
   r.queryHandler({
     name: "stored-key-matches",
+    unfilteredResult: { reason: "returns only whether the candidate matches, never the stored key" },
     schema: z.object({ id: z.uuid(), candidate: z.string() }),
     handler: async (query, ctx) => {
       const row = await connectionExecutor.detail({ id: query.payload.id }, query.user, ctx.db);

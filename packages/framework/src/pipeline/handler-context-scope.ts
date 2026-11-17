@@ -22,6 +22,7 @@ import { createEscapeHatchReporter } from "../observability/escape-hatch-report.
 import type { ContextServiceOverrides } from "./context-services.ts";
 import { resolveDbSource } from "./dispatch-context-helpers.ts";
 import type { DispatchContext, HandlerTransactionScope } from "./dispatch-shared.ts";
+import type { AfterCommitHook } from "./dispatcher-utils.ts";
 import { isEffectivelySystemScoped } from "./effective-system-scope.ts";
 import { createUserLiveSignals } from "./user-live-signals.ts";
 import type { WriteOrigin } from "./write-origin.ts";
@@ -139,7 +140,10 @@ export function buildPreSave(
 }
 
 // Services the dispatcher resolves itself instead of copying from the boot context.
-export function buildRuntimeServices(scope: HandlerContextScope): ContextServiceOverrides {
+export function buildRuntimeServices(
+  scope: HandlerContextScope,
+  notifyCommitSink: AfterCommitHook[] | undefined,
+): ContextServiceOverrides {
   const { effectiveFeatures, jobRunner, cacheSync, sseBroker } = scope.ctx;
   return {
     ...(sseBroker && {
@@ -147,6 +151,7 @@ export function buildRuntimeServices(scope: HandlerContextScope): ContextService
         sseBroker,
         scope.user.tenantId,
         scope.context.log ?? createFallbackLogger("dispatcher"),
+        notifyCommitSink === undefined ? undefined : (hook) => notifyCommitSink.push(hook),
       ),
     }),
     // One resolver for the lifecycle pipeline, MSP runner and ctx.hasFeature.

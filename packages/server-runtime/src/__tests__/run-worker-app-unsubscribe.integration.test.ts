@@ -68,17 +68,26 @@ const captureEmailChannelFeature = defineFeature("channel-email", (r) => {
 const digestFeature = defineFeature("digest-probe", (r) => {
   r.requires({ features: ["delivery"] });
   r.notification("digest", { unsubscribe: true });
+  r.defineEvent("triggered", z.object({}), { piiFields: "none" });
   r.writeHandler(
     defineWriteHandler({
       name: "trigger",
       schema: z.object({}),
       access: { roles: ["SystemAdmin"] },
-      handler: async () => ({ isSuccess: true as const, data: {} }),
+      handler: async (_event, ctx) => {
+        await ctx.events.append({
+          aggregateId: crypto.randomUUID(),
+          aggregateType: "digest-request",
+          type: "digest-probe:event:triggered",
+          payload: {},
+        });
+        return { isSuccess: true as const, data: {} };
+      },
     }),
   );
   r.job(
     "send-digest",
-    { trigger: { on: "digest-probe:write:trigger" }, runIn: "worker" },
+    { trigger: { on: "triggered" }, runIn: "worker" },
     async (_payload, ctx) => {
       const notify = ctx.notify as NotifyFn;
       await notify("digest-probe:notify:digest", {

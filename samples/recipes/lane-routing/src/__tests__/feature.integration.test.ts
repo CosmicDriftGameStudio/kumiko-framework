@@ -3,8 +3,8 @@
 // What we're proving (via createAllInOneEntrypoint + BullMQ + Hono — no
 // framework-internal shortcuts):
 //   1. A write lands on the HTTP surface.
-//   2. The command-dispatcher fires `jobRunner.handleEvent` as an
-//      afterCommit-hook (welle-2.5-gap fix, auto-wired by the entrypoint).
+//   2. The handler appends the "order-placed" event; the job-trigger event
+//      consumer (auto-wired by the entrypoint) enqueues both jobs after the commit.
 //   3. Both `runIn: "worker"` jobs fan out onto the `kumiko-jobs-worker`
 //      queue and execute — the worker-side BullMQ worker picks them up,
 //      the api-side one does not (even in all-in-one, the lane-scoped
@@ -86,8 +86,9 @@ describe("lane-routing sample", () => {
           payload: { customerName: "Acme GmbH", amount: 299 },
         }),
       });
-      const result = (await res.json()) as { isSuccess: boolean };
+      const result = (await res.json()) as { isSuccess: boolean; data: { id: string } };
       expect(result.isSuccess).toBe(true);
+      const orderId = result.data.id;
 
       // Both jobs are declared runIn:"worker" — they enqueue into
       // kumiko-jobs-worker-*, and the all-in-one worker runner consumes
@@ -96,7 +97,7 @@ describe("lane-routing sample", () => {
       await waitFor(() => {
         expect(renderedReceipts).toHaveLength(1);
         expect(sentConfirmations).toHaveLength(1);
-        expect(renderedReceipts[0]?.customerName).toBe("Acme GmbH");
+        expect(renderedReceipts[0]?.orderId).toBe(orderId);
         expect(sentConfirmations[0]?.amount).toBe(299);
       });
     } finally {

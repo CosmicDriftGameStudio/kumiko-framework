@@ -616,8 +616,8 @@ export type AppContext = SharedContextFields & {
   readonly triggeredBy?: { readonly id: string; readonly tenantId: TenantId } | null;
   /** For job-handler calls triggered by an `on` entry
    *  (`r.job` with `trigger: { on: ... }`): the qualified name the entry matched,
-   *  either a write/query-handler QN (e.g. `multi:write:order:open`) or an
-   *  `r.defineEvent` QN (e.g. `inbound-mail-foundation:event:inbound-message-received`).
+   *  an `r.defineEvent` QN (e.g. `inbound-mail-foundation:event:inbound-message-received`)
+   *  or an entity lifecycle event (e.g. `order.created`).
    *  For multi-trigger jobs (`on: [...]`), this is the only way for the
    *  handler to know which trigger fired. Cron and manual jobs leave the
    *  field undefined. */
@@ -1285,7 +1285,7 @@ export type BeforeTransactionPhase<TPayload = unknown, TPrepared = unknown> = (
 
 /** `perCommand`: the handler runs without a transaction of its own. Use it for long external calls
  *  (minutes) that also need writes: no transaction or connection is held while the call runs, and
- *  `ctx.db.outsideTransaction` stays available for metering/provenance bookings. */
+ *  `ctx.db.outsideTransaction` stays available for metering/provenance bookings (as it does in beforeTransaction). */
 export type WriteHandlerTransactionMode = "perCommand";
 
 /** `skip`: run as a nested write without the `beforeTransaction` phase. */
@@ -1327,6 +1327,8 @@ export type WriteHandlerDef = {
    *  transaction opens: no transaction and no connection held, for external I/O and reads only.
    *  Its `data` reaches the handler as `event.prepared`; a failure result or throw rejects the
    *  write before anything is written. A handler with this phase cannot run as a nested ctx.dispatch.write.
+   *  `ctx.db.outsideTransaction` and `ctx.systemDb.outsideTransaction` stay available for writes
+   *  that must outlive a failing request (metering, provenance, idempotency records).
    *  `ctx.tenants.writeTarget` is available but read-only here: its db denies writes for the own and a
    *  foreign tenant alike (a foreign tenant stays gated by the SystemAdmin check). */
   readonly beforeTransaction?: BeforeTransactionPhase;
@@ -1388,6 +1390,13 @@ export type QueryHandlerDef = {
    *  access to this query receive /api/sse change signals (no field values)
    *  for these entities. Every name must be a registered entity. */
   readonly liveEntities?: readonly string[];
+  /** The entity whose field read rules and writeOnly mask apply to this query's result (a row,
+   *  an array of rows or `{ rows }`). It does not map the handler to the entity: no effect on
+   *  live signals, access or hooks. */
+  readonly resultEntity?: string;
+  /** Marks a query whose result holds no entity rows (options, counts, derived values), so no
+   *  field filter applies. Excludes `resultEntity`. */
+  readonly unfilteredResult?: { readonly reason: string };
   // Query handlers can't reach db.global() (that gate is write-only), but
   // they can still switch identity to SYSTEM via ctx.dispatch.queryAs — this opts
   // in, same contract as WriteHandlerDef.escapeHatch.

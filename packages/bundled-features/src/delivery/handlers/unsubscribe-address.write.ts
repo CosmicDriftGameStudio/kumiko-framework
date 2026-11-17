@@ -3,8 +3,9 @@ import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { upsertAddressOptOut } from "../address-opt-out.ts";
 import { currentNotificationType } from "../notification-type-aliases.ts";
+import { DELIVERY_ADDRESS_UNSUBSCRIBED_EVENT } from "../web/public-names.ts";
 
-// Also the payload an app job receives with `trigger: { on: DeliveryHandlers.unsubscribeAddress }`
+// Also the payload of DELIVERY_ADDRESS_UNSUBSCRIBED_EVENT, which an app job triggers on
 // after a committed address opt-out (the tenant is the job's `ctx.triggeredBy.tenantId`).
 export const unsubscribeAddressPayloadSchema = z.object({
   addressHash: z.string().min(1),
@@ -42,6 +43,12 @@ export const unsubscribeAddressWrite = defineWriteHandler({
       channel,
     });
     if (!result.isSuccess) return result;
+    await ctx.events.append({
+      aggregateId: crypto.randomUUID(),
+      aggregateType: "delivery-address-unsubscribe",
+      type: DELIVERY_ADDRESS_UNSUBSCRIBED_EVENT,
+      payload: { addressHash, notificationType, channel },
+    });
     return { isSuccess: true, data: { notificationType, channel } };
   },
 });

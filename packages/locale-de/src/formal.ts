@@ -316,6 +316,8 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
     "Der Postausgangsserver ist nicht erreichbar. Versuchen Sie es später noch einmal.",
   "inboundMail.send.errors.rejected":
     "Der Postausgangsserver hat die Mail abgelehnt. Prüfen Sie die Empfängeradresse.",
+  "inboundMail.send.errors.outcomeUnknown":
+    "Unklar, ob diese Mail gesendet wurde. Sehen Sie im Ordner Gesendet des Postfachs nach, bevor Sie sie noch einmal senden.",
   "helpdesk:report.summary":
     "Die Antwort kommt per Mail an die Adresse Ihres Kontos, meist am selben Werktag.",
   "helpdesk:report.section": "Ihre Meldung",

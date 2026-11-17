@@ -21,13 +21,24 @@ const appFeature = defineFeature("app", (r) => {
       description: "Test-only: starts a tenant-visible job.",
       schema: z.object({ campaignId: z.string() }),
       access: { roles: ["Admin"] },
-      handler: async (event) => ({ isSuccess: true as const, data: { ...event.payload } }),
+      handler: async (event, ctx) => {
+        await ctx.events.append({
+          aggregateId: crypto.randomUUID(),
+          aggregateType: "generation-request",
+          type: "app:event:generation-requested",
+          payload: { campaignId: event.payload.campaignId },
+        });
+        return { isSuccess: true as const, data: { ...event.payload } };
+      },
     }),
   );
+  r.defineEvent("generation-requested", z.object({ campaignId: z.string() }), {
+    piiFields: "none",
+  });
   r.job(
     "generateTexts",
     {
-      trigger: { on: "app:write:generate" },
+      trigger: { on: "generation-requested" },
       tenantVisibleRun: { subjectFields: ["campaignId"] },
     },
     async () => {},
@@ -61,6 +72,8 @@ describe("setupTestStackFromFeatures({ jobs }) tenant-visible run state", () => 
   test("queued right after the write while no worker consumes", async () => {
     stack = await setupTestStackFromFeatures([appFeature, createJobsFeature()], { jobs: {} });
     await stack.http.writeOk("app:write:generate", { campaignId: "c1" }, userA);
+    // The job-trigger event consumer enqueues after the commit; no worker lane runs the job.
+    await stack.eventDispatcher?.runOnce();
 
     const rows = await runsOf(stack);
     expect(rows.map((row) => row.status)).toEqual(["queued"]);

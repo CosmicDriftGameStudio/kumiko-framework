@@ -16,7 +16,7 @@ export function catchUpEventTypesOf(trigger: EventJobTrigger): ReadonlySet<strin
 
 // One consumer per catchUp job: its own cursor starts at the beginning of the
 // event store, so events older than the job are replayed too. The enqueue id is
-// deterministic (job QN + event id), see catchUpJobId. Replayed events can be
+// deterministic (job QN + event id), see eventTriggeredJobId. Replayed events can be
 // older than the event's current schema, so they are upcast before the job sees them. Events
 // outside the trigger's types return before the upcast: another event's broken upcaster must
 // not stall this job's cursor.

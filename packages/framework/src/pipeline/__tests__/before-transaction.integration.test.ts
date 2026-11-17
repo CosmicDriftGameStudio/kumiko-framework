@@ -45,6 +45,8 @@ const RESERVE_APPENDS = `${FEATURE}:write:reserve-appends`;
 const RESERVE_OUTSIDE = `${FEATURE}:write:reserve-outside`;
 const RESERVE_OUTSIDE_WRITES = `${FEATURE}:write:reserve-outside-writes`;
 const RESERVE_DENIED = `${FEATURE}:write:reserve-denied`;
+const BEFORE_OUTSIDE_WRITES = `${FEATURE}:write:before-outside-writes`;
+const BEFORE_DB_WRITES = `${FEATURE}:write:before-db-writes`;
 const PREPARE_GENERATED = `${FEATURE}:write:prepare-generated`;
 const NESTED_OUTER = `${FEATURE}:write:nested-outer`;
 const PREPARE_FOR_TENANT = `${FEATURE}:write:prepare-for-tenant`;
@@ -202,6 +204,43 @@ const beforeTxFeature = defineFeature(FEATURE, (r) => {
       },
       handler: async () => {
         handlerCalls.push("prepare-writes");
+        return { isSuccess: true as const, data: {} };
+      },
+    }),
+  );
+
+  r.writeHandler(
+    defineWriteHandler({
+      name: "before-outside-writes",
+      schema: titlePayload,
+      access: { roles: ["Admin"] },
+      beforeTransaction: async (event, ctx) => {
+        await runInOwnTransaction(requireOutsideTransactionDb(ctx), (txDb) =>
+          noteExecutor.create({ title: "recorded" }, event.user, txDb),
+        );
+        return { isSuccess: true as const, data: undefined };
+      },
+      handler: async (event) => {
+        handlerCalls.push("before-outside-writes");
+        if (event.payload.failInHandler) {
+          return writeFailure(new UnprocessableError("handler_rejected"));
+        }
+        return { isSuccess: true as const, data: {} };
+      },
+    }),
+  );
+
+  r.writeHandler(
+    defineWriteHandler({
+      name: "before-db-writes",
+      schema: titlePayload,
+      access: { roles: ["Admin"] },
+      beforeTransaction: async (event, ctx) => {
+        await noteExecutor.create({ title: "through-db" }, event.user, ctx.db);
+        return { isSuccess: true as const, data: undefined };
+      },
+      handler: async () => {
+        handlerCalls.push("before-db-writes");
         return { isSuccess: true as const, data: {} };
       },
     }),
@@ -581,5 +620,26 @@ describe("beforeTransaction", () => {
     expect(reservationOutsideHandles).toEqual([true]);
     expect(reservationOutsideReads).toEqual([0]);
     expect(handlerCalls).toEqual(["reserve-outside"]);
+  });
+
+  test("a beforeTransaction write through the outside-transaction db survives a failing handler", async () => {
+    const error = await stack.http.writeErr(
+      BEFORE_OUTSIDE_WRITES,
+      { title: "bad", failInHandler: true },
+      admin,
+    );
+
+    expect(error.httpStatus).toBe(422);
+    expect(handlerCalls).toEqual(["before-outside-writes"]);
+    expect(await noteTitles()).toEqual(["recorded"]);
+  });
+
+  test("a beforeTransaction write through ctx.db still throws and persists nothing", async () => {
+    const error = await stack.http.writeErr(BEFORE_DB_WRITES, { title: "x" }, admin);
+
+    expect(error.httpStatus).toBe(500);
+    expect(error.message).toContain("without an open transaction");
+    expect(handlerCalls).toEqual([]);
+    expect(await noteTitles()).toEqual([]);
   });
 });

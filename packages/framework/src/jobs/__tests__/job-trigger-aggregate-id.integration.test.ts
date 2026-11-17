@@ -1,7 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import type { JobTriggerEvent } from "@cosmicdrift/kumiko-types/handlers";
-import * as z from "zod";
 import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 
@@ -11,7 +10,6 @@ type SeenRun = {
 };
 
 const seen: SeenRun[] = [];
-const pings: (JobTriggerEvent | undefined)[] = [];
 
 const itemEntity = createEntity({
   table: "read_job_trigger_items",
@@ -26,26 +24,13 @@ const jobTriggerFixtureFeature = defineFeature("jobtriggerfixture", (r) => {
     read: { access: { roles: ["Admin"] } },
     verbs: { update: false },
   });
-  r.writeHandler({
-    name: "ping",
-    schema: z.object({}),
-    access: { roles: ["Admin"] },
-    handler: async () => ({ isSuccess: true as const, data: {} }),
-  });
   r.job(
     "onItemWritten",
-    {
-      trigger: {
-        on: ["jobtriggerfixture:write:item:create", "jobtriggerfixture:write:item:delete"],
-      },
-    },
+    { trigger: { on: ["item.created", "item.deleted"] } },
     async (_payload, ctx) => {
       seen.push({ triggerName: ctx.triggerName, triggerEvent: ctx.triggerEvent });
     },
   );
-  r.job("onPing", { trigger: { on: "jobtriggerfixture:write:ping" } }, async (_payload, ctx) => {
-    pings.push(ctx.triggerEvent);
-  });
 });
 
 let stack: TestStack;
@@ -63,10 +48,9 @@ afterAll(async () => {
 
 beforeEach(() => {
   seen.length = 0;
-  pings.length = 0;
 });
 
-describe("JobContext.triggerEvent for write-handler triggers", () => {
+describe("JobContext.triggerEvent for entity event triggers", () => {
   test("a create trigger carries the new row id as triggerEvent.aggregateId", async () => {
     const created = await stack.http.writeOk<{ id: string }>(
       "jobtriggerfixture:write:item:create",
@@ -98,12 +82,5 @@ describe("JobContext.triggerEvent for write-handler triggers", () => {
 
     expect(seen).toHaveLength(1);
     expect(seen[0]?.triggerEvent?.aggregateId).toBe(created.id);
-  });
-
-  test("a plain-data handler result fires the job without triggerEvent", async () => {
-    await stack.http.writeOk("jobtriggerfixture:write:ping", {}, TestUsers.admin);
-    await stack.drainJobs();
-
-    expect(pings).toEqual([undefined]);
   });
 });

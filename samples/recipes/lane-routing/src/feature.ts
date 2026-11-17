@@ -21,15 +21,14 @@ import { z } from "zod";
 // and got the right payload. A real app would do DB writes, HTTP calls,
 // PDF rendering, mail sending — whatever the side-effect is, it's
 // opaque to the framework.
-export const renderedReceipts: Array<{ customerName: string; amount: number }> = [];
-export const sentConfirmations: Array<{ customerName: string; amount: number }> = [];
+export const renderedReceipts: Array<{ orderId: string; amount: number }> = [];
+export const sentConfirmations: Array<{ orderId: string; amount: number }> = [];
 export const pruneRuns: number[] = [];
 
 // The entity declaration secures the qualified-name prefix "orders:write:order:create"
-// for the write handler below and thereby the job trigger on this event.
-// Persistence does not happen in the custom handler (id is hardcoded for the
-// sample test) — in a real app an entityWriteHandler would write to the
-// DB.
+// for the write handler below. The handler does not persist the entity — it
+// appends the "order-placed" event the jobs trigger on; in a real app an
+// entityWriteHandler would write to the DB.
 const orderEntity = createEntity({
   table: "read_orders",
   fields: {
@@ -42,23 +41,36 @@ export function createLaneRoutingFeature(): FeatureDefinition {
   return defineFeature("orders", (r) => {
     r.entity({ name: "order", ...orderEntity });
 
+    // The event both jobs trigger on. No PII: customerName stays out of it.
+    r.defineEvent("order-placed", z.object({ orderId: z.string(), amount: z.number() }), {
+      piiFields: "none",
+    });
+
     // Write handler — runs in the API process (or wherever the command
-    // lands). Event "orders:write:order:create" is the auto-generated
-    // write-event both jobs trigger on.
+    // lands) and appends the event the jobs consume.
     r.writeHandler({
       name: "order:create",
       schema: z.object({
         customerName: z.string().min(1),
         amount: z.number().positive(),
       }),
-      handler: async (event) => ({
-        isSuccess: true as const,
-        data: {
-          id: 1,
-          customerName: event.payload.customerName,
-          amount: event.payload.amount,
-        },
-      }),
+      handler: async (event, ctx) => {
+        const orderId = crypto.randomUUID();
+        await ctx.events.append({
+          aggregateId: orderId,
+          aggregateType: "order",
+          type: "orders:event:order-placed",
+          payload: { orderId, amount: event.payload.amount },
+        });
+        return {
+          isSuccess: true as const,
+          data: {
+            id: orderId,
+            customerName: event.payload.customerName,
+            amount: event.payload.amount,
+          },
+        };
+      },
       access: {
         openToAll: {
           reason:
@@ -74,12 +86,12 @@ export function createLaneRoutingFeature(): FeatureDefinition {
     r.job(
       "render-receipt",
       {
-        trigger: { on: "orders:write:order:create" },
+        trigger: { on: "order-placed" },
         runIn: "worker",
       },
       async (payload) => {
         renderedReceipts.push({
-          customerName: payload["customerName"] as string,
+          orderId: payload["orderId"] as string,
           amount: payload["amount"] as number,
         });
       },
@@ -91,12 +103,12 @@ export function createLaneRoutingFeature(): FeatureDefinition {
     r.job(
       "send-confirmation",
       {
-        trigger: { on: "orders:write:order:create" },
+        trigger: { on: "order-placed" },
         runIn: "worker",
       },
       async (payload) => {
         sentConfirmations.push({
-          customerName: payload["customerName"] as string,
+          orderId: payload["orderId"] as string,
           amount: payload["amount"] as number,
         });
       },

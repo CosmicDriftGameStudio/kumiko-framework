@@ -49,7 +49,7 @@ import { createDeliveryTestContext } from "../testing.ts";
 import type { DeliveryService } from "../types.ts";
 import { createUnsubscribeRoutes } from "../unsubscribe.ts";
 import { signAddressUnsubscribeToken } from "../unsubscribe-tokens.ts";
-import { DeliveryHandlers } from "../web/public-names.ts";
+import { DELIVERY_ADDRESS_UNSUBSCRIBED_EVENT } from "../web/public-names.ts";
 import { createPlainFallbackEmailFeature } from "./plain-email-channel.ts";
 
 const UNSUBSCRIBE_SECRET = "unsubscribe-origin-test-secret-32-chars-min!";
@@ -104,7 +104,7 @@ const appFeature = defineFeature("unsub-origin", (r) => {
   r.notification("news", { unsubscribe: true });
   r.job(
     "drop-subscriber",
-    { trigger: { on: DeliveryHandlers.unsubscribeAddress }, runIn: "worker" },
+    { trigger: { on: DELIVERY_ADDRESS_UNSUBSCRIBED_EVENT }, runIn: "worker" },
     async (payload, ctx) => {
       const tenantId = ctx.triggeredBy?.tenantId;
       if (tenantId === undefined) throw new Error("opt-out job without a tenant");

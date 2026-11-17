@@ -14,6 +14,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test
 import { randomBytes } from "node:crypto";
 import type { lookup } from "node:dns/promises";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
+import { insertOne } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createFileRefFromBytes,
@@ -22,6 +23,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/files";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { resetPiiSubjectKmsForTests, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -42,6 +44,8 @@ import {
   InboundMailFoundationHandlers,
   inboundCredentialSecretKey,
   ingestFailureEntity,
+  outboundMailSendEntity,
+  outboundMailSendsTable,
   MAIL_SEND_ERRORS,
   type OutboundMailSent,
   outboundMailMessageSchema,
@@ -110,7 +114,11 @@ const sendTestFeature = defineFeature("send-from-account-test", (r) => {
     description:
       "Sends a mail from a connected mailbox in beforeTransaction, as an app's own handler would.",
     agent: { expose: false },
-    schema: z.object({ accountId: z.string(), message: outboundMailMessageSchema }),
+    schema: z.object({
+      accountId: z.string(),
+      message: outboundMailMessageSchema,
+      idempotencyKey: z.string().optional(),
+    }),
     access: { roles: ["TenantAdmin"] },
     beforeTransaction: async (event, ctx) => sendMailFromAccount(ctx, event.payload),
     handler: async (event) => ({ isSuccess: true, data: event.prepared }),
@@ -174,6 +182,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, seenMessageEntity);
   await unsafeCreateEntityTable(stack.db, quarantineEntity);
   await unsafeCreateEntityTable(stack.db, ingestFailureEntity);
+  await unsafeCreateEntityTable(stack.db, outboundMailSendEntity);
   await unsafePushTables(stack.db, { tenant_secrets: tenantSecretsTable });
   configurePiiSubjectKms(new InMemoryKmsAdapter());
   process.env[TLS_VERIFY_ENV_VAR] = "0";
@@ -560,5 +569,58 @@ describe("sendMailFromAccount", () => {
     );
 
     expect(error.i18nKey).toBe(MAIL_SEND_ERRORS.notConfigured.i18nKey);
+  });
+
+  greenmailTest("the same idempotency key sends one mail and returns the stored result", async () => {
+    const admin = freshAdmin();
+    const accountId = await connectMailbox(admin);
+    const subject = `Keyed ${crypto.randomUUID()}`;
+    const payload = {
+      accountId,
+      idempotencyKey: "reply-4711",
+      message: { to: [RECIPIENT], subject, text: "Einmal." },
+    };
+
+    const first = await stack.http.writeOk<OutboundMailSent>(
+      SEND_BEFORE_TRANSACTION_HANDLER,
+      payload,
+      admin,
+    );
+    const second = await stack.http.writeOk<OutboundMailSent>(
+      SEND_BEFORE_TRANSACTION_HANDLER,
+      payload,
+      admin,
+    );
+
+    expect(second.messageIdHeader).toBe(first.messageIdHeader);
+    const subjects = await recipientSubjects();
+    expect(subjects.filter((s) => s === subject)).toHaveLength(1);
+  });
+
+  test("a key whose send started but never finished answers outcome unknown and sends nothing", async () => {
+    const admin = freshAdmin();
+    // The key lookup runs before the account lookup, so no connected mailbox is needed.
+    const accountId = crypto.randomUUID();
+    await insertOne(stack.db, outboundMailSendsTable, {
+      id: crypto.randomUUID(),
+      tenantId: admin.tenantId,
+      idempotencyKey: "crashed-send",
+      accountId,
+      status: "sending",
+      attachmentFileIds: [],
+      claimedAt: Temporal.Now.instant().toString(),
+    });
+
+    const error = await stack.http.writeErr(
+      SEND_BEFORE_TRANSACTION_HANDLER,
+      {
+        accountId,
+        idempotencyKey: "crashed-send",
+        message: { to: [RECIPIENT], subject: "Hallo", text: "Test" },
+      },
+      admin,
+    );
+
+    expect(error.i18nKey).toBe(MAIL_SEND_ERRORS.outcomeUnknown.i18nKey);
   });
 });

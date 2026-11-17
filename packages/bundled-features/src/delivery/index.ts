@@ -50,6 +50,7 @@ export {
 } from "./chat-webhook-sender.ts";
 export type { DeliveryStatusValue } from "./constants.ts";
 export {
+  DELIVERY_ADDRESS_UNSUBSCRIBED_EVENT,
   DELIVERY_ATTEMPT_ADDRESS_ERASED_EVENT,
   DELIVERY_CHANNEL_EXTENSION,
   DELIVERY_FEATURE,

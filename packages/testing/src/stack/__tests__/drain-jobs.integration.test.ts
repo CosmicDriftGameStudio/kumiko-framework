@@ -21,10 +21,20 @@ const chainFeature = defineFeature("draintestchain", (r) => {
     piiFields: "none",
   });
 
+  r.defineEvent("started", z.object({ value: z.string() }), { piiFields: "none" });
+
   r.writeHandler({
     name: "start",
     schema: z.object({ value: z.string() }),
-    handler: async () => ({ isSuccess: true as const, data: {} }),
+    handler: async (event, ctx) => {
+      await ctx.events.append({
+        aggregateId: crypto.randomUUID(),
+        aggregateType: "draintestchain",
+        type: "draintestchain:event:started",
+        payload: { value: event.payload.value },
+      });
+      return { isSuccess: true as const, data: {} };
+    },
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
 
@@ -72,7 +82,7 @@ const chainFeature = defineFeature("draintestchain", (r) => {
 
   r.job(
     "job-a",
-    { trigger: { on: "draintestchain:write:start" }, retries: 0 },
+    { trigger: { on: "draintestchain:event:started" }, retries: 0 },
     async (payload, ctx) => {
       await ctx.dispatch.write("draintestchain:write:emit-relayed", { value: payload["value"] });
     },

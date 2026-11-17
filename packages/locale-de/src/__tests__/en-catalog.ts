@@ -2368,6 +2368,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
     "The outgoing mail server cannot be reached. Try again later.",
   "inboundMail.send.errors.rejected":
     "The outgoing mail server refused the mail. Check the recipient address.",
+  "inboundMail.send.errors.outcomeUnknown":
+    "It is unclear whether this mail was sent. Check the mailbox's sent folder before you send it again.",
   "inboundMail.send.errors.invalidMessage":
     "The mail was not sent: a recipient, the subject or the reply reference is invalid.",
   "inboundMail.send.errors.attachmentInvalid":
