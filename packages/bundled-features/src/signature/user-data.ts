@@ -13,7 +13,7 @@ import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import { collectErasureFailure, throwIfErasureFailed } from "../shared/index.ts";
 import { resolveVerifiedUserEmail } from "../user/index.ts";
-import { requestExecutor, signatureSignerTable, signerExecutor } from "./entity.ts";
+import { signatureSignerTable, signerExecutor, ungatedRequestExecutor } from "./entity.ts";
 import { deleteFileRef, type GeneratedFileContext } from "./files.ts";
 import { setRequestStatus } from "./lib.ts";
 import { SIGNATURE_REQUEST_STATUS, SIGNATURE_SIGNER_ENTITY } from "./web/constants.ts";
@@ -100,12 +100,12 @@ async function cancelUnfinishedRequest(
   systemUser: SessionUser,
   requestId: string,
 ): Promise<void> {
-  const request = await requestExecutor.detail({ id: requestId }, systemUser, ctx.db);
+  const request = await ungatedRequestExecutor.detail({ id: requestId }, systemUser, ctx.db);
   const status = request?.status;
   if (status !== SIGNATURE_REQUEST_STATUS.Open && status !== SIGNATURE_REQUEST_STATUS.AllSigned) {
     return;
   }
-  await setRequestStatus(ctx, systemUser, requestId, status, {
+  await setRequestStatus(ungatedRequestExecutor, ctx, systemUser, requestId, status, {
     status: SIGNATURE_REQUEST_STATUS.Cancelled,
   });
 }

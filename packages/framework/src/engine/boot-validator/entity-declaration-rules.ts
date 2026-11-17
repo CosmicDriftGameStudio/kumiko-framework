@@ -11,6 +11,11 @@ export const ENTITY_DECLARATION_RULES = {
     summary: "parentRef.entityIdField names a declared field of the entity.",
     fix: "Point entityIdField at a real field on the entity.",
   },
+  parentRefAllowedTypesEmpty: {
+    id: "parent-ref/allowed-types-empty",
+    summary: "parentRef.allowedTypes names at least one host entity.",
+    fix: "List at least one registered host entity in allowedTypes.",
+  },
   parentRefAllowedTypeUnregistered: {
     id: "parent-ref/allowed-type-unregistered",
     summary: "parentRef.allowedTypes names only registered entities.",

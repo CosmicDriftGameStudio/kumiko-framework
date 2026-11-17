@@ -99,7 +99,7 @@ let tagId: string;
 beforeAll(async () => {
   stack = await setupTestStack({
     features: [
-      createTagsFeature({
+      createTagsFeature({ parents: ["project"],
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       }),
       hostFixturesFeature,

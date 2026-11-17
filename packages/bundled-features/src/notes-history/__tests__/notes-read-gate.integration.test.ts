@@ -73,7 +73,7 @@ const ORPHAN_HOST_ID = "d0000000-0000-4000-8000-0000000000ff";
 type NoteRow = { id: string; entityType: string; entityId: string; body: string };
 type Page = { rows: readonly NoteRow[]; nextCursor: string | null; total?: number };
 
-const noteEntryEntity = createNoteEntryEntity();
+const noteEntryEntity = createNoteEntryEntity(undefined, ["project"]);
 
 let stack: TestStack;
 
@@ -83,6 +83,7 @@ beforeAll(async () => {
     features: [
       createNotesHistoryFeature({
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        parents: ["project"],
       }),
       hostFixturesFeature,
     ],

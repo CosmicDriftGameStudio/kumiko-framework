@@ -54,7 +54,7 @@ const ADOPTING_FEATURES: Readonly<Record<string, () => FeatureDefinition>> = {
       renderHtmlToPdf: async () => new Uint8Array(),
       deliverLink: async () => {},
     }),
-  tags: () => createTagsFeature(),
+  tags: () => createTagsFeature({ parents: ["property"] }),
   tenant: () => createTenantFeature(),
   user: () => createUserFeature(),
   "user-data-rights": () => createUserDataRightsFeature(),

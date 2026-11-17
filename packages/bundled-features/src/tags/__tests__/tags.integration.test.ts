@@ -31,7 +31,7 @@ import { tagAssignmentEntity, tagEntity } from "../entity.ts";
 import { createTagsFeature } from "../feature.ts";
 import { TagsHandlers, TagsQueries } from "../web/constants.ts";
 
-const tagsFeature = createTagsFeature();
+const tagsFeature = createTagsFeature({ parents: ["credit", "note"] });
 
 const CREDIT_TABLE = "tags_test_credits";
 const NOTE_TABLE = "tags_test_notes";
@@ -506,7 +506,7 @@ describe("tags integration — openToAll access model", () => {
   beforeAll(async () => {
     openStack = await setupTestStack({
       features: [
-        createTagsFeature({
+        createTagsFeature({ parents: ["credit", "note"],
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         }),
         hostFixturesFeature,

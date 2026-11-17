@@ -49,7 +49,7 @@ const CONTACT_1 = "30000000-0000-4000-8000-000000000001";
 
 beforeAll(async () => {
   stack = await setupTestStack({
-    features: [createNotesHistoryFeature(), contactFixtureFeature],
+    features: [createNotesHistoryFeature({ parents: ["contact"] }), contactFixtureFeature],
   });
   await unsafeCreateEntityTable(stack.db, noteEntryEntity);
   await unsafeCreateEntityTable(stack.db, contactEntity);

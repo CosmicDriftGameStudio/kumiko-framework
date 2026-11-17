@@ -1,12 +1,12 @@
 import { type AccessRule, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { documentDraftExecutor } from "../entity.ts";
+import type { DocumentDraftExecutor } from "../entity.ts";
 import { draftNotFound, loadScopedDraft, notInStatus } from "../lib.ts";
 import { DraftBaseSchema } from "../payloads.ts";
 import { DOCUMENT_DRAFT_STATUS } from "../web/constants.ts";
 
 type ReviseData = { readonly id: string; readonly version: number; readonly revision: number };
 
-export function createReviseHandler(access: AccessRule) {
+export function createReviseHandler(access: AccessRule, documentDraftExecutor: DocumentDraftExecutor) {
   return defineWriteHandler<"revise", typeof DraftBaseSchema, ReviseData>({
     name: "revise",
     schema: DraftBaseSchema,
@@ -17,7 +17,7 @@ export function createReviseHandler(access: AccessRule) {
     handler: async (event, ctx) => {
       const { id, base } = event.payload;
       const user = event.user;
-      const draft = await loadScopedDraft(ctx, user, id);
+      const draft = await loadScopedDraft(documentDraftExecutor, ctx, user, id);
       if (draft === null) return draftNotFound(id);
       if (draft.status !== DOCUMENT_DRAFT_STATUS.Finalized) {
         return notInStatus(DOCUMENT_DRAFT_STATUS.Finalized);

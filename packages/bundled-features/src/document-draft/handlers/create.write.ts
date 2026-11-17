@@ -9,7 +9,7 @@ import {
   TemplateNotFoundError,
   VARIANT_UNKNOWN_REASON,
 } from "../../template-resolver/index.ts";
-import { documentDraftExecutor } from "../entity.ts";
+import type { DocumentDraftExecutor } from "../entity.ts";
 import { draftNotFound } from "../lib.ts";
 import { createDraftSchema } from "../payloads.ts";
 import {
@@ -23,6 +23,7 @@ type CreateData = { readonly id: string; readonly version: number };
 
 export function createCreateHandler(
   access: AccessRule,
+  documentDraftExecutor: DocumentDraftExecutor,
   subjectTypes: readonly [string, ...string[]],
 ) {
   const schema = createDraftSchema(subjectTypes);

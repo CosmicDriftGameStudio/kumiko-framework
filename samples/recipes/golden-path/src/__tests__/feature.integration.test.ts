@@ -131,4 +131,31 @@ describe("golden path: rebuild", () => {
     expect(await readTicket(openId)).toMatchObject({ title: "Open ticket", isClosed: false });
     expect(await readTicket(closedId)).toMatchObject({ title: "Closed ticket", isClosed: true });
   });
+
+  test("the ticket-status projection stamps modifiedAt and modifiedById from the close event, and a rebuild keeps them", async () => {
+    type StampedTicketRow = TicketRow & { modifiedAt: string | null; modifiedById: string | null };
+    const id = await openTicket("Stamped on close");
+    await closeTicket(id);
+
+    const before = await stack.http.queryOk<StampedTicketRow>(
+      "ticketing:query:ticket:detail",
+      { id },
+      agent,
+    );
+    expect(before.modifiedById).toBe(String(admin.id));
+    expect(before.modifiedAt).not.toBeNull();
+
+    await rebuildProjection("ticketing:projection:ticket-status", {
+      db: stack.db,
+      registry: stack.registry,
+    });
+
+    const after = await stack.http.queryOk<StampedTicketRow>(
+      "ticketing:query:ticket:detail",
+      { id },
+      agent,
+    );
+    expect(after.modifiedAt).toBe(before.modifiedAt);
+    expect(after.modifiedById).toBe(before.modifiedById);
+  });
 });

@@ -1,10 +1,10 @@
 import { type AccessRule, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { signerExecutor } from "../entity.ts";
+import { type SignatureRequestExecutor, signerExecutor } from "../entity.ts";
 import { loadRequestOfSigner, requestHostIsVisible } from "../lib.ts";
 import { SignerIdSchema } from "../payloads.ts";
 
-export function createRevokeLinkHandler(access: AccessRule) {
+export function createRevokeLinkHandler(access: AccessRule, requestExecutor: SignatureRequestExecutor) {
   return defineWriteHandler<"revoke-link", typeof SignerIdSchema, { readonly revoked: true }>({
     name: "revoke-link",
     schema: SignerIdSchema,
@@ -13,7 +13,7 @@ export function createRevokeLinkHandler(access: AccessRule) {
     description: "Revokes the signing link of one signer; the token stops working at once.",
     handler: async (event, ctx) => {
       const signer = await signerExecutor.detail({ id: event.payload.signerId }, event.user, ctx.db);
-      const request = signer === null ? null : await loadRequestOfSigner(ctx, event.user, signer);
+      const request = signer === null ? null : await loadRequestOfSigner(requestExecutor, ctx, event.user, signer);
       if (request === null || !(await requestHostIsVisible(ctx, event.user, request))) {
         return writeFailure(new NotFoundError("signer", event.payload.signerId));
       }

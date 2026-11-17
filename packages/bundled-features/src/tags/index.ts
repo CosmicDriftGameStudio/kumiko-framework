@@ -1,5 +1,6 @@
 export { tagAssignmentAggregateId } from "./aggregate-id.ts";
 export { tagAssignmentEntity, tagEntity } from "./entity.ts";
+export { createTagAssignmentExecutor, type TagAssignmentExecutor } from "./executor.ts";
 export { createTagsFeature, type TagsFeatureOptions } from "./feature.ts";
 export { createAssignTagHandler } from "./handlers/assign-tag.write.ts";
 export { createCreateTagHandler } from "./handlers/create-tag.write.ts";

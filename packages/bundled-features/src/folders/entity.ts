@@ -3,6 +3,7 @@ import {
   createTextField,
   type EntityDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
+import type { ParentRefDef } from "@cosmicdrift/kumiko-types/fields";
 
 // folder — per-tenant hierarchical catalog, event-sourced; `parentId` null marks a root folder.
 export const folderEntity = createEntity({
@@ -35,9 +36,9 @@ export const folderEntity = createEntity({
 // A hard delete would force the next set to create() at version 0 onto that
 // existing stream → version_conflict. With softDelete the set handler resurrects
 // the stream via restore(); the list query filters isDeleted.
-export function createFolderAssignmentEntity(
-  access?: EntityDefinition["access"],
-  parents?: readonly string[],
+function buildFolderAssignmentEntity(
+  access: EntityDefinition["access"] | undefined,
+  parentRef: ParentRefDef | undefined,
 ) {
   return createEntity({
     table: "read_folder_assignments",
@@ -45,13 +46,7 @@ export function createFolderAssignmentEntity(
       "The membership row recording which folder one host entity, addressed by entityType and entityId, is filed in. At most one row exists per entity, so filing it elsewhere changes this row's folderId rather than adding a second.",
     softDelete: true,
     access,
-    // Declared unconditionally: the host-visibility gate is the default for
-    // both paths, and `parents` only narrows which hosts are admissible.
-    parentRef: {
-      entityTypeField: "entityType",
-      entityIdField: "entityId",
-      ...(parents !== undefined && { allowedTypes: parents }),
-    },
+    ...(parentRef !== undefined && { parentRef }),
     fields: {
       folderId: createTextField({
         required: true,
@@ -81,4 +76,16 @@ export function createFolderAssignmentEntity(
   });
 }
 
-export const folderAssignmentEntity = createFolderAssignmentEntity();
+export function createFolderAssignmentEntity(
+  access: EntityDefinition["access"] | undefined,
+  parents: readonly string[],
+) {
+  return buildFolderAssignmentEntity(access, {
+    entityTypeField: "entityType",
+    entityIdField: "entityId",
+    allowedTypes: parents,
+  });
+}
+
+// Table shape without the host gate; the mounted entity and its handler executors carry parentRef with the mount's parents.
+export const folderAssignmentEntity = buildFolderAssignmentEntity(undefined, undefined);

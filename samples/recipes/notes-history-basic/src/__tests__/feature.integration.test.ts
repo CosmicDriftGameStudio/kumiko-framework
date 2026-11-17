@@ -33,7 +33,7 @@ const notesClient: NotesClient = {
 let stack: TestStack;
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [createNotesHistoryFeature(), taskFeature] });
+  stack = await setupTestStack({ features: [createNotesHistoryFeature({ parents: ["task"] }), taskFeature] });
 });
 
 afterAll(async () => {

@@ -7,7 +7,7 @@ import { TAGS_EDIT_SCREEN_ID, TAGS_SCREEN_ID } from "../web/constants.ts";
 // tags:query:tag:detail and saves via tags:write:tag:{create,update,delete}.
 
 describe("tags catalog screens (entityList + entityEdit)", () => {
-  const feature = createTagsFeature();
+  const feature = createTagsFeature({ parents: ["note"] });
 
   test("boot-validates with declarative tag-list + tag-edit", () => {
     expect(() => validateBoot([feature])).not.toThrow();
@@ -37,8 +37,8 @@ describe("tags catalog screens (entityList + entityEdit)", () => {
     );
   });
 
-  test("createTagsFeature({ roles }) threads access onto both screens", () => {
-    const custom = createTagsFeature({ roles: ["Admin"] });
+  test("createTagsFeature({ parents, roles }) threads access onto both screens", () => {
+    const custom = createTagsFeature({ parents: ["note"], roles: ["Admin"] });
     expect(custom.screens[TAGS_SCREEN_ID]?.access).toEqual({ roles: ["Admin"] });
     expect(custom.screens[TAGS_EDIT_SCREEN_ID]?.access).toEqual({ roles: ["Admin"] });
     expect(custom.writeHandlers["tag:delete"]?.access).toEqual({ roles: ["Admin"] });

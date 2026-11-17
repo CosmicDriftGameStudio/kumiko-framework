@@ -167,7 +167,7 @@ beforeAll(async () => {
     features: [createNotesHistoryFeature({ parents: ["project"] }), fixturesFeature],
   });
   await unsafeCreateEntityTable(guardedStack.db, guardedProjectEntity);
-  await unsafeCreateEntityTable(guardedStack.db, createNoteEntryEntity());
+  await unsafeCreateEntityTable(guardedStack.db, createNoteEntryEntity(undefined, ["project"]));
   await unsafeCreateEntityTable(guardedStack.db, noteMentionEntity);
   await asRawClient(guardedStack.db).unsafe(
     `INSERT INTO ${PROJECT_TABLE} (id, tenant_id, team_id, name) VALUES
@@ -176,14 +176,16 @@ beforeAll(async () => {
     [PROJECT_A, userA.tenantId, PROJECT_A2],
   );
 
-  // Unguarded mount: the SAME feature with no `parents` at all — proves the
-  // parent-visibility check itself is default-on, not something `parents`
-  // switches on.
+  // Wider mount: the same feature listing every fixture host — proves the
+  // parent-visibility check still runs per host, not only on a narrow allowlist.
   openStack = await setupTestStack({
-    features: [createNotesHistoryFeature(), fixturesFeature],
+    features: [
+      createNotesHistoryFeature({ parents: ["project", "contact", "ticket", "budget"] }),
+      fixturesFeature,
+    ],
   });
   await unsafeCreateEntityTable(openStack.db, guardedProjectEntity);
-  await unsafeCreateEntityTable(openStack.db, createNoteEntryEntity());
+  await unsafeCreateEntityTable(openStack.db, createNoteEntryEntity(undefined, ["project", "contact", "ticket", "budget"]));
   await unsafeCreateEntityTable(openStack.db, noteMentionEntity);
   await asRawClient(openStack.db).unsafe(
     `INSERT INTO ${PROJECT_TABLE} (id, tenant_id, team_id, name) VALUES ($1, $2, 'team-a', 'Project Open')`,
@@ -279,18 +281,18 @@ describe("notes-history integration — add-note parent-visibility (parents opti
     expect(result.id).toBeTruthy();
   });
 
-  test("on an unguarded mount (no `parents`), an unregistered entityType is still denied — the check is default-on", async () => {
+  test("on a wide mount, an unregistered entityType is still denied", async () => {
     const err = await addNoteErr(openStack, "totally-unknown-entity", "y", userA);
     expect(err.code).toBe("not_found");
   });
 
-  test("on an unguarded mount, a registered and visible parent still succeeds", async () => {
+  test("on a wide mount, a registered and visible parent still succeeds", async () => {
     const result = await addNote(openStack, "project", PROJECT_OPEN, userA);
     expect(result.id).toBeTruthy();
     expect(await noteCountFor(openStack, PROJECT_OPEN)).toBe(1);
   });
 
-  test("on an unguarded mount, a registered parent from a foreign team is still denied", async () => {
+  test("on a wide mount, a registered parent from a foreign team is still denied", async () => {
     const err = await addNoteErr(openStack, "project", PROJECT_OPEN, userB);
     expect(err.code).toBe("not_found");
     expect(err.httpStatus).toBe(404);

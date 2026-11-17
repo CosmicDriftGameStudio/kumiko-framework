@@ -6,7 +6,6 @@ import { tenantMembershipsTable } from "../../tenant/index.ts";
 import { userTable } from "../../user/index.ts";
 import { noteEntryExecutor, noteMentionExecutor } from "../executor.ts";
 import { type AddNotePayload, addNotePayloadSchema } from "../schemas.ts";
-import { DEFAULT_NOTES_HISTORY_ACCESS } from "../web/constants.ts";
 
 const READ_AUTHOR_DISPLAY_NAME_REASON =
   "reads the author's displayName from the global users table inside a savepoint so a missing user feature cannot poison the note transaction";
@@ -20,12 +19,12 @@ const READ_AUTHOR_DISPLAY_NAME_REASON =
 // entityType/entityId are never trusted client input: entityType must name a
 // registered entity, and the row must be visible to the caller through that
 // entity's own read path (tenant scope plus its `access.read` ownership).
-// Both the field names and the optional `parents` allowlist come from the
+// Both the field names and the `parents` allowlist come from the
 // entity's own `parentRef` declaration, which the read gate reads too —
 // see shared/parent-visibility.ts.
 export function createAddNoteHandler(
-  access: AccessRule = DEFAULT_NOTES_HISTORY_ACCESS,
-  entryExecutor: typeof noteEntryExecutor = noteEntryExecutor,
+  access: AccessRule,
+  entryExecutor: typeof noteEntryExecutor,
 ): WriteHandlerDef {
   return {
     name: "add-note",

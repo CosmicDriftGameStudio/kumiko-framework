@@ -59,7 +59,7 @@ const assignment = () => ({ tagId, entityType: "project", entityId: owner.id });
 beforeAll(async () => {
   stack = await setupTestStack({
     features: [
-      createTagsFeature({
+      createTagsFeature({ parents: ["project"],
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         ownership: { write: { TenantMember: from("user:id", "entityId") } },
       }),

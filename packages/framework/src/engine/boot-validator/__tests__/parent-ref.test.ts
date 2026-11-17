@@ -32,7 +32,7 @@ const hostEntity = createEntity({
 function joinEntity(parentRef: {
   entityTypeField: string;
   entityIdField: string;
-  allowedTypes?: readonly string[];
+  allowedTypes: readonly string[];
 }) {
   return createEntity({
     table: "read_joins",
@@ -41,14 +41,22 @@ function joinEntity(parentRef: {
   });
 }
 
-const validRef = { entityTypeField: "entityType", entityIdField: "entityId" } as const;
+const validRef = {
+  entityTypeField: "entityType",
+  entityIdField: "entityId",
+  allowedTypes: ["host"],
+} as const;
+
+const defaultHosts = defineFeature("default-hosts", (r) => {
+  r.entity({ name: "host", ...hostEntity });
+});
 
 function featureMapOf(...features: readonly FeatureDefinition[]) {
   return new Map(features.map((f) => [f.name, f]));
 }
 
 function validate(feature: FeatureDefinition, extra: readonly FeatureDefinition[] = []): void {
-  validateParentRefs(feature, featureMapOf(feature, ...extra));
+  validateParentRefs(feature, featureMapOf(feature, defaultHosts, ...extra));
 }
 
 describe("validateParentRefs", () => {
@@ -97,6 +105,13 @@ describe("validateParentRefs", () => {
     expect(() => validate(feature)).toThrow(/entityIdField references "nope"/);
   });
 
+  test("rejects an empty allowedTypes", () => {
+    const feature = defineFeature("joins", (r) => {
+      r.entity({ name: "join", ...joinEntity({ ...validRef, allowedTypes: [] }) });
+    });
+    expect(() => validate(feature)).toThrow(/parent-ref\/allowed-types-empty|allowedTypes is empty/);
+  });
+
   test("rejects an allowedTypes entry that names no registered entity", () => {
     const feature = defineFeature("joins", (r) => {
       r.entity({ name: "join", ...joinEntity({ ...validRef, allowedTypes: ["ghost"] }) });
@@ -106,9 +121,9 @@ describe("validateParentRefs", () => {
 
   test("accepts an allowedTypes entry registered by another feature", () => {
     const hosts = defineFeature("hosts", (r) => {
-      r.entity({ name: "host", ...hostEntity });
+      r.entity({ name: "foreign-host", ...hostEntity });
     });
-    const entity = joinEntity({ ...validRef, allowedTypes: ["host"] });
+    const entity = joinEntity({ ...validRef, allowedTypes: ["foreign-host"] });
     const feature = defineFeature("joins", (r) => {
       r.entity({ name: "join", ...entity });
       r.queryHandler(

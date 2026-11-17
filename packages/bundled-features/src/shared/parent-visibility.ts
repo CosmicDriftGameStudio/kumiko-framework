@@ -124,9 +124,7 @@ export async function joinRowParentIsVisible(
   const entityType = payload[parentRef.entityTypeField];
   const entityId = payload[parentRef.entityIdField];
   if (typeof entityType !== "string" || typeof entityId !== "string") return false;
-  if (parentRef.allowedTypes !== undefined && !parentRef.allowedTypes.includes(entityType)) {
-    return false;
-  }
+  if (!parentRef.allowedTypes.includes(entityType)) return false;
 
   return parentRowIsVisible(registry, entityType, entityId, user, db);
 }

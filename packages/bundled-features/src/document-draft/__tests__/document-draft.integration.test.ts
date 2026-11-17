@@ -43,7 +43,7 @@ import {
 import { createTenantFeature } from "../../tenant/index.ts";
 import { createUserFeature } from "../../user/index.ts";
 import { createUserDataRightsFeature } from "../../user-data-rights/feature.ts";
-import { documentDraftExecutor } from "../entity.ts";
+import { ungatedDocumentDraftExecutor } from "../entity.ts";
 import { createDocumentDraftFeature } from "../feature.ts";
 import type { DocumentDraftRenderArgs } from "../options.ts";
 import { forgetDocumentDraftsOfSubject } from "../user-data.ts";
@@ -585,7 +585,7 @@ describe("event trail and erasure", () => {
     );
     expect(result).toEqual({ erased: 1 });
 
-    const gone = await documentDraftExecutor.detail({ id: erased.id }, admin, db);
+    const gone = await ungatedDocumentDraftExecutor.detail({ id: erased.id }, admin, db);
     expect(gone).toBeNull();
     expect(JSON.stringify(gone)).not.toContain(CLAUSE);
     expect(JSON.stringify(gone)).not.toContain(SECRET_TENANT_NAME);

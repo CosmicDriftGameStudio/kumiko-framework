@@ -2,7 +2,7 @@ import type { JobContext } from "@cosmicdrift/kumiko-framework/engine";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { RendererError } from "../renderer-foundation/index.ts";
-import { requestExecutor, signerExecutor } from "./entity.ts";
+import { signerExecutor, ungatedRequestExecutor } from "./entity.ts";
 import {
   discardGeneratedFile,
   PDF_MIME_TYPE,
@@ -36,8 +36,9 @@ import {
 // Equals the executor's MAX_LIST_LIMIT.
 const SWEEP_PAGE_SIZE = 200;
 
-type RequestPage = Awaited<ReturnType<typeof requestExecutor.list>>;
+type RequestPage = Awaited<ReturnType<typeof ungatedRequestExecutor.list>>;
 
+// ungated: system paths only (sweep runs as systemUser over every host)
 // Keyset-paged, so rows that leave the status while the sweep works on them cannot shift the next page.
 export async function forEachRequestPageWithStatus(
   ctx: JobContext,
@@ -46,7 +47,7 @@ export async function forEachRequestPageWithStatus(
 ): Promise<void> {
   let cursor: string | null = null;
   do {
-    const page: RequestPage = await requestExecutor.list(
+    const page: RequestPage = await ungatedRequestExecutor.list(
       {
         filter: { field: "status", op: "eq", value: status },
         limit: SWEEP_PAGE_SIZE,

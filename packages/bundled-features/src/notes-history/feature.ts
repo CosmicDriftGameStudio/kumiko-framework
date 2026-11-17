@@ -19,6 +19,7 @@ import {
   defineEntityListHandler,
   defineFeature,
   type EntityDefinition,
+  type FeatureDefinition,
   type FeatureRegistrar,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { assertNoWhereRuleInOwnershipWrite, resolveFeatureAccess } from "../shared/index.ts";
@@ -33,10 +34,10 @@ function registerNotesHistory(
   r: FeatureRegistrar<typeof NOTES_HISTORY_FEATURE_NAME>,
   access: AccessRule,
   ownership: EntityDefinition["access"] | undefined,
-  parents: readonly string[] | undefined,
+  parents: readonly string[],
 ): void {
   r.describe(
-    "Generic, host-agnostic, append-only note history for any entity. Owns one event-sourced entity, `note-entry` (`read_note_entries`), keyed by (entityType, entityId) — so attaching notes adds NO column to the host entity and needs no relational pivot or JOIN. Provides a `create` write-handler (author stamped server-side from the caller, never client-supplied) and a `list` query filterable on entityId. Deliberately append-only: no update or delete handler is registered — a correction is a new entry, not an edit, so who-said-what-when stays reconstructable. Every path uses one access rule — adopt the host's model with createNotesHistoryFeature({ access: { openToAll: { reason } } }) or pin roles with createNotesHistoryFeature({ roles }).",
+    "Generic, host-agnostic, append-only note history for any entity. Owns one event-sourced entity, `note-entry` (`read_note_entries`), keyed by (entityType, entityId) — so attaching notes adds NO column to the host entity and needs no relational pivot or JOIN. Provides a `create` write-handler (author stamped server-side from the caller, never client-supplied) and a `list` query filterable on entityId. Deliberately append-only: no update or delete handler is registered — a correction is a new entry, not an edit, so who-said-what-when stays reconstructable. Every path uses one access rule — adopt the host's model with createNotesHistoryFeature({ access: { openToAll: { reason } } }) or pin roles with createNotesHistoryFeature({ roles }). Mount with createNotesHistoryFeature({ parents: [<host entities>] }).",
   );
   r.uiHints({
     displayLabel: "Notes",
@@ -53,7 +54,7 @@ function registerNotesHistory(
   // registry-wide GDPR boot guards and to executor.ts's table/projection setup.
   r.entity({ name: "note-mention", ...noteMentionEntity });
 
-  r.writeHandler(createAddNoteHandler(access, createNoteEntryExecutor(ownership)));
+  r.writeHandler(createAddNoteHandler(access, createNoteEntryExecutor(ownership, parents)));
   r.queryHandler(
     defineEntityListHandler("note-entry", entity, {
       access,
@@ -64,10 +65,6 @@ function registerNotesHistory(
 
   r.translations({ keys: NOTES_HISTORY_FEATURE_I18N });
 }
-
-const defaultNotesHistoryFeature = defineFeature(NOTES_HISTORY_FEATURE_NAME, (r) =>
-  registerNotesHistory(r, DEFAULT_NOTES_HISTORY_ACCESS, undefined, undefined),
-);
 
 export type NotesHistoryFeatureOptions = {
   /** Access rule for the create/list paths. Default { roles: ["TenantAdmin","TenantMember"] }.
@@ -93,42 +90,19 @@ export type NotesHistoryFeatureOptions = {
    *  crypto-shredding — a silent Art.17 failure, not a thrown error. Make
    *  sure any `ownership.write` you set covers that role, or leave it unset. */
   readonly ownership?: EntityDefinition["access"];
-  /** Allowlist further narrowing which registered entities may be used as a
-   *  note's parent (entityType). This is NOT what turns parent-checking on —
-   *  both paths always verify that entityType names a registered entity and
-   *  that the row is visible to the caller through that entity's own read
-   *  path (tenant scope plus its `access.read` ownership); an entityType
-   *  that names no registered entity is rejected regardless of this option.
-   *  Setting `parents` narrows further, to a specific set of entity names —
-   *  useful when a host entity is registered but should never be a valid
-   *  note parent. It also shrinks the read gate's SQL, which otherwise has to
-   *  consider every registered entity as a candidate host. */
-  readonly parents?: readonly string[];
+  /** Registered entities a row may hang off (entityType). Required and non-empty: the read gate
+   *  builds one SQL branch per host. Every path still checks that the host row is visible to the
+   *  caller through the host's own read path. */
+  readonly parents: readonly string[];
 };
 
-// Options wrapper. Without options returns the module-level singleton (no
-// rebuild). access/roles/ownership build a fresh feature-definition.
-export function createNotesHistoryFeature(
-  opts: NotesHistoryFeatureOptions = {},
-): typeof defaultNotesHistoryFeature {
-  if (
-    opts.access === undefined &&
-    opts.roles === undefined &&
-    opts.ownership === undefined &&
-    opts.parents === undefined
-  ) {
-    return defaultNotesHistoryFeature;
-  }
+export function createNotesHistoryFeature(opts: NotesHistoryFeatureOptions): FeatureDefinition {
   assertNoWhereRuleInOwnershipWrite("createNotesHistoryFeature", opts.ownership?.write);
-  // A mount that accepts no parents at all can never take a note write —
-  // that's a config mistake, not a valid allowlist. Omit `parents` instead
-  // of passing an empty array.
-  if (opts.parents !== undefined && opts.parents.length === 0) {
+  if (opts.parents.length === 0) {
     throw bootRuleError(NOTES_HISTORY_BOOT_RULES.emptyParentsAllowlist, {
       message:
         "createNotesHistoryFeature({ parents }): parents must not be an empty array — " +
-        "an empty allowlist rejects every add-note call. Omit `parents` to allow " +
-        "any registered entity the caller can read as a note parent.",
+        "an empty allowlist rejects every add-note call. List at least one host entity.",
     });
   }
   return defineFeature(NOTES_HISTORY_FEATURE_NAME, (r) =>

@@ -41,7 +41,7 @@ beforeAll(async () => {
       createAuthFoundationFeature(),
       createSessionsFeature(),
       createUserDataRightsFeature(),
-      createNotesHistoryFeature(),
+      createNotesHistoryFeature({ parents: ["helpdesk-request"] }),
       helpdeskFeature,
     ],
     anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID },

@@ -12,7 +12,7 @@ import {
 } from "./web/constants.ts";
 
 // Declarative catalog screens. Access matches the catalog write handlers so
-// createTagsFeature({ access|roles }) stays consistent.
+// createTagsFeature({ parents, access|roles }) stays consistent.
 
 export function createTagListScreen(
   access: AccessRule = DEFAULT_TAG_ACCESS,

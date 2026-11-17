@@ -32,8 +32,8 @@ export const FoldersQueries = {
 
 // Default RBAC for every folder write/read path. Like tags, folders are a
 // low-sensitivity organisation tool, so both tenant roles may use them. Apps
-// with their own role vocabulary override via createFoldersFeature({ roles }),
-// or adopt the host's access model with createFoldersFeature({ access }).
+// with their own role vocabulary override via createFoldersFeature({ parents, roles }),
+// or adopt the host's access model with createFoldersFeature({ parents, access }).
 export const DEFAULT_FOLDER_ROLES = ["TenantAdmin", "TenantMember"] as const;
 
 export const DEFAULT_FOLDER_ACCESS: AccessRule = { roles: DEFAULT_FOLDER_ROLES };

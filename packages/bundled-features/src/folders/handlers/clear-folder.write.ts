@@ -1,9 +1,8 @@
 import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { denyUnlessJoinRowParentVisible } from "../../shared/index.ts";
 import { folderAssignmentAggregateId } from "../aggregate-id.ts";
-import { folderAssignmentExecutor } from "../executor.ts";
+import type { FolderAssignmentExecutor } from "../executor.ts";
 import { type ClearFolderPayload, clearFolderPayloadSchema } from "../schemas.ts";
-import { DEFAULT_FOLDER_ACCESS } from "../web/constants.ts";
 
 // clear-folder — removes a host entity from its folder (back to "unfiled").
 // Idempotent: clearing an entity that isn't in any folder is already the
@@ -13,7 +12,8 @@ import { DEFAULT_FOLDER_ACCESS } from "../web/constants.ts";
 // able to see the host row before unfiling it — see
 // shared/parent-visibility.ts.
 export function createClearFolderHandler(
-  access: AccessRule = DEFAULT_FOLDER_ACCESS,
+  access: AccessRule,
+  assignmentExecutor: FolderAssignmentExecutor,
 ): WriteHandlerDef {
   return {
     name: "clear-folder",
@@ -38,14 +38,13 @@ export function createClearFolderHandler(
         payload.entityId,
       );
 
-      const existing = await folderAssignmentExecutor.detail({ id }, event.user, ctx.db);
+      const existing = await assignmentExecutor.detail({ id }, event.user, ctx.db);
       if (!existing) {
         return { isSuccess: true as const, data: { id } };
       }
 
-      return folderAssignmentExecutor.delete({ id }, event.user, ctx.db);
+      return assignmentExecutor.delete({ id }, event.user, ctx.db);
     },
   };
 }
 
-export const clearFolderHandler: WriteHandlerDef = createClearFolderHandler();

@@ -8,6 +8,7 @@ import {
   createTextField,
   createTimestampField,
 } from "@cosmicdrift/kumiko-framework/engine";
+import type { ParentRefDef } from "@cosmicdrift/kumiko-types/fields";
 import { TEMPLATE_SCOPES } from "../template-resolver/index.ts";
 import {
   DOCUMENT_DRAFT_ENTITY,
@@ -30,21 +31,16 @@ const STATUS_OPTIONS = [
 const DRAFT_PERSONAL = { personal: "self", find: "none" } as const;
 const DRAFT_PERSONAL_JSON = { personal: "self" } as const;
 
-export function createDocumentDraftEntity(
-  retention: DocumentDraftRetention = { keepFor: DEFAULT_DOCUMENT_DRAFT_RETENTION_KEEP_FOR },
-  subjectTypes?: readonly string[],
+function buildDocumentDraftEntity(
+  retention: DocumentDraftRetention,
+  parentRef: ParentRefDef | undefined,
 ) {
   return createEntity({
     table: "read_document_drafts",
     description:
       "One editable copy of a PDF document template for one object (for example a lease contract): the template text with its {{placeholders}} frozen at creation, changed with the same structured operations as a template, then finalized to a stored PDF. The template itself stays unchanged; body, variables and the last change are personal data of the draft.",
     retention: { keepFor: retention.keepFor, strategy: "hardDelete", reference: "createdAt" },
-    // A draft is visible only while its subject row is readable through the subject entity's own read rules.
-    parentRef: {
-      entityTypeField: "subjectType",
-      entityIdField: "subjectId",
-      ...(subjectTypes !== undefined && { allowedTypes: subjectTypes }),
-    },
+    ...(parentRef !== undefined && { parentRef }),
     fields: {
       subjectType: createTextField({
         required: true,
@@ -124,9 +120,33 @@ export function createDocumentDraftEntity(
   });
 }
 
-export const documentDraftEntity = createDocumentDraftEntity();
+// A draft is visible only while its subject row is readable through the subject entity's own read rules.
+export function createDocumentDraftEntity(
+  retention: DocumentDraftRetention | undefined,
+  subjectTypes: readonly string[],
+) {
+  return buildDocumentDraftEntity(retention ?? { keepFor: DEFAULT_DOCUMENT_DRAFT_RETENTION_KEEP_FOR }, {
+    entityTypeField: "subjectType",
+    entityIdField: "subjectId",
+    allowedTypes: subjectTypes,
+  });
+}
 
-export const { executor: documentDraftExecutor, table: documentDraftTable } = createEntityExecutor(
-  DOCUMENT_DRAFT_ENTITY,
-  documentDraftEntity,
+// Table shape without the subject gate; the mounted entity and its handler executors carry parentRef with the mount's subject types.
+export const documentDraftEntity = buildDocumentDraftEntity(
+  { keepFor: DEFAULT_DOCUMENT_DRAFT_RETENTION_KEEP_FOR },
+  undefined,
 );
+
+// ungated: system paths only (user-data erasure runs without the subject gate)
+export const { executor: ungatedDocumentDraftExecutor, table: documentDraftTable } =
+  createEntityExecutor(DOCUMENT_DRAFT_ENTITY, documentDraftEntity);
+
+export function createDocumentDraftExecutor(subjectTypes: readonly string[]) {
+  return createEntityExecutor(
+    DOCUMENT_DRAFT_ENTITY,
+    createDocumentDraftEntity(undefined, subjectTypes),
+  ).executor;
+}
+
+export type DocumentDraftExecutor = ReturnType<typeof createDocumentDraftExecutor>;

@@ -29,7 +29,11 @@ const text = () =>
 const linkEntity = createEntity({
   table: "read_gate_links",
   fields: { documentId: text(), entityType: text(), entityId: text() },
-  parentRef: { entityTypeField: "entityType", entityIdField: "entityId" },
+  parentRef: {
+    entityTypeField: "entityType",
+    entityIdField: "entityId",
+    allowedTypes: ["host"],
+  },
 });
 const hostEntity = createEntity({
   table: "read_gate_hosts",

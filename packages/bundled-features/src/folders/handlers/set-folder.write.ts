@@ -2,9 +2,9 @@ import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { denyUnlessJoinRowParentVisible } from "../../shared/index.ts";
 import { folderAssignmentAggregateId } from "../aggregate-id.ts";
-import { folderAssignmentExecutor, folderExecutor } from "../executor.ts";
+import { type FolderAssignmentExecutor, folderExecutor } from "../executor.ts";
 import { type SetFolderPayload, setFolderPayloadSchema } from "../schemas.ts";
-import { DEFAULT_FOLDER_ACCESS, FOLDER_LOCK_NAMESPACE } from "../web/constants.ts";
+import { FOLDER_LOCK_NAMESPACE } from "../web/constants.ts";
 
 // set-folder — files a host entity into one folder; the assignment id ignores folderId, so another folder MOVES it.
 // Lifecycle: already in folder → success; other folder → update folderId (move); cleared (soft-deleted)
@@ -14,7 +14,8 @@ import { DEFAULT_FOLDER_ACCESS, FOLDER_LOCK_NAMESPACE } from "../web/constants.t
 // Host reference: entityType/entityId are untrusted, so the host must be readable by the caller
 // (shared/parent-visibility.ts).
 export function createSetFolderHandler(
-  access: AccessRule = DEFAULT_FOLDER_ACCESS,
+  access: AccessRule,
+  assignmentExecutor: FolderAssignmentExecutor,
 ): WriteHandlerDef {
   return {
     name: "set-folder",
@@ -45,12 +46,12 @@ export function createSetFolderHandler(
       const folder = await folderExecutor.detail({ id: payload.folderId }, event.user, ctx.db);
       if (!folder) return writeFailure(new NotFoundError("folder", payload.folderId));
 
-      const existing = await folderAssignmentExecutor.detail({ id }, event.user, ctx.db);
+      const existing = await assignmentExecutor.detail({ id }, event.user, ctx.db);
       if (existing) {
         if (existing["folderId"] === payload.folderId) {
           return { isSuccess: true as const, data: { id } };
         }
-        return folderAssignmentExecutor.update(
+        return assignmentExecutor.update(
           { id, changes: { folderId: payload.folderId } },
           event.user,
           ctx.db,
@@ -58,9 +59,9 @@ export function createSetFolderHandler(
         );
       }
 
-      const restored = await folderAssignmentExecutor.restore({ id }, event.user, ctx.db);
+      const restored = await assignmentExecutor.restore({ id }, event.user, ctx.db);
       if (restored.isSuccess) {
-        return folderAssignmentExecutor.update(
+        return assignmentExecutor.update(
           { id, changes: { folderId: payload.folderId } },
           event.user,
           ctx.db,
@@ -69,7 +70,7 @@ export function createSetFolderHandler(
       }
       if (restored.error.code !== "not_found") return restored;
 
-      return folderAssignmentExecutor.create(
+      return assignmentExecutor.create(
         {
           id,
           folderId: payload.folderId,
@@ -83,4 +84,3 @@ export function createSetFolderHandler(
   };
 }
 
-export const setFolderHandler: WriteHandlerDef = createSetFolderHandler();

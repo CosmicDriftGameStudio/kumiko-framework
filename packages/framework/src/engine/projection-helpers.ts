@@ -1,5 +1,6 @@
 import type { ExecutorManagedRunner } from "@cosmicdrift/kumiko-types/executor-brand";
 import { updateMany } from "../db/query.ts";
+import { extractTableInfo } from "../db/table-info.ts";
 import type { StoredEvent } from "../event-store/event-store.ts";
 import type { MultiStreamApplyContext } from "../pipeline/multi-stream-apply-context.ts";
 import type {
@@ -7,6 +8,36 @@ import type {
   ProjectionTable,
   SingleStreamApplyFn,
 } from "./types/projection.ts";
+
+type ProjectionEvent = Parameters<SingleStreamApplyFn>[0];
+
+// Only columns the table declares: a projection table is free to omit the entity system columns.
+function presentColumns(
+  table: ProjectionTable,
+  columns: Record<string, unknown>,
+): Record<string, unknown> {
+  const info = extractTableInfo(table);
+  return Object.fromEntries(Object.entries(columns).filter(([field]) => info.hasColumn(field)));
+}
+
+// From the event, not now(): a rebuild must write the same values as the live apply.
+export function projectionInsertColumns(
+  table: ProjectionTable,
+  event: ProjectionEvent,
+): Record<string, unknown> {
+  return presentColumns(table, {
+    tenantId: event.tenantId,
+    insertedAt: event.createdAt,
+    insertedById: event.createdBy,
+  });
+}
+
+export function projectionUpdateColumns(
+  table: ProjectionTable,
+  event: ProjectionEvent,
+): Record<string, unknown> {
+  return presentColumns(table, { modifiedAt: event.createdAt, modifiedById: event.createdBy });
+}
 
 // Typed apply helper for r.projection.apply: enables typed event.payload
 // access per event type without propagating a SingleStreamApplyFn generic
@@ -72,6 +103,9 @@ export function defineMspApply<TPayload = Record<string, unknown>>(
 // The projection table must expose an `id` column typed as the aggregate's
 // stream id — every executor-managed aggregate table does. Use a raw apply
 // function when the update targets a different key or needs JOIN/SET logic.
+//
+// Stamps modifiedAt and modifiedById from the event when the table has those columns; values
+// passed by the caller win. Row version: applyStreamVersionToEntityRow.
 export function setFields(
   table: ProjectionTable,
   fields:
@@ -86,6 +120,11 @@ export function setFields(
   }
   return async (event, tx) => {
     const values = typeof fields === "function" ? fields(event) : fields;
-    await updateMany(tx, table, values, { id: event.aggregateId });
+    await updateMany(
+      tx,
+      table,
+      { ...projectionUpdateColumns(table, event), ...values },
+      { id: event.aggregateId },
+    );
   };
 }

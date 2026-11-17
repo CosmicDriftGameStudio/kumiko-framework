@@ -4,7 +4,7 @@ import {
   UnprocessableError,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
-import { signerExecutor } from "../entity.ts";
+import { type SignatureRequestExecutor, signerExecutor } from "../entity.ts";
 import { discardGeneratedFile } from "../files.ts";
 import {
   advanceIfAllSigned,
@@ -24,7 +24,7 @@ import { SIGNATURE_METHOD, SIGNATURE_REQUEST_STATUS } from "../web/constants.ts"
 
 export type SignInPersonData = { readonly requestStatus: string };
 
-export function createSignInPersonHandler(access: AccessRule) {
+export function createSignInPersonHandler(access: AccessRule, requestExecutor: SignatureRequestExecutor) {
   return defineWriteHandler<"sign-in-person", typeof SignInPersonSchema, SignInPersonData>({
     name: "sign-in-person",
     schema: SignInPersonSchema,
@@ -36,7 +36,7 @@ export function createSignInPersonHandler(access: AccessRule) {
       const user = event.user;
       const signer = await signerExecutor.detail({ id: event.payload.signerId }, user, ctx.db);
       if (signer === null) return writeFailure(new NotFoundError("signer", event.payload.signerId));
-      const request = await loadRequestOfSigner(ctx, user, signer);
+      const request = await loadRequestOfSigner(requestExecutor, ctx, user, signer);
       if (request !== null && !(await requestHostIsVisible(ctx, user, request))) {
         return writeFailure(new NotFoundError("signer", event.payload.signerId));
       }
@@ -59,7 +59,7 @@ export function createSignInPersonHandler(access: AccessRule) {
         return recorded;
       }
 
-      const allSigned = await advanceIfAllSigned(ctx, user, request.id);
+      const allSigned = await advanceIfAllSigned(requestExecutor, ctx, user, request.id);
       return {
         isSuccess: true,
         data: {

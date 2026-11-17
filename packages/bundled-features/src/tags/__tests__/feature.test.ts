@@ -49,7 +49,7 @@ function rawQueryAccess(feature: ReturnType<typeof createTagsFeature>, nameMatch
 
 describe("createTagsFeature shape", () => {
   test("registers tag + tag-assignment entities, catalog and assignment handlers", () => {
-    const feature = createTagsFeature();
+    const feature = createTagsFeature({ parents: ["credit"] });
 
     expect(Object.keys(feature.entities ?? {})).toEqual(
       expect.arrayContaining(["tag", "tag-assignment"]),
@@ -76,9 +76,8 @@ describe("createTagsFeature shape", () => {
 });
 
 describe("createTagsFeature access-options", () => {
-  test("without options: singleton with default roles on every path", () => {
-    const feature = createTagsFeature();
-    expect(feature).toBe(createTagsFeature());
+  test("with only parents: default roles on every path", () => {
+    const feature = createTagsFeature({ parents: ["credit"] });
     expect(writeAccess(feature, "tag:create")).toEqual([...DEFAULT_TAG_ROLES]);
     expect(writeAccess(feature, "tag:update")).toEqual([...DEFAULT_TAG_ROLES]);
     expect(writeAccess(feature, "tag:delete")).toEqual([...DEFAULT_TAG_ROLES]);
@@ -89,7 +88,7 @@ describe("createTagsFeature access-options", () => {
   });
 
   test("roles option overrides every write- and query-path", () => {
-    const feature = createTagsFeature({ roles: ["Admin", "Editor"] });
+    const feature = createTagsFeature({ parents: ["credit"], roles: ["Admin", "Editor"] });
     expect(writeAccess(feature, "tag:create")).toEqual(["Admin", "Editor"]);
     expect(writeAccess(feature, "tag:update")).toEqual(["Admin", "Editor"]);
     expect(writeAccess(feature, "tag:delete")).toEqual(["Admin", "Editor"]);
@@ -100,7 +99,7 @@ describe("createTagsFeature access-options", () => {
   });
 
   test("access:{openToAll} applies to every write- and query-path", () => {
-    const feature = createTagsFeature({
+    const feature = createTagsFeature({ parents: ["credit"],
       access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
     });
     for (const path of [
@@ -122,7 +121,7 @@ describe("createTagsFeature access-options", () => {
   });
 
   test("access takes precedence over the roles shorthand", () => {
-    const feature = createTagsFeature({
+    const feature = createTagsFeature({ parents: ["credit"],
       access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       roles: ["Admin"],
     });
@@ -135,7 +134,7 @@ describe("createTagsFeature access-options", () => {
   });
 
   test("access:{roles} threads through like the roles shorthand", () => {
-    const feature = createTagsFeature({ access: { roles: ["Owner"] } });
+    const feature = createTagsFeature({ parents: ["credit"], access: { roles: ["Owner"] } });
     expect(writeAccess(feature, "remove-tag")).toEqual(["Owner"]);
     expect(queryAccess(feature, "tag-assignment:list")).toEqual(["Owner"]);
   });
@@ -143,16 +142,16 @@ describe("createTagsFeature access-options", () => {
 
 describe("createTagsFeature toggleable-option (tier-gating)", () => {
   test("without toggleable: feature is always-on (toggleableDefault undefined)", () => {
-    expect(createTagsFeature().toggleableDefault).toBeUndefined();
+    expect(createTagsFeature({ parents: ["credit"] }).toggleableDefault).toBeUndefined();
     expect(
-      createTagsFeature({
+      createTagsFeature({ parents: ["credit"],
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       }).toggleableDefault,
     ).toBeUndefined();
   });
 
   test("toggleable:{default:false} makes the feature tier-gatable, fail-closed", () => {
-    const feature = createTagsFeature({
+    const feature = createTagsFeature({ parents: ["credit"],
       access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       toggleable: { default: false },
     });
@@ -160,12 +159,11 @@ describe("createTagsFeature toggleable-option (tier-gating)", () => {
   });
 
   test("toggleable:{default:true} declares toggleable, enabled-by-default", () => {
-    expect(createTagsFeature({ toggleable: { default: true } }).toggleableDefault).toBe(true);
+    expect(createTagsFeature({ parents: ["credit"], toggleable: { default: true } }).toggleableDefault).toBe(true);
   });
 
-  test("toggleable alone (no access/roles) builds a fresh, non-singleton feature", () => {
-    const feature = createTagsFeature({ toggleable: { default: false } });
-    expect(feature).not.toBe(createTagsFeature());
+  test("toggleable alone (no access/roles) keeps the default roles", () => {
+    const feature = createTagsFeature({ parents: ["credit"], toggleable: { default: false } });
     // access still defaults when only toggleable is set
     expect(writeAccess(feature, "tag:create")).toEqual([...DEFAULT_TAG_ROLES]);
   });

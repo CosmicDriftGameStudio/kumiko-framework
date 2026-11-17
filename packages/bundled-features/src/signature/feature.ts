@@ -8,17 +8,21 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { computeCutoff } from "../data-retention/index.ts";
-import { createSignatureRequestEntity, createSignatureSignerEntity } from "./entity.ts";
+import {
+  createSignatureRequestEntity,
+  createSignatureRequestExecutor,
+  createSignatureSignerEntity,
+} from "./entity.ts";
 import { eraseSignersOfUnfinishedRequests } from "./erase-unfinished.ts";
 import { createAnonymousLinkHandlers } from "./handlers/anonymous.write.ts";
 import { createCancelHandler } from "./handlers/cancel.write.ts";
 import { createForgetSignerHandler } from "./handlers/forget-signer.write.ts";
 import { createIssueLinkHandler } from "./handlers/issue-link.write.ts";
 import {
-  expireHandler,
-  failHandler,
-  finishHandler,
-  reconcileHandler,
+  createExpireHandler,
+  createFailHandler,
+  createFinishHandler,
+  createReconcileHandler,
 } from "./handlers/lifecycle.write.ts";
 import { createLinkInternalHandlers } from "./handlers/link-internal.write.ts";
 import { createRequestHandler } from "./handlers/request.write.ts";
@@ -48,9 +52,10 @@ export function createSignatureFeature(opts: SignatureOptions): FeatureDefinitio
   computeCutoff(opts.retention.unfinishedKeepFor, Temporal.Instant.fromEpochMilliseconds(0));
   const signedInAccess = opts.access ?? DEFAULT_SIGNATURE_ACCESS;
   const requestEntity = createSignatureRequestEntity(opts.retention, opts.hostEntities);
+  const requestExecutor = createSignatureRequestExecutor(opts.hostEntities);
   const signerEntity = createSignatureSignerEntity(opts.retention);
   const anonymous = createAnonymousLinkHandlers(LINK_RATE_LIMIT, opts.linkSecret);
-  const link = createLinkInternalHandlers(opts.linkSecret);
+  const link = createLinkInternalHandlers(opts.linkSecret, requestExecutor);
 
   return defineFeature(SIGNATURE_FEATURE, (r) => {
     r.describe(
@@ -77,11 +82,11 @@ export function createSignatureFeature(opts: SignatureOptions): FeatureDefinitio
       piiFields: "none",
     });
 
-    r.writeHandler(createRequestHandler(signedInAccess));
-    r.writeHandler(createSignInPersonHandler(signedInAccess));
-    r.writeHandler(createIssueLinkHandler(signedInAccess, opts));
-    r.writeHandler(createRevokeLinkHandler(signedInAccess));
-    r.writeHandler(createCancelHandler(signedInAccess));
+    r.writeHandler(createRequestHandler(signedInAccess, requestExecutor));
+    r.writeHandler(createSignInPersonHandler(signedInAccess, requestExecutor));
+    r.writeHandler(createIssueLinkHandler(signedInAccess, requestExecutor, opts));
+    r.writeHandler(createRevokeLinkHandler(signedInAccess, requestExecutor));
+    r.writeHandler(createCancelHandler(signedInAccess, requestExecutor));
     r.writeHandler(createForgetSignerHandler());
     r.writeHandler(anonymous.openByLink);
     r.writeHandler(anonymous.signByLink);
@@ -89,10 +94,10 @@ export function createSignatureFeature(opts: SignatureOptions): FeatureDefinitio
     r.writeHandler(link.linkOpen);
     r.writeHandler(link.linkSign);
     r.writeHandler(link.linkDecline);
-    r.writeHandler(finishHandler);
-    r.writeHandler(expireHandler);
-    r.writeHandler(failHandler);
-    r.writeHandler(reconcileHandler);
+    r.writeHandler(createFinishHandler(requestExecutor));
+    r.writeHandler(createExpireHandler(requestExecutor));
+    r.writeHandler(createFailHandler(requestExecutor));
+    r.writeHandler(createReconcileHandler(requestExecutor));
 
     const requestList = defineEntityListHandler(SIGNATURE_REQUEST_ENTITY, requestEntity, {
       access: signedInAccess,
@@ -111,7 +116,7 @@ export function createSignatureFeature(opts: SignatureOptions): FeatureDefinitio
     });
     r.queryHandler(requestList);
     r.queryHandler(requestDetail);
-    r.queryHandler(gateSignerListByRequestHost(signerList));
+    r.queryHandler(gateSignerListByRequestHost(signerList, requestExecutor));
 
     r.useExtension(EXT_USER_DATA, SIGNATURE_SIGNER_ENTITY, {
       export: signatureExportHook,

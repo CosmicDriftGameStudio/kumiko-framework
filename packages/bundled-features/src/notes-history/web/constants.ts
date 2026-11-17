@@ -23,7 +23,7 @@ export const NotesHistoryQueries = {
 // Default RBAC: any tenant member may read and write notes on entities they
 // can already see — same low-sensitivity-collaboration-tool default as tags.
 // Apps with their own role vocabulary override via
-// createNotesHistoryFeature({ roles }) / ({ access }).
+// createNotesHistoryFeature({ parents, roles }) / ({ parents, access }).
 export const DEFAULT_NOTES_HISTORY_ROLES = ["TenantAdmin", "TenantMember"] as const;
 
 export const DEFAULT_NOTES_HISTORY_ACCESS: AccessRule = {

@@ -3,7 +3,7 @@ import {
   defineWriteHandler,
   type KumikoEventTypeMap,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { documentDraftExecutor } from "../entity.ts";
+import type { DocumentDraftExecutor } from "../entity.ts";
 import {
   checkOpenAtBase,
   draftNotFound,
@@ -28,6 +28,7 @@ export const FINALIZE_RATE_LIMIT = { per: "user+handler", limit: 10, windowSecon
 // first, so a caller who may not see the draft gets NotFound without status hints and without a print.
 export function createFinalizeHandler<TUpload>(
   access: AccessRule,
+  documentDraftExecutor: DocumentDraftExecutor,
   pdf: DocumentDraftPdf<TUpload>,
 ) {
   return defineWriteHandler<
@@ -46,7 +47,7 @@ export function createFinalizeHandler<TUpload>(
       "Prints an open document draft to a PDF with the values frozen at creation and stores it: the draft becomes finalized and carries the file (fileRefId, fileName). base is the draft version from the blocks query. Further edits need revise first. Returns the draft id, the file and the revision.",
     beforeTransaction: async (event, ctx) => {
       const { id, base } = event.payload;
-      const draft = await loadScopedDraft(ctx, event.user, id);
+      const draft = await loadScopedDraft(documentDraftExecutor, ctx, event.user, id);
       if (draft === null) return draftNotFound(id);
       const notOpenAtBase = checkOpenAtBase(draft, id, base);
       if (notOpenAtBase !== null) return notOpenAtBase;
@@ -66,7 +67,7 @@ export function createFinalizeHandler<TUpload>(
     handler: async (event, ctx) => {
       const { id, base } = event.payload;
       const user = event.user;
-      const draft = await loadScopedDraft(ctx, user, id);
+      const draft = await loadScopedDraft(documentDraftExecutor, ctx, user, id);
       if (draft === null) return draftNotFound(id);
       const notOpenAtBase = checkOpenAtBase(draft, id, base);
       if (notOpenAtBase !== null) return notOpenAtBase;

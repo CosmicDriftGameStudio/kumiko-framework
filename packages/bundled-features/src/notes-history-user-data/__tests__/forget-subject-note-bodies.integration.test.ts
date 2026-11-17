@@ -116,7 +116,7 @@ beforeAll(async () => {
       createFilesFeature(),
       createUserDataRightsFeature(),
       createUserDataRightsDefaultsFeature(),
-      createNotesHistoryFeature(),
+      createNotesHistoryFeature({ parents: ["contact", "invoice"] }),
       createNotesHistoryUserDataFeature(),
       createCryptoShreddingFeature(),
       contactFixtureFeature,

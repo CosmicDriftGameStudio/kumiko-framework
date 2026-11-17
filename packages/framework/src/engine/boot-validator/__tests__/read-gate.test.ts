@@ -19,7 +19,11 @@ const text = () =>
 const linkEntity = createEntity({
   table: "read_gate_boot_links",
   fields: { documentId: text(), entityType: text(), entityId: text() },
-  parentRef: { entityTypeField: "entityType", entityIdField: "entityId" },
+  parentRef: {
+    entityTypeField: "entityType",
+    entityIdField: "entityId",
+    allowedTypes: ["host"],
+  },
 });
 
 function gated(readGate: EntityDefinition["readGate"], extra: Partial<EntityDefinition> = {}) {
@@ -63,7 +67,7 @@ describe("validateReadGates", () => {
 
   test("rejects a gate combined with parentRef", () => {
     const entity = gated(validGate, {
-      parentRef: { entityTypeField: "title", entityIdField: "title" },
+      parentRef: { entityTypeField: "title", entityIdField: "title", allowedTypes: ["host"] },
     });
     expect(() => check(entity)).toThrow(/cannot be combined/);
   });

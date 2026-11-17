@@ -110,7 +110,7 @@ beforeAll(async () => {
       createFilesFeature(),
       createUserDataRightsFeature(),
       createUserDataRightsDefaultsFeature(),
-      createNotesHistoryFeature(),
+      createNotesHistoryFeature({ parents: ["contact"] }),
       createNotesHistoryUserDataFeature(),
       contactFixtureFeature,
       hookProbeFeature,

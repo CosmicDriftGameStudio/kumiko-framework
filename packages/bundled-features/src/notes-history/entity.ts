@@ -4,6 +4,7 @@ import {
   createTextField,
   type EntityDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
+import type { ParentRefDef } from "@cosmicdrift/kumiko-types/fields";
 
 // note-entry — host-agnostic, append-only note attached to ANY entity via
 // (entityType, entityId), same join-row pattern as tags/tag-assignment: no
@@ -38,22 +39,16 @@ import {
 // party without a structured @-mention is not tracked — regex/NLP over
 // free text is unreliable. An operator must erase such a note's own record
 // subject (`forget-subject` kind "record", entity "note-entry") to cover it.
-export function createNoteEntryEntity(
-  access?: EntityDefinition["access"],
-  parents?: readonly string[],
+function buildNoteEntryEntity(
+  access: EntityDefinition["access"] | undefined,
+  parentRef: ParentRefDef | undefined,
 ) {
   return createEntity({
     table: "read_note_entries",
     description:
       "One note attached to a host entity by entityType and entityId, holding the note body plus the id and the display name of the author as it stood when the note was written. Rows are append-only: a correction is a further note, never an edit of this one.",
     access,
-    // Declared unconditionally: the host-visibility gate is the default for
-    // both paths, and `parents` only narrows which hosts are admissible.
-    parentRef: {
-      entityTypeField: "entityType",
-      entityIdField: "entityId",
-      ...(parents !== undefined && { allowedTypes: parents }),
-    },
+    ...(parentRef !== undefined && { parentRef }),
     fields: {
       entityType: createTextField({
         required: true,
@@ -98,7 +93,19 @@ export function createNoteEntryEntity(
   });
 }
 
-export const noteEntryEntity = createNoteEntryEntity();
+export function createNoteEntryEntity(
+  access: EntityDefinition["access"] | undefined,
+  parents: readonly string[],
+) {
+  return buildNoteEntryEntity(access, {
+    entityTypeField: "entityType",
+    entityIdField: "entityId",
+    allowedTypes: parents,
+  });
+}
+
+// Table shape without the host gate; the mounted entity and its handler executors carry parentRef with the mount's parents.
+export const noteEntryEntity = buildNoteEntryEntity(undefined, undefined);
 
 // note-mention — join row recording that a note names a subject via a
 // structured @-mention in the editor (never parsed out of `body` text — see

@@ -31,7 +31,7 @@ const tagClient: TagClient = {
   write: <T>(type: string, payload: unknown) => stack.http.writeOk<T>(type, payload, admin),
   query: <T>(type: string, payload: unknown) => stack.http.queryOk<T>(type, payload, admin),
 };
-const tags = createTagsFeature();
+const tags = createTagsFeature({ parents: ["note"] });
 
 let stack: TestStack;
 

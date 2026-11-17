@@ -3,7 +3,7 @@ import {
   EXT_USER_DATA,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createDocumentDraftEntity } from "./entity.ts";
+import { createDocumentDraftEntity, createDocumentDraftExecutor } from "./entity.ts";
 import { createBlocksQuery } from "./handlers/blocks.query.ts";
 import { createBySubjectQuery } from "./handlers/by-subject.query.ts";
 import { createCreateHandler } from "./handlers/create.write.ts";
@@ -23,6 +23,7 @@ export function createDocumentDraftFeature<TUpload>(
 ): FeatureDefinition {
   const access = opts.access ?? DEFAULT_DOCUMENT_DRAFT_ACCESS;
   const entity = createDocumentDraftEntity(opts.retention, opts.subjectTypes);
+  const documentDraftExecutor = createDocumentDraftExecutor(opts.subjectTypes);
 
   return defineFeature(DOCUMENT_DRAFT_FEATURE, (r) => {
     r.describe(
@@ -34,14 +35,14 @@ export function createDocumentDraftFeature<TUpload>(
 
     r.entity({ name: "documentDraft", ...entity });
 
-    r.writeHandler(createCreateHandler(access, opts.subjectTypes));
-    r.writeHandler(createPatchHandler(access));
-    r.writeHandler(createSaveHandler(access));
-    r.writeHandler(createFinalizeHandler(access, opts.pdf));
-    r.writeHandler(createReviseHandler(access));
-    r.writeHandler(createDiscardHandler(access));
-    r.queryHandler(createBlocksQuery(access, opts.subjectScreens));
-    r.queryHandler(createBySubjectQuery(access));
+    r.writeHandler(createCreateHandler(access, documentDraftExecutor, opts.subjectTypes));
+    r.writeHandler(createPatchHandler(access, documentDraftExecutor));
+    r.writeHandler(createSaveHandler(access, documentDraftExecutor));
+    r.writeHandler(createFinalizeHandler(access, documentDraftExecutor, opts.pdf));
+    r.writeHandler(createReviseHandler(access, documentDraftExecutor));
+    r.writeHandler(createDiscardHandler(access, documentDraftExecutor));
+    r.queryHandler(createBlocksQuery(access, documentDraftExecutor, opts.subjectScreens));
+    r.queryHandler(createBySubjectQuery(access, documentDraftExecutor));
     r.screen(createDocumentDraftEditorScreen(access));
 
     // A draft belongs to the object it was made for, not to the acting user: the app erases it

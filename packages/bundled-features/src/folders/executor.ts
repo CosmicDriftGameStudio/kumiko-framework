@@ -1,11 +1,15 @@
 import { createEntityExecutor } from "@cosmicdrift/kumiko-framework/engine";
-import { folderAssignmentEntity, folderEntity } from "./entity.ts";
+import { createFolderAssignmentEntity, folderEntity } from "./entity.ts";
 
-// Shared executors for the folder + folder-assignment write-handlers.
-// createEntityExecutor is side-effect-free; instantiating once keeps the
-// table+executor pair in one place instead of rebuilding it per handler module.
+// createEntityExecutor is side-effect-free; the table+executor pair for the folder catalog lives here.
 export const { executor: folderExecutor } = createEntityExecutor("folder", folderEntity);
-export const { executor: folderAssignmentExecutor } = createEntityExecutor(
-  "folder-assignment",
-  folderAssignmentEntity,
-);
+
+// Carries the mount's parentRef so executor reads apply the same host gate as the registered entity.
+export function createFolderAssignmentExecutor(parents: readonly string[]) {
+  return createEntityExecutor(
+    "folder-assignment",
+    createFolderAssignmentEntity(undefined, parents),
+  ).executor;
+}
+
+export type FolderAssignmentExecutor = ReturnType<typeof createFolderAssignmentExecutor>;

@@ -17,7 +17,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/files";
 import { PDFDocument } from "pdf-lib";
 import { joinRowParentIsVisible } from "../../shared/index.ts";
-import { requestExecutor, signerExecutor } from "../entity.ts";
+import { type SignatureRequestExecutor, signerExecutor } from "../entity.ts";
 import { readTenantFile, sha256Hex } from "../files.ts";
 import { RequestSignatureSchema } from "../payloads.ts";
 import {
@@ -56,7 +56,7 @@ async function isReadableTenantFile(ctx: HandlerContext, fileRefId: string): Pro
   return fileRef !== undefined && (await canCallerReadFileRef(ctx, fileRef));
 }
 
-export function createRequestHandler(access: AccessRule) {
+export function createRequestHandler(access: AccessRule, requestExecutor: SignatureRequestExecutor) {
   return defineWriteHandler<"request", typeof RequestSignatureSchema, RequestSignatureData>({
     name: "request",
     schema: RequestSignatureSchema,

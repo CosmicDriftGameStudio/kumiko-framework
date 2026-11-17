@@ -38,7 +38,11 @@ const hostTable = buildEntityTable("host", hostEntity);
 const linkEntity = createEntity({
   table: "pr_write_links",
   softDelete: true,
-  parentRef: { entityTypeField: "entityType", entityIdField: "entityId" },
+  parentRef: {
+    entityTypeField: "entityType",
+    entityIdField: "entityId",
+    allowedTypes: ["host"],
+  },
   fields: {
     entityType: createTextField({ required: true, personal: false, reason: "technical_reference" }),
     entityId: createTextField({ required: true, personal: false, reason: "technical_reference" }),

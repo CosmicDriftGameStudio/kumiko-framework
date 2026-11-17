@@ -1,3 +1,4 @@
+import type { ParentRefDef } from "@cosmicdrift/kumiko-types/fields";
 import {
   createEntity,
   createEntityExecutor,
@@ -46,9 +47,9 @@ export type SignatureRetention = {
 // find: "none" except the email, which the user-data hook looks up by exact match.
 const SIGNER_PERSONAL = { personal: "self", find: "none" } as const;
 
-export function createSignatureRequestEntity(
-  retention: Pick<SignatureRetention, "keepFor"> = { keepFor: DEFAULT_SIGNATURE_RETENTION_KEEP_FOR },
-  hostEntities?: readonly string[],
+function buildSignatureRequestEntity(
+  retention: Pick<SignatureRetention, "keepFor">,
+  parentRef: ParentRefDef | undefined,
 ) {
   return createEntity({
     table: "read_signature_requests",
@@ -135,17 +136,24 @@ export function createSignatureRequestEntity(
         sortable: true,
       }),
     },
-    // A request is visible only while its host row is readable through the host entity's own read rules.
-    parentRef: {
-      entityTypeField: "hostType",
-      entityIdField: "hostId",
-      ...(hostEntities !== undefined && { allowedTypes: hostEntities }),
-    },
+    ...(parentRef !== undefined && { parentRef }),
     indexes: [
       { columns: ["tenantId", "status"] },
       { columns: ["tenantId", "subjectType", "subjectId"] },
       { columns: ["tenantId", "hostType", "hostId"] },
     ],
+  });
+}
+
+// A request is visible only while its host row is readable through the host entity's own read rules.
+export function createSignatureRequestEntity(
+  retention: Pick<SignatureRetention, "keepFor">,
+  hostEntities: readonly string[],
+) {
+  return buildSignatureRequestEntity(retention, {
+    entityTypeField: "hostType",
+    entityIdField: "hostId",
+    allowedTypes: hostEntities,
   });
 }
 
@@ -206,13 +214,25 @@ export function createSignatureSignerEntity(
   });
 }
 
-export const signatureRequestEntity = createSignatureRequestEntity();
+// Table shape without the host gate; the mounted entity and its handler executors carry parentRef with the mount's hosts.
+export const signatureRequestEntity = buildSignatureRequestEntity(
+  { keepFor: DEFAULT_SIGNATURE_RETENTION_KEEP_FOR },
+  undefined,
+);
 export const signatureSignerEntity = createSignatureSignerEntity();
 
-export const { executor: requestExecutor, table: signatureRequestTable } = createEntityExecutor(
-  SIGNATURE_REQUEST_ENTITY,
-  signatureRequestEntity,
-);
+// ungated: system paths only (sweep, user-data run as systemUser and must see every host)
+export const { executor: ungatedRequestExecutor, table: signatureRequestTable } =
+  createEntityExecutor(SIGNATURE_REQUEST_ENTITY, signatureRequestEntity);
+
+export function createSignatureRequestExecutor(hostEntities: readonly string[]) {
+  return createEntityExecutor(
+    SIGNATURE_REQUEST_ENTITY,
+    createSignatureRequestEntity({ keepFor: DEFAULT_SIGNATURE_RETENTION_KEEP_FOR }, hostEntities),
+  ).executor;
+}
+
+export type SignatureRequestExecutor = ReturnType<typeof createSignatureRequestExecutor>;
 export const { executor: signerExecutor, table: signatureSignerTable } = createEntityExecutor(
   SIGNATURE_SIGNER_ENTITY,
   signatureSignerEntity,

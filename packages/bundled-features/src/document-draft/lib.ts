@@ -17,7 +17,7 @@ import {
   parseTemplateMeta,
   readPdfTemplateMeta,
 } from "../template-resolver/index.ts";
-import { documentDraftExecutor } from "./entity.ts";
+import type { DocumentDraftExecutor } from "./entity.ts";
 import {
   DOCUMENT_DRAFT_ENTITY,
   DOCUMENT_DRAFT_ERROR,
@@ -27,7 +27,7 @@ import {
 
 export const DEFAULT_DOCUMENT_DRAFT_ACCESS: AccessRule = { roles: access.tenantMembers };
 
-export type DraftRow = NonNullable<Awaited<ReturnType<typeof documentDraftExecutor.detail>>>;
+export type DraftRow = NonNullable<Awaited<ReturnType<DocumentDraftExecutor["detail"]>>>;
 
 export function draftNotFound(id?: string) {
   return writeFailure(new NotFoundError(DOCUMENT_DRAFT_ENTITY, id));
@@ -35,6 +35,7 @@ export function draftNotFound(id?: string) {
 
 // A draft of another tenant, an unknown id and a subject the user may not read all answer the same.
 export async function loadScopedDraft(
+  documentDraftExecutor: DocumentDraftExecutor,
   ctx: Pick<HandlerContext, "db" | "registry">,
   user: SessionUser,
   id: string,

@@ -6,7 +6,7 @@ import {
   parseDocumentJson,
   serializeDocumentJson,
 } from "../../template-resolver/index.ts";
-import { documentDraftExecutor } from "../entity.ts";
+import type { DocumentDraftExecutor } from "../entity.ts";
 import { draftNotFound, loadScopedDraft, notInStatus, recordOrEmpty } from "../lib.ts";
 import { PatchDraftSchema } from "../payloads.ts";
 import {
@@ -24,7 +24,7 @@ const REFUSED_DRAFT_OPS: ReadonlySet<DocumentOp["op"]> = new Set([
   "setResource",
 ]);
 
-export function createPatchHandler(access: AccessRule) {
+export function createPatchHandler(access: AccessRule, documentDraftExecutor: DocumentDraftExecutor) {
   return defineWriteHandler<"patch", typeof PatchDraftSchema, PatchData>({
     name: "patch",
     schema: PatchDraftSchema,
@@ -35,7 +35,7 @@ export function createPatchHandler(access: AccessRule) {
     handler: async (event, ctx) => {
       const { id, base, ops } = event.payload;
       const user = event.user;
-      const draft = await loadScopedDraft(ctx, user, id);
+      const draft = await loadScopedDraft(documentDraftExecutor, ctx, user, id);
       if (draft === null) return draftNotFound(id);
       if (draft.status !== DOCUMENT_DRAFT_STATUS.Open)
         return notInStatus(DOCUMENT_DRAFT_STATUS.Open);

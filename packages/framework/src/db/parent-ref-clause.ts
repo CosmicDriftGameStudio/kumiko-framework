@@ -60,7 +60,7 @@ function selectCandidates(
 ): ReadonlyArray<readonly [string, EntityDefinition]> {
   const candidates: Array<readonly [string, EntityDefinition]> = [];
   for (const [name, candidate] of option.entities) {
-    if (parentRef.allowedTypes && !parentRef.allowedTypes.includes(name)) continue;
+    if (!parentRef.allowedTypes.includes(name)) continue;
     if (narrowTypes && !narrowTypes.has(name)) continue;
     // No recursive gating — a host that is itself a join-row entity would
     // need its own visibility resolved first, which this function doesn't do.

@@ -2,8 +2,8 @@ import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { liveHostRowIds } from "../../shared/index.ts";
-import { folderAssignmentExecutor, folderExecutor } from "../executor.ts";
-import { DEFAULT_FOLDER_ACCESS, FOLDER_LOCK_NAMESPACE } from "../web/constants.ts";
+import { type FolderAssignmentExecutor, folderExecutor } from "../executor.ts";
+import { FOLDER_LOCK_NAMESPACE } from "../web/constants.ts";
 
 const deleteFolderPayloadSchema = z.object({ id: z.uuid() });
 
@@ -12,7 +12,8 @@ const deleteFolderPayloadSchema = z.object({ id: z.uuid() });
 // a visible host, and a host-delete hook would break restore.
 const ASSIGNMENT_PAGE_SIZE = 200;
 export function createDeleteFolderHandler(
-  access: AccessRule = DEFAULT_FOLDER_ACCESS,
+  access: AccessRule,
+  assignmentExecutor: FolderAssignmentExecutor,
 ): WriteHandlerDef {
   return {
     name: "folder:delete",
@@ -37,7 +38,7 @@ export function createDeleteFolderHandler(
       const orphanAssignmentIds: string[] = [];
       let cursor: string | undefined;
       do {
-        const page = await folderAssignmentExecutor.list(
+        const page = await assignmentExecutor.list(
           {
             filter: { field: "folderId", op: "eq", value: payload.id },
             limit: ASSIGNMENT_PAGE_SIZE,
@@ -68,7 +69,7 @@ export function createDeleteFolderHandler(
       } while (cursor !== undefined);
 
       for (const id of orphanAssignmentIds) {
-        const removed = await folderAssignmentExecutor.delete({ id }, event.user, ctx.db);
+        const removed = await assignmentExecutor.delete({ id }, event.user, ctx.db);
         if (!removed.isSuccess) return removed;
       }
       return folderExecutor.delete({ id: payload.id }, event.user, ctx.db);
@@ -76,4 +77,3 @@ export function createDeleteFolderHandler(
   };
 }
 
-export const deleteFolderHandler: WriteHandlerDef = createDeleteFolderHandler();

@@ -139,7 +139,7 @@ export async function createHelpdeskTestStack(
         signup: { tokenTtlMinutes: 60, appUrl: "https://app.example.com/signup/activate" },
       }),
       createUserDataRightsFeature(),
-      createNotesHistoryFeature(),
+      createNotesHistoryFeature({ parents: ["helpdesk-request"] }),
       createHelpdeskFeature({
         appName: "Acme",
         telegram: true,

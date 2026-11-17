@@ -37,7 +37,7 @@ import { noteEntryEntity, noteMentionEntity } from "../entity.ts";
 import { createNotesHistoryFeature } from "../feature.ts";
 import { NotesHistoryHandlers, NotesHistoryQueries } from "../web/constants.ts";
 
-const notesHistoryFeature = createNotesHistoryFeature();
+const notesHistoryFeature = createNotesHistoryFeature({ parents: ["contact"] });
 const tenantId = testTenantId(1);
 
 const CONTACT_TABLE = "notes_kms_test_contacts";

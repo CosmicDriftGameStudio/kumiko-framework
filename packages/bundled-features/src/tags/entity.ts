@@ -3,6 +3,7 @@ import {
   createTextField,
   type EntityDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
+import type { ParentRefDef } from "@cosmicdrift/kumiko-types/fields";
 
 // tag — per-tenant tag catalog. Event-sourced entity (create/rename/delete via
 // the standard executor); the framework projects `read_tags` from its own CRUD
@@ -56,9 +57,9 @@ export const tagEntity = createEntity({
 //   - tags of an entity   → list assignments filter { field: "entityId", op: "eq" }
 //   - entities with a tag  → list assignments filter { field: "tagId",   op: "eq" }
 // guard:dup-ok own table and fields; a shared definition would couple the schemas and migrations of tags and folders
-export function createTagAssignmentEntity(
-  access?: EntityDefinition["access"],
-  parents?: readonly string[],
+function buildTagAssignmentEntity(
+  access: EntityDefinition["access"] | undefined,
+  parentRef: ParentRefDef | undefined,
 ) {
   return createEntity({
     table: "read_tag_assignments",
@@ -66,13 +67,7 @@ export function createTagAssignmentEntity(
       "The join row recording that one catalog tag is attached to one host entity, addressed by tagId, entityType and entityId, with exactly one row per pair. An entity may carry many tags, unlike the single-folder membership rows.",
     softDelete: true,
     access,
-    // Declared unconditionally: the host-visibility gate is the default for
-    // both paths, and `parents` only narrows which hosts are admissible.
-    parentRef: {
-      entityTypeField: "entityType",
-      entityIdField: "entityId",
-      ...(parents !== undefined && { allowedTypes: parents }),
-    },
+    ...(parentRef !== undefined && { parentRef }),
     fields: {
       tagId: createTextField({
         required: true,
@@ -102,4 +97,16 @@ export function createTagAssignmentEntity(
   });
 }
 
-export const tagAssignmentEntity = createTagAssignmentEntity();
+export function createTagAssignmentEntity(
+  access: EntityDefinition["access"] | undefined,
+  parents: readonly string[],
+) {
+  return buildTagAssignmentEntity(access, {
+    entityTypeField: "entityType",
+    entityIdField: "entityId",
+    allowedTypes: parents,
+  });
+}
+
+// Table shape without the host gate; the mounted entity and its handler executors carry parentRef with the mount's parents.
+export const tagAssignmentEntity = buildTagAssignmentEntity(undefined, undefined);

@@ -1,14 +1,14 @@
 import { type AccessRule, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError } from "@cosmicdrift/kumiko-framework/errors";
 import { joinRowParentIsVisible } from "../../shared/index.ts";
-import { documentDraftExecutor } from "../entity.ts";
+import type { DocumentDraftExecutor } from "../entity.ts";
 import { BySubjectSchema } from "../payloads.ts";
 import { DOCUMENT_DRAFT_ENTITY, DOCUMENT_DRAFT_STATUS } from "../web/constants.ts";
 
 // Equals the executor's MAX_LIST_LIMIT; one object never has more live drafts.
 const LIST_LIMIT = 200;
 
-export function createBySubjectQuery(access: AccessRule) {
+export function createBySubjectQuery(access: AccessRule, documentDraftExecutor: DocumentDraftExecutor) {
   return defineQueryHandler({
     name: "by-subject",
     schema: BySubjectSchema,

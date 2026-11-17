@@ -25,6 +25,7 @@ import {
   defineEntityUpdateHandler,
   defineFeature,
   type EntityDefinition,
+  type FeatureDefinition,
   type FeatureRegistrar,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { assertNoWhereRuleInOwnershipWrite, resolveFeatureAccess } from "../shared/index.ts";
@@ -53,11 +54,11 @@ function registerTags(
   access: AccessRule,
   toggleable: TagsToggleable | undefined,
   ownership: EntityDefinition["access"] | undefined,
-  parents: readonly string[] | undefined,
+  parents: readonly string[],
 ): void {
   r.adoptsBundledLists();
   r.describe(
-    "Generic, host-agnostic tagging for any entity. Owns two event-sourced entities — the per-tenant `tag` catalog (`read_tags`, with optional `color` and `scope`) and `tag-assignment` join rows keyed by (entityType, entityId) (`read_tag_assignments`) — so tagging adds NO column to the host entity and needs no relational pivot or JOIN. The catalog is written through `tag:create`, `tag:update` (`{ id, version, changes }`) and `tag:delete` (cascades over the assignments and refuses while a record the caller cannot see still carries the tag), used by the declarative catalog screens and by TagManager/TagPicker alike. Also: `assign-tag` (idempotent), `remove-tag` (idempotent) and list queries for the catalog and the assignments. Read which tags an entity has, or which entities carry a tag, by listing `tag-assignment` filtered on `entityId` or `tagId` and composing in the read-layer. A tag with empty `scope` is global; a `scope` of an entityType restricts it to that type in the picker. Every path uses one access rule — adopt the host's model with createTagsFeature({ access: { openToAll: { reason } } }) or pin roles with createTagsFeature({ roles }). Pass { toggleable: { default: false } } to make the whole feature tier-gatable via the tier-engine (no host hook).",
+    "Generic, host-agnostic tagging for any entity. Owns two event-sourced entities — the per-tenant `tag` catalog (`read_tags`, with optional `color` and `scope`) and `tag-assignment` join rows keyed by (entityType, entityId) (`read_tag_assignments`) — so tagging adds NO column to the host entity and needs no relational pivot or JOIN. The catalog is written through `tag:create`, `tag:update` (`{ id, version, changes }`) and `tag:delete` (cascades over the assignments and refuses while a record the caller cannot see still carries the tag), used by the declarative catalog screens and by TagManager/TagPicker alike. Also: `assign-tag` (idempotent), `remove-tag` (idempotent) and list queries for the catalog and the assignments. Read which tags an entity has, or which entities carry a tag, by listing `tag-assignment` filtered on `entityId` or `tagId` and composing in the read-layer. A tag with empty `scope` is global; a `scope` of an entityType restricts it to that type in the picker. Every path uses one access rule — adopt the host's model with createTagsFeature({ access: { openToAll: { reason } } }) or pin roles with createTagsFeature({ roles }). Mount with createTagsFeature({ parents: [<host entities>] }). Pass { toggleable: { default: false } } to make the whole feature tier-gatable via the tier-engine (no host hook).",
   );
   r.uiHints({
     displayLabel: "Tags",
@@ -82,8 +83,8 @@ function registerTags(
     }),
   );
   r.hook({ type: "validation", target: tagUpdate, handler: rejectInvalidTagColorChange });
-  r.writeHandler(createDeleteTagHandler(access));
-  const assignmentExecutor = createTagAssignmentExecutor(ownership);
+  const assignmentExecutor = createTagAssignmentExecutor(ownership, parents);
+  r.writeHandler(createDeleteTagHandler(access, assignmentExecutor));
   r.writeHandler(createAssignTagHandler(access, assignmentExecutor));
   r.writeHandler(createRemoveTagHandler(access, assignmentExecutor));
 
@@ -115,10 +116,6 @@ function registerTags(
   r.screen(createTagEditScreen(access));
   r.translations({ keys: TAGS_FEATURE_I18N });
 }
-
-const defaultTagsFeature = defineFeature(TAGS_FEATURE_NAME, (r) =>
-  registerTags(r, DEFAULT_TAG_ACCESS, undefined, undefined, undefined),
-);
 
 export type TagsFeatureOptions = {
   /** Access rule for all tag write/read paths. Default { roles: ["TenantAdmin","TenantMember"] }.
@@ -152,34 +149,18 @@ export type TagsFeatureOptions = {
    *  crypto-shredding — a silent Art.17 failure, not a thrown error. Make
    *  sure any `ownership.write` you set covers that role, or leave it unset. */
   readonly ownership?: EntityDefinition["access"];
-  /** Allowlist narrowing which registered entities may carry a tag. Not what
-   *  turns host-checking on — assign/remove and the assignment list always
-   *  verify that entityType names a registered entity whose row the caller can
-   *  see. Setting it narrows further, and shrinks the read gate's SQL, which
-   *  otherwise considers every registered entity as a candidate host. */
-  readonly parents?: readonly string[];
+  /** Registered entities a row may hang off (entityType). Required and non-empty: the read gate
+   *  builds one SQL branch per host. Every path still checks that the host row is visible to the
+   *  caller through the host's own read path. */
+  readonly parents: readonly string[];
 };
 
-// Backwards-compat / options wrapper. Without options returns the module-level
-// singleton (no rebuild). access/roles/toggleable/ownership build a fresh
-// feature-definition.
-export function createTagsFeature(opts: TagsFeatureOptions = {}): typeof defaultTagsFeature {
-  if (
-    opts.access === undefined &&
-    opts.roles === undefined &&
-    opts.toggleable === undefined &&
-    opts.ownership === undefined &&
-    opts.parents === undefined
-  ) {
-    return defaultTagsFeature;
-  }
-  if (opts.parents !== undefined && opts.parents.length === 0) {
+export function createTagsFeature(opts: TagsFeatureOptions): FeatureDefinition {
+  if (opts.parents.length === 0) {
     throw bootRuleError(TAGS_BOOT_RULES.emptyParentsAllowlist, {
       message:
         "createTagsFeature({ parents }): parents must not be an empty array — " +
-        "an empty allowlist rejects every assign-tag call and hides every " +
-        "assignment row. Omit `parents` to keep every registered entity " +
-        "admissible as a host instead.",
+        "an empty allowlist rejects every assignment. List at least one host entity.",
     });
   }
   assertNoWhereRuleInOwnershipWrite("createTagsFeature", opts.ownership?.write);

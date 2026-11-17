@@ -47,12 +47,12 @@ import { createSessionsFeature } from "../../sessions/index.ts";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.ts";
 import { createUserDataRightsFeature } from "../../user-data-rights/feature.ts";
 import {
-  requestExecutor,
   signatureRequestEntity,
   signatureRequestTable,
   signatureSignerEntity,
   signatureSignerTable,
   signerExecutor,
+  ungatedRequestExecutor,
 } from "../entity.ts";
 import { createSignatureFeature } from "../feature.ts";
 import { signSignatureLinkToken } from "../grant.ts";
@@ -731,7 +731,7 @@ describe("signature :: outcomes", () => {
       mode: "system",
       reason: "test moves the deadline into the past",
     });
-    const moved = await requestExecutor.update(
+    const moved = await ungatedRequestExecutor.update(
       { id: requestId, changes: { expiresAt: Temporal.Now.instant().subtract({ hours: 1 }) } },
       createSystemUser(TENANT),
       db,

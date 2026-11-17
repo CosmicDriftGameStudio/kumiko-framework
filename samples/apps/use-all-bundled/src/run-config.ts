@@ -130,6 +130,9 @@ const stubEmailTransport: EmailTransport = {
 // no token minted here is ever trusted by a deployment.
 const SMOKE_HMAC_SECRET = "use-all-bundled-smoke-hmac-key-0123456789";
 
+export const BUNDLED_JOIN_HOSTS = ["helpdesk-request"] as const;
+export const TAGS_NOTES_ROLES = ["TenantAdmin", "TenantMember", "SystemAdmin"] as const;
+
 export const APP_FEATURES = [
   localeDe(),
   // foundations not in the auto-mounted bundled-set
@@ -446,10 +449,10 @@ export const APP_FEATURES = [
   // The default tag roles are TenantAdmin/TenantMember; this app's operator is a
   // global SystemAdmin (see server.ts admin), so add SystemAdmin or every tag
   // query/screen is access_denied — exactly what the constants doc warns about.
-  createTagsFeature({ roles: ["TenantAdmin", "TenantMember", "SystemAdmin"] }),
+  createTagsFeature({ roles: TAGS_NOTES_ROLES, parents: BUNDLED_JOIN_HOSTS }),
   // notes-history: default roles are TenantAdmin/TenantMember; same
   // SystemAdmin-operator reasoning as tags above.
-  createNotesHistoryFeature({ roles: ["TenantAdmin", "TenantMember", "SystemAdmin"] }),
+  createNotesHistoryFeature({ roles: TAGS_NOTES_ROLES, parents: BUNDLED_JOIN_HOSTS }),
   // presence: no host entity in this sample opts in, so it only mounts the handlers.
   createPresenceFeature(),
   // notes-history-user-data: GDPR export/erase coverage for note-entry.
@@ -461,7 +464,7 @@ export const APP_FEATURES = [
   // entity. Depends (optionally) on form-draft + (hard) on
   // user-data-rights — both mounted here.
   createFormDraftUserDataFeature(),
-  createFoldersFeature(),
+  createFoldersFeature({ parents: BUNDLED_JOIN_HOSTS }),
   // documents: filed files visible through the records they link to; folder stands in for a host.
   createDocumentsFeature({
     categories: ["contract", "other"],

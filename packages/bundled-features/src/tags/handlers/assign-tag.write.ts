@@ -3,9 +3,9 @@ import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/error
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { denyUnlessJoinRowParentVisible } from "../../shared/index.ts";
 import { tagAssignmentAggregateId } from "../aggregate-id.ts";
-import { tagAssignmentExecutor, tagExecutor } from "../executor.ts";
+import { type TagAssignmentExecutor, tagExecutor } from "../executor.ts";
 import { type AssignTagPayload, assignTagPayloadSchema } from "../schemas.ts";
-import { DEFAULT_TAG_ACCESS, TAG_LOCK_NAMESPACE } from "../web/constants.ts";
+import { TAG_LOCK_NAMESPACE } from "../web/constants.ts";
 
 // assign-tag — links a tag to a host entity by (entityType, entityId). The
 // assignment id is deterministic, so the row is unique per (tag, entity).
@@ -29,8 +29,8 @@ import { DEFAULT_TAG_ACCESS, TAG_LOCK_NAMESPACE } from "../web/constants.ts";
 // without the check any dispatch-eligible tenant user could tag an object they
 // are not allowed to read. See shared/parent-visibility.ts.
 export function createAssignTagHandler(
-  access: AccessRule = DEFAULT_TAG_ACCESS,
-  assignmentExecutor: typeof tagAssignmentExecutor = tagAssignmentExecutor,
+  access: AccessRule,
+  assignmentExecutor: TagAssignmentExecutor,
 ): WriteHandlerDef {
   return {
     name: "assign-tag",

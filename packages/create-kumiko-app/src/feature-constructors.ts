@@ -229,12 +229,6 @@ export const FEATURE_CONSTRUCTORS: Readonly<Record<string, ScaffoldFeatureEntry>
   },
 
   // --- Data ---
-  tags: {
-    name: "tags",
-    importPath: "@cosmicdrift/kumiko-bundled-features/tags",
-    exportName: "createTagsFeature",
-    callExpression: "createTagsFeature()",
-  },
   "custom-fields": {
     name: "custom-fields",
     importPath: "@cosmicdrift/kumiko-bundled-features/custom-fields",

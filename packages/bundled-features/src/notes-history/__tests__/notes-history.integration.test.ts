@@ -32,7 +32,7 @@ import { noteEntryEntity, noteMentionEntity } from "../entity.ts";
 import { createNotesHistoryFeature } from "../feature.ts";
 import { NotesHistoryHandlers, NotesHistoryQueries } from "../web/constants.ts";
 
-const notesHistoryFeature = createNotesHistoryFeature();
+const notesHistoryFeature = createNotesHistoryFeature({ parents: ["contact"] });
 
 const CONTACT_TABLE = "notes_history_test_contacts";
 const contactEntity = createEntity({

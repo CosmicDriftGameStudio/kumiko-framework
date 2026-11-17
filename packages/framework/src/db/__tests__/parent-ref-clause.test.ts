@@ -32,7 +32,11 @@ const textField = () =>
 const joinEntity = createEntity({
   table: "read_test_joins",
   fields: { entityType: textField(), entityId: textField() },
-  parentRef: { entityTypeField: "entityType", entityIdField: "entityId" },
+  parentRef: {
+    entityTypeField: "entityType",
+    entityIdField: "entityId",
+    allowedTypes: ["host", "other", "third"],
+  },
 });
 
 function hostEntity(opts?: {
@@ -105,7 +109,7 @@ describe("buildParentRefClause", () => {
 
   test("a candidate that is itself a join row is excluded — no recursive gating", () => {
     const host = hostEntity({
-      parentRef: { entityTypeField: "entityType", entityIdField: "entityId" },
+      parentRef: { entityTypeField: "entityType", entityIdField: "entityId", allowedTypes: ["x"] },
     });
     expect(build(new Map([["host", host]])).kind).toBe("empty");
   });
@@ -123,6 +127,18 @@ describe("buildParentRefClause", () => {
     expect(narrowed.sqlText.split(" OR ")).toHaveLength(1);
     expect(narrowed.params).toContain("other");
     expect(narrowed.params).not.toContain("host");
+  });
+
+  test("a registered entity missing from allowedTypes gets no branch", () => {
+    const entities = new Map([
+      ["host", hostEntity()],
+      ["unlisted", hostEntity()],
+    ]);
+    const clause = build(entities);
+    if (clause.kind !== "sql") throw new Error("expected sql clause");
+    expect(clause.sqlText.split(" OR ")).toHaveLength(1);
+    expect(clause.params).toContain("host");
+    expect(clause.params).not.toContain("unlisted");
   });
 
   test("the host's soft-delete filter applies by default and lifts under includeDeleted", () => {

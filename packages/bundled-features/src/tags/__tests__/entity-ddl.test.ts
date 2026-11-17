@@ -15,7 +15,7 @@ const EXPECTED_INDEXES = [
 
 describe("tag-assignment entity — DDL", () => {
   test("tag-assignment table is indexed by host and by tag", () => {
-    const meta = deriveEntityTableMeta("tag-assignment", createTagAssignmentEntity());
+    const meta = deriveEntityTableMeta("tag-assignment", createTagAssignmentEntity(undefined, ["note"]));
     expect(meta.indexes).toEqual(expect.arrayContaining(EXPECTED_INDEXES));
   });
 

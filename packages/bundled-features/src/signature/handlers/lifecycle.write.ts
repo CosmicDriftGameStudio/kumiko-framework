@@ -1,5 +1,5 @@
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { requestExecutor } from "../entity.ts";
+import type { SignatureRequestExecutor } from "../entity.ts";
 import {
   advanceIfAllSigned,
   appendOutcomeEvent,
@@ -13,7 +13,8 @@ import { SIGNATURE_REQUEST_STATUS, SignatureEvents } from "../web/constants.ts";
 
 // The writes of the sweep job. They run as handlers because a job may only append its own
 // events through ctx.events, and every transition here must also hold the "exactly once" precondition.
-export const finishHandler = defineWriteHandler({
+export function createFinishHandler(requestExecutor: SignatureRequestExecutor) {
+  return defineWriteHandler({
   name: "finish",
   schema: FinishSchema,
   access: internalAccess,
@@ -28,6 +29,7 @@ export const finishHandler = defineWriteHandler({
     );
     if (request === null) return { isSuccess: true, data: { finished: false } };
     const moved = await setRequestStatus(
+      requestExecutor,
       ctx,
       event.user,
       request.id,
@@ -49,9 +51,11 @@ export const finishHandler = defineWriteHandler({
     });
     return { isSuccess: true, data: { finished: true } };
   },
-});
+  });
+}
 
-export const expireHandler = defineWriteHandler({
+export function createExpireHandler(requestExecutor: SignatureRequestExecutor) {
+  return defineWriteHandler({
   name: "expire",
   schema: RequestIdSchema,
   access: internalAccess,
@@ -68,6 +72,7 @@ export const expireHandler = defineWriteHandler({
       return { isSuccess: true, data: { expired: false } };
     }
     const moved = await setRequestStatus(
+      requestExecutor,
       ctx,
       event.user,
       request.id,
@@ -82,9 +87,11 @@ export const expireHandler = defineWriteHandler({
     });
     return { isSuccess: true, data: { expired: true } };
   },
-});
+  });
+}
 
-export const failHandler = defineWriteHandler({
+export function createFailHandler(requestExecutor: SignatureRequestExecutor) {
+  return defineWriteHandler({
   name: "fail",
   schema: FailSchema,
   access: internalAccess,
@@ -99,6 +106,7 @@ export const failHandler = defineWriteHandler({
     );
     if (request === null) return { isSuccess: true, data: { failed: false } };
     const moved = await setRequestStatus(
+      requestExecutor,
       ctx,
       event.user,
       request.id,
@@ -114,11 +122,13 @@ export const failHandler = defineWriteHandler({
     });
     return { isSuccess: true, data: { failed: true } };
   },
-});
+  });
+}
 
 // Two last signers committing at the same moment can each still see the other as unsigned; the
 // sweep repeats the check so such a request cannot stay open for good.
-export const reconcileHandler = defineWriteHandler({
+export function createReconcileHandler(requestExecutor: SignatureRequestExecutor) {
+  return defineWriteHandler({
   name: "reconcile",
   schema: RequestIdSchema,
   access: internalAccess,
@@ -126,6 +136,7 @@ export const reconcileHandler = defineWriteHandler({
   description: "Internal: moves an open request whose signers have all signed to all-signed.",
   handler: async (event, ctx) => ({
     isSuccess: true,
-    data: { advanced: await advanceIfAllSigned(ctx, event.user, event.payload.requestId) },
+    data: { advanced: await advanceIfAllSigned(requestExecutor, ctx, event.user, event.payload.requestId) },
   }),
-});
+  });
+}

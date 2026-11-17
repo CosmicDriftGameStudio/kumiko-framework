@@ -34,7 +34,7 @@ import { folderAssignmentEntity, folderEntity } from "../entity.ts";
 import { createFoldersFeature } from "../feature.ts";
 import { FoldersHandlers, FoldersQueries } from "../web/constants.ts";
 
-const foldersFeature = createFoldersFeature();
+const foldersFeature = createFoldersFeature({ parents: ["credit"] });
 
 const CREDIT_TABLE = "folders_test_credits";
 const creditEntity = createEntity({
@@ -341,7 +341,7 @@ describe("folders integration — openToAll access model", () => {
   beforeAll(async () => {
     openStack = await setupTestStack({
       features: [
-        createFoldersFeature({
+        createFoldersFeature({ parents: ["credit"],
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         }),
         hostFixturesFeature,

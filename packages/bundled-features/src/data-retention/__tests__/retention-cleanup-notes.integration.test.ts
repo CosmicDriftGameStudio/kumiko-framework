@@ -61,7 +61,7 @@ let now: ReturnType<ReturnType<typeof getTemporal>["Now"]["instant"]>;
 
 beforeAll(async () => {
   stack = await setupTestStack({
-    features: [createDataRetentionFeature(), createNotesHistoryFeature(), fixtureFeature],
+    features: [createDataRetentionFeature(), createNotesHistoryFeature({ parents: ["notes-retention-scoped-doc", "notes-retention-global-doc"] }), fixtureFeature],
   });
   for (const entity of [tenantRetentionOverrideEntity, scopedEntity, globalEntity]) {
     await unsafeCreateEntityTable(stack.db, entity);

@@ -1,9 +1,8 @@
 import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { denyUnlessJoinRowParentVisible } from "../../shared/index.ts";
 import { tagAssignmentAggregateId } from "../aggregate-id.ts";
-import { tagAssignmentExecutor } from "../executor.ts";
+import type { TagAssignmentExecutor } from "../executor.ts";
 import { type RemoveTagPayload, removeTagPayloadSchema } from "../schemas.ts";
-import { DEFAULT_TAG_ACCESS } from "../web/constants.ts";
 
 // remove-tag — unlinks a tag from a host entity. Idempotent: removing an
 // assignment that doesn't exist is already the requested end state (not
@@ -13,8 +12,8 @@ import { DEFAULT_TAG_ACCESS } from "../web/constants.ts";
 // able to see the host row before detaching anything from it — see
 // shared/parent-visibility.ts.
 export function createRemoveTagHandler(
-  access: AccessRule = DEFAULT_TAG_ACCESS,
-  assignmentExecutor: typeof tagAssignmentExecutor = tagAssignmentExecutor,
+  access: AccessRule,
+  assignmentExecutor: TagAssignmentExecutor,
 ): WriteHandlerDef {
   return {
     name: "remove-tag",

@@ -73,7 +73,12 @@ function assertAllowedTypeHosts(
   entityName: string,
   parentRef: ParentRef,
 ): void {
-  for (const hostName of parentRef.allowedTypes ?? []) {
+  if (parentRef.allowedTypes.length === 0) {
+    throw bootRuleError(ENTITY_DECLARATION_RULES.parentRefAllowedTypesEmpty, {
+      message: `[Kumiko ParentRef] entity "${entityName}".parentRef.allowedTypes is empty (feature: "${feature.name}") — no row could ever be attached. Fix: list at least one registered host entity.`,
+    });
+  }
+  for (const hostName of parentRef.allowedTypes) {
     const host = findEntity(featureMap, hostName);
     if (host === undefined) {
       throw bootRuleError(ENTITY_DECLARATION_RULES.parentRefAllowedTypeUnregistered, {

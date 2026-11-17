@@ -8,9 +8,9 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { liveHostRowIds } from "../../shared/index.ts";
-import { tagAssignmentExecutor, tagExecutor } from "../executor.ts";
+import { type TagAssignmentExecutor, tagExecutor } from "../executor.ts";
 import { type DeleteTagPayload, deleteTagPayloadSchema } from "../schemas.ts";
-import { DEFAULT_TAG_ACCESS, TAG_LOCK_NAMESPACE } from "../web/constants.ts";
+import { TAG_LOCK_NAMESPACE } from "../web/constants.ts";
 
 const CASCADE_PAGE = 200;
 
@@ -54,7 +54,8 @@ async function pageHidesLiveAssignment(
 }
 
 export function createDeleteTagHandler(
-  access: AccessRule = DEFAULT_TAG_ACCESS,
+  access: AccessRule,
+  assignmentExecutor: TagAssignmentExecutor,
   name = "tag:delete",
 ): WriteHandlerDef {
   return {
@@ -78,7 +79,7 @@ export function createDeleteTagHandler(
       const assignmentIds: string[] = [];
       let cursor: string | undefined;
       do {
-        const page = await tagAssignmentExecutor.list(
+        const page = await assignmentExecutor.list(
           {
             filter: { field: "tagId", op: "eq", value: payload.id },
             limit: CASCADE_PAGE,
@@ -99,7 +100,7 @@ export function createDeleteTagHandler(
       } while (cursor !== undefined);
 
       for (const id of assignmentIds) {
-        const removed = await tagAssignmentExecutor.delete({ id }, event.user, ctx.db);
+        const removed = await assignmentExecutor.delete({ id }, event.user, ctx.db);
         if (!removed.isSuccess) return removed;
       }
 

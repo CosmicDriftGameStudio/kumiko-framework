@@ -9,7 +9,7 @@ import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { joinRowParentIsVisible } from "../shared/index.ts";
-import { requestExecutor, signerExecutor } from "./entity.ts";
+import { type SignatureRequestExecutor, signerExecutor } from "./entity.ts";
 import {
   SIGNATURE_INVALID_LINK_REASON,
   SIGNATURE_REQUEST_ENTITY,
@@ -24,7 +24,7 @@ export const internalAccess = { roles: access.system } as const;
 
 export const SIGNATURE_OUTCOME_AGGREGATE_TYPE = "signature-outcome" as const;
 
-export type RequestRow = NonNullable<Awaited<ReturnType<typeof requestExecutor.detail>>>;
+export type RequestRow = NonNullable<Awaited<ReturnType<SignatureRequestExecutor["detail"]>>>;
 export type SignerRow = NonNullable<Awaited<ReturnType<typeof signerExecutor.detail>>>;
 
 // Same body and status for every link rejection: forged, expired, revoked, used up, signed already.
@@ -88,6 +88,7 @@ export function versionOf(row: { readonly version?: unknown }): number | undefin
 }
 
 export async function setRequestStatus(
+  requestExecutor: SignatureRequestExecutor,
   ctx: { readonly db: TenantDb },
   user: SessionUser,
   requestId: string,
@@ -103,6 +104,7 @@ export async function setRequestStatus(
 // Moves an open request to all-signed once every signer has signed. Two signers committing at the
 // same moment can both still see the other as unsigned; the sweep job repeats this check.
 export async function advanceIfAllSigned(
+  requestExecutor: SignatureRequestExecutor,
   ctx: { readonly db: TenantDb },
   user: SessionUser,
   requestId: string,
@@ -112,13 +114,14 @@ export async function advanceIfAllSigned(
     signers.length > 0 &&
     signers.every((signer) => signer.status === SIGNATURE_SIGNER_STATUS.Signed);
   if (!allSigned) return false;
-  const moved = await setRequestStatus(ctx, user, requestId, SIGNATURE_REQUEST_STATUS.Open, {
+  const moved = await setRequestStatus(requestExecutor, ctx, user, requestId, SIGNATURE_REQUEST_STATUS.Open, {
     status: SIGNATURE_REQUEST_STATUS.AllSigned,
   });
   return moved.isSuccess;
 }
 
 export function loadRequestOfSigner(
+  requestExecutor: SignatureRequestExecutor,
   ctx: { readonly db: TenantDb },
   user: SessionUser,
   signer: SignerRow,
@@ -138,5 +141,6 @@ export function appendOutcomeEvent(
     aggregateType: SIGNATURE_OUTCOME_AGGREGATE_TYPE,
     type,
     payload,
+    expectedVersion: 0,
   });
 }

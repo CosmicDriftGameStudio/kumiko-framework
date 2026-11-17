@@ -3,9 +3,8 @@ export type ParentRefDef = {
   readonly entityTypeField: string;
   /** Field holding the host row's id. */
   readonly entityIdField: string;
-  /** Narrow which registered entities may act as host. Omitted means every
-   *  registered entity is a candidate, which also widens the read-gate's SQL. */
-  readonly allowedTypes?: readonly string[];
+  /** Registered entities that may act as host. Required and non-empty: the read gate builds one branch per listed host. */
+  readonly allowedTypes: readonly string[];
 };
 
 export type ReadGateDef = {

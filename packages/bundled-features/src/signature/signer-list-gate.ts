@@ -5,14 +5,17 @@ import {
   type QueryHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { AccessDeniedError } from "@cosmicdrift/kumiko-framework/errors";
-import { requestExecutor } from "./entity.ts";
+import type { SignatureRequestExecutor } from "./entity.ts";
 import { requestHostIsVisible } from "./lib.ts";
 
 type ListPayload = ReturnType<typeof entityListSchema.parse>;
 
 // A request is itself a join row and the parentRef gate does not recurse, so signers are read
 // one request at a time and only while that request's host is visible.
-export function gateSignerListByRequestHost(base: QueryHandlerDef): QueryHandlerDef {
+export function gateSignerListByRequestHost(
+  base: QueryHandlerDef,
+  requestExecutor: SignatureRequestExecutor,
+): QueryHandlerDef {
   return {
     ...base,
     handler: async (query, ctx: HandlerContext) => {
