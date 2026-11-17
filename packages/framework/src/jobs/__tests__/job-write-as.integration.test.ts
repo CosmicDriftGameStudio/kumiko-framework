@@ -105,7 +105,7 @@ const writeAsProbeFeature = defineFeature("writeAsProbe", (r) => {
   r.job({ name: "queryAsSystemWhoami", trigger: { manual: true }, retries: 0, handler: queryAsSystemWhoamiJob });
   r.job({ name: "queryAsSystemWhoamiEscapeHatch", trigger: { manual: true },
       retries: 0,
-      escapeHatch: { reason: "test job reads as the system identity" }, handler: queryAsSystemWhoamiJob });
+      escapeHatch: { reason: "test job reads as the system identity", grants: ["systemIdentity"] }, handler: queryAsSystemWhoamiJob });
 
   const writeAsActorJob: JobHandlerFn = async (payload, ctx) => {
     const actor: SessionUser = {
@@ -126,7 +126,7 @@ const writeAsProbeFeature = defineFeature("writeAsProbe", (r) => {
 
   r.job({ name: "writeAsActor", trigger: { manual: true },
       retries: 0,
-      escapeHatch: { reason: "test job acts as a tenant admin to reach a role-gated handler" }, handler: writeAsActorJob });
+      escapeHatch: { reason: "test job acts as a tenant admin to reach a role-gated handler", grants: ["systemIdentity"] }, handler: writeAsActorJob });
   r.job({ name: "writeAsActorNoGrant", trigger: { manual: true }, retries: 0, handler: writeAsActorJob });
 });
 

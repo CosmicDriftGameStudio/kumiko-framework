@@ -596,11 +596,12 @@ export function buildEntityEventUpcasterChains(state: RegistryState): void {
     if (eventVersion === 1) continue;
     // A declared verb carries the updated payload shape, so its upcaster adapts like updated.
     const shapes: readonly (readonly [string, EntityLifecycleVerb])[] = [
-      ...ENTITY_LIFECYCLE_VERBS.map((verb) => [verb, verb] as const),
-      ...Object.keys(entity.verbs ?? {}).map((verb) => [verb, "updated"] as const),
+      ...ENTITY_LIFECYCLE_VERBS.map((verb) => [entityEventName(entityName, verb), verb] as const),
+      ...Object.keys(entity.verbs ?? {}).map(
+        (verb) => [`${entityName}.${verb}`, "updated"] as const,
+      ),
     ];
-    for (const [eventVerb, shapeVerb] of shapes) {
-      const key = entityEventName(entityName, eventVerb);
+    for (const [key, shapeVerb] of shapes) {
       if (state.eventUpcasterMap.has(key) || state.eventMap.has(key)) {
         throw new Error(
           `Entity event type "${key}" collides with an already registered event; event types must be unique.`,

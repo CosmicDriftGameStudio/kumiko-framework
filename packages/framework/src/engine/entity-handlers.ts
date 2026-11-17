@@ -114,6 +114,7 @@ type ListPayload = {
     readonly value: unknown;
   };
   filters?: readonly NamedListFilterCondition[];
+  fields?: readonly string[];
   namedFilter?: string;
   aggregate?: ListAggregatePayload;
 };

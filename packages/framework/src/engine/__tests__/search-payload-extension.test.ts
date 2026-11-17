@@ -103,6 +103,7 @@ describe("Contributor-Function-Signature", () => {
       entityName: "thing",
       entityId: "t1",
       state: { id: "t1", tags: ["a", "b"] },
+      db: searchDb,
     });
     expect(result).toEqual({ _entityName: "thing", _entityId: "t1", flatTags: "a,b" });
   });

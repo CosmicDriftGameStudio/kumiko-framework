@@ -97,7 +97,7 @@ describe("r.hook({ allOf }, ...) identity-switch gate", () => {
         type: "postSave",
         target: { allOf: thing },
         handler: hookFn,
-        escapeHatch: { reason: "test: allOf hook needs SYSTEM" },
+        escapeHatch: { reason: "test: allOf hook needs SYSTEM", grants: ["systemIdentity"] },
       });
     });
 
@@ -119,7 +119,7 @@ describe("r.hook({ allOf }, ...) identity-switch gate", () => {
           type: "postSave",
           target: { allOf: thing },
           handler: async () => undefined,
-          escapeHatch: { reason: "" },
+          escapeHatch: { reason: "", grants: ["systemIdentity"] },
         });
       });
     }).toThrow(/non-empty/);
@@ -201,7 +201,7 @@ describe("r.hook({ allOf }, ...) identity-switch gate", () => {
         type: "postSave",
         target: { allOf: thing },
         handler: hookFn,
-        escapeHatch: { reason: "test: allOf hook needs SYSTEM" },
+        escapeHatch: { reason: "test: allOf hook needs SYSTEM", grants: ["systemIdentity"] },
       });
     });
 

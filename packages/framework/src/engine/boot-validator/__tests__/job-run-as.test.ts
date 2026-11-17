@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { EscapeHatchDeclaration } from "@cosmicdrift/kumiko-types/handlers";
 import * as z from "zod";
 import { ROLES } from "../../../auth/roles.ts";
 import { validateBoot } from "../../boot-validator.ts";
@@ -10,7 +11,7 @@ import { collectKnownRoles } from "../nav.ts";
 
 type JobOptions = {
   readonly runAs: { readonly roles: readonly string[] };
-  readonly escapeHatch?: { readonly reason: string; readonly grants: readonly "systemIdentity"[] };
+  readonly escapeHatch?: EscapeHatchDeclaration;
 };
 
 function thrownBy(fn: () => void): unknown {

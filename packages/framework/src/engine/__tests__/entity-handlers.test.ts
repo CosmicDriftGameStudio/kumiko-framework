@@ -324,7 +324,7 @@ describe("defineProjectionQueryHandler", () => {
         unsafeAllTenants: { reason: "operator-wide revenue sweep" },
       },
     );
-    expect(def.escapeHatch).toEqual({ reason: "operator-wide revenue sweep" });
+    expect(def.escapeHatch).toEqual({ reason: "operator-wide revenue sweep", grants: ["systemIdentity"] });
     const queryProjection = mock().mockResolvedValue([]);
     await def.handler(
       { type: "revenue:list", user: createTestUser(), payload: {} },
@@ -376,7 +376,7 @@ describe("defineProjectionQueryHandler", () => {
         escapeHatch: { reason: "fw#2913 test — cross-tenant revenue analytics", grants: ["systemIdentity"] },
       },
     );
-    expect(def.escapeHatch).toEqual({ reason: "fw#2913 test — cross-tenant revenue analytics" });
+    expect(def.escapeHatch).toEqual({ reason: "fw#2913 test — cross-tenant revenue analytics", grants: ["systemIdentity"] });
   });
 
   test("escapeHatch is omitted from the def when not declared", () => {

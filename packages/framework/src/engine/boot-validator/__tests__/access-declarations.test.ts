@@ -105,7 +105,7 @@ describe("validateAccessDeclarations", () => {
           data: {},
         }),
         access: { roles: ["Admin"] },
-        escapeHatch: { reason: "" },
+        escapeHatch: { reason: "", grants: ["globalWrites"] },
       });
     });
     expect(() => validateAccessDeclarations(feature)).toThrow(/Feature notes/);
@@ -123,7 +123,7 @@ describe("validateAccessDeclarations", () => {
           data: {},
         }),
         access: { roles: ["Admin"] },
-        escapeHatch: { reason: "legacy" },
+        escapeHatch: { reason: "legacy", grants: ["globalWrites"] },
       });
     });
     expect(() => validateAccessDeclarations(feature)).toThrow(/"note:create".*placeholder/);
@@ -140,7 +140,7 @@ describe("validateAccessDeclarations", () => {
           data: {},
         }),
         access: { roles: ["Admin"] },
-        escapeHatch: { reason: "cross-tenant note import job" },
+        escapeHatch: { reason: "cross-tenant note import job", grants: ["globalWrites"] },
       });
     });
     expect(() => validateAccessDeclarations(feature)).not.toThrow();
@@ -154,6 +154,7 @@ describe("validateAccessDeclarations", () => {
         schema: z.object({}),
         handler: async () => [],
         access: { roles: ["Admin"] },
+        // @ts-expect-error deliberately empty: the boot check covers untyped sources
         escapeHatch: { reason: "cross-tenant note lookup", grants: [] },
       });
     });
@@ -200,7 +201,7 @@ describe("validateAccessDeclarations", () => {
         schema: z.object({}),
         handler: async () => [],
         access: { roles: ["Admin"] },
-        escapeHatch: { reason: "" },
+        escapeHatch: { reason: "", grants: ["systemIdentity"] },
       });
     });
     expect(() => validateAccessDeclarations(feature)).toThrow(/Feature notes/);
@@ -217,6 +218,7 @@ describe("validateAccessDeclarations", () => {
         access: { roles: ["Admin"] },
         escapeHatch: {
           reason: `note:list reads note rows across every tenant (${CODEMOD_PLACEHOLDER_REASON_MARKER})`,
+          grants: ["systemIdentity"],
         },
       });
     });
@@ -231,7 +233,7 @@ describe("validateAccessDeclarations", () => {
         schema: z.object({}),
         handler: async () => [],
         access: { roles: ["Admin"] },
-        escapeHatch: { reason: "cross-tenant note lookup for auth" },
+        escapeHatch: { reason: "cross-tenant note lookup for auth", grants: ["systemIdentity"] },
       });
     });
     expect(() => validateAccessDeclarations(feature)).not.toThrow();
@@ -245,7 +247,7 @@ describe("validateAccessDeclarations", () => {
       r.entity(noteEntity);
       r.streamHandler({ name: "note:tail", schema: z.object({}), handler: async function* () {
           yield {};
-        }, access: { roles: ["Admin"] }, escapeHatch: { reason: "" } });
+        }, access: { roles: ["Admin"] }, escapeHatch: { reason: "", grants: ["systemIdentity"] } });
     });
     expect(() => validateAccessDeclarations(feature)).toThrow(/Feature notes/);
     expect(() => validateAccessDeclarations(feature)).toThrow(/"note:tail"/);
@@ -257,7 +259,7 @@ describe("validateAccessDeclarations", () => {
       r.streamHandler({ name: "note:tail", schema: z.object({}), handler: async function* () {
           yield {};
         }, access: { roles: ["Admin"] },
-          escapeHatch: { reason: "cross-tenant note tail for auth" } });
+          escapeHatch: { reason: "cross-tenant note tail for auth", grants: ["systemIdentity"] } });
     });
     expect(() => validateAccessDeclarations(feature)).not.toThrow();
   });
@@ -616,7 +618,7 @@ describe("validateAccessDeclarations — owner-bound personal-data fields", () =
   test("a handler with escapeHatch is not exempted — it can write around the executor", () => {
     const feature = featureWithWriteHandler(
       createSchema,
-      { access: openToAll, escapeHatch: { reason: "bulk import" } },
+      { access: openToAll, escapeHatch: { reason: "bulk import", grants: ["globalWrites"] } },
       "note:update",
       ownedNoteEntity(ownerBound),
     );

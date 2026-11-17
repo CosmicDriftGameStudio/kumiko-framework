@@ -30,14 +30,14 @@ describe("reasonProblem", () => {
 
 describe("declareEscapeHatch", () => {
   test("accepts a real reason", () => {
-    expect(() => declareEscapeHatch({ reason: "archives tenant rows on destroy" })).not.toThrow();
+    expect(() => declareEscapeHatch({ reason: "archives tenant rows on destroy", grants: ["unsafeRaw"] })).not.toThrow();
   });
 
   test("throws on a placeholder reason, naming the call", () => {
-    expect(() => declareEscapeHatch({ reason: "todo" })).toThrow(/declareEscapeHatch.*placeholder/);
+    expect(() => declareEscapeHatch({ reason: "todo", grants: ["unsafeRaw"] })).toThrow(/declareEscapeHatch.*placeholder/);
   });
 
   test("throws on an empty reason", () => {
-    expect(() => declareEscapeHatch({ reason: "  " })).toThrow(/declareEscapeHatch.*non-empty/);
+    expect(() => declareEscapeHatch({ reason: "  ", grants: ["unsafeRaw"] })).toThrow(/declareEscapeHatch.*non-empty/);
   });
 });

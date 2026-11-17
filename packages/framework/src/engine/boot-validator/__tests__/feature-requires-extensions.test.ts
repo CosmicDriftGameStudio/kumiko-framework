@@ -113,7 +113,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     const self = defineFeature("tier-stub", (r) => {
       r.extendsRegistrar("tenantTierResolver", { onRegister: () => {} });
       r.entity(createEntity({ name: "dummy", table: "Dummies", fields: {} }));
-      r.applyExtension({ name: "tenantTierResolver", entity: "dummy", build: async () => () => new Set() });
+      r.applyExtension({ name: "tenantTierResolver", entity: "dummy", build: async () => () => new Set<string>() });
     });
     expect(() => validateBoot([self])).not.toThrow();
   });

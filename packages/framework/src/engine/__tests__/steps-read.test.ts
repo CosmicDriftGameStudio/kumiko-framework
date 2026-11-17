@@ -45,7 +45,7 @@ const grantedDb = createTenantDb({
   tenantId: ownTenantId,
   mode: "tenant",
   grants: {
-    unsafeRaw: { reason: "fw#2914 unit test — declared cross-tenant read" },
+    unsafeRaw: { reason: "fw#2914 unit test — declared cross-tenant read", grants: ["unsafeRaw"] },
     report: recordingReport,
   },
 });

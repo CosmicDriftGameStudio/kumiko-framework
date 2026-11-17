@@ -543,7 +543,15 @@ describe("buildAppSchema", () => {
       "description", // AI-agent manifest hint, never rendered to the user
     ] as const;
 
-    type Classified = (typeof FORWARDED_KEYS)[number] | (typeof SERVER_ONLY_KEYS)[number];
+    const FORM_ONLY_KEYS = [
+      "optionsQuery", // actionForm/configEdit fields only; entity fields reject it at boot
+      "optionsQueryPayload", // same
+    ] as const;
+
+    type Classified =
+      | (typeof FORWARDED_KEYS)[number]
+      | (typeof SERVER_ONLY_KEYS)[number]
+      | (typeof FORM_ONLY_KEYS)[number];
     const _allKeysClassified: Exclude<keyof MultiSelectFieldDef, Classified> extends never
       ? true
       : never = true;

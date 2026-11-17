@@ -152,7 +152,7 @@ describe("entity convention query handlers: escapeHatch added by a spread", () =
     expect(() =>
       defineFeature("spread-hatch", (r) => {
         r.entity(thingEntity);
-        r.queryHandler({ ...generated, escapeHatch: { reason: "tier lookup on the list" } });
+        r.queryHandler({ ...generated, escapeHatch: { reason: "tier lookup on the list", grants: ["crossTenantReads"] } });
       }),
     ).toThrow(/escapeHatch reaches across every tenant, so its access must be SystemAdmin-only/);
   });
@@ -162,7 +162,7 @@ describe("entity convention query handlers: escapeHatch added by a spread", () =
     expect(() =>
       defineFeature("spread-hatch-admin", (r) => {
         r.entity(thingEntity);
-        r.queryHandler({ ...generated, escapeHatch: { reason: "operator cross-tenant list" } });
+        r.queryHandler({ ...generated, escapeHatch: { reason: "operator cross-tenant list", grants: ["crossTenantReads"] } });
       }),
     ).not.toThrow();
   });

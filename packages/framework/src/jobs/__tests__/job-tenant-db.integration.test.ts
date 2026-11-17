@@ -154,7 +154,7 @@ describe("JobContext.db", () => {
   test("r.job rejects an escapeHatch with an empty reason at registration", () => {
     const register = () =>
       defineFeature("jobtenantdb-empty", (r) => {
-        r.job({ name: "bad", trigger: { manual: true }, escapeHatch: { reason: "   " }, handler: async () => {} });
+        r.job({ name: "bad", trigger: { manual: true }, escapeHatch: { reason: "   ", grants: ["unsafeRaw"] }, handler: async () => {} });
       });
     expect(register).toThrow(/r\.job\("bad"\) declares an invalid escapeHatch — .*non-empty/);
   });

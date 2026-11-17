@@ -130,10 +130,14 @@ export function buildEntityHandlerMethods<TName extends string>(
       if (backingTable !== undefined) state.entityTables[entityName] = backingTable;
       return { name: entityName, table: entityDefinition.table ?? toTableName(entityName) };
     },
-    relation(
-      definition: { readonly entity: NameOrRef; readonly name: string } & RelationDefinition,
+    relation<TDef extends RelationDefinition>(
+      definition: { readonly entity: NameOrRef; readonly name: string } & TDef,
     ): void {
-      const { entity: entityRef, name: relationName, ...relationDefinition } = definition;
+      const {
+        entity: entityRef,
+        name: relationName,
+        ...relationDefinition
+      }: { readonly entity: NameOrRef; readonly name: string } & RelationDefinition = definition;
       const entityName = resolveName(entityRef);
       if (!state.relations[entityName]) state.relations[entityName] = {};
       state.relations[entityName][relationName] = relationDefinition;

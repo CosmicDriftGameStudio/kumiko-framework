@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { getTableName } from "drizzle-orm";
 import { buildEntityTable } from "../../db/table-builder.ts";
+import { tableNameOf } from "../../db/table-introspection.ts";
 import { createEntityExecutor } from "../entity-handlers.ts";
 import { createEntity, createRegistry, defineFeature, registeredEntityExecutor } from "../index.ts";
 
@@ -36,6 +36,6 @@ describe("createEntityExecutor", () => {
   test("createEntityExecutor(entity) takes the table name from entity.name", () => {
     const entity = createEntity({ name: "memo", fields: {} });
     const { table } = createEntityExecutor(entity);
-    expect(getTableName(table)).toBe(getTableName(buildEntityTable(entity)));
+    expect(tableNameOf(table)).toBe(tableNameOf(buildEntityTable(entity)));
   });
 });

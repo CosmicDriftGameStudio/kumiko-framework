@@ -68,7 +68,7 @@ describe("TenantDataHookCtx.db / UserDataHookCtx.db are TenantDb, not DbRunner",
         db: runner,
         tenantId,
         grants: {
-          unsafeRaw: { reason: "test: declared escape hatch" },
+          unsafeRaw: { reason: "test: declared escape hatch", grants: ["unsafeRaw"] },
         },
       }),
       registry: {} as TenantDataHookCtx["registry"],

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { createTenantConfig } from "../config-helpers.ts";
 import { defineFeature } from "../index.ts";
 
 // The renderer of feature-ast emits the object form; these tests execute the registrar runtime
@@ -199,7 +200,7 @@ describe("registrar object form registers what it declares", () => {
 
   test("config: { keys } returns one handle per key", () => {
     const feature = defineFeature("a", (r) => {
-      const handles = r.config({ keys: { limit: { type: "number", scope: "tenant" } } });
+      const handles = r.config({ keys: { limit: createTenantConfig("number") } });
       expect(handles.limit.name).toBe("a:config:limit");
     });
     expect(feature.configKeys?.["limit"]).toMatchObject({ type: "number" });
@@ -210,12 +211,12 @@ describe("registrar — hook definitions are checked by the type system", () => 
   test("a validation hook rejects escapeHatch", () => {
     expect(() =>
       defineFeature("types", (r) => {
-        // @ts-expect-error validation hooks have no escapeHatch
         r.hook({
           type: "validation",
           target: "item",
           handler: () => null,
-          escapeHatch: { reason: "not allowed here" },
+          // @ts-expect-error validation hooks have no escapeHatch
+          escapeHatch: { reason: "not allowed here", grants: ["systemIdentity"] },
         });
       }),
     ).toThrow(/does not accept escapeHatch/);
