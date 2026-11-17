@@ -550,7 +550,7 @@ describe("validateAccessDeclarations — owner-bound personal-data fields", () =
         ownerUserId: createTextField({ required: false, personal: "ref" }),
         assigneeId: createTextField({ required: false, personal: "ref" }),
       },
-      ...(write && { access: { read: write, write } }), name: "note",
+      ...(write && { access: { read: write, write } }),
     });
   }
 
