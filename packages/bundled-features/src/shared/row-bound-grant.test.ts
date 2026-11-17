@@ -1,6 +1,6 @@
 import { describe, expect, spyOn, test } from "bun:test";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { redeemRowBoundGrant, signRowBoundGrant } from "./row-bound-grant.ts";
+import { redeemRowBoundGrant, signRowBoundGrant, verifyRowBoundGrant } from "./row-bound-grant.ts";
 import { signToken } from "./signed-token.ts";
 
 const SECRET = "test-secret-value";
@@ -198,19 +198,85 @@ describe("redeemRowBoundGrant", () => {
 
     expect(() => signRowBoundGrant({ ...base, subject: SUBJECT, anchor: "a:b" })).toThrow(/':'/);
     expect(() => signRowBoundGrant({ ...base, subject: "b:s", anchor: "a" })).toThrow(/':'/);
+    expect(() => signRowBoundGrant({ ...base, subject: SUBJECT, anchor: "a.b" })).toThrow(/':'/);
+    expect(() => signRowBoundGrant({ ...base, subject: "b.s", anchor: "a" })).toThrow(/':'/);
   });
 
   test("rejects a subject that carries the delimiter", async () => {
-    const forged = signToken("b:s", `${PURPOSE}:pending`, 30, SECRET, NOW).token;
+    const forged = signToken(`b:s:pending`, `row-bound-grant:${PURPOSE}`, 30, SECRET, NOW).token;
+    let looked = false;
 
     const result = await redeemRowBoundGrant({
       token: forged,
       purpose: PURPOSE,
       secret: SECRET,
-      loadAnchor: anchorIs("pending"),
+      loadAnchor: async () => {
+        looked = true;
+        return "pending";
+      },
       commitAnchor: SKIP_COMMIT,
       now: NOW,
     });
+
+    expect(result.ok).toBe(false);
+    expect(looked).toBe(false);
+  });
+
+  async function redeemWithoutRow(token: string, now: Temporal.Instant = NOW) {
+    let looked = false;
+    const result = await redeemRowBoundGrant({
+      token,
+      purpose: PURPOSE,
+      secret: SECRET,
+      loadAnchor: async () => {
+        looked = true;
+        return "pending";
+      },
+      commitAnchor: SKIP_COMMIT,
+      now,
+    });
+    return { result, looked };
+  }
+
+  test("rejects a forged signature without touching the row", async () => {
+    const foreign = signRowBoundGrant({
+      subject: SUBJECT,
+      purpose: PURPOSE,
+      anchor: "pending",
+      ttlMinutes: 30,
+      secret: "someone-elses-secret",
+      now: NOW,
+    }).token;
+
+    const { result, looked } = await redeemWithoutRow(foreign);
+
+    expect(result.ok).toBe(false);
+    expect(looked).toBe(false);
+  });
+
+  test("rejects an expired grant without touching the row", async () => {
+    const { result, looked } = await redeemWithoutRow(
+      grantFor("pending", 30),
+      NOW.add({ minutes: 31 }),
+    );
+
+    expect(result.ok).toBe(false);
+    expect(looked).toBe(false);
+  });
+
+  test("rejects a token in the previous format, anchor only in the HMAC", async () => {
+    const legacy = signToken(SUBJECT, `${PURPOSE}:pending`, 30, SECRET, NOW).token;
+
+    const { result, looked } = await redeemWithoutRow(legacy);
+
+    expect(result.ok).toBe(false);
+    expect(looked).toBe(false);
+  });
+
+  test("rejects a plain signed token minted for the same purpose", async () => {
+    const plain = signToken(`${SUBJECT}:pending`, PURPOSE, 30, SECRET, NOW).token;
+
+    const { result } = await redeemWithoutRow(plain);
 
     expect(result.ok).toBe(false);
   });
@@ -308,7 +374,7 @@ describe("redeemRowBoundGrant", () => {
     expect([first.ok, second.ok].filter(Boolean)).toHaveLength(1);
   });
 
-  test("does not spend the anchor for a token that fails verification", async () => {
+  test("does not spend the anchor when the signed anchor differs from the row's", async () => {
     const row = spendableAnchor("pending");
 
     const rejected = await redeemRowBoundGrant({
@@ -369,5 +435,57 @@ describe("redeemRowBoundGrant", () => {
     });
 
     expect(result.ok).toBe(false);
+  });
+});
+
+describe("verifyRowBoundGrant", () => {
+  test("returns subject and anchor of a genuine grant", () => {
+    const verified = verifyRowBoundGrant({
+      token: grantFor("pending"),
+      purpose: PURPOSE,
+      secret: SECRET,
+      now: NOW,
+    });
+
+    expect(verified).toEqual({
+      ok: true,
+      subject: SUBJECT,
+      anchor: "pending",
+      expiresAtMs: NOW.add({ minutes: 30 }).epochMilliseconds,
+    });
+  });
+
+  test("fails closed without a secret", () => {
+    const token = grantFor("pending");
+    const args = { token, purpose: PURPOSE, now: NOW };
+
+    expect(verifyRowBoundGrant({ ...args, secret: "" }).ok).toBe(false);
+    expect(verifyRowBoundGrant({ ...args, secret: undefined }).ok).toBe(false);
+
+    const emptyKeyToken = signRowBoundGrant({
+      subject: SUBJECT,
+      purpose: PURPOSE,
+      anchor: "pending",
+      ttlMinutes: 30,
+      secret: "",
+      now: NOW,
+    }).token;
+    expect(verifyRowBoundGrant({ ...args, token: emptyKeyToken, secret: "" }).ok).toBe(false);
+  });
+
+  test("rejects a wrong purpose, a foreign secret, a tampered signature and an expired grant", () => {
+    const token = grantFor("pending");
+    const [body, expiresAt] = token.split(".");
+    const base = { token, purpose: PURPOSE, secret: SECRET, now: NOW };
+
+    expect(verifyRowBoundGrant({ ...base, purpose: "waitlist-delete" }).ok).toBe(false);
+    expect(verifyRowBoundGrant({ ...base, secret: "someone-elses-secret" }).ok).toBe(false);
+    expect(
+      verifyRowBoundGrant({
+        ...base,
+        token: `${body}.${expiresAt}.YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY`,
+      }).ok,
+    ).toBe(false);
+    expect(verifyRowBoundGrant({ ...base, now: NOW.add({ minutes: 31 }) }).ok).toBe(false);
   });
 });

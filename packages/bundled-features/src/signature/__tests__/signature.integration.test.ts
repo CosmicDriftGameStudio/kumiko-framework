@@ -510,7 +510,7 @@ describe("signature :: unrecoverable finalisation", () => {
 });
 
 describe("signature :: links", () => {
-  test("every rejection answers the same: forged, revoked, expired, used up, already signed", async () => {
+  test("every rejection answers the same: forged, signed with another secret, revoked, expired, used up, already signed", async () => {
     const { signerIds } = await requestSignatures(["Ada", "Grace", "Alan", "Linus"]);
     const [forgedFor, revokedFor, signedFor, expiredFor] = signerIds as [
       string,
@@ -529,6 +529,14 @@ describe("signature :: links", () => {
         imagePngBase64: SIGNATURE,
       }),
     );
+    await issueLink(forgedFor);
+    const foreignSecretToken = signSignatureLinkToken({
+      tenantId: TENANT,
+      signerId: forgedFor,
+      linkAnchor: String((await signerRow(forgedFor))["linkAnchor"]),
+      secret: "another-signature-link-secret-0123456789",
+      now: Temporal.Now.instant(),
+    }).token;
     await issueLink(expiredFor);
     const expiredAnchor = String((await signerRow(expiredFor))["linkAnchor"]);
     const expiredToken = signSignatureLinkToken({
@@ -540,7 +548,14 @@ describe("signature :: links", () => {
     }).token;
 
     const answers: Answer[] = [];
-    for (const token of [forged, revokedToken, signedToken, expiredToken, "garbage"]) {
+    for (const token of [
+      forged,
+      foreignSecretToken,
+      revokedToken,
+      signedToken,
+      expiredToken,
+      "garbage",
+    ]) {
       answers.push(await answer(await anonymous(SignatureHandlers.openByLink, { token })));
       answers.push(
         await answer(
@@ -557,6 +572,9 @@ describe("signature :: links", () => {
         key === "requestId" || key === "timestamp" ? undefined : value,
       );
     for (const each of answers) expect(withoutTrace(each)).toBe(withoutTrace(first));
+    // Only the contract "same answer, no effect" is shown here; that the check precedes the tenant
+    // switch is covered by the unit tests in shared/row-bound-grant.test.ts.
+    expect((await signerRow(forgedFor))["viewCount"]).toBe(0);
   });
 
   test("a failing deliverLink rolls back its own write and the new link anchor", async () => {

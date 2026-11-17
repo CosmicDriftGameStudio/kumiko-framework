@@ -95,6 +95,8 @@ export {
   type RowBoundGrantResult,
   redeemRowBoundGrant,
   signRowBoundGrant,
+  type VerifiedRowBoundGrant,
+  verifyRowBoundGrant,
 } from "./row-bound-grant.ts";
 export { runInSubTransaction } from "./run-in-sub-transaction.ts";
 export { runBestEffort, sendBestEffort } from "./send-best-effort.ts";
@@ -102,7 +104,6 @@ export { registrationLocaleFromRequest, sessionLocaleField } from "./session-loc
 export { sessionTimezoneField } from "./session-timezone-field.ts";
 export { assertNotSvg, MAX_INPUT_PIXELS, SHARP_INPUT_OPTIONS } from "./sharp-input-limits.ts";
 export {
-  peekTokenSubject,
   signToken,
   TokenPurpose,
   type VerifyResult,
@@ -133,7 +134,6 @@ export {
 } from "./tenant-destruction-hold.ts";
 export {
   parseTenantScopedSubject,
-  peekTenantScopedSubject,
   type TenantScopedSubject,
   tenantScopedSubject,
 } from "./tenant-scoped-subject.ts";

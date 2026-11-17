@@ -48,7 +48,7 @@ export function createSignatureFeature(opts: SignatureOptions): FeatureDefinitio
   const scope = createSubjectScope(opts);
   const requestEntity = createSignatureRequestEntity(opts.retention);
   const signerEntity = createSignatureSignerEntity(opts.retention);
-  const anonymous = createAnonymousLinkHandlers(LINK_RATE_LIMIT);
+  const anonymous = createAnonymousLinkHandlers(LINK_RATE_LIMIT, opts.linkSecret);
   const link = createLinkInternalHandlers(opts.linkSecret);
 
   return defineFeature(SIGNATURE_FEATURE, (r) => {

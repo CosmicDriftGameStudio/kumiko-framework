@@ -3,9 +3,6 @@
 // user row. Minting and verification both run through
 // shared/row-bound-grant, so a token from a cancelled cycle (id nulled) or a
 // superseded one (row holds a newer id) fails verification.
-//
-// The purpose string and the anchoring are unchanged from the hand-rolled
-// version this replaced, so tokens stay byte-compatible.
 
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import {

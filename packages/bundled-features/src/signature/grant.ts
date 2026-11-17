@@ -2,11 +2,11 @@ import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import {
   parseTenantScopedSubject,
-  peekTenantScopedSubject,
   type RowBoundGrantResult,
   redeemRowBoundGrant,
   signRowBoundGrant,
   tenantScopedSubject,
+  verifyRowBoundGrant,
 } from "../shared/index.ts";
 import { SIGNATURE_LINK_TTL_DAYS } from "./web/constants.ts";
 
@@ -34,8 +34,18 @@ export function parseSignatureLinkSubject(subject: string): SignatureLinkSubject
   return toSignatureLinkSubject(parseTenantScopedSubject(subject));
 }
 
-export function peekSignatureLinkSubject(token: string): SignatureLinkSubject | null {
-  return toSignatureLinkSubject(peekTenantScopedSubject(token));
+export function verifySignatureLinkSubject(args: {
+  readonly token: string;
+  readonly secret: string;
+  readonly now: Temporal.Instant;
+}): SignatureLinkSubject | null {
+  const verified = verifyRowBoundGrant({
+    token: args.token,
+    purpose: SIGNATURE_LINK_PURPOSE,
+    secret: args.secret,
+    now: args.now,
+  });
+  return verified.ok ? parseSignatureLinkSubject(verified.subject) : null;
 }
 
 export function signSignatureLinkToken(args: {

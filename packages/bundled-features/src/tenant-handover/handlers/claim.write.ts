@@ -18,7 +18,7 @@ export type ClaimTenantHandoverOptions = {
   readonly grantSecret?: string;
 };
 
-// Every rejection before the grant is even peeked is a bare 422 — same
+// Every rejection before the grant is even verified is a bare 422 — same
 // no-oracle stance as row-bound-grant.ts. `entityType` itself is not secret
 // (the app's own domain vocabulary), so failing fast on an unknown or
 // undeclared root type is a plain config error, not a leak.

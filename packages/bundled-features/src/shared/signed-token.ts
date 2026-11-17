@@ -39,21 +39,6 @@ export function signToken(
   };
 }
 
-// Reads the subject out of the token body WITHOUT checking the HMAC. Only
-// safe as a lookup key for something that is itself an input to the
-// verification below — the signature stays the gate. Mirrors verifyToken's
-// structural checks, which is why it lives next to it: a token this rejects
-// must never reach a DB lookup.
-export function peekTokenSubject(token: string): string | null {
-  const parts = token.split(".");
-  if (parts.length !== 3) return null;
-  const [subject, expiresAtRaw, sig] = parts;
-  if (!subject || !expiresAtRaw || !sig) return null;
-  const expiresAtMs = Number(expiresAtRaw);
-  if (!Number.isFinite(expiresAtMs) || String(expiresAtMs) !== expiresAtRaw) return null;
-  return subject;
-}
-
 export function verifyToken(
   token: string,
   purpose: string,

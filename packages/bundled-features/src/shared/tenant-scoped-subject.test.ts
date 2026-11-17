@@ -1,9 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { signRowBoundGrant } from "./row-bound-grant.ts";
+import { signRowBoundGrant, verifyRowBoundGrant } from "./row-bound-grant.ts";
 import {
   parseTenantScopedSubject,
-  peekTenantScopedSubject,
   tenantScopedSubject,
 } from "./tenant-scoped-subject.ts";
 
@@ -28,16 +27,22 @@ describe("tenant-scoped-subject", () => {
     }
   });
 
-  test("peek reads the subject of a signed grant and null for garbage", () => {
+  test("a tenant-scoped subject survives a verified grant", () => {
+    const secret = "test-secret-value";
+    const now = Temporal.Instant.fromEpochMilliseconds(1_700_000_000_000);
     const { token } = signRowBoundGrant({
       subject: tenantScopedSubject({ tenantId: TENANT_ID, rowId: ROW_ID }),
       purpose: "test-link",
       anchor: "1",
       ttlMinutes: 5,
-      secret: "test-hmac-secret-32-bytes-minimum!!",
-      now: Temporal.Now.instant(),
+      secret,
+      now,
     });
-    expect(peekTenantScopedSubject(token)).toEqual({ tenantId: TENANT_ID, rowId: ROW_ID });
-    expect(peekTenantScopedSubject("garbage")).toBeNull();
+    const verified = verifyRowBoundGrant({ token, purpose: "test-link", secret, now });
+    if (!verified.ok) throw new Error("grant did not verify");
+    expect(parseTenantScopedSubject(verified.subject)).toEqual({
+      tenantId: TENANT_ID,
+      rowId: ROW_ID,
+    });
   });
 });
