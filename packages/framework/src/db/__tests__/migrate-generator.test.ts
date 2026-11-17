@@ -535,3 +535,61 @@ describe("renderMigrationSql — dropped column on an in-place table", () => {
     expect(lines[guardIndex]).not.toContain("DESTRUCTIVE");
   });
 });
+
+describe("entity column rename guard", () => {
+  function entityMeta(columnName: string, entityEventVersion?: number): EntityTableMeta {
+    const base = meta("read_a", { name: columnName, pgType: "text", notNull: false }, "managed");
+    return entityEventVersion === undefined ? base : { ...base, entityEventVersion };
+  }
+
+  function generate(prev: readonly EntityTableMeta[], next: readonly EntityTableMeta[]) {
+    return generateMigration({
+      metas: next,
+      prevSnapshot: snapshotFromMetas(prev),
+      name: "guard",
+      sequenceNumber: 2,
+    });
+  }
+
+  test("drop + add on an entity table without a raised eventVersion is reported", () => {
+    const result = generate([entityMeta("old_name", 1)], [entityMeta("new_name", 1)]);
+    expect(result.unversionedEntityRenames).toEqual([
+      { tableName: "read_a", droppedColumns: ["old_name"], newColumns: ["new_name"] },
+    ]);
+  });
+
+  test("a raised eventVersion allows the rename", () => {
+    const result = generate([entityMeta("old_name", 1)], [entityMeta("new_name", 2)]);
+    expect(result.unversionedEntityRenames).toEqual([]);
+  });
+
+  test("a snapshot written before entityEventVersion counts as version 1", () => {
+    const unversioned = generate([entityMeta("old_name")], [entityMeta("new_name", 1)]);
+    expect(unversioned.unversionedEntityRenames).toHaveLength(1);
+    const raised = generate([entityMeta("old_name")], [entityMeta("new_name", 2)]);
+    expect(raised.unversionedEntityRenames).toEqual([]);
+  });
+
+  test("a pure drop is allowed", () => {
+    const prev: EntityTableMeta = {
+      ...meta("read_a", { name: "old_name", pgType: "text", notNull: false }, "managed"),
+      entityEventVersion: 1,
+    };
+    const next: EntityTableMeta = {
+      ...meta("read_a", undefined, "managed"),
+      entityEventVersion: 1,
+    };
+    expect(generate([prev], [next]).unversionedEntityRenames).toEqual([]);
+  });
+
+  test("projection tables without entityEventVersion are not checked", () => {
+    const result = generate([entityMeta("old_name")], [entityMeta("new_name")]);
+    expect(result.unversionedEntityRenames).toEqual([]);
+  });
+
+  test("a raised eventVersion alone is no schema change", () => {
+    const result = generate([entityMeta("same", 1)], [entityMeta("same", 2)]);
+    expect(result.diff.changedTables).toEqual([]);
+    expect(result.unversionedEntityRenames).toEqual([]);
+  });
+});

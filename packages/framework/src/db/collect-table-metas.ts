@@ -74,6 +74,7 @@ export function collectTableMetas(
       if (entityReadsSystemRows(feature, name, ent) && meta.systemRowsReadable !== true) {
         meta = { ...meta, systemRowsReadable: true };
       }
+      meta = { ...meta, entityEventVersion: ent.eventVersion ?? 1 };
       registerPass1Meta(metas, byName, meta, `entity "${name}" (${feature.name})`);
     }
     for (const entry of Object.values(feature.storeTables)) {

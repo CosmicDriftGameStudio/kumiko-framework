@@ -230,6 +230,15 @@ export type RetentionDef = {
   readonly reference?: string;
 };
 
+/** Event-log retention for an entity that holds short-lived technical state. The data-retention
+ *  job `stream-retention` deletes every stream of the entity whose newest event is older than
+ *  `keepFor` (`<number><h|d|w|m|y>`), with all its events, and then the entity rows whose stream
+ *  is gone. High-frequency counters belong in an `r.storeTable` written with
+ *  `ctx.db.upsert(..., { increment })` instead. */
+export type StreamRetentionDef = {
+  readonly keepFor: string;
+};
+
 /** Where rows without a value sort in a list, in both directions. Without it Postgres decides:
  *  last ascending, first descending. */
 export type SortNulls = "first" | "last";
@@ -1216,6 +1225,10 @@ export type EntityDefinition<
    * See docs/plans/features/core-data-retention.md.
    */
   readonly retention?: RetentionDef;
+  /** Prunes whole event streams of this entity once their newest event is older than keepFor.
+   *  See StreamRetentionDef. Excludes `retention`, `systemStream`, `idType: "serial"`, file fields
+   *  and foreign table-bearing projections of this entity's events (boot rules retention/stream-retention-*). */
+  readonly streamRetention?: StreamRetentionDef;
   /** crypto-shredding:write:forget-subject forgets this entity's row, through the executor, when the row's own
    *  subject is forgotten: `record:<entity>:<id>`, or `user:<id>` when the entity has a `personal: "self"` field.
    *  Needs a `personal: "self"` or record-keyed field; cannot be combined with `retention.strategy: "blockDelete"`. */

@@ -30,3 +30,8 @@ export {
   holdBlockDeleteRowsForDestruction,
   tenantHasBlockDeleteRows,
 } from "./tenant-destruction-hold.ts";
+export {
+  type RunStreamRetentionArgs,
+  type RunStreamRetentionResult,
+  runStreamRetention,
+} from "./run-stream-retention.ts";

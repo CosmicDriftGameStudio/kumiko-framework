@@ -163,7 +163,9 @@ describe("collectTableMetas — r.entity backing table", () => {
     });
     const meta = collectTableMetas([feature]).find((m) => m.tableName === "read_widgets");
     // Identical to the table the test-stack push + executor use → they cannot drift.
-    expect(meta).toEqual(asEntityTableMeta(richWidgetTable));
+    const backingMeta = asEntityTableMeta(richWidgetTable);
+    if (!backingMeta) throw new Error("backing meta missing");
+    expect(meta).toEqual({ ...backingMeta, entityEventVersion: 1 });
   });
 
   test("throws when the backing table is missing a field's column (superset violated)", () => {
@@ -235,5 +237,37 @@ describe("reference-data entities and systemRowsReadable", () => {
     );
     expect(pushed?.systemRowsReadable).toBeUndefined();
     expect(collectTableMetas([feature])[0]?.systemRowsReadable).toBeUndefined();
+  });
+});
+
+describe("collectTableMetas — entity event version", () => {
+  test("entity metas carry the entity's eventVersion, defaulting to 1; store and projection metas do not", () => {
+    const versioned = createEntity({
+      table: "read_versioned",
+      fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+      eventVersion: 3,
+      eventMigrations: [
+        { fromVersion: 1, toVersion: 2, transform: (fields) => ({ ...fields }) },
+        { fromVersion: 2, toVersion: 3, transform: (fields) => ({ ...fields }) },
+      ],
+    });
+    const feature = defineFeature("versions", (r) => {
+      r.entity({ name: "versioned", ...versioned });
+      r.entity({ name: "plain", ...exampleEntity("read_plain") });
+      r.storeTable(
+        defineUnmanagedTable({
+          tableName: "version_cache",
+          columns: [{ name: "id", pgType: "uuid", notNull: true, primaryKey: true }],
+        }),
+        { reason: "test fixture" },
+      );
+    });
+
+    const metas = collectTableMetas([feature]);
+    expect(metas.find((m) => m.tableName === "read_versioned")?.entityEventVersion).toBe(3);
+    expect(metas.find((m) => m.tableName === "read_plain")?.entityEventVersion).toBe(1);
+    const storeMeta = metas.find((m) => m.tableName === "version_cache");
+    expect(storeMeta).toBeDefined();
+    if (storeMeta) expect("entityEventVersion" in storeMeta).toBe(false);
   });
 });

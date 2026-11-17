@@ -14,13 +14,17 @@ reconstruct it. Details and failure modes: [entity write patterns](entity-write-
 | Kind | Declared with | Written via | Rebuild | Direct writes |
 |---|---|---|---|---|
 | Event-sourced | `r.entity`, `r.projection`, `r.multiStreamProjection`, `r.extendEntityProjection` | Executor, `ctx.events.append`, projection `apply` | Replays the event log into a shadow table and swaps it in | Forbidden: the rebuild drops them |
-| Store table | `r.storeTable(meta, { reason })` | `insertOne`, `updateMany`, `deleteMany` on the table | Not a rebuild target | Allowed; the feature owns tenant scoping and retention |
+| Store table | `r.storeTable(meta, { reason })` | `insertOne`, `updateMany`, `upsert` (with `increment` for counters), `deleteMany` on `ctx.db` | Not a rebuild target | Allowed; the feature owns tenant scoping and retention |
 | Unmanaged table | `defineUnmanagedTable({ tableName, columns })` | Whatever the owning code does (no executor, no audit trail) | Not a rebuild target | Allowed; register it with `r.storeTable` if a feature owns it |
 
 `read_` is reserved for event-sourced tables. Store and unmanaged tables use another
 prefix, `store_` by convention.
 
 `deriveEntityTableMeta` turns an entity into table meta.
+
+## Technical and short-lived state
+
+State that changes often and needs no history (view counters, run state, delivery status) belongs in an `r.storeTable` written through `ctx.db`; a counter is one `ctx.db.upsert(table, row, { conflictTarget, increment })` per hit instead of an event on a hot aggregate. State that should stay event-sourced but is only needed for a while (previews, claims, test runs) declares `streamRetention: { keepFor: "30d" }` on its entity: the data-retention job `stream-retention` prunes every stream whose newest event is older than keepFor, together with the rows a rebuild would no longer recreate. Entity `retention` only deletes rows and appends a forgotten event; it does not shorten the event log.
 
 ## Database handles on `HandlerContext`
 

@@ -141,4 +141,31 @@ export const ENTITY_DECLARATION_RULES = {
     summary: "crossTenantFileRead declares a non-empty reason.",
     fix: "State why files of this entity are readable across tenants.",
   },
+  streamRetentionKeepFor: {
+    id: "retention/stream-retention-keep-for",
+    summary: "streamRetention.keepFor has the form <number><h|d|w|m|y>.",
+    fix: 'Write keepFor like "30d", "12w" or "1y".',
+  },
+  streamRetentionWithRowRetention: {
+    id: "retention/stream-retention-with-row-retention",
+    summary: "An entity declares retention or streamRetention, not both.",
+    fix: "Keep retention for rows with a legal or business keep period; use streamRetention only for technical state without one.",
+  },
+  streamRetentionStreamShape: {
+    id: "retention/stream-retention-stream-shape",
+    summary:
+      'An entity with streamRetention has per-tenant streams and uuid ids (no systemStream, no idType "serial").',
+    fix: 'Remove streamRetention, or drop systemStream and idType "serial" from the entity.',
+  },
+  streamRetentionFileField: {
+    id: "retention/stream-retention-file-field",
+    summary: "An entity with streamRetention has no file or image fields.",
+    fix: 'Use retention with strategy "hardDelete", which deletes the file bytes with the row, or move the file to another entity.',
+  },
+  streamRetentionForeignReader: {
+    id: "retention/stream-retention-foreign-reader",
+    summary:
+      "No table-bearing r.projection or r.multiStreamProjection reads the events of an entity with streamRetention.",
+    fix: "Remove streamRetention, or build the other read model without this entity's events.",
+  },
 } as const satisfies BootRuleTable;

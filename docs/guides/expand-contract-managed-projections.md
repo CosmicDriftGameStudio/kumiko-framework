@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-07-18
+verified: 2026-11-17
 ---
 
 # Expand/Contract for managed-projection changes
@@ -89,6 +89,8 @@ looking at. What's different is that the replay now succeeds cleanly: every
 event in the stream carries the field, so there's no NOT-NULL violation
 mid-replay, and the shadow-swap mechanism keeps the cutover to a short
 `ACCESS EXCLUSIVE` fence instead of a long lock.
+
+`kumiko-schema generate` refuses a single diff that drops and adds columns on an entity table while the entity's `eventVersion` is not higher than in the last `snapshot.json`: a rebuild skips payload keys that are no longer fields, so a rename without an `eventMigrations` step would lose every historical value. Do the rename in one release by raising `eventVersion` with a step that maps the old field to the new one, or split it as above. An unrelated drop and add go into two migrations. A pure drop is accepted, because the values stay in the events.
 
 ## Scope limit
 

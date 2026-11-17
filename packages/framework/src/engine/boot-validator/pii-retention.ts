@@ -25,7 +25,7 @@ const FRAMEWORK_TIMESTAMP_FIELDS: ReadonlySet<string> = new Set([
 // Allowed format for retention.keepFor: a number followed by a suffix (h/d/w/m/y).
 // The cleanup job performs the actual parsing; the boot validator only checks
 // the format so typos ("30days") become visible before the first cleanup run.
-const KEEP_FOR_PATTERN = /^\d+[hdwmy]$/;
+export const KEEP_FOR_PATTERN = /^\d+[hdwmy]$/;
 
 // Excludes subjectRef: its `personal: "ref"` union member structurally
 // forbids `anonymize` (packages/types/src/fields.ts).

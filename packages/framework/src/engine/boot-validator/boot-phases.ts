@@ -51,6 +51,7 @@ import { validateReadGates } from "./read-gate.ts";
 import { validateForgetWithSubject, validateRecordOwnedSubjects } from "./record-owned.ts";
 import { validateScreenShortIdCollisions, validateScreens } from "./screens.ts";
 import { validateSortNulls } from "./sort-nulls.ts";
+import { validateStreamRetention } from "./stream-retention.ts";
 import { validateTransferGraph } from "./transfer-graph.ts";
 import { validateWorkspaces } from "./workspaces.ts";
 
@@ -122,6 +123,7 @@ const FEATURE_CHECKS: readonly FeatureCheck[] = [
   { check: "validatePiiAndRetention", run: (f, c) => validatePiiAndRetention(f, c.warn) },
   { check: "validateRecordOwnedSubjects", run: (f) => validateRecordOwnedSubjects(f) },
   { check: "validateForgetWithSubject", run: (f) => validateForgetWithSubject(f) },
+  { check: "validateStreamRetention", run: (f, c) => validateStreamRetention(f, c.features) },
   { check: "validateEntitySelectOptionsQuery", run: (f) => validateEntitySelectOptionsQuery(f) },
   {
     check: "validateEntitySelectAvailabilityQuery",

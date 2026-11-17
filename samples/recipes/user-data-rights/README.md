@@ -107,6 +107,10 @@ const result = await runRetentionCleanup({
 // result.hardDeleted === 1, bytes and file_refs row gone
 ```
 
+## Stream retention for short-lived state
+
+An entity that holds technical state (previews, run state) declares `streamRetention: { keepFor: "30d" }`. The job `data-retention:job:stream-retention` deletes every stream of that entity whose newest event is older than `keepFor`, together with the rows a rebuild would no longer recreate. Counters belong in an `r.storeTable` written with `ctx.db.upsert(..., { increment })` instead of an event per hit. `src/preview-snapshots.ts` holds the entity and `src/__tests__/stream-retention.integration.test.ts` drives the run with `runStreamRetention`.
+
 ## Full app vs this recipe
 
 |       | This recipe           | [user-data-rights-demo](/en/samples/apps-user-data-rights-demo/) |
