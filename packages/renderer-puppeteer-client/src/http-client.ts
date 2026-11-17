@@ -67,16 +67,18 @@ async function postWithRetry<T>(
 ): Promise<T> {
   const postToService = serviceEgress(config.serviceUrl);
   let lastError: Error | null = null;
+  let retryAfterMs: number | undefined;
   for (let attempt = 0; attempt <= config.maxRetries; attempt++) {
     if (attempt > 0) {
       // Exponential backoff: 200ms, 400ms, 800ms, ... plus 0–100% jitter
       // (Math.random() returns 0..1, multiplied by base gives
       // additive jitter between 0 and base — so actual waits:
       // 200–400ms, 400–800ms, 800–1600ms). Avoids a thundering herd
-      // when several clients retry at the same time.
+      // when several clients retry at the same time. A 503 with Retry-After waits
+      // at least that long (the service sends it when all render slots are busy).
       const baseMs = 100 * 2 ** attempt;
       const jitter = Math.random() * baseMs;
-      await sleep(baseMs + jitter);
+      await sleep(Math.max(baseMs, retryAfterMs ?? 0) + jitter);
     }
     try {
       return await tryFetch(config, path, body, postToService, readSuccess);
@@ -85,6 +87,7 @@ async function postWithRetry<T>(
       // only plain Errors (network failure, 502/503) fall through to the next attempt.
       if (e instanceof RendererError) throw e;
       lastError = e instanceof Error ? e : new Error(String(e));
+      retryAfterMs = e instanceof RetryableServiceError ? e.retryAfterMs : undefined;
     }
   }
   throw new RendererError(
@@ -96,6 +99,24 @@ async function postWithRetry<T>(
 // 502/503 mean the service (or its proxy) could not take the job at all. A 500/504 means
 // the render ran and failed or timed out: repeating it only burns Chromium time again.
 const RETRYABLE_STATUSES: ReadonlySet<number> = new Set([502, 503]);
+
+// Caps a service-sent wait so a bad header cannot park a handler for an hour.
+const MAX_RETRY_AFTER_MS = 10_000;
+
+class RetryableServiceError extends Error {
+  constructor(
+    message: string,
+    readonly retryAfterMs: number | undefined,
+  ) {
+    super(message);
+  }
+}
+
+function retryAfterMsOf(response: Response): number | undefined {
+  const header = response.headers.get("Retry-After");
+  if (header === null || !/^\d+$/.test(header)) return undefined;
+  return Math.min(Number(header) * 1000, MAX_RETRY_AFTER_MS);
+}
 
 // The timer covers headers AND body: a service that sends headers and then stalls
 // must not block the caller forever.
@@ -161,7 +182,10 @@ async function readServiceResponse<T>(
     );
   }
   if (RETRYABLE_STATUSES.has(response.status)) {
-    throw new Error(`puppeteer-service ${response.status}: ${detail}`);
+    throw new RetryableServiceError(
+      `puppeteer-service ${response.status}: ${detail}`,
+      retryAfterMsOf(response),
+    );
   }
   throw new RendererError(`puppeteer-service failed: ${response.status} ${detail}`, "other");
 }

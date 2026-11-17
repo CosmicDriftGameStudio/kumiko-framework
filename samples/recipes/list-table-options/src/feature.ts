@@ -271,11 +271,18 @@ export function createTaskBoardFeature(
       access: openAccess.access,
     });
 
+    // A hand-written query column has no field metadata, so optionsOf points it at the
+    // select field for its labels.
     r.screen({
       id: "task-workload",
       type: "projectionList",
       query: "task-board:query:task:workload",
-      columns: ["title", "assignee", "status", "estimateHours"],
+      columns: [
+        "title",
+        "assignee",
+        { field: "status", renderer: { format: "enumOption", optionsOf: "task-board:task.status" } },
+        "estimateHours",
+      ],
       defaultSort: { field: "title", dir: "asc" },
       table: {
         grouping: { field: "assignee" },

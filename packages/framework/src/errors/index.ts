@@ -15,6 +15,7 @@ export {
 export type { ErrorDocsConfig } from "./docs-url.ts";
 export type { FrameworkErrorCode } from "./error-codes.ts";
 export { frameworkErrorHttpStatus } from "./error-codes.ts";
+export { defineFailureReasons, type FailureReasons } from "./failure-reasons.ts";
 export { isKumikoError, KumikoError } from "./kumiko-error.ts";
 export { FrameworkReasons } from "./reasons.ts";
 export { subjectErasedConflict } from "./subject-erased.ts";

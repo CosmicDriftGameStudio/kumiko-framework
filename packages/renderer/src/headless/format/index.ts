@@ -1,10 +1,12 @@
 // Pure format utilities — no web or platform dependencies.
 // Shared between renderer/web and server-side tests.
 
+import { parseFieldOptionsRef } from "@cosmicdrift/kumiko-framework/ui-types";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { isOneOf, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { rendererWarn } from "../../dev-console.ts";
 import { serverNowMs } from "../../server-clock.ts";
+import { fieldOptionLabelKeyPrefix } from "../view-model/list.ts";
 import { formatMoney, isCurrencyCode } from "./money.ts";
 import { formatRelativeTime } from "./relative-time.ts";
 
@@ -342,12 +344,22 @@ function formatPriorityCell(spec: CellFormatSpec, value: unknown): string {
   return `${prefix}${value}`;
 }
 
+function enumOptionKeyPrefix(spec: CellFormatSpec): string | undefined {
+  const keyPrefix = stringSpec(spec, "keyPrefix");
+  if (keyPrefix !== undefined) return keyPrefix;
+  const optionsOf = stringSpec(spec, "optionsOf");
+  const ref = optionsOf === undefined ? undefined : parseFieldOptionsRef(optionsOf);
+  return ref === undefined
+    ? undefined
+    : fieldOptionLabelKeyPrefix(ref.featureName, ref.entityName, ref.fieldName);
+}
+
 function formatEnumOptionCell(
   spec: CellFormatSpec,
   value: unknown,
   translate: CellTranslate,
 ): string {
-  const keyPrefix = stringSpec(spec, "keyPrefix");
+  const keyPrefix = enumOptionKeyPrefix(spec);
   const labelFor = (item: unknown): string => {
     const raw = typeof item === "string" ? item : String(item);
     if (keyPrefix === undefined || translate === undefined) return raw;

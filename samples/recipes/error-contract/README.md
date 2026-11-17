@@ -45,17 +45,22 @@ Likewise: `failUnprocessable("reason", details?)` and `writeFailure(new AnyKumik
 When your feature needs its own differentiation (e.g. `already_paid` vs. `already_cancelled`), use `UnprocessableError` or `ConflictError` and set `details.reason`:
 
 ```ts illustration
-export const OrdersLiteReasons = {
-  alreadyPaid: "already_paid",
-  alreadyCancelled: "already_cancelled",
-} as const;
+export const ordersLiteFailures = defineFailureReasons("orders-lite", {
+  alreadyPaid: { en: "This order is already paid.", de: "Diese Bestellung ist bereits bezahlt." },
+  alreadyCancelled: {
+    en: "This order is already cancelled.",
+    de: "Diese Bestellung ist bereits storniert.",
+  },
+});
 
-return failUnprocessable(OrdersLiteReasons.alreadyPaid, { orderId });
+// in defineFeature: r.translations({ keys: ordersLiteFailures.translationKeys });
+
+return ordersLiteFailures.fail("alreadyPaid", { orderId });
 ```
 
 **Rules:**
 - `snake_case`, no spaces
-- One `<Feature>Reasons` const-object per feature
+- One `defineFailureReasons` table per feature; the key is the camelCase name, the slug is its snake_case form, the i18n key is `<feature>.errors.<name>`. Register `translationKeys` with `r.translations` and in the client bundle
 - Framework reasons (`stale_state`, `invalid_transition`, `field_access_denied`, `delete_restricted`) come from `FrameworkReasons` — **reuse, don't duplicate**
 
 ## Throw vs. writeFailure

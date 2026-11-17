@@ -114,14 +114,21 @@ export interface FieldFormatRegistry {
   // `<feature>:entity:<entity>:field:<field>:option:<value>` — same
   // fallback-to-raw-value rule as buildOptionLabels: an untranslated key
   // renders the raw enum value instead of the literal i18n key.
-  // Prefer fieldOptionLabelKeyPrefix() from @cosmicdrift/kumiko-renderer/headless
-  // over hand-typed prefix strings.
+  // `optionsOf: "<feature>:<entity>.<field>"` names a select or multiSelect field; boot checks
+  // that it exists. `keyPrefix` is for labels outside the field-option convention.
   // `tones` draws the translated label as a status pill in list cells, the
   // way a select field with `optionTones` does on an entityList.
-  enumOption: {
-    readonly keyPrefix: string;
-    readonly tones?: Readonly<Partial<Record<string, SelectOptionTone>>>;
-  };
+  enumOption:
+    | {
+        readonly keyPrefix: string;
+        readonly optionsOf?: never;
+        readonly tones?: Readonly<Partial<Record<string, SelectOptionTone>>>;
+      }
+    | {
+        readonly optionsOf: string;
+        readonly keyPrefix?: never;
+        readonly tones?: Readonly<Partial<Record<string, SelectOptionTone>>>;
+      };
   /** Value is a `DashboardI18nText` (`{ i18nKey, i18nParams }`) a query built
    *  server-side, or a plain i18n key, translated in the user's language. */
   i18nText: Record<never, never>;

@@ -22,24 +22,25 @@ import {
 import {
   AccessDeniedError,
   ConflictError,
+  defineFailureReasons,
   failNotFound,
-  failUnprocessable,
   NotFoundError,
   UnprocessableError,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 
-// --- Feature-local reasons: snake_case, no feature prefix needed since the
-//     feature name is already namespaced by defineFeature("orders-lite", ...).
-//     The framework convention: one const object per feature that needs its
-//     own reason strings. For framework-level reasons (stale_state,
-//     invalid_transition, ...) use FrameworkReasons instead.
-export const OrdersLiteReasons = {
-  alreadyPaid: "already_paid",
-  alreadyCancelled: "already_cancelled",
-  emptyCart: "cart_is_empty",
-} as const;
+// --- Feature-local reasons: one table per feature gives each reason its slug (snake_case,
+//     no feature prefix), its i18n key and its texts. Framework-level reasons (stale_state,
+//     invalid_transition, ...) come from FrameworkReasons instead.
+export const ordersLiteFailures = defineFailureReasons("orders-lite", {
+  alreadyPaid: { en: "This order is already paid.", de: "Diese Bestellung ist bereits bezahlt." },
+  alreadyCancelled: {
+    en: "This order is already cancelled.",
+    de: "Diese Bestellung ist bereits storniert.",
+  },
+  cartIsEmpty: { en: "The cart is empty.", de: "Der Warenkorb ist leer." },
+});
 
 // --- Entity with a state machine so we can show guardTransition + version
 //     conflicts. Prices in cents (integer minor unit — see money-type.md).
@@ -75,6 +76,7 @@ const orderTable = buildEntityTable("order", orderEntity);
 
 export const ordersLiteFeature = defineFeature("orders-lite", (r) => {
   r.entity({ name: "order", ...orderEntity });
+  r.translations({ keys: ordersLiteFailures.translationKeys });
 
   // 1) Create — standard path. Zod schema rejects an empty cart; the
   //    dispatcher converts the ZodIssue into a ValidationError with
@@ -82,7 +84,7 @@ export const ordersLiteFeature = defineFeature("orders-lite", (r) => {
   r.writeHandler({
     name: "order:create",
     schema: z.object({
-      totalCents: z.number().int().min(1, "cart_is_empty"),
+      totalCents: z.number().int().min(1, ordersLiteFailures.reasonOf("cartIsEmpty")),
     }),
     handler: async (event, ctx) => {
       const crud = createEventStoreExecutor(orderTable, orderEntity, { entityName: "order" });
@@ -100,7 +102,7 @@ export const ordersLiteFeature = defineFeature("orders-lite", (r) => {
   //      - NotFoundError (order doesn't exist)
   //      - AccessDeniedError (someone else's order, distinct from not_found
   //        so the caller knows it's a permissions issue)
-  //      - UnprocessableError with reason from OrdersLiteReasons
+  //      - UnprocessableError with a reason from ordersLiteFailures
   //      - Framework-generated UnprocessableError with reason
   //        FrameworkReasons.invalidTransition via guardTransition
   r.writeHandler({
@@ -129,12 +131,10 @@ export const ordersLiteFeature = defineFeature("orders-lite", (r) => {
       }
 
       // UnprocessableError with feature reason — "this order is already in
-      // the terminal paid state". Uses the OrdersLiteReasons const so the
-      // literal string lives in one place.
+      // the terminal paid state". Uses ordersLiteFailures so the
+      // slug, i18n key and text live in one place.
       if (data["status"] === "paid") {
-        return failUnprocessable(OrdersLiteReasons.alreadyPaid, {
-          orderId: event.payload.id,
-        });
+        return ordersLiteFailures.fail("alreadyPaid", { orderId: event.payload.id });
       }
 
       // guardTransition throws UnprocessableError with
@@ -169,7 +169,7 @@ export const ordersLiteFeature = defineFeature("orders-lite", (r) => {
       const data = current as Record<string, unknown>;
 
       if (data["status"] === "cancelled") {
-        return failUnprocessable(OrdersLiteReasons.alreadyCancelled);
+        return ordersLiteFailures.fail("alreadyCancelled");
       }
       if (data["status"] === "paid") {
         return writeFailure(

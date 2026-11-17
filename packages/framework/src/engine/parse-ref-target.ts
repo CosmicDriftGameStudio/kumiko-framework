@@ -24,3 +24,19 @@ export function parseRefTarget(raw: string, currentFeature: string): ParsedRefTa
 export function parseRefTargetEntityName(raw: string): string {
   return parseRefTarget(raw, "").entityName;
 }
+
+export type ParsedFieldOptionsRef = ParsedRefTarget & { readonly fieldName: string };
+
+const FIELD_OPTIONS_REF = /^([^:.]+):([^:.]+)\.([^:.]+)$/;
+
+// The enumOption `optionsOf` form: "<feature>:<entity>.<field>"; the feature is never implied.
+export function parseFieldOptionsRef(raw: string): ParsedFieldOptionsRef | undefined {
+  const match = FIELD_OPTIONS_REF.exec(raw);
+  const featureName = match?.[1];
+  const entityName = match?.[2];
+  const fieldName = match?.[3];
+  if (featureName === undefined || entityName === undefined || fieldName === undefined) {
+    return undefined;
+  }
+  return { featureName, entityName, fieldName };
+}

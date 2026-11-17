@@ -470,6 +470,21 @@ describe("applyFormatSpec — enumOption", () => {
     expect(applyFormatSpec({ format: "enumOption" }, "active", translate)).toBe("active");
   });
 
+  test("optionsOf resolves the label through the field-option key convention", () => {
+    const translate = (key: string) =>
+      key === "contact:entity:contact:field:status:option:active" ? "Aktiv" : key;
+    expect(
+      applyFormatSpec({ format: "enumOption", optionsOf: "contact:contact.status" }, "active", translate),
+    ).toBe("Aktiv");
+  });
+
+  test("a malformed optionsOf falls back to the raw value", () => {
+    const translate = (key: string) => `translated:${key}`;
+    expect(
+      applyFormatSpec({ format: "enumOption", optionsOf: "status" }, "active", translate),
+    ).toBe("active");
+  });
+
   test("non-string value is stringified before key construction", () => {
     const translate = (key: string) =>
       key === "contact:entity:contact:field:status:option:1" ? "Eins" : key;

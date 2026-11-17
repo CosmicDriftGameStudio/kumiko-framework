@@ -1,7 +1,7 @@
 // HTTP client tests via mock fetch. We want to verify retry behaviour + status
 // code routing, NOT a real network call.
 
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from "bun:test";
 import { RendererError } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import type { ClientConfig } from "../config";
 import { postRasterize, postRender } from "../http-client";
@@ -164,6 +164,58 @@ describe("postRender :: 5xx", () => {
     installFetchMock(fetchMock);
     await expect(postRender(CONFIG, PAYLOAD)).rejects.toMatchObject({ code: "other" });
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("postRender :: Retry-After", () => {
+  const BUSY_BODY = JSON.stringify({ error: "busy" });
+
+  function busyResponse(retryAfter?: string): Response {
+    return new Response(BUSY_BODY, {
+      status: 503,
+      headers: {
+        "Content-Type": "application/json",
+        ...(retryAfter !== undefined && { "Retry-After": retryAfter }),
+      },
+    });
+  }
+
+  async function retryDelaysAfter(retryAfter?: string): Promise<number[]> {
+    const random = spyOn(Math, "random").mockReturnValue(0.5);
+    const delays: number[] = [];
+    globalThis.setTimeout = ((fn: () => void, ms?: number) => {
+      delays.push(ms ?? 0);
+      fn();
+      return 0 as unknown as ReturnType<typeof setTimeout>;
+    }) as typeof setTimeout;
+    try {
+      installFetchMock(
+        mock()
+          .mockResolvedValueOnce(busyResponse(retryAfter))
+          .mockResolvedValueOnce(mockBytes(new Uint8Array([0x25]))),
+      );
+      await postRender(CONFIG, PAYLOAD);
+      // tryFetch also registers the request timeout once per attempt.
+      return delays.filter((ms) => ms !== CONFIG.requestTimeoutMs);
+    } finally {
+      random.mockRestore();
+    }
+  }
+
+  test("waits at least the Retry-After seconds the service sends", async () => {
+    expect(await retryDelaysAfter("2")).toEqual([2100]);
+  });
+
+  test("caps a huge Retry-After at 10 seconds", async () => {
+    expect(await retryDelaysAfter("3600")).toEqual([10_100]);
+  });
+
+  test("without the header the plain backoff applies", async () => {
+    expect(await retryDelaysAfter()).toEqual([300]);
+  });
+
+  test("an HTTP-date Retry-After is ignored", async () => {
+    expect(await retryDelaysAfter("Wed, 21 Oct 2015 07:28:00 GMT")).toEqual([300]);
   });
 });
 

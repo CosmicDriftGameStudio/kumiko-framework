@@ -14,6 +14,7 @@ import {
   TemplateNotFoundError,
   VARIANT_UNKNOWN_REASON,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
+import type { ReservationRelease } from "@cosmicdrift/kumiko-types/handlers";
 import type {
   BeforeTransactionContext,
   BeforeTransactionResult,
@@ -23,6 +24,7 @@ import type {
 import {
   type KumikoError,
   UnprocessableError,
+  type WriteFailure,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import {
@@ -278,6 +280,70 @@ export async function renderPdfBeforeTransaction(
       sizeBytes,
     },
     ...(uploaded.release && { release: uploaded.release }),
+  };
+}
+
+// Half of the puppeteer service's default MAX_CONCURRENT_RENDERS (4): a batch finishes sooner than a
+// serial loop and still leaves slots for other tenants' single prints.
+const PDF_BATCH_CONCURRENCY = 2;
+
+// Several PDFs for one write. One failed document stops the batch and removes every file it already
+// uploaded; the returned release removes all of them when the write fails or rolls back.
+export async function renderPdfsBeforeTransaction(
+  ctx: RenderContext,
+  documents: readonly RenderPdfArgs[],
+): Promise<BeforeTransactionResult<readonly RenderedPdfUpload[]>> {
+  const uploads: Array<RenderedPdfUpload | undefined> = [];
+  const releases: ReservationRelease[] = [];
+  let failure: WriteFailure | undefined;
+  let halted = false;
+  let nextIndex = 0;
+
+  const worker = async (): Promise<void> => {
+    while (!halted && nextIndex < documents.length) {
+      const index = nextIndex++;
+      const document = documents[index];
+      if (document === undefined) return;
+      let rendered: Awaited<ReturnType<typeof renderPdfBeforeTransaction>>;
+      try {
+        rendered = await renderPdfBeforeTransaction(ctx, document);
+      } catch (e) {
+        halted = true;
+        throw e;
+      }
+      if (!rendered.isSuccess) {
+        failure ??= rendered;
+        halted = true;
+        return;
+      }
+      uploads[index] = rendered.data;
+      if (rendered.release) releases.push(rendered.release);
+    }
+  };
+
+  const settled = await Promise.allSettled(
+    Array.from({ length: Math.min(PDF_BATCH_CONCURRENCY, documents.length) }, () => worker()),
+  );
+  const releaseAll = async (): Promise<void> => {
+    await Promise.allSettled(releases.map((release) => release()));
+  };
+
+  const thrown = settled.find(
+    (result): result is PromiseRejectedResult => result.status === "rejected",
+  );
+  if (thrown !== undefined) {
+    await releaseAll();
+    throw thrown.reason;
+  }
+  if (failure !== undefined) {
+    await releaseAll();
+    return failure;
+  }
+
+  return {
+    isSuccess: true,
+    data: uploads.filter((upload): upload is RenderedPdfUpload => upload !== undefined),
+    ...(releases.length > 0 && { release: releaseAll }),
   };
 }
 

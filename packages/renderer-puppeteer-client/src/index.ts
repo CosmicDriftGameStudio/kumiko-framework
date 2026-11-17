@@ -19,6 +19,7 @@ export {
   type RenderPdfArgs,
   renderPdfBeforeTransaction,
   renderPdfBytes,
+  renderPdfsBeforeTransaction,
   type StoredRenderedPdf,
   storeRenderedPdf,
 } from "./render-and-store.ts";

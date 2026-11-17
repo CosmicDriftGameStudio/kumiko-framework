@@ -39,8 +39,8 @@ export {
   isFormDerivationInputMode,
   isUnusedFallbackOperand,
 } from "../engine/form-derivations.ts";
-export type { ParsedRefTarget } from "../engine/parse-ref-target.ts";
-export { parseRefTarget } from "../engine/parse-ref-target.ts";
+export type { ParsedFieldOptionsRef, ParsedRefTarget } from "../engine/parse-ref-target.ts";
+export { parseFieldOptionsRef, parseRefTarget } from "../engine/parse-ref-target.ts";
 export {
   ACTION_FORM_PSEUDO_ENTITY,
   availableSelectOptions,

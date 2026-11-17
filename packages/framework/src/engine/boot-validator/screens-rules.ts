@@ -57,4 +57,10 @@ export const SCREEN_RULES = {
     summary: "Field and column renderers are FormatSpecs, not functions.",
     fix: 'Use a FormatSpec ({ format: "..." }).',
   },
+  enumOptionLabelSourceInvalid: {
+    id: "screen/enum-option-label-source-invalid",
+    summary:
+      "An enumOption format sets exactly one of keyPrefix or optionsOf, and optionsOf names a select or multiSelect field of a mounted feature's entity.",
+    fix: 'Set keyPrefix or optionsOf: "<feature>:<entity>.<field>" pointing at a select or multiSelect field.',
+  },
 } as const satisfies BootRuleTable;

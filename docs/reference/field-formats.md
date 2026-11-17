@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-11-08
+verified: 2026-11-17
 evidence: "kumiko-framework#2345 (enumOption); #2332 (unit); packages/types/src/screen.ts (FieldFormatRegistry); packages/renderer/src/headless/format; packages/headless/src/view-model/list-file-display.ts (format image/file); packages/types/src/fields.ts (TextFieldDef.format); packages/renderer/src/components/render-field-control.tsx (readOnlyTextRule); packages/renderer/src/headless/format/escape.ts (isSafeHref); packages/renderer/src/app/projection-detail-shim.ts; packages/renderer/src/app/__tests__/projection-detail-shim.test.ts"
 ---
 
@@ -30,8 +30,16 @@ dediziert typisiert, kein offener `string`).
 
 ```
 { format: "enumOption", keyPrefix: "jobstatus" }
+{ format: "enumOption", optionsOf: "orders:order.status" }
 ```
 
+- `optionsOf` nennt ein `select`-/`multiSelect`-Feld; die Labels kommen aus
+  `<feature>:entity:<entity>:field:<field>:option:<value>`. Boot bricht mit
+  `screen/enum-option-label-source-invalid` ab, wenn das Feld fehlt oder kein
+  `select` ist.
+- `keyPrefix` nur für Labels außerhalb dieser Konvention; es gilt genau eins von beiden.
+- `entityList`-/`relatedList`-Columns auf `select`-Feldern brauchen keinen Renderer,
+  die Labels kommen automatisch.
 - Löst einen Enum-Wert client-seitig in ein **übersetztes Label** auf.
 - Der i18n-Schlüssel folgt der Konvention
   `<keyPrefix>:<value>` (bzw. die `option:`-Option-Label-Konvention) mit

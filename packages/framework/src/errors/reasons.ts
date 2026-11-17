@@ -3,8 +3,8 @@
 // gives features a single source of truth when they need to branch on the
 // framework-level reason (e.g. "is this a stale-state race? retry once").
 //
-// Features add their own local Reasons objects (see `samples/errors/` or
-// `packages/bundled-features/src/tenant/web/constants.ts` → TenantErrors). The
+// Features declare their own reasons with `defineFailureReasons` (see
+// `samples/recipes/error-contract`), which also gives each reason its i18n text. The
 // framework deliberately does NOT enforce uniqueness across features — two
 // features may use the same reason string if the semantics match. The
 // convention: snake_case, no spaces, no feature prefix for framework reasons.

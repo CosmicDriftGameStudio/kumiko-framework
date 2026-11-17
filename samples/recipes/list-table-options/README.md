@@ -54,7 +54,9 @@ the `table` block renders and behaves as before.
 - `hideCountFooter` is not set here: no screen declaration reaches it (relatedList sets it itself).
 - The same block on a `projectionList`, and `task:workload`, a hand-written list
   query that keeps grouping and totals by accepting `aggregate`
-  (`entityListSchema`) and answering it with `answerListAggregate`.
+  (`entityListSchema`) and answering it with `answerListAggregate`. The status column of the
+  workload list names its select field with `optionsOf: "task-board:task.status"`, and boot
+  rejects a field that does not exist.
 
 ## Source
 

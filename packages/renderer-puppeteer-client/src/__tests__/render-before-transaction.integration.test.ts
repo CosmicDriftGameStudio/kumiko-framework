@@ -20,7 +20,11 @@ import {
   tenantMembershipsTable,
 } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/db";
-import { defineFeature, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  defineFeature,
+  defineWriteHandler,
+  type WriteResult,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import {
   createFilesFeature,
@@ -38,12 +42,19 @@ import {
 import * as z from "zod";
 import { renderedPdfEntity, renderedPdfsTable } from "../entity";
 import { createRendererPuppeteerClientFeature } from "../feature";
-import { renderPdfBeforeTransaction, storeRenderedPdf } from "../render-and-store";
+import {
+  type RenderedPdfUpload,
+  renderPdfBeforeTransaction,
+  renderPdfsBeforeTransaction,
+  storeRenderedPdf,
+} from "../render-and-store";
 
 const FEATURE = "before-tx-pdf";
 const GENERATE = `${FEATURE}:write:generate`;
 const GENERATE_THEN_FAIL = `${FEATURE}:write:generate-then-fail`;
 const GENERATE_INVALID_ROW = `${FEATURE}:write:generate-invalid-row`;
+const GENERATE_BATCH = `${FEATURE}:write:generate-batch`;
+const GENERATE_BATCH_THEN_FAIL = `${FEATURE}:write:generate-batch-then-fail`;
 const PING = `${FEATURE}:write:ping`;
 const POOL_MAX = 2;
 const CONCURRENT_RENDERS = 3;
@@ -53,7 +64,7 @@ const STUB_PDF = new TextEncoder().encode(
   "%PDF-1.4\n1 0 obj<< /Type /Pages /Kids [] /Count 1 >>endobj\n%%EOF",
 );
 
-type StubMode = "hold" | "unavailable";
+type StubMode = "hold" | "immediate" | "unavailable";
 let stubMode: StubMode = "hold";
 let stubReceived = 0;
 const heldRequests: Array<() => void> = [];
@@ -69,7 +80,17 @@ const stubService = Bun.serve({
       return new Response("unauthorized", { status: 401 });
     }
     stubReceived += 1;
+    const body = await request.text();
+    if (body.includes("REJECT")) {
+      return new Response(JSON.stringify({ error: "rejected" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
     if (stubMode === "unavailable") return new Response("down", { status: 503 });
+    if (stubMode === "immediate") {
+      return new Response(STUB_PDF, { headers: { "Content-Type": "application/pdf" } });
+    }
     await new Promise<void>((release) => heldRequests.push(release));
     return new Response(STUB_PDF, { headers: { "Content-Type": "application/pdf" } });
   },
@@ -93,6 +114,19 @@ const renderArgs = (number: string) => ({
   variables: { number },
 });
 
+async function storeBatch(
+  ctx: Parameters<typeof storeRenderedPdf>[0],
+  uploads: readonly RenderedPdfUpload[],
+): Promise<WriteResult<readonly string[]>> {
+  const fileNames: string[] = [];
+  for (const upload of uploads) {
+    const stored = await storeRenderedPdf(ctx, upload);
+    if (!stored.isSuccess) return stored;
+    fileNames.push(stored.data.fileName);
+  }
+  return { isSuccess: true, data: fileNames };
+}
+
 const pdfFeature = defineFeature(FEATURE, (r) => {
   r.writeHandler(
     defineWriteHandler({
@@ -113,6 +147,35 @@ const pdfFeature = defineFeature(FEATURE, (r) => {
         renderPdfBeforeTransaction(ctx, renderArgs(event.payload.number)),
       handler: async (event, ctx) => {
         const stored = await storeRenderedPdf(ctx, event.prepared);
+        if (!stored.isSuccess) return stored;
+        return writeFailure(new UnprocessableError("forced_rollback"));
+      },
+    }),
+  );
+  r.writeHandler(
+    defineWriteHandler({
+      name: "generate-batch",
+      schema: z.object({ numbers: z.array(z.string()) }),
+      access: { roles: ["TenantAdmin"] },
+      beforeTransaction: (event, ctx) =>
+        renderPdfsBeforeTransaction(ctx, event.payload.numbers.map(renderArgs)),
+      handler: async (event, ctx) => {
+        const fileNames = await storeBatch(ctx, event.prepared);
+        return fileNames.isSuccess
+          ? { isSuccess: true as const, data: { fileNames: fileNames.data } }
+          : fileNames;
+      },
+    }),
+  );
+  r.writeHandler(
+    defineWriteHandler({
+      name: "generate-batch-then-fail",
+      schema: z.object({ numbers: z.array(z.string()) }),
+      access: { roles: ["TenantAdmin"] },
+      beforeTransaction: (event, ctx) =>
+        renderPdfsBeforeTransaction(ctx, event.payload.numbers.map(renderArgs)),
+      handler: async (event, ctx) => {
+        const stored = await storeBatch(ctx, event.prepared);
         if (!stored.isSuccess) return stored;
         return writeFailure(new UnprocessableError("forced_rollback"));
       },
@@ -284,5 +347,76 @@ describe("renderPdfBeforeTransaction", () => {
     ).toHaveLength(0);
     expect(await selectMany(stack.db, fileRefsTable, { tenantId: admin.tenantId })).toHaveLength(0);
     expect(provider.keys().filter((key) => key.startsWith(`${admin.tenantId}/`))).toEqual([]);
+  });
+});
+
+describe("renderPdfsBeforeTransaction", () => {
+  const expectNothingStored = async (tenantId: string): Promise<void> => {
+    expect(await selectMany(stack.db, renderedPdfsTable, { tenantId })).toHaveLength(0);
+    expect(await selectMany(stack.db, fileRefsTable, { tenantId })).toHaveLength(0);
+    expect(provider.keys().filter((key) => key.startsWith(`${tenantId}/`))).toEqual([]);
+  };
+
+  test("renders at most two documents at a time and keeps the input order", async () => {
+    const admin = tenantAdmin(9611);
+    const pending = stack.http.writeOk<{ fileNames: string[] }>(
+      GENERATE_BATCH,
+      { numbers: ["B-1", "B-2", "B-3"] },
+      admin,
+    );
+
+    await waitFor(() => stubReceived === 2);
+    await stack.http.writeOk(PING, {}, admin);
+    expect(stubReceived).toBe(2);
+
+    releaseHeldRequests();
+    await waitFor(() => stubReceived === 3);
+    releaseHeldRequests();
+
+    const data = await pending;
+    expect(data.fileNames).toEqual(["Notiz-B-1.pdf", "Notiz-B-2.pdf", "Notiz-B-3.pdf"]);
+    expect(
+      await selectMany(stack.db, renderedPdfsTable, { tenantId: admin.tenantId }),
+    ).toHaveLength(3);
+  });
+
+  test("a rejected document removes the files the batch already uploaded", async () => {
+    stubMode = "immediate";
+    const admin = tenantAdmin(9612);
+
+    const error = await stack.http.writeErr(
+      GENERATE_BATCH,
+      { numbers: ["R-1", "R-2", "REJECT-3", "R-4"] },
+      admin,
+    );
+
+    expect(error.httpStatus).toBe(422);
+    expect(error.details).toMatchObject({ reason: "rendered_pdf_invalid_request" });
+    await expectNothingStored(admin.tenantId);
+  });
+
+  test("a write that fails after storing the batch leaves no rows and no bytes", async () => {
+    const admin = tenantAdmin(9613);
+    const pending = stack.http.writeErr(GENERATE_BATCH_THEN_FAIL, { numbers: ["X-1", "X-2"] }, admin);
+    await waitFor(() => stubReceived === 2);
+    releaseHeldRequests();
+
+    const error = await pending;
+
+    expect(error.details).toMatchObject({ reason: "forced_rollback" });
+    await expectNothingStored(admin.tenantId);
+  });
+
+  test("an empty batch prints nothing", async () => {
+    const admin = tenantAdmin(9614);
+
+    const data = await stack.http.writeOk<{ fileNames: string[] }>(
+      GENERATE_BATCH,
+      { numbers: [] },
+      admin,
+    );
+
+    expect(data.fileNames).toEqual([]);
+    expect(stubReceived).toBe(0);
   });
 });
