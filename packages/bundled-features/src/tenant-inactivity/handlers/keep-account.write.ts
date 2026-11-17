@@ -23,6 +23,7 @@ export function createKeepAccountHandler(opts: { readonly keepAccountTokenSecret
     escapeHatch: { grants: ["unsafeRaw"], reason: KEEP_ACCOUNT_ESCAPE_HATCH_REASON },
     agent: { expose: false },
     rateLimit: { per: "ip+handler", limit: 10, windowSeconds: 60 },
+    tenantlessAnonymous: true,
     description:
       "Redeems the keep-account link from an inactivity warning mail: counts as activity, resets the warning cycle and invalidates every earlier link.",
     handler: async (event, ctx) => {

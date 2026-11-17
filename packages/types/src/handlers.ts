@@ -1370,9 +1370,12 @@ export type WriteHandlerDef = {
    *  ctx.db writes and event appends throw. It cannot run as a nested write or inside a
    *  multi-command batch, and cannot be combined with beforeTransaction/reserveBeforeTransaction. */
   readonly transaction?: WriteHandlerTransactionMode;
-  /** Lets an anonymous `POST /api/write` for this handler proceed under
-   *  SYSTEM_TENANT_ID when the host resolves no tenant. Boot requires
-   *  `access.roles: ["anonymous"]` and a real `rateLimit`. */
+  /** Reachable only from server code (ctx.dispatch, jobs, server routes), never through the
+   *  generic HTTP entry: POST /api/write, /api/batch and /api/command answer 404 as for an
+   *  unknown handler. The calling user is kept, unlike a system-access internal handler.
+   *  Implies agent exposure false. */
+  readonly dispatchOnly?: boolean;
+  /** The only way an anonymous write from the generic HTTP entry runs under SYSTEM_TENANT_ID (default tenant, host resolver or tenantless fallback); without it that write fails with 422 tenant_required. Also enables the tenantless fallback when the host resolves no tenant. Boot requires access.roles: ["anonymous"] and an ip-scoped rateLimit. */
   readonly tenantlessAnonymous?: boolean;
   // Set when the author wrote a `perform: stepsPipeline(...)` block. Boot-
   // validators (projection-allowlist) and Designer/AI tooling read this

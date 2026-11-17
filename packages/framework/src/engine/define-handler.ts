@@ -125,6 +125,7 @@ export function defineWriteHandler<
     ...(def.rateLimitCost && { rateLimitCost: def.rateLimitCost }),
     ...(def.escapeHatch && { escapeHatch: def.escapeHatch }),
     ...pickPreTransactionPhases(def),
+    ...(def.dispatchOnly && { dispatchOnly: true }),
     ...(def.tenantlessAnonymous && { tenantlessAnonymous: true }),
     ...(def.transaction && { transaction: def.transaction }),
   };

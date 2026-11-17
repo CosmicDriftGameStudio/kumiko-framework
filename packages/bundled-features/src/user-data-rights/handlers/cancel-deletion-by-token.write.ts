@@ -54,6 +54,7 @@ export function createCancelDeletionByTokenHandler(opts: CancelDeletionByTokenOp
     },
     agent: { expose: false },
     rateLimit: { per: "ip+handler", limit: 10, windowSeconds: 60 },
+    tenantlessAnonymous: true,
     handler: async (event, ctx) => {
       const verified = await redeemDeletionCancelToken({
         token: event.payload.token,

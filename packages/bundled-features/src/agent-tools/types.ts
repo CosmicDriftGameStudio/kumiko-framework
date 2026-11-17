@@ -75,7 +75,7 @@ export type ToolDispatchDescriptor =
       readonly op: "write";
       readonly qn: string;
       readonly risk: AgentRisk;
-      /** "proposal": the write changes a suggestion a person still approves, so no approval step. */
+      /** "proposal": no approval step; "outbound": approval on every call, never a standing approval. */
       readonly effect?: AgentEffect;
       readonly entity?: string;
       /** `<feature>:query:<entity>:detail` QN when one is mounted and readable. Dispatch re-reads through it after a successful write so the result goes through the field-level read filter. */

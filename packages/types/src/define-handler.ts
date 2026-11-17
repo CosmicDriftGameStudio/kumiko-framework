@@ -59,6 +59,7 @@ export type WriteHandlerDefinition<
   readonly reserveBeforeTransaction?: PreTransactionReservation;
   readonly beforeTransaction?: BeforeTransactionPhase<z.infer<TSchema>, TPrepared>;
   readonly beforeTransactionWhenNested?: TWhenNested;
+  readonly dispatchOnly?: boolean;
   readonly tenantlessAnonymous?: boolean;
   readonly transaction?: WriteHandlerTransactionMode;
   readonly handler: (
@@ -98,6 +99,7 @@ export type WriteHandlerInput<
   readonly reserveBeforeTransaction?: PreTransactionReservation;
   readonly beforeTransaction?: BeforeTransactionPhase<z.infer<TSchema>, TPrepared>;
   readonly beforeTransactionWhenNested?: TWhenNested;
+  readonly dispatchOnly?: boolean;
   readonly tenantlessAnonymous?: boolean;
   readonly transaction?: WriteHandlerTransactionMode;
 } & (

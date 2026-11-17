@@ -66,6 +66,7 @@ export function createRequestDeletionByEmailHandler(opts: RequestDeletionByEmail
     agent: { risk: "high" },
     // Defense in depth against email probing on the anonymous endpoint.
     rateLimit: { per: "ip+handler", limit: 10, windowSeconds: 60 },
+    tenantlessAnonymous: true,
     escapeHatch: {
       grants: ["unsafeRaw", "globalWrites"],
       reason: APPEND_LIFECYCLE_EVENT_REASON,

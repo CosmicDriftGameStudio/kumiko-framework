@@ -96,6 +96,7 @@ const WRITE_HANDLER_KEY_KINDS: Record<keyof WriteHandlerDef, KeyClassification> 
   additionalRateLimits: "modeled",
   rateLimitCost: "opaque",
   escapeHatch: "modeled",
+  dispatchOnly: "opaque",
   tenantlessAnonymous: "opaque",
   reserveBeforeTransaction: "opaque",
   beforeTransaction: "opaque",

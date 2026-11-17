@@ -108,6 +108,7 @@ export function createSubmitHandler(opts: WaitlistOptions) {
     schema: WaitlistSubmitSchema,
     access: { roles: ["anonymous"], personalData: "public-intake", anySignedIn: true },
     rateLimit: opts.rateLimit ?? DEFAULT_SUBMIT_RATE_LIMIT,
+    tenantlessAnonymous: true,
     // An empty array means "disabled"; boot validation rejects an empty additionalRateLimits.
     ...(emailRateLimits.length > 0 && { additionalRateLimits: emailRateLimits }),
     description:

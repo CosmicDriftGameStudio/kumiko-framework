@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { Hono } from "hono";
+import { createRegistry } from "../../engine/index.ts";
 import type { BatchResult, Dispatcher, WriteResult } from "../../pipeline/dispatcher.ts";
 import { createTestUser } from "../../seeding/seed-users.ts";
 import { createApiRoutes } from "../routes.ts";
@@ -37,7 +38,7 @@ function stubDispatcher(query: Dispatcher["query"]): Dispatcher {
 }
 
 function mount(
-  options: Parameters<typeof createApiRoutes>[1],
+  options: Parameters<typeof createApiRoutes>[2],
   query: Dispatcher["query"],
 ): TestApp {
   const app: TestApp = new Hono();
@@ -45,7 +46,7 @@ function mount(
     c.set("pipelineUser", user);
     await next();
   });
-  app.route("/api", createApiRoutes(stubDispatcher(query), options));
+  app.route("/api", createApiRoutes(stubDispatcher(query), createRegistry([]), options));
   return app;
 }
 

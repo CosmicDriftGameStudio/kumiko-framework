@@ -179,6 +179,7 @@ export function buildEntityHandlerMethods<TName extends string>(
         }),
         ...(def.escapeHatch && { escapeHatch: def.escapeHatch }),
         ...transactionPhaseSlots(def),
+        ...(def.dispatchOnly && { dispatchOnly: true }),
         ...(def.tenantlessAnonymous && { tenantlessAnonymous: true }),
         // Forward the pipeline-build closure so boot-validators and
         // Designer/AI tooling can inspect the step list. Absent on

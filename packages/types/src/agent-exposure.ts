@@ -4,12 +4,17 @@ import type { AgentExposure, AgentHandlerHints, AgentScreenHints } from "./handl
  *  unless it opts in explicitly. `kind` is a parameter because write and query
  *  handler definitions are structurally indistinguishable at runtime. */
 export function resolveAgentExposure(
-  def: { readonly description?: string; readonly agent?: AgentHandlerHints },
+  def: {
+    readonly description?: string;
+    readonly agent?: AgentHandlerHints;
+    readonly dispatchOnly?: boolean;
+  },
   kind: "query" | "write",
 ): AgentExposure {
   const effect = def.agent?.effect;
   return {
-    expose: def.agent?.expose ?? def.description !== undefined,
+    // A dispatch-only handler is a sub-step of a server flow, never a tool on its own.
+    expose: def.dispatchOnly === true ? false : (def.agent?.expose ?? def.description !== undefined),
     risk: def.agent?.risk ?? (kind === "query" ? "low" : "mid"),
     ...(effect !== undefined && { effect }),
   };

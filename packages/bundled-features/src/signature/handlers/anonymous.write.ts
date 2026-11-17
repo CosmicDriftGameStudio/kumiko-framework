@@ -34,6 +34,7 @@ export function createAnonymousLinkHandlers(rateLimit: RateLimitDeclaration, lin
     schema: OpenByLinkSchema,
     access: { roles: ["anonymous"], anySignedIn: true },
     rateLimit,
+    tenantlessAnonymous: true,
     escapeHatch: { grants: ["systemIdentity"], reason: TENANT_SWITCH_REASON },
     agent: { expose: false },
     description:
@@ -53,6 +54,7 @@ export function createAnonymousLinkHandlers(rateLimit: RateLimitDeclaration, lin
     schema: SignByLinkSchema,
     access: { roles: ["anonymous"], personalData: "public-intake", anySignedIn: true },
     rateLimit,
+    tenantlessAnonymous: true,
     escapeHatch: { grants: ["systemIdentity"], reason: TENANT_SWITCH_REASON },
     agent: { expose: false },
     description:
@@ -74,6 +76,7 @@ export function createAnonymousLinkHandlers(rateLimit: RateLimitDeclaration, lin
     schema: DeclineByLinkSchema,
     access: { roles: ["anonymous"], personalData: "public-intake", anySignedIn: true },
     rateLimit,
+    tenantlessAnonymous: true,
     escapeHatch: { grants: ["systemIdentity"], reason: TENANT_SWITCH_REASON },
     agent: { expose: false },
     description:

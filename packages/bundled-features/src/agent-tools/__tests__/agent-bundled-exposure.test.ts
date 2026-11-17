@@ -5,6 +5,7 @@ import {
   resolveAgentExposure,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createAuthMfaFeature } from "../../auth-mfa/index.ts";
+import { createConfigFeature } from "../../config/index.ts";
 import { createCryptoShreddingFeature } from "../../crypto-shredding/index.ts";
 import { createHelpdeskFeature } from "../../helpdesk/index.ts";
 import { createInboundMailFoundationFeature } from "../../inbound-mail-foundation/index.ts";
@@ -97,6 +98,14 @@ const CASES: readonly ExposureCase[] = [
     feature: createLedgerFeature(),
     kind: "write",
     handlerName: "reverse-transaction",
+    expose: true,
+    risk: "high",
+  },
+  { feature: createConfigFeature(), kind: "write", handlerName: "set", expose: true, risk: "high" },
+  {
+    feature: createConfigFeature(),
+    kind: "write",
+    handlerName: "reset",
     expose: true,
     risk: "high",
   },

@@ -57,6 +57,16 @@ export const HANDLER_ACCESS_RULES = {
     summary: "A tenantlessAnonymous handler rate-limits per ip or ip+handler.",
     fix: 'Use per "ip" or "ip+handler".',
   },
+  dispatchOnlyAgentExposed: {
+    id: "handler/dispatch-only-agent-exposed",
+    summary: "A dispatchOnly handler does not declare agent.expose: true.",
+    fix: "Drop agent.expose, or drop dispatchOnly if clients and the agent may call the handler.",
+  },
+  dispatchOnlyTenantless: {
+    id: "handler/dispatch-only-tenantless",
+    summary: "A dispatchOnly handler is not tenantlessAnonymous.",
+    fix: "Drop one of the two flags; tenantlessAnonymous only matters for the HTTP entry dispatchOnly closes.",
+  },
   costWithoutRateLimit: {
     id: "rate-limit/cost-without-rate-limit",
     summary: "rateLimitCost requires an active rateLimit.",

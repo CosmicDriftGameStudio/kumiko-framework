@@ -73,6 +73,7 @@ export function createConfirmDeletionByTokenHandler(opts: ConfirmDeletionByToken
     },
     agent: { expose: false },
     rateLimit: { per: "ip+handler", limit: 10, windowSeconds: 60 },
+    tenantlessAnonymous: true,
     handler: async (event, ctx) => {
       let started: Extract<StartGracePeriodResult, { ok: true }> | undefined;
 

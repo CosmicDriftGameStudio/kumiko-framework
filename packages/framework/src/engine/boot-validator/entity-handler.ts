@@ -168,6 +168,7 @@ export function validateHandlerAccess(feature: FeatureDefinition): void {
   }
   for (const [name, handler] of Object.entries(feature.writeHandlers)) {
     validateTenantlessAnonymous(feature.name, name, handler);
+    validateDispatchOnly(feature.name, name, handler);
     validateAdditionalRateLimits(feature.name, name, handler);
     validateRateLimitCost(feature.name, name, handler);
     validatePerCommandTransaction(feature.name, name, handler);
@@ -296,6 +297,26 @@ export function validateTenantlessAnonymous(
       message:
         `${where} with rateLimit.per "${per}" — every anonymous visitor shares the same ` +
         `tenant/user bucket, so one caller could exhaust it for all. Use ${IP_SCOPED_RATE_LIMIT_PER.map((allowed) => `"${allowed}"`).join(" or ")}.`,
+    });
+  }
+}
+
+export function validateDispatchOnly(
+  featureName: string,
+  handlerName: string,
+  handler: FeatureDefinition["writeHandlers"][string],
+): void {
+  // skip: handler is reachable through the HTTP entry
+  if (!handler.dispatchOnly) return;
+  const where = `write handler "${featureName}:write:${handlerName}" declares dispatchOnly`;
+  if (handler.agent?.expose === true) {
+    throw bootRuleError(HANDLER_ACCESS_RULES.dispatchOnlyAgentExposed, {
+      message: `${where} and agent.expose: true — a dispatch-only handler is never an agent tool. Drop agent.expose or dispatchOnly.`,
+    });
+  }
+  if (handler.tenantlessAnonymous) {
+    throw bootRuleError(HANDLER_ACCESS_RULES.dispatchOnlyTenantless, {
+      message: `${where} and tenantlessAnonymous — tenantlessAnonymous only matters for the HTTP entry dispatchOnly closes. Drop one of the two.`,
     });
   }
 }

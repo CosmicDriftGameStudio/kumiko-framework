@@ -108,7 +108,7 @@ export function mountDispatcherRoutes(
     (tracedRedis ? createRateLimitResolver({ redis: tracedRedis }) : undefined);
   app.route(
     "/api",
-    createApiRoutes(dispatcher, {
+    createApiRoutes(dispatcher, options.registry, {
       ...(options.sseHeartbeatMs !== undefined ? { sseHeartbeatMs: options.sseHeartbeatMs } : {}),
       ...(options.context.clock !== undefined ? { clock: options.context.clock } : {}),
     }),

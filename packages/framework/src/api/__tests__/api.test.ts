@@ -666,7 +666,7 @@ describe("POST /api/stream pre-pull race", () => {
       c.set("pipelineUser", user);
       await next();
     });
-    app.route("/api", createApiRoutes(dispatcher, { sseHeartbeatMs }));
+    app.route("/api", createApiRoutes(dispatcher, createRegistry([]), { sseHeartbeatMs }));
     return app;
   }
 
