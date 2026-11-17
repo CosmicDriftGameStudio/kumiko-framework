@@ -1,9 +1,6 @@
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
-import {
-  createEventStoreExecutor,
-  createTenantDb,
-  type WritePurpose,
-} from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor, type WritePurpose } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createSystemUser, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { userEntity, userTable } from "../../user/index.ts";

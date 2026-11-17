@@ -1,9 +1,5 @@
-import {
-  createTenantDb,
-  type DbRunner,
-  requireSystemDb,
-  type TenantDb,
-} from "@cosmicdrift/kumiko-framework/db";
+import { type DbRunner, requireSystemDb, type TenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   createSystemUser,
   type FeatureRegistrar,

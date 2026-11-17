@@ -166,9 +166,9 @@ export {
   castTenantRows,
   createSystemDbView,
   createTenantDataDestroyDb,
-  createTenantDb,
   hasOutsideTransactionDb,
   requireOutsideTransactionDb,
   requireSystemDb,
 } from "./tenant-db.ts";
+export { createTenantDb, type PublicCreateTenantDbOptions } from "./public-tenant-db.ts";
 export { runInOwnTransaction } from "./tenant-db-scoped-rebind.ts";

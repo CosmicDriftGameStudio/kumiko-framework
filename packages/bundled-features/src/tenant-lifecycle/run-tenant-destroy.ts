@@ -2,12 +2,12 @@
 import type { DbRunner, TenantDb, WhereObject } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEventStoreExecutor,
-  createTenantDb,
   fetchOne,
   selectMany,
   tryWithSessionAdvisoryLock,
   WritePurposes,
 } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   createSystemUser,
   type EscapeHatchAuditSink,

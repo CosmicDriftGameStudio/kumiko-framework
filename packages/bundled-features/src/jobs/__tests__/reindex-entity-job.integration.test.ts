@@ -13,8 +13,8 @@ import {
   createDbConnection,
   createEventStoreExecutor,
   createSystemDbView,
-  createTenantDb,
 } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   bridgeStub,
   createEntity,

@@ -1,8 +1,6 @@
 // EXT_USER_DATA hooks for the folder + folder-assignment entities (GDPR Art. 20
-// export / Art. 17 erasure). Lives apart from the folders feature so folders
-// consumers without the user-data-rights pipeline don't pull a hard dependency.
-// Mirrors credit-user-data — standard tenant-scoped pattern, no name-stripping
-// (a folder name is tenant data, not per-user PII).
+// export / Art. 17 erasure), registered by the folders feature itself. Standard
+// tenant-scoped pattern, no name-stripping (a folder name is tenant data, not per-user PII).
 
 import { type EventStoreExecutor, WritePurposes } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -11,7 +9,7 @@ import {
   type UserDataDeleteHook,
   type UserDataExportHook,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { folderAssignmentEntity, folderEntity } from "../folders/index.ts";
+import { folderAssignmentEntity, folderEntity } from "./entity.ts";
 
 const { table: folderTable, executor: folderExecutor } = createEntityExecutor(
   "folder",

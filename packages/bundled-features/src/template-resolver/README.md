@@ -261,8 +261,8 @@ When mounting a user-owned collection, two things are required:
    user-owned collection is declared. Then in the app run
    `bunx kumiko-schema generate add-user-content` + `apply`, without the table
    the handler returns 500 in production.
-2. **Mount `template-resolver-user-data` as well.** The entity carries subject data;
-   without the EXT_USER_DATA hook, the boot guard refuses to start. The feature provides the Art. 20
+2. **The EXT_USER_DATA hooks come with the feature.** The entity carries subject data, so the
+   feature registers the EXT_USER_DATA hooks for `user-content-entry` itself. They provide the Art. 20
    export; deletion (Art. 17) uses crypto-shredding, not a physical DELETE, which would not be
    replay-safe for an event-sourced entity.
 

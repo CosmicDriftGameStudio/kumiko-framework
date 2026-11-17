@@ -39,11 +39,9 @@ import {
 // user-data-rights-defaults — Default hooks for the core entities
 // `user` and `fileRef`.
 //
-// Architectural decision: user-data-rights itself cannot call
-// r.requires({ features: ["user", "files"] }) + r.useExtension(EXT_USER_DATA, ...)
-// because it provides EXT_USER_DATA itself (the boot validator rejects
-// self-extension). The solution is a third, optionally mountable feature
-// that requires both sources and makes the useExtension calls.
+// Architectural decision: bundles the EXT_USER_DATA hooks for core entities that have no
+// bundled-features owner (the framework fileRef among them); EXT_USER_DATA is framework-owned,
+// so this feature only requires user-data-rights to keep the bundle opt-out.
 //
 // App authors can omit this feature if they want to register custom hooks
 // instead (for example, "anonymize should hard-delete the user row" — an

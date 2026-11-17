@@ -83,6 +83,16 @@ type Table = SchemaTable;
 
 type UnsafeRawReach = "own-scope" | "all-tenants";
 
+const unsafeRawRunners = new WeakSet<object>();
+
+export function isUnsafeRawRunner(runner: unknown): boolean {
+  return (
+    (typeof runner === "object" || typeof runner === "function") &&
+    runner !== null &&
+    unsafeRawRunners.has(runner)
+  );
+}
+
 export {
   type ConnectionTenantDb,
   type ExecutorManagedTenantDb,
@@ -462,7 +472,7 @@ function buildTenantDb(
     }
     // Engine-forwarded steps carry their own declared reason; otherwise the grant's reason is audited.
     report("unsafe-raw", declaredStepReason ?? grants?.unsafeRaw?.reason ?? "");
-    return boundRunner(
+    const bound = boundRunner(
       reach === "all-tenants"
         ? unsafeRawScopedRunner(withoutExecutorManagedWrites(db))
         : withRowLevelSecurityScope(
@@ -473,6 +483,8 @@ function buildTenantDb(
       projectionRegistry,
       false,
     );
+    unsafeRawRunners.add(bound);
+    return bound;
   }
 
   const tenantDb: TenantDb = {

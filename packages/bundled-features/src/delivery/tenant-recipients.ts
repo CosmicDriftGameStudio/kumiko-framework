@@ -1,5 +1,6 @@
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { createSystemDbView, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { createSystemDbView } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import type {
   EscapeHatchAuditSink,
   Registry,

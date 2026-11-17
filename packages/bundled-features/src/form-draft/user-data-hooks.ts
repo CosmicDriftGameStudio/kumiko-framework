@@ -1,7 +1,5 @@
 // EXT_USER_DATA hooks for the form-draft feature's `form-draft` entity
-// (GDPR Art. 20 export / Art. 17 erasure). Lives apart from form-draft so
-// consumers without the user-data-rights pipeline don't pull a hard
-// dependency.
+// (GDPR Art. 20 export / Art. 17 erasure), registered by the form-draft feature itself.
 
 import { WritePurposes } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -9,7 +7,7 @@ import {
   type UserDataDeleteHook,
   type UserDataExportHook,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { formDraftExecutor, formDraftTable } from "../form-draft/index.ts";
+import { formDraftExecutor, formDraftTable } from "./executor.ts";
 
 export const formDraftExportHook: UserDataExportHook = async (ctx) => {
   const rows = await ctx.db.selectMany(formDraftTable, {

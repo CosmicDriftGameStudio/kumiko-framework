@@ -7,12 +7,12 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 
 import {
   createEventStoreExecutor,
-  createTenantDb,
   executeRawQuery,
   table as pgTable,
   selectMany,
   uuid,
 } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   createSystemUser,
   defineFeature,

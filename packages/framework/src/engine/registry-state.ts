@@ -53,6 +53,7 @@ import { assertBackingTableSuperset, deriveEntityTableMeta } from "../db/entity-
 import { markExecutorManagedTable } from "../db/executor-managed-tables.ts";
 import { asEntityTableMeta } from "../db/query.ts";
 import { buildEntityTable, declareSystemRowsReadable } from "../db/table-builder.ts";
+import { FRAMEWORK_OWNED_EXTENSIONS } from "./extension-names.ts";
 import { type QnType, qualifyEntityName } from "./qualified-name.ts";
 import type { FeatureDefinition } from "./types/index.ts";
 
@@ -374,7 +375,9 @@ export function createInitialState(): RegistryState {
     eventUpcasterMap: new Map(),
     handlerEntityMap: new Map(),
     handlerFeatureMap: new Map(),
-    extensionMap: new Map(),
+    extensionMap: new Map(
+      [...FRAMEWORK_OWNED_EXTENSIONS].map((name): [string, RegistrarExtensionDef] => [name, {}]),
+    ),
     extensionUsages: [],
     extensionSelectorMap: new Map(),
     extensionSelectorPanelsMap: new Map(),

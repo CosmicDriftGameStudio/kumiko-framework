@@ -7,11 +7,11 @@ import {
 import {
   createEventStoreExecutor,
   createTenantDataDestroyDb,
-  createTenantDb,
   type DbRunner,
   selectMany,
   WritePurposes,
 } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   createSystemUser,
   type EscapeHatchAuditSink,

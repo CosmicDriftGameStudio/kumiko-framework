@@ -46,6 +46,7 @@ const INTERNAL_PREFIX = "@cosmicdrift/kumiko-framework/internal/";
 const TESTING_HELPERS = "@cosmicdrift/kumiko-testing/helpers";
 
 const TEST_ONLY_SCOPE_SYMBOLS = new Set([
+  "createTenantDb",
   "runInRowLevelSecurityScope",
   "runInSystemRowLevelSecurityScope",
   "tenantRowLevelSecurityScope",
@@ -274,7 +275,7 @@ function findTenantDbReasonViolations(sf: SourceFile): Finding[] {
 export const guard: AstGuard = {
   name: "Internal-Subpath-Imports Guard",
   scan: SCAN,
-  hint: "Consumer repos use the public subpaths only; `@cosmicdrift/kumiko-framework/internal/*` is for framework packages. Scope helpers from kumiko-testing/helpers belong in tests. Every system-scope entry, including createTenantDb with mode system, passes a specific string-literal reason (why it needs cross-tenant access).",
+  hint: "Consumer repos use the public subpaths only; `@cosmicdrift/kumiko-framework/internal/*` is for framework packages. Scope helpers from kumiko-testing/helpers belong in tests. The full createTenantDb (system mode, grants) from kumiko-testing/helpers is test-only; production code uses the tenant-only createTenantDb from the db subpath. Every system-scope entry, including createTenantDb with mode system, passes a specific string-literal reason (why it needs cross-tenant access).",
   run(files, roots = resolveRepoRoots()) {
     const violations: Array<{ file: string; line: number; message: string }> = [];
 

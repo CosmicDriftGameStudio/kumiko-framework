@@ -1,5 +1,5 @@
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   access,
   declareEscapeHatch,

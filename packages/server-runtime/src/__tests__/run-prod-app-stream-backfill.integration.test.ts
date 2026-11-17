@@ -21,10 +21,10 @@ import { createUserFeature, userEntity } from "@cosmicdrift/kumiko-bundled-featu
 import {
   createDbConnection,
   createEventStoreExecutor,
-  createTenantDb,
   type DbConnection,
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   createSystemUser,
   SYSTEM_TENANT_ID,

@@ -29,7 +29,6 @@ function projectionProbeTable(name: string): SchemaTable {
 }
 
 import { createFormDraftFeature } from "../../form-draft/index.ts";
-import { createFormDraftUserDataFeature } from "../../form-draft-user-data/index.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/feature.ts";
 import { createUserDataRightsFeature } from "../feature.ts";
@@ -76,14 +75,26 @@ describe("GDPR-storage boot guards V2-V4 (via r.bootCheck)", () => {
     expect(() => validateBoot(baseFeatures())).not.toThrow();
   });
 
-  test("form-draft + form-draft-user-data mounted together satisfies V2 and V3 (real feature pair, not synthetic)", () => {
-    expect(() =>
-      validateBoot([...baseFeatures(), createFormDraftFeature(), createFormDraftUserDataFeature()]),
-    ).not.toThrow();
+  test("form-draft registers its own EXT_USER_DATA hooks and satisfies V2 and V3", () => {
+    expect(() => validateBoot([...baseFeatures(), createFormDraftFeature()])).not.toThrow();
   });
 
-  test("form-draft mounted WITHOUT form-draft-user-data → V3 throws (subjectRef ownerId has no EXT_USER_DATA hook)", () => {
-    expect(() => validateBoot([...baseFeatures(), createFormDraftFeature()])).toThrow(
+  test("an entity with a subjectRef ownerId and no EXT_USER_DATA hook → V3 throws", () => {
+    const bad = defineFeature("drafts-without-hook", (r) => {
+      r.entity({
+        name: "scratch-draft",
+        ...createEntity({
+          table: "read_scratch_drafts",
+          fields: {
+            ownerId: createTextField({
+              personal: "ref",
+              required: true,
+            }),
+          },
+        }),
+      });
+    });
+    expect(() => validateBoot([...baseFeatures(), bad])).toThrow(
       /EXT_USER_DATA hook.*Art\.17 gap/,
     );
   });

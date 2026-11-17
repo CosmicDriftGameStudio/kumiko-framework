@@ -38,10 +38,14 @@ import { TENANT_TIER_RESOLVER_EXT, type TierResolverPlugin } from "./tier-resolv
  *   - `export(userId, ctx) => Promise<UserDataExport>`
  *   - `delete(userId, strategy: "delete" | "anonymize", ctx) => Promise<void>`
  *
- * Registered by: `user-data-rights`.
+ * Defined by the framework (FRAMEWORK_OWNED_EXTENSIONS); run by `user-data-rights` when it is mounted.
  * Used by: every feature with user references (tasks, comments, files, ...).
  */
 export const EXT_USER_DATA = "userData" as const;
+
+// Extensions the framework itself defines: any feature may use them without requiring a provider,
+// and a feature calling r.extendsRegistrar() for one of them fails with "Duplicate registrar extension".
+export const FRAMEWORK_OWNED_EXTENSIONS: ReadonlySet<string> = new Set([EXT_USER_DATA]);
 
 // Ordering bands for EXT_USER_DATA hooks (forget pipeline). The contract was
 // implicit across two packages (-100 in custom-fields, 0 in

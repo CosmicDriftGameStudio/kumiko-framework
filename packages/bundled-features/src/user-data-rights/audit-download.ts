@@ -15,7 +15,8 @@
 // consistency rules remain in effect.
 
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
-import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { tokenCrud } from "./run-export-jobs.ts";

@@ -15,12 +15,9 @@ import { USER_DATA_RIGHTS_BOOT_RULES } from "./boot-rules.ts";
 // only; runtime no-ops (a delete hook that silently skips) are not detectable
 // here — those are covered by the export/forget integration tests.
 //
-// Registered as an `r.bootCheck()` by this feature — EXT_USER_DATA is
-// owned by user-data-rights (r.extendsRegistrar(EXT_USER_DATA, {})), so any
-// r.useExtension(EXT_USER_DATA, ...) usage across the app already requires
-// user-data-rights to be mounted (boot-validator's extension-provider check
-// fails otherwise); running this from user-data-rights' own bootCheck is
-// equivalent to the framework-internal call it replaces.
+// Registered as an `r.bootCheck()` by this feature: EXT_USER_DATA is
+// framework-owned, so hooks may exist without user-data-rights, but they only
+// run (and therefore only need to be complete) when this feature is mounted.
 export function validateGdprHookCompleteness(features: readonly FeatureDefinition[]): void {
   const usages = features.flatMap((feature) =>
     feature.extensionUsages

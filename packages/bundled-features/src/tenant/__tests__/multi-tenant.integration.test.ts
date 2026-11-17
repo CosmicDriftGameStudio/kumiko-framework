@@ -1,10 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { buildServer, type JwtHelper } from "@cosmicdrift/kumiko-framework/api";
-import {
-  createSystemDbView,
-  createTenantDb,
-  type DbConnection,
-} from "@cosmicdrift/kumiko-framework/db";
+import { createSystemDbView, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   attachOutsideTransaction,
   bridgeStub,

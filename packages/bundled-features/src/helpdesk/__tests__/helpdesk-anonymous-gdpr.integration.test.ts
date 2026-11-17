@@ -4,11 +4,8 @@ import {
   configurePiiSubjectKms,
   InMemoryKmsAdapter,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import {
-  createEventStoreExecutor,
-  createTenantDb,
-  fetchOne,
-} from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor, fetchOne } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";

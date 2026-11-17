@@ -2,10 +2,9 @@
 // recoveryCodes are annotated `personal: { of: "userId" }` in the schema
 // for exactly this: on forget, the row must actually disappear — a
 // leftover TOTP secret or recovery-code hash under an anonymized user is
-// still a live credential nobody can rotate. Mirrors
-// folders-user-data/hooks.ts's executor-based delete (rebuild-safe: forget
-// replays via the event, a raw DELETE would be resurrected by a
-// projection rebuild).
+// still a live credential nobody can rotate. Executor-based delete (rebuild-safe:
+// forget replays via the event, a raw DELETE would be resurrected by a
+// projection rebuild). Registered by the auth-mfa feature itself.
 
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -13,8 +12,8 @@ import {
   type UserDataDeleteHook,
   type UserDataExportHook,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { userMfaEntity, userMfaTable } from "../auth-mfa/index.ts";
 import { collectErasureFailure, throwIfErasureFailed } from "../shared/index.ts";
+import { userMfaEntity, userMfaTable } from "./schema/user-mfa.ts";
 
 const executor = createEventStoreExecutor(userMfaTable, userMfaEntity, {
   entityName: "user-mfa",

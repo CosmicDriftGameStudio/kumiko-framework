@@ -4,11 +4,11 @@
 
 import {
   createEventStoreExecutor,
-  createTenantDb,
   type DbConnection,
   selectMany,
   type WhereObject,
 } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   createSystemUser,
   SYSTEM_TENANT_ID,

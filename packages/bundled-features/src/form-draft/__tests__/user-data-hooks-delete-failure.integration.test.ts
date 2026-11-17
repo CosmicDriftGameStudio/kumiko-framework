@@ -20,7 +20,7 @@ import {
   FormDraftHandlers,
   formDraftEntity,
 } from "../../form-draft/index.ts";
-import { formDraftDeleteHook } from "../hooks.ts";
+import { formDraftDeleteHook } from "../user-data-hooks.ts";
 
 async function countDraftRows(stack: TestStack, ownerId: string): Promise<number> {
   const rows = await asRawClient(stack.db).unsafe(

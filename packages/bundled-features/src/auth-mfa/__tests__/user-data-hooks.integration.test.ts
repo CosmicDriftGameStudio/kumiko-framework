@@ -23,7 +23,7 @@ import { configValuesTable } from "../../config/table.ts";
 import { createTenantFeature } from "../../tenant/index.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { userEntity } from "../../user/schema/user.ts";
-import { userMfaDeleteHook, userMfaExportHook } from "../hooks.ts";
+import { userMfaDeleteHook, userMfaExportHook } from "../user-data-hooks.ts";
 
 let stack: TestStack;
 

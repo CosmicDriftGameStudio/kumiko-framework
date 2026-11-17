@@ -1,8 +1,6 @@
 // EXT_USER_DATA hooks for the notes-history feature's `note-entry` entity
-// (GDPR Art. 20 export / Art. 17 erasure). Lives apart from notes-history so
-// notes consumers without the user-data-rights pipeline don't pull a hard
-// dependency. Mirrors job-run/delivery-attempt (user-data-rights-defaults):
-// export-only, erasure via crypto-shredding.
+// (GDPR Art. 20 export / Art. 17 erasure), registered by the notes-history feature itself.
+// Mirrors job-run/delivery-attempt (user-data-rights-defaults): export-only, erasure via crypto-shredding.
 
 import { configuredPiiSubjectKms, type SubjectId } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbRunner, TenantDb } from "@cosmicdrift/kumiko-framework/db";
@@ -12,7 +10,7 @@ import type {
   UserDataDeleteHook,
   UserDataExportHook,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { noteEntryTable, noteMentionTable } from "../notes-history/index.ts";
+import { noteEntryTable, noteMentionTable } from "./executor.ts";
 
 // note-entry has no per-tenant scope quirk (unlike folders) — it's genuinely
 // per-user content, so the export filters by authorId directly.

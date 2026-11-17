@@ -10,7 +10,8 @@ import {
   InMemoryKmsAdapter,
   PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import { asRawClient, createTenantDb, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   createEntity,
   createTextField,
@@ -56,7 +57,6 @@ import { TenantHandlers } from "../../tenant/web/constants.ts";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.ts";
 import { createUserDataRightsFeature, runForgetCleanup } from "../../user-data-rights/index.ts";
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/index.ts";
-import { createNotesHistoryUserDataFeature } from "../index.ts";
 
 const CONTACT_TABLE = "notes_departed_tenant_test_contacts";
 const contactEntity = createEntity({
@@ -111,7 +111,6 @@ beforeAll(async () => {
       createUserDataRightsFeature(),
       createUserDataRightsDefaultsFeature(),
       createNotesHistoryFeature({ parents: ["contact"] }),
-      createNotesHistoryUserDataFeature(),
       contactFixtureFeature,
       hookProbeFeature,
     ],

@@ -17,9 +17,9 @@ import { configurePiiSubjectKms, InMemoryKmsAdapter } from "../crypto/index.ts";
 import {
   buildEntityTable,
   createEventStoreExecutor,
-  createTenantDb,
   selectMany,
 } from "../db/index.ts";
+import { createTenantDb } from "../db/tenant-db.ts";
 import { defineEntityQueryHandler, defineEntityWriteHandler } from "../engine/entity-handlers.ts";
 import {
   createEntity,

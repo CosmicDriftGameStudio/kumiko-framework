@@ -8,6 +8,7 @@ export {
   systemScopedRunner,
   tenantRowLevelSecurityScope,
 } from "../db/row-level-security-scope.ts";
+export { type CreateTenantDbOptions, createTenantDb } from "../db/tenant-db.ts";
 export {
   systemTenantReadDb,
   systemTenantReadRunner,

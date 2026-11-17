@@ -22,12 +22,8 @@ import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
 
 import { addDurationSpec } from "@cosmicdrift/kumiko-framework/compliance";
 import type { DbConnection, DbRunner } from "@cosmicdrift/kumiko-framework/db";
-import {
-  createEventStoreExecutor,
-  createTenantDb,
-  fetchOne,
-  selectMany,
-} from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor, fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import type {
   EscapeHatchAuditSink,
   Registry,

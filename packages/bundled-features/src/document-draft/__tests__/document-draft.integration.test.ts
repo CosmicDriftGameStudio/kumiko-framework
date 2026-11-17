@@ -6,9 +6,9 @@ import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-
 import {
   buildEntityTable,
   createEventStoreExecutor,
-  createTenantDb,
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   createEntity,
   createTextField,

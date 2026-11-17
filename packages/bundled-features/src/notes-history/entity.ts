@@ -30,7 +30,7 @@ import type { ParentRefDef } from "@cosmicdrift/kumiko-types/fields";
 // per-note key that nothing else shares. That key gets erased only when the
 // note is reached by a forgotten subject: `note-mention` (below) names the
 // subject, or the note hangs on the subject as host (entityId, plus entityType
-// for record subjects). See `notes-history-user-data/hooks.ts`; any other note
+// for record subjects). See `user-data-hooks.ts`; any other note
 // is untouched. GDPR erasure of the AUTHOR still separately
 // shreds `authorName` (`personal: { of: "authorId" }`, the name as stamped at
 // write time); the two erasures are independent.
@@ -115,7 +115,7 @@ export const noteEntryEntity = buildNoteEntryEntity(undefined, undefined);
 // `subjectId` is the plain FK to the mentioned user's id — `personal: "ref"`
 // marks it as a subject reference for the GDPR-hook-coverage boot guard
 // (same role as `authorId` on note-entry above), not itself encrypted.
-// `notes-history-user-data/hooks.ts` looks this table up by `subjectId` when
+// `user-data-hooks.ts` looks this table up by `subjectId` when
 // a user is forgotten, to find every note whose row-subject key must be
 // erased; see that file for the cascade and the retention-consult step it
 // runs first.

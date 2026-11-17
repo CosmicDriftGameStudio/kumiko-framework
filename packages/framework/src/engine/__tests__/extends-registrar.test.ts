@@ -1,5 +1,8 @@
 import { describe, expect, mock, test } from "bun:test";
-import { createTestStoredEvent } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  createTestStoredEvent,
+  withBootValidatorFixture,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import type { SaveContext } from "@cosmicdrift/kumiko-types/hooks";
 import * as z from "zod";
 import { AccessDeniedError } from "../../errors/index.ts";
@@ -13,10 +16,16 @@ import {
   createSystemUser,
   createTextField,
   defineFeature,
+  EXT_USER_DATA,
 } from "../index.ts";
+import { validateBoot as validateBootRaw } from "../boot-validator.ts";
 import type { TenantId } from "../types/identifiers.ts";
 
 import { stubHandlerContext, stubHandlerContextWith } from "./handler-context-stub.ts";
+
+function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
+  validateBootRaw(withBootValidatorFixture(features));
+}
 
 const TENANT = "00000000-0000-4000-8000-00000000ee01" as TenantId;
 const dummySaveContext: SaveContext = {
@@ -284,5 +293,30 @@ describe("extendsRegistrar", () => {
 
     expect(caught).toBeInstanceOf(AccessDeniedError);
     expect(ungatedQueryAs).not.toHaveBeenCalled();
+  });
+});
+
+describe("framework-owned EXT_USER_DATA", () => {
+  test("a feature registers hooks without requiring a provider feature", () => {
+    const owner = defineFeature("owner", (r) => {
+      r.entity({ name: "item", ...createEntity({ table: "Items", fields: {} }) });
+      r.useExtension(EXT_USER_DATA, "item", { export: async () => null, delete: async () => {} });
+    });
+
+    expect(() => validateBoot([owner])).not.toThrow();
+    const registry = createRegistry([owner]);
+    const usages = registry.getExtensionUsages(EXT_USER_DATA);
+    expect(usages).toHaveLength(1);
+    expect(usages[0]?.entityName).toBe("item");
+    expect(usages[0]?.featureName).toBe("owner");
+    expect(registry.getExtension(EXT_USER_DATA)).toBeDefined();
+  });
+
+  test("extendsRegistrar for EXT_USER_DATA fails as duplicate", () => {
+    const redefiner = defineFeature("redefiner", (r) => {
+      r.extendsRegistrar(EXT_USER_DATA, {});
+    });
+
+    expect(() => createRegistry([redefiner])).toThrow(/Duplicate registrar extension/);
   });
 });

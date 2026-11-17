@@ -2,8 +2,10 @@
 // must import nothing from this subpath — the stack builders live in
 // `@cosmicdrift/kumiko-testing/stack`.
 
-// Scope setters for tests that call cross-tenant or tenant functions directly, outside dispatch.
+// Scope setters and the full createTenantDb (system mode, grants) for tests that call cross-tenant or tenant functions directly, outside dispatch.
 export {
+  type CreateTenantDbOptions,
+  createTenantDb,
   runInRowLevelSecurityScope,
   runInSystemRowLevelSecurityScope,
   tenantRowLevelSecurityScope,

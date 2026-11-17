@@ -1,9 +1,5 @@
-import {
-  createTenantDb,
-  entityEventName,
-  fetchOne,
-  selectMany,
-} from "@cosmicdrift/kumiko-framework/db";
+import { entityEventName, fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { type MultiStreamApplyFn, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";

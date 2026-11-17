@@ -18,8 +18,8 @@ import {
   asRawClient,
   buildEntityTable,
   createEventStoreExecutor,
-  createTenantDb,
 } from "../../db/index.ts";
+import { createTenantDb } from "../../db/tenant-db.ts";
 import {
   createEntity,
   createRegistry,

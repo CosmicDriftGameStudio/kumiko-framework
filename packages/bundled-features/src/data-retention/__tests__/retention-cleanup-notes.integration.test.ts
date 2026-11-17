@@ -7,7 +7,8 @@ import {
   InMemoryKmsAdapter,
   PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import { asRawClient, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   createEntity,
   createTextField,

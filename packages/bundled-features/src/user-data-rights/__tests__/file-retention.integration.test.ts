@@ -21,9 +21,9 @@ import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-feature
 import {
   asRawClient,
   createEventStoreExecutor,
-  createTenantDb,
   type DbConnection,
 } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createFilesFeature, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";

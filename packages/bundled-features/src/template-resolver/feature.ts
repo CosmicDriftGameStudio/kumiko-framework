@@ -4,6 +4,7 @@ import {
   createSystemConfig,
   createTenantConfig,
   defineFeature,
+  EXT_USER_DATA,
   type TreeAction,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { TEMPLATE_RESOLVER_BOOT_RULES } from "./boot-rules.ts";
@@ -58,6 +59,7 @@ import { templateResourceEntity } from "./table.ts";
 import type { TemplateDeliveryPolicy } from "./template-delivery-policy.ts";
 import type { TenantEditableTemplate } from "./template-edit-policy.ts";
 import { VARIANT_KIND } from "./template-variants.ts";
+import { userContentDeleteHook, userContentExportHook } from "./user-data-hooks.ts";
 import { userContentEntryEntity } from "./user-content-table.ts";
 import { DEFAULT_COLLECTION_ACCESS, isCollectionRefusedKind } from "./web/constants.ts";
 
@@ -160,7 +162,7 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
         'Editing templates is for SystemAdmin only. A TenantAdmin edits only the templates the app unlocks at the mount site, `createTemplateResolverFeature({ tenantEditable: [{ kind: "mail", slug: "status-update", access: { roles: ["TenantAdmin"] } }] })`, and every write handler enforces that on the server (override, draft, publish, archive, reset, copy-locale, import, resources, `set`). Each entry carries the `access` roles allowed to edit it, because a bundled feature cannot know the host\'s roles. The same list decides delivery: a tenant override is served (mail, PDF, layouts, text blocks) only while its template is listed in tenantEditable; otherwise the system version is served. A locked override stays stored, a SystemAdmin sees it in the overview marked as not delivered, and listing the template makes it effective again. Tenant rows of a collection mounted with `access` are always served. A collection mounted without `access` is SystemAdmin only.',
         "Text an editor should be able to change belongs in a collection, declared at mount: `createTemplateResolverFeature({ collections: [{ id, kind, access: { roles }, nav }] })`. It appears in the navigation, and `access` is part of the mount because a bundled feature cannot know the host's roles. Each collection gets its own `<id>-list` / `<id>-item` / `<id>-set` handlers, so the dispatcher enforces the separation.",
         "How a collection is edited follows from `contentFormat`: `plain` gives a text area that stores text, `document` a WYSIWYG document editor that stores sanitized HTML (bold, italic, headings, lists, links, variable chips). Both offer the collection's `variableSchema` as insertable chips and a preview rendered with sample data — an editor sees what `{{firstName}}` becomes without sending a mail. An app can register its own editor for a format; the last `clientFeature` that registers a format wins (a conflict logs a warning).",
-        'A collection is tenant-wide by default. With `ownership: "user"` every user keeps their own entries — mail signatures being the obvious case. Those rows live in the separate `user-content-entry` entity and count as user data, so mounting one also requires the `template-resolver-user-data` feature and a migration on the app side.',
+        'A collection is tenant-wide by default. With `ownership: "user"` every user keeps their own entries — mail signatures being the obvious case. Those rows live in the separate `user-content-entry` entity and count as user data, so mounting one registers the user-data hooks for that entity and needs a migration on the app side.',
         "`validate` dry-runs the write pipeline for a draft (sanitizer, layout rules, placeholders) and reports what the template uses and misses. `export-bundle` / `import-bundle` (and `import-bundle-system`) move one template with all locales and resource files between tenants or environments; `copy-locale` starts a translation from an existing locale. Layouts are structured: a mail or PDF layout is `data-header` / `data-content` / `data-signature` / `data-footer` regions, and mjml layout source is system-only.",
         "`preview` renders a draft (or the stored template) with sample values taken from the `example` of each declared variable, through the same gates and the same mail renderer as a real send, and returns subject, html, `displayHtml` (the html with cid images as data URIs for an editor), text, attachments (inline images and files) and `checks` (images resolved, plain text present, size under 10 MiB, required placeholders used); nothing is saved or sent. `send-test` mails that rendering to the calling user's own address only, subject prefixed with `[TEST]`, at most 10 per user and hour; it needs `delivery`, `channel-email` and `renderer-mail-html` to be mounted. `send-test-status` tells an editor beforehand whether that send can work for the caller (`canSend`, else `reason` `no_channel` or `no_address`), never returning the address.",
         'Images used by a template (`<img data-resource="logo">`) are uploaded with `resourceUpload`, which re-encodes them, stores a file and links it under the key; `resourceRemove` unlinks it. `linkedResources` is written only through these two handlers. With `purpose: "attachment"` and a `fileName`, `resourceUpload` stores a PDF, PNG or JPEG as a file attachment of a mail template (original bytes, at most 10) that the mail renderer attaches after the inline images. `resourceLinkPdf` instead links a `document-pdf` template under a key: every mail sent from the template then carries that PDF, rendered at send time with the mail\'s own variables and locale, under a file name pattern such as `invoice-{{number}}.pdf`; files and linked PDFs share the limit of 10.',
@@ -187,11 +189,16 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
     });
     r.translations({ keys: TEMPLATE_RESOLVER_I18N });
     r.entity({ name: "template-resource", ...templateResourceEntity });
-    // Only when the app actually mounts a user-owned collection: the entity's
-    // `content` is `userOwned`, which makes it subject data — the boot guard
-    // then requires an EXT_USER_DATA hook (mount `template-resolver-user-data`).
-    // Registering it unconditionally would impose that on every app.
-    if (hasUserOwned) r.entity({ name: "user-content-entry", ...userContentEntryEntity });
+    // Only when the app actually mounts a user-owned collection: `content` is `userOwned`, which makes it
+    // subject data, so the entity carries its own EXT_USER_DATA hooks. Registering it unconditionally
+    // would impose subject data on every app.
+    if (hasUserOwned) {
+      r.entity({ name: "user-content-entry", ...userContentEntryEntity });
+      r.useExtension(EXT_USER_DATA, "user-content-entry", {
+        export: userContentExportHook,
+        delete: userContentDeleteHook,
+      });
+    }
 
     const handlers = {
       upsertSystem: r.writeHandler(upsertSystemWrite),

@@ -51,16 +51,9 @@ describe("files :: feature-definition smoke", () => {
 
 describe("files :: cross-feature behavior (F1, S1.7)", () => {
   test("a consumer feature can register r.useExtension(EXT_USER_DATA, fileRef, ...)", async () => {
-    // The stub feature simulates the user-data semantics: extendsRegistrar
-    // comes from user-data-rights, and useExtension targets fileRef.
-    const userDataProvider = defineFeature("test-user-data-provider", (r) => {
-      r.extendsRegistrar(EXT_USER_DATA, {
-        // Spec-stub — the actual hook signatures will be provided later.
-      });
-    });
-
+    // EXT_USER_DATA is framework-owned, so the consumer needs no provider feature.
     const consumer = defineFeature("test-files-consumer", (r) => {
-      r.requires({ features: ["files", "test-user-data-provider"] });
+      r.requires({ features: ["files"] });
       r.useExtension(EXT_USER_DATA, "fileRef", {
         // Stub hooks: these will carry the actual forget/export logic later. For this
         // test, it is enough that useExtension finds the fileRef entity in the
@@ -73,19 +66,14 @@ describe("files :: cross-feature behavior (F1, S1.7)", () => {
     // Use a separate test stack so this sub-test runs in isolation from the outer
     // beforeAll stack.
     const crossStack = await setupTestStack({
-      features: [feature, userDataProvider, consumer],
+      features: [feature, consumer],
     });
     expect(crossStack).toBeDefined();
     await crossStack.cleanup();
   });
 
   test("useExtension on non-existent Entity throws during boot", async () => {
-    const userDataProvider = defineFeature("test-user-data-provider-2", (r) => {
-      r.extendsRegistrar(EXT_USER_DATA, {});
-    });
-
     const consumer = defineFeature("test-broken-consumer", (r) => {
-      r.requires({ features: ["test-user-data-provider-2"] });
       // GHOSTLY: no entity named "ghostEntity" exists.
       r.useExtension(EXT_USER_DATA, "ghostEntity", { export: async () => null });
     });
@@ -96,7 +84,7 @@ describe("files :: cross-feature behavior (F1, S1.7)", () => {
     // test records the current behavior as a regression guard.
     // validateUserDataExtensionTargets may tighten this behavior later.
     const ghostStack = await setupTestStack({
-      features: [userDataProvider, consumer],
+      features: [consumer],
     });
     expect(ghostStack).toBeDefined();
     await ghostStack.cleanup();

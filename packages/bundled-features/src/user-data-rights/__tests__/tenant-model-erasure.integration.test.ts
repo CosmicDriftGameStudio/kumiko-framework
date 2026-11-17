@@ -18,10 +18,10 @@ import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-feature
 import {
   asRawClient,
   createEventStoreExecutor,
-  createTenantDb,
   entityEventName,
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   bridgeStub,
   createEntity,

@@ -13,7 +13,7 @@ import {
   systemTenantReadDb,
   systemTenantWriteRunner,
 } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
-import { eraseNoteBodiesReachingSubject } from "../notes-history-user-data/index.ts";
+import { eraseNoteBodiesReachingSubject } from "../notes-history/index.ts";
 import { collectErasureFailure, throwIfErasureFailed } from "../shared/index.ts";
 import { resolveVerifiedUserEmail } from "../user/index.ts";
 import { platformActor, replyExecutor, requestExecutor } from "./lib.ts";

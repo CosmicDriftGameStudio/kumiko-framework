@@ -1,5 +1,6 @@
 import { expect } from "bun:test";
-import { createTenantDb, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   type SessionUser,
   SYSTEM_TENANT_ID,

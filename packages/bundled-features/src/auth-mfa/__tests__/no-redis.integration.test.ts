@@ -11,8 +11,8 @@ import { randomBytes } from "node:crypto";
 import {
   configureEntityFieldEncryption,
   createEventStoreExecutor,
-  createTenantDb,
 } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   createAnonymousUser,
   type SessionUser,

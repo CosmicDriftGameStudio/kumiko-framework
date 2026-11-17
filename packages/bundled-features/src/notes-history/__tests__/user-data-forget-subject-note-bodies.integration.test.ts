@@ -11,11 +11,8 @@ import {
   InMemoryKmsAdapter,
   PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import {
-  asRawClient,
-  createEventStoreExecutor,
-  createTenantDb,
-} from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createFilesFeature, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
@@ -56,8 +53,7 @@ import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/mem
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.ts";
 import { createUserDataRightsFeature } from "../../user-data-rights/index.ts";
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/index.ts";
-import { noteMentionExportHook } from "../hooks.ts";
-import { createNotesHistoryUserDataFeature } from "../index.ts";
+import { noteMentionExportHook } from "../user-data-hooks.ts";
 
 const CONTACT_TABLE = "notes_mention_forget_test_contacts";
 const contactEntity = createEntity({
@@ -117,7 +113,6 @@ beforeAll(async () => {
       createUserDataRightsFeature(),
       createUserDataRightsDefaultsFeature(),
       createNotesHistoryFeature({ parents: ["contact", "invoice"] }),
-      createNotesHistoryUserDataFeature(),
       createCryptoShreddingFeature(),
       contactFixtureFeature,
       invoiceFixtureFeature,

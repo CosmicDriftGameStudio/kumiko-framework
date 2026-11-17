@@ -22,19 +22,18 @@ import {
   tenantRetentionOverrideEntity,
 } from "../../data-retention/index.ts";
 import { createSessionsFeature } from "../../sessions/index.ts";
-import { createTemplateResolverFeature } from "../../template-resolver/feature.ts";
-import { templateResourceEntity } from "../../template-resolver/table.ts";
-import {
-  type UserContentEntryRow,
-  userContentEntriesTable,
-  userContentEntryEntity,
-} from "../../template-resolver/user-content-table.ts";
-import { collectionHandlerName } from "../../template-resolver/web/qualified-names.ts";
 import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.ts";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.ts";
 import { createUserDataRightsFeature } from "../../user-data-rights/index.ts";
 import { runUserExport } from "../../user-data-rights/run-user-export.ts";
-import { createTemplateResolverUserDataFeature } from "../index.ts";
+import { createTemplateResolverFeature } from "../feature.ts";
+import { templateResourceEntity } from "../table.ts";
+import {
+  type UserContentEntryRow,
+  userContentEntriesTable,
+  userContentEntryEntity,
+} from "../user-content-table.ts";
+import { collectionHandlerName } from "../web/qualified-names.ts";
 
 const OTHER_TENANT = "00000000-0000-4000-8000-0000000000fe" as TenantId;
 const owner = createTestUser({ id: 21, roles: ["Agent"] });
@@ -66,7 +65,6 @@ beforeAll(async () => {
           },
         ],
       }),
-      createTemplateResolverUserDataFeature(),
     ],
   });
   // After the stack: the stack setup can reset the KMS, which would leave the fields in plaintext.

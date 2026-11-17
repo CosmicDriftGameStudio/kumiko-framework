@@ -25,11 +25,8 @@ import {
   InMemoryKmsAdapter,
   isPiiCiphertext,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import {
-  asRawClient,
-  createEventStoreExecutor,
-  createTenantDb,
-} from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createSystemUser, type UserDataHookCtx } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createFilesFeature, fileRefEntity, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";

@@ -6,7 +6,7 @@
 //
 // Mini feature set:
 //   compliance-profiles  exposesApi("compliance.forTenant")
-//   user-data-rights     usesApi + extendsRegistrar(EXT_USER_DATA)
+//   user-data-rights     usesApi (EXT_USER_DATA is framework-owned)
 //   tenant               useExtension(EXT_USER_DATA, "user", ...)
 //                        + entity with pii / userOwned / tenantOwned fields
 //                        + retention.blockDelete + anonymize function
@@ -50,9 +50,6 @@ describe("S0 Integration — full surface stack", () => {
     const userDataRights = defineFeature("user-data-rights", (r) => {
       r.requires({ features: ["compliance-profiles"] });
       r.usesApi("compliance.forTenant");
-      r.extendsRegistrar(EXT_USER_DATA, {
-        hooks: {},
-      });
     });
 
     const tenantFeature = defineFeature("tenant-app", (r) => {

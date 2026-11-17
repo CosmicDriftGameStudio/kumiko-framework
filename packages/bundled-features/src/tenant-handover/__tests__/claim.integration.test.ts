@@ -9,10 +9,10 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import {
   buildEntityTable,
   createEventStoreExecutor,
-  createTenantDb,
   executeRawQuery,
   toPostgresArrayLiteral,
 } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   createEntity,
   createSystemUser,

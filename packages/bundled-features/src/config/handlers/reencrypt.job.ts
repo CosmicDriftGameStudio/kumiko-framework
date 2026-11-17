@@ -26,10 +26,10 @@
 import {
   createEventStoreExecutor,
   createSystemDbView,
-  createTenantDb,
   type DbConnection,
   type UncheckedSystemDb,
 } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   type JobHandlerFn,
   type SessionUser,

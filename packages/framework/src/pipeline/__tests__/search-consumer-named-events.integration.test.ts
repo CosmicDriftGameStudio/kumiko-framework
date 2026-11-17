@@ -16,8 +16,8 @@ import {
   asRawClient,
   buildEntityTable,
   createEventStoreExecutor,
-  createTenantDb,
 } from "../../db/index.ts";
+import { createTenantDb } from "../../db/tenant-db.ts";
 import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { SEARCH_CONSUMER_NAME } from "../system-hooks.ts";

@@ -19,6 +19,7 @@ import {
   defineEntityListHandler,
   defineFeature,
   type EntityDefinition,
+  EXT_USER_DATA,
   type FeatureDefinition,
   type FeatureRegistrar,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -28,6 +29,12 @@ import { createNoteEntryEntity, noteMentionEntity } from "./entity.ts";
 import { createNoteEntryExecutor } from "./executor.ts";
 import { createAddNoteHandler } from "./handlers/add-note.write.ts";
 import { NOTES_HISTORY_FEATURE_I18N } from "./i18n.ts";
+import {
+  noteEntryDeleteHook,
+  noteEntryExportHook,
+  noteMentionDeleteHook,
+  noteMentionExportHook,
+} from "./user-data-hooks.ts";
 import { DEFAULT_NOTES_HISTORY_ACCESS, NOTES_HISTORY_FEATURE_NAME } from "./web/constants.ts";
 
 function registerNotesHistory(
@@ -49,10 +56,18 @@ function registerNotesHistory(
   r.entity({ name: "note-entry", ...entity });
   // No write/query handler of its own — populated only as a side effect of
   // add-note (see handlers/add-note.write.ts), looked up by
-  // notes-history-user-data's forget cascade. Registering the entity (not
+  // the forget cascade in user-data-hooks.ts. Registering the entity (not
   // just building it inline in the handler) is what makes it visible to the
   // registry-wide GDPR boot guards and to executor.ts's table/projection setup.
   r.entity({ name: "note-mention", ...noteMentionEntity });
+  r.useExtension(EXT_USER_DATA, "note-entry", {
+    export: noteEntryExportHook,
+    delete: noteEntryDeleteHook,
+  });
+  r.useExtension(EXT_USER_DATA, "note-mention", {
+    export: noteMentionExportHook,
+    delete: noteMentionDeleteHook,
+  });
 
   r.writeHandler(createAddNoteHandler(access, createNoteEntryExecutor(ownership, parents)));
   r.queryHandler(

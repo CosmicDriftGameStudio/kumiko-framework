@@ -7,12 +7,12 @@ import {
 } from "@cosmicdrift/kumiko-framework/crypto";
 import {
   createEventStoreExecutor,
-  createTenantDb,
   fetchOne,
   selectMany,
   table,
   uuid,
 } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";

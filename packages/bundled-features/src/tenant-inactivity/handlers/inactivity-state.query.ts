@@ -1,4 +1,5 @@
-import { createTenantDb, type TenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { type TenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { defineQueryHandler, parseTenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { AccessDeniedError, UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";

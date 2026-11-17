@@ -28,7 +28,8 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { seedNotificationTemplates } from "@cosmicdrift/kumiko-bundled-features/template-resolver/seeding";
 import { setupAppTestStack } from "@cosmicdrift/kumiko-dev-server/testing";
-import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   defineFeature,
   type TenantId,

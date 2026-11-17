@@ -20,9 +20,9 @@ import { randomBytes } from "node:crypto";
 import {
   createEventStoreExecutor,
   createSystemDbView,
-  createTenantDb,
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   access,
   createSystemConfig,

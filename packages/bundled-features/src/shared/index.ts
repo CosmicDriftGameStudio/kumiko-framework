@@ -80,7 +80,6 @@ export {
   redactUrls,
 } from "./redact.ts";
 export { REDACTED_PII_PLACEHOLDER, redactPiiCiphertext } from "./redact-pii-ciphertext.ts";
-export { registerUserDataHooks } from "./register-user-data-hooks.ts";
 export { requireBootstrapExtension } from "./require-bootstrap-extension.ts";
 export { requireForTenant } from "./require-for-tenant.ts";
 export { resolveFeatureAccess } from "./resolve-feature-access.ts";

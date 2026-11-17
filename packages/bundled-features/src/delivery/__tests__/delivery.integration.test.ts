@@ -5,9 +5,9 @@ import {
   buildEntityTable,
   createEventStoreExecutor,
   createSystemDbView,
-  createTenantDb,
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   createEntity,
   createSystemUser,

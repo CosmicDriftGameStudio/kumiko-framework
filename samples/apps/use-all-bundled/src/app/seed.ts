@@ -96,8 +96,6 @@ async function seedTierAssignment(
   const tdb = createTenantDb({
     db,
     tenantId,
-    mode: "system",
-    reason: "demo seed writes tier assignments for the tenant being provisioned",
   });
   const result = await tierAssignmentExecutor.create(
     { id: tierAssignmentAggregateId(tenantId), tier, source: "manual", tenantId },
@@ -125,8 +123,6 @@ async function seedTagsAndNotes(
   const tdb = createTenantDb({
     db,
     tenantId,
-    mode: "system",
-    reason: "demo seed writes tags and notes for the tenant being provisioned",
   });
 
   const created = async (

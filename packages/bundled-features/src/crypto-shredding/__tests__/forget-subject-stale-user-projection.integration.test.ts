@@ -1,10 +1,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
-import {
-  createEventStoreExecutor,
-  createTenantDb,
-  fetchOne,
-} from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor, fetchOne } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   createRegistry,
   createSystemUser,

@@ -2,7 +2,8 @@
 // The stack mirrors a production mail setup: delivery + channel-email with an in-memory transport.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   createSystemUser,
   defineFeature,

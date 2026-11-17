@@ -31,10 +31,10 @@ import {
 import {
   configuredEntityFieldEncryption,
   createEventStoreExecutor,
-  createTenantDb,
   type DbConnection,
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import type { JobContext, SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import type { EnvelopeCipher } from "@cosmicdrift/kumiko-framework/secrets";

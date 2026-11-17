@@ -11,7 +11,6 @@ import {
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.ts";
 import { createAuthFoundationFeature } from "../../auth-foundation/index.ts";
 import { createAuthMfaFeature } from "../../auth-mfa/feature.ts";
-import { createAuthMfaUserDataFeature } from "../../auth-mfa-user-data/index.ts";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/feature.ts";
 import { createConfigFeature } from "../../config/feature.ts";
 import { createDataRetentionFeature } from "../../data-retention/feature.ts";
@@ -138,7 +137,6 @@ describe("user-profile screen (projectionDetail conversion)", () => {
     const withAccountSecurity = [
       ...features.map((x) => (x.name === "user-profile" ? linked : x)),
       createAuthMfaFeature(testAuthMfaOptions),
-      createAuthMfaUserDataFeature(),
       createAccountSecurityFeature(),
     ];
     // auth-mfa's user-mfa entity has encrypted fields; validateBoot probes for a cipher.

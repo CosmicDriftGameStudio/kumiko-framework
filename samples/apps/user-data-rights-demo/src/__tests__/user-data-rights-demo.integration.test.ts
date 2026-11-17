@@ -35,7 +35,8 @@ import {
   runUserExport,
   UserDataRightsJobs,
 } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
-import { asRawClient, createTenantDb, extractTableName } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient, extractTableName } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import type { JobContext } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createSystemUser,

@@ -1,10 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import {
-  createTenantDb,
-  type DbConnection,
-  fetchOne,
-  selectMany,
-} from "@cosmicdrift/kumiko-framework/db";
+import { type DbConnection, fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";

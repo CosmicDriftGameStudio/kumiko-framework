@@ -23,7 +23,8 @@ import {
   isPiiCiphertext,
   PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import { asRawClient, createTenantDb, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createSystemUser, type JobContext } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createFilesFeature, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";

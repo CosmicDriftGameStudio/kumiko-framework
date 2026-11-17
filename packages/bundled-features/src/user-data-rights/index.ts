@@ -19,7 +19,7 @@ export type { SendDeletionExecutedEmailFn } from "./run-forget-cleanup.ts";
 // waiting for the job cron.
 // Shared retention-to-strategy mapping: other EXT_USER_DATA delete hooks that
 // independently consult a DIFFERENT entity's retention (for example,
-// notes-history-user-data's host-entity check) reuse this instead of
+// the host-entity check in notes-history's user-data-hooks.ts) reuse this instead of
 // re-deriving the anonymize/delete split.
 export { policyToStrategy, runForgetCleanup } from "./run-forget-cleanup.ts";
 export type { UserExportBundle } from "./run-user-export.ts";

@@ -17,7 +17,8 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 
-import { asRawClient, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
@@ -29,7 +30,7 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { v5 as uuidv5 } from "uuid";
-import { folderAssignmentDeleteHook, folderDeleteHook } from "../../folders-user-data/hooks.ts";
+import { folderAssignmentDeleteHook, folderDeleteHook } from "../user-data-hooks.ts";
 import { folderAssignmentEntity, folderEntity } from "../entity.ts";
 import { createFoldersFeature } from "../feature.ts";
 import { FoldersHandlers, FoldersQueries } from "../web/constants.ts";

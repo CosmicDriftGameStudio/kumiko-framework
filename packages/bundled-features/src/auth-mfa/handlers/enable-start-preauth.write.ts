@@ -1,4 +1,4 @@
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { defineWriteHandler, type SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { base32Encode } from "../base32.ts";

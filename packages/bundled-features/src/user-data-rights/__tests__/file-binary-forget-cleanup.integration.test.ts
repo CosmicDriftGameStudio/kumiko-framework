@@ -6,7 +6,8 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
-import { createTenantDb, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { type DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { bridgeStub, type JobContext, SYSTEM_USER_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createFilesFeature, createInMemoryFileProvider, fileRefsTable, type FileStorageProvider, type InMemoryFileProvider } from "@cosmicdrift/kumiko-framework/files";

@@ -1,9 +1,9 @@
 import {
   acquireNamespacedAdvisoryLock,
   createSystemDbView,
-  createTenantDb,
   runInSavepointIfSupported,
 } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   defineWriteHandler,
   type HandlerContext,

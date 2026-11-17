@@ -24,6 +24,7 @@ import {
   defineEntityUpdateHandler,
   defineFeature,
   type EntityDefinition,
+  EXT_USER_DATA,
   type FeatureDefinition,
   type FeatureRegistrar,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -35,6 +36,12 @@ import { rejectInvalidFolderParent } from "./folder-parent-guard.ts";
 import { createClearFolderHandler } from "./handlers/clear-folder.write.ts";
 import { createDeleteFolderHandler } from "./handlers/delete-folder.write.ts";
 import { createSetFolderHandler } from "./handlers/set-folder.write.ts";
+import {
+  folderAssignmentDeleteHook,
+  folderAssignmentExportHook,
+  folderDeleteHook,
+  folderExportHook,
+} from "./user-data-hooks.ts";
 import { DEFAULT_FOLDER_ACCESS, FOLDERS_FEATURE_NAME } from "./web/constants.ts";
 
 // Opt-in tier-gating: when set, the feature declares itself r.toggleable so the
@@ -65,6 +72,11 @@ function registerFolders(
   const folderAssignmentEntity = createFolderAssignmentEntity(ownership, parents);
   r.entity({ name: "folder", ...folderEntity });
   r.entity({ name: "folder-assignment", ...folderAssignmentEntity });
+  r.useExtension(EXT_USER_DATA, "folder", { export: folderExportHook, delete: folderDeleteHook });
+  r.useExtension(EXT_USER_DATA, "folder-assignment", {
+    export: folderAssignmentExportHook,
+    delete: folderAssignmentDeleteHook,
+  });
   const assignmentExecutor = createFolderAssignmentExecutor(parents);
 
   // Folder catalog — generic CRUD. update renames or reparents (optimistic-locked); the

@@ -1,7 +1,6 @@
 import {
   createSystemConfig,
   defineFeature,
-  EXT_USER_DATA,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
@@ -94,9 +93,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
     // for storage writes. Apps that use only forget (not export) do not need
     // to mount file-foundation.
 
-    r.extendsRegistrar(EXT_USER_DATA, {});
-
-    // GDPR-storage guards: this feature owns EXT_USER_DATA, so any useExtension(EXT_USER_DATA) already requires it.
+    // GDPR-storage guards run whenever this feature is mounted; EXT_USER_DATA itself is framework-owned, so owner features register their hooks without requiring user-data-rights.
     r.bootCheck(({ features }) => validateGdprHookCompleteness(features));
     r.bootCheck(({ features }) => {
       validateGdprPiiHookCoverage(features);

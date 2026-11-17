@@ -10,7 +10,8 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 
-import { asRawClient, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   createSystemUser,
   defineFeature,

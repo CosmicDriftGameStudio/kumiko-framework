@@ -33,11 +33,8 @@ import {
   tenantEntity,
   tenantMembershipsTable,
 } from "@cosmicdrift/kumiko-bundled-features/tenant";
-import {
-  createEventStoreExecutor,
-  createTenantDb,
-  selectMany,
-} from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   defineFeature,
   defineWriteHandler,

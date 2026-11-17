@@ -57,11 +57,7 @@
     "./folders/web": "./src/folders/web/index.ts",
     "./notes-history": "./src/notes-history/index.ts",
     "./notes-history/web": "./src/notes-history/web/index.ts",
-    "./notes-history-user-data": "./src/notes-history-user-data/index.ts",
     "./form-draft": "./src/form-draft/index.ts",
-    "./form-draft-user-data": "./src/form-draft-user-data/index.ts",
-    "./template-resolver-user-data": "./src/template-resolver-user-data/index.ts",
-    "./folders-user-data": "./src/folders-user-data/index.ts",
     "./ledger": "./src/ledger/index.ts",
     "./ledger/web": "./src/ledger/web/index.ts",
     "./billing-foundation": "./src/billing-foundation/index.ts",
@@ -142,7 +138,6 @@
     "./sessions": "./src/sessions/index.ts",
     "./sessions/web": "./src/sessions/web/index.ts",
     "./auth-mfa": "./src/auth-mfa/index.ts",
-    "./auth-mfa-user-data": "./src/auth-mfa-user-data/index.ts",
     "./auth-mfa/web": "./src/auth-mfa/web/index.ts",
     "./auth-mfa/testing": "./src/auth-mfa/testing.ts",
     "./sessions/testing": "./src/sessions/testing.ts",
@@ -359,25 +354,9 @@
         "types": "./dist/notes-history/web/index.d.ts",
         "default": "./dist/notes-history/web/index.js"
       },
-      "./notes-history-user-data": {
-        "types": "./dist/notes-history-user-data/index.d.ts",
-        "default": "./dist/notes-history-user-data/index.js"
-      },
       "./form-draft": {
         "types": "./dist/form-draft/index.d.ts",
         "default": "./dist/form-draft/index.js"
-      },
-      "./form-draft-user-data": {
-        "types": "./dist/form-draft-user-data/index.d.ts",
-        "default": "./dist/form-draft-user-data/index.js"
-      },
-      "./template-resolver-user-data": {
-        "types": "./dist/template-resolver-user-data/index.d.ts",
-        "default": "./dist/template-resolver-user-data/index.js"
-      },
-      "./folders-user-data": {
-        "types": "./dist/folders-user-data/index.d.ts",
-        "default": "./dist/folders-user-data/index.js"
       },
       "./ledger": {
         "types": "./dist/ledger/index.d.ts",
@@ -698,10 +677,6 @@
       "./auth-mfa": {
         "types": "./dist/auth-mfa/index.d.ts",
         "default": "./dist/auth-mfa/index.js"
-      },
-      "./auth-mfa-user-data": {
-        "types": "./dist/auth-mfa-user-data/index.d.ts",
-        "default": "./dist/auth-mfa-user-data/index.js"
       },
       "./auth-mfa/web": {
         "types": "./dist/auth-mfa/web/index.d.ts",

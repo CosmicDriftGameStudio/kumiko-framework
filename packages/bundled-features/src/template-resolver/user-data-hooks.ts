@@ -1,10 +1,9 @@
 // EXT_USER_DATA hooks for the template-resolver's `user-content-entry` entity
-// (GDPR Art. 20 export / Art. 17 erasure). Lives apart from template-resolver
-// so apps without the user-data-rights pipeline don't pull a hard dependency.
-// Mirrors notes-history-user-data: export-only, erasure via crypto-shredding.
+// (GDPR Art. 20 export / Art. 17 erasure), registered by the template-resolver feature itself.
+// Export-only, erasure via crypto-shredding.
 
 import type { UserDataDeleteHook, UserDataExportHook } from "@cosmicdrift/kumiko-framework/engine";
-import { userContentEntriesTable } from "../template-resolver/index.ts";
+import { userContentEntriesTable } from "./user-content-table.ts";
 
 // Genuinely per-user content — the export filters by ownerId alone. Tenant
 // scoping comes from the tenant-scoped ctx.db; a user who belongs to two

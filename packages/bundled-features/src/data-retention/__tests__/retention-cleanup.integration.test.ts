@@ -14,7 +14,8 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 
-import { asRawClient, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import type { JobContext } from "@cosmicdrift/kumiko-framework/engine";
 import {
   bridgeStub,

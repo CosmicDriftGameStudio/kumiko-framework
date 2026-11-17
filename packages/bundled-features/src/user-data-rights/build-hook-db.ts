@@ -1,4 +1,5 @@
-import { createTenantDb, type DbRunner } from "@cosmicdrift/kumiko-framework/db";
+import { type DbRunner } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   type EscapeHatchAuditSink,
   EXT_USER_DATA,

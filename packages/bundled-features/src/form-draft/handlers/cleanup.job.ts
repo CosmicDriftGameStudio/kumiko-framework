@@ -6,11 +6,8 @@
 // Chunked DELETE (default 1000/batch) keeps lock durations bounded, mirror
 // of sessions/handlers/cleanup.job.ts.
 
-import {
-  createEventStoreExecutor,
-  createTenantDb,
-  type DbConnection,
-} from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   type AppContext,
   access,

@@ -1,9 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import {
-  buildEntityTable,
-  createEventStoreExecutor,
-  createTenantDb,
-} from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   createEntity,
   createTextField,

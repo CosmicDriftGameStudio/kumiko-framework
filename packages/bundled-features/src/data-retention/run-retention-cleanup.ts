@@ -51,7 +51,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/crypto";
 import {
   createEventStoreExecutor,
-  createTenantDb,
   type DbRunner,
   nullBlindIndexesForSubject,
   selectMany,
@@ -59,6 +58,7 @@ import {
   type WhereObject,
   WritePurposes,
 } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { deleteFileRefBytes } from "@cosmicdrift/kumiko-framework/derivatives";
 import {
   createSystemUser,

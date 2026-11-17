@@ -10,12 +10,12 @@
 // deliberately not TestUsers (prod seeds are not test utilities).
 
 import {
-  createTenantDb,
   type DbConnection,
   fetchOne,
   selectMany,
   type TenantDb,
 } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   createSystemUser,
   type Registry,

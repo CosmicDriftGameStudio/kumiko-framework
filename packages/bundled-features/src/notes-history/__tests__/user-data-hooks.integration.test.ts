@@ -1,11 +1,12 @@
 // noteEntryExportHook — GDPR export must scope to the requesting user's own
 // authored notes only, not every note-entry in the tenant. noteEntryDeleteHook
-// is a deliberate no-op (erasure runs via crypto-shredding, see hooks.ts) —
+// is a deliberate no-op (erasure runs via crypto-shredding, see user-data-hooks.ts) —
 // confirm it doesn't touch the row.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
-import { asRawClient, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import {
@@ -15,7 +16,7 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import { noteEntryEntity } from "../../notes-history/entity.ts";
 import { createNotesHistoryFeature, NotesHistoryHandlers } from "../../notes-history/index.ts";
-import { noteEntryDeleteHook, noteEntryExportHook } from "../hooks.ts";
+import { noteEntryDeleteHook, noteEntryExportHook } from "../user-data-hooks.ts";
 
 let stack: TestStack;
 // Distinct ids (default createTestUser() shares TestUsers.admin.id) —

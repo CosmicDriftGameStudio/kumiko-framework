@@ -1,3 +1,4 @@
+import { FRAMEWORK_OWNED_EXTENSIONS } from "../extension-names.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 import { API_EXT_RULES } from "./api-ext-rules.ts";
 import { collectBootRuleViolations } from "./boot-report.ts";
@@ -67,6 +68,7 @@ export function validateExtensionUsages(
   extensionProviders: ReadonlyMap<string, string>,
 ): void {
   collectBootRuleViolations(feature.extensionUsages, (usage) => {
+    if (FRAMEWORK_OWNED_EXTENSIONS.has(usage.extensionName)) return; // skip: framework-owned extension, no provider feature to require
     const providerFeature = extensionProviders.get(usage.extensionName);
     if (!providerFeature) {
       throw bootRuleError(API_EXT_RULES.unknownExtension, {

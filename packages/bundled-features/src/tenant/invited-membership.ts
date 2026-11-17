@@ -1,10 +1,10 @@
 import {
   createEventStoreExecutor,
-  createTenantDb,
   type DbRunner,
   fetchOne,
   type TenantDb,
 } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { ConflictError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";

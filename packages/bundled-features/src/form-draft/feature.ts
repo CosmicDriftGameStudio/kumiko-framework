@@ -4,13 +4,18 @@
 // round-trips { values, stepIndex, savedAt } through save/discard/get. See
 // entity.ts for the ownership + uniqueness model.
 
-import { defineFeature, type FeatureRegistrar } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  defineFeature,
+  EXT_USER_DATA,
+  type FeatureRegistrar,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { formDraftEntity } from "./entity.ts";
 import { cleanupDraftsJob, formDraftRetentionDaysConfig } from "./handlers/cleanup.job.ts";
 import { discardDraftWrite } from "./handlers/discard.write.ts";
 import { getDraftQuery } from "./handlers/get.query.ts";
 import { listDraftsQuery } from "./handlers/list.query.ts";
 import { saveDraftWrite } from "./handlers/save.write.ts";
+import { formDraftDeleteHook, formDraftExportHook } from "./user-data-hooks.ts";
 import { FORM_DRAFT_FEATURE_NAME } from "./web/constants.ts";
 
 const CLEANUP_ESCAPE_HATCH_REASON = "purges stale drafts of every tenant";
@@ -33,6 +38,10 @@ function registerFormDraft(r: FeatureRegistrar<typeof FORM_DRAFT_FEATURE_NAME>):
   // change no minor/patch release should introduce silently.
   r.optionalRequires("config");
   r.entity({ name: "form-draft", ...formDraftEntity });
+  r.useExtension(EXT_USER_DATA, "form-draft", {
+    export: formDraftExportHook,
+    delete: formDraftDeleteHook,
+  });
 
   r.writeHandler(saveDraftWrite);
   r.writeHandler(discardDraftWrite);

@@ -30,10 +30,10 @@
 
 import {
   createEventStoreExecutor,
-  createTenantDb,
   type DbRunner,
   fetchOne,
 } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   attachOutsideTransaction,
   createSystemUser,

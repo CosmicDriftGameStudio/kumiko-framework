@@ -22,7 +22,7 @@ export const formDraftEntity = createEntity({
     // Never client-supplied — stamped from event.user.id (see handlers), so
     // a draft can't be saved/read/discarded as someone else. subjectRef
     // feeds the GDPR-hook-coverage boot guard (it's a plain FK into `user`,
-    // not content of its own) — see ../form-draft-user-data for the
+    // not content of its own) — see form-draft's user-data hooks (user-data-hooks.ts) for the
     // required export/delete hook coverage.
     ownerId: createTextField({
       personal: "ref",

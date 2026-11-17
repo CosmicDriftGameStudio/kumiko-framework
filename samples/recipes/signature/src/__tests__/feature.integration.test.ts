@@ -65,8 +65,6 @@ async function seedContract(): Promise<string> {
   const db = createTenantDb({
     db: stack.db,
     tenantId: TENANT,
-    mode: "system",
-    reason: "recipe seeds the document the request refers to",
   });
   const created = await createEventStoreExecutor(fileRefsTable, fileRefEntity, {
     entityName: "fileRef",

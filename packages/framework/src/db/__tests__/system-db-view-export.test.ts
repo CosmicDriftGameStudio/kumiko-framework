@@ -5,7 +5,8 @@
 
 import { describe, expect, test } from "bun:test";
 import * as dbBarrel from "@cosmicdrift/kumiko-framework/db";
-import { createSystemDbView, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { createSystemDbView } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { AccessDeniedError } from "../../errors/index.ts";
 import { testTenantId } from "../../seeding/seed-users.ts";
 import type { DbRunner } from "../connection.ts";

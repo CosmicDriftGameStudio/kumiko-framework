@@ -57,7 +57,7 @@ const vaultNoteEntity = createEntity({
 
 const vaultNotesTableRef = buildEntityTable("vault-note", vaultNoteEntity);
 
-// Export hook mirrors real hooks (folders-user-data pattern): raw select,
+// Export hook mirrors real hooks (folders user-data-hooks pattern): raw select,
 // no decrypt of its own.
 const vaultExportHook: UserDataExportHook = async (ctx) => {
   const rows = await selectMany<Record<string, unknown>>(ctx.db, vaultNotesTableRef, {

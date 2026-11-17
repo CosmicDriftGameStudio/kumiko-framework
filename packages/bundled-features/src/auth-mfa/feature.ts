@@ -1,4 +1,8 @@
-import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  defineFeature,
+  EXT_USER_DATA,
+  type FeatureDefinition,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { type FeatureWithEnvSchema, featureWithEnvSchema } from "@cosmicdrift/kumiko-framework/env";
 import { type MfaRequiredPolicy, mfaRequiredConfigKey } from "./config.ts";
 import { authMfaEnvSchema } from "./env.ts";
@@ -18,6 +22,7 @@ import { createMfaStatusChecker } from "./mfa-status-checker.ts";
 import { userMfaEntity } from "./schema/user-mfa.ts";
 import { mfaDisableScreen, mfaEnableScreen, mfaRegenerateRecoveryScreen } from "./screens.ts";
 import { type ResolvedMfaTokenSecrets, resolveMfaTokenSecretsFromEnv } from "./token-secrets.ts";
+import { userMfaDeleteHook, userMfaExportHook } from "./user-data-hooks.ts";
 
 const REENCRYPT_ESCAPE_HATCH_REASON =
   "re-encrypts MFA secrets of every tenant's users with the new master key";
@@ -100,6 +105,10 @@ export function createAuthMfaFeature(
     });
 
     r.entity({ name: "user-mfa", ...userMfaEntity });
+    r.useExtension(EXT_USER_DATA, "user-mfa", {
+      export: userMfaExportHook,
+      delete: userMfaDeleteHook,
+    });
 
     // Handlers and the status checker read the secrets through these getters
     // on each call, so the boot can bind them after env validation. Never

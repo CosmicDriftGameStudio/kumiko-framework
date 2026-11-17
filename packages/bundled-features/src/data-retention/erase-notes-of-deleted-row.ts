@@ -1,7 +1,7 @@
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import type { Registry } from "@cosmicdrift/kumiko-framework/engine";
 import { NOTES_HISTORY_FEATURE_NAME } from "../notes-history/index.ts";
-import { eraseNoteBodiesReachingSubject } from "../notes-history-user-data/index.ts";
+import { eraseNoteBodiesReachingSubject } from "../notes-history/index.ts";
 
 // Note bodies are keyed per note, so a hardDeleted parent's own key never reaches them. The runner
 // is the retention job's unfiltered one: notes of a global parent sit in whichever tenant wrote them.
