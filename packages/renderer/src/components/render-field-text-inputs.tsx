@@ -49,10 +49,10 @@ function renderTextareaInput(
 }
 
 function renderTextInput(
-  { field, Input, onChange }: RenderInputArgs,
+  { field, Input, onChange, iconless }: RenderInputArgs,
   { common, placeholderProp, affixProps }: SharedInputProps,
 ): ReactNode {
-  const icon = resolveFieldIcon(field);
+  const icon = resolveFieldIcon(field, iconless);
   return (
     <Input
       kind="text"

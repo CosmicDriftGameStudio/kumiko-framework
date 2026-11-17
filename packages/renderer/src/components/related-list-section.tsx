@@ -45,6 +45,7 @@ import { useUserRoles } from "../context/user-roles-context.tsx";
 import { rendererWarn } from "../dev-console.ts";
 import type {
   EditRelatedListSectionViewModel,
+  EditSectionViewModel,
   ListRowViewModel,
   Translate,
 } from "../headless/index.ts";
@@ -166,9 +167,7 @@ function EmbeddedRelatedListCard({
   const { Card } = usePrimitives();
   return (
     <Card
-      options={{ framed: false, padded: false }}
-      // Trim the default header inset: the host row already pads the area.
-      className="[&>div:first-child]:px-0 [&>div:first-child]:pt-1 [&>div:first-child]:pb-2"
+      options={{ framed: false, padded: false, headerPadding: "flush" }}
       slots={{ title, ...(actions !== undefined && { headerActions: actions }) }}
       testId={testId}
     >
@@ -221,7 +220,7 @@ export function RelatedListSection({
   onAfterWrite,
   refreshToken,
 }: {
-  readonly section: EditRelatedListSectionViewModel;
+  readonly section: EditRelatedListSectionViewModel & Pick<EditSectionViewModel, "titleOnNarrow">;
   readonly parentId: string;
   /** The enclosing projectionDetail's own record (the "Akte") — evaluates
    *  toolbarActions' `visible`/`params` (RelatedListToolbarAction), the same
@@ -597,6 +596,7 @@ export function RelatedListSection({
             {...(hideTitle === true && {
               scrollBody: true,
               chromeless: true,
+              headerTone: "muted" as const,
               hideCountFooter: true,
               plainPhoneCards: true,
             })}
@@ -644,7 +644,7 @@ export function RelatedListSection({
         {bridges}
         <FillContainer
           testId="related-list-card"
-          className="mx-6 my-3 overflow-hidden rounded-[9px] border border-border bg-card max-sm:mx-4 max-sm:rounded-none max-sm:border-0 max-sm:bg-transparent [&_thead_th]:bg-muted"
+          className="mx-6 my-3 overflow-hidden rounded-[9px] border border-border bg-card max-sm:mx-4 max-sm:rounded-none max-sm:border-0 max-sm:bg-transparent"
         >
           {content}
         </FillContainer>
@@ -657,6 +657,7 @@ export function RelatedListSection({
       {bridges}
       <Section
         {...(omitTitle !== true && { title: section.title })}
+        {...(section.titleOnNarrow === false && { titleOnNarrow: false as const })}
         {...(labelTitle === true && { titleStyle: "label" as const })}
         {...(anchorId !== undefined && { id: anchorId })}
         {...(actions !== undefined && { actions })}

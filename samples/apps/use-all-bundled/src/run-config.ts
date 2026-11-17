@@ -102,12 +102,7 @@ import {
 import { createDocumentDesignerFeature } from "@cosmicdrift/kumiko-document-designer";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
-import {
-  createRendererPuppeteerClientFeature,
-  renderHtmlToPdf,
-  renderPdfBeforeTransaction,
-  storeRenderedPdf,
-} from "@cosmicdrift/kumiko-renderer-puppeteer-client";
+import { createRendererPuppeteerClientFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-puppeteer-client";
 import { ADMIN_NAV_QN, ADMIN_NAV_WORKSPACES, adminNavFeature } from "./app/admin-nav-feature";
 import { DEV_TENANT_ID } from "./app/auth-constants";
 import { CAP_OVERVIEW_CAPS } from "./app/cap-overview-caps";
@@ -363,11 +358,10 @@ export const APP_FEATURES = [
   // PDF printing for document templates; the print service is reached through
   // PUPPETEER_SERVICE_URL + PUPPETEER_AUTH_TOKEN and only asked when a PDF is generated.
   createRendererPuppeteerClientFeature(),
-  // signature: needs files; the print function is the real client, asked only when a request completes.
+  // signature: needs files and the print client, which is asked only when a request completes.
   // folder stands in for a host; deliverLink is smoke-only: boot never sends a link.
   createSignatureFeature({
     retention: { keepFor: "10y", unfinishedKeepFor: "90d" },
-    renderHtmlToPdf,
     linkSecret: SMOKE_HMAC_SECRET,
     signaturePageUrl: "https://use-all-bundled.example/sign",
     hostEntities: ["folder"],
@@ -375,11 +369,10 @@ export const APP_FEATURES = [
       /* smoke-only */
     },
   }),
-  // document-draft: the app hands over the client's print and store functions as they are.
+  // document-draft: prints through the print client when a draft is finalized.
   // folder stands in for a host.
   createDocumentDraftFeature({
     subjectTypes: ["folder"],
-    pdf: { render: renderPdfBeforeTransaction, store: storeRenderedPdf },
   }),
   createHandbookKnowledgeFeature({
     pages: {

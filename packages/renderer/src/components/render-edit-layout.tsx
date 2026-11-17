@@ -22,7 +22,7 @@ import {
 import type { RenderEditModel } from "./render-edit-render-model.ts";
 import { renderEditSections } from "./render-edit-section-kinds.tsx";
 import { deriveWizardRail } from "./render-edit-wizard-rail.ts";
-import { AllFieldsRequiredProvider } from "./render-field.tsx";
+import { AllFieldsRequiredProvider, FieldIconsHiddenProvider } from "./render-field.tsx";
 
 function renderPageHeader<TValues extends FormValues, TCtx>(
   { engine: { state }, layout, titles }: RenderEditModel<TValues, TCtx>,
@@ -184,6 +184,7 @@ export function renderEditLayout<TValues extends FormValues, TCtx>(
           stickyActions={state.isWizard || props.fillScreenHeight === true}
           {...buildFormChromeProps(model, header)}
         >
+          <FieldIconsHiddenProvider value={props.fieldIcons === false}>
           <AllFieldsRequiredProvider
             value={sections.showsAllRequiredHint || props.screen.layout.hideRequiredMarker === true}
           >
@@ -205,6 +206,7 @@ export function renderEditLayout<TValues extends FormValues, TCtx>(
             {renderActionErrorBanner(model)}
             {renderDeleteDialog(model)}
           </AllFieldsRequiredProvider>
+          </FieldIconsHiddenProvider>
         </Form>
       </FormUploadTrackerProvider>
     </ExtensionFormRegistryProvider>

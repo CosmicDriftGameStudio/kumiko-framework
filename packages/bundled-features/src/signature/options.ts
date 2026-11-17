@@ -1,11 +1,6 @@
 import type { AccessRule, HandlerContext, SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import type { RateLimitDeclaration } from "@cosmicdrift/kumiko-types/handlers";
-import type { PdfOptions } from "../renderer-foundation/index.ts";
 import type { SignatureRetention } from "./entity.ts";
-
-// Injected by the app (renderer-puppeteer-client's `renderHtmlToPdf`): bundled-features cannot
-// import that package, which itself depends on bundled-features.
-export type RenderSignatureHtmlToPdf = (html: string, options?: PdfOptions) => Promise<Uint8Array>;
 
 export type SignatureLinkDelivery = {
   readonly signerId: string;
@@ -30,8 +25,6 @@ export type DeliverSignatureLink = (
 export type SignatureOptions = {
   /** keepFor: how long requests and signers are kept, counted from creation (hard delete). unfinishedKeepFor: signers of declined, expired, failed or cancelled requests are anonymized this long after the request's last change. Both in data-retention keepFor syntax. */
   readonly retention: SignatureRetention;
-  /** Renders the signature page (HTML) to a PDF. An outage leaves the request at `all-signed` and the sweep job retries. */
-  readonly renderHtmlToPdf: RenderSignatureHtmlToPdf;
   /** HMAC secret of the signing links. Without it every link is rejected. */
   readonly linkSecret: string;
   /** Sends a freshly issued link to the signer, e.g. by mail. Runs inside the issue-link transaction, before it commits: enqueue through `ctx.dispatch` so the send commits or rolls back with the new link; a throw fails issue-link and leaves no link sent. */

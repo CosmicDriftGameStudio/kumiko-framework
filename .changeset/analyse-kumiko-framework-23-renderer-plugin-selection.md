@@ -1,6 +1,5 @@
 ---
 "@cosmicdrift/kumiko-bundled-features": minor
-"@cosmicdrift/kumiko-renderer-puppeteer-client": patch
 ---
 
 `selectRendererPlugin(plugins, kind)` replaces `createRendererFoundationApi(plugins).createRendererForTenant({ tenantId, kind })`; the documented per-tenant plugin override never existed and is gone.

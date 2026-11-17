@@ -6,6 +6,7 @@ import { dispatcherErrorText } from "../app/write-failed-error.ts";
 import { stripUntouchedEmptyStrings } from "../headless/form/form-controller.ts";
 import type {
   EditFieldViewModel,
+  EditSectionViewModel,
   EditWriteFormSectionViewModel,
   Translate,
 } from "../headless/index.ts";
@@ -39,7 +40,7 @@ function buildWriteFormSchema(fields: readonly EditFieldViewModel[]): z.ZodType 
 }
 
 export type WriteFormSectionProps = {
-  readonly section: EditWriteFormSectionViewModel;
+  readonly section: EditWriteFormSectionViewModel & Pick<EditSectionViewModel, "titleOnNarrow">;
   readonly featureName: string;
   readonly translate?: Translate;
   readonly hideTitle?: boolean;
@@ -280,6 +281,7 @@ export function WriteFormSection({
   return (
     <Section
       {...(section.title !== undefined && { title: section.title })}
+      {...(section.titleOnNarrow === false && { titleOnNarrow: false as const })}
       {...(labelTitle === true && { titleStyle: "label" as const })}
       {...(section.description !== undefined && {
         subtitle: narrowAwareDescription(section.description, section.descriptionNarrow),

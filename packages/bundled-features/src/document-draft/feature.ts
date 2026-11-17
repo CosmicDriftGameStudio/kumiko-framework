@@ -18,8 +18,8 @@ import type { DocumentDraftOptions } from "./options.ts";
 import { createDocumentDraftEditorScreen } from "./screens/editor-screen.ts";
 import { DOCUMENT_DRAFT_ENTITY, DOCUMENT_DRAFT_FEATURE } from "./web/constants.ts";
 
-export function createDocumentDraftFeature<TUpload>(
-  opts: DocumentDraftOptions<TUpload>,
+export function createDocumentDraftFeature(
+  opts: DocumentDraftOptions,
 ): FeatureDefinition {
   const access = opts.access ?? DEFAULT_DOCUMENT_DRAFT_ACCESS;
   const entity = createDocumentDraftEntity(opts.retention, opts.subjectTypes);
@@ -27,10 +27,12 @@ export function createDocumentDraftFeature<TUpload>(
 
   return defineFeature(DOCUMENT_DRAFT_FEATURE, (r) => {
     r.describe(
-      "Document drafts: one editable copy of a PDF document template per object (for example a lease contract). A draft is created from a template or one of its variants with the values for its placeholders, changed with the structured operations of template patch-draft or the editor, and finalized to a stored PDF through the injected print function; the template stays unchanged. Revise reopens a finalized draft. Body, variables and the last change are personal data of the draft, which is its own crypto-shredding subject.",
+      "Document drafts: one editable copy of a PDF document template per object (for example a lease contract). A draft is created from a template or one of its variants with the values for its placeholders, changed with the structured operations of template patch-draft or the editor, and finalized to a stored PDF through the print client; the template stays unchanged. Revise reopens a finalized draft. Body, variables and the last change are personal data of the draft, which is its own crypto-shredding subject.",
     );
     r.uiHints({ displayLabel: "Document drafts", category: "data", recommended: false });
-    r.requires({ features: ["files", "template-resolver", "user-data-rights"] });
+    r.requires({
+      features: ["files", "template-resolver", "user-data-rights", "renderer-puppeteer-client"],
+    });
     r.translations({ keys: DOCUMENT_DRAFT_I18N });
 
     r.entity({ name: "documentDraft", ...entity });
@@ -38,7 +40,7 @@ export function createDocumentDraftFeature<TUpload>(
     r.writeHandler(createCreateHandler(access, documentDraftExecutor, opts.subjectTypes));
     r.writeHandler(createPatchHandler(access, documentDraftExecutor));
     r.writeHandler(createSaveHandler(access, documentDraftExecutor));
-    r.writeHandler(createFinalizeHandler(access, documentDraftExecutor, opts.pdf));
+    r.writeHandler(createFinalizeHandler(access, documentDraftExecutor));
     r.writeHandler(createReviseHandler(access, documentDraftExecutor));
     r.writeHandler(createDiscardHandler(access, documentDraftExecutor));
     r.queryHandler(createBlocksQuery(access, documentDraftExecutor, opts.subjectScreens));

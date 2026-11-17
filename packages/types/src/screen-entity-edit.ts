@@ -604,7 +604,8 @@ export type EditWriteFormSection = EditSectionPresentation & {
 };
 
 // Max width of the form container (see FormScreenShell in renderer/web).
-export type FormWidth = "3xl" | "4xl" | "full";
+/** "settings": 940px settings column (configEdit compact). */
+export type FormWidth = "3xl" | "4xl" | "settings" | "full";
 
 export type EditLayout = {
   readonly sections: readonly EditSectionSpec[];

@@ -1,7 +1,5 @@
 ---
 "@cosmicdrift/kumiko-bundled-features": patch
-"@cosmicdrift/kumiko-renderer-mail-html": patch
-"@cosmicdrift/kumiko-renderer-puppeteer-client": patch
 ---
 
 Stored tenant mail and PDF bodies are re-checked by the document sanitizer at render time and fall back to the system template when they fail.

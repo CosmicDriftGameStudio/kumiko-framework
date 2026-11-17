@@ -70,6 +70,7 @@ export function DefaultSection({
   title,
   subtitle,
   subtitleBelowLgOnly,
+  titleOnNarrow,
   children,
   actions,
   variant = "default",
@@ -101,6 +102,7 @@ export function DefaultSection({
             data-testid={testId !== undefined ? `${testId}-title` : undefined}
             className={cn(
               "flex items-center gap-2",
+              titleOnNarrow === false && "max-sm:hidden",
               labelTitle
                 ? "text-[12.5px] font-semibold uppercase leading-none tracking-[0.06em] text-muted-foreground"
                 : "text-base font-semibold leading-none tracking-tight",
@@ -197,6 +199,7 @@ export function DefaultFillContainer({
   testId,
   grow,
   className,
+  dataAttributes,
 }: FillContainerProps): ReactNode {
   // flex-1 only on request (`grow`, set under fillScreenHeight): without it the
   // container sizes to its content and only shrinks (min-h-0), so a two-row
@@ -204,6 +207,7 @@ export function DefaultFillContainer({
   return (
     <div
       data-testid={testId}
+      {...dataAttributes}
       className={cn("flex min-h-0 flex-col", grow === true && "flex-1", className)}
     >
       {children}

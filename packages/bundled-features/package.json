@@ -163,6 +163,10 @@
     "./helpdesk/client": "./src/helpdesk/client/index.ts",
     "./waitlist": "./src/waitlist/index.ts",
     "./waitlist/static-submit": "./src/waitlist/static-submit.ts",
+    "./renderer-mail-html": "./src/renderer-mail-html/index.ts",
+    "./renderer-mail-html/seeding": "./src/renderer-mail-html/seeding.ts",
+    "./renderer-puppeteer-client": "./src/renderer-puppeteer-client/index.ts",
+    "./renderer-puppeteer-client/qualified-names": "./src/renderer-puppeteer-client/qualified-names.ts",
     "./signature": "./src/signature/index.ts",
     "./signature/web": "./src/signature/web/index.ts",
     "./document-draft": "./src/document-draft/index.ts",
@@ -202,13 +206,16 @@
     "@types/qrcode": "^1.5.6",
     "clsx": "^2.1.1",
     "happy-dom": "^21.0.4",
+    "handlebars": "^4.7.10",
     "hono": "^4.13.14",
+    "html-to-text": "^9.0.5",
     "imapflow": "^1.7.8",
     "ioredis": "^5.11.1",
     "jose": "^6.2.14",
     "lucide-react": "^1.65.0",
     "mailparser": "^3.14.1",
     "marked": "^18.1.2",
+    "mjml": "^5.4.1",
     "nodemailer": "^10.3.1",
     "pdf-lib": "^1.17.1",
     "qrcode": "^1.5.4",
@@ -778,6 +785,22 @@
         "types": "./dist/waitlist/static-submit.d.ts",
         "default": "./dist/waitlist/static-submit.js"
       },
+      "./renderer-mail-html": {
+        "types": "./dist/renderer-mail-html/index.d.ts",
+        "default": "./dist/renderer-mail-html/index.js"
+      },
+      "./renderer-mail-html/seeding": {
+        "types": "./dist/renderer-mail-html/seeding.d.ts",
+        "default": "./dist/renderer-mail-html/seeding.js"
+      },
+      "./renderer-puppeteer-client": {
+        "types": "./dist/renderer-puppeteer-client/index.d.ts",
+        "default": "./dist/renderer-puppeteer-client/index.js"
+      },
+      "./renderer-puppeteer-client/qualified-names": {
+        "types": "./dist/renderer-puppeteer-client/qualified-names.d.ts",
+        "default": "./dist/renderer-puppeteer-client/qualified-names.js"
+      },
       "./signature": {
         "types": "./dist/signature/index.d.ts",
         "default": "./dist/signature/index.js"
@@ -848,9 +871,10 @@
     "@cosmicdrift/kumiko-locale-es": "workspace:*",
     "@cosmicdrift/kumiko-locale-fr": "workspace:*",
     "@cosmicdrift/kumiko-locale-it": "workspace:*",
-    "@cosmicdrift/kumiko-renderer-mail-html": "workspace:*",
     "@cosmicdrift/kumiko-testing": "workspace:*",
     "@testing-library/user-event": "^14.6.8",
+    "@types/html-to-text": "^9.0.4",
+    "@types/mjml": "5.4.2",
     "@types/sanitize-html": "^2.16.2",
     "jsqr": "^1.4.0",
     "unpdf": "^1.9.1"

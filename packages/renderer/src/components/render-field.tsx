@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useContext } from "react";
+import { createContext, useContext } from "react";
 import type { EditFieldViewModel, FieldIssue } from "../headless/index.ts";
 import { useLocale, useTranslation } from "../i18n.tsx";
 import { type FieldProps, usePrimitives } from "../primitives.tsx";
@@ -66,6 +66,10 @@ export type RenderFieldProps = {
 };
 
 export const AllFieldsRequiredProvider = HideRequiredMarkerContext.Provider;
+
+// `fieldIcons={false}` on a form drops every prefix icon, derived ones included.
+const FieldIconsHiddenContext = createContext(false);
+export const FieldIconsHiddenProvider = FieldIconsHiddenContext.Provider;
 
 type FieldOptionalPropsInput = Pick<
   RenderFieldProps,
@@ -152,6 +156,7 @@ export function RenderField({
   const appLocale = useLocale().locale();
   const t = useTranslation();
   const allFieldsRequired = useContext(HideRequiredMarkerContext);
+  const iconless = useContext(FieldIconsHiddenContext);
   if (!field.visible) return null;
 
   const id = inputId(field);
@@ -178,6 +183,7 @@ export function RenderField({
     featureName,
     allIssues,
     changed,
+    iconless,
     fillDisabled,
     ...(row !== undefined && { row }),
   });

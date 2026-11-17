@@ -412,7 +412,7 @@ export async function seedNotificationTemplates(
     const { collectRendererPlugins } = await import("../renderer-foundation/index.ts");
     if (!collectRendererPlugins(registry).some((plugin) => plugin.kinds.includes("mail"))) {
       throw new Error(
-        'Notifications declare a mail template but no renderer plugin for kind "mail" is registered (mount renderer-foundation and @cosmicdrift/kumiko-renderer-mail-html)',
+        'Notifications declare a mail template but no renderer plugin for kind "mail" is registered (mount renderer-foundation and @cosmicdrift/kumiko-bundled-features/renderer-mail-html)',
       );
     }
   }

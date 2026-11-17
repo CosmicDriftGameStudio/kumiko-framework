@@ -30,7 +30,7 @@ export function AiAssistControl(props: AiAssistControlProps): ReactNode {
 // Chips stack: every active chip contributes its params, so "shorter" and "mention warranty"
 // can be combined. A click toggles the chip and re-runs the query with the new set.
 function AiAssistChips({ field, aiAssist, onChange, input, row }: AiAssistControlProps): ReactNode {
-  const { Button, Input, Banner } = usePrimitives();
+  const { Button, Input, Banner, FillContainer, Text } = usePrimitives();
   const t = useTranslation();
   const dispatcher = useOptionalDispatcher();
   const contextPayload = useAiAssistPayload();
@@ -130,9 +130,9 @@ function AiAssistChips({ field, aiAssist, onChange, input, row }: AiAssistContro
   return (
     <>
       {input}
-      <div
-        className="order-2 flex flex-wrap items-center gap-2"
-        data-testid={`field-ai-assist-${field.field}`}
+      <FillContainer
+        className="order-2 flex-row flex-wrap items-center gap-2"
+        testId={`field-ai-assist-${field.field}`}
       >
         {aiAssist.chips?.map((chip, index) => (
           <Button
@@ -167,14 +167,13 @@ function AiAssistChips({ field, aiAssist, onChange, input, row }: AiAssistContro
             testId={`field-ai-prompt-${field.field}`}
           />
         )}
-      </div>
+      </FillContainer>
       {note !== undefined && (
-        <span
-          className="order-2 text-xs text-muted-foreground"
-          data-testid={`field-ai-note-${field.field}`}
-        >
-          {note}
-        </span>
+        <FillContainer className="order-2">
+          <Text variant="small" testId={`field-ai-note-${field.field}`}>
+            {note}
+          </Text>
+        </FillContainer>
       )}
       {failed && (
         <Banner variant="error" testId={`field-ai-error-${field.field}`}>

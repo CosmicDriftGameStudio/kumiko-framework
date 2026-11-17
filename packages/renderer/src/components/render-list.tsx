@@ -96,6 +96,7 @@ export function RenderList(props: RenderListProps): ReactNode {
     dateRangeFacets,
     onDateRangeChange,
     chromeless,
+    headerTone,
     scrollBody,
     hideCountFooter,
     plainPhoneCards,
@@ -257,6 +258,7 @@ export function RenderList(props: RenderListProps): ReactNode {
         })}
         {...tableLayoutProps({
           chromeless,
+          headerTone,
           scrollBody,
           hideCountFooter,
           isStandIn,

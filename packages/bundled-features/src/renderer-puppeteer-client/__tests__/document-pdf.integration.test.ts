@@ -48,7 +48,7 @@ import {
   fileRefsTable,
 } from "@cosmicdrift/kumiko-framework/files";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
+import { createRendererMailHtmlFeature } from "../../renderer-mail-html/index.ts";
 import {
   buildMultipartBody,
   patchFileInstanceofForBunTest,

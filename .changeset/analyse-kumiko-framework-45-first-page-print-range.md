@@ -1,6 +1,5 @@
 ---
 "@cosmicdrift/kumiko-bundled-features": patch
-"@cosmicdrift/kumiko-renderer-puppeteer-client": patch
 ---
 
 A layout whose header or footer skips page 1 no longer prints the whole document twice; the second print renders page 1 only.

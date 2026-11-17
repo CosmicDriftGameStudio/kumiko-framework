@@ -50,7 +50,11 @@ function kebabLastSegment(value: string): string {
 // Derives a prefix icon when the field declares none: field.icon wins, then
 // the field name. Deliberately no type-based fallback — a hash in front of a
 // number field restates what the field already shows and reads as noise.
-export function resolveFieldIcon(field: EditFieldViewModel): FieldIconKey | undefined {
+export function resolveFieldIcon(
+  field: EditFieldViewModel,
+  iconless?: boolean,
+): FieldIconKey | undefined {
+  if (iconless === true) return undefined;
   if (field.icon !== undefined) return field.icon;
   const byName =
     FIELD_ICON_BY_NAME[field.field.toLowerCase()] ??

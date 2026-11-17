@@ -103,6 +103,7 @@ export function tableFilterProps(
 export function tableLayoutProps(
   p: Pick2<
     | "chromeless"
+    | "headerTone"
     | "scrollBody"
     | "hideCountFooter"
     | "plainPhoneCards"
@@ -114,6 +115,7 @@ export function tableLayoutProps(
 ) {
   const {
     chromeless,
+    headerTone,
     scrollBody,
     plainPhoneCards,
     screenPadding,
@@ -124,6 +126,7 @@ export function tableLayoutProps(
   const hideCountFooter = p.isStandIn || p.hideCountFooter === true;
   return {
     ...(chromeless !== undefined && { chromeless }),
+    ...(headerTone !== undefined && { headerTone }),
     ...(scrollBody !== undefined && { scrollBody }),
     ...(hideCountFooter && { hideCountFooter }),
     ...(plainPhoneCards !== undefined && { plainPhoneCards }),

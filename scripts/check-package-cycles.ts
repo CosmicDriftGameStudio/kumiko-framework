@@ -117,10 +117,7 @@ export function findCycles(graph: PackageGraph): string[][] {
 export type BaselineEdge = { readonly from: string; readonly to: string };
 
 // Tolerated edge, not tolerated cycle: a new cycle through the same package group must still fail.
-// 11 renderer-mail-html tests hang on bundled-features-internal helpers; they move in wave 4.
-export const BASELINE_EDGES: readonly BaselineEdge[] = [
-  { from: "@cosmicdrift/kumiko-bundled-features", to: "@cosmicdrift/kumiko-renderer-mail-html" },
-];
+export const BASELINE_EDGES: readonly BaselineEdge[] = [];
 
 function reaches(graph: PackageGraph, start: string, target: string): boolean {
   const seen = new Set<string>();

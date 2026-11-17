@@ -5,7 +5,7 @@ import { isInsideCardFrame } from "./card-frame.ts";
 import { ColumnWidthGroup } from "./column-resize-handle.tsx";
 import { renderEmptyBlock } from "./row-render-parts.tsx";
 import { renderTableBody } from "./table-body.tsx";
-import { FILL_TABLE_CLASS, FlushTable } from "./table-chrome.tsx";
+import { FILL_TABLE_CLASS, FlushTable, MUTED_HEADER_CELLS_CLASS } from "./table-chrome.tsx";
 import { renderTableHeader } from "./table-header-row.tsx";
 import { SummaryFooterRow, TotalsFooterRow } from "./totals-footer.tsx";
 import type { DataTableModel } from "./use-data-table-state.ts";
@@ -101,7 +101,7 @@ export function renderTableView(m: DataTableModel): ReactNode {
     >
       <TableRoot
         data-testid={testId}
-        className={fillsHeight ? FILL_TABLE_CLASS : undefined}
+        className={cn(fillsHeight && FILL_TABLE_CLASS, m.headerTone === "muted" && MUTED_HEADER_CELLS_CLASS)}
         {...(sizing?.tableStyle !== undefined && { style: sizing.tableStyle })}
       >
         {renderColumnWidths(m)}

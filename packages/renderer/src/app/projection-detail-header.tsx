@@ -342,17 +342,18 @@ export function renderMetricsBlock(
   metricItems: ReactNode[] | undefined,
   subtitle?: ReactNode,
   lead?: ReactNode,
+  splitPart?: "lead" | "tiles",
 ): ReactNode {
   const { FillContainer } = model.primitives;
   if (mobileSummaryLineOf(model) === undefined) {
-    return renderPlainMetricsBlock(model, metricItems, subtitle, lead);
+    return renderPlainMetricsBlock(model, metricItems, subtitle, lead, splitPart);
   }
   // Tiles give way to the summary line (rendered under the title) below sm; display:none keeps one copy for assistive tech.
   const hiddenOnPhone =
     Children.map(metricItems, (item) => (
       <FillContainer className="max-sm:hidden">{item}</FillContainer>
     )) ?? undefined;
-  const band = renderPlainMetricsBlock(model, hiddenOnPhone, subtitle, lead);
+  const band = renderPlainMetricsBlock(model, hiddenOnPhone, subtitle, lead, splitPart);
   return subtitle === undefined && lead === undefined ? (
     <FillContainer className="max-sm:hidden">{band}</FillContainer>
   ) : (
@@ -385,6 +386,7 @@ function renderPlainMetricsBlock(
   metricItems: ReactNode[] | undefined,
   subtitle?: ReactNode,
   lead?: ReactNode,
+  splitPart?: "lead" | "tiles",
 ): ReactNode {
   const { screen, primitives } = model;
   const { MetricBand } = primitives;
@@ -393,6 +395,7 @@ function renderPlainMetricsBlock(
       testId="kumiko-screen-projection-detail-metrics"
       subtitle={subtitle}
       {...(lead !== undefined && { lead })}
+      {...(splitPart !== undefined && { splitPart })}
       {...(screen.metricsStyle === "tiles" && { tiles: true })}
     >
       {metricItems}

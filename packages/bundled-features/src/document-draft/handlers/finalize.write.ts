@@ -3,6 +3,11 @@ import {
   defineWriteHandler,
   type KumikoEventTypeMap,
 } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  type RenderedPdfUpload,
+  renderPdfBeforeTransaction,
+  storeRenderedPdf,
+} from "../../renderer-puppeteer-client/index.ts";
 import type { DocumentDraftExecutor } from "../entity.ts";
 import {
   checkOpenAtBase,
@@ -11,7 +16,6 @@ import {
   pdfMetaOf,
   recordOrEmpty,
 } from "../lib.ts";
-import type { DocumentDraftPdf } from "../options.ts";
 import { DraftBaseSchema } from "../payloads.ts";
 import { DOCUMENT_DRAFT_STATUS } from "../web/constants.ts";
 
@@ -26,17 +30,16 @@ export const FINALIZE_RATE_LIMIT = { per: "user+handler", limit: 10, windowSecon
 
 // Printing takes seconds, so it runs before the transaction opens. The subject row is checked
 // first, so a caller who may not see the draft gets NotFound without status hints and without a print.
-export function createFinalizeHandler<TUpload>(
+export function createFinalizeHandler(
   access: AccessRule,
   documentDraftExecutor: DocumentDraftExecutor,
-  pdf: DocumentDraftPdf<TUpload>,
 ) {
   return defineWriteHandler<
     "finalize",
     typeof DraftBaseSchema,
     FinalizeData,
     KumikoEventTypeMap,
-    { readonly upload: TUpload }
+    { readonly upload: RenderedPdfUpload }
   >({
     name: "finalize",
     schema: DraftBaseSchema,
@@ -51,7 +54,7 @@ export function createFinalizeHandler<TUpload>(
       if (draft === null) return draftNotFound(id);
       const notOpenAtBase = checkOpenAtBase(draft, id, base);
       if (notOpenAtBase !== null) return notOpenAtBase;
-      const rendered = await pdf.render(ctx, {
+      const rendered = await renderPdfBeforeTransaction(ctx, {
         slug: String(draft.templateSlug),
         ...(typeof draft.templateVariant === "string" && { variant: draft.templateVariant }),
         locale: String(draft.locale),
@@ -71,7 +74,7 @@ export function createFinalizeHandler<TUpload>(
       if (draft === null) return draftNotFound(id);
       const notOpenAtBase = checkOpenAtBase(draft, id, base);
       if (notOpenAtBase !== null) return notOpenAtBase;
-      const stored = await pdf.store(ctx, event.prepared.upload);
+      const stored = await storeRenderedPdf(ctx, event.prepared.upload);
       if (!stored.isSuccess) return stored;
       const updated = await documentDraftExecutor.update(
         {

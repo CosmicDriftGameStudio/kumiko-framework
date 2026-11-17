@@ -14,6 +14,7 @@ export type ScreenWidth = FormWidth;
 export const screenWidthClassName: Record<ScreenWidth, string> = {
   "3xl": "max-w-3xl mx-auto",
   "4xl": "max-w-4xl mx-auto",
+  settings: "max-w-[940px] mx-auto",
   full: "max-w-full",
 };
 
@@ -22,6 +23,7 @@ export const screenWidthClassName: Record<ScreenWidth, string> = {
 export const screenFormColumnWidthClassName: Record<ScreenWidth, string> = {
   "3xl": "max-w-3xl",
   "4xl": "max-w-4xl",
+  settings: "mx-0 max-w-[940px]",
   full: "max-w-full",
 };
 

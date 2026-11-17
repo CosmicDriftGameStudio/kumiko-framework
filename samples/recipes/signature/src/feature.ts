@@ -1,6 +1,5 @@
 import { createSignatureFeature } from "@cosmicdrift/kumiko-bundled-features/signature";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { PDFDocument } from "pdf-lib";
 
 export const leaseEntity = createEntity({
   table: "recipe_signature_leases",
@@ -23,21 +22,12 @@ export const leaseFeature = defineFeature("signature-recipe-lease", (r) => {
 // test can open them: the link is never part of a handler result.
 export const deliveredLinks = new Map<string, string>();
 
-// In an app this is `renderHtmlToPdf` from @cosmicdrift/kumiko-renderer-puppeteer-client, which
-// needs the print service; the recipe prints a blank page instead.
-async function printSignaturePage(): Promise<Uint8Array> {
-  const pdf = await PDFDocument.create();
-  pdf.addPage();
-  return pdf.save();
-}
-
 export const SIGNATURE_LINK_SECRET = "signature-recipe-link-secret-0123456789";
 
 export const signatureFeature = createSignatureFeature({
   retention: { keepFor: "10y", unfinishedKeepFor: "90d" },
   linkSecret: SIGNATURE_LINK_SECRET,
   hostEntities: ["lease"],
-  renderHtmlToPdf: printSignaturePage,
   signaturePageUrl: "https://app.example/sign",
   deliverLink: async (_ctx, { signerId, url }) => {
     deliveredLinks.set(signerId, url);

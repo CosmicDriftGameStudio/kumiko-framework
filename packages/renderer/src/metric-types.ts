@@ -32,4 +32,6 @@ export type MetricBandProps = {
   /** The children are KPI tiles, laid out as a tile grid instead of a definition list. */
   readonly tiles?: boolean;
   readonly testId?: string;
+  /** One half of a band split for the narrow order: lead drops the bottom padding, tiles uses pt-3. */
+  readonly splitPart?: "lead" | "tiles";
 };

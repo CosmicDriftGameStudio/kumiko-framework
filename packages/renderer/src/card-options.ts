@@ -24,4 +24,6 @@ export type CardOptions = {
   readonly headerLayout?: "stacked" | "inline";
   /** "label": the title is a small uppercase muted label. Default "heading". */
   readonly titleStyle?: "heading" | "label";
+  /** flush: px-0 pt-1 pb-2 (embedded list header). Default "default". */
+  readonly headerPadding?: "default" | "flush";
 };

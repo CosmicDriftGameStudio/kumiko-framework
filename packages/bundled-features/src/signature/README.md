@@ -9,17 +9,15 @@ completes it. Level `simple` only: a drawn image plus the audit values, not a qu
 
 ```typescript
 import { createSignatureFeature } from "@cosmicdrift/kumiko-bundled-features/signature";
-import { renderHtmlToPdf } from "@cosmicdrift/kumiko-renderer-puppeteer-client";
 
 createSignatureFeature({
   retention: { keepFor: "10y", unfinishedKeepFor: "90d" },
   hostEntities: ["lease"],
   linkSecret: process.env.SIGNATURE_LINK_SECRET,
-  renderHtmlToPdf,
 });
 ```
 
-`bundled-features` never imports the print client; the app injects `renderHtmlToPdf`. Requires
+Requires the renderer-puppeteer-client feature; an outage leaves all-signed, the job retries. Also requires
 the `files` feature. Order of signatures is free.
 
 ## Options
@@ -27,7 +25,6 @@ the `files` feature. Order of signatures is free.
 | Option             | Default                                      | Effect                                                                                                                                                                    |
 | ------------------ | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `retention`        | required                                     | `{ keepFor, unfinishedKeepFor }`; keepFor counts from creation and hard-deletes, see Retention below                                                                      |
-| `renderHtmlToPdf`  | required                                     | Renders the signature page; an outage leaves `all-signed`, the job retries                                                                                                |
 | `hostEntities`     | required                                     | Entity names a request may belong to (`hostType`); registered entities without their own `parentRef`. A user sees a request only while its host row is readable to them     |
 | `linkSecret`       | required                                     | HMAC secret of the links; empty rejects every link                                                                                                                        |
 | `deliverLink`      | required                                     | `(ctx, delivery)`: sends the link to the signer (mail) inside `issue-link`'s transaction; `delivery.issuedBy` is the issuing user. The token is never in a handler result |

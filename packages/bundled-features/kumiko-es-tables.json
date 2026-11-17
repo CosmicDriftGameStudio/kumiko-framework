@@ -104,6 +104,10 @@
     "export": "exportJobsTable"
   },
   {
+    "module": "renderer-puppeteer-client/entity",
+    "export": "renderedPdfsTable"
+  },
+  {
     "module": "user/schema/user",
     "export": "userTable"
   },

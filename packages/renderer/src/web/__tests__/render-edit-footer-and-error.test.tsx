@@ -45,6 +45,8 @@ describe("RenderEdit footer actions", () => {
     expect(row.textContent).toContain("Park");
     expect(row.firstElementChild).toBe(start);
     expect(start.className).toContain("mr-auto");
+    expect(start.getAttribute("data-footer-align")).toBe("start");
+    expect(screen.getByTestId("render-edit-action-discard").className).toContain("max-sm:flex-1");
   });
 });
 

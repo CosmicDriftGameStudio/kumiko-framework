@@ -10,12 +10,31 @@ import {
   fileRefsTable,
 } from "@cosmicdrift/kumiko-framework/files";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+  unsafePushTables,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { PDFDocument } from "pdf-lib";
 import { createAuthFoundationFeature } from "../../auth-foundation/index.ts";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
 import { createDataRetentionFeature } from "../../data-retention/index.ts";
+import {
+  configValuesTable,
+  createConfigAccessorFactory,
+  createConfigFeature,
+  createConfigResolver,
+} from "../../config/index.ts";
+import { createRendererFoundationFeature } from "../../renderer-foundation/index.ts";
+import { renderedPdfEntity } from "../../renderer-puppeteer-client/entity.ts";
+import { createRendererPuppeteerClientFeature } from "../../renderer-puppeteer-client/feature.ts";
 import { createSessionsFeature } from "../../sessions/index.ts";
+import {
+  createTemplateResolverFeature,
+  templateResourceEntity,
+} from "../../template-resolver/index.ts";
+import { createTenantFeature, tenantEntity, tenantMembershipsTable } from "../../tenant/index.ts";
 import { createUserFeature } from "../../user/index.ts";
 import { createUserDataRightsFeature } from "../../user-data-rights/feature.ts";
 import { createSignatureFeature } from "../feature.ts";
@@ -34,6 +53,7 @@ const fileRefExecutor = createEventStoreExecutor(fileRefsTable, fileRefEntity, {
 });
 
 beforeAll(async () => {
+  const resolver = createConfigResolver();
   stack = await setupTestStack({
     features: [
       createUserFeature(),
@@ -44,18 +64,30 @@ beforeAll(async () => {
       createUserDataRightsFeature(),
       createFilesFeature(),
       leaseHostFeature,
+      createConfigFeature(),
+      createTenantFeature(),
+      createTemplateResolverFeature(),
+      createRendererFoundationFeature(),
+      createRendererPuppeteerClientFeature(),
       createSignatureFeature({
         hostEntities: ["lease"],
         retention: { keepFor: "10y", unfinishedKeepFor: "90d" },
         linkSecret: "signature-access-test-link-secret-0123456789",
-        renderHtmlToPdf: async () => new Uint8Array(),
         signaturePageUrl: "https://app.example/sign",
         deliverLink: async () => {},
         access: { roles: ["CustomRole"] },
       }),
     ],
     files: { storageProvider: provider },
+    extraContext: (deps) => ({
+      configResolver: resolver,
+      configAccessorFactory: createConfigAccessorFactory(deps.registry, resolver),
+    }),
   });
+  await unsafeCreateEntityTable(stack.db, templateResourceEntity, "template-resource");
+  await unsafeCreateEntityTable(stack.db, tenantEntity, "tenant");
+  await unsafeCreateEntityTable(stack.db, renderedPdfEntity, "rendered-pdf");
+  await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
 });
 
 afterAll(async () => {

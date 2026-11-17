@@ -41,20 +41,20 @@ smallest complete example is [`samples/recipes/golden-path`](samples/recipes/gol
 | --- | --- |
 | `framework` | Engine, pipeline, API, DB, event store, SSRF-safe egress (`/http`); ships the app-facing `AGENTS.md` |
 | `types` | Engine and DB type contracts without the runtime |
-| `bundled-features` | Ready-made features: tenant, user, auth, files, billing, jobs and more |
+| `bundled-features` | Ready-made features: tenant, user, auth, files, billing, jobs, mail and PDF rendering and more |
 | `feature-ast` | Feature-file AST (parse, patch, render), pattern library and upgrade codemods |
 | `cli`, `dev-server`, `create-kumiko-app` | `kumiko` CLI, dev server and scaffolding, `bun create kumiko-app` |
 | `server-runtime` | Production boot: connections, schema-drift gate, lifecycle |
 | `testing` | Test stack, seeding, preloads, integration runner |
 | `guards` | AST guards and repo checks (`kumiko-guards`), `kumiko.json` schema and loader (`/repo-manifest`) |
 | `renderer` | Platform-agnostic renderer plus UI logic, HTTP dispatcher and web bindings (`renderer/headless`, `renderer/live`, `renderer/web`) |
-| `renderer-mail-html`, `renderer-puppeteer-client`, `document-designer` | Mail and PDF rendering, template editor |
+| `document-designer` | Template editor |
 | `locale-de`, `locale-es`, `locale-fr`, `locale-it` | Opt-in UI and mail copy |
 | `samples` | Packaged source of recipes and sample apps |
 | `apps/puppeteer-service` | PDF and image rendering service |
 | `samples/recipes/*`, `samples/apps/*` | One tested example per concept, full sample apps |
 
-The full list (19 packages; the five former shims were removed in 0.379.0) is in
+The full list (17 packages; the five former shims were removed in 0.379.0) is in
 [package set](docs/reference/packages.md).
 
 ## Commands
@@ -98,6 +98,6 @@ different. See [stability policy](docs/reference/stability-policy.md).
 - [App feature structure](docs/reference/app-feature-structure.md)
 - [Stability policy](docs/reference/stability-policy.md)
 - [Design decisions](docs/reference/decisions.md): read before design or architecture changes; append new lasting decisions at the bottom
-- [Package set](docs/reference/packages.md): the 19 packages and where the removed shims went
+- [Package set](docs/reference/packages.md): the 17 packages and where the removed shims went
 - [Feature manifest](packages/create-kumiko-app/feature-manifest.json): bundled features, config and dependencies
 - [App-facing agent guide](packages/framework/AGENTS.md)

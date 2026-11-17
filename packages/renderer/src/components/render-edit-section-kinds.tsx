@@ -19,7 +19,7 @@ function renderExtensionSection<TValues extends FormValues, TCtx>(
 ): ReactNode {
   const { props, state, form, draft, sections } = model.engine;
   const { hideSectionTitles } = props;
-  const { Card } = state.primitives;
+  const { Card, FillContainer } = state.primitives;
   const anchorId = sectionNavAnchorId(model.titles.sectionNavItems, sectionIndex);
   const mount = (
     <ExtensionSectionMount
@@ -108,12 +108,12 @@ function renderRelatedListSection<TValues extends FormValues, TCtx>(
   // Tabs mode: the table runs full-bleed under the tab strip (board
   // layout); the toolbar buttons live in the list's own toolbar.
   return hideSectionTitles === true ? (
-    <div
+    <FillContainer
       key={section.title}
-      className={fillScreenHeight === true ? "flex min-h-0 flex-1 flex-col" : undefined}
+      {...(fillScreenHeight === true && { grow: true })}
     >
       {mount}
-    </div>
+    </FillContainer>
   ) : (
     mount
   );
@@ -137,6 +137,7 @@ function renderStepListSection<TValues extends FormValues, TCtx>(
       {...(model.engine.props.recordSections?.labelTitles === true && {
         titleStyle: "label" as const,
       })}
+      {...(section.titleOnNarrow === false && { titleOnNarrow: false as const })}
       testId="step-list-section"
     >
       <StepList items={items} testId="step-list" />
@@ -263,8 +264,6 @@ function withSectionPresentation<TValues extends FormValues, TCtx>(
       : section.showOnNarrowOnly === true
         ? "sm:hidden"
         : undefined;
-  const titleClass =
-    section.titleOnNarrow === false ? "max-sm:[&_[data-section-title]]:hidden" : undefined;
   const sectionTail =
     section.kind === "fields" && section.id !== undefined
       ? props.afterSection?.(section.id, form.snapshot.values)
@@ -272,15 +271,14 @@ function withSectionPresentation<TValues extends FormValues, TCtx>(
   if (
     section.after === undefined &&
     sectionTail === undefined &&
-    narrowClass === undefined &&
-    titleClass === undefined
+    narrowClass === undefined
   ) {
     return node;
   }
   return (
     <FillContainer
       key={`section-presentation-${sectionIndex}`}
-      className={[narrowClass, titleClass, "gap-3"].filter((c) => c !== undefined).join(" ")}
+      className={[narrowClass, "gap-3"].filter((c) => c !== undefined).join(" ")}
     >
       {node}
       {sectionTail}

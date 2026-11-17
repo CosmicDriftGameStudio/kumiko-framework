@@ -26,7 +26,7 @@ puppeteer-service (separate app, K8s deployment)
 ## Mount
 
 ```typescript
-import { createRendererPuppeteerClientFeature } from "@cosmicdrift/kumiko-renderer-puppeteer-client";
+import { createRendererPuppeteerClientFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-puppeteer-client";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 
 const features = [

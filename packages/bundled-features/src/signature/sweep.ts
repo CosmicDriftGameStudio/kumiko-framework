@@ -2,6 +2,7 @@ import type { JobContext } from "@cosmicdrift/kumiko-framework/engine";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { RendererError } from "../renderer-foundation/index.ts";
+import { renderHtmlToPdf } from "../renderer-puppeteer-client/index.ts";
 import { signerExecutor, ungatedRequestExecutor } from "./entity.ts";
 import {
   discardGeneratedFile,
@@ -17,7 +18,6 @@ import {
   type RequestRow,
   type SignerRow,
 } from "./lib.ts";
-import type { SignatureOptions } from "./options.ts";
 import {
   appendPdfPages,
   buildSignaturePageHtml,
@@ -146,12 +146,9 @@ async function failRequest(
 
 // The service's size limit does not change between runs, so an oversized page never prints;
 // an outage or any other error still throws and the next run retries.
-async function renderSignaturePages(
-  opts: SignatureOptions,
-  html: string,
-): Promise<Uint8Array | null> {
+async function renderSignaturePages(html: string): Promise<Uint8Array | null> {
   try {
-    return await opts.renderHtmlToPdf(html);
+    return await renderHtmlToPdf(html);
   } catch (error) {
     if (error instanceof RendererError && error.code === "payload_too_large") return null;
     throw error;
@@ -161,11 +158,7 @@ async function renderSignaturePages(
 // Appends the signature page to the unchanged original. A missing or changed original, a missing
 // signature image or a signature page above the renderer's size limit can never heal and ends the
 // request as failed. A renderer outage throws, the request stays all-signed and the next run tries again.
-async function finalizeRequest(
-  ctx: JobContext,
-  opts: SignatureOptions,
-  request: RequestRow,
-): Promise<void> {
+async function finalizeRequest(ctx: JobContext, request: RequestRow): Promise<void> {
   const original = await readTenantFile(ctx, ctx.systemUser.tenantId, request.documentFileId);
   if (original === null || sha256Hex(original.content) !== request.documentSha256) {
     await failRequest(ctx, request, SIGNATURE_FAILURE_REASON.DocumentChanged);
@@ -185,7 +178,7 @@ async function finalizeRequest(
     entries,
     labels: DEFAULT_SIGNATURE_PAGE_LABELS,
   });
-  const signaturePages = await renderSignaturePages(opts, html);
+  const signaturePages = await renderSignaturePages(html);
   if (signaturePages === null) {
     await failRequest(ctx, request, SIGNATURE_FAILURE_REASON.SignaturePageTooLarge);
     return;
@@ -211,10 +204,7 @@ async function finalizeRequest(
   }
 }
 
-export async function sweepSignatureRequests(
-  ctx: JobContext,
-  opts: SignatureOptions,
-): Promise<void> {
+export async function sweepSignatureRequests(ctx: JobContext): Promise<void> {
   const now = ctx.tz.now();
   await forEachRequestPageWithStatus(ctx, SIGNATURE_REQUEST_STATUS.Open, async (requests) => {
     const running: RequestRow[] = [];
@@ -237,7 +227,7 @@ export async function sweepSignatureRequests(
   await forEachRequestPageWithStatus(ctx, SIGNATURE_REQUEST_STATUS.AllSigned, async (requests) => {
     for (const request of requests) {
       try {
-        await finalizeRequest(ctx, opts, request);
+        await finalizeRequest(ctx, request);
       } catch (error) {
         ctx.obs.log.warn("[signature:sweep] completing failed, retrying on the next run", {
           requestId: request.id,

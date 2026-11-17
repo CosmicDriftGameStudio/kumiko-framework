@@ -966,6 +966,8 @@ export type DataTableProps = {
    *  and would otherwise show a card nested inside that boundary. Default
    *  false: unchanged card-framed table. */
   readonly chromeless?: boolean;
+  /** "muted": the header row gets the muted background (tabs-mode related list). */
+  readonly headerTone?: "muted";
   /** Fills the available height of its flex container and scrolls rows
    *  internally instead of growing with row count — for a host that would
    *  otherwise have a long table stretch the whole page, or a short table
@@ -1108,6 +1110,8 @@ export type SectionProps = {
   /** Shows the subtitle only below the `lg` breakpoint: a wizard's step rail
    *  carries the same text from `lg` up. Native impls may ignore it. */
   readonly subtitleBelowLgOnly?: boolean;
+  /** false hides the title below `sm`. */
+  readonly titleOnNarrow?: false;
   readonly children: ReactNode;
   /** Rendered top-right in the title row — never a footer. A
    *  title-less/subtitle-less Section still draws the row when `actions`
@@ -1150,6 +1154,8 @@ export type FillContainerProps = {
    *  edge even with few rows. Set only when the screen fills the shell
    *  height. */
   readonly grow?: boolean;
+  /** Extra `data-*` attributes on the container. */
+  readonly dataAttributes?: DataAttributes;
 };
 
 /** Column-based layout. Web uses CSS grid; native implementations use

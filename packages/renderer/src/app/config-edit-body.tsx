@@ -265,7 +265,7 @@ export function ConfigEditBody({
   readonly screen: ConfigEditScreenDefinition;
   readonly translate?: Translate;
 }): ReactNode {
-  const { ConfigCascadeView } = usePrimitives();
+  const { ConfigCascadeView, FillContainer } = usePrimitives();
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
   const dispatcher = useDispatcher();
@@ -299,7 +299,12 @@ export function ConfigEditBody({
   const secretKeys = secretsDenied ? undefined : declaredScreen.secretKeys;
 
   const synthEntity = useMemo(() => synthesizeConfigEditEntity(screen.fields), [screen.fields]);
-  const synthScreen = useMemo(() => synthesizeConfigEditScreen(screen), [screen]);
+  const synthScreen = useMemo(() => {
+    const synthesized = synthesizeConfigEditScreen(screen);
+    return screen.compact === true
+      ? { ...synthesized, layout: { ...synthesized.layout, width: "settings" as const } }
+      : synthesized;
+  }, [screen]);
   const boundsSchema = useMemo(() => buildConfigEditSchema(screen.fields), [screen.fields]);
 
   // Initial values: per field name, fetch the value from `values[qualifiedKey]`.
@@ -502,7 +507,7 @@ export function ConfigEditBody({
       {...(screen.submitLabel !== undefined && { submitLabel: screen.submitLabel })}
       {...(translate !== undefined && { translate })}
       fieldAppendixPlacement="below-control"
-      {...(compact && { recordSections: { labelTitles: true as const } })}
+      {...(compact && { recordSections: { labelTitles: true as const }, fieldIcons: false as const })}
       {...(!compact && {
         fieldAccent: (fieldName: string) =>
           cascades[fieldName]?.levels.find((level) => level.isActive)?.source ===
@@ -540,14 +545,9 @@ export function ConfigEditBody({
     />
   );
   const body = compact ? (
-    // The prefix icon of a field is dropped together with the padding it reserved. The column cap sits
-    // on the form shell only, so the pinned save bar stays full width at the page bottom like on a record page.
-    <div
-      data-testid="config-edit-compact"
-      className="h-full min-h-0 [&>form>div:first-child]:mx-0 [&>form>div:first-child]:max-w-[940px] [&_.relative>input]:pl-3 [&_.relative>svg.pointer-events-none]:hidden"
-    >
+    <FillContainer testId="config-edit-compact" className="h-full min-h-0">
       {form}
-    </div>
+    </FillContainer>
   ) : (
     form
   );

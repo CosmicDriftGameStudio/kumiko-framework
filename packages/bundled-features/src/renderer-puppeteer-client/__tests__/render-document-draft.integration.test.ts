@@ -1,6 +1,6 @@
 // A stored draft is printed through the real resolver and the real HTTP write pipeline; only the
 // print service is a stub that records the HTML it was asked to print. The document-draft feature
-// is wired with the functions of this package as they are, which proves they fit without an adapter.
+// prints through this package directly.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
@@ -57,7 +57,6 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import { renderedPdfEntity, renderedPdfsTable } from "../entity";
 import { createRendererPuppeteerClientFeature } from "../feature";
-import { renderPdfBeforeTransaction, storeRenderedPdf } from "../render-and-store";
 
 const SERVICE_TOKEN = "draft-test-service-token";
 const STUB_PDF = new TextEncoder().encode(
@@ -133,7 +132,6 @@ beforeAll(async () => {
       createRendererPuppeteerClientFeature(),
       createDocumentDraftFeature({
         subjectTypes: [SUBJECT_TYPE],
-        pdf: { render: renderPdfBeforeTransaction, store: storeRenderedPdf },
       }),
     ],
     files: { storageProvider: provider },

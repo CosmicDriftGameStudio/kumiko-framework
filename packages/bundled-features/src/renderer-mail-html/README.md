@@ -28,7 +28,7 @@ Datum und Zahlen formatiert der Renderer nach `payload.locale`, der Sprache der 
 ## Mount
 
 ```typescript
-import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
+import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-mail-html";
 import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 
@@ -73,7 +73,7 @@ Ein Tenant legt ein eigenes Layout als Template `kind: "mail-layout"`, `contentF
 ## Optionales Seeding
 
 ```typescript
-import { seedSystemMailLayout } from "@cosmicdrift/kumiko-renderer-mail-html/seeding";
+import { seedSystemMailLayout } from "@cosmicdrift/kumiko-bundled-features/renderer-mail-html/seeding";
 
 await seedSystemMailLayout(db); // idempotent
 ```

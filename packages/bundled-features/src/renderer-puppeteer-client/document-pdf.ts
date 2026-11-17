@@ -63,7 +63,7 @@ import {
   readDocumentFormat,
   readTenantName,
   resolveResourceFileRefs,
-} from "@cosmicdrift/kumiko-renderer-mail-html";
+} from "../renderer-mail-html/index.ts";
 import {
   chromiumRegionHtml,
   flowSpacerHtml,

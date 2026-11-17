@@ -1,7 +1,7 @@
-// Drafts go through the real HTTP pipeline and resolver; only the print function is a stub that
-// uploads fixed PDF bytes and records what it was asked to print.
+// Drafts go through the real HTTP pipeline, resolver and print client; only the print service
+// is a local HTTP stub that returns fixed PDF bytes and records the HTML it was asked to print.
 
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import {
   buildEntityTable,
@@ -17,15 +17,16 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
-  createFileRefFromUploadedBytes,
   createFilesFeature,
   createInMemoryFileProvider,
-  type UploadedFileBytes,
-  uploadFileBytesBeforeTransaction,
 } from "@cosmicdrift/kumiko-framework/files";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
-import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createAuthFoundationFeature } from "../../auth-foundation/index.ts";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
 import {
@@ -34,7 +35,9 @@ import {
   createConfigResolver,
 } from "../../config/index.ts";
 import { createDataRetentionFeature } from "../../data-retention/index.ts";
-import { fileContextForTenant } from "../../file-foundation/index.ts";
+import { createRendererFoundationFeature } from "../../renderer-foundation/index.ts";
+import { renderedPdfEntity } from "../../renderer-puppeteer-client/entity.ts";
+import { createRendererPuppeteerClientFeature } from "../../renderer-puppeteer-client/feature.ts";
 import { createSessionsFeature } from "../../sessions/index.ts";
 import {
   createTemplateResolverFeature,
@@ -45,7 +48,6 @@ import { createUserFeature } from "../../user/index.ts";
 import { createUserDataRightsFeature } from "../../user-data-rights/feature.ts";
 import { ungatedDocumentDraftExecutor } from "../entity.ts";
 import { createDocumentDraftFeature } from "../feature.ts";
-import type { DocumentDraftRenderArgs } from "../options.ts";
 import { forgetDocumentDraftsOfSubject } from "../user-data.ts";
 import { DocumentDraftHandlers, DocumentDraftQueries } from "../web/constants.ts";
 
@@ -59,7 +61,12 @@ let KEEP_SUBJECT: string;
 let DISCARD_SUBJECT: string;
 let TRAIL_SUBJECT: string;
 const CLAUSE = "Haustiere sind erlaubt.";
-const STUB_PDF = new TextEncoder().encode("%PDF-1.4\n%%EOF");
+const STUB_PDF = new TextEncoder().encode(
+  "%PDF-1.4\n1 0 obj<< /Type /Pages /Kids [] /Count 1 >>endobj\n%%EOF",
+);
+const SERVICE_TOKEN = "document-draft-test-service-token";
+const ENV_KEYS = ["PUPPETEER_SERVICE_URL", "PUPPETEER_AUTH_TOKEN"] as const;
+const savedEnv = new Map<string, string | undefined>();
 const SECRET_TENANT_NAME = "Geheim Mieterin";
 const REPEAT_BASE = "repeat-contract";
 const REPEAT_BODY =
@@ -135,7 +142,23 @@ async function seedLease(teamId: string): Promise<string> {
 }
 
 const provider = createInMemoryFileProvider();
-const renderCalls: DocumentDraftRenderArgs[] = [];
+const printedHtml: string[] = [];
+const stubService = Bun.serve({
+  port: 0,
+  async fetch(request) {
+    const { pathname } = new URL(request.url);
+    if (
+      pathname !== "/render" ||
+      request.headers.get("Authorization") !== `Bearer ${SERVICE_TOKEN}`
+    ) {
+      return new Response("unauthorized", { status: 401 });
+    }
+    const body: { html: string } = await request.json();
+    printedHtml.push(body.html);
+    return new Response(STUB_PDF, { headers: { "Content-Type": "application/pdf" } });
+  },
+});
+const STUB_URL = `http://127.0.0.1:${stubService.port}`;
 let stack: TestStack;
 
 const documentPayload = (slug: string, extra: Record<string, unknown> = {}) => ({
@@ -210,34 +233,11 @@ beforeAll(async () => {
           { kind: "document-pdf", slug: BASE, access: { roles: ["TenantAdmin"] }, variants: true },
         ],
       }),
-      createDocumentDraftFeature<UploadedFileBytes>({
+      createRendererFoundationFeature(),
+      createRendererPuppeteerClientFeature(),
+      createDocumentDraftFeature({
         subjectTypes: [SUBJECT_TYPE],
         subjectScreens: { [SUBJECT_TYPE]: "lease-detail" },
-        pdf: {
-          render: async (ctx, args) => {
-            renderCalls.push(args);
-            const uploaded = await uploadFileBytesBeforeTransaction(
-              {
-                db: ctx.db,
-                services: {
-                  files: fileContextForTenant(ctx, ctx.user.tenantId, ctx.user.tenantId),
-                },
-                registry: ctx.registry,
-                user: ctx.user,
-              },
-              { fileName: "contract.pdf", mimeType: "application/pdf", data: STUB_PDF },
-            );
-            return uploaded;
-          },
-          store: async (ctx, upload) => {
-            const stored = await createFileRefFromUploadedBytes(ctx, upload);
-            if (!stored.isSuccess) return stored;
-            return {
-              isSuccess: true,
-              data: { fileRefId: stored.data.id, fileName: stored.data.fileName },
-            };
-          },
-        },
       }),
     ],
     files: { storageProvider: provider },
@@ -246,6 +246,8 @@ beforeAll(async () => {
       configAccessorFactory: createConfigAccessorFactory(deps.registry, resolver),
     }),
   });
+
+  await unsafeCreateEntityTable(stack.db, renderedPdfEntity, "rendered-pdf");
 
   SUBJECT = await seedLease("team-a");
   FORGET_SUBJECT = await seedLease("team-a");
@@ -279,11 +281,23 @@ beforeAll(async () => {
 afterAll(async () => {
   resetPiiSubjectKmsForTests();
   await stack.cleanup();
+  await stubService.stop(true);
+});
+
+afterEach(() => {
+  for (const key of ENV_KEYS) {
+    const saved = savedEnv.get(key);
+    if (saved === undefined) delete process.env[key];
+    else process.env[key] = saved;
+  }
 });
 
 beforeEach(() => {
-  renderCalls.length = 0;
+  printedHtml.length = 0;
   provider.clear();
+  for (const key of ENV_KEYS) savedEnv.set(key, process.env[key]);
+  process.env["PUPPETEER_SERVICE_URL"] = STUB_URL;
+  process.env["PUPPETEER_AUTH_TOKEN"] = SERVICE_TOKEN;
 });
 
 describe("create", () => {
@@ -451,7 +465,10 @@ describe("save", () => {
 
 describe("repeat table template", () => {
   test("keeps data-each and data-repeat-header, an unchanged save shows no deviation and finalize prints the repeated rows", async () => {
-    const created = await create({ templateSlug: REPEAT_BASE, variables: {} });
+    const created = await create({
+      templateSlug: REPEAT_BASE,
+      variables: { rentSteps: [{ from: "ab 2027" }, { from: "ab 2028" }] },
+    });
     const fresh = await blocksOf(created.id);
     expect(fresh.body).toBe(fresh.templateBody);
     expect(fresh.body).toContain('data-each="rentSteps"');
@@ -472,9 +489,10 @@ describe("repeat table template", () => {
       { id: created.id, base: saved.version },
       admin,
     );
-    const printed = renderCalls[0]?.draft.content ?? "";
-    expect(printed).toContain('<tr data-if="rentSteps" data-repeat-header="">');
-    expect(printed).toContain('<tr data-each="rentSteps">');
+    expect(printedHtml).toHaveLength(1);
+    expect(printedHtml[0]).toContain("Staffel");
+    expect(printedHtml[0]).toContain("ab 2027");
+    expect(printedHtml[0]).toContain("ab 2028");
   });
 });
 
@@ -493,10 +511,9 @@ describe("finalize and revise", () => {
       revision: number;
     }>(DocumentDraftHandlers.finalize, { id: created.id, base: patched.version }, admin);
     expect(finalized.revision).toBe(1);
-    expect(renderCalls).toHaveLength(1);
-    expect(renderCalls[0]?.slug).toBe(BASE);
-    expect(renderCalls[0]?.variables).toEqual({ partyName: SECRET_TENANT_NAME });
-    expect(renderCalls[0]?.draft.content).toContain(CLAUSE);
+    expect(printedHtml).toHaveLength(1);
+    expect(printedHtml[0]).toContain(SECRET_TENANT_NAME);
+    expect(printedHtml[0]).toContain(CLAUSE);
 
     const closed = await blocksOf(created.id);
     expect(closed.status).toBe("finalized");
@@ -611,7 +628,7 @@ describe("access", () => {
       (await stack.http.queryErr(DocumentDraftQueries.blocks, { id: created.id }, foreignAdmin))
         .httpStatus,
     ).toBe(404);
-    expect(renderCalls).toEqual([]);
+    expect(printedHtml).toEqual([]);
   });
 
   test("a subject the user cannot read answers not found, one they can read lets them through", async () => {
@@ -642,7 +659,7 @@ describe("access", () => {
         )
       ).httpStatus,
     ).toBe(404);
-    expect(renderCalls).toEqual([]);
+    expect(printedHtml).toEqual([]);
 
     // Neither a wrong base nor a finalized draft may tell a blocked user anything but NotFound.
     const wrongBase = { id: created.id, base: Number(created.version) + 99 };
@@ -655,7 +672,7 @@ describe("access", () => {
       { id: created.id, base: created.version },
       allowedMember,
     );
-    const printsBefore = renderCalls.length;
+    const printsBefore = printedHtml.length;
     expect(
       (
         await stack.http.writeErr(
@@ -665,7 +682,7 @@ describe("access", () => {
         )
       ).httpStatus,
     ).toBe(404);
-    expect(renderCalls).toHaveLength(printsBefore);
+    expect(printedHtml).toHaveLength(printsBefore);
 
     const own = await create({}, allowedMember);
     expect((await blocksOf(own.id, allowedMember)).id).toBe(own.id);

@@ -97,10 +97,6 @@ export function deriveDetailRegionPieces(model: DetailRegionModel): DetailRegion
 
 // Tailwind needs the literal class strings.
 const NARROW_METRICS_ORDER = "max-md:order-1";
-// The split band keeps the padding of the single band: the lead part drops its bottom, the tiles
-// part trades its top for the band's gap-3.
-const LEAD_BAND_SHARED_PADDING = "[&>*]:pb-0";
-const TILES_BAND_SHARED_PADDING = "[&>*]:pt-3";
 const NARROW_TABS_ORDER = "max-md:order-2";
 const NARROW_TABS_ORDER_AFTER_STEPS = "max-md:order-3";
 
@@ -143,22 +139,20 @@ function renderBandWithNarrowMetrics(
   const splitsBand = subtitle !== undefined || lead !== undefined;
   return (
     <>
-      {splitsBand &&
-        wrapLayout(
-          primitives,
-          LEAD_BAND_SHARED_PADDING,
-          <MetricBand
-            testId="kumiko-screen-projection-detail-metrics-lead"
-            subtitle={subtitle}
-            {...(lead !== undefined && { lead })}
-          >
-            {undefined}
-          </MetricBand>,
-        )}
+      {splitsBand && (
+        <MetricBand
+          testId="kumiko-screen-projection-detail-metrics-lead"
+          subtitle={subtitle}
+          splitPart="lead"
+          {...(lead !== undefined && { lead })}
+        >
+          {undefined}
+        </MetricBand>
+      )}
       {wrapNarrowOrder(
         model,
-        splitsBand ? `${NARROW_METRICS_ORDER} ${TILES_BAND_SHARED_PADDING}` : NARROW_METRICS_ORDER,
-        renderMetricsBlock(model, metricItems),
+        NARROW_METRICS_ORDER,
+        renderMetricsBlock(model, metricItems, undefined, undefined, splitsBand ? "tiles" : undefined),
       )}
     </>
   );

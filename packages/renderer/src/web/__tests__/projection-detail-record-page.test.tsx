@@ -269,9 +269,9 @@ describe("narrow-only presentation", () => {
     };
     expect(inSection("Wide only").closest("[class*='max-sm:hidden']")).not.toBeNull();
     expect(inSection("Phone only").closest("[class*='sm:hidden']")).not.toBeNull();
-    expect(
-      inSection("Untitled on phone").closest("[class*='data-section-title']:not(section)"),
-    ).not.toBeNull();
+    expect(inSection("Untitled on phone").closest("[data-section-title]")?.className).toContain(
+      "max-sm:hidden",
+    );
     expect(screen.getByText("Long text").className).toContain("max-sm:hidden");
     expect(screen.getByText("Short text").className).toContain("sm:hidden");
     expect(screen.getByText("Ulm").closest("[class*='max-sm:hidden']")).toBeNull();

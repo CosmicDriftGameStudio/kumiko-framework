@@ -6,7 +6,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import {
   countPdfPages,
   rasterizeResponseSchema,
-} from "@cosmicdrift/kumiko-renderer-puppeteer-client";
+} from "@cosmicdrift/kumiko-bundled-features/renderer-puppeteer-client";
 import type { ServiceConfig } from "../config";
 import { closeIdleBrowser, isBrowserRunning, shutdownBrowser } from "../render";
 import { createApp } from "../server";

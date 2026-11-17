@@ -51,6 +51,7 @@ export function RenderEditActionButton({
   iconOnly = false,
   hideIcon = false,
   size,
+  className,
   Button,
   Dialog,
   onError,
@@ -63,6 +64,8 @@ export function RenderEditActionButton({
   readonly hideIcon?: boolean;
   /** Compact buttons for dense rows; an icon-only collapse keeps its own size. */
   readonly size?: "sm";
+  /** Layout extras on the button, merged with the compact-tap classes. */
+  readonly className?: string;
   readonly Button: ReturnType<typeof usePrimitives>["Button"];
   readonly Dialog: ReturnType<typeof usePrimitives>["Dialog"];
   readonly onError: (notice: ErrorNotice | null) => void;
@@ -86,6 +89,12 @@ export function RenderEditActionButton({
   const variant =
     action.display === "link" && action.style !== "danger" ? "link" : (action.style ?? "secondary");
   const showIconOnly = iconOnly && action.icon !== undefined;
+  const buttonClassName = [
+    !showIconOnly && size !== undefined ? COMPACT_TAP_CLASSES : undefined,
+    className,
+  ]
+    .filter((name) => name !== undefined)
+    .join(" ");
 
   return (
     <>
@@ -94,7 +103,8 @@ export function RenderEditActionButton({
         variant={variant}
         loading={busy}
         {...(action.icon !== undefined && (!hideIcon || showIconOnly) && { icon: action.icon })}
-        {...(!showIconOnly && size !== undefined && { size, className: COMPACT_TAP_CLASSES })}
+        {...(!showIconOnly && size !== undefined && { size })}
+        {...(buttonClassName !== "" && { className: buttonClassName })}
         {...(showIconOnly && {
           size: "icon" as const,
           ariaLabel: action.label,

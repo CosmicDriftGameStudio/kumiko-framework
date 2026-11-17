@@ -121,12 +121,13 @@ const compactScreen: ConfigEditScreenDefinition = {
   type: "configEdit",
   scope: "tenant",
   compact: true,
-  configKeys: { siteName: "demo:config:site-name" },
+  configKeys: { siteName: "demo:config:site-name", supportEmail: "demo:config:support-email" },
   fields: {
     siteName: { type: "text" },
+    supportEmail: { type: "text" },
     // @cast-boundary inline schema-author shape — FieldDefinition union too narrow
   } as ConfigEditScreenDefinition["fields"],
-  layout: { sections: [{ title: "Basics", fields: ["siteName"] }] },
+  layout: { sections: [{ title: "Basics", fields: ["siteName", "supportEmail"] }] },
 };
 
 describe("configEdit compact", () => {
@@ -154,7 +155,10 @@ describe("configEdit compact", () => {
     );
     await waitFor(() => screen.getByTestId("render-edit-form"));
     const compact = screen.getByTestId("config-edit-compact");
-    expect(compact.className).toContain("max-w-[940px]");
+    expect(screen.getByTestId("render-edit-form").firstElementChild?.className).toContain(
+      "max-w-[940px]",
+    );
+    expect(compact.querySelector("svg.pointer-events-none")).toBeNull();
     expect(compact.className).toContain("h-full");
     // The save bar is pinned below the capped column: full width, separator line, not inside the cap.
     const bar = screen.getByTestId("render-edit-form-unsaved").closest(".border-t");

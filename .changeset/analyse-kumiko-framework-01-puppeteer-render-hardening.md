@@ -1,5 +1,5 @@
 ---
-"@cosmicdrift/kumiko-renderer-puppeteer-client": patch
+"@cosmicdrift/kumiko-bundled-features": patch
 ---
 
 The puppeteer service isolates each render, times out hung screenshots and no longer returns internal error text.

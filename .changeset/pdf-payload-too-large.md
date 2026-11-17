@@ -1,5 +1,4 @@
 ---
-"@cosmicdrift/kumiko-renderer-puppeteer-client": patch
 "@cosmicdrift/kumiko-bundled-features": patch
 ---
 

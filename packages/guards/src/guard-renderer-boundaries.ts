@@ -89,7 +89,11 @@ const FORBIDDEN_SYMBOLS = [
 // Ignored: fragment `<>`, components `<Capitalized`, attribute values like
 // `<string>` in a type-annotation context (the regex only matches right
 // after whitespace/newline/>, not after an identifier character).
-const FORBIDDEN_JSX_TAG = /(^|\s|>|\()<([a-z][a-zA-Z0-9-]*)(?=[\s/>])/g;
+const FORBIDDEN_JSX_TAG = /(^|\s|>|\()<([a-z][a-zA-Z0-9-]*)(?=[\s/>]|$)/g;
+
+// A Tailwind arbitrary variant such as `[&>*]:pb-0` reaches into the DOM a web primitive renders;
+// the shared layer expresses the same look as a typed primitive prop.
+const ARBITRARY_SELECTOR_VARIANT = /\[&/;
 
 // Subtrees of packages/renderer/src that carry only the import rules.
 const IMPORT_RULES_ONLY_DIRS = ["headless", "flow-diagram", "live"] as const;
@@ -190,6 +194,14 @@ export function findViolations(file: string, root: string, importRulesOnly = fal
         file: path.relative(root, file),
         line: i + 1,
         rule: `forbidden-jsx-tag (<${jsxMatch[2]}>)`,
+        excerpt: trimmed,
+      });
+    }
+    if (ARBITRARY_SELECTOR_VARIANT.test(line)) {
+      violations.push({
+        file: path.relative(root, file),
+        line: i + 1,
+        rule: "arbitrary-selector-variant (`[&…]` in the platform-neutral renderer layer; express it as a primitive prop)",
         excerpt: trimmed,
       });
     }

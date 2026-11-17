@@ -31,6 +31,9 @@ export const FILL_TABLE_CLASS = cn(
   "[&>*>tr>:first-child]:pl-6 [&>*>tr>:last-child]:pr-[34px]",
 );
 
+// Same child-selector variant as the th background in FILL_TABLE_CLASS, so cn() keeps this one.
+export const MUTED_HEADER_CELLS_CLASS = "[&>thead>tr>th]:bg-muted";
+
 // `!`: beats the first/last-child padding of FILL_TABLE_CLASS, which would
 // otherwise widen the narrow toggle column / pad the full-width expansion cell.
 // The nested table's sticky actions cell (last td) gets the muted surface

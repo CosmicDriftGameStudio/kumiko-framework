@@ -129,6 +129,8 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
    *  above-control; below-control keeps the inputs of neighbouring fields
    *  on one line when an appendix expands. */
   readonly fieldAppendixPlacement?: "above-control" | "below-control";
+  /** `false` drops the prefix icon of every field, derived ones included. */
+  readonly fieldIcons?: false;
   /** Renders the form-error banner above the sections instead of below them. */
   readonly formErrorOnTop?: boolean;
   /** Per-field help text rendered under the label (translated by the caller). */

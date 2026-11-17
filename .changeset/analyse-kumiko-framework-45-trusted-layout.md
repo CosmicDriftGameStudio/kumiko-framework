@@ -1,7 +1,5 @@
 ---
 "@cosmicdrift/kumiko-bundled-features": patch
-"@cosmicdrift/kumiko-renderer-mail-html": patch
-"@cosmicdrift/kumiko-renderer-puppeteer-client": patch
 ---
 
 Mail rendering, PDF rendering and the PDF preview resolve layouts through one shared rule for re-checking tenant layouts.

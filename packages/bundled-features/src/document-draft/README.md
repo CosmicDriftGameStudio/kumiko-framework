@@ -9,26 +9,20 @@ of an editor) and finalized to a stored PDF. The template stays unchanged.
 
 ```typescript
 import { createDocumentDraftFeature } from "@cosmicdrift/kumiko-bundled-features/document-draft";
-import {
-  renderPdfBeforeTransaction,
-  storeRenderedPdf,
-} from "@cosmicdrift/kumiko-renderer-puppeteer-client";
 
 createDocumentDraftFeature({
   subjectTypes: ["lease"],
-  pdf: { render: renderPdfBeforeTransaction, store: storeRenderedPdf },
 });
 ```
 
-`bundled-features` never imports the print client; the app injects `render` and `store`. Requires the
-`files`, `template-resolver` and `user-data-rights` features and the print client to be mounted.
+The feature prints through the print client directly; mount `renderer-puppeteer-client` (it is a required feature). Requires the
+`files`, `template-resolver` and `user-data-rights` features.
 
 ## Options
 
 | Option             | Default                                      | Effect                                                                                                               |
 | ------------------ | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | `subjectTypes`     | required                                     | Entity names a draft belongs to; `create` refuses any other (400), a subject row the user cannot read answers 404 everywhere                                           |
-| `pdf`              | required                                     | `render` prints the draft before the transaction and uploads it, `store` stores the file in the finalize transaction |
 | `retention`        | `{ keepFor: "10y" }`                         | How long drafts are kept, counted from creation, hard delete                                                         |
 | `access`           | `{ roles: ["TenantAdmin", "TenantMember"] }` | `AccessRule` of all handlers and queries                                                                             |
 | `subjectScreens`   | none                                         | Screen id per subject type that the editor returns to after finalize or discard, opened with the subject id          |

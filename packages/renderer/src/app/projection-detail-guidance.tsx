@@ -286,6 +286,7 @@ function renderProgress(model: DetailGuidanceModel, stacked: boolean): ReactNode
     return [
       <Card
         key={testId}
+        {...(stacked && { className: "lg:flex-1" })}
         slots={{
           title: chain.title,
           ...(stacked && {
@@ -352,7 +353,7 @@ export function renderDetailGuidance(model: DetailGuidanceModel): ReactNode {
             {progressNode !== undefined &&
               wrapLayout(
                 model.primitives,
-                `${progressInset} lg:col-span-4 lg:flex lg:flex-col lg:pl-0 lg:[&>*]:flex-1`,
+                `${progressInset} lg:col-span-4 lg:flex lg:flex-col lg:pl-0`,
                 progressNode,
               )}
           </>,

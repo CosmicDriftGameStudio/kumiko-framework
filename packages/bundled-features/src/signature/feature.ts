@@ -59,10 +59,10 @@ export function createSignatureFeature(opts: SignatureOptions): FeatureDefinitio
 
   return defineFeature(SIGNATURE_FEATURE, (r) => {
     r.describe(
-      "Signature requests: a signed-in user asks several people to sign one PDF of the tenant. Every request belongs to a host row of an entity named in `hostEntities`; a user sees and works on a request only while that row is readable to them. Each signer draws a signature on a display in person or through a link in the URL fragment (14 days, limited opens, revocable, single-use, one answer for every rejection). The last signature moves the request to all-signed; a job renders a signature page through the injected print function, appends it to the unchanged original and completes the request. Events completed, declined, expired and failed report the outcome; signer name, email, image, IP and user agent are personal data.",
+      "Signature requests: a signed-in user asks several people to sign one PDF of the tenant. Every request belongs to a host row of an entity named in `hostEntities`; a user sees and works on a request only while that row is readable to them. Each signer draws a signature on a display in person or through a link in the URL fragment (14 days, limited opens, revocable, single-use, one answer for every rejection). The last signature moves the request to all-signed; a job renders a signature page through the print client, appends it to the unchanged original and completes the request. Events completed, declined, expired and failed report the outcome; signer name, email, image, IP and user agent are personal data.",
     );
     r.uiHints({ displayLabel: "Signatures", category: "data", recommended: false });
-    r.requires({ features: ["files", "user-data-rights"] });
+    r.requires({ features: ["files", "user-data-rights", "renderer-puppeteer-client"] });
     r.adoptsBundledLists();
     r.translations({ keys: SIGNATURE_I18N });
 
@@ -128,7 +128,7 @@ export function createSignatureFeature(opts: SignatureOptions): FeatureDefinitio
       trigger: { cron: "*/5 * * * *" },
       perTenant: true,
       concurrency: "skip",
-      handler: (_payload, ctx) => sweepSignatureRequests(ctx, opts),
+      handler: (_payload, ctx) => sweepSignatureRequests(ctx),
     });
 
     r.job({

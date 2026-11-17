@@ -1,8 +1,8 @@
 // Real stack over HTTP: the signed-in handlers run as a tenant user, the link handlers as an
-// anonymous caller in the default tenant. The print function is an injected stand-in that returns a
-// real PDF and records the HTML it was given; the HTTP client behind the real one has its own test.
+// anonymous caller in the default tenant. The print service is a real local HTTP stub that returns a
+// real PDF and records the HTML it was given.
 
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import {
   createEventStoreExecutor,
   createTenantDb,
@@ -35,6 +35,7 @@ import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
+  unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { PDFDocument } from "pdf-lib";
@@ -42,7 +43,17 @@ import * as z from "zod";
 import { createAuthFoundationFeature } from "../../auth-foundation/index.ts";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
 import { createDataRetentionFeature } from "../../data-retention/index.ts";
-import { RendererError } from "../../renderer-foundation/index.ts";
+import {
+  configValuesTable,
+  createConfigAccessorFactory,
+  createConfigFeature,
+  createConfigResolver,
+} from "../../config/index.ts";
+import { createRendererFoundationFeature } from "../../renderer-foundation/index.ts";
+import { renderedPdfEntity } from "../../renderer-puppeteer-client/entity.ts";
+import { createRendererPuppeteerClientFeature } from "../../renderer-puppeteer-client/feature.ts";
+import { createTemplateResolverFeature, templateResourceEntity } from "../../template-resolver/index.ts";
+import { createTenantFeature, tenantEntity, tenantMembershipsTable } from "../../tenant/index.ts";
 import { createSessionsFeature } from "../../sessions/index.ts";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.ts";
 import { createUserDataRightsFeature } from "../../user-data-rights/feature.ts";
@@ -88,6 +99,9 @@ const deliveredLinks = new Map<string, string>();
 const deliveredBy = new Map<string, { readonly issuerId: string }>();
 const failDeliveryFor = new Set<string>();
 const stubRequests: Array<{ html: string }> = [];
+const SERVICE_TOKEN = "signature-test-service-token";
+const ENV_KEYS = ["PUPPETEER_SERVICE_URL", "PUPPETEER_AUTH_TOKEN", "PUPPETEER_CLIENT_MAX_RETRIES"] as const;
+const savedEnv = new Map<string, string | undefined>();
 let ipCounter = 0;
 
 const fileRefExecutor = createEventStoreExecutor(fileRefsTable, fileRefEntity, {
@@ -128,11 +142,36 @@ async function onePagePdf(): Promise<Uint8Array> {
   return pdf.save();
 }
 
+const stubService = Bun.serve({
+  port: 0,
+  async fetch(request) {
+    const { pathname } = new URL(request.url);
+    if (
+      pathname !== "/render" ||
+      request.headers.get("Authorization") !== `Bearer ${SERVICE_TOKEN}`
+    ) {
+      return new Response("unauthorized", { status: 401 });
+    }
+    if (printerRejectsSize) {
+      return Response.json({ error: "signature page above the service limit" }, { status: 413 });
+    }
+    if (printerDown) {
+      return Response.json({ error: "print service unavailable" }, { status: 503 });
+    }
+    const body: { html: string } = await request.json();
+    stubRequests.push({ html: body.html });
+    await whilePrinting?.();
+    return new Response(await onePagePdf(), { headers: { "Content-Type": "application/pdf" } });
+  },
+});
+const STUB_URL = `http://127.0.0.1:${stubService.port}`;
+
 function printedHtml(): string[] {
   return stubRequests.map((request) => request.html);
 }
 
 beforeAll(async () => {
+  const resolver = createConfigResolver();
   stack = await setupTestStack({
     features: [
       createUserFeature(),
@@ -144,19 +183,15 @@ beforeAll(async () => {
       createFilesFeature(),
       deliveryOutboxFeature,
       leaseHostFeature,
+      createConfigFeature(),
+      createTenantFeature(),
+      createTemplateResolverFeature(),
+      createRendererFoundationFeature(),
+      createRendererPuppeteerClientFeature(),
       createSignatureFeature({
         hostEntities: ["lease"],
         retention: { keepFor: "10y", unfinishedKeepFor: "0h" },
         linkSecret: LINK_SECRET,
-        renderHtmlToPdf: async (html) => {
-          if (printerRejectsSize) {
-            throw new RendererError("signature page above the service limit", "payload_too_large");
-          }
-          if (printerDown) throw new Error("print service unavailable");
-          stubRequests.push({ html });
-          await whilePrinting?.();
-          return onePagePdf();
-        },
         signaturePageUrl: "https://app.example/sign",
         deliverLink: async (ctx, { signerId, url, issuedBy }) => {
           deliveredLinks.set(signerId, url);
@@ -168,12 +203,20 @@ beforeAll(async () => {
       }),
     ],
     files: { storageProvider: provider },
+    extraContext: (deps) => ({
+      configResolver: resolver,
+      configAccessorFactory: createConfigAccessorFactory(deps.registry, resolver),
+    }),
     jobs: { consumerLane: "worker", getActiveTenantIds: async () => [TENANT] },
     anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID },
     trustedProxyHops: 1,
     observability: recorder,
   });
   await unsafeCreateEntityTable(stack.db, userEntity);
+  await unsafeCreateEntityTable(stack.db, templateResourceEntity, "template-resource");
+  await unsafeCreateEntityTable(stack.db, tenantEntity, "tenant");
+  await unsafeCreateEntityTable(stack.db, renderedPdfEntity, "rendered-pdf");
+  await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
   await unsafeCreateEntityTable(stack.db, deliveryOutboxEntity, "deliveryOutbox");
   await unsafeCreateEntityTable(stack.db, signatureRequestEntity, SIGNATURE_REQUEST_ENTITY);
   await unsafeCreateEntityTable(stack.db, signatureSignerEntity, SIGNATURE_SIGNER_ENTITY);
@@ -181,9 +224,22 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await stack.cleanup();
+  await stubService.stop(true);
+});
+
+afterEach(() => {
+  for (const key of ENV_KEYS) {
+    const saved = savedEnv.get(key);
+    if (saved === undefined) delete process.env[key];
+    else process.env[key] = saved;
+  }
 });
 
 beforeEach(async () => {
+  for (const key of ENV_KEYS) savedEnv.set(key, process.env[key]);
+  process.env["PUPPETEER_SERVICE_URL"] = STUB_URL;
+  process.env["PUPPETEER_AUTH_TOKEN"] = SERVICE_TOKEN;
+  process.env["PUPPETEER_CLIENT_MAX_RETRIES"] = "0";
   recorder.reset();
   printerDown = false;
   printerRejectsSize = false;

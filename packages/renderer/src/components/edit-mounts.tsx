@@ -2,7 +2,7 @@ import type { PlatformComponent } from "@cosmicdrift/kumiko-framework/ui-types";
 import { type ReactNode, useCallback, useEffect } from "react";
 import { extensionSectionName, useExtensionSectionComponent } from "../app/extension-sections.tsx";
 import { rendererWarn } from "../dev-console.ts";
-import type { EditExtensionSectionViewModel } from "../headless/index.ts";
+import type { EditExtensionSectionViewModel, EditSectionViewModel } from "../headless/index.ts";
 import { type StickyPrimaryActionMarker, usePrimitives } from "../primitives.tsx";
 
 // Resolves an extension-section's `{ react: { __component: "X" } }` marker
@@ -26,7 +26,7 @@ export function ExtensionSectionMount({
   stepKey,
   onReportStepComplete,
 }: {
-  readonly section: EditExtensionSectionViewModel;
+  readonly section: EditExtensionSectionViewModel & Pick<EditSectionViewModel, "titleOnNarrow">;
   readonly entityName: string;
   readonly entityId: string | null;
   readonly initialValues?: Readonly<Record<string, unknown>>;
@@ -74,6 +74,7 @@ export function ExtensionSectionMount({
         key={section.title}
         {...(anchorId !== undefined && { id: anchorId })}
         title={section.title}
+        {...(section.titleOnNarrow === false && { titleOnNarrow: false as const })}
         testId={testId}
       >
         {placeholder}
@@ -101,6 +102,7 @@ export function ExtensionSectionMount({
       {...(actions !== undefined && { actions })}
       {...(anchorId !== undefined && { id: anchorId })}
       title={section.title}
+      {...(section.titleOnNarrow === false && { titleOnNarrow: false as const })}
       testId={testId}
     >
       {mounted}

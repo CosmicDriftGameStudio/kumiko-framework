@@ -139,12 +139,6 @@
       "path": "./packages/feature-ast"
     },
     {
-      "path": "./packages/renderer-mail-html"
-    },
-    {
-      "path": "./packages/renderer-puppeteer-client"
-    },
-    {
       "path": "./apps/puppeteer-service"
     }
   ],
