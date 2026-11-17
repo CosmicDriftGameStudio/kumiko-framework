@@ -80,6 +80,7 @@ const testPrimitives = createStubPrimitives({
 
 function invoiceEntity(): EntityDefinition {
   return createEntity({
+    name: "invoice",
     table: "Invoices",
     fields: {
       total: createMoneyField({ required: true }),

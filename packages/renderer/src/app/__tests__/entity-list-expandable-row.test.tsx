@@ -149,6 +149,7 @@ const testPrimitives = createStubPrimitives({
 
 function buildSchema(withExpandableRow: boolean): FeatureSchema {
   const entity: EntityDefinition = {
+    name: "item",
     fields: {
       name: {
         type: "text",

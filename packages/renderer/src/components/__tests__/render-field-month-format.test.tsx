@@ -44,6 +44,7 @@ const testPrimitives = createStubPrimitives({
 });
 
 const entity = {
+  name: "periodItem",
   fields: {
     period: {
       type: "text",

@@ -1900,7 +1900,7 @@ describe("RelatedListSection — sortable column over a declared entity", () => 
     };
     const schema: FeatureSchema = {
       featureName: "lease",
-      entities: { item: createEntity({ table: "Items", fields: { dueDate: createDateField() } }) },
+      entities: { item: createEntity({ name: "item", table: "Items", fields: { dueDate: createDateField() } }) },
       screens: [],
     };
     render(

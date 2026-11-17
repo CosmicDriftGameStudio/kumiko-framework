@@ -33,7 +33,7 @@ import type {
   TranslationKeys,
 } from "@cosmicdrift/kumiko-types/config";
 import type { MetricOptions, SecretOptions } from "@cosmicdrift/kumiko-types/feature";
-import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
+
 import type { AgentRisk, ClaimKeyType, RateLimitPer } from "@cosmicdrift/kumiko-types/handlers";
 import { ESCAPE_HATCH_GRANTS } from "@cosmicdrift/kumiko-types/handlers";
 import type { HookPhase } from "@cosmicdrift/kumiko-types/hook-phase";
@@ -55,7 +55,7 @@ import type {
 } from "./patch.ts";
 import { SYNTHETIC_LOC } from "./patcher.ts";
 import { patternIdSchema } from "./pattern-id-schema.ts";
-import type { FeaturePatternKind } from "./patterns.ts";
+import type { EntityPatternDefinition, FeaturePatternKind } from "./patterns.ts";
 import type { SourceLocation, SourcePosition } from "./source-location.ts";
 
 // Derives an exhaustive literal-value array from a `Record<T, true>` flag
@@ -197,12 +197,14 @@ const mspDeliverySchema = z.enum(
   keysOf<"shared" | "per-instance">({ shared: true, "per-instance": true }),
 );
 
+const escapeHatchGrantSchema = z.enum(ESCAPE_HATCH_GRANTS);
+
 const escapeHatchSchema = z
   .object({
     reason: z.string().refine((s) => s.trim().length > 0, {
       message: "reason must be non-empty",
     }),
-    grants: z.array(z.enum(ESCAPE_HATCH_GRANTS)).min(1),
+    grants: z.tuple([escapeHatchGrantSchema], escapeHatchGrantSchema),
   })
   .strict();
 
@@ -417,7 +419,7 @@ function requireHandlerBody(
 // Deep-definition passthrough: accepts a plain object OR the extractor's
 // own "couldn't resolve this statically" sentinel (RawRefSentinel), typed
 // as `T` at the boundary — the same "typed lie" the extractors already
-// make (e.g. round2.ts's `definition as EntityDefinition`), because a
+// make (e.g. round2.ts's `definition as EntityPatternDefinition`), because a
 // sentinel-bearing value is never actually shaped like `T` at runtime, but
 // round-trips through `applyChanges`/the renderer unexamined either way.
 function passthroughSchema<T>(): z.ZodType<T> {
@@ -426,15 +428,17 @@ function passthroughSchema<T>(): z.ZodType<T> {
   });
 }
 
-const entityDefinitionSchema = passthroughSchema<EntityDefinition>().superRefine((value, ctx) => {
-  for (const entry of findUnknownEntityFieldTypes(value)) {
-    ctx.addIssue({
-      code: "custom",
-      path: ["fields", entry.fieldName, "type"],
-      message: describeUnknownFieldType(entry),
-    });
-  }
-});
+const entityDefinitionSchema = passthroughSchema<EntityPatternDefinition>().superRefine(
+  (value, ctx) => {
+    for (const entry of findUnknownEntityFieldTypes(value)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["fields", entry.fieldName, "type"],
+        message: describeUnknownFieldType(entry),
+      });
+    }
+  },
+);
 
 const entitySchema = z
   .object({

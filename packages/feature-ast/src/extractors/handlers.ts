@@ -116,6 +116,8 @@ const QUERY_HANDLER_KEY_KINDS: Record<keyof QueryHandlerDef, KeyClassification> 
   rateLimit: "modeled",
   outputSchema: "opaque",
   liveEntities: "opaque",
+  resultEntity: "opaque",
+  unfilteredResult: "opaque",
   escapeHatch: "modeled",
 };
 

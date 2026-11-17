@@ -406,7 +406,7 @@ describe("WriteFormSection — section.description as subtitle", () => {
       entity: "order",
       layout: { sections: [sectionSpec] },
     };
-    const entity: EntityDefinition = { fields: {} };
+    const entity: EntityDefinition = { name: "emptyItem", fields: {} };
     const viewModel = computeEditViewModel({
       screen,
       entity,

@@ -199,13 +199,16 @@ describe("render → parse roundtrip — mixed patterns (header data + opaque bo
 // guarantee than parse → render → parse, because it pins that the renderer
 // never depends on the input file's whitespace — its output is deterministic
 // from the parsed FeaturePattern shape alone.
+const EVENT_ENTITY_DECLARATION = `const eventEntity = createEntity({
+  name: "event",
+  fields: { name: { type: "text", required: true } },
+});`;
+
 const RAW_REF_FEATURE = `
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { chatCompleteHandler } from "./handlers";
 
-const eventEntity = {
-  fields: { name: { type: "text", required: true } },
-};
+${EVENT_ENTITY_DECLARATION}
 
 function buildFields() {
   return { title: { type: "text" } };
@@ -272,7 +275,8 @@ describe("render → parse roundtrip — unresolved references (raw-ref sentinel
       featureName: initial.featureName ?? "",
       patterns: initial.patterns,
     });
-    const reparsed = parse(rendered);
+    // The renderer emits patterns only; the entity's name lives in its createEntity declaration.
+    const reparsed = parse(`${EVENT_ENTITY_DECLARATION}\n${rendered}`);
     expect(reparsed.patterns.map(stripLocations)).toEqual(initial.patterns.map(stripLocations));
   });
 });
@@ -609,7 +613,9 @@ describe("render → parse roundtrip — r.defineEvent piiFields stance", () => 
       featureName: initial.featureName ?? "",
       patterns: initial.patterns,
     });
-    expect(rendered).toContain('piiFields: { recipientAddress: { personal: { of: "recipientId" } } }');
+    expect(rendered).toContain(
+      'piiFields: { recipientAddress: { personal: { of: "recipientId" } } }',
+    );
     const reparsed = parse(rendered);
     expect(reparsed.patterns.map(stripLocations)).toEqual(initial.patterns.map(stripLocations));
 

@@ -100,6 +100,7 @@ function testPrimitives(): CorePrimitives {
 
 function buildEntity(required = false): EntityDefinition {
   return {
+    name: "submitItem",
     fields: {
       name: {
         type: "text",
@@ -437,7 +438,7 @@ describe("RenderEdit — submit path", () => {
       entity: "trigger",
       layout: { sections: [] },
     };
-    renderEdit(zeroFieldScreen, {}, { fields: {} });
+    renderEdit(zeroFieldScreen, {}, { name: "emptyItem", fields: {} });
 
     const save = rtlScreen.getByTestId("render-edit-submit") as HTMLButtonElement;
     expect(save.disabled).toBe(false);

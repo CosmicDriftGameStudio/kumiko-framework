@@ -1,5 +1,4 @@
 import type {
-  EntityDefinition,
   NavDefinition,
   RelationDefinition,
   WorkspaceDefinition,
@@ -13,7 +12,13 @@ import type {
 } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
 import { describeUnknownFieldType, findUnknownEntityFieldTypes } from "../entity-field-types.ts";
-import type { EntityPattern, NavPattern, RelationPattern, WorkspacePattern } from "../patterns.ts";
+import type {
+  EntityPattern,
+  EntityPatternDefinition,
+  NavPattern,
+  RelationPattern,
+  WorkspacePattern,
+} from "../patterns.ts";
 import { sourceLocationFromNode } from "../source-location.ts";
 import {
   type ExtractOutput,
@@ -141,7 +146,7 @@ export function extractEntity(
       return fail(
         "entity",
         sourceLocationFromNode(call, sourceFile),
-        "the entity's name could not be read: declare it with createEntity({ name: \"...\", ... }) in the same file",
+        'the entity\'s name could not be read: declare it with createEntity({ name: "...", ... }) in the same file',
       );
     }
     // Same narrowing contract as the inline path: the reference stays opaque until render.
@@ -150,7 +155,7 @@ export function extractEntity(
       kind: "entity",
       source: sourceLocationFromNode(call, sourceFile),
       entityName: reference.entityName,
-      definition: opaqueDefinition as EntityDefinition,
+      definition: opaqueDefinition as EntityPatternDefinition,
       ...(reference.backingTable && { backingTable: reference.backingTable }),
     });
   }
@@ -194,7 +199,7 @@ export function extractEntity(
       entityName: nameInit.getLiteralValue(),
       // Field-type membership is checked above; the cast is the extractor's
       // existing narrowing contract (readDataLiteralNode returns unknown).
-      definition: defWithoutName as EntityDefinition,
+      definition: defWithoutName as EntityPatternDefinition,
       ...(spreadOnly?.backingTable && { backingTable: spreadOnly.backingTable }),
     });
   }
@@ -236,7 +241,7 @@ export function extractEntity(
     kind: "entity",
     source: sourceLocationFromNode(call, sourceFile),
     entityName,
-    definition: definition as EntityDefinition,
+    definition: definition as EntityPatternDefinition,
   });
 }
 

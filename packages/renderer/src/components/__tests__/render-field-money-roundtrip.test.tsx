@@ -57,11 +57,12 @@ const testPrimitives = createStubPrimitives({
 
 function buildEntity(defaultCurrency: string): EntityDefinition {
   return {
+    name: "priceItem",
     fields: {
       price: { type: "money", required: true },
     },
     defaultCurrency,
-  } as EntityDefinition;
+  };
 }
 
 function buildScreen(): EntityEditScreenDefinition {

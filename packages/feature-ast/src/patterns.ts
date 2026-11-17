@@ -99,11 +99,14 @@ import type { SourceLocation } from "./source-location.ts";
 // Carries `definition.description` transitively (no dedicated field here):
 // that prose feeds the AI-agent manifest output. An entity without it still
 // works, but the agent has nothing to say about it in the tool catalogue.
+// `entityName` is the single source of the name; the definition never repeats it.
+export type EntityPatternDefinition = Omit<EntityDefinition, "name">;
+
 export type EntityPattern = {
   readonly kind: "entity";
   readonly source: SourceLocation;
   readonly entityName: string;
-  readonly definition: EntityDefinition;
+  readonly definition: EntityPatternDefinition;
   // Table identifier from `{ name, ...ref, backingTable }`; only kept for the spread form, where
   // the definition is an opaque reference and the table would otherwise be lost on re-render.
   readonly backingTable?: RawRefSentinel;

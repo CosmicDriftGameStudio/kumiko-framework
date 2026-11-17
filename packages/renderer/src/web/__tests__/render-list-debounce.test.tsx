@@ -24,8 +24,9 @@ import { defaultPrimitives } from "../primitives/index.tsx";
 // One column is sufficient because this tests only the search-debounce path,
 // not the depth of DataTable rendering.
 const entity: EntityDefinition = {
+  name: "item",
   fields: { title: { type: "text", allowPlaintext: "test fixture value, not personal data" } },
-} as EntityDefinition;
+};
 
 const screenDef: EntityListScreenDefinition = {
   id: "items",

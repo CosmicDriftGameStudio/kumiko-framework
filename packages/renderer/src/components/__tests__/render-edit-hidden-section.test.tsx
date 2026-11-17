@@ -61,6 +61,7 @@ function testPrimitives(): CorePrimitives {
 
 function buildEntity(): EntityDefinition {
   return {
+    name: "hiddenSectionItem",
     fields: {
       name: {
         type: "text",

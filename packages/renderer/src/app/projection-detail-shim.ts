@@ -41,7 +41,7 @@ import { SYNTHESIZED_FIELD_PII_REASON } from "./projection-list-shim.ts";
  *  is needed). */
 export function synthesizeProjectionDetailEntity(
   layout: EditLayout,
-): Pick<EntityDefinition, "fields"> {
+): EntityDefinition {
   const fields: Record<string, EntityDefinition["fields"][string]> = {};
   for (const section of layout.sections) {
     // relatedList and extension sections carry no `fields` to synthesize.
@@ -55,7 +55,7 @@ export function synthesizeProjectionDetailEntity(
       };
     }
   }
-  return { fields };
+  return { name: PROJECTION_DETAIL_PSEUDO_ENTITY, fields };
 }
 
 /** Converts a ProjectionDetailScreenDefinition to the EntityEditScreen shape

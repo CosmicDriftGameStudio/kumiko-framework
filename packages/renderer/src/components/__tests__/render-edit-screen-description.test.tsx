@@ -31,6 +31,7 @@ const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNod
 
 function buildEntity(): EntityDefinition {
   return {
+    name: "describedItem",
     fields: {
       name: {
         type: "text",

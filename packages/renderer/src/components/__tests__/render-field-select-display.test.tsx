@@ -48,6 +48,7 @@ const AREAS = ["jobs", "mail", "search", "events", "tenants"] as const;
 
 function buildEntity(display: "radio" | "dropdown" | undefined): EntityDefinition {
   return {
+    name: "areaItem",
     fields: {
       area: {
         type: "select",
