@@ -354,8 +354,8 @@ describe("rebuildMultiStreamProjection — rebuildable read-model", () => {
     await runFullDispatcher();
 
     const liveRows = await selectMany<{ readonly customer: string }>(stack.db, balanceTable);
-    const aliceLive = liveRows.find((r) => r.customer === alice);
-    const bobLive = liveRows.find((r) => r.customer === bob);
+    const aliceLive = liveRows.find((r) => r["customer"] === alice);
+    const bobLive = liveRows.find((r) => r["customer"] === bob);
     expect(aliceLive).toMatchObject({ invoicesCents: 15_00, paymentsCents: 3_00 });
     expect(bobLive).toMatchObject({ invoicesCents: 7_50, paymentsCents: 0 });
 
@@ -505,8 +505,8 @@ describe("rebuildMultiStreamProjection — archived streams", () => {
     expect(result.eventsProcessed).toBe(2);
     const rows = await selectMany(stack.db, balanceTable);
     expect(rows).toHaveLength(2);
-    expect(rows.find((r) => r.customer === gina)).toMatchObject({ invoicesCents: 11_00 });
-    expect(rows.find((r) => r.customer === hugo)).toMatchObject({ invoicesCents: 6_00 });
+    expect(rows.find((r) => r["customer"] === gina)).toMatchObject({ invoicesCents: 11_00 });
+    expect(rows.find((r) => r["customer"] === hugo)).toMatchObject({ invoicesCents: 6_00 });
   });
 });
 

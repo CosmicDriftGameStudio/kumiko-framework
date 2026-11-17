@@ -3,10 +3,10 @@ import { createRegistry, type TenantId } from "@cosmicdrift/kumiko-framework/eng
 import { extractText, getDocumentProxy } from "unpdf";
 import {
   collectRendererPlugins,
-  createRendererFoundationApi,
   createRendererFoundationFeature,
   type RendererContext,
   RendererError,
+  selectRendererPlugin,
 } from "../../renderer-foundation/index.ts";
 import { createTemplateResolverFeature } from "../../template-resolver/feature.ts";
 import { createRendererPdfFeature, renderTablePdfRequest } from "../feature.ts";
@@ -303,11 +303,11 @@ describe("renderer-pdf plugin", () => {
     createRendererFoundationFeature(),
     createRendererPdfFeature(),
   ]);
-  const api = createRendererFoundationApi(collectRendererPlugins(registry));
+  const plugins = collectRendererPlugins(registry);
   const ctx: RendererContext = { db: null as never, registry, tenantId: TENANT };
 
   test("is selected for document-pdf and renders payload.variables", async () => {
-    const renderer = api.createRendererForTenant({ tenantId: TENANT, kind: "document-pdf" });
+    const renderer = selectRendererPlugin(plugins, "document-pdf");
 
     const response = await renderer.render(
       {
@@ -332,7 +332,7 @@ describe("renderer-pdf plugin", () => {
   });
 
   test("negative margins in the request options raise invalid_payload", async () => {
-    const renderer = api.createRendererForTenant({ tenantId: TENANT, kind: "document-pdf" });
+    const renderer = selectRendererPlugin(plugins, "document-pdf");
 
     const attempt = renderer.render(
       {
@@ -354,7 +354,7 @@ describe("renderer-pdf plugin", () => {
   });
 
   test("variables that are no table document raise invalid_payload", async () => {
-    const renderer = api.createRendererForTenant({ tenantId: TENANT, kind: "document-pdf" });
+    const renderer = selectRendererPlugin(plugins, "document-pdf");
 
     const attempt = renderer.render(
       { kind: "document-pdf", payload: { slug: "table", locale: "de", variables: { title: 5 } } },

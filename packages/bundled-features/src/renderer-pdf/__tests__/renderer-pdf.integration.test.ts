@@ -4,8 +4,8 @@ import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stac
 import { extractText, getDocumentProxy } from "unpdf";
 import {
   collectRendererPlugins,
-  createRendererFoundationApi,
   createRendererFoundationFeature,
+  selectRendererPlugin,
 } from "../../renderer-foundation/index.ts";
 import { createTemplateResolverFeature } from "../../template-resolver/feature.ts";
 import { createRendererPdfFeature } from "../feature.ts";
@@ -30,8 +30,7 @@ afterAll(async () => {
 
 describe("renderer-pdf :: mounted next to renderer-foundation", () => {
   test("the plugin serves document-pdf and renders through the real registry", async () => {
-    const api = createRendererFoundationApi(collectRendererPlugins(stack.registry));
-    const renderer = api.createRendererForTenant({ tenantId: TENANT, kind: "document-pdf" });
+    const renderer = selectRendererPlugin(collectRendererPlugins(stack.registry), "document-pdf");
 
     const response = await renderer.render(
       {

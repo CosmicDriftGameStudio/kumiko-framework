@@ -2,7 +2,7 @@
 // recorded as an event on a fixed system-tenant stream, so every worker and every
 // restart agrees on when the takeover window began.
 
-import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { defineWriteHandler, type WriteResult } from "@cosmicdrift/kumiko-framework/engine";
 import { v5 as uuidv5 } from "uuid";
 import * as z from "zod";
 import { SUBSCRIPTION_PADDLE_FEATURE } from "./constants.ts";
@@ -36,7 +36,7 @@ export const ledgerBackfillMarkerHandler = defineWriteHandler({
   agent: { expose: false },
   schema: ledgerBackfillMarkerPayloadSchema,
   access: { roles: ["system"] },
-  handler: async (event, ctx) => {
+  handler: async (event, ctx): Promise<WriteResult<LedgerBackfillMarkerResult>> => {
     const { markCompleted } = event.payload;
     const stored = await ctx.events.load(LEDGER_BACKFILL_AGGREGATE_ID);
     const marker = stored.find((entry) => entry.type === LEDGER_BACKFILL_EVENT_QN);
@@ -59,6 +59,8 @@ export const ledgerBackfillMarkerHandler = defineWriteHandler({
       aggregateType: LEDGER_BACKFILL_AGGREGATE_TYPE,
       type: LEDGER_BACKFILL_EVENT_QN,
       payload: { completedAt },
+      blindAppendReason:
+        "the marker is written only when the stream has no marker event yet; a concurrent duplicate is harmless because readers take the first marker",
     });
     return {
       isSuccess: true as const,

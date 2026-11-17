@@ -77,23 +77,24 @@ const configCipher = createTestEnvelopeCipher(randomBytes(32).toString("base64")
 // One key with the default tenant write access (admin roles), one that only
 // the system may write — bootstrap config has to reach both.
 const configProbeFeature = defineFeature("bootstrap-probe", (r) => {
-  r.config("greeting", createTenantConfig("text", { default: "hello" }));
-  r.config(
-    "locked",
-    createTenantConfig("select", {
-      default: "optional",
-      options: ["optional", "admins", "all"],
-      write: access.system,
-    }),
-  );
-  // Gated on a tenant role without SystemAdmin, like an app that keeps
-  // SystemAdmin out of tenant data.
-  r.config("pii-note", createTenantConfig("text", { default: "", piiEncrypted: true }));
-  r.config("encrypted-note", createTenantConfig("text", { default: "", encrypted: true }));
-  r.config(
-    "tenant-role-only",
-    createTenantConfig("text", { default: "", write: access.roles(TENANT_ROLE) }),
-  );
+  r.config({
+    keys: {
+      greeting: createTenantConfig("text", { default: "hello" }),
+      locked: createTenantConfig("select", {
+        default: "optional",
+        options: ["optional", "admins", "all"],
+        write: access.system,
+      }),
+      // Gated on a tenant role without SystemAdmin, like an app that keeps
+      // SystemAdmin out of tenant data.
+      "pii-note": createTenantConfig("text", { default: "", piiEncrypted: true }),
+      "encrypted-note": createTenantConfig("text", { default: "", encrypted: true }),
+      "tenant-role-only": createTenantConfig("text", {
+        default: "",
+        write: access.roles(TENANT_ROLE),
+      }),
+    },
+  });
 });
 
 let stack: TestStack;
