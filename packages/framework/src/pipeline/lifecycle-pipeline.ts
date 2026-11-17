@@ -110,188 +110,41 @@ export type LifecycleOptions = {
   eventDedup?: EventDedup;
 };
 
+type LifecycleScope = {
+  readonly registry: Registry;
+  readonly systemHooks: SystemHooks;
+  readonly eventDedup: EventDedup | undefined;
+};
+
+type HookSetOptions<TPayload> = {
+  handlerName: string;
+  payload: TPayload;
+  context: HandlerContext;
+  entityName: string | undefined;
+  getHandlerHooks: (name: string) => readonly ((p: TPayload, c: HandlerContext) => Promise<void>)[];
+  getEntityHooks: (name: string) => readonly ((p: TPayload, c: HandlerContext) => Promise<void>)[];
+  systemHookDefs:
+    | readonly SystemHookDef<(p: TPayload, c: HandlerContext) => Promise<void>>[]
+    | undefined;
+  phaseLabel: string;
+  hookPhase: HookPhase;
+};
+
+type HookGroupScope = {
+  readonly tracer: Tracer;
+  readonly baseAttrs: Readonly<Record<string, string>>;
+  readonly hookPhase: HookPhase;
+  readonly throwOnError: boolean;
+  readonly errors: Array<{ name: string; error: unknown }>;
+};
+
 export function createLifecycleHooks(
   registry: Registry,
   systemHooks: SystemHooks = {},
   options: LifecycleOptions = {},
 ): LifecycleHooks {
   const { eventDedup } = options;
-
-  function sortByPriority<T extends { priority: number }>(hooks: readonly T[]): T[] {
-    return [...hooks].sort((a, b) => a.priority - b.priority);
-  }
-
-  // Shared hook execution: runs handler hooks → entity hooks → system hooks.
-  //
-  // Error handling depends on hookPhase:
-  //   - inTransaction: errors THROW (roll back transaction)
-  //   - afterCommit: errors are collected + logged (best-effort)
-  //
-  // Event dedup is only applied in afterCommit phase, because:
-  //   - the key must not be consumed if the transaction later rolls back
-  //   - in-tx hooks run once per commit, dedup there is redundant
-  async function runHookSet<TPayload>(opts: {
-    handlerName: string;
-    payload: TPayload;
-    context: HandlerContext;
-    entityName: string | undefined;
-    getHandlerHooks: (
-      name: string,
-    ) => readonly ((p: TPayload, c: HandlerContext) => Promise<void>)[];
-    getEntityHooks: (
-      name: string,
-    ) => readonly ((p: TPayload, c: HandlerContext) => Promise<void>)[];
-    systemHookDefs:
-      | readonly SystemHookDef<(p: TPayload, c: HandlerContext) => Promise<void>>[]
-      | undefined;
-    phaseLabel: string;
-    hookPhase: HookPhase;
-  }): Promise<void> {
-    const throwOnError = opts.hookPhase === HookPhases.inTransaction;
-
-    // Event dedup: only in afterCommit (see comment above).
-    //
-    // SEMANTICS: pre-claim dedup = "at-most-once". tryAcquire is called before
-    // the hook runs, so if the hook crashes mid-execution, the retry sees
-    // `acquired=false` and skips the rest. This is the right trade-off for
-    // best-effort side-effects like Search Index, SSE broadcast, Audit — a
-    // missed hook is preferable to a duplicate notification. Features that
-    // need at-least-once semantics must not rely on this path; use
-    // ctx.events.append + r.multiStreamProjection instead, which the
-    // event-dispatcher retries until the consumer advances.
-    if (eventDedup && opts.hookPhase === HookPhases.afterCommit) {
-      const eventId = buildEventId(opts.handlerName, opts.payload, opts.phaseLabel);
-      if (eventId) {
-        const acquired = await eventDedup.tryAcquire(eventId);
-        if (!acquired) {
-          opts.context.obs.log.debug(
-            `${opts.phaseLabel}: skipping ${opts.handlerName} — event ${eventId} already processed (dedup)`,
-          );
-          return;
-        }
-      } else {
-        // Missing id on a save/delete payload is unexpected — CrudExecutor
-        // always returns one. Log so we can spot framework/feature bugs where
-        // a handler emits a non-standard LifecycleResult and accidentally
-        // bypasses dedup.
-        opts.context.obs.log.warn(
-          `${opts.phaseLabel}: ${opts.handlerName} has no dedup id (payload missing \`id\`) — hook may run multiple times on retry`,
-        );
-      }
-    }
-
-    const errors: Array<{ name: string; error: unknown }> = [];
-    const tracer = resolveTracer(opts.context);
-
-    // Common span attributes — populated per-hook below with source/name.
-    const baseAttrs = {
-      "kumiko.hook_type": opts.phaseLabel,
-      "kumiko.hook_phase": opts.hookPhase,
-      "kumiko.handler": opts.handlerName,
-    };
-
-    for (const hook of opts.getHandlerHooks(opts.handlerName)) {
-      try {
-        await tracer.withSpan(
-          "kumiko.pipeline.hook",
-          { attributes: { ...baseAttrs, "kumiko.hook_source": "handler" } },
-          () => hook(opts.payload, opts.context),
-        );
-      } catch (e) {
-        if (throwOnError) throw e;
-        errors.push({ name: `handler:${opts.handlerName}`, error: e });
-      }
-    }
-
-    // Shared runner for entity + system hook sets. In afterCommit phase they
-    // run in parallel (independent side-effects, errors are collected); in
-    // inTransaction phase they run sequentially (hooks share ctx.db and each
-    // writes must be observable to subsequent ones). `itemAttrs` lets the
-    // caller attach per-hook span attributes (e.g. the hook name).
-    async function runHooks<TItem>(
-      items: readonly TItem[],
-      itemAttrs: (item: TItem) => Record<string, string>,
-      errorName: (item: TItem) => string,
-      invoke: (item: TItem) => Promise<void>,
-    ): Promise<void> {
-      // skip: no hooks to run for this phase/handler combo
-      if (items.length === 0) return;
-      const withSpan = (item: TItem) =>
-        tracer.withSpan(
-          "kumiko.pipeline.hook",
-          { attributes: { ...baseAttrs, ...itemAttrs(item) } },
-          () => invoke(item),
-        );
-
-      if (opts.hookPhase === HookPhases.afterCommit) {
-        const outcomes = await Promise.allSettled(items.map(withSpan));
-        for (let i = 0; i < outcomes.length; i++) {
-          const outcome = outcomes[i];
-          if (outcome?.status === "rejected") {
-            if (throwOnError) throw outcome.reason;
-            const item = items[i];
-            if (item !== undefined) errors.push({ name: errorName(item), error: outcome.reason });
-          }
-        }
-      } else {
-        for (const item of items) {
-          try {
-            await withSpan(item);
-          } catch (e) {
-            if (throwOnError) throw e;
-            errors.push({ name: errorName(item), error: e });
-          }
-        }
-      }
-    }
-
-    if (opts.entityName) {
-      const entityName = opts.entityName;
-      await runHooks(
-        opts.getEntityHooks(entityName),
-        () => ({ "kumiko.hook_source": "entity", "kumiko.entity": entityName }),
-        () => `entity:${entityName}`,
-        (hook) => hook(opts.payload, opts.context),
-      );
-    }
-
-    if (opts.systemHookDefs) {
-      const applicable = sortByPriority(opts.systemHookDefs).filter(
-        (h) => (h.phase ?? HookPhases.afterCommit) === opts.hookPhase,
-      );
-      await runHooks(
-        applicable,
-        (h) => ({ "kumiko.hook_source": "system", "kumiko.hook_name": h.name }),
-        (h) => h.name,
-        (h) => h.fn(opts.payload, opts.context),
-      );
-    }
-
-    if (errors.length > 0) {
-      const logError = createFallbackLogger("lifecycle", opts.context.obs.log);
-      const msg = `${opts.phaseLabel} errors for ${opts.handlerName}`;
-      logError.error(msg, { details: errors.map((e) => `${e.name}: ${e.error}`) });
-    }
-  }
-
-  async function runEntityPostDelete(
-    payload: DeleteContext,
-    context: HandlerContext,
-    phase: HookPhase,
-  ): Promise<void> {
-    const eff = currentEffectiveFeatures(context);
-    await runHookSet({
-      handlerName: `cascade:${payload.entityName}`,
-      payload,
-      context,
-      entityName: payload.entityName,
-      getHandlerHooks: () => [],
-      getEntityHooks: (n) => registry.getEntityPostDeleteHooks(n, phase, eff),
-      systemHookDefs: undefined,
-      phaseLabel: `postDelete:${phase}`,
-      hookPhase: phase,
-    });
-  }
+  const scope: LifecycleScope = { registry, systemHooks, eventDedup };
 
   return {
     async runPreSave(handlerName, changes, previous, isNew, context) {
@@ -314,7 +167,7 @@ export function createLifecycleHooks(
 
     async runPostSave(handlerName, result, context, phase = HookPhases.afterCommit) {
       const eff = currentEffectiveFeatures(context);
-      await runHookSet({
+      await runHookSet(scope, {
         handlerName,
         payload: result,
         context,
@@ -327,58 +180,17 @@ export function createLifecycleHooks(
       });
     },
 
-    async runPreDelete(handlerName, payload, context) {
-      // preDelete hooks run in-transaction and throw on failure (not best-effort).
-      // They're used to check invariants before delete, so phase filter is "inTransaction".
-      const eff = currentEffectiveFeatures(context);
-      for (const hook of registry.getPreDeleteHooks(handlerName, HookPhases.inTransaction, eff)) {
-        await hook(payload, context);
-      }
-
-      const cascaded: DeleteContext[] = [];
-      const entityName = payload.entityName;
-      if (entityName) {
-        // The parent's own preDelete hooks run first so its veto wins before any child is touched.
-        for (const hook of registry.getEntityPreDeleteHooks(
-          entityName,
-          HookPhases.inTransaction,
-          eff,
-        )) {
-          await hook(payload, context);
-        }
-
-        const onChildDeleted = async (child: DeleteContext): Promise<void> => {
-          if (child.entityName) {
-            for (const hook of registry.getEntityPreDeleteHooks(
-              child.entityName,
-              HookPhases.inTransaction,
-              eff,
-            )) {
-              await hook(child, context);
-            }
-          }
-          await applyCascadeDelete(registry, child, context, onChildDeleted);
-          await runEntityPostDelete(child, context, HookPhases.inTransaction);
-          cascaded.push(child);
-        };
-        await applyCascadeDelete(registry, payload, context, onChildDeleted);
-      }
-
-      if (systemHooks.preDelete) {
-        for (const sysHook of sortByPriority(systemHooks.preDelete)) {
-          const sysHookPhase = sysHook.phase ?? HookPhases.inTransaction;
-          if (sysHookPhase !== HookPhases.inTransaction) continue;
-          await sysHook.fn(payload, context);
-        }
-      }
-      return cascaded;
+    runPreDelete(handlerName, payload, context) {
+      return runPreDeleteHooks(scope, handlerName, payload, context);
     },
 
-    runEntityPostDelete,
+    runEntityPostDelete(payload, context, phase) {
+      return runEntityPostDeleteHooks(scope, payload, context, phase);
+    },
 
     async runPostDelete(handlerName, payload, context, phase = HookPhases.afterCommit) {
       const eff = currentEffectiveFeatures(context);
-      await runHookSet({
+      await runHookSet(scope, {
         handlerName,
         payload,
         context,
@@ -415,49 +227,279 @@ export function createLifecycleHooks(
       });
     },
   };
+}
 
-  // Runs batch hooks in parallel. Errors are logged but never rethrown —
-  // batch hooks fire after commit, so there's nothing to roll back.
-  async function runBatchHooks<TPayload>(opts: {
-    hooks: readonly SystemHookDef<(p: TPayload, c: HandlerContext) => Promise<void>>[] | undefined;
-    payload: TPayload;
-    context: HandlerContext;
-    phaseLabel: string;
-  }): Promise<void> {
-    // skip: no batch hooks registered for this phase
-    if (!opts.hooks || opts.hooks.length === 0) return;
-    const tracer = resolveTracer(opts.context);
-    const baseAttrs = { "kumiko.hook_type": opts.phaseLabel };
+function sortByPriority<T extends { priority: number }>(hooks: readonly T[]): T[] {
+  return [...hooks].sort((a, b) => a.priority - b.priority);
+}
 
-    const outcomes = await Promise.allSettled(
-      sortByPriority(opts.hooks).map((sysHook) =>
-        tracer.withSpan(
-          "kumiko.pipeline.hook",
-          {
-            attributes: {
-              ...baseAttrs,
-              "kumiko.hook_source": "system",
-              "kumiko.hook_name": sysHook.name,
-            },
-          },
-          () => sysHook.fn(opts.payload, opts.context),
-        ),
-      ),
+// Shared hook execution: runs handler hooks → entity hooks → system hooks.
+//
+// Error handling depends on hookPhase:
+//   - inTransaction: errors THROW (roll back transaction)
+//   - afterCommit: errors are collected + logged (best-effort)
+//
+// Event dedup is only applied in afterCommit phase, because:
+//   - the key must not be consumed if the transaction later rolls back
+//   - in-tx hooks run once per commit, dedup there is redundant
+async function runHookSet<TPayload>(
+  scope: LifecycleScope,
+  opts: HookSetOptions<TPayload>,
+): Promise<void> {
+  const { eventDedup } = scope;
+  const throwOnError = opts.hookPhase === HookPhases.inTransaction;
+
+  // Event dedup: only in afterCommit (see comment above).
+  //
+  // SEMANTICS: pre-claim dedup = "at-most-once". tryAcquire is called before
+  // the hook runs, so if the hook crashes mid-execution, the retry sees
+  // `acquired=false` and skips the rest. This is the right trade-off for
+  // best-effort side-effects like Search Index, SSE broadcast, Audit — a
+  // missed hook is preferable to a duplicate notification. Features that
+  // need at-least-once semantics must not rely on this path; use
+  // ctx.events.append + r.multiStreamProjection instead, which the
+  // event-dispatcher retries until the consumer advances.
+  if (eventDedup && opts.hookPhase === HookPhases.afterCommit) {
+    const eventId = buildEventId(opts.handlerName, opts.payload, opts.phaseLabel);
+    if (eventId) {
+      const acquired = await eventDedup.tryAcquire(eventId);
+      if (!acquired) {
+        opts.context.obs.log.debug(
+          `${opts.phaseLabel}: skipping ${opts.handlerName} — event ${eventId} already processed (dedup)`,
+        );
+        return;
+      }
+    } else {
+      // Missing id on a save/delete payload is unexpected — CrudExecutor
+      // always returns one. Log so we can spot framework/feature bugs where
+      // a handler emits a non-standard LifecycleResult and accidentally
+      // bypasses dedup.
+      opts.context.obs.log.warn(
+        `${opts.phaseLabel}: ${opts.handlerName} has no dedup id (payload missing \`id\`) — hook may run multiple times on retry`,
+      );
+    }
+  }
+
+  const errors: Array<{ name: string; error: unknown }> = [];
+  const tracer = resolveTracer(opts.context);
+
+  // Common span attributes — populated per-hook below with source/name.
+  const baseAttrs = {
+    "kumiko.hook_type": opts.phaseLabel,
+    "kumiko.hook_phase": opts.hookPhase,
+    "kumiko.handler": opts.handlerName,
+  };
+
+  for (const hook of opts.getHandlerHooks(opts.handlerName)) {
+    try {
+      await tracer.withSpan(
+        "kumiko.pipeline.hook",
+        { attributes: { ...baseAttrs, "kumiko.hook_source": "handler" } },
+        () => hook(opts.payload, opts.context),
+      );
+    } catch (e) {
+      if (throwOnError) throw e;
+      errors.push({ name: `handler:${opts.handlerName}`, error: e });
+    }
+  }
+
+  const group: HookGroupScope = {
+    tracer,
+    baseAttrs,
+    hookPhase: opts.hookPhase,
+    throwOnError,
+    errors,
+  };
+
+  if (opts.entityName) {
+    const entityName = opts.entityName;
+    await runHookGroup(
+      group,
+      opts.getEntityHooks(entityName),
+      () => ({ "kumiko.hook_source": "entity", "kumiko.entity": entityName }),
+      () => `entity:${entityName}`,
+      (hook) => hook(opts.payload, opts.context),
+    );
+  }
+
+  if (opts.systemHookDefs) {
+    const applicable = sortByPriority(opts.systemHookDefs).filter(
+      (h) => (h.phase ?? HookPhases.afterCommit) === opts.hookPhase,
+    );
+    await runHookGroup(
+      group,
+      applicable,
+      (h) => ({ "kumiko.hook_source": "system", "kumiko.hook_name": h.name }),
+      (h) => h.name,
+      (h) => h.fn(opts.payload, opts.context),
+    );
+  }
+
+  if (errors.length > 0) {
+    const logError = createFallbackLogger("lifecycle", opts.context.obs.log);
+    const msg = `${opts.phaseLabel} errors for ${opts.handlerName}`;
+    logError.error(msg, { details: errors.map((e) => `${e.name}: ${e.error}`) });
+  }
+}
+
+// Shared runner for entity + system hook sets. In afterCommit phase they
+// run in parallel (independent side-effects, errors are collected); in
+// inTransaction phase they run sequentially (hooks share ctx.db and each
+// writes must be observable to subsequent ones). `itemAttrs` lets the
+// caller attach per-hook span attributes (e.g. the hook name).
+async function runHookGroup<TItem>(
+  group: HookGroupScope,
+  items: readonly TItem[],
+  itemAttrs: (item: TItem) => Record<string, string>,
+  errorName: (item: TItem) => string,
+  invoke: (item: TItem) => Promise<void>,
+): Promise<void> {
+  // skip: no hooks to run for this phase/handler combo
+  if (items.length === 0) return;
+  const { tracer, baseAttrs, hookPhase, throwOnError, errors } = group;
+  const withSpan = (item: TItem) =>
+    tracer.withSpan(
+      "kumiko.pipeline.hook",
+      { attributes: { ...baseAttrs, ...itemAttrs(item) } },
+      () => invoke(item),
     );
 
-    const failures = outcomes
-      .map((o, i) => ({ outcome: o, name: opts.hooks?.[i]?.name ?? "unknown" }))
-      .filter(
-        (x): x is { outcome: PromiseRejectedResult; name: string } =>
-          x.outcome.status === "rejected",
-      );
-    // skip: all batch hooks succeeded, nothing to log
-    if (failures.length === 0) return;
-
-    const logError = createFallbackLogger("lifecycle", opts.context.obs.log);
-    const msg = `${opts.phaseLabel} errors`;
-    logError.error(msg, { details: failures.map((f) => `${f.name}: ${f.outcome.reason}`) });
+  if (hookPhase === HookPhases.afterCommit) {
+    const outcomes = await Promise.allSettled(items.map(withSpan));
+    for (let i = 0; i < outcomes.length; i++) {
+      const outcome = outcomes[i];
+      if (outcome?.status === "rejected") {
+        if (throwOnError) throw outcome.reason;
+        const item = items[i];
+        if (item !== undefined) errors.push({ name: errorName(item), error: outcome.reason });
+      }
+    }
+  } else {
+    for (const item of items) {
+      try {
+        await withSpan(item);
+      } catch (e) {
+        if (throwOnError) throw e;
+        errors.push({ name: errorName(item), error: e });
+      }
+    }
   }
+}
+
+async function runEntityPostDeleteHooks(
+  scope: LifecycleScope,
+  payload: DeleteContext,
+  context: HandlerContext,
+  phase: HookPhase,
+): Promise<void> {
+  const { registry } = scope;
+  const eff = currentEffectiveFeatures(context);
+  await runHookSet(scope, {
+    handlerName: `cascade:${payload.entityName}`,
+    payload,
+    context,
+    entityName: payload.entityName,
+    getHandlerHooks: () => [],
+    getEntityHooks: (n) => registry.getEntityPostDeleteHooks(n, phase, eff),
+    systemHookDefs: undefined,
+    phaseLabel: `postDelete:${phase}`,
+    hookPhase: phase,
+  });
+}
+
+async function runPreDeleteHooks(
+  scope: LifecycleScope,
+  handlerName: string,
+  payload: DeleteContext,
+  context: HandlerContext,
+): Promise<readonly DeleteContext[]> {
+  const { registry, systemHooks } = scope;
+  // preDelete hooks run in-transaction and throw on failure (not best-effort).
+  // They're used to check invariants before delete, so phase filter is "inTransaction".
+  const eff = currentEffectiveFeatures(context);
+  for (const hook of registry.getPreDeleteHooks(handlerName, HookPhases.inTransaction, eff)) {
+    await hook(payload, context);
+  }
+
+  const cascaded: DeleteContext[] = [];
+  const entityName = payload.entityName;
+  if (entityName) {
+    // The parent's own preDelete hooks run first so its veto wins before any child is touched.
+    for (const hook of registry.getEntityPreDeleteHooks(
+      entityName,
+      HookPhases.inTransaction,
+      eff,
+    )) {
+      await hook(payload, context);
+    }
+
+    const onChildDeleted = async (child: DeleteContext): Promise<void> => {
+      if (child.entityName) {
+        for (const hook of registry.getEntityPreDeleteHooks(
+          child.entityName,
+          HookPhases.inTransaction,
+          eff,
+        )) {
+          await hook(child, context);
+        }
+      }
+      await applyCascadeDelete(registry, child, context, onChildDeleted);
+      await runEntityPostDeleteHooks(scope, child, context, HookPhases.inTransaction);
+      cascaded.push(child);
+    };
+    await applyCascadeDelete(registry, payload, context, onChildDeleted);
+  }
+
+  if (systemHooks.preDelete) {
+    for (const sysHook of sortByPriority(systemHooks.preDelete)) {
+      const sysHookPhase = sysHook.phase ?? HookPhases.inTransaction;
+      if (sysHookPhase !== HookPhases.inTransaction) continue;
+      await sysHook.fn(payload, context);
+    }
+  }
+  return cascaded;
+}
+
+// Runs batch hooks in parallel. Errors are logged but never rethrown —
+// batch hooks fire after commit, so there's nothing to roll back.
+async function runBatchHooks<TPayload>(opts: {
+  hooks: readonly SystemHookDef<(p: TPayload, c: HandlerContext) => Promise<void>>[] | undefined;
+  payload: TPayload;
+  context: HandlerContext;
+  phaseLabel: string;
+}): Promise<void> {
+  // skip: no batch hooks registered for this phase
+  if (!opts.hooks || opts.hooks.length === 0) return;
+  const tracer = resolveTracer(opts.context);
+  const baseAttrs = { "kumiko.hook_type": opts.phaseLabel };
+
+  const outcomes = await Promise.allSettled(
+    sortByPriority(opts.hooks).map((sysHook) =>
+      tracer.withSpan(
+        "kumiko.pipeline.hook",
+        {
+          attributes: {
+            ...baseAttrs,
+            "kumiko.hook_source": "system",
+            "kumiko.hook_name": sysHook.name,
+          },
+        },
+        () => sysHook.fn(opts.payload, opts.context),
+      ),
+    ),
+  );
+
+  const failures = outcomes
+    .map((o, i) => ({ outcome: o, name: opts.hooks?.[i]?.name ?? "unknown" }))
+    .filter(
+      (x): x is { outcome: PromiseRejectedResult; name: string } => x.outcome.status === "rejected",
+    );
+  // skip: all batch hooks succeeded, nothing to log
+  if (failures.length === 0) return;
+
+  const logError = createFallbackLogger("lifecycle", opts.context.obs.log);
+  const msg = `${opts.phaseLabel} errors`;
+  logError.error(msg, { details: failures.map((f) => `${f.name}: ${f.outcome.reason}`) });
 }
 
 // Build a unique eventId from handler + entity identity + version + phase.
