@@ -1,7 +1,10 @@
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { BRANDING_CSS_FEATURE } from "../constants.ts";
-import { readBrandingWithLegacyFallback, readCustomCssWithLegacyFallback } from "../legacy-fallback.ts";
+import {
+  readBrandingWithLegacyFallback,
+  readCustomCssWithLegacyFallback,
+} from "../legacy-fallback.ts";
 
 // Public branding read for the server-render path. Anonymous-capable: the
 // render route reaches this via internal app.fetch with X-Tenant = host-

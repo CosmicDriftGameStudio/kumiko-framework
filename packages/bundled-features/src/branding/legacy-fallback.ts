@@ -1,8 +1,8 @@
-import {
-  type ConfigAccessor,
-  type ConfigKeyDefinition,
-  type ConfigValueSource,
-  type HandlerContext,
+import type {
+  ConfigAccessor,
+  ConfigKeyDefinition,
+  ConfigValueSource,
+  HandlerContext,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { type ConfigSourceReader, readsWithSource } from "../config/index.ts";
 import { type BrandingTokens, EMPTY_BRANDING } from "../page-render/index.ts";
@@ -62,7 +62,9 @@ async function readText(
   return textOf(current.value);
 }
 
-function sourceReaderOfAccessor(config: ConfigAccessor | undefined): ConfigSourceReader | undefined {
+function sourceReaderOfAccessor(
+  config: ConfigAccessor | undefined,
+): ConfigSourceReader | undefined {
   return config && readsWithSource(config) ? config.readWithSource : undefined;
 }
 

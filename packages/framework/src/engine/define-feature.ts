@@ -8,8 +8,8 @@ import { createInitialFeatureBuilderState } from "./feature-builder-state.ts";
 import { buildConfigEventsJobsMethods } from "./feature-config-events-jobs.ts";
 import { buildEntityHandlerMethods } from "./feature-entity-handlers.ts";
 import { buildProbeMethods } from "./feature-probes.ts";
-import { isObjectArgument, throwObjectArgumentRequired } from "./object-form.ts";
 import { buildUiExtensionsMethods } from "./feature-ui-extensions.ts";
+import { isObjectArgument, throwObjectArgumentRequired } from "./object-form.ts";
 import type { FeatureDefinition } from "./types/index.ts";
 import { buildWebhookEventMethods } from "./webhook-events.ts";
 

@@ -72,7 +72,8 @@ let stack: TestStack;
 let kms: InMemoryKmsAdapter;
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [createCryptoShreddingFeature({ eraseOwnedRecordKeys: true }), probeFeature],
+  stack = await setupTestStack({
+    features: [createCryptoShreddingFeature({ eraseOwnedRecordKeys: true }), probeFeature],
   });
 });
 

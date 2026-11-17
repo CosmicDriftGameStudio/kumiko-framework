@@ -116,9 +116,7 @@ describe("defineWriteHandler crossTenantReads grant", () => {
 
     const withoutReads = ctxWith({ systemDb });
     await expect(def.handler(writeEvent, withoutReads)).rejects.toThrow(/crossTenantReads/);
-    await expect(def.handler(writeEvent, withoutReads)).rejects.toThrow(
-      /probe:reads-system-write/,
-    );
+    await expect(def.handler(writeEvent, withoutReads)).rejects.toThrow(/probe:reads-system-write/);
 
     const withoutBoth = ctxWith({});
     await expect(def.handler(writeEvent, withoutBoth)).rejects.toThrow(/systemScope/);

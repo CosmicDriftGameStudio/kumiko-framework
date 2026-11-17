@@ -5,8 +5,8 @@ import {
   fetchOne,
 } from "@cosmicdrift/kumiko-framework/db";
 import { type SessionUser, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { isStreamArchived } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetPiiSubjectKmsForTests, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import { unsafeCreateEntityTable } from "@cosmicdrift/kumiko-testing/stack";

@@ -15,10 +15,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import {
-  type CHANNEL_WHATSAPP_FEATURE,
-  WHATSAPP_RETENTION_CURSOR_ENTITY,
-} from "./constants.ts";
+import { type CHANNEL_WHATSAPP_FEATURE, WHATSAPP_RETENTION_CURSOR_ENTITY } from "./constants.ts";
 import { WHATSAPP_MESSAGE_AGGREGATE_TYPE, WHATSAPP_STATUS_AGGREGATE_TYPE } from "./events.ts";
 
 const RETENTION_PAGE_SIZE = 500;

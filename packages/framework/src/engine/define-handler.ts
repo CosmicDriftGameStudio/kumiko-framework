@@ -139,10 +139,7 @@ function systemScopeContext<TMap extends object>(
 // absence means the app context wired no db.
 function crossTenantReadsContext<
   TContext extends Pick<HandlerContext, "crossTenantReads" | "user">,
->(
-  ctx: TContext,
-  handlerName: string,
-): TContext & { readonly crossTenantReads: CrossTenantReads } {
+>(ctx: TContext, handlerName: string): TContext & { readonly crossTenantReads: CrossTenantReads } {
   if (hasCrossTenantReads(ctx)) return ctx;
   if (isAgentToolCallScope()) {
     throw new AccessDeniedError({

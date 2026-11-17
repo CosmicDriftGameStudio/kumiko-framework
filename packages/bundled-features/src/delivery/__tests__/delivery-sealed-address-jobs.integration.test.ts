@@ -309,7 +309,10 @@ describe("delivery jobs queued before the single sealed send job", () => {
     const dispatched: Dispatched[] = [];
     const seal = await sealRecipientAddress(ADDRESS, tenantAdmin.tenantId, cipher);
     const { ctx } = jobContext(recordingRunner(dispatched), cipher);
-    await deliveryRenderJob({ ...legacyBase("00000000-0000-4000-8000-0000000000e5"), ...seal }, ctx);
+    await deliveryRenderJob(
+      { ...legacyBase("00000000-0000-4000-8000-0000000000e5"), ...seal },
+      ctx,
+    );
 
     const sendJob = dispatched[0];
     if (!sendJob) throw new Error("send job not dispatched");

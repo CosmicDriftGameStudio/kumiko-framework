@@ -22,6 +22,7 @@ import {
   createTextField,
   defineFeature,
 } from "../../engine/index.ts";
+import { append } from "../../event-store/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { runPiiEventBackfill } from "../pii-event-backfill.ts";
 
@@ -143,14 +144,16 @@ describe("runPiiEventBackfill with a jsonb personal field", () => {
       { ownerId: OWNER_ID, blob: BLOB },
       admin,
     );
-    await stack.http.writeOk("jbf:write:draft:delete", { id: created.id }, admin);
-    // Test fixture only: rewrite the slim delete event into the legacy shape that old releases wrote.
-    await asRawClient(stack.db).unsafe(
-      `UPDATE "kumiko_events"
-          SET "payload" = jsonb_set("payload", '{previous}', $1::jsonb)
-        WHERE "type" = 'draft.deleted'`,
-      [JSON.stringify({ ownerId: OWNER_ID, blob: BLOB })],
-    );
+    // Legacy shape: old releases wrote personal fields in plaintext into the delete event's previous.
+    await append(stack.db, {
+      aggregateId: created.id,
+      aggregateType: "draft",
+      tenantId: admin.tenantId,
+      expectedVersion: 1,
+      type: "draft.deleted",
+      payload: { previous: { ownerId: OWNER_ID, blob: BLOB } },
+      metadata: { userId: admin.id },
+    });
     expect(JSON.stringify(await readEvents())).toContain("Zebulon Quaxford");
 
     configureBlindIndexKey(Buffer.alloc(32, 7).toString("base64"));

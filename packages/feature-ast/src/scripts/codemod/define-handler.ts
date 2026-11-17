@@ -336,18 +336,26 @@ function functionCandidate(
   const reject = (why: string): void => {
     found.manual.push(manualSite(fn, `${defTypeName(kind)} return type: ${why}`));
   };
-  if (Node.isMethodDeclaration(fn)) return reject("methods are not converted");
+  if (Node.isMethodDeclaration(fn)) {
+    reject("methods are not converted");
+    return;
+  }
   if (Node.isFunctionDeclaration(fn) && fn.getBody() === undefined) {
-    return reject("overload signature");
+    reject("overload signature");
+    return;
   }
   const returns = returnedExpressions(fn);
   const returned = returns[0];
   const inner = unwrapParens(returned);
   if (returns.length !== 1 || returned === undefined || inner === undefined) {
-    return reject("the function does not have exactly one return with a value");
+    reject("the function does not have exactly one return with a value");
+    return;
   }
   const nameNode = nameNodeOfFunction(fn);
-  if (nameNode === undefined) return reject("the function has no name to track its uses");
+  if (nameNode === undefined) {
+    reject("the function has no name to track its uses");
+    return;
+  }
   const base = {
     file: sourceFile,
     kind,

@@ -708,7 +708,7 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "jobs.errors.payloadErased":
     "Il payload di questa esecuzione non è più leggibile: i dati dell'utente che l'ha avviata sono stati cancellati.",
   "jobs.errors.notRetryable":
-    "Questa esecuzione non può essere ripetuta: il suo job viene eseguito per tenant o su un evento e l'esecuzione non ha salvato questo input.",
+    "Questa esecuzione non può essere ripetuta: il suo job viene eseguito per organizzazione o su un evento e l'esecuzione non ha salvato questo input.",
   "jobs.errors.unknownJob": "Job sconosciuto.",
   "jobs.errors.invalidCursor": "Il cursore di paginazione non è valido.",
   "jobs.runs.col.duration": "Durata (ms)",
@@ -1079,7 +1079,8 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "kumiko.validation.too-long": "Troppo lungo (al massimo {max} caratteri).",
   "kumiko.validation.too-short": "Troppo corto (almeno {min} caratteri).",
   "kumiko.version.update-available": "È disponibile una nuova versione.",
-  "kumiko.network.offline": "Nessuna connessione al server. I dati mostrati potrebbero non essere aggiornati.",
+  "kumiko.network.offline":
+    "Nessuna connessione al server. I dati mostrati potrebbero non essere aggiornati.",
   "kumiko.widget.drawer.maximize": "Ingrandisci la larghezza del pannello",
   "kumiko.widget.drawer.resize": "Ridimensiona il pannello",
   "kumiko.widget.drawer.restore": "Ripristina la larghezza del pannello",

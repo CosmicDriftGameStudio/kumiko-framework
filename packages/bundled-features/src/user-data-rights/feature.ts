@@ -170,14 +170,12 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
     );
 
     r.writeHandler(
-      createRunForgetCleanupHandler(
-        {
-          ...(opts.sendDeletionExecutedEmail && {
-            sendDeletionExecutedEmail: opts.sendDeletionExecutedEmail,
-          }),
-          ...(opts.eraseOwnedRecordKeys === true && { eraseOwnedRecordKeys: true }),
-        },
-      ),
+      createRunForgetCleanupHandler({
+        ...(opts.sendDeletionExecutedEmail && {
+          sendDeletionExecutedEmail: opts.sendDeletionExecutedEmail,
+        }),
+        ...(opts.eraseOwnedRecordKeys === true && { eraseOwnedRecordKeys: true }),
+      }),
     );
     r.exposesApi("userDataRights.runForget");
 

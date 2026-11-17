@@ -156,9 +156,7 @@ describe("revokeAllUserCredentials atomicity", () => {
     const registry = registryWith(sessionsRevoker);
 
     await withRejectingEventAppend(async () => {
-      await expect(
-        revokeAllUserCredentials(registry, testDb.db, USER_ID, {}),
-      ).rejects.toThrow();
+      await expect(revokeAllUserCredentials(registry, testDb.db, USER_ID, {})).rejects.toThrow();
     });
 
     expect(await liveSessionCount()).toBe(2);
@@ -198,7 +196,12 @@ describe("revokeAllUserCredentials atomicity", () => {
     };
 
     await expect(
-      revokeAllUserCredentials(registryWith(sessionsRevoker, failingRevoker), testDb.db, USER_ID, {}),
+      revokeAllUserCredentials(
+        registryWith(sessionsRevoker, failingRevoker),
+        testDb.db,
+        USER_ID,
+        {},
+      ),
     ).rejects.toThrow("second revoker failed");
 
     expect(await revokedAtOfSession()).toBeNull();

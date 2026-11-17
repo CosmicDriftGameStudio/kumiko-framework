@@ -199,9 +199,8 @@ const commitProbeEntity = createEntity({
     label: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
-const { table: commitProbeTable, executor: commitProbeExecutor } = createEntityExecutor(
-  commitProbeEntity,
-);
+const { table: commitProbeTable, executor: commitProbeExecutor } =
+  createEntityExecutor(commitProbeEntity);
 // The handler succeeds; the deferred trigger created in beforeAll rejects the row only at COMMIT.
 const commitFailingHandler: WriteHandlerDef = {
   name: "atomic-commit-fails",

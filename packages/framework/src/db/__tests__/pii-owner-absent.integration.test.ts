@@ -14,6 +14,7 @@ import {
   PII_CIPHERTEXT_PREFIX,
 } from "../../crypto/pii-field-encryption.ts";
 import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
+import { append } from "../../event-store/index.ts";
 import { runPiiEventBackfill } from "../../migrations/pii-event-backfill.ts";
 import { rebuildProjection } from "../../pipeline/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
@@ -159,14 +160,16 @@ describe("entity PII whenAbsent: tenant", () => {
     resetPiiSubjectKmsForTests();
     const id = await createRow({ name: "plain name" });
     const row = await detail(id);
-    const res = await stack.http.write(DELETE, { id, version: row["version"] }, admin);
-    expect(res.status).toBeLessThan(300);
-    // Test fixture only: rewrite the slim delete event into the legacy shape that carried personal fields.
-    await asRawClient(stack.db).unsafe(
-      `UPDATE kumiko_events SET payload = jsonb_set(payload, '{previous,name}', '"plain name"'::jsonb)
-       WHERE aggregate_id = $1 AND type = 'item.deleted'`,
-      [id],
-    );
+    // Legacy shape: old releases wrote personal fields in plaintext into the delete event's previous.
+    await append(stack.db, {
+      aggregateId: id,
+      aggregateType: "item",
+      tenantId: admin.tenantId,
+      expectedVersion: Number(row["version"]),
+      type: "item.deleted",
+      payload: { previous: { id, name: "plain name" } },
+      metadata: { userId: admin.id },
+    });
     expect((await lastEventNames(id)).previousName).toBe("plain name");
 
     await asRawClient(stack.db).unsafe(

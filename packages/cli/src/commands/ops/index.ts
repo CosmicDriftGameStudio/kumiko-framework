@@ -22,7 +22,8 @@ function opsUsage(): string {
 
 export const opsCommand: CliCommand = {
   id: "ops",
-  description: "One-off operations on an existing app (backfill-pii, seed:new, seed:status, waitlist-migrate)",
+  description:
+    "One-off operations on an existing app (backfill-pii, seed:new, seed:status, waitlist-migrate)",
   help: `Subcommands:\n${opsUsage()}`,
   run: async (ctx) => {
     const sub = OPS_SUBCOMMANDS.find((op) => op.id === ctx.argv[0]);

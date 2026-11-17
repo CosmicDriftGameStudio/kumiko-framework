@@ -121,8 +121,7 @@ export type WriteHandlerInput<
   readonly dispatchOnly?: boolean;
   readonly tenantlessAnonymous?: boolean;
   readonly transaction?: WriteHandlerTransactionMode;
-} & // A literal `systemScope: true` switches the handler's context; absent keeps HandlerContext.
-(
+} & ( // A literal `systemScope: true` switches the handler's context; absent keeps HandlerContext.
   | ({ readonly systemScope?: undefined } & WriteHandlerBody<
       TSchema,
       TData,

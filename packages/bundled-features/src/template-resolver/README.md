@@ -235,7 +235,12 @@ r.translations({
     writes: {
       "reply-snippets-set": {
         title: { en: "Save reply snippet", de: "Textbaustein speichern" },
-        fields: { slug: { en: "Identifier", de: "Kennung" }, /* locale, title, content, folder, createOnly, tenantIdOverride */ },
+        fields: {
+          slug: {
+            en: "Identifier",
+            de: "Kennung",
+          } /* locale, title, content, folder, createOnly, tenantIdOverride */,
+        },
       },
     },
   }),

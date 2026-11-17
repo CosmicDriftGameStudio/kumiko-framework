@@ -1,7 +1,4 @@
 {
   "version": 1,
-  "tables": [
-    "read_field_change_requests",
-    "read_ledger_transactions"
-  ]
+  "tables": ["read_field_change_requests", "read_ledger_transactions"]
 }

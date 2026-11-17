@@ -14,7 +14,8 @@ import {
 } from "./handlers/sweep-orphaned-derivatives.job.ts";
 import { fileRefStorageDestroyHook, fileRefTenantDestroyHook } from "./hooks.ts";
 
-const SWEEP_ORPHANED_DERIVATIVES_REASON = "iterates every tenant and checks fileRef owners per tenant";
+const SWEEP_ORPHANED_DERIVATIVES_REASON =
+  "iterates every tenant and checks fileRef owners per tenant";
 
 export const FILES_TENANT_DATA_FEATURE = "files-tenant-data" as const;
 
@@ -54,8 +55,8 @@ export function createFilesTenantDataFeature(): FeatureDefinition {
   });
 }
 
-export { fileRefStorageDestroyHook, fileRefTenantDestroyHook } from "./hooks.ts";
 export {
   sweepOrphanedDerivativesJob,
   sweepOrphanedDerivativesPayloadSchema,
 } from "./handlers/sweep-orphaned-derivatives.job.ts";
+export { fileRefStorageDestroyHook, fileRefTenantDestroyHook } from "./hooks.ts";

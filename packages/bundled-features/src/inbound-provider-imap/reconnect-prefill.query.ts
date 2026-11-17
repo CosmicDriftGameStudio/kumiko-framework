@@ -15,10 +15,7 @@ import { findReconnectableAccount } from "./reconnect-account.ts";
 
 const reconnectPrefillSchema = z.object({ accountId: z.uuid() }).strict();
 
-export const createReconnectPrefillQuery = ({
-  memberRoles,
-  adminRoles,
-}: InboundMailRoles) =>
+export const createReconnectPrefillQuery = ({ memberRoles, adminRoles }: InboundMailRoles) =>
   defineQueryHandler({
     name: "reconnect-prefill",
     schema: reconnectPrefillSchema,

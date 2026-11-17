@@ -1,20 +1,17 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import {
-  createTenantConfig,
-  defineFeature,
-} from "@cosmicdrift/kumiko-framework/engine";
-import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
-import * as z from "zod";
 import type { Registry } from "@cosmicdrift/kumiko-framework/engine";
-import { readBrandingAccentColor, readTenantName } from "../../renderer-mail-html/document-kit.ts";
+import { createTenantConfig, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   setupTestStack,
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
+import * as z from "zod";
 import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.ts";
 import { createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";
+import { readBrandingAccentColor, readTenantName } from "../../renderer-mail-html/document-kit.ts";
 import {
   BRANDING_QN,
   BRANDING_TOKENS_QUERY_QN,
@@ -136,19 +133,31 @@ describe("branding :: legacy managed-pages keys", () => {
       { key: LEGACY_BRANDING_QN.accentColor, value: "#333333" },
       adminC,
     );
-    const read = await stack.http.queryOk<ExportRead>("branding-accessor-reader:query:read", {}, adminC);
+    const read = await stack.http.queryOk<ExportRead>(
+      "branding-accessor-reader:query:read",
+      {},
+      adminC,
+    );
     expect(read.accentColor).toBe("#333333");
     expect(read.mailAccent).toBe("#333333");
     expect(read.layoutPreset).toBe("centered");
 
-    const readA = await stack.http.queryOk<ExportRead>("branding-accessor-reader:query:read", {}, adminA);
+    const readA = await stack.http.queryOk<ExportRead>(
+      "branding-accessor-reader:query:read",
+      {},
+      adminA,
+    );
     expect(readA.title).toBe("Legacy A");
     expect(readA.text).toBe("Legacy A");
     expect(readA.mailTenantName).toBe("Legacy A");
   });
 
   test("the public export and the mail renderer prefer the new key", async () => {
-    const read = await stack.http.queryOk<ExportRead>("branding-accessor-reader:query:read", {}, adminB);
+    const read = await stack.http.queryOk<ExportRead>(
+      "branding-accessor-reader:query:read",
+      {},
+      adminB,
+    );
     expect(read.accentColor).toBe("#222222");
     expect(read.mailAccent).toBe("#222222");
   });

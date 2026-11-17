@@ -171,10 +171,7 @@ async function releaseIdempotencyKey(ctx: JobContext, p: JobBase): Promise<void>
 
 // Only the final retry frees the key: earlier failures are retried by the runner and
 // must still dedup.
-async function releaseIdempotencyOnTerminalFailure(
-  ctx: JobContext,
-  p: JobBase,
-): Promise<void> {
+async function releaseIdempotencyOnTerminalFailure(ctx: JobContext, p: JobBase): Promise<void> {
   // skip: not the last attempt, the runner retries and the key must keep deduplicating
   if (!ctx.finalAttempt) return;
   await releaseIdempotencyKey(ctx, p);
@@ -241,10 +238,7 @@ async function openSendContent(
   };
 }
 
-async function sendStep(
-  p: z.infer<typeof sendJobPayloadSchema>,
-  ctx: JobContext,
-): Promise<void> {
+async function sendStep(p: z.infer<typeof sendJobPayloadSchema>, ctx: JobContext): Promise<void> {
   const tenantId = p.tenantId as TenantId; // @cast-boundary engine-payload — stream tenant
   const { db, registry } = requireTenantScopedDeps(ctx, tenantId);
   const channel = resolveChannel(registry, p.channelName);

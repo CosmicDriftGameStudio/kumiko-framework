@@ -6,7 +6,11 @@
 // SYSTEM_ROLE: it is dispatched from the `sync-subscriptions` job's system user.
 
 import { createHash } from "node:crypto";
-import { defineWriteHandler, SYSTEM_ROLE, type WriteResult } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  defineWriteHandler,
+  SYSTEM_ROLE,
+  type WriteResult,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { subscriptionAggregateId } from "../aggregate-id.ts";

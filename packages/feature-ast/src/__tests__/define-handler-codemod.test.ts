@@ -344,7 +344,8 @@ const UNCHANGED_FIXTURES: readonly UnchangedFixture[] = [
       `export const wrapped: WriteHandlerDef = { ...baseHandler, name: "wrapped" };`,
     ),
     line: 4,
-    description: "WriteHandlerDef wrapped stays: the literal spreads another value into the handler",
+    description:
+      "WriteHandlerDef wrapped stays: the literal spreads another value into the handler",
   },
   {
     name: "a dynamic schema",
