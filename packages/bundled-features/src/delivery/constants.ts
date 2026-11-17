@@ -3,12 +3,13 @@ import { QnTypes, qn } from "@cosmicdrift/kumiko-framework/engine";
 import { DELIVERY_FEATURE, DeliveryJobNames } from "./web/public-names.ts";
 
 // Extension-point name for delivery-channel plugins (channel-email,
-// channel-in-app, channel-push, ...).
+// channel-in-app, channel-slack, ...).
 export const DELIVERY_CHANNEL_EXTENSION = "deliveryChannel" as const;
 
 export const EMAIL_CHANNEL_NAME = "email" as const;
 
 export {
+  DELIVERY_ADDRESS_UNSUBSCRIBED_EVENT,
   DELIVERY_ATTEMPT_ADDRESS_ERASED_EVENT,
   DELIVERY_ATTEMPT_EVENT,
   DELIVERY_CHANNEL_CELL_COMPONENT,

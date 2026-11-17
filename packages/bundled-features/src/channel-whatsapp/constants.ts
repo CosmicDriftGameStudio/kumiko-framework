@@ -45,3 +45,7 @@ export const WHATSAPP_BUTTON_PAYLOAD_MAX_CHARS = 256;
 export const WHATSAPP_BUTTON_TITLE_MAX_CHARS = 20;
 export const WHATSAPP_MAX_REPLY_BUTTONS = 3;
 export const WHATSAPP_MAX_TEMPLATE_BUTTONS = 10;
+
+// Fixed, not an option: within one month an Art. 17 request is met without a per-sender key.
+export const WHATSAPP_EVENT_RETENTION_DAYS = 30;
+export const WHATSAPP_RETENTION_CURSOR_ENTITY = "whatsapp-retention-cursor" as const;

@@ -41,8 +41,6 @@ import { createInMemoryTransport, type EmailMessage } from "../../channel-email/
 import { InAppHandlers, InAppQueries } from "../../channel-in-app/constants.ts";
 import { createChannelInAppFeature } from "../../channel-in-app/feature.ts";
 import { inAppMessagesTable } from "../../channel-in-app/tables.ts";
-import { createChannelPushFeature } from "../../channel-push/feature.ts";
-import { createInMemoryPushTransport } from "../../channel-push/types.ts";
 import { createConfigFeature } from "../../config/feature.ts";
 import { configValuesTable } from "../../config/table.ts";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature.ts";
@@ -58,6 +56,7 @@ import {
   MAX_ADDRESS_OPT_OUT_GENERATIONS_FOR_TESTS,
 } from "../address-opt-out.ts";
 import {
+  DELIVERY_CHANNEL_EXTENSION,
   DELIVERY_RESUBSCRIBE_PATH,
   DELIVERY_UNSUBSCRIBE_PATH,
   DeliveryErrors,
@@ -125,7 +124,14 @@ const emailTransport = createInMemoryTransport();
 const testEmail = (userId: string | number) => `user-${userId}@test.com`;
 
 // Push test infrastructure
-const pushTransport = createInMemoryPushTransport();
+type SentPush = {
+  readonly token: string;
+  readonly title: string;
+  readonly body: string | undefined;
+  readonly data: Readonly<Record<string, unknown>> | undefined;
+};
+const sentPushes: SentPush[] = [];
+const pushTransport = { sent: sentPushes };
 const testPushToken = (userId: string | number) => `push-token-${userId}`;
 const resolveFailsOnceFor = new Set<string>();
 const resolveTestEmail = async (userId: string) => {
@@ -415,12 +421,26 @@ const channelEmailFeature = createPlainFallbackEmailFeature({
   transport: emailTransport,
   resolveEmail: resolveTestEmail,
 });
-const channelPushFeature = createChannelPushFeature({
-  transport: pushTransport,
-  resolveToken: async (userId) => {
-    pushTokenResolveCalls.push(userId);
-    return testPushToken(userId);
-  },
+// a queued channel without a render step; channel-push was removed, the delivery paths stay covered
+const channelPushFeature = defineFeature("test-push-channel", (r) => {
+  r.requires({ features: ["delivery"] });
+  r.translations({ keys: { "delivery.channel.push": { en: "Push" } } });
+  r.useExtension(DELIVERY_CHANNEL_EXTENSION, "push", {
+    mode: "queued",
+    resolve: async (userId) => {
+      pushTokenResolveCalls.push(userId);
+      return testPushToken(userId);
+    },
+    send: async (address, message) => {
+      sentPushes.push({
+        token: address,
+        title: message.title,
+        body: message.body,
+        data: message.data,
+      });
+      return { status: "sent", address };
+    },
+  });
 });
 const features = [
   configFeature,

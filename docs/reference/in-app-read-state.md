@@ -6,7 +6,7 @@ evidence: "packages/bundled-features/src/channel-in-app/handlers/read-state-by-k
 
 # In-app read state by idempotency key
 
-A sender that notifies a user in the app often needs to know later whether the user opened the note. `notify()` takes an `idempotencyKey`; the delivery service now hands that key to every channel through `ChannelContext.idempotencyKey`, and the in-app channel stores it with the note (`in_app_messages.idempotency_key`, indexed).
+A sender that notifies a user in the app often needs to know later whether the user opened the note. `notify()` takes an `idempotencyKey`; the delivery service now hands that key to every channel through `ChannelContext.idempotencyKey`, and the in-app channel stores it with the note (`store_in_app_messages.idempotency_key`, indexed).
 
 `channel-in-app:query:read-state-by-keys` (`IN_APP_NOTIFICATION_QUERIES.readStateByKeys`) answers the read question:
 

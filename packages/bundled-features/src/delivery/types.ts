@@ -76,7 +76,7 @@ export type ChannelResult = {
 
 // Output of a channel's render step, passed into send(). Only channels that
 // declare render() (email) produce one; inline channels (inApp) and channels
-// without an expensive render step (push) receive `undefined`.
+// without an expensive render step (in-memory or test channels) receive `undefined`.
 export type RenderedMessage = {
   readonly html: string;
   readonly subject: string;

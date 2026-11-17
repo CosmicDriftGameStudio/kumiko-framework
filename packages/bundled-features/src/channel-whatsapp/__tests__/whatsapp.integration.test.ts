@@ -15,6 +15,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
 import { createConfigFeature } from "../../config/feature.ts";
 import { configValuesTable } from "../../config/table.ts";
 import { createSecretsFeature } from "../../secrets/feature.ts";
@@ -23,6 +24,7 @@ import { tenantSecretsTable } from "../../secrets/table.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
 import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import { whatsappMessageAggregateId, whatsappStatusAggregateId } from "../aggregate-id.ts";
 import { WHATSAPP_SECRET_KEYS, type WhatsappStatusKind } from "../constants.ts";
 import {
@@ -120,6 +122,8 @@ beforeAll(async () => {
       createConfigFeature(),
       createSecretsFeature(),
       createTenantFeature(),
+      createComplianceProfilesFeature(),
+      createTenantLifecycleFeature(),
       createChannelWhatsappFeature(clientOptions),
     ],
     extraRoutes: [...createWhatsappWebhookRoutes()],

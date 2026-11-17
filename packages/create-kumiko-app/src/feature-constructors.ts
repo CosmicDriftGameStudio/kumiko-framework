@@ -3,7 +3,7 @@
 //
 // One entry per bundled feature whose constructor takes zero required args
 // (or only opts with defaults). Features requiring caller-supplied
-// transports/providers (channel-email, channel-push, subscription-stripe,
+// transports/providers (channel-email, subscription-stripe,
 // subscription-mollie, file-provider-s3, managed-pages, tier-engine) are
 // intentionally absent — the picker hides them, the user wires them by
 // hand after scaffold.

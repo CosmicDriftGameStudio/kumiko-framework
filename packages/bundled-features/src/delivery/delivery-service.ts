@@ -91,7 +91,7 @@ export type DeliveryServiceOptions = {
   // Must be present whenever callers rely on idempotencyKey, otherwise notify()
   // throws at the callsite (silent no-op would be a correctness bug).
   readonly idempotencyRedis?: Redis;
-  // Job dispatcher for async (queued-mode) channels: email/push/chat render+send
+  // Job dispatcher for async (queued-mode) channels: email/chat render+send
   // run in the delivery.send job. notify() may override it per
   // call. When neither is present, queued channels fall back to synchronous
   // inline delivery (job-less setups, unit tests).
@@ -229,7 +229,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
 
   // Deliver one resolved (channel, address) pair. Inline channels (inApp) and
   // the no-job-runner fallback render + send synchronously and log the terminal
-  // status. Queued channels (email/push) record a `queued` attempt up front and
+  // status. Queued channels (email, chat) record a `queued` attempt up front and
   // hand off to the delivery.send job, which appends the
   // terminal event on the same attempt stream.
   async function deliverViaChannel(args: {

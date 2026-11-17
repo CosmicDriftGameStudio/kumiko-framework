@@ -102,6 +102,7 @@ export function createReceiveMessageHandler(options: ResolvedWhatsappOptions) {
       const requestId = `channel-whatsapp:receive-message:${aggregateId}`;
       const from = await encryptWhatsappPii(
         tenantId,
+        { aggregateType: WHATSAPP_MESSAGE_AGGREGATE_TYPE, aggregateId },
         throttle ? WhatsappPiiFields.throttledFrom : WhatsappPiiFields.receivedFrom,
         input.from,
         requestId,
@@ -135,6 +136,7 @@ export function createReceiveMessageHandler(options: ResolvedWhatsappOptions) {
             ? null
             : await encryptWhatsappPii(
                 tenantId,
+                { aggregateType: WHATSAPP_MESSAGE_AGGREGATE_TYPE, aggregateId },
                 WhatsappPiiFields.receivedText,
                 input.text,
                 requestId,
@@ -144,6 +146,7 @@ export function createReceiveMessageHandler(options: ResolvedWhatsappOptions) {
             ? null
             : await encryptWhatsappPii(
                 tenantId,
+                { aggregateType: WHATSAPP_MESSAGE_AGGREGATE_TYPE, aggregateId },
                 WhatsappPiiFields.receivedButtonPayload,
                 input.buttonPayload,
                 requestId,
@@ -192,6 +195,7 @@ export function createRecordStatusHandler(options: ResolvedWhatsappOptions) {
         timestampIso: input.timestampIso,
         recipient: await encryptWhatsappPii(
           tenantId,
+          { aggregateType: WHATSAPP_STATUS_AGGREGATE_TYPE, aggregateId },
           WhatsappPiiFields.statusRecipient,
           input.recipient,
           `channel-whatsapp:record-status:${aggregateId}`,

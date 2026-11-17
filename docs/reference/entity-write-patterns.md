@@ -48,7 +48,7 @@ same prefix at registration.
 
 Unmanaged direct-write stores should use an unambiguous name — convention:
 `store_` (e.g. `store_user_sessions`). The guard only bans `read_`; it does not
-mandate `store_` — a plain unprefixed name (e.g. `in_app_messages`) is still
+mandate `store_` — a plain unprefixed name is still
 legal. `store_` is the recommended default.
 
 Use `deriveEntityTableMeta` to turn an EntityDefinition into DDL meta (defaults

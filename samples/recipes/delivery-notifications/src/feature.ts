@@ -1,7 +1,7 @@
 // Delivery Notifications Sample
 //
-// A support ticket is created and its assignee is notified via inApp, email
-// and push. The mail is a stored template: `r.notification` declares the
+// A support ticket is created and its assignee is notified via inApp and email.
+// The mail is a stored template: `r.notification` declares the
 // variables, the default text and the subject, the boot seed writes the text
 // into the template store, and a tenant can override it there.
 //
@@ -65,16 +65,12 @@ export const supportFeature = defineFeature("support", (r) => {
       },
     },
     meta: { en: { subject: "Support ticket #{{ticketId}} ({{priority}})" } },
-    // inApp and push build their own short text; email renders the stored
+    // inApp builds its own short text; email renders the stored
     // template with the notify data as variables.
     templates: {
       inApp: (data) => ({
         title: `New ticket: ${data["title"]}`,
         body: (data["description"] as string) || "A ticket was assigned to you.",
-      }),
-      push: (data) => ({
-        title: "New ticket",
-        body: `${data["title"]} (${data["priority"]})`,
       }),
     },
   });

@@ -28,10 +28,6 @@ import {
   type EmailTransport,
 } from "@cosmicdrift/kumiko-bundled-features/channel-email";
 import { createChannelInAppFeature } from "@cosmicdrift/kumiko-bundled-features/channel-in-app";
-import {
-  createChannelPushFeature,
-  type PushTransport,
-} from "@cosmicdrift/kumiko-bundled-features/channel-push";
 import { createChannelSlackFeature } from "@cosmicdrift/kumiko-bundled-features/channel-slack";
 import { createChannelTeamsFeature } from "@cosmicdrift/kumiko-bundled-features/channel-teams";
 import { createChannelTelegramFeature } from "@cosmicdrift/kumiko-bundled-features/channel-telegram";
@@ -127,11 +123,6 @@ const stubEmailTransport: EmailTransport = {
     /* smoke-only */
   },
 };
-const stubPushTransport: PushTransport = {
-  send: async () => {
-    /* smoke-only */
-  },
-};
 
 // Fixed dev-only signing key for the reset/verify/unlock magic-links (and,
 // below, tenant-handover's row-bound grant). The factory rejects anything
@@ -188,10 +179,6 @@ export const APP_FEATURES = [
   createChannelEmailFeature({
     transport: stubEmailTransport,
     resolveEmail: async () => "smoke@use-all-bundled.local",
-  }),
-  createChannelPushFeature({
-    transport: stubPushTransport,
-    resolveToken: async () => "smoke-push-token",
   }),
   // Chat channels are route-only and read their webhook URL / bot token from the
   // tenant's secrets at send time, so the smoke app needs no credentials here.

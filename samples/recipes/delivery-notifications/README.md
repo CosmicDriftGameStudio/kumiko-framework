@@ -1,10 +1,10 @@
 # Sample: Delivery Notifications
 
-Shows how a feature sends notifications to multiple channels (InApp + Email + Push) without knowing the channel internals, and how the mail text lives in the template store where a tenant can override it.
+Shows how a feature sends notifications to multiple channels (InApp + Email) without knowing the channel internals, and how the mail text lives in the template store where a tenant can override it.
 
 ## What you learn here
 
-**Declarative notifications:** `r.notification()` declares the mail variables, the default mail text, the subject and the short inApp/push texts in one place.
+**Declarative notifications:** `r.notification()` declares the mail variables, the default mail text, the subject and the short inApp text in one place.
 
 **Mail text is stored data:** The boot seed (`seedNotificationTemplates`) writes the declared `template` and `meta` into the template store as system templates. The email channel renders them with `renderer-mail-html`. A notification routed to email without `template` and `meta` fails its delivery.
 
@@ -24,7 +24,7 @@ tenant            → memberships (delivery needs tenant:query:resolve-user-ids)
 template-resolver → template store, override handlers
 renderer-foundation + renderer-mail-html → renders kind "mail"
 delivery          → core: ctx.notify, DeliveryLog, Preferences, extension points
-channel-inApp / channel-email / channel-push
+channel-inApp / channel-email
 support           → our business logic (tickets + the notification declaration)
 ```
 
@@ -38,12 +38,11 @@ The `support` feature `r.requires({ features: ["delivery"] })`: channels are fea
 4. For each registered channel:
    - InApp: `templates.inApp(data)`, DB insert + SSE push
    - Email: stored template rendered with `data` as variables, then transport
-   - Push: `templates.push(data)`, transport
 5. DeliveryLog entry per channel
 
 ## Tests
 
-- **E2E happy path:** Ticket with assignee → InApp + Email + Push + 3 DeliveryLog entries
+- **E2E happy path:** Ticket with assignee → InApp + Email + 2 DeliveryLog entries
 - **Tenant override:** a published tenant template replaces the system mail text
 - **Skip:** Ticket without assignee → no notifications
 - **Access control:** Non-Admin/Support can't create tickets

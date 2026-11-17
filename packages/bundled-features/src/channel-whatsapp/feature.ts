@@ -11,6 +11,7 @@ import {
 } from "./events.ts";
 import { createReceiveMessageHandler, createRecordStatusHandler } from "./inbound-handlers.ts";
 import { type ChannelWhatsappOptions, resolveWhatsappOptions } from "./options.ts";
+import { registerWhatsappRetention } from "./retention.ts";
 
 const MAX_SECRET_CHARS = 512;
 const secretValueSchema = z.string().min(1).max(MAX_SECRET_CHARS);
@@ -21,14 +22,14 @@ export function createChannelWhatsappFeature(
   const resolved = resolveWhatsappOptions(options);
   return defineFeature(CHANNEL_WHATSAPP_FEATURE, (r) => {
     r.describe(
-      "WhatsApp Business (Meta Cloud API) as a two-way channel, not a delivery channel. Inbound: mount `createWhatsappWebhookRoutes()` via `extraRoutes` (default path `/api/channel-whatsapp/webhook/:tenantId`, the tenant id is part of the URL because the secrets are tenant-scoped); GET answers Meta's `hub.challenge` handshake, POST checks `X-Hub-Signature-256` over the raw body and normalizes each message and status. Events: `channel-whatsapp:event:message-received` (sender, wamid, type text|audio|image|interactive_button|other, text, button payload, `contextWamid`, media id and mime type, `phoneNumberId`), `status-updated` (sent|delivered|read|failed|other) and `throttled` (sender over the per-number limit). Sender number, text, button payload and status recipient are PII, stored as tenant-key ciphertext; read them with `readWhatsappMessagePii`. A redelivered wamid is stored once and answered 200; a failed dispatch answers 500 so Meta redelivers. Outbound: `createWhatsappClient(opts)` gives `sendText`, `sendTemplate`, `sendButtons`, `sendMedia` (each takes the sending `phoneNumberId` and answers `{ ok: true, wamid }` or a typed failure) and `fetchMedia` (media id to bytes and mime type; the URL from the Graph answer is checked against `allowedHosts` before the token is sent). Tenant secrets `channel-whatsapp:secret:access-token`, `app-secret` and `verify-token`. App options of `createChannelWhatsappFeature(opts)`: `apiBaseUrl`, `apiVersion` (default v21.0), `allowedHosts` (default graph.facebook.com and lookaside.fbsbx.com), `requireHttps` (default true; boot fails on a mismatch), `timeoutMs`, `mediaMaxBytes`, `transport` (in-memory Meta for tests), `senderRateLimits` (default 30 per hour and 200 per day per sender and tenant) and `rateLimit` (flood guard of the inbound handlers; cannot be disabled while a sender limit is set). Requires `secrets`. A worker-run job triggered by `message-received` attaches the business process.",
+      "WhatsApp Business (Meta Cloud API) as a two-way channel, not a delivery channel. Inbound: mount `createWhatsappWebhookRoutes()` via `extraRoutes` (default path `/api/channel-whatsapp/webhook/:tenantId`, the tenant id is part of the URL because the secrets are tenant-scoped); GET answers Meta's `hub.challenge` handshake, POST checks `X-Hub-Signature-256` over the raw body and normalizes each message and status. Events: `channel-whatsapp:event:message-received` (sender, wamid, type text|audio|image|interactive_button|other, text, button payload, `contextWamid`, media id and mime type, `phoneNumberId`), `status-updated` (sent|delivered|read|failed|other) and `throttled` (sender over the per-number limit). Sender number, text, button payload and status recipient are PII, stored as ciphertext under a record key per stream; the maintenance job `whatsapp-event-retention` erases those keys after 30 days and tenant destroy erases all of them, so a consuming job reads them with `readWhatsappMessagePii` (and `readWhatsappStatusPii`, `readWhatsappThrottledPii`) and copies what it keeps into its own entities. A redelivered wamid is stored once and answered 200; a failed dispatch answers 500 so Meta redelivers. Outbound: `createWhatsappClient(opts)` gives `sendText`, `sendTemplate`, `sendButtons`, `sendMedia` (each takes the sending `phoneNumberId` and answers `{ ok: true, wamid }` or a typed failure) and `fetchMedia` (media id to bytes and mime type; the URL from the Graph answer is checked against `allowedHosts` before the token is sent). Tenant secrets `channel-whatsapp:secret:access-token`, `app-secret` and `verify-token`. App options of `createChannelWhatsappFeature(opts)`: `apiBaseUrl`, `apiVersion` (default v21.0), `allowedHosts` (default graph.facebook.com and lookaside.fbsbx.com), `requireHttps` (default true; boot fails on a mismatch), `timeoutMs`, `mediaMaxBytes`, `transport` (in-memory Meta for tests), `senderRateLimits` (default 30 per hour and 200 per day per sender and tenant) and `rateLimit` (flood guard of the inbound handlers; cannot be disabled while a sender limit is set). Requires `secrets` and `tenant-lifecycle`. A worker-run job triggered by `message-received` attaches the business process.",
     );
     r.uiHints({
       displayLabel: "WhatsApp Channel",
       category: "notifications",
       recommended: false,
     });
-    r.requires({ features: ["secrets"] });
+    r.requires({ features: ["secrets", "tenant-lifecycle"] });
 
     r.secret("accessToken", {
       label: { en: "WhatsApp access token" },
@@ -68,5 +69,7 @@ export function createChannelWhatsappFeature(
 
     r.writeHandler(createReceiveMessageHandler(resolved));
     r.writeHandler(createRecordStatusHandler(resolved));
+
+    registerWhatsappRetention(r);
   });
 }

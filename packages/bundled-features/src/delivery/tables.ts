@@ -82,7 +82,7 @@ export const notificationPreferenceEntity = createEntity({
       personal: false,
       reason: "technical_reference",
     }), // qualified name or "*"
-    channel: createTextField({ required: true, personal: false, reason: "technical_reference" }), // "inApp", "email", "push", or "*"
+    channel: createTextField({ required: true, personal: false, reason: "technical_reference" }), // "inApp", "email", a chat channel, or "*"
     enabled: createBooleanField({ default: true }),
   },
 });
