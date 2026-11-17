@@ -55,6 +55,12 @@ import { tenantEntity, tenantTable } from "../schema/tenant.ts";
 import { seedTenant, seedTenantMembership } from "../seeding.ts";
 import { MEMBERS_SCREEN_ID, TenantHandlers, TenantQueries } from "../web/constants.ts";
 
+type SessionRow = { readonly revokedAt: unknown };
+type MembershipEventRow = {
+  readonly type: string;
+  readonly tenantId: string;
+  readonly payload: unknown;
+};
 const emailTransport = createInMemoryTransport();
 const APP_ACCEPT_URL = "https://app.example.com/invite/accept";
 const FORBIDDEN_ROLES = ["SystemAdmin", "system", "all", "anonymous"] as const;
@@ -1193,20 +1199,22 @@ describe("updateMemberRoles — TenantAdmin session-scoped path and safety gates
     );
     expect(res).toMatchObject({ userId: memberUserId, tenantId: TENANT_A_ID, roles: ["Admin"] });
 
-    const [s1] = await selectMany(stack.db, userSessionTable, { id: sessionTarget1Id });
-    const [s2] = await selectMany(stack.db, userSessionTable, { id: sessionTarget2Id });
+    const [s1] = await selectMany<SessionRow>(stack.db, userSessionTable, { id: sessionTarget1Id });
+    const [s2] = await selectMany<SessionRow>(stack.db, userSessionTable, { id: sessionTarget2Id });
     expect(s1).toBeDefined();
     expect(s2).toBeDefined();
     expect(s1!.revokedAt).not.toBeNull();
     expect(s2!.revokedAt).not.toBeNull();
 
-    const [sAdmin] = await selectMany(stack.db, userSessionTable, { id: sessionAdminId });
+    const [sAdmin] = await selectMany<SessionRow>(stack.db, userSessionTable, {
+      id: sessionAdminId,
+    });
     expect(sAdmin).toBeDefined();
     expect(sAdmin!.revokedAt).toBeNull();
 
     // Event-store actor is createSystemUser (handler rewrites via system
     // stream), so filter by type + tenant — not the HTTP caller's user id.
-    const membershipEvents = await selectMany(stack.db, eventsTable, {
+    const membershipEvents = await selectMany<MembershipEventRow>(stack.db, eventsTable, {
       aggregateType: "tenant-membership",
     });
     const updateEvent = membershipEvents.find(

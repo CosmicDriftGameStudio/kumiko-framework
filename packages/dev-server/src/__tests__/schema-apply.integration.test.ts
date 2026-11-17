@@ -187,6 +187,6 @@ describe("runSchemaApply", () => {
     const secondRun = await runSchemaApply({ features: [feature], includeBundled: false, appCwd });
     expect(secondRun).toBe(0);
     const [rowAfterRetry] = await selectMany(conn.db, failCountsTable, { groupId });
-    expect(rowAfterRetry?.itemCount).toBe(1);
+    expect(rowAfterRetry?.["itemCount"]).toBe(1);
   });
 });

@@ -149,7 +149,7 @@ describe("entity event versioning", () => {
       registry: registryWithMigration,
     });
 
-    const rows = await selectMany(testDb.db, noteRefsTable, {});
+    const rows = await selectMany<{ readonly refId: string }>(testDb.db, noteRefsTable, {});
     expect(rows.map((r) => r.refId)).toEqual([uuidFromLegacyRef("legacy-7")]);
   });
 
@@ -250,7 +250,7 @@ describe("eventMigrations renaming a pii field", () => {
     });
 
     // The rebuild completes and the renamed key carries the unchanged ciphertext...
-    const [row] = await selectMany(testDb.db, seenNamesTable, {});
+    const [row] = await selectMany<{ readonly fullName: string }>(testDb.db, seenNamesTable, {});
     const stored = row?.fullName ?? "";
     expect(stored.startsWith(PII_CIPHERTEXT_PREFIX)).toBe(true);
     // ...which is still bound to the old field name: it decrypts as "name", not as "fullName".

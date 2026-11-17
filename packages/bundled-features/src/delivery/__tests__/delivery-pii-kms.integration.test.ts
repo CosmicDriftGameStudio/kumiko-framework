@@ -140,7 +140,7 @@ describe("delivery attempt log under KMS", () => {
 
     const events = await selectMany(stack.db, eventsTable, { type: DELIVERY_ATTEMPT_EVENT });
     const sent = events
-      .map((e) => e.payload as Record<string, unknown>)
+      .map((e) => e["payload"] as Record<string, unknown>)
       .find((p) => p["channel"] === "email" && p["status"] === "sent");
     expect(sent).toBeDefined();
     expect(isPiiCiphertext(sent?.["recipientAddress"])).toBe(true);
@@ -197,7 +197,7 @@ describe("delivery attempt log under KMS", () => {
 
     const events = await selectMany(stack.db, eventsTable, { type: DELIVERY_ATTEMPT_EVENT });
     const direct = events
-      .map((e) => e.payload as Record<string, unknown>)
+      .map((e) => e["payload"] as Record<string, unknown>)
       .find((p) => p["channel"] === "email" && p["recipientId"] === subjectId);
     expect(direct).toBeDefined();
     expect(isPiiCiphertext(direct?.["recipientAddress"])).toBe(true);

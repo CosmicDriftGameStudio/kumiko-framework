@@ -152,7 +152,11 @@ describe("confirmed on the attempt row", () => {
     expect(row?.confirmed).toBe(false);
     // The live worker lane may finish the job before a "queued" row could be
     // observed, so the job path is proven by the attempt's event stream.
-    const events = await selectMany(stack.db, eventsTable, { aggregateId: row?.id ?? "" });
+    const events = await selectMany<{ version: number; payload: Record<string, unknown> }>(
+      stack.db,
+      eventsTable,
+      { aggregateId: row?.id ?? "" },
+    );
     expect(
       events.toSorted((a, b) => a.version - b.version).map((e) => e.payload["status"]),
     ).toEqual(["queued", "sent"]);

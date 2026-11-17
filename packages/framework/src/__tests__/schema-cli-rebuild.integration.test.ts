@@ -129,7 +129,7 @@ beforeEach(async () => {
 });
 
 async function counterFor(groupId: string): Promise<number | undefined> {
-  const [row] = await selectMany(testDb.db, counterTable, { groupId });
+  const [row] = await selectMany<{ itemCount: number }>(testDb.db, counterTable, { groupId });
   return row?.itemCount;
 }
 

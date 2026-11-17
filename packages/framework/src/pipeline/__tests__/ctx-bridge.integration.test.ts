@@ -112,10 +112,7 @@ const bridgeFeature = defineFeature("ctxbridge", (r) => {
     schema: z.object({ owner: z.string() }),
     handler: async (query, ctx) => {
       const rows = await selectMany(ctx.db, secretTable);
-      return (
-        (rows as Array<Record<string, unknown>>).find((r) => r["owner"] === query.payload.owner) ??
-        null
-      );
+      return rows.find((r) => r["owner"] === query.payload.owner) ?? null;
     },
     access: { roles: access.privileged },
   });
@@ -419,7 +416,7 @@ describe("runInOwnTransaction(ctx.db.outsideTransaction)", () => {
     expect((await res.json()).isSuccess).toBe(false);
 
     const bags = await selectMany(stack.db, bagTable);
-    const labels = (bags as Array<Record<string, unknown>>).map((row) => row["label"]);
+    const labels = bags.map((row) => row["label"]);
     expect(labels).toEqual(["outside-outside-tx"]);
   });
 });
@@ -434,7 +431,7 @@ describe("ctx.db.outsideTransaction", () => {
     expect((await res.json()).isSuccess).toBe(false);
 
     const bags = await selectMany(stack.db, bagTable);
-    const labels = (bags as Array<Record<string, unknown>>).map((row) => row["label"]);
+    const labels = bags.map((row) => row["label"]);
     expect(labels).toEqual(["probe-outside-tx"]);
   });
 
@@ -464,7 +461,7 @@ describe("ctx.db.outsideTransaction", () => {
 
     // Both inserts landed — the client's disconnect doesn't touch the write.
     const bags = await selectMany(stack.db, bagTable);
-    const labels = (bags as Array<Record<string, unknown>>).map((row) => row["label"]).sort();
+    const labels = bags.map((row) => row["label"]).sort();
     expect(labels).toEqual(["signal-probe-inside-tx", "signal-probe-outside-tx"]);
   });
 

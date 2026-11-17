@@ -240,12 +240,12 @@ describe("download-by-token :: happy path", () => {
     expect(result.expiresAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
 
     // Audit-Update: useCount=1, lastUsedAt set, IP+UA persistiert
-    const tokenRows = (await selectMany(stack.db, exportDownloadTokensTable, { jobId })) as Array<{
+    const tokenRows = await selectMany<{
       useCount: number;
       lastUsedAt: { toString(): string } | null;
       lastUsedFromIp: string | null;
       lastUsedUserAgent: string | null;
-    }>;
+    }>(stack.db, exportDownloadTokensTable, { jobId });
     expect(tokenRows[0]?.useCount).toBe(1);
     expect(tokenRows[0]?.lastUsedAt).not.toBeNull();
     expect(tokenRows[0]?.lastUsedFromIp).toBe("192.168.1.42");
@@ -266,9 +266,9 @@ describe("download-by-token :: happy path", () => {
       aliceUser,
     );
 
-    const [row] = (await selectMany(stack.db, exportDownloadTokensTable, { jobId })) as Array<{
-      useCount: number;
-    }>;
+    const [row] = await selectMany<{ useCount: number }>(stack.db, exportDownloadTokensTable, {
+      jobId,
+    });
     expect(row?.useCount).toBe(2);
   });
 });
@@ -356,9 +356,7 @@ describe("download-by-token :: error paths", () => {
 
     // The job remains done; an operator configuration error must not change
     // the job state.
-    const [row] = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as Array<{
-      status: string;
-    }>;
+    const [row] = await selectMany<{ status: string }>(stack.db, exportJobsTable, { id: jobId });
     expect(row?.status).toBe("done");
   });
 });
@@ -382,10 +380,10 @@ describe("download-by-job :: happy path", () => {
     expect(body.data.url).toMatch(/^memory:\/\//);
 
     // A UI click also counts as a use, so the audit row must be updated.
-    const [row] = (await selectMany(stack.db, exportDownloadTokensTable, { jobId })) as Array<{
+    const [row] = await selectMany<{
       useCount: number;
       lastUsedFromIp: string | null;
-    }>;
+    }>(stack.db, exportDownloadTokensTable, { jobId });
     expect(row?.useCount).toBe(1);
     expect(row?.lastUsedFromIp).toBe("10.0.0.1");
   });
@@ -439,9 +437,9 @@ describe("r.httpRoute :: /user-export/by-token (Magic-Link e2e)", () => {
     const body = await res.text();
     expect(body).toContain("/user-export/by-token.js");
 
-    const [row] = (await selectMany(stack.db, exportDownloadTokensTable, { jobId })) as Array<{
-      useCount: number;
-    }>;
+    const [row] = await selectMany<{ useCount: number }>(stack.db, exportDownloadTokensTable, {
+      jobId,
+    });
     expect(row?.useCount).toBe(0);
   });
 
@@ -486,11 +484,11 @@ describe("r.httpRoute :: /user-export/by-token (Magic-Link e2e)", () => {
     const body = (await res.json()) as { data?: { url?: string } };
     expect(body.data?.url).toBeTruthy();
 
-    const [row] = (await selectMany(stack.db, exportDownloadTokensTable, { jobId })) as Array<{
+    const [row] = await selectMany<{
       useCount: number;
       lastUsedFromIp: string | null;
       lastUsedUserAgent: string | null;
-    }>;
+    }>(stack.db, exportDownloadTokensTable, { jobId });
     expect(row?.useCount).toBe(1);
     expect(row?.lastUsedFromIp).toBe("10.0.0.1");
     expect(row?.lastUsedFromIp).not.toBe("203.0.113.9");

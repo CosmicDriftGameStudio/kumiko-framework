@@ -88,7 +88,7 @@ const feature = defineFeature("goal5", (r) => {
       escapeHatch: { reason: REASON, grants: ["unsafeRaw"] },
       handler: async (_event, ctx) => ({
         isSuccess: true as const,
-        data: { labels: labelsOf(await selectMany(ctx.db.unsafeRawAllTenants(), itemsTable)) },
+        data: { labels: labelsOf(await selectMany<{ label: string }>(ctx.db.unsafeRawAllTenants(), itemsTable)) },
       }),
     }),
   );
@@ -104,7 +104,7 @@ const systemFeature = defineFeature("goal5sys", (r) => {
       escapeHatch: { reason: REASON, grants: ["unsafeRaw"] },
       handler: async (_event, ctx) => {
         if (!ctx.systemDb) throw new Error("expected ctx.systemDb on a systemScope() handler");
-        const labels = labelsOf(await selectMany(ctx.systemDb.unsafeRaw(REASON), itemsTable));
+        const labels = labelsOf(await selectMany<{ label: string }>(ctx.systemDb.unsafeRaw(REASON), itemsTable));
         return { isSuccess: true as const, data: { labels } };
       },
     }),
@@ -119,7 +119,7 @@ const systemFeature = defineFeature("goal5sys", (r) => {
         const db = ctx.systemDb.acknowledgeCrossTenant(REASON);
         return {
           isSuccess: true as const,
-          data: { labels: labelsOf(await selectMany(db, itemsTable)) },
+          data: { labels: labelsOf(await selectMany<{ label: string }>(db, itemsTable)) },
         };
       },
     }),

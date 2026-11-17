@@ -353,7 +353,7 @@ describe("rebuildMultiStreamProjection — rebuildable read-model", () => {
     await stack.http.writeOk("mspreb:write:invoice:bill", { customer: bob, cents: 7_50 }, admin);
     await runFullDispatcher();
 
-    const liveRows = await selectMany(stack.db, balanceTable);
+    const liveRows = await selectMany<{ readonly customer: string }>(stack.db, balanceTable);
     const aliceLive = liveRows.find((r) => r.customer === alice);
     const bobLive = liveRows.find((r) => r.customer === bob);
     expect(aliceLive).toMatchObject({ invoicesCents: 15_00, paymentsCents: 3_00 });

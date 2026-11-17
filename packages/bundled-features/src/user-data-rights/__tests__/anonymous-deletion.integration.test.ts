@@ -132,9 +132,7 @@ function tokenFromLastVerifyCall(email: string = ALICE_EMAIL): string {
 }
 
 async function statusOf(id: string = aliceUser.id): Promise<string | undefined> {
-  const rows = (await selectMany(stack.db, userTable, { id })) as Array<{
-    status: string;
-  }>;
+  const rows = await selectMany(stack.db, userTable, { id });
   return rows[0]?.status;
 }
 
@@ -177,10 +175,7 @@ describe("anonymous deletion flow", () => {
     expect(body.data.status).toBe(USER_STATUS.DeletionRequested);
     expect(body.data.gracePeriodEnd.length).toBeGreaterThan(0);
 
-    const rows = (await selectMany(stack.db, userTable, { id: aliceUser.id })) as Array<{
-      status: string;
-      gracePeriodEnd: unknown;
-    }>;
+    const rows = await selectMany(stack.db, userTable, { id: aliceUser.id });
     expect(rows[0]?.status).toBe(USER_STATUS.DeletionRequested);
     expect(rows[0]?.gracePeriodEnd).not.toBeNull();
   });

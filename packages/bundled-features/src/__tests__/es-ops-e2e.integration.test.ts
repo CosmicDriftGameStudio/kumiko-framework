@@ -147,7 +147,7 @@ describe("es-ops E2E against real stack", () => {
       // Verify (a) marker
       const markers = await selectMany(testDb.db, esOperationsTable);
       expect(markers).toHaveLength(1);
-      expect(markers[0]?.id).toBe("2026-05-21-add-tenant-admin");
+      expect(markers[0]?.["id"]).toBe("2026-05-21-add-tenant-admin");
 
       // Verify (b): event in the store with tenant-membership.updated
       const events = (await asRawClient(testDb.db).unsafe(

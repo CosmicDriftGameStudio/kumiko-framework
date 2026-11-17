@@ -32,7 +32,7 @@ import {
 } from "../../inbound-mail-foundation/index.ts";
 import { markEvents, setupReadinessStack } from "../../readiness/__tests__/readiness-test-stack.ts";
 import { ReadinessQueries, ReadinessWrites } from "../../readiness/constants.ts";
-import { tenantSecretsTable } from "../../secrets/index.ts";
+import { type StoredMetadata, tenantSecretsTable } from "../../secrets/index.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { userEntity } from "../../user/schema/user.ts";
@@ -142,8 +142,10 @@ async function accountsOf(admin: Admin): Promise<AccountRow[]> {
   return rows;
 }
 
+type SecretRow = { readonly key: string; readonly metadata: StoredMetadata };
+
 async function secretsOf(admin: Admin) {
-  return selectMany(stack.db, tenantSecretsTable, { tenantId: admin.tenantId });
+  return selectMany<SecretRow>(stack.db, tenantSecretsTable, { tenantId: admin.tenantId });
 }
 
 async function expectNothingStored(admin: Admin, newEvents: () => Promise<unknown[]>) {

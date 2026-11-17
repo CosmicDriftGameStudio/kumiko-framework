@@ -8,7 +8,7 @@
 
 import { randomUUID } from "node:crypto";
 import type { WritableTable } from "@cosmicdrift/kumiko-types/executor-brand";
-import { createDbConnection } from "../../connection.ts";
+import { createDbConnection, type DbConnection } from "../../connection.ts";
 import {
   type ColumnMeta,
   defineUnmanagedTable,
@@ -20,12 +20,12 @@ const DATABASE_URL =
   process.env["DATABASE_URL"] ??
   "postgresql://kumiko:kumiko@localhost:15432/kumiko_test";
 
-let dbInstance: { db: unknown; close: () => Promise<void> } | undefined;
+let dbInstance: { db: DbConnection; close: () => Promise<void> } | undefined;
 
-export async function getDb(): Promise<unknown> {
+export async function getDb(): Promise<DbConnection> {
   return ensureDb();
 }
-export async function ensureDb(): Promise<unknown> {
+export async function ensureDb(): Promise<DbConnection> {
   if (!dbInstance) {
     dbInstance = createDbConnection({ url: DATABASE_URL, maxConnections: 4 });
   }
@@ -83,7 +83,7 @@ export function renderCreateTable(meta: EntityTableMeta): string {
 // fn receives {db, meta}; all SQL operations run directly against that database connection.
 export async function withTable<T>(
   columns: readonly ColumnMeta[],
-  fn: (ctx: { db: unknown; meta: WritableTable }) => Promise<T>,
+  fn: (ctx: { db: DbConnection; meta: WritableTable }) => Promise<T>,
   prefix?: string,
 ): Promise<T> {
   const db = await getDb();

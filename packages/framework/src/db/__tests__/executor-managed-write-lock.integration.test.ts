@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import type { DbTx } from "@cosmicdrift/kumiko-types/db-connection";
 import type { EscapeHatchDeclaration } from "@cosmicdrift/kumiko-types/handlers";
 import {
   createTestDb,
@@ -247,8 +248,8 @@ describe("executor-managed write lock: unmanaged tables", () => {
   });
 });
 
-async function asTransaction(runner: unknown, fn: (tx: unknown) => Promise<void>): Promise<void> {
-  const begin = (runner as { begin: (cb: (tx: unknown) => Promise<void>) => Promise<void> }).begin;
+async function asTransaction(runner: unknown, fn: (tx: DbTx) => Promise<void>): Promise<void> {
+  const begin = (runner as { begin: (cb: (tx: DbTx) => Promise<void>) => Promise<void> }).begin;
   await begin.call(runner, fn);
 }
 

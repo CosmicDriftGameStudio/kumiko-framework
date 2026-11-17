@@ -366,7 +366,7 @@ describe("upcaster: projection rebuild walks the chain on replay", () => {
     });
     expect(result.eventsProcessed).toBe(3);
 
-    const rows = await selectMany(testDb.db, orderSummaryTable);
+    const rows = await selectMany<{ orderId: string }>(testDb.db, orderSummaryTable);
 
     // Ordered by orderId → ord1 (10€ = 1000¢), ord2 ($25.50 = 2550¢), ord3 (9900¢)
     expect(rows).toHaveLength(3);
@@ -493,7 +493,7 @@ describe("upcaster: async (Marten AsyncOnlyEventUpcaster — DB-Lookups)", () =>
     });
     expect(result.eventsProcessed).toBe(2);
 
-    const rows = await selectMany(testDb.db, asyncSummary);
+    const rows = await selectMany<{ orderId: string; segment: string }>(testDb.db, asyncSummary);
     expect(rows).toHaveLength(2);
     const byId = new Map(rows.map((r) => [r.orderId, r]));
     // v1 → v2 via async DB lookup → segment from customer_segments.

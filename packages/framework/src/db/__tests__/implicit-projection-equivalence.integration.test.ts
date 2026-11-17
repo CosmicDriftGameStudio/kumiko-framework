@@ -329,7 +329,7 @@ describe("implicit-projection / sensitive rebuild parity", () => {
 
     // The event payload contains the exact table ciphertext, byte-for-byte.
     const { eventsTable } = await import("../../event-store/index.ts");
-    const [event] = await selectMany(
+    const [event] = await selectMany<{ payload: Record<string, unknown> | null }>(
       testDb.db,
       eventsTable,
       { aggregateId: created.data.id },
@@ -365,7 +365,7 @@ describe("implicit-projection / sensitive rebuild parity", () => {
     // The created event's v1 ciphertext must remain readable with the current DEK —
     // rotating the DEK during the update would make the immutable log unreadable.
     const { eventsTable } = await import("../../event-store/index.ts");
-    const [createdEvent] = await selectMany(
+    const [createdEvent] = await selectMany<{ payload: Record<string, unknown> | null }>(
       testDb.db,
       eventsTable,
       { aggregateId: created.data.id },

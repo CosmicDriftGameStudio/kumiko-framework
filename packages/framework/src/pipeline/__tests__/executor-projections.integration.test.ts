@@ -213,7 +213,7 @@ afterEach(async () => {
 });
 
 async function logRows(): Promise<readonly { label: string }[]> {
-  return selectMany(stack.db, auditLogTable);
+  return selectMany<{ label: string }>(stack.db, auditLogTable);
 }
 
 describe("executor writes run custom projections", () => {

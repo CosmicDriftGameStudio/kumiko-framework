@@ -5,6 +5,8 @@
 // komplex/edge das jsonb-Value ist.
 
 import { afterAll, describe, expect, test } from "bun:test";
+import type { WritableTable } from "@cosmicdrift/kumiko-types/executor-brand";
+import type { DbConnection } from "../../connection.ts";
 import { fetchOne, insertOne, selectMany, updateMany } from "../../query.ts";
 import { closeDb, withTable } from "./_helpers.ts";
 
@@ -18,10 +20,13 @@ const jsonbCol = (defaultSql: string) => [
   { name: "data", pgType: "jsonb" as const, notNull: true, defaultSql },
 ];
 
-async function roundtripObject(db: unknown, meta: unknown, value: object): Promise<unknown> {
-  // biome-ignore lint/suspicious/noExplicitAny: tests pass any shape
-  const ins = (await insertOne<any>(db as never, meta as never, { data: value }))!;
-  const row = await fetchOne<{ data: unknown }>(db as never, meta as never, { id: ins.id });
+async function roundtripObject(
+  db: DbConnection,
+  meta: WritableTable,
+  value: object,
+): Promise<unknown> {
+  const ins = await insertOne<{ id: string }>(db, meta, { data: value });
+  const row = await fetchOne<{ data: unknown }>(db, meta, { id: ins?.id });
   return row?.data;
 }
 

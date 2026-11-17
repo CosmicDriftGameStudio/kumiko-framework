@@ -220,9 +220,9 @@ describe("Marten gold-standard: domain events → inline projections", () => {
 
     const rows = await selectMany(stack.db, billingTable);
     expect(rows).toHaveLength(1);
-    expect(rows[0]?.shipmentId).toBe(data.id);
-    expect(rows[0]?.billedMarker).toBe("pending");
-    expect(rows[0]?.totalCost).toBe(0);
+    expect(rows[0]?.["shipmentId"]).toBe(data.id);
+    expect(rows[0]?.["billedMarker"]).toBe("pending");
+    expect(rows[0]?.["totalCost"]).toBe(0);
   });
 
   test("ctx.events.append writes to the aggregate stream and triggers its projection", async () => {
@@ -236,8 +236,8 @@ describe("Marten gold-standard: domain events → inline projections", () => {
 
     const [row] = await selectMany(stack.db, billingTable, { shipmentId: created.id });
     expect(row).toBeDefined();
-    expect(row?.billedMarker).toBe("billed");
-    expect(row?.totalCost).toBe(1500);
+    expect(row?.["billedMarker"]).toBe("billed");
+    expect(row?.["totalCost"]).toBe(1500);
   });
 
   test("domain event lives on the same aggregate stream as the auto event", async () => {

@@ -532,10 +532,10 @@ describe("scenario 5: Projection-Rebuild reproduziert die Read-Models (Plan §3.
 
     const after = await selectMany(db, inboundMessagesProjectionTable, { accountId });
     expect(after).toHaveLength(2);
-    const key = (rows: Array<Record<string, unknown>>) =>
+    const key = (rows: readonly Record<string, unknown>[]) =>
       rows.map((r) => `${r["id"]}|${r["threadKey"]}|${r["from"]}|${r["subject"]}`).sort();
-    expect(key(after as Array<Record<string, unknown>>)).toEqual(
-      key(before as Array<Record<string, unknown>>),
+    expect(key(after)).toEqual(
+      key(before),
     );
   });
 });

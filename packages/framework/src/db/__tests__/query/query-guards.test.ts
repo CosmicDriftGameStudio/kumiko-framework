@@ -22,6 +22,9 @@ const explodingDb = {
   unsafe: async () => {
     throw new Error("unsafe must not be reached when a guard rejects");
   },
+  begin: async () => {
+    throw new Error("unused in this test");
+  },
 };
 
 describe("db/query guards — limit injection", () => {
@@ -39,15 +42,7 @@ describe("db/query guards — limit injection", () => {
 });
 
 describe("db/query guards — silent tenant-scope bypass", () => {
-  // A TenantDb-shaped handle: the scoped methods + tenantId, no `.unsafe` of its own.
-  const tenantDb = {
-    tenantId: "00000000-0000-4000-8000-000000000001",
-    selectMany: async () => [],
-    fetchOne: async () => undefined,
-    insertOne: async () => undefined,
-    updateMany: async () => [],
-    deleteMany: async () => {},
-  };
+  const tenantDb = createTenantDb({ db: explodingDb, tenantId: testTenantId(1) });
 
   test("incrementCounter refuses a tenant-scoped db (would bypass the filter)", async () => {
     await expect(

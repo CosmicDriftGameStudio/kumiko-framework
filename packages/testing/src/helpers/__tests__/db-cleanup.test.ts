@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import { clearTables } from "../db-cleanup.ts";
 
 describe("db-cleanup", () => {
@@ -8,6 +9,9 @@ describe("db-cleanup", () => {
       unsafe: async (sql: string) => {
         sqlLog.push(sql);
         return Object.assign([], { count: 0 });
+      },
+      begin: async () => {
+        throw new Error("unused in this test");
       },
     };
 
@@ -25,10 +29,13 @@ describe("db-cleanup", () => {
         sqlLog.push(sql);
         return Object.assign([], { count: 0 });
       },
+      begin: async () => {
+        throw new Error("unused in this test");
+      },
     };
 
-    const userTable = {
-      source: "managed" as const,
+    const userTable: EntityTableMeta = {
+      source: "managed",
       tableName: "read_users",
       columns: [{ name: "id", pgType: "uuid", notNull: true, primaryKey: true }],
       indexes: [],

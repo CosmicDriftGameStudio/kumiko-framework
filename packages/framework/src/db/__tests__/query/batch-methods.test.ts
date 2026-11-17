@@ -14,7 +14,12 @@ describe("deleteManyBatched (mock)", () => {
         { name: "flag", pgType: "boolean", notNull: true },
       ],
     });
-    const db = { unsafe: async () => [] as unknown[] };
+    const db = {
+      unsafe: async () => [] as unknown[],
+      begin: async () => {
+        throw new Error("unused in this test");
+      },
+    };
     await expect(deleteManyBatched(db, meta, {}, { limit: 10 })).rejects.toThrow(
       "where clause required",
     );

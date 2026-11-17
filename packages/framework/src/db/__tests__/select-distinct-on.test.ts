@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { RawDbClient } from "@cosmicdrift/kumiko-types/db-connection";
 import { createEntity, createNumberField, createTextField } from "../../engine/index.ts";
 import { buildDistinctOnClause } from "../distinct-on.ts";
 import { selectMany } from "../query.ts";
@@ -60,8 +61,16 @@ describe("buildDistinctOnClause", () => {
 
   test("selectMany rejects before touching the database", async () => {
     const table = buildEntityTable(docEntity);
+    const unusedDb: RawDbClient = {
+      unsafe: async () => {
+        throw new Error("unused in this test");
+      },
+      begin: async () => {
+        throw new Error("unused in this test");
+      },
+    };
     await expect(
-      selectMany({}, table, {}, { distinctOn: ["key"], orderBy: { col: "revision" } }),
+      selectMany(unusedDb, table, {}, { distinctOn: ["key"], orderBy: { col: "revision" } }),
     ).rejects.toThrow(/orderBy must start/);
   });
 });

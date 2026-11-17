@@ -169,7 +169,7 @@ async function appendCreatedEvent(groupId: string, name: string): Promise<void> 
 }
 
 async function getCount(groupId: string): Promise<number | undefined> {
-  const [row] = await selectMany(testDb.db, itemsPerGroupTable, { groupId: groupId });
+  const [row] = await selectMany<{ itemCount: number }>(testDb.db, itemsPerGroupTable, { groupId: groupId });
   return row?.itemCount;
 }
 

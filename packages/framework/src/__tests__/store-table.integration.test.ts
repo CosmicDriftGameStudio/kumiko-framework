@@ -52,7 +52,11 @@ describe("r.storeTable — DB roundtrip via setupTestStack", () => {
     await insertOne(stack.db, stripeWebhookCacheMeta, { eventId, payload });
     const windowEnd = Temporal.Now.instant().add({ seconds: 60 });
 
-    const rows = await selectMany(stack.db, stripeWebhookCacheMeta, { eventId: eventId });
+    const rows = await selectMany<{ payload: string; receivedAt: unknown }>(
+      stack.db,
+      stripeWebhookCacheMeta,
+      { eventId: eventId },
+    );
 
     expect(rows).toHaveLength(1);
     expect(rows[0]?.payload).toBe(payload);

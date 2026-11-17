@@ -109,27 +109,39 @@ const appFeature = defineFeature("app", (r) => {
     }),
   );
 
-  r.job({ name: "generateTexts", trigger: { on: "generation-requested" },
-      tenantVisibleRun: { subjectFields: ["campaignId"] }, handler: async (payload) => {
+  r.job({
+    name: "generateTexts",
+    trigger: { on: "generation-requested" },
+    tenantVisibleRun: { subjectFields: ["campaignId"] },
+    handler: async (payload) => {
       if (payload["mode"] === "fail") throw new Error(PROVIDER_MESSAGE);
       if (payload["mode"] === "hold") {
         handlerStarted.resolve();
         await handlerRelease.promise;
       }
-    } });
+    },
+  });
 
   r.job({ name: "plainJob", trigger: { on: "plain-requested" }, handler: async () => {} });
 
-  r.job({ name: "unrecoverable", trigger: { manual: true },
-      retries: 2,
-      tenantVisibleRun: {},
-      tenantVisibleFailure: { messageKey: "app:errors.unrecoverable" }, handler: async () => {
+  r.job({
+    name: "unrecoverable",
+    trigger: { manual: true },
+    retries: 2,
+    tenantVisibleRun: {},
+    tenantVisibleFailure: { messageKey: "app:errors.unrecoverable" },
+    handler: async () => {
       throw new UnrecoverableError("no retry");
-    } });
+    },
+  });
 
-  r.job({ name: "replacing", trigger: { manual: true },
-      concurrency: "replace",
-      tenantVisibleRun: { subjectFields: ["campaignId"] }, handler: async () => {} });
+  r.job({
+    name: "replacing",
+    trigger: { manual: true },
+    concurrency: "replace",
+    tenantVisibleRun: { subjectFields: ["campaignId"] },
+    handler: async () => {},
+  });
 });
 
 let testDb: TestDb;
@@ -203,6 +215,13 @@ async function post(path: string, user: SessionUser, body: unknown): Promise<Res
   });
 }
 
+type StoredRunRow = {
+  readonly jobName: string;
+  readonly status: string;
+  readonly bullJobId: string;
+  readonly finishedAt: Temporal.Instant | null;
+};
+
 type RunRow = {
   readonly jobName: string;
   readonly subject: Record<string, unknown> | null;
@@ -265,8 +284,8 @@ describe("jobs:query:tenant-runs", () => {
     await eventDispatcher?.runOnce();
     expect(await runs(userA, { jobName: "app:job:plain-job" })).toHaveLength(0);
     expect(
-      (await selectMany(db, tenantJobRunsTable, {})).filter(
-        (row: { jobName: string }) => row.jobName === "app:job:plain-job",
+      (await selectMany<StoredRunRow>(db, tenantJobRunsTable, {})).filter(
+        (row) => row.jobName === "app:job:plain-job",
       ),
     ).toHaveLength(0);
   });
@@ -742,9 +761,15 @@ describe("tenant run outcome under concurrency", () => {
     const outcome = { tenantId: tenantA, finalAttempt: true, tenantVisibleRun: { subject } };
 
     await onJobComplete(jobName, "order-a", 1, [], outcome);
-    const [first] = await selectMany(db, tenantJobRunsTable, { tenantId: tenantA, subject });
+    const [first] = await selectMany<StoredRunRow>(db, tenantJobRunsTable, {
+      tenantId: tenantA,
+      subject,
+    });
     await onJobFailed(jobName, "order-b", "boom", [], outcome);
-    const rows = await selectMany(db, tenantJobRunsTable, { tenantId: tenantA, subject });
+    const rows = await selectMany<StoredRunRow>(db, tenantJobRunsTable, {
+      tenantId: tenantA,
+      subject,
+    });
 
     expect(rows).toHaveLength(1);
     expect(rows[0]?.status).toBe("failed");

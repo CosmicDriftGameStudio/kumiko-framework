@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { RawDbClient } from "@cosmicdrift/kumiko-types/db-connection";
 import type {
   DerivativeRendererPlugin,
   VariantSpec,
@@ -38,41 +39,30 @@ function countingRenderer(): {
   return { plugin, calls: () => calls };
 }
 
-// bun-db's fetchOne(db, table, where) duck-types `db` as a TenantDb via
-// tenantDbDelegate() and, when it matches, delegates straight to
-// db.selectMany(...) instead of building raw SQL — so a fake satisfying that
-// shape exercises variant()'s own logic without a live Postgres connection.
-// selectMany evaluates `where` against the canned row instead of ignoring
-// it: variant()'s two mandatory filters (tenantId, isDeleted) are real
-// integration-test territory, but a fake that returns the row unconditionally
-// would let those filters be deleted here without a single red test.
+// fetchOne reads through the raw client; the fake answers with the one row in driver shape
+// (snake_case column names), so variant()'s own logic runs without a live Postgres connection.
 function fakeDbWithFileRef(row: {
   storageKey: string;
   mimeType: string;
   entityType?: string | null;
   entityId?: string | null;
   fieldName?: string | null;
-}): unknown {
-  const canned: Record<string, unknown> = {
-    storageKey: row.storageKey,
-    mimeType: row.mimeType,
-    entityType: row.entityType ?? null,
-    entityId: row.entityId ?? null,
-    fieldName: row.fieldName ?? null,
+}): RawDbClient {
+  const driverRow = {
+    storage_key: row.storageKey,
+    mime_type: row.mimeType,
+    entity_type: row.entityType ?? null,
+    entity_id: row.entityId ?? null,
+    field_name: row.fieldName ?? null,
     id: FILE_REF_ID,
-    tenantId: TENANT_ID,
-    isDeleted: false,
+    tenant_id: TENANT_ID,
+    is_deleted: false,
   };
   return {
-    tenantId: TENANT_ID,
-    selectMany: async (_table: unknown, where?: Record<string, unknown>) => {
-      const matches = Object.entries(where ?? {}).every(([key, value]) => canned[key] === value);
-      return matches ? [canned] : [];
+    unsafe: async () => [driverRow],
+    begin: async () => {
+      throw new Error("unused in this test");
     },
-    fetchOne: async () => canned,
-    insertOne: async () => undefined,
-    updateMany: async () => [],
-    deleteMany: async () => {},
   };
 }
 

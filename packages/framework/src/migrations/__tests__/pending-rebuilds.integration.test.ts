@@ -152,7 +152,7 @@ beforeEach(async () => {
 const GROUP = "00000000-0000-4000-8000-000000000001";
 
 async function getCount(): Promise<number | undefined> {
-  const [row] = await selectMany(testDb.db, countsTable, { groupId: GROUP });
+  const [row] = await selectMany<{ itemCount: number }>(testDb.db, countsTable, { groupId: GROUP });
   return row?.itemCount;
 }
 
@@ -207,7 +207,7 @@ describe("pending-rebuilds queue", () => {
       { projection: "pendingtest:projection:pending-item-names", eventsProcessed: 2 },
     ]);
     expect(await listPendingRebuilds(testDb.db)).toEqual([]);
-    const rows = await selectMany(testDb.db, mspItemNamesTable);
+    const rows = await selectMany<{ name: string | null }>(testDb.db, mspItemNamesTable);
     expect(rows.map((r) => r.name).sort()).toEqual(["a", "b"]);
   });
 

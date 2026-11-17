@@ -19,6 +19,9 @@ const explodingDb = {
   unsafe: async () => {
     throw new Error("unsafe must not be reached when a guard rejects");
   },
+  begin: async () => {
+    throw new Error("unused in this test");
+  },
 };
 
 describe("aggregateWhere — validation runs before any SQL", () => {

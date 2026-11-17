@@ -13,10 +13,10 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createSystemUser, type JobContext } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createTzContext, getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import {
@@ -190,7 +190,10 @@ describe("run-export-jobs cron-context", () => {
         tenantId: TENANT,
         mode: "tenant",
         grants: {
-          unsafeRaw: { reason: "processes pending export jobs across every tenant", grants: ["unsafeRaw"] },
+          unsafeRaw: {
+            reason: "processes pending export jobs across every tenant",
+            grants: ["unsafeRaw"],
+          },
         },
       }),
       registry: stack.registry,
@@ -210,11 +213,11 @@ describe("run-export-jobs cron-context", () => {
       job?.handler({}, jobCtx as unknown as JobContext),
     );
 
-    const [row] = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as Array<{
+    const [row] = await selectMany<{
       status: string;
       bytesWritten: number | null;
       errorMessage: string | null;
-    }>;
+    }>(stack.db, exportJobsTable, { id: jobId });
     expect(row?.errorMessage).toBeNull();
     expect(row?.status).toBe(EXPORT_JOB_STATUS.Done);
     expect(row?.bytesWritten ?? 0).toBeGreaterThan(0);

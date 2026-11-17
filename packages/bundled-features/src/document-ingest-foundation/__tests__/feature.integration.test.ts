@@ -35,7 +35,7 @@ import {
   defineFeature,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { append, eventsTable, getStreamVersion } from "@cosmicdrift/kumiko-framework/event-store";
+import { append, eventsTable, getStreamVersion, type StoredEvent } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createFilesFeature,
   createInMemoryFileProvider,
@@ -463,11 +463,11 @@ describe("ingest events live on their own stream", () => {
 
     await stack.eventDispatcher?.runOnce();
 
-    const onFileRefStream = await selectMany(stack.db, eventsTable, { aggregateId: id });
+    const onFileRefStream = await selectMany<StoredEvent>(stack.db, eventsTable, { aggregateId: id });
     expect([...new Set(onFileRefStream.map((row) => row.aggregateType))]).toEqual(["fileRef"]);
 
     const requested = (
-      await selectMany(stack.db, eventsTable, {
+      await selectMany<StoredEvent>(stack.db, eventsTable, {
         type: "document-ingest-foundation:event:document-ingest-requested",
       })
     ).filter((row) => row.payload["fileRefId"] === id);
@@ -492,7 +492,7 @@ describe("ingest events live on their own stream", () => {
 
     const requestedFor = async (fileRefId: string) =>
       (
-        await selectMany(stack.db, eventsTable, { type: DOCUMENT_INGEST_REQUESTED_EVENT_QN })
+        await selectMany<StoredEvent>(stack.db, eventsTable, { type: DOCUMENT_INGEST_REQUESTED_EVENT_QN })
       ).filter((row) => row.payload["fileRefId"] === fileRefId);
 
     const [derived] = await requestedFor(id);
@@ -661,7 +661,7 @@ describe("fileRef delete/forget cleanup", () => {
       await stack.eventDispatcher?.runOnce();
 
       const createdPages = async (aggregateId: string): Promise<string> => {
-        const events = await selectMany(stack.db, eventsTable, { aggregateId });
+        const events = await selectMany<StoredEvent>(stack.db, eventsTable, { aggregateId });
         const created = events.find((event) => event.type === "document-extract.created");
         const pages = created?.payload?.["pages"];
         expect(isPiiCiphertext(pages)).toBe(true);

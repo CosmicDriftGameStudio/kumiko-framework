@@ -118,10 +118,7 @@ async function seedAlice(
 }
 
 async function aliceRow(): Promise<{ status: string; gracePeriodEnd: Instant | null }> {
-  const rows = (await selectMany(stack.db, userTable, { id: aliceUser.id })) as Array<{
-    status: string;
-    gracePeriodEnd: Instant | null;
-  }>;
+  const rows = await selectMany(stack.db, userTable, { id: aliceUser.id });
   const row = rows[0];
   if (!row) throw new Error("alice row missing");
   return row;

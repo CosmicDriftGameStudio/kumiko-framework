@@ -140,9 +140,7 @@ describe("request-deletion :: sendDeletionRequestedEmail callback", () => {
 
     // The database state was actually flipped—the key best-effort proof. If the
     // write bubbled the email-failure exception, the status would still be Active.
-    const rows = (await selectMany(stack.db, userTable, { id: aliceUser.id })) as Array<{
-      status: string;
-    }>;
+    const rows = await selectMany<{ status: string }>(stack.db, userTable, { id: aliceUser.id });
     expect(rows[0]?.status).toBe(USER_STATUS.DeletionRequested);
   });
 

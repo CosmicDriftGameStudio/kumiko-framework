@@ -161,9 +161,7 @@ describe("read_users rebuild preserves lifecycle state", () => {
     const restricted = await stack.http.writeOk<{ status: string }>(RESTRICT, {}, aliceActive);
     expect(restricted.status).toBe(USER_STATUS.Restricted);
 
-    const before = (await selectMany(stack.db, userTable, { id: created.id })) as Array<{
-      status: string;
-    }>;
+    const before = await selectMany(stack.db, userTable, { id: created.id });
     expect(before[0]?.status).toBe(USER_STATUS.Restricted);
 
     // A real rebuild of the read_users projection from the event log.
@@ -172,9 +170,7 @@ describe("read_users rebuild preserves lifecycle state", () => {
     // Before the lifecycle handlers were rescoped to the user's stream, restrict
     // wrote directly without an event, so the rebuild replayed only user.created
     // and reset the status to Active.
-    const after = (await selectMany(stack.db, userTable, { id: created.id })) as Array<{
-      status: string;
-    }>;
+    const after = await selectMany(stack.db, userTable, { id: created.id });
     expect(after[0]?.status).toBe(USER_STATUS.Restricted);
   });
 
@@ -197,10 +193,7 @@ describe("read_users rebuild preserves lifecycle state", () => {
 
     await rebuildProjection(USER_PROJECTION, { db: stack.db, registry });
 
-    const after = (await selectMany(stack.db, userTable, { id: created.id })) as Array<{
-      status: string;
-      gracePeriodEnd: typeof gracePeriodEnd | null;
-    }>;
+    const after = await selectMany(stack.db, userTable, { id: created.id });
     expect(after[0]?.status).toBe(USER_STATUS.DeletionRequested);
     // gracePeriodEnd must survive replay with its exact value, not merely remain
     // non-null: a timezone or round-trip error can produce a non-null but wrong

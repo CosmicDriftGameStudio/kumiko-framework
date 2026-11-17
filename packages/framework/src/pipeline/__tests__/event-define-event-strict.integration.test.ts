@@ -136,6 +136,13 @@ const emitterFeature = defineFeature("emitter", (r) => {
   });
 });
 
+type StoredEventRow = {
+  readonly payload: Record<string, unknown>;
+  readonly aggregateType: string;
+  readonly aggregateId: string;
+  readonly version: number;
+};
+
 const admin = TestUsers.admin;
 let stack: TestStack;
 
@@ -174,7 +181,7 @@ describe("E.3 — ctx.events.append strict validation", () => {
     );
     expect(res.status).toBe(200);
 
-    const stored = await selectMany(stack.db, eventsTable, { type: welcomeEventName });
+    const stored = await selectMany<StoredEventRow>(stack.db, eventsTable, { type: welcomeEventName });
     expect(stored).toHaveLength(1);
     expect(stored[0]?.payload).toEqual({ userId, email: "welcome@test.de" });
     expect(stored[0]?.aggregateType).toBe("user");
@@ -189,7 +196,7 @@ describe("E.3 — ctx.events.append strict validation", () => {
     // Non-Kumiko throw inside a handler → wrapped as InternalError → 500.
     expect(res.status).toBe(500);
 
-    const stored = await selectMany(stack.db, eventsTable);
+    const stored = await selectMany<StoredEventRow>(stack.db, eventsTable);
     // TX rolled back: no event landed.
     expect(stored).toHaveLength(0);
   });
@@ -200,7 +207,7 @@ describe("E.3 — ctx.events.append strict validation", () => {
     // ValidationError is a first-class Kumiko error → 400.
     expect(res.status).toBe(400);
 
-    const stored = await selectMany(stack.db, eventsTable, { type: welcomeEventName });
+    const stored = await selectMany<StoredEventRow>(stack.db, eventsTable, { type: welcomeEventName });
     expect(stored).toHaveLength(0);
   });
 });
@@ -211,7 +218,7 @@ describe("E.3 — payload shape guard", () => {
     const res = await stack.http.write("emitter:write:emit:array-payload", { userId }, admin);
     expect(res.status).toBe(500);
 
-    const stored = await selectMany(stack.db, eventsTable);
+    const stored = await selectMany<StoredEventRow>(stack.db, eventsTable);
     expect(stored).toHaveLength(0);
   });
 });
@@ -226,7 +233,7 @@ describe("E.3 — cross-feature ownership guard", () => {
     const res = await stack.http.write("emitter:write:emit:foreign-event", { userId }, admin);
     expect(res.status).toBe(500);
 
-    const stored = await selectMany(stack.db, eventsTable, { type: foreignEventName });
+    const stored = await selectMany<StoredEventRow>(stack.db, eventsTable, { type: foreignEventName });
     expect(stored).toHaveLength(0);
   });
 });

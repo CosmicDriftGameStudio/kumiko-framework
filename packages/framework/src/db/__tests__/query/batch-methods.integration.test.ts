@@ -1,4 +1,5 @@
 import { afterAll, describe, expect, test } from "bun:test";
+import type { DbConnection } from "../../connection.ts";
 import { sql } from "../../dialect.ts";
 import type { EntityTableMeta } from "../../entity-table-meta.ts";
 import {
@@ -36,7 +37,7 @@ function makeCodePkMeta(tableName: string): WritableTable {
 }
 
 async function withCodeTable<T>(
-  fn: (ctx: { db: unknown; meta: WritableTable }) => Promise<T>,
+  fn: (ctx: { db: DbConnection; meta: WritableTable }) => Promise<T>,
 ): Promise<T> {
   const db = await getDb();
   const tableName = uniqueTableName("upsert");

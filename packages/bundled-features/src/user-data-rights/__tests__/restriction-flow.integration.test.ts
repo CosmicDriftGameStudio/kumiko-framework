@@ -162,7 +162,7 @@ async function seedMembershipOf(userId: string, tenantId: TenantId, roles: strin
 }
 
 async function statusOf(userId: string): Promise<string | undefined> {
-  const rows = (await selectMany(stack.db, userTable, { id: userId })) as Array<{ status: string }>;
+  const rows = await selectMany(stack.db, userTable, { id: userId });
   return rows[0]?.status;
 }
 
@@ -196,9 +196,7 @@ describe("S2.U6 :: restrict-account state-transitions", () => {
     expect(result.userId).toBe(userId);
 
     // DB-State: status=Restricted.
-    const userRow = (await selectMany(stack.db, userTable, { id: userId })) as Array<{
-      status: string;
-    }>;
+    const userRow = await selectMany(stack.db, userTable, { id: userId });
     expect(userRow[0]?.status).toBe(USER_STATUS.Restricted);
 
     // Alle Sessions revoked (revokedAt != null).
@@ -219,9 +217,7 @@ describe("S2.U6 :: restrict-account state-transitions", () => {
     expect(err.httpStatus).toBe(403);
     expect(reasonOf(err)).toBe("admin_required_for_other_user");
 
-    const userRow = (await selectMany(stack.db, userTable, { id: targetId })) as Array<{
-      status: string;
-    }>;
+    const userRow = await selectMany(stack.db, userTable, { id: targetId });
     expect(userRow[0]?.status).toBe(USER_STATUS.Active);
   });
 
@@ -237,9 +233,7 @@ describe("S2.U6 :: restrict-account state-transitions", () => {
     expect(err.httpStatus).toBe(403);
     expect(reasonOf(err)).toBe("target_user_not_in_admin_tenant");
 
-    const userRow = (await selectMany(stack.db, userTable, { id: userId })) as Array<{
-      status: string;
-    }>;
+    const userRow = await selectMany(stack.db, userTable, { id: userId });
     expect(userRow[0]?.status).toBe(USER_STATUS.Active);
   });
 
@@ -339,9 +333,7 @@ describe("S2.U6 :: restrict-account state-transitions", () => {
     expect(err.httpStatus).toBe(403);
     expect(reasonOf(err)).toBe("target_user_not_in_admin_tenant");
 
-    const userRow = (await selectMany(stack.db, userTable, { id: targetId })) as Array<{
-      status: string;
-    }>;
+    const userRow = await selectMany(stack.db, userTable, { id: targetId });
     expect(userRow[0]?.status).toBe(USER_STATUS.Active);
   });
 
@@ -381,9 +373,7 @@ describe("S2.U6 :: lift-restriction state-transitions", () => {
     const result = await stack.http.writeOk<{ status: string }>(LIFT, { userId }, admin);
     expect(result.status).toBe(USER_STATUS.Active);
 
-    const userRow = (await selectMany(stack.db, userTable, { id: userId })) as Array<{
-      status: string;
-    }>;
+    const userRow = await selectMany(stack.db, userTable, { id: userId });
     expect(userRow[0]?.status).toBe(USER_STATUS.Active);
   });
 
@@ -414,9 +404,7 @@ describe("S2.U6 :: lift-restriction state-transitions", () => {
     expect(err.httpStatus).toBe(403);
     expect(reasonOf(err)).toBe("target_user_not_in_admin_tenant");
 
-    const userRow = (await selectMany(stack.db, userTable, { id: userId })) as Array<{
-      status: string;
-    }>;
+    const userRow = await selectMany(stack.db, userTable, { id: userId });
     expect(userRow[0]?.status).toBe(USER_STATUS.Restricted);
   });
 

@@ -598,7 +598,7 @@ describe("defineWriteHandler({ perform: stepsPipeline(...) }) — real dispatche
 
     const rows = await selectMany(stack.db, pipelineDemoLogTable, { correlationId: "corr-2" });
     expect(rows).toHaveLength(1);
-    expect(rows[0]?.message).toBe("v2 — overwritten");
+    expect(rows[0]?.["message"]).toBe("v2 — overwritten");
   });
 
   test("aggregate.create opens a stream via the real event-store and lands the SaveContext under steps.<name>", async () => {
@@ -796,7 +796,7 @@ describe("defineWriteHandler({ perform: stepsPipeline(...) }) — real dispatche
       correlationId: "branch-truthy",
     });
     expect(rows).toHaveLength(1);
-    expect(rows[0]?.message).toBe("real");
+    expect(rows[0]?.["message"]).toBe("real");
   });
 
   test("branch.onTrue is skipped when the condition is falsy (no row written)", async () => {

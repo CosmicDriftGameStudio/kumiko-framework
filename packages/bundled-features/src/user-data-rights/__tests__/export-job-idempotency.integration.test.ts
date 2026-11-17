@@ -198,7 +198,7 @@ describe("ExportJob :: bigInt bytesWritten DB-Roundtrip", () => {
       bytesWritten: TWO_GB_PLUS,
     });
 
-    const [row] = (await selectMany(stack.db, exportJobsTable, { id })) as Array<{
+    const [row] = (await selectMany(stack.db, exportJobsTable, { id })) as ReadonlyArray<{
       bytesWritten: number;
     }>;
 
@@ -211,7 +211,7 @@ describe("ExportJob :: bigInt bytesWritten DB-Roundtrip", () => {
       bytesWritten: ONE_PB_PLUS,
     });
 
-    const [row] = (await selectMany(stack.db, exportJobsTable, { id })) as Array<{
+    const [row] = (await selectMany(stack.db, exportJobsTable, { id })) as ReadonlyArray<{
       bytesWritten: number;
     }>;
 
@@ -230,7 +230,7 @@ describe("ExportJob :: bigInt bytesWritten DB-Roundtrip", () => {
       WHERE table_name = 'read_export_jobs' AND column_name = 'bytes_written'
     `);
     // biome-ignore lint/suspicious/noExplicitAny: drizzle-execute typing
-    const rows = ((result as any).rows ?? result) as Array<{ data_type: string }>;
+    const rows = ((result as any).rows ?? result) as ReadonlyArray<{ data_type: string }>;
     expect(rows[0]?.data_type).toBe("bigint");
     void id;
   });

@@ -72,7 +72,7 @@ async function seedRow(tenantId: TenantId, ageDays: number): Promise<string> {
 }
 
 async function remainingIds(tenantId: TenantId): Promise<Set<string>> {
-  const rows = await selectMany(stack.db, accessLogTable, { tenantId });
+  const rows = await selectMany<{ readonly id: string }>(stack.db, accessLogTable, { tenantId });
   return new Set(rows.map((row) => row.id));
 }
 

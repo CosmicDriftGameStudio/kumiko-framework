@@ -54,6 +54,12 @@ const auditFeature = defineFeature("audit", (r) => {
   });
 });
 
+type ConsumerStateRow = {
+  readonly name: string;
+  readonly lastProcessedEventId: bigint;
+  readonly status: string;
+};
+
 const admin = TestUsers.admin;
 let stack: TestStack;
 
@@ -98,7 +104,7 @@ describe("Second audit — consumer pre-registration on start()", () => {
     // every consumer at cursor=0, refuses to prune past them.
     await stack.eventDispatcher?.start();
     try {
-      const rows = await selectMany(stack.db, eventConsumerStateTable);
+      const rows = await selectMany<ConsumerStateRow>(stack.db, eventConsumerStateTable);
       const names = new Set(rows.map((r) => r.name));
 
       // The test-stack wires only feature MSP consumers (systemHooks: []),
@@ -151,7 +157,7 @@ describe("Second audit — consumer pre-registration on start()", () => {
 
     await stack.eventDispatcher?.start();
     try {
-      const [row] = await selectMany(stack.db, eventConsumerStateTable, {
+      const [row] = await selectMany<ConsumerStateRow>(stack.db, eventConsumerStateTable, {
         name: "audit:projection:default-scope",
       });
       expect(row?.lastProcessedEventId).toBe(42n);

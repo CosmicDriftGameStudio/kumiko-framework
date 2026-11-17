@@ -100,8 +100,8 @@ async function labelsWithPrefix(
   prefix: string,
 ): Promise<string[]> {
   const rows = await selectMany(stack.db, table);
-  return (rows as Array<Record<string, unknown>>)
-    .map((row) => String(row["label"]))
+  return rows
+    .map((row) => String(row.label))
     .filter((label) => label.startsWith(prefix))
     .sort();
 }

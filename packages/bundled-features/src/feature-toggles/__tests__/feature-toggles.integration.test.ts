@@ -269,7 +269,7 @@ async function countAuditRows(): Promise<number> {
 }
 
 async function trackerCount(): Promise<number> {
-  const rows = await selectMany(stack.db, widgetTrackerTable);
+  const rows = await selectMany<{ readonly count: number }>(stack.db, widgetTrackerTable);
   return rows[0]?.count ?? 0;
 }
 

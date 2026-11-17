@@ -127,7 +127,11 @@ describe("documentExtract.pages — record-subject encryption", () => {
     if (!forgotten.isSuccess) throw new Error(`forget failed: ${forgotten.error.message}`);
     await eraseDocumentExtractKey(id, "t");
 
-    const events = await selectMany(stack.db, eventsTable, { aggregateId: id });
+    const events = await selectMany<{ type: string; payload: Record<string, unknown> | null }>(
+      stack.db,
+      eventsTable,
+      { aggregateId: id },
+    );
     const created = events.find((event) => event.type === "document-extract.created");
     const storedPages = created?.payload?.["pages"];
     expect(

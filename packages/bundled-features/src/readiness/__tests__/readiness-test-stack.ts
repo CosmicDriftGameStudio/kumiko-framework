@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { eventsTable, type StoredEvent } from "@cosmicdrift/kumiko-framework/event-store";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -60,9 +60,9 @@ export async function setupReadinessStack(options: {
 
 // Marks the current end of the event log; the returned reader lists only events appended after it.
 export async function markEvents(stack: TestStack) {
-  const known = new Set((await selectMany(stack.db, eventsTable, {})).map((event) => event.id));
+  const known = new Set((await selectMany<StoredEvent>(stack.db, eventsTable, {})).map((event) => event.id));
   return async () =>
-    (await selectMany(stack.db, eventsTable, {}))
+    (await selectMany<StoredEvent>(stack.db, eventsTable, {}))
       .filter((event) => !known.has(event.id))
       .sort((left, right) => (left.id < right.id ? -1 : 1));
 }

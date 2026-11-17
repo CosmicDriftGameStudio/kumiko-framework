@@ -131,7 +131,7 @@ describe("E.2 — explicit-aggregateTypes pruning", () => {
     expect(result.deletedCount).toBe(1);
     expect(result.aggregateTypes).toEqual(["obsolete"]);
 
-    const remaining = await selectMany(stack.db, eventsTable);
+    const remaining = await selectMany<{ id: bigint }>(stack.db, eventsTable);
     const ids = remaining.map((r) => r.id);
     expect(ids).toContain(widgetId);
     expect(ids).not.toContain(obsoleteId);
@@ -156,7 +156,7 @@ describe("E.2 — explicit-aggregateTypes pruning", () => {
     });
     expect(result.deletedCount).toBe(1);
 
-    const remaining = await selectMany(stack.db, eventsTable);
+    const remaining = await selectMany<{ id: bigint }>(stack.db, eventsTable);
     const ids = remaining.map((r) => r.id).sort();
     expect(ids).toEqual([freshId]);
     expect(ids.includes(staleId)).toBe(false);
@@ -263,7 +263,7 @@ describe("aggregateIds filter", () => {
     });
     expect(result.deletedCount).toBe(1);
 
-    const ids = (await selectMany(stack.db, eventsTable)).map((r) => r.id);
+    const ids = (await selectMany<{ id: bigint }>(stack.db, eventsTable)).map((r) => r.id);
     expect(ids).not.toContain(aId);
     expect(ids).toContain(bId);
   });

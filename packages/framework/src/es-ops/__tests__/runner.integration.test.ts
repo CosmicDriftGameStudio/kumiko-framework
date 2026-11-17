@@ -49,6 +49,12 @@ const probeEntity = createEntity({
   table: "read_esops_probes",
   fields: { label: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
+type EsOperationRow = {
+  readonly id: string;
+  readonly operationType: string;
+  readonly appliedBy: string;
+};
+
 const probeTable = buildEntityTable(probeEntity);
 const probeExecutor = createEventStoreExecutor(probeTable, probeEntity, {
   entityName: "esops-probe",
@@ -153,7 +159,7 @@ describe("runPendingSeedMigrations (integration)", () => {
       expect(r1.appliedIds).toEqual(["2026-05-20-noop"]);
 
       // Marker landed
-      const markers1 = await selectMany(testDb.db, esOperationsTable);
+      const markers1 = await selectMany<EsOperationRow>(testDb.db, esOperationsTable);
       expect(markers1).toHaveLength(1);
       expect(markers1[0]?.id).toBe("2026-05-20-noop");
       expect(markers1[0]?.operationType).toBe("seed-migration");
@@ -200,7 +206,7 @@ describe("runPendingSeedMigrations (integration)", () => {
         }),
       ).rejects.toThrow(/boom/);
 
-      const markers = await selectMany(testDb.db, esOperationsTable);
+      const markers = await selectMany<EsOperationRow>(testDb.db, esOperationsTable);
       expect(markers).toHaveLength(0);
     } finally {
       rmSync(dir, { recursive: true, force: true });
@@ -346,7 +352,7 @@ describe("runPendingSeedMigrations (integration)", () => {
 
       // No marker — the seed would be retried on the next boot, and the failed
       // Write left no event behind.
-      const markers = await selectMany(testDb.db, esOperationsTable);
+      const markers = await selectMany<EsOperationRow>(testDb.db, esOperationsTable);
       expect(markers).toHaveLength(0);
       expect(await selectEvents()).toHaveLength(0);
     } finally {
@@ -400,7 +406,7 @@ describe("runPendingSeedMigrations (integration)", () => {
       expect(events[0]?.type).toBe("esops-probe.created");
       // No marker is written, so the migration runs again on the next boot.
       // A non-idempotent write would create a duplicate.
-      const markers = await selectMany(testDb.db, esOperationsTable);
+      const markers = await selectMany<EsOperationRow>(testDb.db, esOperationsTable);
       expect(markers).toHaveLength(0);
     } finally {
       rmSync(dir, { recursive: true, force: true });
@@ -451,7 +457,7 @@ describe("runPendingSeedMigrations (integration)", () => {
       });
 
       expect(await selectEvents()).toHaveLength(0);
-      const markers = await selectMany(testDb.db, esOperationsTable);
+      const markers = await selectMany<EsOperationRow>(testDb.db, esOperationsTable);
       expect(markers).toHaveLength(1); // only the pre-seeded marker
     } finally {
       rmSync(dir, { recursive: true, force: true });
@@ -486,7 +492,7 @@ describe("runPendingSeedMigrations (integration)", () => {
       ).rejects.toThrow(/stop here/);
 
       // Only first has a marker — fails threw, and never was attempted.
-      const markers = await selectMany(testDb.db, esOperationsTable);
+      const markers = await selectMany<EsOperationRow>(testDb.db, esOperationsTable);
       expect(markers.map((m) => m.id)).toEqual(["2026-05-19-first"]);
     } finally {
       rmSync(dir, { recursive: true, force: true });

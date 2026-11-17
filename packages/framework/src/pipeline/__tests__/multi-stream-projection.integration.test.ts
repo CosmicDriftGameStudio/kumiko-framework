@@ -54,6 +54,13 @@ const customerBalanceTable = pgTable("read_msp_customer_balance", {
   netCents: pgInteger("net_cents").notNull().default(0),
 });
 
+type BalanceRow = {
+  readonly customer: string;
+  readonly tenantId: string;
+  readonly shipments: number;
+  readonly netCents: number;
+};
+
 const mspFeature = defineFeature("msptest", (r) => {
   r.entity(shipmentEntity);
   r.entity(refundEntity);
@@ -194,7 +201,7 @@ describe("r.multiStreamProjection — Marten MultiStreamProjection equivalent", 
     // Drain the dispatcher — MSPs run async.
     await stack.eventDispatcher?.runOnce();
 
-    const rows = await selectMany(stack.db, customerBalanceTable);
+    const rows = await selectMany<BalanceRow>(stack.db, customerBalanceTable);
     const byCustomer = new Map(rows.map((r) => [r.customer, r]));
 
     expect(byCustomer.get(customerA)).toMatchObject({
@@ -223,7 +230,7 @@ describe("r.multiStreamProjection — Marten MultiStreamProjection equivalent", 
     expect(pass2?.byConsumer[mspName]?.processed ?? 0).toBe(0);
 
     // Row state is stable across the no-op pass.
-    const [row] = await selectMany(stack.db, customerBalanceTable, { customer: cust });
+    const [row] = await selectMany<BalanceRow>(stack.db, customerBalanceTable, { customer: cust });
     expect(row?.shipments).toBe(1);
     expect(row?.netCents).toBe(42);
   });
@@ -254,7 +261,7 @@ describe("r.multiStreamProjection — Marten MultiStreamProjection equivalent", 
     );
     await stack.eventDispatcher?.runOnce();
 
-    const rows = await selectMany(stack.db, customerBalanceTable);
+    const rows = await selectMany<BalanceRow>(stack.db, customerBalanceTable);
     const alpha = rows.find((r) => r.customer === customerAlpha);
     const beta = rows.find((r) => r.customer === customerBeta);
 
@@ -276,7 +283,7 @@ describe("r.multiStreamProjection — Marten MultiStreamProjection equivalent", 
 
     // Only the shipment-billed event was folded in; the auto "created"
     // event was silently skipped.
-    const [row] = await selectMany(stack.db, customerBalanceTable, { customer: cust });
+    const [row] = await selectMany<BalanceRow>(stack.db, customerBalanceTable, { customer: cust });
     expect(row?.shipments).toBe(1);
   });
 });

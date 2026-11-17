@@ -189,9 +189,11 @@ describe("tenant-storage-usage MSP", () => {
     await upload(admin, "a.png", SMALL);
     await stack.eventDispatcher?.runOnce();
 
-    const [first] = await selectMany(stack.db, tenantStorageUsageTable, {
-      tenantId: admin.tenantId,
-    });
+    const [first] = await selectMany<{ lastUpdatedAt: Temporal.Instant | null }>(
+      stack.db,
+      tenantStorageUsageTable,
+      { tenantId: admin.tenantId },
+    );
     expect(first?.["lastUpdatedAt"]).toBeInstanceOf(Temporal.Instant);
 
     // Postgres NOW() resolution is microseconds; a second upload a beat
@@ -202,9 +204,11 @@ describe("tenant-storage-usage MSP", () => {
     await upload(admin, "b.png", LARGE);
     await stack.eventDispatcher?.runOnce();
 
-    const [second] = await selectMany(stack.db, tenantStorageUsageTable, {
-      tenantId: admin.tenantId,
-    });
+    const [second] = await selectMany<{ lastUpdatedAt: Temporal.Instant | null }>(
+      stack.db,
+      tenantStorageUsageTable,
+      { tenantId: admin.tenantId },
+    );
     expect(second?.["lastUpdatedAt"]).toBeInstanceOf(Temporal.Instant);
     if (!first?.["lastUpdatedAt"] || !second?.["lastUpdatedAt"]) throw new Error("missing rows");
     expect(

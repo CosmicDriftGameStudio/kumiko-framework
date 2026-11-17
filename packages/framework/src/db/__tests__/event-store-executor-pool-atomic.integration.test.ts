@@ -168,7 +168,7 @@ describe("executor writes on a pool runner are atomic", () => {
 
     const rows = await selectMany(stack.db, ledgerTable);
     expect(rows).toHaveLength(1);
-    expect(await getStreamVersion(stack.db, String(id), admin.tenantId)).toBe(rows[0]?.["version"]);
+    expect(rows[0]?.version).toBe(await getStreamVersion(stack.db, String(id), admin.tenantId));
   });
 
   test("update with skipOptimisticLock fails with version_conflict when another writer commits after the row was loaded", async () => {

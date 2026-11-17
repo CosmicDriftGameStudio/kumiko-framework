@@ -737,7 +737,7 @@ describe("text-blocks :: seedTextBlock", () => {
     });
     expect(events).toHaveLength(2);
     // Sorted: selectMany has no ORDER BY and both events share a timestamp.
-    expect(events.map((e) => e.type).sort()).toEqual([
+    expect(events.map((e) => e["type"]).sort()).toEqual([
       "template-resource.created",
       "template-resource.updated",
     ]);

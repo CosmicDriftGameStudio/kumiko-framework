@@ -745,7 +745,7 @@ describe("full stack: ctx.events.append via event-dispatcher", () => {
       aggregateType: "user",
       type: USER_CREATED_EVENT,
     });
-    return rows.filter((r) => (r.payload as { email?: string }).email === email);
+    return rows.filter((r) => (r["payload"] as { email?: string }).email === email);
   }
 
   test("commit path: user row, domain event, feature postSave, SSE, search, subscriber — all consistent", async () => {
@@ -768,7 +768,7 @@ describe("full stack: ctx.events.append via event-dispatcher", () => {
       aggregateType: "user",
       aggregateId: userId,
     });
-    expect(domainRows[0]?.payload).toMatchObject({ id: userId, email: "emit-happy@test.de" });
+    expect(domainRows[0]?.["payload"]).toMatchObject({ id: userId, email: "emit-happy@test.de" });
 
     // Feature postSave ran inline
     expect(featurePostSaveLog).toHaveLength(1);

@@ -26,7 +26,7 @@ type TableDef = { readonly columns: readonly ColumnMeta[]; readonly extraDdl?: r
 
 async function withTables<T>(
   defs: readonly TableDef[],
-  fn: (ctx: { db: unknown; metas: readonly WritableTable[] }) => Promise<T>,
+  fn: (ctx: { db: DbRunner; metas: readonly WritableTable[] }) => Promise<T>,
 ): Promise<T> {
   const db = await getDb();
   const raw = asRawClient(db);
@@ -116,7 +116,7 @@ describe("insertOnConflictDoNothing", () => {
 
   test("rejects a tenant-scoped db", async () => {
     await withTables([{ columns: slugCols }], async ({ db, metas }) => {
-      const tenantDb = createTenantDb({ db: db as DbRunner, tenantId: randomUUID() as TenantId });
+      const tenantDb = createTenantDb({ db, tenantId: randomUUID() as TenantId });
       await expect(
         insertOnConflictDoNothing(tenantDb, only(metas), { slug: "a", label: "b" }),
       ).rejects.toThrow(/insertOnConflictDoNothing/);
@@ -140,7 +140,7 @@ const ownerOn = [{ left: "ownerRef", right: "ownerRef" }] as const;
 
 describe("selectInnerJoin", () => {
   async function seedJoin(
-    db: unknown,
+    db: DbRunner,
     left: WritableTable,
     right: WritableTable,
   ): Promise<{ ownerA: string; ownerB: string }> {
@@ -259,7 +259,7 @@ describe("selectInnerJoin", () => {
   test("rejects a tenant-scoped db", async () => {
     await withTables(joinTables, async ({ db, metas }) => {
       const [left, right] = pair(metas);
-      const tenantDb = createTenantDb({ db: db as DbRunner, tenantId: randomUUID() as TenantId });
+      const tenantDb = createTenantDb({ db, tenantId: randomUUID() as TenantId });
       await expect(selectInnerJoin(tenantDb, { left, right, on: ownerOn })).rejects.toThrow(
         /selectInnerJoin/,
       );
@@ -291,7 +291,7 @@ const docCols: readonly ColumnMeta[] = [
 ];
 
 describe("where jsonText", () => {
-  async function seedDocs(db: unknown, table: WritableTable, tenantId: string): Promise<void> {
+  async function seedDocs(db: DbRunner, table: WritableTable, tenantId: string): Promise<void> {
     await insertOne(db, table, {
       tenantId,
       payload: { handlerName: "h1", respondedModel: "m-resp", requestedModel: "m-req" },
@@ -312,7 +312,7 @@ describe("where jsonText", () => {
     });
   }
 
-  async function labelsFor(db: unknown, table: WritableTable, payload: unknown): Promise<string[]> {
+  async function labelsFor(db: DbRunner, table: WritableTable, payload: unknown): Promise<string[]> {
     const rows = await selectMany<{ label: string }>(db, table, { payload });
     return rows.map((r) => r.label).sort();
   }
@@ -399,7 +399,7 @@ describe("where jsonText", () => {
       const mine = randomUUID();
       await seedDocs(db, table, mine);
       await seedDocs(db, table, randomUUID());
-      const tenantDb = createTenantDb({ db: db as DbRunner, tenantId: mine as TenantId });
+      const tenantDb = createTenantDb({ db, tenantId: mine as TenantId });
       const rows = await tenantDb.selectMany<{ tenantId: string }>(table, {
         payload: { jsonText: { keys: ["handlerName"], eq: "h1" } },
       });
@@ -430,7 +430,7 @@ describe("aggregateWhere orderByKeys", () => {
   const eventCols: readonly ColumnMeta[] = [
     { name: "occurred_at", pgType: "timestamptz", notNull: true },
   ];
-  async function seedTimes(db: unknown, table: WritableTable): Promise<void> {
+  async function seedTimes(db: DbRunner, table: WritableTable): Promise<void> {
     for (const day of ["01", "02", "03", "04"]) {
       await insertOne(db, table, { occurredAt: Temporal.Instant.from(`2026-02-${day}T00:00:00Z`) });
     }

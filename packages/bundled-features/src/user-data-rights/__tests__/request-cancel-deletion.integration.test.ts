@@ -106,10 +106,10 @@ async function fetchAlice(): Promise<{
   status: string;
   gracePeriodEnd: Instant | null;
 } | null> {
-  const rows = (await selectMany(stack.db, userTable, { id: aliceUser.id })) as Array<{
+  const rows = await selectMany<{
     status: string;
     gracePeriodEnd: Instant | null;
-  }>;
+  }>(stack.db, userTable, { id: aliceUser.id });
   return rows[0] ?? null;
 }
 

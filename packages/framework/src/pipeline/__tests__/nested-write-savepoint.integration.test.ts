@@ -223,8 +223,8 @@ async function labelsOf(
   table: typeof outerTable | typeof innerTable | typeof midTable,
   prefix: string,
 ): Promise<string[]> {
-  const rows = await selectMany(stack.db, table);
-  return (rows as Array<Record<string, unknown>>)
+  const rows = await selectMany<Record<string, unknown>>(stack.db, table);
+  return rows
     .map((row) => String(row["label"]))
     .filter((label) => label.startsWith(prefix))
     .sort();

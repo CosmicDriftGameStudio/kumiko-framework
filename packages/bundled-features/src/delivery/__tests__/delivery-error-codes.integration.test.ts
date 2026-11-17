@@ -106,7 +106,7 @@ async function expectNoLeak(stack: TestStack, notificationType: string, code: st
   );
   expect(rows.map((r) => [r.status, r.error])).toEqual([["failed", code]]);
   const events = await selectMany(stack.db, eventsTable, { aggregateType: "deliveryAttempt" });
-  const payloads = events.map((e) => JSON.stringify(e.payload));
+  const payloads = events.map((e) => JSON.stringify(e["payload"]));
   const mine = payloads.filter((p) => p.includes(notificationType));
   expect(mine.length).toBeGreaterThan(0);
   const serialized = JSON.stringify([rows, mine]);

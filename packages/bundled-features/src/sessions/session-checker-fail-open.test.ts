@@ -35,7 +35,7 @@ describe("sessionChecker fail-closed on lookup errors and missing membership", (
     const userId = "00000000-0000-4000-8000-00000000user";
 
     const originalFetchOne = bunDb.fetchOne;
-    const spy = spyOn(bunDb, "fetchOne").mockImplementation((async (_db, table) => {
+    const spy = spyOn(bunDb, "fetchOne").mockImplementation((async (_db: unknown, table: unknown) => {
       if (table === userSessionTable) return sessionRow(userId);
       if (table === userTable) throw new Error("simulated pool exhaustion");
       if (table === tenantMembershipsTable) return { roles: null };
@@ -56,7 +56,7 @@ describe("sessionChecker fail-closed on lookup errors and missing membership", (
     const sid = "00000000-0000-4000-8000-00000000sid3";
     const userId = "00000000-0000-4000-8000-00000000usr3";
 
-    const spy = spyOn(bunDb, "fetchOne").mockImplementation((async (_db, table) => {
+    const spy = spyOn(bunDb, "fetchOne").mockImplementation((async (_db: unknown, table: unknown) => {
       if (table === userSessionTable) return sessionRow(userId);
       if (table === userTable) return undefined;
       if (table === tenantMembershipsTable) return { roles: null };
@@ -77,7 +77,7 @@ describe("sessionChecker fail-closed on lookup errors and missing membership", (
     const sid = "00000000-0000-4000-8000-00000000sid2";
     const userId = "00000000-0000-4000-8000-00000000usr2";
 
-    const spy = spyOn(bunDb, "fetchOne").mockImplementation((async (_db, table) => {
+    const spy = spyOn(bunDb, "fetchOne").mockImplementation((async (_db: unknown, table: unknown) => {
       if (table === userSessionTable) return sessionRow(userId);
       if (table === userTable) {
         return { status: USER_STATUS.Restricted, isDeleted: false, roles: null };
@@ -98,7 +98,7 @@ describe("sessionChecker fail-closed on lookup errors and missing membership", (
     const sid = "00000000-0000-4000-8000-00000000sid3";
     const userId = "00000000-0000-4000-8000-00000000usr3";
 
-    const spy = spyOn(bunDb, "fetchOne").mockImplementation((async (_db, table) => {
+    const spy = spyOn(bunDb, "fetchOne").mockImplementation((async (_db: unknown, table: unknown) => {
       if (table === userSessionTable) return sessionRow(userId);
       if (table === userTable) {
         return { status: USER_STATUS.Active, isDeleted: false, roles: null };
@@ -119,7 +119,7 @@ describe("sessionChecker fail-closed on lookup errors and missing membership", (
     const sid = "00000000-0000-4000-8000-00000000sid6";
     const userId = "00000000-0000-4000-8000-00000000usr6";
 
-    const spy = spyOn(bunDb, "fetchOne").mockImplementation((async (_db, table) => {
+    const spy = spyOn(bunDb, "fetchOne").mockImplementation((async (_db: unknown, table: unknown) => {
       if (table === userSessionTable) return sessionRow(userId);
       if (table === userTable) {
         return { status: USER_STATUS.Active, isDeleted: false, roles: null };
@@ -144,7 +144,7 @@ describe("sessionChecker lastSeenAt refresh stays fail-open", () => {
     const tenantId = "00000000-0000-4000-8000-000000tenan5";
 
     const originalUpdateMany = bunDb.updateMany;
-    const fetchSpy = spyOn(bunDb, "fetchOne").mockImplementation((async (_db, table) => {
+    const fetchSpy = spyOn(bunDb, "fetchOne").mockImplementation((async (_db: unknown, table: unknown) => {
       if (table === userSessionTable) {
         return {
           userId,
@@ -192,7 +192,7 @@ describe("sessionChecker role re-derivation", () => {
     const userId = "00000000-0000-4000-8000-00000000usr4";
     const tenantId = "00000000-0000-4000-8000-000000tenan2";
 
-    const spy = spyOn(bunDb, "fetchOne").mockImplementation((async (_db, table) => {
+    const spy = spyOn(bunDb, "fetchOne").mockImplementation((async (_db: unknown, table: unknown) => {
       if (table === userSessionTable) {
         return {
           userId,
@@ -268,7 +268,7 @@ describe("sessionChecker lookup overlap", () => {
     const started: unknown[] = [];
     const releases = new Map<unknown, () => void>();
 
-    const spy = spyOn(bunDb, "fetchOne").mockImplementation(((_db, table) => {
+    const spy = spyOn(bunDb, "fetchOne").mockImplementation(((_db: unknown, table: unknown) => {
       started.push(table);
       return new Promise<Record<string, unknown> | undefined>((resolve) => {
         releases.set(table, () => resolve(lookupFor(table, "ok", "ok")));
@@ -308,7 +308,7 @@ describe("sessionChecker lookup overlap", () => {
             : "live with roles";
       test(`user=${user} membership=${membership} → ${expectation}`, async () => {
         const cbs = createSessionCallbacks({ db: {} as DbConnection });
-        const spy = spyOn(bunDb, "fetchOne").mockImplementation((async (_db, table) =>
+        const spy = spyOn(bunDb, "fetchOne").mockImplementation((async (_db: unknown, table: unknown) =>
           lookupFor(table, user, membership)) as FetchOne);
         try {
           if (throws) {
@@ -334,7 +334,7 @@ describe("sessionChecker lookup overlap", () => {
     const unhandled: unknown[] = [];
     const onUnhandled = (reason: unknown) => unhandled.push(reason);
     process.on("unhandledRejection", onUnhandled);
-    const spy = spyOn(bunDb, "fetchOne").mockImplementation((async (_db, table) => {
+    const spy = spyOn(bunDb, "fetchOne").mockImplementation((async (_db: unknown, table: unknown) => {
       if (table === userSessionTable) return undefined;
       throw new Error("parallel lookup failed");
     }) as FetchOne);

@@ -129,7 +129,10 @@ describe("document-ingest-foundation :: tenant destruction", () => {
       expect(finalStatus).toBe("destroyed");
 
       const decryptCreatedPages = async (aggregateId: string): Promise<string> => {
-        const events = await selectMany(db, eventsTable, { aggregateId });
+        const events = await selectMany<{
+          type: string;
+          payload: Record<string, unknown> | null;
+        }>(db, eventsTable, { aggregateId });
         const created = events.find((event) => event.type === "document-extract.created");
         return decryptPiiValueForSubject(
           kms,
