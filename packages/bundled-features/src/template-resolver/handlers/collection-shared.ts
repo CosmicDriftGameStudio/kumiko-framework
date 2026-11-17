@@ -44,7 +44,7 @@ export type CollectionStore = {
   /** Columns a create needs beyond the editable ones the payload carries. */
   createDefaults(tenantId: TenantId): Readonly<Record<string, unknown>>;
   /** True when `content` is stored as PII ciphertext and must be decrypted on read. */
-  readonly contentIsPii: boolean;
+  readonly isUserOwned: boolean;
 };
 
 // `ownership: "user"` means every user keeps their own entries (signatures);
@@ -59,7 +59,7 @@ export function collectionStore(collection: ContentCollectionDefinition): Collec
       executor: userContentExecutor,
       scopeOf: (user) => ({ ownerId: user.id }),
       createDefaults: () => ({}),
-      contentIsPii: true,
+      isUserOwned: true,
     };
   }
   return {
@@ -73,22 +73,26 @@ export function collectionStore(collection: ContentCollectionDefinition): Collec
       parentTemplateId: null,
       status: "active",
     }),
-    contentIsPii: false,
+    isUserOwned: false,
   };
 }
 
-// Raw reads return the stored column, which is ciphertext for a user-owned entry while a KMS
-// is configured; the API's leak guard rejects any response that still carries it.
+// Raw reads return the stored columns, which are ciphertext for a user-owned entry while a KMS
+// is configured; the API's leak guard rejects any response that still carries one.
 export async function readableCollectionEntry(
   row: CollectionEntryRow,
   store: CollectionStore,
   fallbackRequestId: string,
 ) {
-  if (!store.contentIsPii || row.content === null) return toCollectionEntry(row);
-  return toCollectionEntry({
-    ...row,
-    content: await decryptStoredPii(row.content, "content", fallbackRequestId),
-  });
+  if (!store.isUserOwned) return toCollectionEntry(row);
+  const decrypt = (value: string | null, field: string) =>
+    value === null ? null : decryptStoredPii(value, field, fallbackRequestId);
+  const [title, folder, content] = await Promise.all([
+    decrypt(row.title, "title"),
+    decrypt(row.folder, "folder"),
+    decrypt(row.content, "content"),
+  ]);
+  return toCollectionEntry({ ...row, title, folder, content });
 }
 
 export function toCollectionEntry(row: CollectionEntryRow) {

@@ -234,3 +234,36 @@ describe("validateTransferGraph: projections fed by a transferable entity", () =
     ).not.toThrow();
   });
 });
+
+describe("validateTransferGraph: multi-stream projections fed by a transferable entity", () => {
+  function validateMultiStream(opts: {
+    readonly sourceTransferable: boolean;
+    readonly withTable: boolean;
+  }): void {
+    const run = entity({ transferable: opts.sourceTransferable });
+    const rollup = createEntity({ table: "run_rollups", fields: { label: textField() } });
+    const feature = defineFeature("graph", (r) => {
+      r.entity({ name: "run", ...run });
+      r.multiStreamProjection({
+        name: "run-rollup",
+        ...(opts.withTable && { table: buildEntityTable("runRollup", rollup) }),
+        apply: { "run.created": async () => {} },
+      });
+    });
+    validateTransferGraph(feature, new Map([[feature.name, feature]]));
+  }
+
+  test("rejects a table-backed multi-stream projection of a transferable entity", () => {
+    expect(() => validateMultiStream({ sourceTransferable: true, withTable: true })).toThrow(
+      /multi-stream projection "run-rollup".*transferable entity "run"/,
+    );
+  });
+
+  test("accepts a multi-stream projection without a table", () => {
+    expect(() => validateMultiStream({ sourceTransferable: true, withTable: false })).not.toThrow();
+  });
+
+  test("accepts a table-backed multi-stream projection of an entity that is not transferable", () => {
+    expect(() => validateMultiStream({ sourceTransferable: false, withTable: true })).not.toThrow();
+  });
+});

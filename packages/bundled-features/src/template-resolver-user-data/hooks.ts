@@ -28,7 +28,7 @@ export const userContentExportHook: UserDataExportHook = async (ctx) => {
   };
 };
 
-// Deliberate no-op: `content` is annotated `personal: { of: "ownerId" }`, so
+// Deliberate no-op: `title`, `folder` and `content` are annotated `personal: { of: "ownerId" }`, so
 // erasure runs via crypto-shredding — destroying the owner's subject key
 // makes every event AND the projected row unreadable at once. A physical
 // DELETE would not be rebuild-safe here: user-content-entry is
@@ -36,5 +36,5 @@ export const userContentExportHook: UserDataExportHook = async (ctx) => {
 // content, but back).
 // Precondition: this only erases anything if the app mounts a KMS adapter —
 // without one, userOwned fields fall back to plaintext framework-wide and
-// forget is a true no-op for `content`. Same property as notes-history.
+// forget is a true no-op for these fields. Same property as notes-history.
 export const userContentDeleteHook: UserDataDeleteHook = async () => {};

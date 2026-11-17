@@ -92,6 +92,12 @@ export const ENTITY_DECLARATION_RULES = {
       "An r.projection fed by a transferable entity writes into that entity's own table, since tenant-handover moves only the entity table rows.",
     fix: "Move the projected columns into the entity, or drop transferable from the source entity.",
   },
+  transferMultiStreamProjection: {
+    id: "transfer/multi-stream-projection",
+    summary:
+      "A multi-stream projection with a table applies no events of a transferable entity, since tenant-handover moves only the entity table rows.",
+    fix: "Move the projected columns into the entity, drop the projection's table (side effects only), or drop transferable from the source entity.",
+  },
   globalWithoutSystemStream: {
     id: "entity/global-without-system-stream",
     summary: 'An entity with tenancy "global" also declares systemStream: true.',

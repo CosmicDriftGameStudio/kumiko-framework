@@ -2,6 +2,7 @@ import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { isRowDeliveredTo } from "../api.ts";
+import { deliverableTextBlockContent } from "../stored-template-body.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
 import { deliveryPolicyOf } from "../template-delivery-policy.ts";
 import { TEXT_BLOCK_KIND } from "../web/constants.ts";
@@ -50,7 +51,7 @@ export const bySlugQuery = defineQueryHandler({
       slug: row.slug,
       locale: row.locale,
       title: row.title,
-      content: row.content,
+      content: deliverableTextBlockContent(row),
       contentFormat: row.contentFormat,
       folder: row.folder,
       modifiedAt: row.modifiedAt,

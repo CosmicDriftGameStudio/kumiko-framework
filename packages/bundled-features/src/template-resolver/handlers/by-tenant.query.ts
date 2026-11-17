@@ -3,6 +3,7 @@ import { defineQueryHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framew
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { filterDeliveredTo } from "../api.ts";
+import { deliverableTextBlockContent } from "../stored-template-body.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
 import { deliveryPolicyOf } from "../template-delivery-policy.ts";
 import { TEXT_BLOCK_KIND } from "../web/constants.ts";
@@ -20,8 +21,12 @@ import { TEXT_BLOCK_KIND } from "../web/constants.ts";
 // Bounds the anonymous content-tree read; a larger tree would need paging.
 const MAX_LISTED_TEXT_BLOCKS = 1_000;
 
-// meta stays because the delivery policy reads it (isTenantLayout); content stays because the tree marks stubs.
+// meta stays because the delivery policy reads it (isTenantLayout); content stays because the tree marks stubs; id, version, scope and contentFormat feed the cached body check.
 const TEXT_BLOCK_LIST_FIELDS = [
+  "id",
+  "version",
+  "scope",
+  "contentFormat",
   "tenantId",
   "kind",
   "slug",
@@ -78,7 +83,7 @@ export const byTenantQuery = defineQueryHandler({
           slug: row.slug,
           locale: row.locale,
           title: row.title,
-          content: row.content,
+          content: deliverableTextBlockContent(row),
           folder: row.folder,
           modifiedAt: row.modifiedAt,
         }),

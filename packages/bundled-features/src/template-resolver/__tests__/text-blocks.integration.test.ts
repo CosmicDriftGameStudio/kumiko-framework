@@ -68,6 +68,8 @@ const TENANT_EDITABLE = tenantEditableTemplates(
     "own-only-block",
     "zz-sorted",
     "aa-sorted",
+    "legacy-html-script",
+    "legacy-html-clean",
   ],
 );
 
@@ -506,6 +508,49 @@ describe("text-blocks :: query (openToAll)", () => {
       { slug: "aa-sorted", content: "a" },
       { slug: "zz-sorted", content: "z" },
     ]);
+  });
+
+  test("stored html bodies from before the write gate are served sanitized or withheld", async () => {
+    await seedTextBlock(db, {
+      tenantId: tenantAdmin.tenantId,
+      slug: "legacy-html-script",
+      locale: "de",
+      title: "Alt mit Script",
+      contentFormat: "html",
+      content: "<p>Hi</p><script>alert(1)</script>",
+    });
+    await seedTextBlock(db, {
+      tenantId: tenantAdmin.tenantId,
+      slug: "legacy-html-clean",
+      locale: "de",
+      title: "Alt sauber",
+      contentFormat: "html",
+      content: "<p>Hallo <strong>Welt</strong></p>",
+    });
+
+    const rejected = await stack.http.queryOk<{ content: string | null; contentFormat: string }>(
+      TemplateResolverQueries.bySlug,
+      { slug: "legacy-html-script", locale: "de" },
+      tenantAdmin,
+    );
+    expect(rejected.content).toBeNull();
+    expect(rejected.contentFormat).toBe("html");
+
+    const clean = await stack.http.queryOk<{ content: string | null }>(
+      TemplateResolverQueries.bySlug,
+      { slug: "legacy-html-clean", locale: "de" },
+      tenantAdmin,
+    );
+    expect(clean.content).toContain("<strong>Welt</strong>");
+
+    const listed = await stack.http.queryOk<{
+      blocks: readonly { slug: string; content: string | null }[];
+    }>(TemplateResolverQueries.byTenant, {}, tenantAdmin);
+    expect(listed.blocks.find((b) => b.slug === "legacy-html-script")?.content).toBeNull();
+    expect(listed.blocks.find((b) => b.slug === "legacy-html-clean")?.content).toContain(
+      "<strong>Welt</strong>",
+    );
+    expect(JSON.stringify(listed.blocks)).not.toContain("<script");
   });
 });
 
