@@ -92,6 +92,8 @@
       "devDependencies": {
         "@cosmicdrift/kumiko-locale-de": "workspace:*",
         "@cosmicdrift/kumiko-locale-es": "workspace:*",
+        "@cosmicdrift/kumiko-locale-fr": "workspace:*",
+        "@cosmicdrift/kumiko-locale-it": "workspace:*",
         "@cosmicdrift/kumiko-testing": "workspace:*",
         "@testing-library/user-event": "^14.6.8",
         "@types/html-to-text": "^9.0.4",
@@ -158,7 +160,9 @@
       "bin": {
         "kumiko-build": "./bin/kumiko-build.ts",
         "kumiko-dev": "./bin/kumiko-dev.ts",
+        "kumiko-init-deploy": "./bin/kumiko-init-deploy.ts",
         "kumiko-schema": "./bin/kumiko-schema.ts",
+        "kumiko-upgrade": "./bin/kumiko-upgrade.ts",
       },
       "dependencies": {
         "@cosmicdrift/kumiko-bundled-features": "workspace:*",
@@ -266,6 +270,20 @@
     },
     "packages/locale-es": {
       "name": "@cosmicdrift/kumiko-locale-es",
+      "version": "0.424.0",
+      "dependencies": {
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+    },
+    "packages/locale-fr": {
+      "name": "@cosmicdrift/kumiko-locale-fr",
+      "version": "0.424.0",
+      "dependencies": {
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+    },
+    "packages/locale-it": {
+      "name": "@cosmicdrift/kumiko-locale-it",
       "version": "0.424.0",
       "dependencies": {
         "@cosmicdrift/kumiko-framework": "workspace:*",
@@ -495,6 +513,8 @@
         "@cosmicdrift/kumiko-framework": "workspace:*",
         "@cosmicdrift/kumiko-locale-de": "workspace:*",
         "@cosmicdrift/kumiko-locale-es": "workspace:*",
+        "@cosmicdrift/kumiko-locale-fr": "workspace:*",
+        "@cosmicdrift/kumiko-locale-it": "workspace:*",
         "@cosmicdrift/kumiko-renderer": "workspace:*",
         "@cosmicdrift/kumiko-server-runtime": "workspace:*",
         "@cosmicdrift/kumiko-types": "workspace:*",
@@ -1460,6 +1480,10 @@
     "@cosmicdrift/kumiko-locale-de": ["@cosmicdrift/kumiko-locale-de@workspace:packages/locale-de"],
 
     "@cosmicdrift/kumiko-locale-es": ["@cosmicdrift/kumiko-locale-es@workspace:packages/locale-es"],
+
+    "@cosmicdrift/kumiko-locale-fr": ["@cosmicdrift/kumiko-locale-fr@workspace:packages/locale-fr"],
+
+    "@cosmicdrift/kumiko-locale-it": ["@cosmicdrift/kumiko-locale-it@workspace:packages/locale-it"],
 
     "@cosmicdrift/kumiko-marketing-demo": ["@cosmicdrift/kumiko-marketing-demo@workspace:samples/apps/marketing-demo"],
 

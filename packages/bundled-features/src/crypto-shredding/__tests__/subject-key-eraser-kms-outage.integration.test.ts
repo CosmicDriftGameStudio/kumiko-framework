@@ -61,7 +61,7 @@ afterEach(() => {
 
 describe("crypto-shredding :: subject-key-eraser during a KMS outage", () => {
   test("keeps the key, parks the consumer as dead, and erases the key after a restart", async () => {
-    await kms.getKey(subject);
+    await kms.createKey(subject);
     kms.unavailable = true;
 
     await stack.http.writeOk(FORGET, { subject, reason: REASON }, dpoUser);
@@ -71,7 +71,8 @@ describe("crypto-shredding :: subject-key-eraser during a KMS outage", () => {
 
     const parked = await getConsumerState(stack.db, SUBJECT_KEY_ERASER_CONSUMER_NAME);
     expect(parked?.status).toBe("dead");
-    expect(parked?.lastError).toContain(KMS_UNAVAILABLE);
+    // The configured KMS wraps adapter failures, so the consumer state carries the outage class, not the adapter text.
+    expect(parked?.lastError).toContain("the PII key store is unavailable");
     await expect(kms.getKey(subject)).resolves.toBeDefined();
 
     kms.unavailable = false;

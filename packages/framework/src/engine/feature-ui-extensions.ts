@@ -263,7 +263,10 @@ export function buildUiExtensionsMethods<TName extends string>(
       // — typed Dev-API (LifecycleHookFn|ValidationHookFn) → erased Map<name, fn>.
       if (type === "validation") {
         for (const n of names) {
-          state.validationHooks[n] = wrapped as ValidationHookFn; // @cast-boundary engine-bridge
+          state.validationHooks[n] = chainValidationHooks(
+            state.validationHooks[n],
+            wrapped as ValidationHookFn, // @cast-boundary engine-bridge
+          );
         }
         // skip: validation hooks have no phase, stored and done
         return;
@@ -752,5 +755,17 @@ export function buildUiExtensionsMethods<TName extends string>(
         treeActions: actions,
       });
     },
+  };
+}
+
+// A second validation hook on the same target adds to the first instead of replacing it.
+function chainValidationHooks(
+  existing: ValidationHookFn | undefined,
+  added: ValidationHookFn,
+): ValidationHookFn {
+  if (!existing) return added;
+  return (data) => {
+    const errors = [...(existing(data) ?? []), ...(added(data) ?? [])];
+    return errors.length > 0 ? errors : null;
   };
 }

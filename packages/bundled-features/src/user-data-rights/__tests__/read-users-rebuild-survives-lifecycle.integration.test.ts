@@ -139,6 +139,9 @@ function mintActor(user: { id: string; tenantId: TenantId; roles: readonly strin
   return withMintedSession((u, meta) => callbacks.get().sessionCreator(u, meta), user);
 }
 
+const LEGACY_RAW_WRITE =
+  "reproduces the legacy state: a status written to the row without an event";
+
 describe("read_users rebuild preserves lifecycle state", () => {
   test("Restricted status survives a projection rebuild (T_create != T_active)", async () => {
     // Discriminating premise: user.created lands on systemAdmin.tenantId
@@ -216,7 +219,15 @@ describe("read_users rebuild preserves lifecycle state", () => {
     );
 
     // Prae-Fix-Zustand simulieren: roher Write OHNE Event.
-    await updateRows(stack.db, userTable, { status: USER_STATUS.Restricted }, { id: created.id });
+    await updateRows(
+      stack.db,
+      userTable,
+      { status: USER_STATUS.Restricted },
+      { id: created.id },
+      {
+        projectionOnly: LEGACY_RAW_WRITE,
+      },
+    );
 
     // Without the backfill, the rebuild replays only user.created and erases the status.
     await rebuildProjection(USER_PROJECTION, { db: stack.db, registry });
@@ -225,7 +236,15 @@ describe("read_users rebuild preserves lifecycle state", () => {
 
     // Restore the divergent live state (the rebuild set it to Active) before running
     // reconciliation.
-    await updateRows(stack.db, userTable, { status: USER_STATUS.Restricted }, { id: created.id });
+    await updateRows(
+      stack.db,
+      userTable,
+      { status: USER_STATUS.Restricted },
+      { id: created.id },
+      {
+        projectionOnly: LEGACY_RAW_WRITE,
+      },
+    );
     const { backfilled, failed } = await backfillUserLifecycleEvents(stack.db);
     expect(backfilled).toBeGreaterThanOrEqual(1);
     expect(failed).toEqual([]);
@@ -248,14 +267,30 @@ describe("read_users rebuild preserves lifecycle state", () => {
       { email: "healthy.rebuild@example.com", passwordHash: hash, displayName: "Healthy" },
       await mintActor(TestUsers.systemAdmin),
     );
-    await updateRows(stack.db, userTable, { status: USER_STATUS.Restricted }, { id: goodRow.id });
+    await updateRows(
+      stack.db,
+      userTable,
+      { status: USER_STATUS.Restricted },
+      { id: goodRow.id },
+      {
+        projectionOnly: LEGACY_RAW_WRITE,
+      },
+    );
 
     const badRow = await stack.http.writeOk<{ id: string }>(
       UserHandlers.create,
       { email: "corrupt.rebuild@example.com", passwordHash: hash, displayName: "Corrupt" },
       await mintActor(TestUsers.systemAdmin),
     );
-    await updateRows(stack.db, userTable, { status: USER_STATUS.Restricted }, { id: badRow.id });
+    await updateRows(
+      stack.db,
+      userTable,
+      { status: USER_STATUS.Restricted },
+      { id: badRow.id },
+      {
+        projectionOnly: LEGACY_RAW_WRITE,
+      },
+    );
     // userEntity is systemStream:true (schema/user.ts) — its event stream
     // lives on SYSTEM_TENANT_ID regardless of the creating tenant. Archiving
     // under any other tenant would be a silent no-op against assertStreamWritable.

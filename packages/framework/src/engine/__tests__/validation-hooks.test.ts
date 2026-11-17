@@ -27,6 +27,29 @@ describe("validation hooks", () => {
     expect(Object.keys(feature.hooks?.["validation"] ?? {})).toEqual(["user:create"]);
   });
 
+  test("two validation hooks on one target both run", () => {
+    const feature = defineFeature("test", (r) => {
+      r.hook({
+        type: "validation",
+        target: "user:update",
+        handler: (data) => (data["a"] ? [{ field: "a", error: "bad_a" }] : null),
+      });
+      r.hook({
+        type: "validation",
+        target: "user:update",
+        handler: (data) => (data["b"] ? [{ field: "b", error: "bad_b" }] : null),
+      });
+    });
+    const registry = createRegistry([feature]);
+    expect(runValidation(registry, "test:write:user:update", { a: 1 })).toEqual([
+      { field: "a", error: "bad_a" },
+    ]);
+    expect(runValidation(registry, "test:write:user:update", { b: 1 })).toEqual([
+      { field: "b", error: "bad_b" },
+    ]);
+    expect(runValidation(registry, "test:write:user:update", {})).toBeNull();
+  });
+
   test("runValidation returns null when valid", () => {
     const feature = defineFeature("test", (r) => {
       r.hook({ type: "validation", target: "user:create", handler: () => null });
