@@ -1,4 +1,5 @@
-import { decryptStoredPii, KMS_POOL_CONCURRENCY, mapWithConcurrency } from "../shared/index.ts";
+import { mapWithConcurrency } from "@cosmicdrift/kumiko-framework/utils";
+import { decryptStoredPii, KMS_POOL_CONCURRENCY } from "../shared/index.ts";
 
 // Raw reads of read_tenants return the stored column, which is ciphertext
 // under an active KMS; executor reads (crud.list/detail) decrypt on their own.

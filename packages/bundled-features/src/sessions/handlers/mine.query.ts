@@ -2,7 +2,8 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { definePagedQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
-import { decryptStoredPii, KMS_POOL_CONCURRENCY, mapWithConcurrency } from "../../shared/index.ts";
+import { mapWithConcurrency } from "@cosmicdrift/kumiko-framework/utils";
+import { decryptStoredPii, KMS_POOL_CONCURRENCY } from "../../shared/index.ts";
 import { userSessionTable } from "../schema/user-session.ts";
 import { formatDeviceLabel, parsedDeviceSchema, parseUserAgent } from "../web/user-agent.ts";
 

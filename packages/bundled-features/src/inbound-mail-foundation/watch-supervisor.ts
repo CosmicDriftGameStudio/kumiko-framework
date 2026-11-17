@@ -46,7 +46,7 @@ import {
   systemScopedRunner,
   tenantScopedSecrets,
 } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
-import { mapWithConcurrency } from "../shared/index.ts";
+import { mapWithConcurrency } from "@cosmicdrift/kumiko-framework/utils";
 import { createAccountHealth } from "./account-health.ts";
 import { createAccountPoller } from "./account-poll.ts";
 import { pollScheduleOf, withPollDeadline } from "./account-poll-schedule.ts";

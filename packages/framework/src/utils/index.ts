@@ -4,6 +4,7 @@ export { bytesToHex, type DigestAlgorithm, digestHex } from "./hex.ts";
 export { generateDeterministicId, generateId } from "./ids.ts";
 export { isPlainObject } from "./is-plain-object.ts";
 export { createLruCache, type LruCache, type LruCacheOptions } from "./lru-cache.ts";
+export { mapWithConcurrency } from "./map-with-concurrency.ts";
 export { parseStringArrayJson } from "./parse-string-array-json.ts";
 export { MAX_RETURN_PATH_LENGTH } from "./return-path-limit.ts";
 export { parseJsonOrThrow, parseJsonSafe } from "./safe-json.ts";

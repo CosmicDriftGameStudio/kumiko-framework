@@ -72,6 +72,7 @@ const PASSWORD = "testpass";
 const ADDRESS = "testuser@example.com";
 const RECIPIENT = "kunde@example.org";
 const SEND_HANDLER = "send-from-account-test:write:send";
+const SEND_BEFORE_TRANSACTION_HANDLER = "send-from-account-test:write:send-before-transaction";
 const STORE_FILE_HANDLER = "send-from-account-test:write:store-file";
 const PDF_BYTES = Buffer.from("%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n");
 const SENDER_LOGIN = { host: HOST, port: IMAPS_PORT, user: USER, password: PASSWORD };
@@ -103,6 +104,16 @@ const sendTestFeature = defineFeature("send-from-account-test", (r) => {
     schema: z.object({ accountId: z.string(), message: outboundMailMessageSchema }),
     access: { roles: ["TenantAdmin"] },
     handler: async (event, ctx) => sendMailFromAccount(ctx, event.payload),
+  });
+  r.writeHandler({
+    name: "send-before-transaction",
+    description:
+      "Sends a mail from a connected mailbox in beforeTransaction, as an app's own handler would.",
+    agent: { expose: false },
+    schema: z.object({ accountId: z.string(), message: outboundMailMessageSchema }),
+    access: { roles: ["TenantAdmin"] },
+    beforeTransaction: async (event, ctx) => sendMailFromAccount(ctx, event.payload),
+    handler: async (event) => ({ isSuccess: true, data: event.prepared }),
   });
   r.writeHandler({
     name: "store-file",
@@ -486,6 +497,29 @@ describe("sendMailFromAccount", () => {
 
     const error = await stack.http.writeErr(
       SEND_HANDLER,
+      { accountId, message: { to: [RECIPIENT], subject: "Hallo", text: "Test" } },
+      admin,
+    );
+
+    expect(error.i18nKey).toBe(MAIL_SEND_ERRORS.notConfigured.i18nKey);
+  });
+
+  test("sendMailFromAccount runs from beforeTransaction with its ctx as is", async () => {
+    const admin = freshAdmin();
+    const { accountId } = await stack.http.writeOk<{ accountId: string }>(
+      InboundMailFoundationHandlers.connectAccount,
+      {
+        provider: "imap",
+        authMethod: "password",
+        displayName: "Office",
+        address: ADDRESS,
+        scope: "shared",
+      },
+      admin,
+    );
+
+    const error = await stack.http.writeErr(
+      SEND_BEFORE_TRANSACTION_HANDLER,
       { accountId, message: { to: [RECIPIENT], subject: "Hallo", text: "Test" } },
       admin,
     );

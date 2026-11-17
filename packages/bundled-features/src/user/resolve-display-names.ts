@@ -1,6 +1,7 @@
 import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
-import { decryptStoredPii, KMS_POOL_CONCURRENCY, mapWithConcurrency } from "../shared/index.ts";
+import { mapWithConcurrency } from "@cosmicdrift/kumiko-framework/utils";
+import { decryptStoredPii, KMS_POOL_CONCURRENCY } from "../shared/index.ts";
 import { userTable } from "./schema/user.ts";
 
 // One batched lookup for a page of user ids. Users that are missing or have no

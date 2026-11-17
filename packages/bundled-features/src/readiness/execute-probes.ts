@@ -6,7 +6,7 @@ import {
   type ProbeTarget,
   type ProbeText,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { mapWithConcurrency } from "../shared/index.ts";
+import { mapWithConcurrency } from "@cosmicdrift/kumiko-framework/utils";
 import { probeTimeoutMs } from "./collect-probes.ts";
 import { PROBE_TARGET_CONCURRENCY, ProbeTextKeys } from "./constants.ts";
 import type { ProbeResultRow } from "./schema/probe-run.ts";

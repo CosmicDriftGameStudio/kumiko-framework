@@ -4,7 +4,7 @@ import {
   definePagedQueryHandler,
   MAX_LIST_LIMIT,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
+import { mapWithConcurrency, parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
@@ -12,7 +12,6 @@ import { userSessionTable } from "../../sessions/index.ts";
 import {
   decryptStoredPii,
   KMS_POOL_CONCURRENCY,
-  mapWithConcurrency,
   requireSystemDb,
 } from "../../shared/index.ts";
 import { userTable } from "../../user/index.ts";

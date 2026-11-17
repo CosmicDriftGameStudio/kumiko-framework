@@ -6,7 +6,8 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
-import { decryptStoredPii, KMS_POOL_CONCURRENCY, mapWithConcurrency } from "../../shared/index.ts";
+import { mapWithConcurrency } from "@cosmicdrift/kumiko-framework/utils";
+import { decryptStoredPii, KMS_POOL_CONCURRENCY } from "../../shared/index.ts";
 import { userSessionTable } from "../schema/user-session.ts";
 import { formatDeviceLabel, parsedDeviceSchema, parseUserAgent } from "../web/user-agent.ts";
 

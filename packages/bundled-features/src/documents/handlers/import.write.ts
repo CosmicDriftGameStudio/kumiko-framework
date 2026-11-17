@@ -1,8 +1,8 @@
 import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
-  createEntityExecutor,
   defineWriteHandler,
   type HandlerEvents,
+  registeredEntityExecutor,
   type SessionUser,
   SYSTEM_ROLE,
   type WriteHandlerDef,
@@ -32,13 +32,9 @@ async function fileRefExists(
   user: SessionUser,
   db: TenantDb,
 ): Promise<boolean> {
-  const entity = registry.getEntity(FILE_REF_ENTITY_NAME);
-  if (entity === undefined) return false;
-  const row = await createEntityExecutor(FILE_REF_ENTITY_NAME, entity).executor.detail(
-    { id: fileRefId },
-    user,
-    db,
-  );
+  const executor = registeredEntityExecutor(registry, FILE_REF_ENTITY_NAME);
+  if (executor === undefined) return false;
+  const row = await executor.detail({ id: fileRefId }, user, db);
   return row !== null;
 }
 

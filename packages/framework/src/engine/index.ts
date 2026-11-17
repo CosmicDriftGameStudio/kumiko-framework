@@ -419,6 +419,7 @@ export { projectAppSchemaForRoles } from "./project-app-schema-for-roles.ts";
 export { defineApply, defineMspApply, setFields } from "./projection-helpers.ts";
 export { isValidQn, parseQn, QnTypes, qn, toKebab } from "./qualified-name.ts";
 export { readClaim } from "./read-claim.ts";
+export { registeredEntityExecutor } from "./registered-entity-executor.ts";
 export { createRegistry } from "./registry.ts";
 export { resolveNamedListFilters } from "./resolve-named-list-filters.ts";
 export type { AssignableAppRoles } from "./role-assignment.ts";

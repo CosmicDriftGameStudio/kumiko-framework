@@ -120,6 +120,7 @@ export {
   outboundMailMessageSchema,
   type ProviderSentMail,
 } from "./outbound-mail.ts";
+export { type ParsedSenderAddress, parseSenderAddress } from "./parse-sender-address.ts";
 export { isOwnLoginAddress } from "./personal-address.ts";
 export {
   inboundMessagesProjectionTable,

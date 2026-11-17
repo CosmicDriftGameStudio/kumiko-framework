@@ -6,6 +6,10 @@ import {
   PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
 
+// PgKmsAdapter opens at most 4 connections by default (maxConnections ?? 4);
+// more parallel KMS calls only queue at its pool.
+export const KMS_POOL_CONCURRENCY = 4;
+
 // Raw reads (fetchOne/selectMany) return the stored column value — with an
 // active KMS that is ciphertext (self-describing: it names its own subject,
 // so no entity/field context is needed for key selection). `field` must

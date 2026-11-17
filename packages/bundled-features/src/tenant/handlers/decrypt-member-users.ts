@@ -1,4 +1,5 @@
-import { decryptStoredPii, KMS_POOL_CONCURRENCY, mapWithConcurrency } from "../../shared/index.ts";
+import { mapWithConcurrency } from "@cosmicdrift/kumiko-framework/utils";
+import { decryptStoredPii, KMS_POOL_CONCURRENCY } from "../../shared/index.ts";
 
 export type MemberUserRow = {
   readonly id: unknown;

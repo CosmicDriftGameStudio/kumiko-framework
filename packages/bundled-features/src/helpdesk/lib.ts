@@ -15,10 +15,10 @@ import {
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
+import { mapWithConcurrency } from "@cosmicdrift/kumiko-framework/utils";
 import {
   acknowledgedSystemDb,
   decryptStoredPii,
-  mapWithConcurrency,
   runBestEffort as runSharedBestEffort,
   sendBestEffort as sendSharedBestEffort,
 } from "../shared/index.ts";

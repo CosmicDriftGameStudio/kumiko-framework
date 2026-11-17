@@ -14,7 +14,8 @@
 
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { deleteManyBatched, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/db";
-import { KMS_POOL_CONCURRENCY, mapWithConcurrency } from "../../../shared/index.ts";
+import { mapWithConcurrency } from "@cosmicdrift/kumiko-framework/utils";
+import { KMS_POOL_CONCURRENCY } from "../../../shared/index.ts";
 import { DEFAULT_JOB_RUN_RETENTION_DAYS } from "../../handlers/retention-cleanup.job.ts";
 import { encryptFailureError } from "../../job-run-logger.ts";
 import { jobRunsTable } from "../../job-run-table.ts";

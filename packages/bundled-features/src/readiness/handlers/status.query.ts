@@ -9,7 +9,7 @@ import {
   defineQueryHandler,
 } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { mapWithConcurrency } from "../../shared/index.ts";
+import { mapWithConcurrency } from "@cosmicdrift/kumiko-framework/utils";
 import { ReadinessQueries, SECRET_PRESENCE_CONCURRENCY } from "../constants.ts";
 
 export type ReadinessMissingSecret = { readonly key: string };

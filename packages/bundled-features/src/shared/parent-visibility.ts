@@ -1,13 +1,9 @@
+import { buildEntityTable, type TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
-  buildEntityTable,
-  type EventStoreExecutor,
-  type TenantDb,
-} from "@cosmicdrift/kumiko-framework/db";
-import {
-  createEntityExecutor,
   type EntityDefinition,
   hostRoleAllowsRead,
   isUuid,
+  registeredEntityExecutor,
   type Registry,
   type SessionUser,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -16,10 +12,6 @@ import {
   type WriteFailure,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
-
-// Keyed by definition identity, not by entity name — two test stacks can
-// register different EntityDefinitions under the same entity name.
-const executorsByEntity = new WeakMap<EntityDefinition, EventStoreExecutor>();
 
 // Postgres `serial` is int4; a larger digit string would raise 22003 (numeric
 // out of range) inside the write transaction instead of denying cleanly.
@@ -59,16 +51,9 @@ export async function parentRowIsVisible(
 
   if (!hostRoleAllowsRead(registry, entityType, user)) return false;
 
-  return (await executorFor(entityType, entity).detail({ id: entityId }, user, db)) !== null;
-}
-
-function executorFor(entityType: string, entity: EntityDefinition): EventStoreExecutor {
-  let executor = executorsByEntity.get(entity);
-  if (!executor) {
-    executor = createEntityExecutor(entityType, entity).executor;
-    executorsByEntity.set(entity, executor);
-  }
-  return executor;
+  const executor = registeredEntityExecutor(registry, entityType);
+  if (!executor) return false;
+  return (await executor.detail({ id: entityId }, user, db)) !== null;
 }
 
 // Batch form of parentRowIsVisible: one list query for all ids instead of one detail lookup each.
@@ -85,7 +70,9 @@ export async function visibleParentRowIds(
   if (!hostRoleAllowsRead(registry, entityType, user)) return new Set();
   const wellFormed = entityIds.filter((entityId) => idShapeMatchesEntity(entity, entityId));
   if (wellFormed.length === 0) return new Set();
-  const page = await executorFor(entityType, entity).list(
+  const executor = registeredEntityExecutor(registry, entityType);
+  if (!executor) return new Set();
+  const page = await executor.list(
     { filters: [{ field: "id", op: "in", value: wellFormed }], limit: wellFormed.length },
     user,
     db,

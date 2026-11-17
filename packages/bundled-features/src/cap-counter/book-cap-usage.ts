@@ -10,7 +10,7 @@ import {
   type TenantId,
   type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { AccessDeniedError } from "@cosmicdrift/kumiko-framework/errors";
+import { AccessDeniedError, isVersionConflictFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { VersionConflictError } from "@cosmicdrift/kumiko-framework/event-store";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
@@ -32,10 +32,6 @@ const capBookingSchema = capPeriodSchema.extend({
   amount: z.number().int().positive().default(1),
 });
 
-function isLostCounterRace(result: WriteResult): boolean {
-  return !result.isSuccess && result.error.code === "version_conflict";
-}
-
 // Each attempt writes event + projection atomically, so a conflict means another booker just committed. Contention is bounded by the bookers running at once across ALL replicas on the same DB (not per pool), so the jittered backoff spreads out losers instead of letting them collide again in lockstep; the ceiling only guards against non-convergence.
 const MAX_COUNTER_WRITE_ATTEMPTS = 20;
 const BACKOFF_JITTER_MS_PER_ATTEMPT = 5;
@@ -50,7 +46,7 @@ export async function retryCounterWriteOnVersionConflict(
   let result: WriteResult = await writeAttempt();
   for (
     let attempt = 1;
-    attempt < MAX_COUNTER_WRITE_ATTEMPTS && isLostCounterRace(result);
+    attempt < MAX_COUNTER_WRITE_ATTEMPTS && isVersionConflictFailure(result);
     attempt++
   ) {
     await sleepMs(Math.random() * attempt * BACKOFF_JITTER_MS_PER_ATTEMPT);

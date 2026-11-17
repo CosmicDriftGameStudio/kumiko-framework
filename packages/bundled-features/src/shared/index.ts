@@ -22,6 +22,7 @@ export {
   decryptStoredPii,
   decryptStoredPiiValues,
   decryptStoredUserEmail,
+  KMS_POOL_CONCURRENCY,
 } from "./decrypt-stored-pii.ts";
 export { encryptForDirectWrite } from "./encrypt-for-direct-write.ts";
 export { entitiesOf } from "./entities-of.ts";
@@ -39,7 +40,6 @@ export {
   mailParagraphWithLink,
   mailRepeatedRows,
 } from "./mail-template-body.ts";
-export { KMS_POOL_CONCURRENCY, mapWithConcurrency } from "./map-with-concurrency.ts";
 export { type AuthSessionInput, mintAuthSession } from "./mint-auth-session.ts";
 export { normalizeEmail } from "./normalize-email.ts";
 export {

@@ -18,6 +18,7 @@ export { frameworkErrorHttpStatus } from "./error-codes.ts";
 export { isKumikoError, KumikoError } from "./kumiko-error.ts";
 export { FrameworkReasons } from "./reasons.ts";
 export { subjectErasedConflict } from "./subject-erased.ts";
+export { isVersionConflictFailure, retryOnceOnVersionConflict } from "./version-conflict-retry.ts";
 export type { WriteErrorInfo, WriteFailure } from "./write-error-info.ts";
 export {
   failNotFound,

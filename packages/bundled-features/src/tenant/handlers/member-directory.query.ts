@@ -7,10 +7,10 @@ import {
   MAX_LIST_LIMIT,
 } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
+import { mapWithConcurrency } from "@cosmicdrift/kumiko-framework/utils";
 import {
   decryptStoredPii,
   KMS_POOL_CONCURRENCY,
-  mapWithConcurrency,
   requireSystemDb,
 } from "../../shared/index.ts";
 import { userTable } from "../../user/index.ts";

@@ -5,11 +5,11 @@ import {
   type UserDataExportHook,
   type UserDataHookCtx,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { mapWithConcurrency } from "@cosmicdrift/kumiko-framework/utils";
 import {
   collectErasureFailure,
   decryptStoredPii,
   KMS_POOL_CONCURRENCY,
-  mapWithConcurrency,
   throwIfErasureFailed,
 } from "../../shared/index.ts";
 import { tenantInvitationEntity, tenantInvitationsTable } from "../../tenant/index.ts";

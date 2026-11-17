@@ -4,10 +4,10 @@ import { ValidationError } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { WhereObject, WhereOperator } from "@cosmicdrift/kumiko-types/where-clause-types";
 import * as z from "zod";
-import { decryptStoredPii, mapWithConcurrency, requireSystemDb } from "../../shared/index.ts";
+import { mapWithConcurrency } from "@cosmicdrift/kumiko-framework/utils";
+import { decryptStoredPii, KMS_POOL_CONCURRENCY, requireSystemDb } from "../../shared/index.ts";
 import { jobRunsTable } from "../job-run-table.ts";
 
-const KMS_POOL_CONCURRENCY = 4;
 const DEFAULT_PAGE_SIZE = 50;
 
 const jobRunStatusSchema = z.enum(["queued", "running", "completed", "failed"]);
