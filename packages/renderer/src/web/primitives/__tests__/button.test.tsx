@@ -145,7 +145,13 @@ describe("DefaultButton plain variant", () => {
   test("has no fixed height or nowrap, keeps left alignment and the focus ring, and clicks", () => {
     let clicks = 0;
     render(
-      <Button variant="plain" testId="btn" onClick={() => void (clicks += 1)}>
+      <Button
+        variant="plain"
+        testId="btn"
+        onClick={() => {
+          clicks += 1;
+        }}
+      >
         Row
       </Button>,
     );
@@ -170,7 +176,14 @@ describe("DefaultButton plain variant", () => {
   test("disabled sets the attribute and swallows the click", () => {
     let clicks = 0;
     render(
-      <Button variant="plain" disabled testId="btn" onClick={() => void (clicks += 1)}>
+      <Button
+        variant="plain"
+        disabled
+        testId="btn"
+        onClick={() => {
+          clicks += 1;
+        }}
+      >
         Row
       </Button>,
     );

@@ -13,7 +13,6 @@ import { createMockDispatcher, type MockQueryHandler } from "../../testing.ts";
 import { useScreenListRows } from "../use-screen-list-rows.ts";
 
 type QueryFn = MockQueryHandler;
-type QueryResult = Awaited<ReturnType<QueryFn>>;
 type JobRow = { readonly id: string; readonly status: string };
 
 const QUERY_TYPE = "jobs:query:job-run:list";

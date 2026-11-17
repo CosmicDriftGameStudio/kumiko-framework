@@ -23,7 +23,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { z } from "zod";
+import * as z from "zod";
 import { createNoteEntryEntity, noteMentionEntity } from "../entity.ts";
 import { createNotesHistoryFeature } from "../feature.ts";
 import { NotesHistoryHandlers, NotesHistoryQueries } from "../web/constants.ts";

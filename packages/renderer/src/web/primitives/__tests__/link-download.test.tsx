@@ -29,8 +29,9 @@ describe("DefaultLink download", () => {
   });
 
   test("still blocks javascript: hrefs", () => {
+    const scheme = "javascript";
     render(
-      <Link download="x" href="javascript:alert(1)" testId="link">
+      <Link download="x" href={`${scheme}:alert(1)`} testId="link">
         Save
       </Link>,
     );

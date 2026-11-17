@@ -68,30 +68,40 @@ function pickDefaultAuthPage(
   return null;
 }
 
+function DefaultAuthPagesGateView({
+  paths,
+  children,
+}: {
+  readonly paths: AuthPaths;
+  readonly children: ReactNode;
+}): ReactNode {
+  const { pathname, search } = window.location;
+  const basePath = useBasePath();
+  const locale = useLocale().locale();
+  const resolvedPaths = {
+    resetPassword: resolveAuthPath(paths.resetPassword, locale),
+    verifyEmail: resolveAuthPath(paths.verifyEmail, locale),
+    signupComplete: resolveAuthPath(paths.signupComplete, locale),
+    inviteAccept: resolveAuthPath(paths.inviteAccept, locale),
+    unlockAccount: resolveAuthPath(paths.unlockAccount, locale),
+  };
+  const loginHref = prependBasePath(DEFAULT_LOGIN_PATH, basePath);
+  return (
+    pickDefaultAuthPage(pathname, search, resolvedPaths, loginHref, basePath, children) ?? (
+      <>{children}</>
+    )
+  );
+}
+
 // Sits inside emailPasswordClient's gate list, so app gates registered earlier
 // (outer) still win on the same path. The pages are public: no session needed.
 export function makeDefaultAuthPagesGate(
   options: DefaultAuthPagesOptions = {},
 ): ComponentType<{ readonly children: ReactNode }> {
   const paths = makeAuthPaths(options.paths);
-  return function DefaultAuthPagesGate({ children }: { readonly children: ReactNode }): ReactNode {
-    const { pathname, search } = window.location;
-    const basePath = useBasePath();
-    const locale = useLocale().locale();
-    const resolvedPaths = {
-      resetPassword: resolveAuthPath(paths.resetPassword, locale),
-      verifyEmail: resolveAuthPath(paths.verifyEmail, locale),
-      signupComplete: resolveAuthPath(paths.signupComplete, locale),
-      inviteAccept: resolveAuthPath(paths.inviteAccept, locale),
-      unlockAccount: resolveAuthPath(paths.unlockAccount, locale),
-    };
-    const loginHref = prependBasePath(DEFAULT_LOGIN_PATH, basePath);
-    return (
-      pickDefaultAuthPage(pathname, search, resolvedPaths, loginHref, basePath, children) ?? (
-        <>{children}</>
-      )
-    );
-  };
+  return ({ children }) => (
+    <DefaultAuthPagesGateView paths={paths}>{children}</DefaultAuthPagesGateView>
+  );
 }
 
 export const DefaultAuthPagesGate = makeDefaultAuthPagesGate();

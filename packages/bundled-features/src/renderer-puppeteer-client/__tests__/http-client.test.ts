@@ -311,14 +311,14 @@ describe("postRender :: egress policy (serviceUrl validation)", () => {
 describe("rasterizePdf", () => {
   const PAGE = { mimeType: "image/png" as const, data: "AAAA", widthPx: 10, heightPx: 20 };
 
-  function useConfig(): void {
+  function setClientEnv(): void {
     process.env["PUPPETEER_SERVICE_URL"] = CONFIG.serviceUrl;
     process.env["PUPPETEER_AUTH_TOKEN"] = CONFIG.authToken;
     process.env["PUPPETEER_CLIENT_MAX_RETRIES"] = "0";
   }
 
   test("posts the base64 PDF with the options and returns the validated pages", async () => {
-    useConfig();
+    setClientEnv();
     const fetchMock = mock(async (_url: string, init: RequestInit) => {
       expect(JSON.parse(String(init.body))).toEqual({
         pdfBase64: Buffer.from("%PDF-1.4").toString("base64"),
@@ -337,13 +337,13 @@ describe("rasterizePdf", () => {
   });
 
   test("a response of the wrong shape is a RendererError", async () => {
-    useConfig();
+    setClientEnv();
     installFetchMock(mock(async () => mockResponse(200, { pages: [{ data: 1 }], images: [] })));
     await expect(rasterizePdf(new Uint8Array([1]))).rejects.toBeInstanceOf(RendererError);
   });
 
   test("a 400 invalid_pdf is a final invalid_payload RendererError", async () => {
-    useConfig();
+    setClientEnv();
     const fetchMock = mock(async () => mockResponse(400, { error: "invalid_pdf", details: "x" }));
     installFetchMock(fetchMock);
     await expect(rasterizePdf(new Uint8Array([1]))).rejects.toMatchObject({

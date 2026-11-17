@@ -47,9 +47,7 @@ export function AuthShellProvider({
 export function makeAuthShellProvider(
   shell: AuthShellRenderer,
 ): ComponentType<{ readonly children: ReactNode }> {
-  return function AuthShellFromClientOptions({ children }: { readonly children: ReactNode }) {
-    return <AuthShellProvider shell={shell}>{children}</AuthShellProvider>;
-  };
+  return ({ children }) => <AuthShellProvider shell={shell}>{children}</AuthShellProvider>;
 }
 
 export function useAuthShell(): AuthShellRenderer | null {

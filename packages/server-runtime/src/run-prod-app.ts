@@ -86,7 +86,7 @@ import type { KmsMode } from "./boot-options/kms-mode.ts";
 import type { MailBootOption } from "./boot-options/mail-option.ts";
 import type { PreviewLoginOption } from "./boot-options/preview-login-option.ts";
 import type { SignalsOption } from "./boot-options/process-signals.ts";
-import { prodKmsModeDefault, prodStaticDirDefault } from "./boot-options/prod-boot-defaults.ts";
+import { prodKmsModeDefault } from "./boot-options/prod-boot-defaults.ts";
 import type { SearchBootOption } from "./boot-options/search-option.ts";
 import type { ProdSeedsConfig } from "./boot-options/seed-shortcuts.ts";
 import type { SystemWireDeps } from "./extra-routes-deps.ts";
@@ -113,6 +113,7 @@ import {
 import { buildProdFetchHandler, createProdAppHandle } from "./run-prod-app-handle.ts";
 import { buildProdRequestContext } from "./run-prod-app-request-context.ts";
 import { runProdBootSeeds } from "./run-prod-app-seeds.ts";
+import { prodStaticDirDefault } from "./run-prod-app-static-files.ts";
 import type { SecurityHeadersOption } from "./security-headers.ts";
 import type { SeedCreateFileRef } from "./seed-dispatcher.ts";
 

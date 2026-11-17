@@ -11,6 +11,7 @@
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
 import type { CliCommand } from "./commands";
 import { APP_COMMANDS, findAppCommand } from "./commands";
 import type { Output } from "./output";
@@ -30,7 +31,7 @@ const DEFAULT_OUT: Output = {
 
 function readCliVersion(): string {
   const manifestPath = join(import.meta.dir, "..", "package.json");
-  const manifest: unknown = JSON.parse(readFileSync(manifestPath, "utf-8"));
+  const manifest = parseJsonOrThrow<unknown>(readFileSync(manifestPath, "utf-8"), manifestPath);
   if (
     typeof manifest === "object" &&
     manifest !== null &&

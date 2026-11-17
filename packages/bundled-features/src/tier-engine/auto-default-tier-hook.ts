@@ -1,6 +1,6 @@
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import type { FeatureRegistrar } from "@cosmicdrift/kumiko-framework/engine";
-import { getUnscopedAggregateStreamMaxVersion } from "@cosmicdrift/kumiko-framework/event-store";
+import { getStreamVersion } from "@cosmicdrift/kumiko-framework/event-store";
 import { registerTenantCreatedSeedHook } from "../shared/tenant-created-seed-hook.ts";
 import { tierAssignmentAggregateId } from "./aggregate-id.ts";
 import { tierAssignmentEntity } from "./entity.ts";
@@ -20,7 +20,7 @@ export function registerAutoDefaultTierHook(r: FeatureRegistrar, defaultTier: st
     reason: "seeds the default tier-assignment stream of the tenant just created",
     seed: async ({ tenantId, rawDb, tenantDb, systemUser }) => {
       const aggregateId = tierAssignmentAggregateId(tenantId);
-      const streamVersion = await getUnscopedAggregateStreamMaxVersion(rawDb, aggregateId);
+      const streamVersion = await getStreamVersion(rawDb, aggregateId, tenantId);
       // skip: idempotent — tier-assignment stream already seeded (rebuild/replay).
       if (streamVersion > 0) return;
 

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { prodKmsModeDefault, prodStaticDirDefault } from "../prod-boot-defaults.ts";
+import { prodStaticDirDefault } from "../../run-prod-app-static-files.ts";
+import { prodKmsModeDefault } from "../prod-boot-defaults.ts";
 
 const PRODUCTION = { NODE_ENV: "production" };
 

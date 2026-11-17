@@ -43,12 +43,11 @@ function foldRowsAsOf(
     const id = event.aggregateId;
     const row = rows.get(id);
     const verb = parseAutoVerb(event, entity);
-    if (verb === null) {
-      // Domain events move row.version too (decisions.md 2026-11-17).
-      if (row !== undefined) rows.set(id, { ...row, version: event.version });
-      continue;
-    }
     switch (verb) {
+      case null:
+        // Domain events move row.version too (decisions.md 2026-11-17).
+        if (row !== undefined) rows.set(id, { ...row, version: event.version });
+        break;
       case "created":
         rows.set(id, {
           ...event.payload,

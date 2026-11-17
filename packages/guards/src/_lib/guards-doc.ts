@@ -72,7 +72,12 @@ function isPluginEntry(value: unknown): value is PluginEntry {
 }
 
 function parsePluginEntries(json: string): PluginEntry[] {
-  const parsed: unknown = JSON.parse(json);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch (error) {
+    throw new Error(`${BIOME_RULES_REL}: invalid JSON`, { cause: error });
+  }
   const plugins = isRecord(parsed) ? parsed["plugins"] : undefined;
   if (!Array.isArray(plugins)) {
     throw new Error(`${BIOME_RULES_REL}: "plugins" must be an array`);

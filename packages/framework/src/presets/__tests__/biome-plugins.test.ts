@@ -65,6 +65,8 @@ describe("error-reasons plugin", () => {
       'const hatch = declareEscapeHatch({ reason: "Prose justification for the hatch" });',
       'const grants = { escapeHatch: { grants: { unsafeRaw: { reason: "Prose here" } } } };',
       "const dynamic = { reason: someReasonConstant };",
+      'const q = { unfilteredResult: { reason: "Prose: returns select options only" } };',
+      'registerTenantCreatedSeedHook(r, { reason: "Prose: seeds the default row", seed });',
     ].join("\n"),
   });
 
@@ -127,6 +129,7 @@ describe("es-literal-writes plugin", () => {
       'const e = "UPDATE read_orders SET x = 1";',
       'const f = "CREATE TABLE read_tenant_memberships (id uuid)";',
       'const g = "INSERT INTO KUMIKO_EVENTS (id) VALUES (1)";',
+      'const h = "WITH v AS (SELECT 1 FROM kumiko_events) UPDATE read_orders SET x = 1";',
     ].join("\n"),
   });
 

@@ -14,7 +14,6 @@ const ALLOWED_FILES = new Set([
   "packages/framework/src/event-store/event-store.ts",
   "packages/framework/src/event-store/index.ts",
   "packages/bundled-features/src/tenant/seeding.ts",
-  "packages/bundled-features/src/tier-engine/feature.ts",
   "packages/bundled-features/src/template-resolver/seeding.ts",
   "packages/framework/src/event-store/__tests__/unscoped-stream-primitives.guard.test.ts",
   "packages/framework/src/presets/__tests__/biome-plugins.test.ts",

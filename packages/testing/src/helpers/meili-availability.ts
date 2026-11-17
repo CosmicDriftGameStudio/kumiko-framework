@@ -1,3 +1,4 @@
+import { egress } from "@cosmicdrift/kumiko-framework/http";
 import { SERVICE_ENV_DEFAULTS } from "../preload/service-env-defaults-values.ts";
 
 const REQUIRE_MEILI_ENV = "REQUIRE_MEILI";
@@ -11,13 +12,21 @@ export function liveMeiliConnection(): LiveMeiliConnection {
   };
 }
 
+async function meiliHealthOk(url: string): Promise<boolean> {
+  try {
+    const probe = egress({ kind: "internal", allowOrigins: [new URL(url).origin] });
+    const response = await probe(`${url}/health`, { signal: AbortSignal.timeout(2000) });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
 // CI integration jobs set REQUIRE_MEILI=1 and start Meili; there a down Meili is a
 // misconfigured job and must fail instead of silently skipping the live tests.
 export async function meiliAvailable(): Promise<boolean> {
   const { url } = liveMeiliConnection();
-  const reachable = await fetch(`${url}/health`, { signal: AbortSignal.timeout(2000) })
-    .then((response) => response.ok)
-    .catch(() => false);
+  const reachable = await meiliHealthOk(url);
   if (!reachable && process.env[REQUIRE_MEILI_ENV] === "1") {
     throw new Error(
       `REQUIRE_MEILI=1 but Meilisearch is not reachable at ${url}; the integration job is misconfigured.`,

@@ -380,10 +380,10 @@ export function SignedBarChart({
   height = DEFAULT_HEIGHT,
   testId,
 }: SignedBarChartProps): ReactNode {
-  const valueOf = (bucket: SignedBarBucket, key: string): number => bucket.values[key] ?? 0;
+  const bucketValue = (bucket: SignedBarBucket, key: string): number => bucket.values[key] ?? 0;
   const sums = buckets.map((bucket) => ({
-    positive: series.reduce((sum, line) => sum + Math.max(0, valueOf(bucket, line.key)), 0),
-    negative: series.reduce((sum, line) => sum + Math.min(0, valueOf(bucket, line.key)), 0),
+    positive: series.reduce((sum, line) => sum + Math.max(0, bucketValue(bucket, line.key)), 0),
+    negative: series.reduce((sum, line) => sum + Math.min(0, bucketValue(bucket, line.key)), 0),
   }));
   const yTicks = niceTicks(
     Math.min(0, ...sums.map((sum) => sum.negative)),
@@ -429,7 +429,7 @@ export function SignedBarChart({
         return (
           <g key={bucket.x}>
             {series.map((line, index) => {
-              const value = valueOf(bucket, line.key);
+              const value = bucketValue(bucket, line.key);
               if (value === 0) return null;
               const from = value > 0 ? positiveTop : negativeBottom;
               const to = from + value;

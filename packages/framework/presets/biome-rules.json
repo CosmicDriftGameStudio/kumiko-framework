@@ -239,7 +239,6 @@
         "!**/packages/testing/src/helpers/seed.ts",
         "!**/packages/testing/src/helpers/db-cleanup.ts",
         "!**/packages/bundled-features/src/tenant/seeding.ts",
-        "!**/packages/bundled-features/src/tier-engine/feature.ts",
         "!**/packages/*/scripts/**",
         "!**/samples/**/scripts/**"
       ]

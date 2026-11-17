@@ -38,14 +38,16 @@ or {
       `systemIdentity`,
       `globalWrites`,
       `unsafeRaw`,
-      `crossTenantReads`
+      `crossTenantReads`,
+      `unfilteredResult`
     }),
     not $member <: within `$callee($...)` where {
       $callee <: or {
         `declareEscapeHatch`,
         `withUnsafeRawGrant`,
         `createTenantDb`,
-        `subjectForgetAfterDeleteHook`
+        `subjectForgetAfterDeleteHook`,
+        `registerTenantCreatedSeedHook`
       }
     },
     register_diagnostic(span=$reason, message="Error reason must be snake_case ASCII with optional dot namespaces (^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$): clients key off it across wire, logs and i18n. Reusable? Add a const to FrameworkReasons/<Feature>Reasons.", severity="error")

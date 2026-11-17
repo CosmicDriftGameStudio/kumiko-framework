@@ -81,8 +81,6 @@ async function withRejectingEventAppend(fn: () => Promise<void>): Promise<void> 
   }
 }
 
-const USER_ID = "00000000-0000-4000-8000-0000000000a1";
-
 describe("sessionRevoker atomicity", () => {
   test("a failing event append leaves the session live so a retry still revokes and emits", async () => {
     const { sessionRevoker } = createSessionCallbacks({ db: testDb.db });

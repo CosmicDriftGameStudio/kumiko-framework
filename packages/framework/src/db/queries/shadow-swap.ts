@@ -545,6 +545,7 @@ export async function swapShadowIntoLive(tx: DbTx, tableName: string): Promise<v
   await restoreRowLevelSecurityState(tx, tableName, live);
 }
 
+// Reads kumiko_events in a CTE ahead of the UPDATE: the statement writes only the shadow table.
 // Domain events are not replayed into an entity shadow, so the replayed rows still hold the version
 // of their last lifecycle event; live, every domain event on the stream moved it further.
 export async function alignShadowRowVersionsWithStreams(
@@ -564,12 +565,15 @@ export async function alignShadowRowVersionsWithStreams(
     () =>
       executeRawQuery(
         tx,
-        `UPDATE ${SCHEMA_IDENT}.${quoteIdent(tableName)} AS s
+        `WITH "stream_versions" AS (
+           SELECT "tenant_id", "aggregate_id", MAX("version") AS "stream_version"
+             FROM "kumiko_events"
+            WHERE "aggregate_type" = ANY($1::text[])
+            GROUP BY "tenant_id", "aggregate_id"
+         )
+         UPDATE ${SCHEMA_IDENT}.${quoteIdent(tableName)} AS s
             SET "version" = e."stream_version"
-           FROM (SELECT "tenant_id", "aggregate_id", MAX("version") AS "stream_version"
-                   FROM "kumiko_events"
-                  WHERE "aggregate_type" = ANY($1::text[])
-                  GROUP BY "tenant_id", "aggregate_id") AS e
+           FROM "stream_versions" AS e
           WHERE e."aggregate_id" = s."id"
             AND e."tenant_id" = ${tenantMatch}
             AND s."version" < e."stream_version"`,

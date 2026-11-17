@@ -6,7 +6,7 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import type { SingleStreamApplyFn } from "@cosmicdrift/kumiko-types/projection";
-import { z } from "zod";
+import * as z from "zod";
 import {
   createEntity,
   createTextField,

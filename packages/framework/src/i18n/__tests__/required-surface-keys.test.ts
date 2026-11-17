@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { z } from "zod";
+import * as z from "zod";
 import { defineFeature } from "../../engine/define-feature.ts";
 import { createRegistry } from "../../engine/registry.ts";
 import type { FeatureDefinition } from "../../engine/types";

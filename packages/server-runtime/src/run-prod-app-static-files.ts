@@ -455,3 +455,16 @@ export function staticCachePolicy(pathname: string): CachePolicy {
   }
   return { kind: "none" };
 }
+
+export const DEFAULT_PROD_STATIC_DIR = "./dist";
+
+/** With NODE_ENV=production and no staticDir: "./dist" when that folder exists. */
+export function prodStaticDirDefault(
+  staticDir: string | undefined,
+  envSource: Record<string, string | undefined>,
+  dirExists: (path: string) => boolean = existsSync,
+): string | undefined {
+  if (staticDir !== undefined) return staticDir;
+  if (envSource["NODE_ENV"] !== "production") return undefined;
+  return dirExists(DEFAULT_PROD_STATIC_DIR) ? DEFAULT_PROD_STATIC_DIR : undefined;
+}
