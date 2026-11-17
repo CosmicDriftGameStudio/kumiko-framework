@@ -67,14 +67,9 @@ export interface UserDataStorageProvider {
 export interface UserDataHookCtx {
   readonly db: TenantDb;
   /**
-   * The app registry. A forget hook that must erase CHILD read-model rows past
-   * the entity's own row — m:n join projections, per-parent detail projections —
-   * uses it to run those custom projections for the executor's
-   * `<entity>.forgotten` event: `runProjectionsForEvent(result.data.event,
-   * ctx.registry, ctx.db)`. `executor.forget` purges only its OWN projection,
-   * and the dispatcher's post-command projection pass does not fire in the forget
-   * pipeline (a job, not a dispatched command), so the hook must trigger the
-   * cascade itself. Live-erase + rebuild `<parent>.forgotten`-apply converge.
+   * The app registry, for read access. `executor.forget(id, user, ctx.db)` in the
+   * hook already runs the custom projections for `<entity>.forgotten` itself,
+   * child projections included.
    */
   readonly registry: Registry;
   readonly tenantId: TenantId;

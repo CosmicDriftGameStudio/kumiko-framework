@@ -20,6 +20,7 @@ export {
 export { collectExtensionOptions } from "./collect-extension-options.ts";
 export {
   decryptStoredPii,
+  decryptStoredPiiFields,
   decryptStoredPiiValues,
   decryptStoredUserEmail,
   KMS_POOL_CONCURRENCY,

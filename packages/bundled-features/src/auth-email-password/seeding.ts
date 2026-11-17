@@ -16,7 +16,7 @@ import {
   configuredBlindIndexKey,
   configuredPiiSubjectKms,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   type SessionUser,
@@ -70,7 +70,7 @@ export type SeedUserWithPasswordOptions = {
  * Returns the userId and is idempotent by email.
  */
 export async function seedUserWithPassword(
-  db: DbConnection,
+  db: DbRunner,
   options: SeedUserWithPasswordOptions,
   // Optional, append-only — same rationale as provisionSignupAccount's
   // hooks param: the self-signup path passes it through so `user`'s
@@ -106,7 +106,7 @@ export async function seedUserWithPassword(
  *
  *  Atomicity: runs inside a Drizzle transaction when the caller provides one
  *  (db.begin(tx => provisionSignupAccount(tx, ...)); the seed helpers accept
- *  DbConnection|DbTx structurally. With a plain DbConnection, the three writes
+ *  DbRunner structurally. With a plain connection, the three writes
  *  are not atomic; a failure between steps can leave an orphan tenant (tenant
  *  without a user → unused row; user without a membership → "no_membership"
  *  on first login).
@@ -140,7 +140,7 @@ export type ProvisionSignupAccountOptions = {
 };
 
 export async function provisionSignupAccount(
-  db: DbConnection,
+  db: DbRunner,
   options: ProvisionSignupAccountOptions,
   // Optional, append-only — existing callers (tests, seed scripts) that
   // don't pass hooks keep today's behavior. The real signup-confirm
@@ -229,7 +229,7 @@ export type SeedAdminOptions = {
  * persistent-DB mode succeeds. Returns the userId.
  */
 export async function seedAdmin(
-  db: DbConnection,
+  db: DbRunner,
   options: SeedAdminOptions,
 ): Promise<{ id: string }> {
   const byOption = options.by === undefined ? {} : { by: options.by };
@@ -287,7 +287,7 @@ function warnSeedSkippedForUnprovenAccount(): void {
 }
 
 async function seedAdminWithOwnershipCheck(
-  db: DbConnection,
+  db: DbRunner,
   options: SeedAdminOptions,
   mayGrantToExisting: ((row: Record<string, unknown>) => boolean) | undefined,
 ): Promise<{ id: string }> {
@@ -307,7 +307,7 @@ async function seedAdminWithOwnershipCheck(
  * password) before granting to it, and aborts under a PII KMS without a blind-index key.
  */
 export async function seedAdminGuarded(
-  db: DbConnection,
+  db: DbRunner,
   options: SeedAdminOptions,
   mayGrantToExisting?: (row: Record<string, unknown>) => boolean,
 ): Promise<{ id: string }> {
@@ -321,7 +321,7 @@ export async function seedAdminGuarded(
   return seedAdminWithOwnershipCheck(db, options, mayGrantToExisting);
 }
 
-async function findExistingUserRowForEmail(db: DbConnection, email: string) {
+async function findExistingUserRowForEmail(db: DbRunner, email: string) {
   return fetchOne(db, userTable, { email: normalizeEmail(email), isDeleted: false });
 }
 
@@ -331,7 +331,7 @@ function hasPassword(row: Record<string, unknown>): boolean {
 
 /** Tenant already has a member other than `ownUserId` (soft-deleted memberships count). */
 async function tenantHasForeignMember(
-  db: DbConnection,
+  db: DbRunner,
   tenantId: TenantId,
   ownUserId: string | undefined,
 ): Promise<boolean> {
@@ -353,7 +353,7 @@ async function tenantHasForeignMember(
  * earlier seed converges.
  */
 export async function seedBootstrapAdmin(
-  db: DbConnection,
+  db: DbRunner,
   options: SeedAdminOptions,
 ): Promise<{ id: string } | { skipped: "has-password" | "tenant-has-members" }> {
   const existing = await findExistingUserRowForEmail(db, options.email);
@@ -385,7 +385,7 @@ export async function seedBootstrapAdmin(
  * lacks. Only a membership the system user created and last wrote is touched, so a human role change since then is not reverted at boot; the mail is unique per account, so the account is the owner named in the env.
  */
 export async function ensureBootstrapAdminRoles(
-  db: DbConnection,
+  db: DbRunner,
   options: {
     readonly email: string;
     readonly tenantId: TenantId;

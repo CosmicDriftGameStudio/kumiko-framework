@@ -39,7 +39,7 @@ import {
   executorManagedWriteDenied,
   hasExecutorManagedWriteCapability,
 } from "./executor-managed-tables.ts";
-import { bindProjectionRegistry, projectionRegistryOf } from "./projection-registry-binding.ts";
+import { bindProjectionRegistry } from "./projection-registry-binding.ts";
 import { acquireNamespacedAdvisoryLock } from "./queries/advisory-lock.ts";
 import { queryDatabaseNow } from "./queries/database-now.ts";
 import {
@@ -52,6 +52,7 @@ import {
 } from "./row-level-security-scope.ts";
 import { hasFieldProperty, tableNameOf } from "./table-introspection.ts";
 import {
+  appProjectionRegistryOf,
   boundRunner,
   crossTenantRebinders,
   crossTenantUseReporters,
@@ -93,6 +94,7 @@ export {
 export {
   acknowledgeConventionCrossTenant,
   assertPersonalDataWrite,
+  bindAppProjectionRegistry,
   type PersonalDataGate,
   reportConventionCrossTenantUse,
   type TenantDbGrants,
@@ -211,7 +213,7 @@ function buildTenantDb(
   if (meter) registerStandardMetrics(meter);
   const report = grants?.report ?? fallbackEscapeHatchReporter(tenantId);
   const personalDataGate = grants?.personalDataGate ?? runnerPersonalDataGates.get(db);
-  const projectionRegistry = grants?.projectionRegistry ?? projectionRegistryOf(db);
+  const projectionRegistry = grants?.projectionRegistry ?? appProjectionRegistryOf(givenDb);
   // Rebinders carry the resolved registry explicitly: a fresh tx handle is not tagged.
   const rebindGrants: TenantDbGrants | undefined =
     projectionRegistry && grants?.projectionRegistry === undefined

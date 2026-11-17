@@ -17,7 +17,7 @@
 //      e. Mark the invitation accepted and delete the token
 //   5. Response: SessionUser + tenantId for automatic login
 
-import type { DbConnection, DbRunner } from "@cosmicdrift/kumiko-framework/db";
+import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import {
   buildSessionRoles,
   defineWriteHandler,
@@ -121,11 +121,8 @@ async function acceptInvitationAndCreateUser(
 
   // Create the user through seedUserWithPassword so the magic-link flow
   // records emailVerified=true.
-  // @cast-boundary db-runner — helpers use only the query API that
-  // DbConnection and DbTx share.
-  const dbConn = dbRunner as DbConnection;
   const registrationLocale = registrationLocaleFromRequest();
-  const { id: userId } = await seedUserWithPassword(dbConn, {
+  const { id: userId } = await seedUserWithPassword(dbRunner, {
     email: invitationEmail,
     password: password,
     displayName: invitationEmail.split("@")[0] ?? invitationEmail,
@@ -139,7 +136,7 @@ async function acceptInvitationAndCreateUser(
   if (forbiddenInviteRole !== undefined) {
     return writeFailure(reservedMembershipRoleError(forbiddenInviteRole));
   }
-  const membership = await seedTenantMembership(dbConn, {
+  const membership = await seedTenantMembership(dbRunner, {
     userId,
     tenantId: invitationTenantId,
     roles: [invitationRole],
@@ -151,7 +148,7 @@ async function acceptInvitationAndCreateUser(
     });
   }
 
-  const updateResult = await markInvitationAccepted(dbConn, invitation);
+  const updateResult = await markInvitationAccepted(dbRunner, invitation);
   if (!updateResult.isSuccess) return updateResult;
 
   // buildSessionRoles calls stripForbiddenMembershipRoles internally —

@@ -216,6 +216,7 @@ export async function bootWorkerProcess(
     databaseUrl,
     envSource,
     rowLevelSecurity,
+    registry,
   );
   const redis = new Redis(redisUrl, {
     maxRetriesPerRequest: null,

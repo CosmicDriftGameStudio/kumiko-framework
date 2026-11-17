@@ -1,5 +1,5 @@
 import { mapWithConcurrency } from "@cosmicdrift/kumiko-framework/utils";
-import { decryptStoredPii, KMS_POOL_CONCURRENCY } from "../../shared/index.ts";
+import { decryptStoredPiiFields, KMS_POOL_CONCURRENCY } from "../../shared/index.ts";
 
 export type MemberUserRow = {
   readonly id: unknown;
@@ -12,12 +12,12 @@ export async function decryptMemberUsers(
   reason: string,
 ): Promise<Map<string, { readonly email: string | null; readonly displayName: string | null }>> {
   const decrypted = await mapWithConcurrency(users, KMS_POOL_CONCURRENCY, async (user) => {
-    const email =
-      typeof user.email === "string" ? await decryptStoredPii(user.email, "email", reason) : null;
-    const displayName =
-      typeof user.displayName === "string"
-        ? await decryptStoredPii(user.displayName, "displayName", reason)
-        : null;
+    const fields: Record<string, string> = {};
+    if (typeof user.email === "string") fields["email"] = user.email;
+    if (typeof user.displayName === "string") fields["displayName"] = user.displayName;
+    const decryptedFields = await decryptStoredPiiFields(fields, reason);
+    const email = decryptedFields["email"] ?? null;
+    const displayName = decryptedFields["displayName"] ?? null;
     return { userId: String(user.id), email, displayName };
   });
   return new Map(decrypted.map((d) => [d.userId, d]));

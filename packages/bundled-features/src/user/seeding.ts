@@ -13,7 +13,7 @@
 import {
   createEventStoreExecutor,
   createTenantDb,
-  type DbConnection,
+  type DbRunner,
   fetchOne,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -56,7 +56,7 @@ export type SeedUserOptions = {
  * email exists, its ID is returned without a new insert.
  */
 export async function seedUser(
-  db: DbConnection,
+  db: DbRunner,
   options: SeedUserOptions,
   // Optional, append-only — same rationale as tenant/seeding's seedTenant
   // hooks param: fires user's postSave hooks (e.g. a Welcome-
@@ -111,7 +111,7 @@ export async function seedUser(
 // A re-run seed onto a row created before emailVerified flipped to true must
 // still set it — via the executor, so it lands as a real `.updated` event.
 export async function reconcileSeededUserEmailVerified(
-  db: DbConnection,
+  db: DbRunner,
   existingRow: Record<string, unknown>,
   by: SessionUser,
 ): Promise<void> {

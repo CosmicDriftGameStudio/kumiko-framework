@@ -1,5 +1,5 @@
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import type { FeatureDefinition, Registry } from "@cosmicdrift/kumiko-framework/engine";
 import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
 import {
   assertKumikoSchemaCurrent,
@@ -37,6 +37,7 @@ export type ProdConnections = {
 // boot-mode exit.
 export async function connectProdDependencies(
   config: ProdBootConfig,
+  registry: Registry,
   log: Logger,
   registerAbortCleanup: RegisterBootAbortCleanup,
   databaseWait?: DatabaseWaitClock,
@@ -50,7 +51,7 @@ export async function connectProdDependencies(
     await waitForKmsHealthy(bootKms.kms, "runProdApp", databaseWaitDeadline, databaseWait);
   }
 
-  const pools = openDatabasePools(databaseUrl, envSource, rowLevelSecurity);
+  const pools = openDatabasePools(databaseUrl, envSource, rowLevelSecurity, registry);
   const redis = new Redis(redisUrl, {
     maxRetriesPerRequest: null,
     keyPrefix: redisNamespace.keyPrefix,

@@ -21,6 +21,10 @@ export function registerRunnerProxyTarget(proxy: HandleKey, target: HandleKey): 
   runnerProxyTargets.set(proxy, target);
 }
 
+export function runnerProxyTargetOf(handle: unknown): HandleKey | undefined {
+  return isHandleKey(handle) ? runnerProxyTargets.get(handle) : undefined;
+}
+
 function driverHandleOf(handle: HandleKey): HandleKey {
   let current = handle;
   let target = runnerProxyTargets.get(current);

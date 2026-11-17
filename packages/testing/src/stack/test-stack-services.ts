@@ -1,6 +1,6 @@
 // @runtime dev
 import { createSseBroker, withFileProviderResolver } from "@cosmicdrift/kumiko-framework/api";
-import { createRegistry } from "@cosmicdrift/kumiko-framework/engine";
+import type { Registry } from "@cosmicdrift/kumiko-framework/engine";
 import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import { createNoopProvider } from "@cosmicdrift/kumiko-framework/observability";
 import {
@@ -86,10 +86,10 @@ export async function buildStackServices(
   testDb: StackStorage["testDb"],
   testRedis: TestRedis,
   cacheSync: ClosableCacheSyncBus,
+  registry: Registry,
 ) {
   const searchAdapter = createInMemorySearchAdapter();
   const events = createEventCollector();
-  const registry = createRegistry([...options.features]);
 
   // Wire SSE broker with event collector — built early (not just before
   // buildServer) because extraContext + the job context below both need it.

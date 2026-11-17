@@ -162,6 +162,7 @@ export type {
   UncheckedSystemDb,
 } from "./tenant-db.ts";
 export {
+  bindAppProjectionRegistry,
   castTenantRows,
   createSystemDbView,
   createTenantDataDestroyDb,

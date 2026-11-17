@@ -31,6 +31,24 @@ export async function decryptStoredPii(
   return typeof decrypted === "string" ? decrypted : value;
 }
 
+export async function decryptStoredPiiFields(
+  values: Readonly<Record<string, string>>,
+  fallbackRequestId: string,
+): Promise<Record<string, string>> {
+  const kms = configuredPiiSubjectKms();
+  if (!kms) return { ...values };
+  const fieldNames = Object.keys(values);
+  const out = await decryptPiiFieldValues(values, fieldNames, kms, {
+    requestId: requestContext.get()?.requestId ?? fallbackRequestId,
+  });
+  const result: Record<string, string> = {};
+  for (const name of fieldNames) {
+    const decrypted = out[name];
+    result[name] = typeof decrypted === "string" ? decrypted : (values[name] ?? "");
+  }
+  return result;
+}
+
 export async function decryptStoredPiiValues(
   values: readonly string[],
   field: string,

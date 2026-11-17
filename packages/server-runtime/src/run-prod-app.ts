@@ -791,6 +791,7 @@ async function bootProdApp(
 
   const connections = await connectProdDependencies(
     config,
+    registry,
     log,
     registerAbortCleanup,
     options.databaseWait,

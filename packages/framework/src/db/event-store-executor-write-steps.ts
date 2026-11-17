@@ -34,7 +34,7 @@ export async function projectEntityEvent(
   event: StoredEvent,
 ): Promise<void> {
   const registry = projectionRegistryOf(db);
-  // skip: TenantDb not built by a dispatcher/job runner — nothing bound to project with
+  // skip: runner of a connection never bound to an app registry (CLI tools, a bare createTestDb connection): no custom projections to run
   if (!registry) return;
   // skip: no live projection listens — avoid a SAVEPOINT round trip on every plain write
   if (!hasLiveProjectionsForEvent(event, registry)) return;

@@ -382,6 +382,7 @@ export function serializeJsonbValue(field: string, value: unknown): string {
   return json;
 }
 
+// One key lookup per distinct subject per call; no cache across calls, KeyErased must hold across pods.
 export async function decryptPiiFieldValues(
   row: Record<string, unknown>,
   piiFields: readonly string[],
@@ -390,23 +391,31 @@ export async function decryptPiiFieldValues(
 ): Promise<Record<string, unknown>> {
   if (piiFields.length === 0) return row;
   const out = { ...row };
+  const deks = new Map<string, SubjectDek | null>();
   for (const name of piiFields) {
     const value = out[name];
     // Pre-engine plaintext rows pass through unchanged (mixed-state reads
     // work during rollout).
     if (!isPiiCiphertext(value)) continue;
     const { subject, blob, hasAad, isJson } = parseCiphertextOf(value, name);
-    try {
-      const key = await kms.getKey(subject, kmsCtx);
-      const plain = decryptValue(key, blob, subject, name, hasAad, isJson);
-      const decoded: unknown = isJson ? parseDecryptedJson(plain, name) : plain;
-      out[name] = decoded;
-    } catch (e) {
-      // KeyNotFound deliberately propagates: ciphertext without a key row
-      // means the key store is wrong (not shredded) — fail loud.
-      if (!(e instanceof KeyErasedError)) throw e;
-      out[name] = PII_ERASED_SENTINEL;
+    const subjectKey = subjectIdToKey(subject);
+    if (!deks.has(subjectKey)) {
+      try {
+        deks.set(subjectKey, await kms.getKey(subject, kmsCtx));
+      } catch (e) {
+        // KeyNotFound deliberately propagates: ciphertext without a key row
+        // means the key store is wrong (not shredded) — fail loud.
+        if (!(e instanceof KeyErasedError)) throw e;
+        deks.set(subjectKey, null);
+      }
     }
+    const key = deks.get(subjectKey);
+    if (key === null || key === undefined) {
+      out[name] = PII_ERASED_SENTINEL;
+      continue;
+    }
+    const plain = decryptValue(key, blob, subject, name, hasAad, isJson);
+    out[name] = isJson ? parseDecryptedJson(plain, name) : plain;
   }
   return out;
 }

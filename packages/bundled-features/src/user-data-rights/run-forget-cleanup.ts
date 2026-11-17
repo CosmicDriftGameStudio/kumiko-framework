@@ -418,6 +418,7 @@ async function processUser(args: {
                   escapeHatchAuditSink: args.escapeHatchAuditSink,
                   escapeHatchAuditLog: args.escapeHatchAuditLog,
                   actor: args.actor,
+                  registry,
                 }),
                 registry,
                 tenantId,

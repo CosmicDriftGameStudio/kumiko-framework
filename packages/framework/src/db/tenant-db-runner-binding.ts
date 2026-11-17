@@ -9,12 +9,13 @@ import { assertReason } from "../engine/escape-hatch-reason.ts";
 import type { EntityDefinition } from "../engine/types/fields.ts";
 import type { Registry } from "../engine/types/index.ts";
 import { InternalError } from "../errors/index.ts";
-import type { DbRunner } from "./connection.ts";
+import { type DbRunner, shareUnboundedSiblingPool } from "./connection.ts";
 import {
   hasExecutorManagedWriteCapability,
   registerExecutorManagedWriteRunner,
 } from "./executor-managed-tables.ts";
 import { bindProjectionRegistry, projectionRegistryOf } from "./projection-registry-binding.ts";
+import { unscopedRunnerOf } from "./row-level-security-scope.ts";
 import { registerRunnerProxyTarget } from "./transaction-serialization.ts";
 
 export const declaredUnsafeRawRunners = new WeakMap<
@@ -27,16 +28,17 @@ export const declaredUnsafeRawRunners = new WeakMap<
 // (withUnsafeRawGrant, acknowledgeConventionCrossTenant) carry it too.
 export const personalDataGates = new WeakMap<TenantDb, PersonalDataGate>();
 
-// Lets createTenantDb(ctx.db.unsafeRaw(), ...) inherit the gate and the projection registry.
-// Keyed by a per-grant proxy, never the shared pool/tx: tagging that would leak onto every sibling TenantDb.
+// Lets createTenantDb(ctx.db.unsafeRaw(), ...) inherit the gate. The gate tag sits only on
+// per-grant proxies; the registry may additionally sit on the app connection (bindAppProjectionRegistry)
+// because there is exactly one per app.
 export const runnerPersonalDataGates = new WeakMap<DbRunner, PersonalDataGate>();
 
-export function boundRunner(
-  runner: DbRunner,
+export function boundRunner<TRunner extends DbRunner>(
+  runner: TRunner,
   gate: PersonalDataGate | undefined,
   projectionRegistry: Registry | undefined,
   executorManagedWrites: boolean,
-): DbRunner {
+): TRunner {
   if (!gate && !projectionRegistry && !executorManagedWrites) return runner;
   const proxy = new Proxy(runner, {
     // Tagged-template calls need the real driver object as `this`.
@@ -94,6 +96,30 @@ export function boundRunner(
   return proxy;
 }
 
+// Bound once at boot: every runner, tx, savepoint and reserved connection derived from the
+// connection carries the app registry, so executor writes through any TenantDb built on it
+// run the custom projections. One registry per connection; a second one is a wiring bug.
+export function bindAppProjectionRegistry<TConnection extends DbRunner>(
+  connection: TConnection,
+  registry: Registry,
+): TConnection {
+  const bound = projectionRegistryOf(connection);
+  if (bound === registry) return connection;
+  if (bound !== undefined) {
+    throw new InternalError({
+      message: "bindAppProjectionRegistry: connection is already bound to another registry",
+    });
+  }
+  const boundConnection = boundRunner(connection, undefined, registry, false);
+  shareUnboundedSiblingPool(connection, boundConnection);
+  return boundConnection;
+}
+
+// A row-level-security scope proxy over the tagged connection is not tagged itself.
+export function appProjectionRegistryOf(runner: object): Registry | undefined {
+  return projectionRegistryOf(runner) ?? projectionRegistryOf(unscopedRunnerOf(runner));
+}
+
 const capableRunnerInners = new WeakMap<DbRunner, DbRunner>();
 const capableRunnerByInner = new WeakMap<DbRunner, ExecutorManagedRunner>();
 
@@ -106,7 +132,7 @@ export function withExecutorManagedWrites(runner: DbRunner): ExecutorManagedRunn
   const capable = boundRunner(
     runner,
     runnerPersonalDataGates.get(runner),
-    projectionRegistryOf(runner),
+    appProjectionRegistryOf(runner),
     true,
   );
   if (!hasExecutorManagedWriteCapability(capable)) {

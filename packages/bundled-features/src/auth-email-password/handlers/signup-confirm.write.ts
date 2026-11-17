@@ -18,7 +18,6 @@
 // when !committed, the burn is released so a legitimate retry is not blocked
 // by a stale marker, as with reset/verify.
 
-import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import {
   defineWriteHandler,
@@ -169,9 +168,7 @@ export function createSignupConfirmHandler(opts: SignupConfirmOptions = {}) {
         // Tenant key: a two-word slug from framework/random, with a DB conflict
         // check against tenants.key. 22,500 default combinations plus a
         // suffix fallback in case of collision (see generateUniqueName).
-        // @cast-boundary db-runner — helpers use only the query API that
-        // DbConnection and DbTx share.
-        const dbConn = ctx.db.unsafeRaw() as DbConnection;
+        const dbConn = ctx.db.unsafeRaw();
 
         const tenantKey = await generateUniqueName({
           isAvailable: async (slug) => {

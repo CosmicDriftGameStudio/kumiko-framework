@@ -1,9 +1,10 @@
 import type { Registry } from "../engine/types/index.ts";
 
 // A WeakMap rather than a process-global registry: test files boot several
-// stacks in one process, each with its own Registry. Keys are TenantDbs and
-// per-grant runner proxies — never the shared pool or tx handle, which would
-// leak one dispatcher's registry onto sibling TenantDbs.
+// stacks in one process, each with its own Registry. Keys are TenantDbs, per-grant
+// runner proxies and the app connections bound via bindAppProjectionRegistry, with
+// everything derived from them. Every test stack owns its connections, so no
+// registry leaks across stacks; a global registry stays ruled out.
 const bindings = new WeakMap<object, Registry>();
 
 export function bindProjectionRegistry(target: object, registry: Registry): void {

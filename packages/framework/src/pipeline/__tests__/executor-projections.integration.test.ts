@@ -11,9 +11,10 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import type { TenantDb } from "@cosmicdrift/kumiko-types/tenant-db-types";
+import * as z from "zod";
 import { table as pgTable, text as pgText, uuid as pgUuid } from "../../db/dialect.ts";
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
-import { insertOne, selectMany } from "../../db/query.ts";
+import { insertOne, selectMany, transaction } from "../../db/query.ts";
 import { buildEntityTable } from "../../db/table-builder.ts";
 import { createTenantDb } from "../../db/tenant-db.ts";
 import {
@@ -40,10 +41,17 @@ const auditEntity = createEntity({
 });
 const auditTable = buildEntityTable("audit", auditEntity);
 
+const auditExecutor = createEventStoreExecutor(auditTable, auditEntity, { entityName: "audit" });
+
 const auditLogTable = pgTable("read_exproj_audit_log", {
   auditId: pgUuid("audit_id").primaryKey(),
   tenantId: pgUuid("tenant_id").notNull(),
   label: pgText("label").notNull(),
+});
+
+const mspMarksTable = pgTable("read_exproj_msp_marks", {
+  id: pgUuid("id").primaryKey(),
+  tenantId: pgUuid("tenant_id").notNull(),
 });
 
 function isTenantDb(db: unknown): db is TenantDb {
@@ -77,11 +85,49 @@ const exprojFeature = defineFeature("exproj", (r) => {
     },
   });
 
+  const markRaised = r.defineEvent("mark-raised", z.object({}), { piiFields: "none" });
+
+  r.multiStreamProjection({
+    name: "exproj-msp",
+    table: mspMarksTable,
+    apply: {
+      [markRaised.name]: async (event, tx) => {
+        const tenantDb = createTenantDb({
+          db: tx,
+          tenantId: event.tenantId,
+          mode: "system",
+          reason: "test: msp writes a second aggregate through the executor",
+        });
+        const outcome = await auditExecutor.create(
+          { label: "from-msp" },
+          createSystemUser(event.tenantId),
+          tenantDb,
+        );
+        if (!outcome.isSuccess) throw new Error("msp audit write failed");
+      },
+    },
+  });
+
+  r.writeHandler({
+    name: "mark:raise",
+    schema: z.object({}),
+    handler: async (_event, ctx) => {
+      const id = crypto.randomUUID();
+      await ctx.events.unsafeAppend({
+        aggregateId: id,
+        blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
+        aggregateType: "audit",
+        type: markRaised.name,
+        payload: {},
+      });
+      return { isSuccess: true, data: { id } };
+    },
+    access: { roles: ["Admin"] },
+  });
+
   r.writeHandler(defineEntityCreateHandler("order", orderEntity, { access: { roles: ["Admin"] } }));
   r.writeHandler(defineEntityCreateHandler("audit", auditEntity, { access: { roles: ["Admin"] } }));
   r.writeHandler(defineEntityCreateHandler("memo", memoEntity, { access: { roles: ["Admin"] } }));
-
-  const auditExecutor = createEventStoreExecutor(auditTable, auditEntity, { entityName: "audit" });
 
   // The second aggregate is written straight through the executor, as apps do.
   r.hook({
@@ -165,6 +211,7 @@ afterEach(async () => {
     "read_exproj_audits",
     "read_exproj_memos",
     "read_exproj_audit_log",
+    "read_exproj_msp_marks",
   ]);
 });
 
@@ -192,6 +239,29 @@ describe("executor writes run custom projections", () => {
     await stack.http.writeOk("exproj:write:audit:create", { label: "direct" }, admin);
 
     expect((await logRows()).map((row) => row.label)).toEqual(["direct"]);
+    expect(projectionCalls).toHaveLength(1);
+  });
+
+  test("an executor write on a TenantDb built over a raw transaction projects exactly once", async () => {
+    await transaction(stack.db, async (tx) => {
+      const tenantDb = createTenantDb({ db: tx, tenantId: admin.tenantId });
+      const outcome = await auditExecutor.create(
+        { label: "raw-tx" },
+        createSystemUser(admin.tenantId),
+        tenantDb,
+      );
+      expect(outcome.isSuccess).toBe(true);
+    });
+
+    expect((await logRows()).map((row) => row.label)).toEqual(["raw-tx"]);
+    expect(projectionCalls).toHaveLength(1);
+  });
+
+  test("a multi-stream projection apply that writes through the executor projects", async () => {
+    await stack.http.writeOk("exproj:write:mark:raise", {}, admin);
+    await stack.eventDispatcher?.runOnce();
+
+    expect((await logRows()).map((row) => row.label)).toContain("from-msp");
     expect(projectionCalls).toHaveLength(1);
   });
 

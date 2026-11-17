@@ -571,3 +571,59 @@ describe("encryptPiiValuesForSubject / decryptPiiValues", () => {
     expect(kms.getKeyCalls).toBe(0);
   });
 });
+
+describe("decryptPiiFieldValues key lookups", () => {
+  const subjectA: SubjectId = { kind: "user", userId: UUID_A };
+  const subjectB: SubjectId = { kind: "user", userId: UUID_B };
+
+  async function storedRow(
+    kms: CountingKmsAdapter,
+    emailSubject: SubjectId,
+    displayNameSubject: SubjectId,
+  ): Promise<Record<string, unknown>> {
+    return {
+      email: await encryptPiiValueForSubject(kms, emailSubject, "a@example.com", KMS_CTX, "email"),
+      displayName: await encryptPiiValueForSubject(
+        kms,
+        displayNameSubject,
+        "Ada",
+        KMS_CTX,
+        "displayName",
+      ),
+    };
+  }
+
+  test("decryptPiiFieldValues looks the key up once per subject across fields", async () => {
+    const kms = new CountingKmsAdapter();
+    const row = await storedRow(kms, subjectA, subjectA);
+    kms.getKeyCalls = 0;
+
+    const read = await decryptPiiFieldValues(row, ["email", "displayName"], kms, KMS_CTX);
+
+    expect(read).toEqual({ email: "a@example.com", displayName: "Ada" });
+    expect(kms.getKeyCalls).toBe(1);
+  });
+
+  test("two subjects mean two lookups", async () => {
+    const kms = new CountingKmsAdapter();
+    const row = await storedRow(kms, subjectA, subjectB);
+    kms.getKeyCalls = 0;
+
+    const read = await decryptPiiFieldValues(row, ["email", "displayName"], kms, KMS_CTX);
+
+    expect(read).toEqual({ email: "a@example.com", displayName: "Ada" });
+    expect(kms.getKeyCalls).toBe(2);
+  });
+
+  test("an erased subject yields the sentinel for every field of that subject with one lookup", async () => {
+    const kms = new CountingKmsAdapter();
+    const row = await storedRow(kms, subjectA, subjectA);
+    await kms.eraseKey(subjectA);
+    kms.getKeyCalls = 0;
+
+    const read = await decryptPiiFieldValues(row, ["email", "displayName"], kms, KMS_CTX);
+
+    expect(read).toEqual({ email: PII_ERASED_SENTINEL, displayName: PII_ERASED_SENTINEL });
+    expect(kms.getKeyCalls).toBe(1);
+  });
+});

@@ -1,15 +1,19 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { testDatabaseUrl } from "@cosmicdrift/kumiko-testing/helpers";
+import { createRegistry } from "../../engine/registry.ts";
 import {
   createDbConnection,
   DEFAULT_SERVER_IDLE_IN_TRANSACTION_TIMEOUT_MS,
   DEFAULT_SERVER_STATEMENT_TIMEOUT_MS,
+  openUnboundedSiblingPool,
   serverTimeoutOptionsFromEnv,
 } from "../connection.ts";
 import { type Migration, runMigrations } from "../migrate-runner.ts";
 import { withSessionAdvisoryLock } from "../queries/session-advisory-lock.ts";
+import { rowLevelSecurityModeOf } from "../row-level-security-connection.ts";
 import { outsideRowLevelSecurityScope } from "../row-level-security-scope.ts";
 import { withoutStatementTimeout } from "../statement-timeout.ts";
+import { bindAppProjectionRegistry } from "../tenant-db-runner-binding.ts";
 
 const STATEMENT_TIMEOUT_MS = 150;
 const SLEEP_PAST_TIMEOUT_SECONDS = 0.6;
@@ -89,6 +93,25 @@ describe("server statement_timeout", () => {
     } finally {
       await client.unsafe(`DELETE FROM "_kumiko_migrations" WHERE "id" = $1`, [migration.id]);
     }
+  });
+});
+
+describe("withoutStatementTimeout on a registry-bound app connection", () => {
+  test("lifts the cap through the sibling pool of the original connection", async () => {
+    const bound = bindAppProjectionRegistry(db, createRegistry([]));
+    const sibling = openUnboundedSiblingPool(bound);
+    expect(sibling).not.toBeUndefined();
+    await sibling?.close(5);
+    await withoutStatementTimeout(bound, async (unbounded) => {
+      const rows = await unbounded.unsafe("SHOW statement_timeout");
+      expect(rows[0]).toMatchObject({ statement_timeout: "0" });
+    });
+  });
+
+  test("keeps the row-level-security mode of the enforced connection", () => {
+    const bound = bindAppProjectionRegistry(db, createRegistry([]));
+    expect(rowLevelSecurityModeOf(db)).toBe("on");
+    expect(rowLevelSecurityModeOf(bound)).toBe("on");
   });
 });
 

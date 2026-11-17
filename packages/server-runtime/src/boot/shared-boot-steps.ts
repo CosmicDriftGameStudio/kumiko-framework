@@ -16,6 +16,7 @@ import { TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import type { AuthRoutesConfig } from "@cosmicdrift/kumiko-framework/api";
 import type { KmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import {
+  bindAppProjectionRegistry,
   createDbConnection,
   type DbConnection,
   dbConnectionOptionsFromEnv,
@@ -291,6 +292,7 @@ export function openDatabasePools(
   databaseUrl: string,
   envSource: Record<string, string | undefined>,
   rowLevelSecurity: RowLevelSecurityMode,
+  registry: Registry,
 ): {
   readonly db: DbConnection;
   readonly closeDb: () => Promise<void>;
@@ -309,5 +311,10 @@ export function openDatabasePools(
     ...outsideTransactionPoolOptionsFromEnv(envSource),
     ...serverTimeoutOptionsFromEnv(envSource),
   });
-  return { db, closeDb, outsideTransactionDb, closeOutsideTransactionDb };
+  return {
+    db: bindAppProjectionRegistry(db, registry),
+    closeDb,
+    outsideTransactionDb: bindAppProjectionRegistry(outsideTransactionDb, registry),
+    closeOutsideTransactionDb,
+  };
 }
