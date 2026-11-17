@@ -12,7 +12,6 @@ import {
   createEntity,
   createTextField,
   defineFeature,
-  type SaveContext,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
@@ -111,7 +110,7 @@ afterEach(() => {
 });
 
 async function seedContact(): Promise<string> {
-  const created = await stack.http.writeOk<SaveContext>(
+  const created = await stack.http.writeOk<{ id: string }>(
     CREATE,
     { name: "Owner", iban: OLD_IBAN },
     accA,
@@ -158,8 +157,7 @@ describe("field-approval executor gate", () => {
       pm,
     );
     expect(error.httpStatus).toBe(403);
-    expect(error.details?.["reason"]).toBe("field_approval_required");
-    expect(error.details?.["fields"]).toEqual(["iban"]);
+    expect(error.details).toMatchObject({ reason: "field_approval_required", fields: ["iban"] });
     expect(await currentIban(contactId)).toBe(OLD_IBAN);
   });
 
@@ -175,7 +173,7 @@ describe("field-approval executor gate", () => {
   test("create by a non-approver is refused with the field and passes without it", async () => {
     const refused = await stack.http.writeErr(CREATE, { name: "A", iban: OLD_IBAN }, pm);
     expect(refused.httpStatus).toBe(403);
-    expect(refused.details?.["reason"]).toBe("field_approval_required");
+    expect(refused.details).toMatchObject({ reason: "field_approval_required" });
     await stack.http.writeOk(CREATE, { name: "B" }, pm);
   });
 
@@ -274,7 +272,7 @@ describe("field-approval request flow", () => {
       accA,
     );
     expect(error.httpStatus).toBe(403);
-    expect(error.details?.["reason"]).toBe("field_change_self_approval");
+    expect(error.details).toMatchObject({ reason: "field_change_self_approval" });
   });
 
   test("a decided request drops its value and cannot be decided twice", async () => {
@@ -301,7 +299,7 @@ describe("field-approval request flow", () => {
       accB,
     );
     expect(again.httpStatus).toBe(422);
-    expect(again.details?.["reason"]).toBe("field_change_request_not_pending");
+    expect(again.details).toMatchObject({ reason: "field_change_request_not_pending" });
   });
 
   test("the requester withdraws their request and the host stays unchanged", async () => {
@@ -326,7 +324,7 @@ describe("field-approval request flow", () => {
       { entityType: "contact", entityId: contactId, fieldName: "name", value: "x" },
       pm,
     );
-    expect(error.details?.["reason"]).toBe("field_not_approval_gated");
+    expect(error.details).toMatchObject({ reason: "field_not_approval_gated" });
   });
 });
 

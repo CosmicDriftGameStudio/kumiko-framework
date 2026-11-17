@@ -16,6 +16,7 @@ import {
   createRegistry,
   defineFeature,
   defineWriteHandler,
+  emitEvent,
   type SessionUser,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
@@ -52,49 +53,47 @@ const userA = createTestUser({ id: 1, tenantId: tenantA, roles: ["Admin"] });
 const userB = createTestUser({ id: 2, tenantId: tenantB, roles: ["Admin"] });
 const systemAdmin = createTestUser({ id: 3, tenantId: tenantA, roles: ["SystemAdmin"] });
 
-const generateWrite = defineWriteHandler({
-  name: "generate",
-  description: "Test-only: starts the text generation for one campaign.",
-  schema: z.object({ campaignId: z.string(), mode: z.enum(["fail", "budget", "succeed"]) }),
-  access: { roles: ["Admin"] },
-  handler: async (event, ctx) => {
-    await ctx.events.append({
-      aggregateId: crypto.randomUUID(),
-      expectedVersion: 0,
-      aggregateType: "generation-requested",
-      type: "app:event:generation-requested",
-      payload: { campaignId: event.payload.campaignId, mode: event.payload.mode },
-    });
-    return { isSuccess: true as const, data: { ...event.payload } };
-  },
-});
-
-const retryWrite = defineWriteHandler({
-  name: "startFlaky",
-  description: "Test-only: starts a job that fails on every attempt.",
-  schema: z.object({}),
-  access: { roles: ["Admin"] },
-  handler: async (_event, ctx) => {
-    await ctx.events.append({
-      aggregateId: crypto.randomUUID(),
-      expectedVersion: 0,
-      aggregateType: "flaky-requested",
-      type: "app:event:flaky-requested",
-      payload: {},
-    });
-    return { isSuccess: true as const, data: {} };
-  },
-});
-
 const appFeature = defineFeature("app", (r) => {
-  r.defineEvent(
+  const generationRequested = r.defineEvent(
     "generation-requested",
     z.object({ campaignId: z.string(), mode: z.enum(["fail", "budget", "succeed"]) }),
     { piiFields: "none" },
   );
-  r.defineEvent("flaky-requested", z.object({}), { piiFields: "none" });
-  r.writeHandler(generateWrite);
-  r.writeHandler(retryWrite);
+  const flakyRequested = r.defineEvent("flaky-requested", z.object({}), { piiFields: "none" });
+  r.writeHandler(
+    defineWriteHandler({
+      name: "generate",
+      description: "Test-only: starts the text generation for one campaign.",
+      schema: z.object({ campaignId: z.string(), mode: z.enum(["fail", "budget", "succeed"]) }),
+      access: { roles: ["Admin"] },
+      handler: async (event, ctx) => {
+        await emitEvent(ctx, generationRequested, {
+          aggregateId: crypto.randomUUID(),
+          aggregateType: "generation-requested",
+          expectedVersion: 0,
+          payload: { campaignId: event.payload.campaignId, mode: event.payload.mode },
+        });
+        return { isSuccess: true as const, data: { ...event.payload } };
+      },
+    }),
+  );
+  r.writeHandler(
+    defineWriteHandler({
+      name: "startFlaky",
+      description: "Test-only: starts a job that fails on every attempt.",
+      schema: z.object({}),
+      access: { roles: ["Admin"] },
+      handler: async (_event, ctx) => {
+        await emitEvent(ctx, flakyRequested, {
+          aggregateId: crypto.randomUUID(),
+          aggregateType: "flaky-requested",
+          expectedVersion: 0,
+          payload: {},
+        });
+        return { isSuccess: true as const, data: {} };
+      },
+    }),
+  );
 
   r.job({ name: "generateTexts", trigger: { on: "generation-requested" },
       tenantVisibleFailure: { messageKey: DECLARED_KEY, subjectFields: ["campaignId"] }, handler: async (payload) => {

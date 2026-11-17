@@ -76,7 +76,7 @@ export function createHelpdeskFeature(opts: HelpdeskOptions): FeatureDefinition 
     // The feature manifest and reference are built from one mounted instance, so the off
     // default still names Telegram as an optional dependency.
     if (telegram) r.requires({ features: [TELEGRAM_FEATURE] });
-    else r.optionalRequires(TELEGRAM_FEATURE);
+    else r.optionalRequires({ features: [TELEGRAM_FEATURE] });
     r.translations({ keys: createHelpdeskI18n() });
 
     r.config({

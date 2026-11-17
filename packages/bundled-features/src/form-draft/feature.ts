@@ -52,7 +52,7 @@ function registerFormDraft(r: FeatureRegistrar<typeof FORM_DRAFT_FEATURE_NAME>):
     trigger: { maintenance: true },
     irreversibleWithoutEntryHandler: "high-risk-or-cron-pipeline",
     concurrency: "skip",
-    escapeHatch: { reason: CLEANUP_ESCAPE_HATCH_REASON },
+    escapeHatch: { reason: CLEANUP_ESCAPE_HATCH_REASON, grants: ["unsafeRaw"] },
     handler: (payload, ctx) =>
       cleanupDraftsJob(
         payload,

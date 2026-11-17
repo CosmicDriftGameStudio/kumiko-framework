@@ -133,7 +133,7 @@ describe("reindexEntityJob", () => {
           mode: "system",
           reason: "test seeds and inspects entity rows across tenants for the reindex job",
           grants: {
-            unsafeRaw: { reason: "test: job context mirrors systemScope() grant" },
+            unsafeRaw: { reason: "test: job context mirrors systemScope() grant", grants: ["unsafeRaw"] },
           },
         }),
       ),
@@ -191,7 +191,7 @@ describe("reindexEntityJob", () => {
           mode: "system",
           reason: "test seeds and inspects entity rows across tenants for the reindex job",
           grants: {
-            unsafeRaw: { reason: "test: job context mirrors systemScope() grant" },
+            unsafeRaw: { reason: "test: job context mirrors systemScope() grant", grants: ["unsafeRaw"] },
           },
         }),
       ),
@@ -333,7 +333,7 @@ describe("reindexEntityJob under a server statement_timeout", () => {
             mode: "system",
             reason: "test seeds and inspects entity rows across tenants for the reindex job",
             grants: {
-              unsafeRaw: { reason: "test: job context mirrors systemScope() grant" },
+              unsafeRaw: { reason: "test: job context mirrors systemScope() grant", grants: ["unsafeRaw"] },
               projectionRegistry: stack.registry,
             },
           }),

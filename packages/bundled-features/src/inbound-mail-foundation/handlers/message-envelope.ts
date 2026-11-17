@@ -3,8 +3,9 @@ import {
   decryptPiiFieldValues,
   PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
+import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
-  type HandlerContext,
+  type SessionUser,
   SYSTEM_ROLE,
   SYSTEM_USER_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -39,7 +40,7 @@ function nonEmptyStringOrNull(value: unknown): string | null {
 }
 
 export async function loadInboundMessageEnvelope(
-  ctx: Pick<HandlerContext, "db" | "user">,
+  ctx: { readonly db: TenantDb; readonly user: SessionUser },
   messageId: string,
 ): Promise<InboundMessageEnvelope | null> {
   const row = await ctx.db.fetchOne(inboundMessagesProjectionTable, { id: messageId });

@@ -14,6 +14,7 @@ import {
   createRegistry,
   defineFeature,
   defineWriteHandler,
+  emitEvent,
   type SessionUser,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
@@ -64,49 +65,49 @@ function deferred(): Deferred {
 const handlerStarted = deferred();
 const handlerRelease = deferred();
 
-const generateWrite = defineWriteHandler({
-  name: "generate",
-  description: "Test-only: starts the text generation for one campaign.",
-  schema: z.object({ campaignId: z.string(), mode: z.enum(["fail", "hold", "succeed"]) }),
-  access: { roles: ["Admin"] },
-  handler: async (event, ctx) => {
-    await ctx.events.append({
-      aggregateId: crypto.randomUUID(),
-      expectedVersion: 0,
-      aggregateType: "generation-requested",
-      type: "app:event:generation-requested",
-      payload: { campaignId: event.payload.campaignId, mode: event.payload.mode },
-    });
-    return { isSuccess: true as const, data: { ...event.payload } };
-  },
-});
-
-const plainWrite = defineWriteHandler({
-  name: "plain",
-  description: "Test-only: starts a job without tenantVisibleRun.",
-  schema: z.object({ campaignId: z.string() }),
-  access: { roles: ["Admin"] },
-  handler: async (event, ctx) => {
-    await ctx.events.append({
-      aggregateId: crypto.randomUUID(),
-      expectedVersion: 0,
-      aggregateType: "plain-requested",
-      type: "app:event:plain-requested",
-      payload: { campaignId: event.payload.campaignId },
-    });
-    return { isSuccess: true as const, data: { ...event.payload } };
-  },
-});
-
 const appFeature = defineFeature("app", (r) => {
-  r.defineEvent(
+  const generationRequested = r.defineEvent(
     "generation-requested",
     z.object({ campaignId: z.string(), mode: z.enum(["fail", "hold", "succeed"]) }),
     { piiFields: "none" },
   );
-  r.defineEvent("plain-requested", z.object({ campaignId: z.string() }), { piiFields: "none" });
-  r.writeHandler(generateWrite);
-  r.writeHandler(plainWrite);
+  const plainRequested = r.defineEvent("plain-requested", z.object({ campaignId: z.string() }), {
+    piiFields: "none",
+  });
+  r.writeHandler(
+    defineWriteHandler({
+      name: "generate",
+      description: "Test-only: starts the text generation for one campaign.",
+      schema: z.object({ campaignId: z.string(), mode: z.enum(["fail", "hold", "succeed"]) }),
+      access: { roles: ["Admin"] },
+      handler: async (event, ctx) => {
+        await emitEvent(ctx, generationRequested, {
+          aggregateId: crypto.randomUUID(),
+          aggregateType: "generation-requested",
+          expectedVersion: 0,
+          payload: { campaignId: event.payload.campaignId, mode: event.payload.mode },
+        });
+        return { isSuccess: true as const, data: { ...event.payload } };
+      },
+    }),
+  );
+  r.writeHandler(
+    defineWriteHandler({
+      name: "plain",
+      description: "Test-only: starts a job without tenantVisibleRun.",
+      schema: z.object({ campaignId: z.string() }),
+      access: { roles: ["Admin"] },
+      handler: async (event, ctx) => {
+        await emitEvent(ctx, plainRequested, {
+          aggregateId: crypto.randomUUID(),
+          aggregateType: "plain-requested",
+          expectedVersion: 0,
+          payload: { campaignId: event.payload.campaignId },
+        });
+        return { isSuccess: true as const, data: { ...event.payload } };
+      },
+    }),
+  );
 
   r.job({ name: "generateTexts", trigger: { on: "generation-requested" },
       tenantVisibleRun: { subjectFields: ["campaignId"] }, handler: async (payload) => {

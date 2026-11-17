@@ -2,7 +2,7 @@
 // export / Art. 17 erasure), registered by the folders feature itself. Standard
 // tenant-scoped pattern, no name-stripping (a folder name is tenant data, not per-user PII).
 
-import { type EventStoreExecutor, WritePurposes } from "@cosmicdrift/kumiko-framework/db";
+import { type EntityTableMeta, type EventStoreExecutor, WritePurposes } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntityExecutor,
   createSystemUser,
@@ -46,7 +46,7 @@ export const folderAssignmentExportHook: UserDataExportHook = async (ctx) => {
 // rows carry no person-link to strip (name is tenant data, not PII), so a
 // retention hold simply keeps them.
 function tenantScopedDelete(
-  table: typeof folderTable,
+  table: EntityTableMeta,
   executor: EventStoreExecutor,
 ): UserDataDeleteHook {
   return async (ctx, strategy) => {
