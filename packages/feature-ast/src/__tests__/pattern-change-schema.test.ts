@@ -321,7 +321,7 @@ describe("parsePatternChanges — extractEntity uses the same field-type catalog
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
 defineFeature("billing", (r) => {
-  r.entity("invoice", { fields: { payload: ${fieldExpr} } });
+  r.entity({ name: "invoice", fields: { payload: ${fieldExpr} } });
 });
 `;
 
@@ -641,7 +641,7 @@ describe("escapeHatch.reason must be non-empty after trim", () => {
       {
         op: "update",
         id: { kind: "writeHandler", handlerName: "x" },
-        set: { escapeHatch: { reason: "  " } },
+        set: { escapeHatch: { reason: "  ", grants: ["systemIdentity"] } },
       },
     ]);
     expect(result.ok).toBe(false);
@@ -658,7 +658,7 @@ describe("escapeHatch.reason must be non-empty after trim", () => {
           handlerName: "x",
           schemaSource: "z.object({})",
           handlerBody: "async () => {}",
-          escapeHatch: { reason: "   " },
+          escapeHatch: { reason: "   ", grants: ["systemIdentity"] },
         },
       },
     ]);
@@ -679,7 +679,7 @@ describe("escapeHatch.reason must be non-empty after trim", () => {
           handlerName: "x",
           schemaSource: "z.object({})",
           handlerBody: "async () => {}",
-          escapeHatch: { reason: "\t" },
+          escapeHatch: { reason: "\t", grants: ["systemIdentity"] },
         },
       },
     ]);
@@ -723,7 +723,7 @@ defineFeature("f", (r) => {
     schema: z.object({}),
     handler: async function* () { yield "token"; },
     access: LOCAL,
-    escapeHatch: { reason: "r" },
+    escapeHatch: { reason: "r", grants: ["systemIdentity"] },
   });
 
   r.hook({ type: "postSave", target: "z", handler: async (event, ctx) => {}, escapeHatch: { reason: REASON } });

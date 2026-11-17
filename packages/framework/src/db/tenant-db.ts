@@ -283,7 +283,7 @@ function buildTenantDb(
     return new AccessDeniedError({
       message:
         `db.global(${tableNameOf(table)}): write rejected — declare ` +
-        `\`escapeHatch: { reason: "..." }\` on the write handler to allow ` +
+        `\`escapeHatch: { reason: "...", grants: ["globalWrites"] }\` on the write handler to allow ` +
         "writes through db.global().",
     });
   }
@@ -466,7 +466,7 @@ function buildTenantDb(
       throw new AccessDeniedError({
         message:
           `ctx.db.${reach === "all-tenants" ? "unsafeRawAllTenants" : "unsafeRaw"}(): rejected — ` +
-          'declare `escapeHatch: { reason: "..." }` on ' +
+          'declare `escapeHatch: { reason: "...", grants: ["unsafeRaw"] }` on ' +
           "the handler or hook to allow unsafeRaw.",
       });
     }

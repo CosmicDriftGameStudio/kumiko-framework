@@ -6,7 +6,8 @@ import { createSystemUser } from "../engine/system-user.ts";
 import type { SessionUser, TenantId } from "../engine/types/index.ts";
 import type { Dispatcher } from "../pipeline/dispatcher.ts";
 import { parseRoles } from "../utils/serialization.ts";
-import type { PendingMfaStep, PublicAuthErrorStatus } from "./auth-routes-shared.ts";
+import type { PendingMfaStep } from "./auth-routes-shared.ts";
+import { toContentfulStatus } from "./contentful-status.ts";
 import { isUnknownHandlerError, pendingMfaStepResponse } from "./auth-routes-shared.ts";
 import type { AuthRoutesConfig, SessionMetadata } from "./auth-routes-types.ts";
 import type { ClientIpResolver } from "./client-ip.ts";
@@ -199,7 +200,7 @@ export function createAuthRouteContext(
       createSystemUser(user.tenantId),
     );
     if (!gate.isSuccess) {
-      const status = gate.error.httpStatus as PublicAuthErrorStatus; // @cast-boundary engine-payload
+      const status = toContentfulStatus(gate.error.httpStatus);
       return {
         response: c.json({ isSuccess: false, error: toClientWriteErrorInfo(gate.error) }, status),
       };

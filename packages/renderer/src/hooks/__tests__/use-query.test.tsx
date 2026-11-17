@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from "bun:test";
-import { act, render, renderHook } from "@testing-library/react";
+import { queryContract } from "@cosmicdrift/kumiko-types/handler-contract";
+import { act, render, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import {
@@ -31,7 +32,7 @@ async function advance(ms: number): Promise<void> {
   });
 }
 
-const QUERY_TYPE = "f:query:x:list";
+const QUERY_TYPE = "f:query:x:list" as const;
 
 describe("useQuery refetchIntervalMs", () => {
   beforeEach(() => {
@@ -518,5 +519,30 @@ describe("useQuery polling and page visibility", () => {
     act(() => visibility.setState("hidden"));
     await act(async () => visibility.setState("visible"));
     expect(calls()).toBe(1);
+  });
+});
+
+describe("useQuery with a handler contract", () => {
+  test("queries by qualifiedName and does not refetch for a new, same-named contract object", async () => {
+    const seenTypes: string[] = [];
+    const dispatcher = createMockDispatcher({
+      query: async (type: string) => {
+        seenTypes.push(type);
+        return { isSuccess: true, data: { n: seenTypes.length } };
+      },
+    });
+    const { result, rerender } = renderHook(
+      () =>
+        useQuery(queryContract<{ id: string }, { n: number }>(QUERY_TYPE), { id: "a" }),
+      { wrapper: wrapperFor(dispatcher) },
+    );
+    await waitFor(() => expect(result.current.data).toEqual({ n: 1 }));
+
+    rerender();
+    rerender();
+    await act(async () => {});
+
+    expect(seenTypes).toEqual([QUERY_TYPE]);
+    expect(result.current.data?.n).toBe(1);
   });
 });

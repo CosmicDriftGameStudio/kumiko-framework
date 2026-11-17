@@ -145,6 +145,7 @@ export {
   buildEntityTable,
   declareGlobalTenancy,
   type EntityColumnRow,
+  type EntityExecutorOf,
   type EntityRow,
   type EntityTable,
   type ExecutorManagedRunner,

@@ -47,6 +47,7 @@
     "./cap-counter": "./src/cap-counter/index.ts",
     "./cap-overview": "./src/cap-overview/index.ts",
     "./cap-overview/web": "./src/cap-overview/web/index.ts",
+    "./cap-overview/constants": "./src/cap-overview/web/constants.ts",
     "./metrics": "./src/metrics/index.ts",
     "./custom-fields": "./src/custom-fields/index.ts",
     "./custom-fields/web": "./src/custom-fields/web/index.ts",
@@ -316,6 +317,10 @@
       "./cap-overview": {
         "types": "./dist/cap-overview/index.d.ts",
         "default": "./dist/cap-overview/index.js"
+      },
+      "./cap-overview/constants": {
+        "types": "./dist/cap-overview/web/constants.d.ts",
+        "default": "./dist/cap-overview/web/constants.js"
       },
       "./cap-overview/web": {
         "types": "./dist/cap-overview/web/index.d.ts",

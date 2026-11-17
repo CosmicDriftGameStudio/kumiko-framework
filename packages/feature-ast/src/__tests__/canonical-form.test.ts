@@ -67,7 +67,7 @@ defineFeature("todoList", (r) => {
       return { isSuccess: true, data: { id: "x" } };
     },
     access: { roles: ["user"] },
-    escapeHatch: { reason: "seeds default priority labels via db.global()" },
+    escapeHatch: { reason: "seeds default priority labels via db.global()", grants: ["systemIdentity"] },
   });
 
   r.queryHandler({
@@ -92,7 +92,7 @@ defineFeature("todoList", (r) => {
     handler: async (event, ctx) => {
       console.log("task saved");
     },
-    escapeHatch: { reason: "reindexes the task search doc via SYSTEM identity" },
+    escapeHatch: { reason: "reindexes the task search doc via SYSTEM identity", grants: ["systemIdentity"] },
   });
 
   r.hook({
@@ -137,7 +137,7 @@ defineFeature("todoList", (r) => {
 
   r.systemScope();
 
-  r.useExtension({ name: "auditLog", entity: "task" });
+  r.applyExtension({ name: "auditLog", entity: "task" });
 
   r.job({
     name: "cleanupExpired",

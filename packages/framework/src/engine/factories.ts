@@ -580,6 +580,7 @@ export function createImagesField(
 // (`{ type: "reference", ... }`) without `as const`; otherwise it widens to
 // string and produces `never`.
 export function createEntity<const F, const T extends EntityTenancy = "tenant">(def: {
+  readonly name: string;
   readonly table?: string;
   readonly fields: F;
   readonly description?: string;

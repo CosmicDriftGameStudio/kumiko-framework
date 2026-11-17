@@ -42,7 +42,7 @@ describe("parseSourceFile", () => {
       `
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 defineFeature("myFeature", (r) => {
-  r.entity("task", { fields: { name: { type: "text" } } });
+  r.entity({ name: "task", fields: { name: { type: "text" } } });
 });
 `,
     );
@@ -55,7 +55,7 @@ defineFeature("myFeature", (r) => {
   test("returns one pattern per r.* call, in source order", () => {
     const result = parseInline(`
 defineFeature("foo", (r) => {
-  r.entity("task", { fields: {} });
+  r.entity({ name: "task", fields: {} });
   r.requires("auth");
   r.systemScope();
 });
@@ -70,7 +70,7 @@ defineFeature("foo", (r) => {
   test("follows the setup callback's parameter name (NOT hardcoded 'r')", () => {
     const result = parseInline(`
 defineFeature("alt", (registrar) => {
-  registrar.entity("task", { fields: {} });
+  registrar.entity({ name: "task", fields: {} });
   registrar.requires("auth");
 });
 `);
@@ -86,7 +86,7 @@ defineFeature("isolated", (r) => {
   const helper = { entity: () => {} };
   helper.entity(); // must not be reported
   console.log("noise"); // must not be reported
-  r.entity("task", { fields: {} });
+  r.entity({ name: "task", fields: {} });
 });
 `);
 
@@ -106,7 +106,7 @@ defineFeature("isolated", (r) => {
 
   test("attaches a 1-based SourceLocation pointing at the call", () => {
     const result = parseInline(`defineFeature("loc", (r) => {
-  r.entity("task", { fields: {} });
+  r.entity({ name: "task", fields: {} });
 });
 `);
 
@@ -129,7 +129,7 @@ defineFeature("isolated", (r) => {
   test("recurses into a locally declared registrar-wrapper function", () => {
     const result = parseInline(`
 function registerTaskScreens(registrar) {
-  registrar.entity("task", { fields: {} });
+  registrar.entity({ name: "task", fields: {} });
   registrar.requires("auth");
 }
 defineFeature("wrapped", (r) => {
@@ -145,7 +145,7 @@ defineFeature("wrapped", (r) => {
   test("recurses into a registrar-wrapper declared as a const arrow function", () => {
     const result = parseInline(`
 const registerTaskScreens = (registrar) => {
-  registrar.entity("task", { fields: {} });
+  registrar.entity({ name: "task", fields: {} });
 };
 defineFeature("wrapped", (r) => {
   registerTaskScreens(r);
@@ -390,7 +390,8 @@ describe("extractEntity", () => {
   test("captures entityName + plain-data definition", () => {
     const result = parseInline(`
 defineFeature("f", (r) => {
-  r.entity("task", {
+  r.entity({
+    name: "task",
     fields: {
       title: { type: "text", required: true },
       done: { type: "boolean", default: false },
@@ -414,9 +415,9 @@ defineFeature("f", (r) => {
 
   test("keeps an unresolved const reference as a raw-ref sentinel instead of erroring", () => {
     const result = parseInline(`
-const eventEntity = { fields: { name: { type: "text" } } };
+const eventEntity = createEntity({ name: "event", fields: { name: { type: "text" } } });
 defineFeature("f", (r) => {
-  r.entity("event", eventEntity);
+  r.entity(eventEntity);
 });
 `);
 
@@ -451,7 +452,7 @@ function buildFields() {
   return { name: { type: "text" } };
 }
 defineFeature("f", (r) => {
-  r.entity("task", { fields: buildFields() });
+  r.entity({ name: "task", fields: buildFields() });
 });
 `);
 
@@ -466,7 +467,7 @@ defineFeature("f", (r) => {
   test("walks through `as const` and `satisfies` wrappers", () => {
     const result = parseInline(`
 defineFeature("f", (r) => {
-  r.entity("task", { fields: { name: { type: "text" as const } } });
+  r.entity({ name: "task", fields: { name: { type: "text" as const } } });
 });
 `);
 
@@ -479,38 +480,12 @@ defineFeature("f", (r) => {
   test("emits a ParseError when the definition contains a function value", () => {
     const result = parseInline(`
 defineFeature("f", (r) => {
-  r.entity("task", {
+  r.entity({
+    name: "task",
     fields: {
       title: { type: "text", default: () => "untitled" },
     },
   });
-});
-`);
-
-    expect(result.patterns).toEqual([]);
-    expect(result.errors[0]?.methodName).toBe("entity");
-  });
-
-  test("resolves the name when it's an identifier initialized to a string literal", () => {
-    const result = parseInline(`
-const ENTITY = "task";
-defineFeature("f", (r) => {
-  r.entity(ENTITY, { fields: {} });
-});
-`);
-
-    expect(result.errors).toEqual([]);
-    expect(result.patterns[0]).toMatchObject({
-      kind: "entity",
-      entityName: "task",
-    });
-  });
-
-  test("emits a ParseError when the name identifier does not resolve to a string literal", () => {
-    const result = parseInline(`
-const ENTITY = computeEntityName();
-defineFeature("f", (r) => {
-  r.entity(ENTITY, { fields: {} });
 });
 `);
 
@@ -844,7 +819,7 @@ describe("extractMetric", () => {
   test("captures shortName + options", () => {
     const result = parseInline(`
 defineFeature("f", (r) => {
-  r.metric("requests", { type: "counter", description: "API requests" });
+  r.metric({ name: "requests", type: "counter", description: "API requests" });
 });
 `);
 
@@ -924,7 +899,7 @@ describe("extractSecret", () => {
   test("captures shortName + options", () => {
     const result = parseInline(`
 defineFeature("f", (r) => {
-  r.secret("apiKey", { description: "Stripe API key" });
+  r.secret({ name: "apiKey", description: "Stripe API key" });
 });
 `);
 
@@ -964,7 +939,7 @@ describe("extractClaimKey", () => {
   test("captures shortName + claim type", () => {
     const result = parseInline(`
 defineFeature("f", (r) => {
-  r.claimKey("teamId", { type: "string" });
+  r.claimKey({ name: "teamId", type: "string" });
 });
 `);
 
@@ -978,7 +953,7 @@ defineFeature("f", (r) => {
   test("emits ParseError on invalid claim type", () => {
     const result = parseInline(`
 defineFeature("f", (r) => {
-  r.claimKey("teamId", { type: "bigint" });
+  r.claimKey({ name: "teamId", type: "bigint" });
 });
 `);
 
@@ -1014,10 +989,13 @@ describe("extractReferenceData", () => {
   test("captures entity name + data array", () => {
     const result = parseInline(`
 defineFeature("f", (r) => {
-  r.referenceData("status", [
-    { id: "open", label: "Open" },
-    { id: "closed", label: "Closed" },
-  ]);
+  r.referenceData({
+    entity: "status",
+    data: [
+      { id: "open", label: "Open" },
+      { id: "closed", label: "Closed" },
+    ],
+  });
 });
 `);
 
@@ -1034,7 +1012,7 @@ defineFeature("f", (r) => {
   test("captures the optional upsertKey", () => {
     const result = parseInline(`
 defineFeature("f", (r) => {
-  r.referenceData("status", [{ id: "open" }], { upsertKey: "id" });
+  r.referenceData({ entity: "status", data: [{ id: "open" }], upsertKey: "id" });
 });
 `);
 
@@ -1065,14 +1043,7 @@ defineFeature("f", (r) => {
     });
   });
 
-  test("accepts an inline { name: '...' } entity ref, both forms", () => {
-    const positional = parseInline(`
-defineFeature("f", (r) => {
-  r.referenceData({ name: "status" }, [{ id: "open" }]);
-});
-`);
-    expect(positional.patterns[0]).toMatchObject({ kind: "referenceData", entityName: "status" });
-
+  test("accepts an inline { name: '...' } entity ref", () => {
     const objectForm = parseInline(`
 defineFeature("f", (r) => {
   r.referenceData({ entity: { name: "status" }, data: [{ id: "open" }] });
@@ -1178,10 +1149,10 @@ describe("extractUseExtension", () => {
   test("captures extension name + entity ref", () => {
     const result = parseInline(`
 defineFeature("f", (r) => {
-  r.useExtension("audit", "task");
+  r.applyExtension({ name: "audit", entity: "task" });
 });
 `);
-
+    expect(result.errors).toEqual([]);
     expect(result.patterns[0]).toMatchObject({
       kind: "useExtension",
       extensionName: "audit",
@@ -1189,28 +1160,12 @@ defineFeature("f", (r) => {
     });
   });
 
-  test("captures optional options", () => {
+  test("captures the inline options", () => {
     const result = parseInline(`
 defineFeature("f", (r) => {
-  r.useExtension("audit", "task", { mode: "verbose" });
+  r.applyExtension({ name: "audit", entity: "task", mode: "verbose" });
 });
 `);
-
-    expect(result.patterns[0]).toMatchObject({
-      kind: "useExtension",
-      extensionName: "audit",
-      entityName: "task",
-      options: { mode: "verbose" },
-    });
-  });
-
-  test("object form captures name, entity ref and options", () => {
-    const result = parseInline(`
-defineFeature("f", (r) => {
-  r.useExtension({ name: "audit", entity: "task", options: { mode: "verbose" } });
-});
-`);
-
     expect(result.errors).toEqual([]);
     expect(result.patterns[0]).toMatchObject({
       kind: "useExtension",
@@ -1220,101 +1175,81 @@ defineFeature("f", (r) => {
     });
   });
 
-  test("accepts an inline { name: '...' } entity ref, both forms", () => {
-    const positional = parseInline(`
+  test("keeps a single spread as a raw reference", () => {
+    const result = parseInline(`
 defineFeature("f", (r) => {
-  r.useExtension("audit", { name: "task" });
+  r.applyExtension({ name: "audit", entity: "task", ...auditOptions });
 });
 `);
-    expect(positional.patterns[0]).toMatchObject({ kind: "useExtension", entityName: "task" });
+    expect(result.errors).toEqual([]);
+    expect(result.patterns[0]).toMatchObject({
+      kind: "useExtension",
+      options: { __raw: "auditOptions" },
+    });
+  });
 
-    const objectForm = parseInline(`
+  test("accepts an inline { name: '...' } entity ref", () => {
+    const result = parseInline(`
 defineFeature("f", (r) => {
-  r.useExtension({ name: "audit", entity: { name: "task" } });
+  r.applyExtension({ name: "audit", entity: { name: "task" } });
 });
 `);
-    expect(objectForm.patterns[0]).toMatchObject({ kind: "useExtension", entityName: "task" });
+    expect(result.patterns[0]).toMatchObject({ kind: "useExtension", entityName: "task" });
   });
 
   test("emits ParseError when called with no arguments", () => {
     const result = parseInline(`
 defineFeature("f", (r) => {
-  r.useExtension();
+  r.applyExtension();
 });
 `);
-
     expect(result.patterns).toEqual([]);
     expect(result.errors[0]?.methodName).toBe("useExtension");
   });
 
-  test("emits ParseError when object form is missing the entity property", () => {
+  test("emits ParseError when the entity property is missing", () => {
     const result = parseInline(`
 defineFeature("f", (r) => {
-  r.useExtension({ name: "audit" });
+  r.applyExtension({ name: "audit" });
 });
 `);
-
     expect(result.errors[0]?.methodName).toBe("useExtension");
   });
 
-  test("emits ParseError when object form's options is not a plain object", () => {
+  test("emits ParseError when the name property is missing", () => {
     const result = parseInline(`
 defineFeature("f", (r) => {
-  r.useExtension({ name: "audit", entity: "task", options: "not-an-object" });
+  r.applyExtension({ entity: "task" });
 });
 `);
-
     expect(result.errors[0]?.methodName).toBe("useExtension");
   });
 
-  test("emits ParseError when the positional entity argument is missing", () => {
+  test("emits ParseError when the extension name is unresolvable", () => {
     const result = parseInline(`
 defineFeature("f", (r) => {
-  r.useExtension("audit");
+  r.applyExtension({ name: EXT, entity: "task" });
 });
 `);
-
     expect(result.errors[0]?.methodName).toBe("useExtension");
   });
 
-  test("emits ParseError when positional options argument is not a plain object", () => {
-    const result = parseInline(`
-defineFeature("f", (r) => {
-  r.useExtension("audit", "task", "not-an-object");
-});
-`);
-
-    expect(result.errors[0]?.methodName).toBe("useExtension");
-  });
-
-  test("emits ParseError when the extension name is not a string literal", () => {
-    const result = parseInline(`
-defineFeature("f", (r) => {
-  r.useExtension(EXT, "task");
-});
-`);
-
-    expect(result.errors[0]?.methodName).toBe("useExtension");
-  });
-
-  test("emits ParseError when the positional entity ref is unresolvable", () => {
+  test("emits ParseError when the entity ref is unresolvable", () => {
     const result = parseInline(`
 const ent = { name: "task" };
 defineFeature("f", (r) => {
-  r.useExtension("audit", ent);
+  r.applyExtension({ name: "audit", entity: ent });
 });
 `);
-
     expect(result.errors[0]?.methodName).toBe("useExtension");
   });
 
-  test("emits ParseError when object form is missing the name property", () => {
+  test("emits ParseError when called positionally", () => {
     const result = parseInline(`
 defineFeature("f", (r) => {
-  r.useExtension({ entity: "task" });
+  r.applyExtension("audit", "task");
 });
 `);
-
     expect(result.errors[0]?.methodName).toBe("useExtension");
   });
 });
@@ -1367,13 +1302,13 @@ defineFeature("f", (r) => {
   test("captures the optional escapeHatch from the options object (positional form)", () => {
     const result = parseInline(`
 defineFeature("f", (r) => {
-  r.hook("postSave", "task", (event, ctx) => {}, { escapeHatch: { reason: "reindexes via SYSTEM" } });
+  r.hook("postSave", "task", (event, ctx) => {}, { escapeHatch: { reason: "reindexes via SYSTEM", grants: ["systemIdentity"] } });
 });
 `);
 
     expect(result.patterns[0]).toMatchObject({
       kind: "hook",
-      escapeHatch: { reason: "reindexes via SYSTEM" },
+      escapeHatch: { reason: "reindexes via SYSTEM", grants: ["systemIdentity"] },
     });
   });
 
@@ -1384,14 +1319,14 @@ defineFeature("f", (r) => {
     type: "postSave",
     target: "task",
     handler: (event, ctx) => {},
-    escapeHatch: { reason: "reindexes via SYSTEM" },
+    escapeHatch: { reason: "reindexes via SYSTEM", grants: ["systemIdentity"] },
   });
 });
 `);
 
     expect(result.patterns[0]).toMatchObject({
       kind: "hook",
-      escapeHatch: { reason: "reindexes via SYSTEM" },
+      escapeHatch: { reason: "reindexes via SYSTEM", grants: ["systemIdentity"] },
     });
   });
 
@@ -1750,7 +1685,7 @@ defineFeature("f", (r) => {
     schema: z.object({}),
     handler: async (event, ctx) => ({ isSuccess: true, data: {} }),
     access: { roles: ["Admin"] },
-    escapeHatch: { reason: "bulk reindex writes via db.global()" },
+    escapeHatch: { reason: "bulk reindex writes via db.global()", grants: ["systemIdentity"] },
   });
 });
 `);
@@ -1758,7 +1693,7 @@ defineFeature("f", (r) => {
     expect(result.patterns[0]).toMatchObject({
       kind: "writeHandler",
       handlerName: "task:reindex",
-      escapeHatch: { reason: "bulk reindex writes via db.global()" },
+      escapeHatch: { reason: "bulk reindex writes via db.global()", grants: ["systemIdentity"] },
     });
   });
 
@@ -1767,14 +1702,14 @@ defineFeature("f", (r) => {
 defineFeature("f", (r) => {
   r.writeHandler("task:reindex", z.object({}), async (event, ctx) => {
     return { isSuccess: true, data: {} };
-  }, { access: { roles: ["Admin"] }, escapeHatch: { reason: "bulk reindex writes via db.global()" } });
+  }, { access: { roles: ["Admin"] }, escapeHatch: { reason: "bulk reindex writes via db.global()", grants: ["systemIdentity"] } });
 });
 `);
 
     expect(result.patterns[0]).toMatchObject({
       kind: "writeHandler",
       handlerName: "task:reindex",
-      escapeHatch: { reason: "bulk reindex writes via db.global()" },
+      escapeHatch: { reason: "bulk reindex writes via db.global()", grants: ["systemIdentity"] },
     });
   });
 });
@@ -1822,7 +1757,7 @@ defineFeature("f", (r) => {
     schema: z.object({}),
     handler: async (q, ctx) => [],
     access: { roles: ["Admin"] },
-    escapeHatch: { reason: "reads across tenants via ctx.queryAs(SYSTEM, ...)" },
+    escapeHatch: { reason: "reads across tenants via ctx.queryAs(SYSTEM, ...)", grants: ["systemIdentity"] },
   });
 });
 `);
@@ -1830,7 +1765,7 @@ defineFeature("f", (r) => {
     expect(result.patterns[0]).toMatchObject({
       kind: "queryHandler",
       handlerName: "task:audit-list",
-      escapeHatch: { reason: "reads across tenants via ctx.queryAs(SYSTEM, ...)" },
+      escapeHatch: { reason: "reads across tenants via ctx.queryAs(SYSTEM, ...)", grants: ["systemIdentity"] },
     });
   });
 });
@@ -1910,13 +1845,13 @@ defineFeature("f", (r) => {
     name: "chat:complete",
     schema: z.object({ prompt: z.string() }),
     handler: async function* (input, ctx) { yield "token"; },
-    escapeHatch: { reason: "Kept for streamHandler." },
+    escapeHatch: { reason: "Kept for streamHandler.", grants: ["systemIdentity"] },
   });
 });
 `);
 
     expect(result.patterns[0]).toMatchObject({
-      escapeHatch: { reason: "Kept for streamHandler." },
+      escapeHatch: { reason: "Kept for streamHandler.", grants: ["systemIdentity"] },
     });
   });
 });
@@ -2657,16 +2592,16 @@ defineFeature("f", (r) => {
 describe("show-pony-shaped feature", () => {
   const result = parseInline(`
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { eventEntity } from "./schema";
 import { eventCreateHandler } from "./handlers/event-create.write";
 import { createInviteBrandingQuery } from "./handlers/invite-branding.query";
 import { registerShowPonyScreens } from "./register/screens";
 
 const someFeature = { name: "mail-foundation" };
+const eventEntity = createEntity({ name: "event", fields: {} });
 
 defineFeature("showpony", (r) => {
   r.requires(someFeature.name, "config");
-  r.entity("event", eventEntity);
+  r.entity(eventEntity);
   r.writeHandler(eventCreateHandler);
   r.queryHandler(createInviteBrandingQuery());
   registerShowPonyScreens(r);

@@ -1,5 +1,6 @@
 /// <reference types="temporal-polyfill/global" preserve="true" />
 import type { EntityTableMeta } from "@cosmicdrift/kumiko-types/entity-table-meta-types";
+import type { EventStoreExecutor } from "@cosmicdrift/kumiko-types/event-store-executor-types";
 import type {
   EntityDefinition,
   FieldDefinition,
@@ -459,6 +460,8 @@ export type EntityRow<E extends EntityDefinition = EntityDefinition> =
     ? Record<string, unknown>
     : Flatten<RowOfColumns<BaseColumnsType<E>> & SoftDeleteRow<E> & RowForFields<E["fields"]>>;
 
+export type EntityExecutorOf<E extends EntityDefinition> = EventStoreExecutor<EntityRow<E>>;
+
 type ColumnRowForField<K extends string, F extends FieldDefinition> = [
   ValueColumnsForField<K, F>,
 ] extends [never]
@@ -650,7 +653,6 @@ function foreignKeyFieldNames(
 }
 
 export function buildEntityTable<E extends EntityDefinition>(
-  entityName: string,
   entity: E,
   options?: BuildEntityTableOptions,
 ): EntityTable<E> {
@@ -660,6 +662,7 @@ export function buildEntityTable<E extends EntityDefinition>(
     Object.assign(fieldColumns, fieldToColumns(name, field, entity));
   }
 
+  const entityName = entity.name;
   const tableName = entityTableName(entityName, entity, options?.featureName);
   const foreignKeyFields = foreignKeyFieldNames(entity, options?.relations);
 

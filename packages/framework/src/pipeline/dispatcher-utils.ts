@@ -1,3 +1,4 @@
+import type { HandlerContract } from "@cosmicdrift/kumiko-types/handler-contract";
 import type { HandlerRef, WriteResult } from "@cosmicdrift/kumiko-types/handlers";
 import type { LifecycleResult } from "@cosmicdrift/kumiko-types/hooks";
 import { isInvalidDateTimeValue } from "../db/pg-error.ts";
@@ -192,10 +193,11 @@ export class NestedWriteRollback extends Error {
   }
 }
 
-export type HandlerType = string | HandlerRef;
+export type HandlerType = string | HandlerRef | HandlerContract;
 
 export function resolveType(type: HandlerType): string {
-  return typeof type === "string" ? type : type.name;
+  if (typeof type === "string") return type;
+  return "kind" in type ? type.qualifiedName : type.name;
 }
 
 // A custom write losing an append race (ctx.events.append, stream.append) is a

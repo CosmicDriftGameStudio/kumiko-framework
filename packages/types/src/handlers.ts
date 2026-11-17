@@ -109,10 +109,10 @@ export const ESCAPE_HATCH_GRANTS = [
 
 export type EscapeHatchGrant = (typeof ESCAPE_HATCH_GRANTS)[number];
 
-// `grants` narrows what the declaration unlocks; absent means all of ESCAPE_HATCH_GRANTS.
+// `grants` lists what the declaration unlocks.
 export type EscapeHatchDeclaration = {
   readonly reason: string;
-  readonly grants?: readonly EscapeHatchGrant[];
+  readonly grants: readonly [EscapeHatchGrant, ...EscapeHatchGrant[]];
 };
 
 export function isEscapeHatchGrant(value: unknown): value is EscapeHatchGrant {
@@ -124,7 +124,7 @@ export function escapeHatchAllows(
   grant: EscapeHatchGrant,
 ): boolean {
   if (declaration === undefined) return false;
-  return declaration.grants === undefined || declaration.grants.includes(grant);
+  return declaration.grants.includes(grant);
 }
 
 // Returns the declaration only when it unlocks `grant`, so call sites keep passing
@@ -151,7 +151,9 @@ export function escapeHatchGrantsProblem(declaration: {
   readonly grants?: unknown;
 }): string | undefined {
   const { grants } = declaration;
-  if (grants === undefined) return undefined;
+  if (grants === undefined) {
+    return `grants is required: a non-empty list of ${ESCAPE_HATCH_GRANTS.join(", ")}`;
+  }
   if (!Array.isArray(grants) || grants.length === 0) {
     return `grants must be a non-empty list of: ${ESCAPE_HATCH_GRANTS.join(", ")}`;
   }

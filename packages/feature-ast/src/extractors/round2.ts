@@ -6,6 +6,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/engine";
 import type {
   CallExpression,
+  Node,
   ObjectLiteralElementLike,
   ObjectLiteralExpression,
   SourceFile,
@@ -64,6 +65,62 @@ function readSpreadOnlyDefinition(obj: ObjectLiteralExpression): SpreadOnlyEntit
   return { definition: reference, backingTable };
 }
 
+type EntityReference = {
+  readonly definition: RawRefSentinel;
+  readonly backingTable: RawRefSentinel | undefined;
+  readonly entityName: string | undefined;
+};
+
+// The `name` of the `createEntity({ name: "x", ... })` a same-file identifier points at.
+function readCreateEntityName(identifier: Node, sourceFile: SourceFile): string | undefined {
+  const initializer = sourceFile
+    .getVariableDeclaration(identifier.getText())
+    ?.getInitializer()
+    ?.asKind(SyntaxKind.CallExpression);
+  if (initializer?.getExpression().getText() !== "createEntity") return undefined;
+  return initializer
+    .getArguments()[0]
+    ?.asKind(SyntaxKind.ObjectLiteralExpression)
+    ?.getProperty("name")
+    ?.asKind(SyntaxKind.PropertyAssignment)
+    ?.getInitializer()
+    ?.asKind(SyntaxKind.StringLiteral)
+    ?.getLiteralValue();
+}
+
+// `r.entity(xEntity)` and `r.entity({ ...xEntity, backingTable })`: the entity carries its own name.
+function readEntityReference(first: Node, sourceFile: SourceFile): EntityReference | undefined {
+  const identifier = first.asKind(SyntaxKind.Identifier);
+  if (identifier) {
+    return {
+      definition: { __raw: identifier.getText() },
+      backingTable: undefined,
+      entityName: readCreateEntityName(identifier, sourceFile),
+    };
+  }
+  const obj = first.asKind(SyntaxKind.ObjectLiteralExpression);
+  if (!obj || obj.getProperty("name") !== undefined) return undefined;
+  const properties = obj.getProperties();
+  const backingTableProperty = properties.find((property) => {
+    const name =
+      property.asKind(SyntaxKind.PropertyAssignment)?.getName() ??
+      property.asKind(SyntaxKind.ShorthandPropertyAssignment)?.getName();
+    return name === "backingTable";
+  });
+  const rest = properties.filter((property) => property !== backingTableProperty);
+  const spreadTarget =
+    rest.length === 1 ? rest[0]?.asKind(SyntaxKind.SpreadAssignment)?.getExpression() : undefined;
+  const identifierTarget = spreadTarget?.asKind(SyntaxKind.Identifier);
+  if (!identifierTarget) return undefined;
+  const backingTable = backingTableProperty ? readBackingTableRef(backingTableProperty) : undefined;
+  if (backingTableProperty && !backingTable) return undefined;
+  return {
+    definition: { __raw: identifierTarget.getText() },
+    backingTable,
+    entityName: readCreateEntityName(identifierTarget, sourceFile),
+  };
+}
+
 export function extractEntity(
   call: CallExpression,
   sourceFile: SourceFile,
@@ -76,6 +133,26 @@ export function extractEntity(
       sourceLocationFromNode(call, sourceFile),
       "expected at least one argument",
     );
+  }
+
+  const reference = args.length === 1 ? readEntityReference(first, sourceFile) : undefined;
+  if (reference) {
+    if (reference.entityName === undefined) {
+      return fail(
+        "entity",
+        sourceLocationFromNode(call, sourceFile),
+        "the entity's name could not be read: declare it with createEntity({ name: \"...\", ... }) in the same file",
+      );
+    }
+    // Same narrowing contract as the inline path: the reference stays opaque until render.
+    const opaqueDefinition: Record<string, unknown> = reference.definition;
+    return ok({
+      kind: "entity",
+      source: sourceLocationFromNode(call, sourceFile),
+      entityName: reference.entityName,
+      definition: opaqueDefinition as EntityDefinition,
+      ...(reference.backingTable && { backingTable: reference.backingTable }),
+    });
   }
 
   const obj = first.asKind(SyntaxKind.ObjectLiteralExpression);

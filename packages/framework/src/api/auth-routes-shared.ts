@@ -9,9 +9,6 @@ import { MAX_RETURN_PATH_LENGTH } from "../utils/return-path-limit.ts";
 
 const log = createFallbackLogger("kumiko");
 
-// 429 comes from the per-route rate limit; handler errors map to the rest.
-export type PublicAuthErrorStatus = 400 | 401 | 403 | 422 | 429 | 500;
-
 // Content is checked where the mail link is built (bundled-features knows the path rules); a bad
 // value must never void the whole body, or the request would silently send no mail.
 const returnToField = z.string().max(MAX_RETURN_PATH_LENGTH).optional().catch(undefined);
@@ -123,3 +120,12 @@ const RequestTokenBody = z.object({
   email: z.email(),
   returnTo: returnToField,
 });
+
+export function readErrorReason(details: unknown): string | undefined {
+  return typeof details === "object" &&
+    details !== null &&
+    "reason" in details &&
+    typeof details.reason === "string"
+    ? details.reason
+    : undefined;
+}

@@ -202,7 +202,7 @@ const escapeHatchSchema = z
     reason: z.string().refine((s) => s.trim().length > 0, {
       message: "reason must be non-empty",
     }),
-    grants: z.array(z.enum(ESCAPE_HATCH_GRANTS)).min(1).optional(),
+    grants: z.array(z.enum(ESCAPE_HATCH_GRANTS)).min(1),
   })
   .strict();
 

@@ -41,7 +41,6 @@ import { reasonProblem } from "./escape-hatch-reason.ts";
 import type { FeatureBuilderState } from "./feature-builder-state.ts";
 import { resolveName } from "./handler-helpers.ts";
 import { HookPhases } from "./hook-helpers.ts";
-import { isObjectArgument, requireArgument, throwObjectArgumentRequired } from "./object-form.ts";
 import { isKebabSegment, isValidQn, qualifyEntityName, toKebab } from "./qualified-name.ts";
 import type { HttpRouteDefinition } from "./types/http-route.ts";
 
@@ -191,7 +190,6 @@ export function buildUiExtensionsMethods<TName extends string>(
 
   return {
     hook(definition: HookDefinition): void {
-      if (!isObjectArgument(definition)) throwObjectArgumentRequired(name, "hook");
       const { type, target, handler: fn } = definition;
       const options: { phase?: HookPhase; escapeHatch?: EscapeHatchDeclaration } = {
         ...(definition.phase !== undefined && { phase: definition.phase }),
@@ -314,51 +312,38 @@ export function buildUiExtensionsMethods<TName extends string>(
     extendsRegistrar(extensionName: string, def: RegistrarExtensionDef): void {
       state.registrarExtensions[extensionName] = def;
     },
-    useExtension(
-      extensionNameOrDefinition:
-        | string
-        | ({ readonly name: string; readonly entity: NameOrRef } & object),
-      entityRef?: NameOrRef,
-      options?: object,
-    ): void {
-      const [extensionName, resolvedEntityRef, resolvedOptions] =
-        typeof extensionNameOrDefinition === "string"
-          ? [
-              extensionNameOrDefinition,
-              requireArgument(entityRef, name, "useExtension", "entity"),
-              options,
-            ]
-          : (() => {
-              const { name, entity, ...rest } = extensionNameOrDefinition;
-              return [name, entity, rest] as const;
-            })();
+    applyExtension(definition: {
+      readonly name: string;
+      readonly entity: NameOrRef;
+      readonly [option: string]: unknown;
+    }): void {
+      const { name: extensionName, entity: resolvedEntityRef, ...resolvedOptions } = definition;
       const resolvedEntityName = resolveName(resolvedEntityRef);
-      // @cast-boundary engine-bridge — typed per-extension options → erased registration bag
-      const optionsBag = resolvedOptions as Record<string, unknown> | undefined;
+      const optionsBag: Record<string, unknown> = resolvedOptions;
       // Cross-cutting escapeHatch convention for hook-context db
       // access (mirrors r.hook's validation above). Validated the same way
       // for every extension regardless of its typed hook shape.
-      const escapeHatch = optionsBag?.["escapeHatch"];
+      const escapeHatch = optionsBag["escapeHatch"];
       if (escapeHatch !== undefined) {
         const escapeHatchObject = isPlainObject(escapeHatch) ? escapeHatch : undefined;
         const reason = escapeHatchObject?.["reason"];
         if (escapeHatchObject === undefined || typeof reason !== "string") {
-          throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.useExtensionEscapeHatchInvalid, {
+          throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.applyExtensionEscapeHatchInvalid, {
             message:
-              `[Feature ${name}] r.useExtension("${extensionName}", "${resolvedEntityName}", ...) declares an invalid { escapeHatch } — ` +
+              `[Feature ${name}] r.applyExtension({ name: "${extensionName}", entity: "${resolvedEntityName}", ... }) declares an invalid { escapeHatch } — ` +
               `must be { reason: "<explanation>" } explaining why this usage needs unfiltered db access.`,
           });
         }
         const extReasonProblem = reasonProblem(reason);
         if (extReasonProblem !== undefined) {
-          throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.useExtensionEscapeHatchInvalid, {
-            message: `[Feature ${name}] r.useExtension("${extensionName}", "${resolvedEntityName}", ...) declares an invalid { escapeHatch } — ${extReasonProblem}`,
+          throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.applyExtensionEscapeHatchInvalid, {
+            message: `[Feature ${name}] r.applyExtension({ name: "${extensionName}", entity: "${resolvedEntityName}", ... }) declares an invalid { escapeHatch } — ${extReasonProblem}`,
           });
         }
-        const extGrantsProblem = escapeHatchGrantsProblem(escapeHatchObject);
-        if (extGrantsProblem) {
-          throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.useExtensionEscapeHatchInvalid, {
-            message: `[Feature ${name}] r.useExtension("${extensionName}", "${resolvedEntityName}", ...) declares an invalid { escapeHatch } — ${extGrantsProblem}`,
+        // An extension escapeHatch always means unsafeRaw, so a grants list has nothing to say.
+        if (escapeHatchObject["grants"] !== undefined) {
+          throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.applyExtensionEscapeHatchInvalid, {
+            message: `[Feature ${name}] r.applyExtension({ name: "${extensionName}", entity: "${resolvedEntityName}", ... }) declares an invalid { escapeHatch } — an extension escapeHatch always means unsafeRaw; remove grants.`,
           });
         }
       }
@@ -488,29 +473,12 @@ export function buildUiExtensionsMethods<TName extends string>(
       list.push(extension);
       state.entityProjectionExtensions[entityName] = list;
     },
-    referenceData(
-      entityRefOrDefinition:
-        | NameOrRef
-        | {
-            readonly entity: NameOrRef;
-            readonly data: readonly Record<string, unknown>[];
-            readonly upsertKey?: string;
-          },
-      data?: readonly Record<string, unknown>[],
-      options?: { upsertKey?: string },
-    ): void {
-      const [entityRef, resolvedData, upsertKey] =
-        typeof entityRefOrDefinition === "object" && "entity" in entityRefOrDefinition
-          ? [
-              entityRefOrDefinition.entity,
-              entityRefOrDefinition.data,
-              entityRefOrDefinition.upsertKey,
-            ]
-          : [
-              entityRefOrDefinition,
-              requireArgument(data, name, "referenceData", "data"),
-              options?.upsertKey,
-            ];
+    referenceData(definition: {
+      readonly entity: NameOrRef;
+      readonly data: readonly Record<string, unknown>[];
+      readonly upsertKey?: string;
+    }): void {
+      const { entity: entityRef, data: resolvedData, upsertKey } = definition;
       state.referenceData.push({
         entityName: resolveName(entityRef),
         data: resolvedData,

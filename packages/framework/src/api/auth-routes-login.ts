@@ -5,7 +5,8 @@ import { SYSTEM_TENANT_ID } from "../engine/types/index.ts";
 import { Routes } from "./api-constants.ts";
 import { inMemoryLoginRateLimiterFallback } from "./auth-rate-limiters.ts";
 import type { AuthRouteContext } from "./auth-routes-context.ts";
-import type { PublicAuthErrorStatus } from "./auth-routes-shared.ts";
+import { readErrorReason } from "./auth-routes-shared.ts";
+import { toContentfulStatus } from "./contentful-status.ts";
 import { toClientWriteErrorInfo } from "../errors/write-error-info.ts";
 
 // Body schema for POST /auth/login. Enforced BEFORE rate-limit so that a
@@ -59,11 +60,9 @@ export function registerLoginRoute(ctx: AuthRouteContext): void {
         // Feature-specific auth reason codes arrive via UnprocessableError.details.reason
         // (e.g. "invalid_credentials", "user_locked"). Fall back to the KumikoError code
         // so unmapped cases still get a sensible status.
-        // @cast-boundary error-details — KumikoError.details shape is per-error
         const reason =
-          (result.error.details as { reason?: string } | undefined)?.reason ?? result.error.code;
-        // @cast-boundary engine-payload — statusMap value union narrows to the http-status union
-        const status = (statusMap[reason] ?? result.error.httpStatus) as PublicAuthErrorStatus;
+          readErrorReason(result.error.details) ?? result.error.code;
+        const status = toContentfulStatus(statusMap[reason] ?? result.error.httpStatus);
         return c.json({ isSuccess: false, error: toClientWriteErrorInfo(result.error) }, status);
       }
 

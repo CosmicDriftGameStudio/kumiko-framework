@@ -21,6 +21,7 @@ import { isPlainObject } from "../utils/is-plain-object.ts";
 import { stringifyJson } from "../utils/safe-json.ts";
 import { APP_NOW_HEADER_NAME, Routes } from "./api-constants.ts";
 import { getAuthTokenExpiry, getUser } from "./auth-middleware.ts";
+import { toContentfulStatus } from "./contentful-status.ts";
 import { patAllows } from "./pat-scope.ts";
 import { requestContext } from "./request-context.ts";
 import { SSE_HEARTBEAT_INTERVAL_MS } from "./sse-route.ts";
@@ -132,7 +133,7 @@ export function createApiRoutes(dispatcher: Dispatcher, options: ApiRoutesOption
             failedIndex: result.failedIndex,
             results: result.results,
           },
-          err.httpStatus as ContentfulStatusCode, // @cast-boundary engine-payload
+          toContentfulStatus(err.httpStatus),
         );
       }
       return c.json(result);
@@ -511,7 +512,7 @@ function writeErrorResponse(c: Context, err: KumikoError, type?: unknown) {
   logServerFault(err, requestId, type);
   const { error } = serializeError(err, requestId, requestContext.get()?.errorDocs);
   setRetryAfterHeader(c, err);
-  return c.json({ isSuccess: false, error }, err.httpStatus as ContentfulStatusCode); // @cast-boundary engine-payload
+  return c.json({ isSuccess: false, error }, toContentfulStatus(err.httpStatus));
 }
 
 function clientAbortResponse(c: Context, requestId: string | undefined, type?: unknown) {
@@ -529,7 +530,7 @@ export function queryErrorResponse(c: Context, err: KumikoError, type?: unknown)
   logServerFault(err, requestId, type);
   const body = serializeError(err, requestId, requestContext.get()?.errorDocs);
   setRetryAfterHeader(c, err);
-  return c.json(body, err.httpStatus as ContentfulStatusCode); // @cast-boundary engine-payload
+  return c.json(body, toContentfulStatus(err.httpStatus));
 }
 
 // A raw throw under the request signal (signal.throwIfAborted(), an aborted
@@ -552,6 +553,6 @@ export function handleUncaughtRouteError(err: Error, c: Context): Response | Pro
   setRetryAfterHeader(c, kumikoError);
   return c.json(
     serializeError(kumikoError, requestId, requestContext.get()?.errorDocs),
-    kumikoError.httpStatus as ContentfulStatusCode,
-  ); // @cast-boundary engine-payload
+    toContentfulStatus(kumikoError.httpStatus),
+  );
 }

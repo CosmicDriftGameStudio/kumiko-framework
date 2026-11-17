@@ -27,9 +27,9 @@ import {
   enrichRowWithReferences,
   enrichWithReferences,
 } from "../db/eagerload.ts";
-import { createEventStoreExecutor, type EventStoreExecutor } from "../db/event-store-executor.ts";
+import { createEventStoreExecutor } from "../db/event-store-executor.ts";
 import { answerListAggregate } from "../db/list-aggregate-labels.ts";
-import { buildEntityTable, type EntityRow, type EntityTable } from "../db/table-builder.ts";
+import { buildEntityTable, type EntityExecutorOf, type EntityTable } from "../db/table-builder.ts";
 import {
   acknowledgeConventionCrossTenant,
   reportConventionCrossTenantUse,
@@ -344,7 +344,7 @@ export function defineEntityWriteHandler(
     excludedFields,
   );
 
-  const table = buildEntityTable(entityName, entity);
+  const table = buildEntityTable(entity);
   const executor = createEventStoreExecutor(table, entity, { entityName });
 
   // r.systemScope() features (tenant, config, secrets, ...) hand their
@@ -546,7 +546,7 @@ export function defineEntityQueryHandler(
 ): QueryHandlerDef {
   const { entityName, verb } = parseHandlerName(name, QUERY_VERBS);
 
-  const table = buildEntityTable(entityName, entity);
+  const table = buildEntityTable(entity);
   const executor = createEventStoreExecutor(table, entity, { entityName });
 
   let schema: ZodType;
@@ -738,10 +738,10 @@ export function defineEntityDetailHandler(
 // Use buildEntityTable + createEventStoreExecutor directly when the executor needs a
 // searchAdapter. This helper covers the zero-config case.
 export function createEntityExecutor<E extends EntityDefinition>(
-  entityName: string,
   entity: E,
-): { readonly table: EntityTable<E>; readonly executor: EventStoreExecutor<EntityRow<E>> } {
-  const table = buildEntityTable<E>(entityName, entity);
+): { readonly table: EntityTable<E>; readonly executor: EntityExecutorOf<E> } {
+  const entityName = entity.name;
+  const table = buildEntityTable<E>(entity);
   const executor = createEventStoreExecutor(table, entity, { entityName });
   return { table, executor };
 }
@@ -775,7 +775,7 @@ export function defineProjectionQueryHandler(
   const escapeHatch: EscapeHatchDeclaration | undefined =
     options.escapeHatch ??
     (typeof options.unsafeAllTenants === "object"
-      ? { reason: options.unsafeAllTenants.reason }
+      ? { reason: options.unsafeAllTenants.reason, grants: ["systemIdentity"] }
       : undefined);
   return {
     name,
@@ -808,10 +808,10 @@ function defaultCrudVerbs(entity: EntityDefinition): Record<EntityCrudVerb, bool
 /** Backs `r.crud`: registers the standard entity CRUD handlers. Access stays explicit — no openToAll default. */
 export function registerCrudHandlers(
   r: EntityCrudRegistrar,
-  entityName: string,
   entity: EntityDefinition,
   options?: RegisterEntityCrudOptions,
 ): void {
+  const entityName = entity.name;
   const verbs = { ...defaultCrudVerbs(entity), ...options?.verbs };
   if (verbs.restore && entity.softDelete !== true) {
     throw bootRuleError(DEFINITION_HANDLER_RULES.restoreWithoutSoftDelete, {
@@ -820,7 +820,7 @@ export function registerCrudHandlers(
   }
 
   if (options?.registerEntity !== false) {
-    r.entity({ name: entityName, ...entity });
+    r.entity(entity);
   }
   const writeOpts = options?.write;
   const readOpts = options?.read;

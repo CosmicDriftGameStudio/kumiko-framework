@@ -11,19 +11,21 @@ TypeScript source, and every breaking change ships a codemod or a migration note
 
 ## Canonical forms
 
-`r.entity`, `r.writeHandler`, `r.queryHandler`, `r.hook`, `r.requires` and `r.defineWebhookEvent`
-take one options object; registration throws on their positional forms. Other registrar calls keep
-their positional signatures, such as `r.crud(name, entity, options)` and
-`r.defineEvent(name, schema, { piiFields })`;
+Every registrar verb that takes options takes exactly one options object; positional calls do not
+typecheck. `r.crud(entity, options)` and `r.defineEvent(name, schema, { piiFields })` are positional.
+An entity carries its name (`createEntity({ name, ... })`), so `r.entity` and `r.crud` take the entity itself.
 [`FeatureRegistrar`](packages/types/src/feature-registrar.ts) is the reference.
 
 ```ts
+const labelEntity = createEntity({ name: "label", fields });
+const taskEntity = createEntity({ name: "task", fields });
 const feature = defineFeature("tasks", (r) => {
   r.requires({ features: ["files"] });
-  r.entity({ name: "label", ...labelEntity }); // entity with hand-written handlers
-  r.crud("task", taskEntity, { write: { access }, read: { access } }); // entity plus CRUD handlers
+  r.entity(labelEntity); // entity with hand-written handlers
+  r.crud(taskEntity, { write: { access }, read: { access } }); // entity plus CRUD handlers
   const close = r.writeHandler({ name: "task:close", schema, access, handler });
   r.hook({ type: "validation", target: close, handler: validateClose });
+  r.applyExtension({ name: "audit-log", entity: "task" });
 });
 const db = createDbConnection({ url: databaseUrl });
 const tenantDb = createTenantDb({ db, tenantId });

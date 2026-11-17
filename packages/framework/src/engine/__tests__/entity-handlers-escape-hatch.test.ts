@@ -6,6 +6,7 @@ import {
   defineEntityDetailHandler,
   defineEntityListHandler,
   defineEntityUpdateHandler,
+  defineProjectionQueryHandler,
 } from "../entity-handlers.ts";
 import { CODEMOD_PLACEHOLDER_REASON_MARKER } from "../escape-hatch-reason.ts";
 import { createEntity, createTextField } from "../factories.ts";
@@ -163,5 +164,18 @@ describe("entity convention query handlers: escapeHatch added by a spread", () =
         r.queryHandler({ ...generated, escapeHatch: { reason: "operator cross-tenant list" } });
       }),
     ).not.toThrow();
+  });
+});
+
+describe("defineProjectionQueryHandler: unsafeAllTenants object form", () => {
+  test("unsafeAllTenants { reason } carries grants ['systemIdentity']", () => {
+    const def = defineProjectionQueryHandler("all-things", "test:projection:things", {
+      ...sysadminAccess,
+      unsafeAllTenants: { reason: "operator overview across tenants" },
+    });
+    expect(def.escapeHatch).toEqual({
+      reason: "operator overview across tenants",
+      grants: ["systemIdentity"],
+    });
   });
 });

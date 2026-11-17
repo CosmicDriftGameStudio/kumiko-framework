@@ -206,6 +206,10 @@
       "types": "./src/fields.ts",
       "default": "./src/fields.ts"
     },
+    "./handler-contract": {
+      "types": "./src/handler-contract.ts",
+      "default": "./src/handler-contract.ts"
+    },
     "./handlers": {
       "types": "./src/handlers.ts",
       "default": "./src/handlers.ts"
@@ -520,6 +524,10 @@
       "./fields": {
         "types": "./dist/fields.d.ts",
         "default": "./dist/fields.js"
+      },
+      "./handler-contract": {
+        "types": "./dist/handler-contract.d.ts",
+        "default": "./dist/handler-contract.js"
       },
       "./handlers": {
         "types": "./dist/handlers.d.ts",

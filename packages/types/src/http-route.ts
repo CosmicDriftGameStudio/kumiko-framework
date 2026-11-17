@@ -12,6 +12,7 @@
 // feature (e.g. platform-specific static-serving logic).
 
 import type { Context } from "hono";
+import type { ContractQuery } from "./handler-contract.ts";
 import type { RateLimitOption } from "./handlers.ts";
 
 /** Subset of HTTP methods actively supported. Hono supports all methods,
@@ -45,11 +46,7 @@ export type HttpRouteHandlerDeps = {
    *  an internal X-Tenant header on `app.fetch(...)` is indistinguishable
    *  from an external client and gets rejected by resolverTrust:
    *  "authoritative" anonymousAccess configs (see auth-middleware.ts). */
-  readonly systemQuery: (
-    type: string,
-    payload: unknown,
-    tenantId: import("./identifiers.ts").TenantId,
-  ) => Promise<unknown>;
+  readonly systemQuery: ContractQuery<[tenantId: import("./identifiers.ts").TenantId]>;
   /** The tenant the server's own anonymous host resolution maps this request to:
    *  `anonymousAccess.defaultTenantId`, else the registered tenant resolver (e.g.
    *  host-routing) checked against `tenantExists`; null when it maps to none.

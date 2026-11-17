@@ -221,12 +221,10 @@ function renderDescribe(p: DescribePattern): string {
 }
 
 function renderEntity(p: EntityPattern): string {
-  // A whole-value raw-ref (`eventEntity`) can't go through renderValue without
-  // losing `name` to the sentinel shortcut — spread the reference verbatim
-  // next to the name instead.
+  // A whole-value raw-ref (`eventEntity`) is an entity that already carries its name.
   if (isRawRefSentinel(p.definition)) {
-    const backingTable = p.backingTable ? `, backingTable: ${p.backingTable.__raw}` : "";
-    return `r.entity({ name: ${JSON.stringify(p.entityName)}, ...${p.definition.__raw}${backingTable} });`;
+    if (!p.backingTable) return `r.entity(${p.definition.__raw});`;
+    return `r.entity({ ...${p.definition.__raw}, backingTable: ${p.backingTable.__raw} });`;
   }
   const merged = { name: p.entityName, ...p.definition };
   return `r.entity(${renderValue(merged)});`;
@@ -234,7 +232,7 @@ function renderEntity(p: EntityPattern): string {
 
 function renderRelation(p: RelationPattern): string {
   if (isRawRefSentinel(p.definition)) {
-    return `r.relation(${JSON.stringify(p.entityName)}, ${JSON.stringify(p.relationName)}, ${p.definition.__raw});`;
+    return `r.relation({ entity: ${JSON.stringify(p.entityName)}, name: ${JSON.stringify(p.relationName)}, ...${p.definition.__raw} });`;
   }
   const merged = { entity: p.entityName, name: p.relationName, ...p.definition };
   return `r.relation(${renderValue(merged)});`;
@@ -258,7 +256,7 @@ function renderTranslations(p: TranslationsPattern): string {
 
 function renderMetric(p: MetricPattern): string {
   if (isRawRefSentinel(p.options)) {
-    return `r.metric(${JSON.stringify(p.shortName)}, ${p.options.__raw});`;
+    return `r.metric({ name: ${JSON.stringify(p.shortName)}, ...${p.options.__raw} });`;
   }
   const merged = { name: p.shortName, ...p.options };
   return `r.metric(${renderValue(merged)});`;
@@ -276,7 +274,7 @@ function dropEmptyWriteRoles<T extends { readonly writeRoles?: readonly string[]
 
 function renderSecret(p: SecretPattern): string {
   if (isRawRefSentinel(p.options)) {
-    return `r.secret(${JSON.stringify(p.shortName)}, ${p.options.__raw});`;
+    return `r.secret({ name: ${JSON.stringify(p.shortName)}, ...${p.options.__raw} });`;
   }
   const merged = { name: p.shortName, ...dropEmptyWriteRoles(p.options) };
   return `r.secret(${renderValue(merged)});`;
@@ -284,7 +282,7 @@ function renderSecret(p: SecretPattern): string {
 
 function renderSecretNamespace(p: SecretNamespacePattern): string {
   if (isRawRefSentinel(p.options)) {
-    return `r.secretNamespace(${JSON.stringify(p.shortName)}, ${p.options.__raw});`;
+    return `r.secretNamespace({ name: ${JSON.stringify(p.shortName)}, ...${p.options.__raw} });`;
   }
   const merged = { name: p.shortName, ...dropEmptyWriteRoles(p.options) };
   return `r.secretNamespace(${renderValue(merged)});`;
@@ -305,22 +303,14 @@ function renderReferenceData(p: ReferenceDataPattern): string {
 
 function renderUseExtension(p: UseExtensionPattern): string {
   const nameLiteral = p.extensionNameRaw ?? JSON.stringify(p.extensionName);
-  if (isRawRefSentinel(p.options)) {
-    return `r.useExtension(${nameLiteral}, ${JSON.stringify(p.entityName)}, ${p.options.__raw});`;
+  const head = `name: ${nameLiteral}, entity: ${JSON.stringify(p.entityName)}`;
+  if (isRawRefSentinel(p.options)) return `r.applyExtension({ ${head}, ...${p.options.__raw} });`;
+  if (p.options === undefined || Object.keys(p.options).length === 0) {
+    return `r.applyExtension({ ${head} });`;
   }
-  if (p.extensionNameRaw !== undefined) {
-    // A raw-ref name can't be spread into the merged Object-Form without
-    // losing it to renderValue's plain-string serialization — fall back
-    // to positional form, which keeps the reference verbatim.
-    const optionsArg = p.options !== undefined ? `, ${renderValue(p.options)}` : "";
-    return `r.useExtension(${nameLiteral}, ${JSON.stringify(p.entityName)}${optionsArg});`;
-  }
-  const merged: Record<string, unknown> = {
-    name: p.extensionName,
-    entity: p.entityName,
-    ...(p.options ?? {}),
-  };
-  return `r.useExtension(${renderValue(merged)});`;
+  // renderValue serializes a raw-ref name as a plain string, so the head is spliced in as text.
+  const optionsBody = renderValue(p.options).trim().replace(/^\{\s*/, "").replace(/\s*\}$/, "");
+  return `r.applyExtension({ ${head}, ${optionsBody} });`;
 }
 
 // =============================================================================

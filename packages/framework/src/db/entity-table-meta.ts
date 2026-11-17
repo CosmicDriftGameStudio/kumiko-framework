@@ -108,20 +108,18 @@ export function resolveTableName(
  * escape hatch.
  */
 export function deriveEntityTableMeta(
-  entityName: string,
   entity: EntityDefinition,
   options: BuildEntityTableMetaOptions & { readonly source: "unmanaged" },
 ): EntityTableMeta & Writable;
 export function deriveEntityTableMeta(
-  entityName: string,
   entity: EntityDefinition,
   options?: BuildEntityTableMetaOptions,
 ): EntityTableMeta;
 export function deriveEntityTableMeta(
-  entityName: string,
   entity: EntityDefinition,
   options?: BuildEntityTableMetaOptions,
 ): EntityTableMeta {
+  const entityName = entity.name;
   const tableName = resolveTableName(entityName, entity, options?.featureName);
   const source = options?.source ?? "managed";
   const idType = entity.idType ?? "uuid";

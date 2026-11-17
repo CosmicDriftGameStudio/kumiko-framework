@@ -63,10 +63,10 @@ defineFeature("todoList", (r) => {
     console.log("task deleted");
   } });
 
-  r.metric("requests", { type: "counter" });
-  r.secret("apiKey", { description: "Stripe API key" });
-  r.secretNamespace("webhook-auth", { label: { en: "Webhook auth" }, scope: "tenant" });
-  r.claimKey("teamId", { type: "string" });
+  r.metric({ name: "requests", type: "counter" });
+  r.secret({ name: "apiKey", description: "Stripe API key" });
+  r.secretNamespace({ name: "webhook-auth", label: { en: "Webhook auth" }, scope: "tenant" });
+  r.claimKey({ name: "teamId", type: "string" });
 
   r.referenceData(
     "priorityLabel",

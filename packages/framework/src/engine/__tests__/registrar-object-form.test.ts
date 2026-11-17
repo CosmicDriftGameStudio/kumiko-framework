@@ -1,46 +1,42 @@
 import { describe, expect, test } from "bun:test";
-import * as z from "zod";
-import { defineFeature, type FeatureRegistrar } from "../index.ts";
+import { defineFeature } from "../index.ts";
 
-// Object-Form is the shape the feature-ast renderer emits for Designer/
-// AI-generated code (`r.entity({ name: "item", ... })` instead of
-// `r.entity("item", { ... })`). The compile
-// checks in packages/feature-ast/src/__tests__/render-roundtrip.test.ts prove the TYPES
-// line up; they never execute the runtime dispatch that unpacks Object-Form
-// back into the same state mutations as the positional form. These tests
-// cover that: one per distinct dispatch shape, asserting object-form and
-// positional-form produce identical FeatureDefinition state.
+// The renderer of feature-ast emits the object form; these tests execute the registrar runtime
+// that unpacks it into feature state (the types alone prove nothing about the state written).
 
-describe("registrar Object-Form — runtime parity with positional form", () => {
-  test("requires: array-unwrap ({ features }) lands the feature names in order", () => {
+describe("registrar object form registers what it declares", () => {
+  test("requires: { features } lands the feature names in order", () => {
     const feature = defineFeature("a", (r) => {
       r.requires({ features: ["auth", "tenant"] });
     });
     expect(feature.requires).toEqual(["auth", "tenant"]);
   });
 
-  test("optionalRequires: array-unwrap matches variadic-string form", () => {
-    const positional = defineFeature("a", (r) => {
-      r.optionalRequires("promotions");
-    });
-    const objectForm = defineFeature("b", (r) => {
+  test("requires: a misspelled key is rejected instead of dropped", () => {
+    expect(() =>
+      defineFeature("legacy", (r) => {
+        Reflect.apply(r.requires, r, [{ feature: ["auth"] }]);
+      }),
+    ).toThrow("[Feature legacy] r.requires() needs { features: string[] }");
+  });
+
+  test("optionalRequires: { features } lands the feature names", () => {
+    const feature = defineFeature("a", (r) => {
       r.optionalRequires({ features: ["promotions"] });
     });
-    expect(objectForm.optionalRequires).toEqual(positional.optionalRequires);
+    expect(feature.optionalRequires).toEqual(["promotions"]);
   });
 
-  test("readsConfig: array-unwrap ({ keys }) matches variadic-string form", () => {
-    const positional = defineFeature("a", (r) => {
-      r.readsConfig("auth.smtpHost");
-    });
-    const objectForm = defineFeature("b", (r) => {
+  test("readsConfig: { keys } lands the keys", () => {
+    const feature = defineFeature("a", (r) => {
       r.readsConfig({ keys: ["auth.smtpHost"] });
     });
-    expect(objectForm.configReads).toEqual(positional.configReads);
+    expect(feature.configReads).toEqual(["auth.smtpHost"]);
   });
 
-  test("entity: split-name ({ name, ...fields }) registers the definition without the name key", () => {
+  test("entity: the definition keeps its name and registers under it", () => {
     const definition = {
+      name: "item",
       fields: {
         title: {
           type: "text" as const,
@@ -50,7 +46,7 @@ describe("registrar Object-Form — runtime parity with positional form", () => 
       },
     };
     const feature = defineFeature("a", (r) => {
-      r.entity({ name: "item", ...definition });
+      r.entity(definition);
     });
     expect(feature.entities?.["item"]).toEqual(definition);
   });
@@ -71,37 +67,40 @@ describe("registrar Object-Form — runtime parity with positional form", () => 
     expect(feature.entityTables?.["item"]).toBeUndefined();
   });
 
-  test("metric: split-name matches (shortName, options) form", () => {
-    const positional = defineFeature("a", (r) => {
-      r.metric("created", { type: "counter" });
-    });
-    const objectForm = defineFeature("b", (r) => {
+  test("metric: registers under the short name with its options", () => {
+    const feature = defineFeature("a", (r) => {
       r.metric({ name: "created", type: "counter" });
     });
-    expect(objectForm.metrics).toEqual(positional.metrics);
+    expect(feature.metrics?.["created"]).toMatchObject({ shortName: "created", type: "counter" });
   });
 
-  test("secret: split-name matches (shortName, options) form (same feature name for qualifiedName parity)", () => {
-    const positional = defineFeature("stripe", (r) => {
-      r.secret("apiKey", { label: { en: "Stripe API Key" }, scope: "tenant" });
-    });
-    const objectForm = defineFeature("stripe", (r) => {
+  test("secret: registers the qualified name and options", () => {
+    const feature = defineFeature("stripe", (r) => {
       r.secret({ name: "apiKey", label: { en: "Stripe API Key" }, scope: "tenant" });
     });
-    expect(objectForm.secretKeys).toEqual(positional.secretKeys);
+    expect(feature.secretKeys["apiKey"]).toMatchObject({
+      shortName: "apiKey",
+      scope: "tenant",
+    });
   });
 
   test("secret: an empty writeRoles list is rejected at declaration", () => {
     expect(() =>
       defineFeature("stripe", (r) => {
-        r.secret("apiKey", { label: { en: "Stripe API Key" }, scope: "tenant", writeRoles: [] });
+        r.secret({
+          name: "apiKey",
+          label: { en: "Stripe API Key" },
+          scope: "tenant",
+          writeRoles: [],
+        });
       }),
     ).toThrow(/\[Feature stripe\] Secret "apiKey" declares an empty writeRoles list/);
   });
 
   test("secret: a non-empty writeRoles list is kept on the key definition", () => {
     const feature = defineFeature("stripe", (r) => {
-      r.secret("apiKey", {
+      r.secret({
+        name: "apiKey",
         label: { en: "Stripe API Key" },
         scope: "tenant",
         writeRoles: ["SystemAdmin"],
@@ -110,16 +109,11 @@ describe("registrar Object-Form — runtime parity with positional form", () => 
     expect(feature.secretKeys["apiKey"]?.writeRoles).toEqual(["SystemAdmin"]);
   });
 
-  test("secretNamespace: split-name matches (shortName, options) form and derives the prefix", () => {
-    const options = { label: { en: "Hook tokens" }, scope: "tenant" } as const;
-    const positional = defineFeature("step-dispatcher", (r) => {
-      r.secretNamespace("webhook-auth", options);
+  test("secretNamespace: derives the prefix from the feature and the name", () => {
+    const feature = defineFeature("step-dispatcher", (r) => {
+      r.secretNamespace({ name: "webhook-auth", label: { en: "Hook tokens" }, scope: "tenant" });
     });
-    const objectForm = defineFeature("step-dispatcher", (r) => {
-      r.secretNamespace({ name: "webhook-auth", ...options });
-    });
-    expect(objectForm.secretNamespaces).toEqual(positional.secretNamespaces);
-    expect(positional.secretNamespaces["webhook-auth"]?.qualifiedPrefix).toBe(
+    expect(feature.secretNamespaces["webhook-auth"]?.qualifiedPrefix).toBe(
       "step-dispatcher:webhook-auth.",
     );
   });
@@ -127,8 +121,8 @@ describe("registrar Object-Form — runtime parity with positional form", () => 
   test("secretNamespace: a duplicate name within a feature throws", () => {
     expect(() =>
       defineFeature("stripe", (r) => {
-        r.secretNamespace("hooks", { label: { en: "Hooks" }, scope: "tenant" });
-        r.secretNamespace("hooks", { label: { en: "Hooks" }, scope: "tenant" });
+        r.secretNamespace({ name: "hooks", label: { en: "Hooks" }, scope: "tenant" });
+        r.secretNamespace({ name: "hooks", label: { en: "Hooks" }, scope: "tenant" });
       }),
     ).toThrow(/\[Feature stripe\] Secret namespace "hooks" already registered/);
   });
@@ -136,134 +130,80 @@ describe("registrar Object-Form — runtime parity with positional form", () => 
   test("secretNamespace: an empty writeRoles list is rejected at declaration", () => {
     expect(() =>
       defineFeature("stripe", (r) => {
-        r.secretNamespace("hooks", { label: { en: "Hooks" }, scope: "tenant", writeRoles: [] });
+        r.secretNamespace({
+          name: "hooks",
+          label: { en: "Hooks" },
+          scope: "tenant",
+          writeRoles: [],
+        });
       }),
     ).toThrow(/\[Feature stripe\] Secret namespace "hooks" declares an empty writeRoles list/);
   });
 
-  test("relation: two-field ({ entity, name, ...def }) matches (entity, name, definition) form", () => {
+  test("relation: { entity, name, ...def } registers under the entity", () => {
     const definition = { type: "belongsTo" as const, target: "user", foreignKey: "supplierId" };
-    const positional = defineFeature("a", (r) => {
-      r.entity({ name: "item", fields: {} });
-      r.relation("item", "supplier", definition);
-    });
-    const objectForm = defineFeature("b", (r) => {
+    const feature = defineFeature("a", (r) => {
       r.entity({ name: "item", fields: {} });
       r.relation({ entity: "item", name: "supplier", ...definition });
     });
-    expect(objectForm.relations).toEqual(positional.relations);
+    expect(feature.relations?.["item"]?.["supplier"]).toEqual(definition);
   });
 
-  test("referenceData: two-field ({ entity, data, ...opts }) matches (entity, data, options) form", () => {
+  test("referenceData: { entity, data, upsertKey } registers the rows", () => {
     const data = [{ id: "a", label: "A" }];
-    const positional = defineFeature("a", (r) => {
-      r.referenceData("category", data, { upsertKey: "id" });
-    });
-    const objectForm = defineFeature("b", (r) => {
+    const feature = defineFeature("a", (r) => {
       r.referenceData({ entity: "category", data, upsertKey: "id" });
     });
-    expect(objectForm.referenceData).toEqual(positional.referenceData);
+    expect(feature.referenceData).toEqual([{ entityName: "category", data, upsertKey: "id" }]);
   });
 
-  test("useExtension: two-field ({ name, entity, ...opts }) matches (extensionName, entity, options) form", () => {
-    const positional = defineFeature("a", (r) => {
-      r.useExtension("audit-log", "item", { verbose: true });
+  test("applyExtension: { name, entity, ...opts } registers the usage", () => {
+    const feature = defineFeature("a", (r) => {
+      r.applyExtension({ name: "audit-log", entity: "item", verbose: true });
     });
-    const objectForm = defineFeature("b", (r) => {
-      r.useExtension({ name: "audit-log", entity: "item", verbose: true });
-    });
-    expect(objectForm.extensionUsages).toEqual(positional.extensionUsages);
+    expect(feature.extensionUsages).toEqual([
+      { extensionName: "audit-log", entityName: "item", options: { verbose: true } },
+    ]);
   });
 
-  test("claimKey: generic split-name matches (shortName, options) form", () => {
-    const positional = defineFeature("drivers", (r) => {
-      r.claimKey("teamId", { type: "string" });
-    });
-    const objectForm = defineFeature("drivers", (r) => {
+  test("claimKey: registers the key with its type", () => {
+    const feature = defineFeature("drivers", (r) => {
       r.claimKey({ name: "teamId", type: "string" });
     });
-    expect(objectForm.claimKeys).toEqual(positional.claimKeys);
+    expect(feature.claimKeys["teamId"]).toMatchObject({ shortName: "teamId", type: "string" });
   });
 
-  test("job: full-definition object matches (name, options, handler) form", () => {
+  test("job: the definition object registers name, trigger and handler", () => {
     const handler = async () => {};
-    const positional = defineFeature("a", (r) => {
-      r.job("reconcile", { trigger: { manual: true } }, handler);
-    });
-    const objectForm = defineFeature("b", (r) => {
+    const feature = defineFeature("a", (r) => {
       r.job({ name: "reconcile", trigger: { manual: true }, handler });
     });
-    expect(objectForm.jobs).toEqual(positional.jobs);
+    expect(feature.jobs?.["reconcile"]).toMatchObject({
+      name: "reconcile",
+      trigger: { manual: true },
+      handler,
+    });
   });
 
-  test("notification: split-name matches (name, definition) form", () => {
+  test("notification: the definition object registers under its name", () => {
     const recipient = () => null;
     const data = () => ({});
-    const positional = defineFeature("a", (r) => {
-      r.notification("itemLowStock", { trigger: { on: "item:lowStock" }, recipient, data });
-    });
-    const objectForm = defineFeature("b", (r) => {
+    const feature = defineFeature("a", (r) => {
       r.notification({ name: "itemLowStock", trigger: { on: "item:lowStock" }, recipient, data });
     });
-    expect(objectForm.notifications).toEqual(positional.notifications);
-  });
-});
-
-// The static types reject positional calls, so the runtime check is reached through
-// Reflect.apply, like untyped JS callers or stale generated code would reach it.
-describe("registrar — a positional call fails at registration", () => {
-  const schema = z.object({});
-  const handler = async () => ({ isSuccess: true as const, data: {} });
-  const access = { openToAll: { reason: "test" } } as const;
-
-  const positionalCalls: ReadonlyArray<{
-    readonly method: string;
-    readonly call: (r: FeatureRegistrar) => unknown;
-  }> = [
-    {
-      method: "writeHandler",
-      call: (r) => Reflect.apply(r.writeHandler, r, ["x", schema, handler, { access }]),
-    },
-    {
-      method: "queryHandler",
-      call: (r) => Reflect.apply(r.queryHandler, r, ["x", schema, handler, { access }]),
-    },
-    {
-      method: "entity",
-      call: (r) => Reflect.apply(r.entity, r, ["item", { fields: {} }]),
-    },
-    {
-      method: "requires",
-      call: (r) => Reflect.apply(r.requires, r, ["auth"]),
-    },
-    {
-      method: "hook",
-      call: (r) => Reflect.apply(r.hook, r, ["postSave", "item", () => {}]),
-    },
-  ];
-
-  test("r.requires rejects a misspelled key and extra arguments instead of dropping them", () => {
-    expect(() =>
-      defineFeature("legacy", (r) => {
-        Reflect.apply(r.requires, r, [{ feature: ["auth"] }]);
-      }),
-    ).toThrow("[Feature legacy] r.requires() needs { features: string[] }");
-    expect(() =>
-      defineFeature("legacy", (r) => {
-        Reflect.apply(r.requires, r, [{ features: ["a"] }, { features: ["b"] }]);
-      }),
-    ).toThrow("[Feature legacy] r.requires() takes one options object");
-  });
-
-  for (const { method, call } of positionalCalls) {
-    test(`r.${method}: a positional call throws instead of registering`, () => {
-      expect(() =>
-        defineFeature("legacy", (r) => {
-          call(r);
-        }),
-      ).toThrow(`[Feature legacy] r.${method}() takes one options object`);
+    expect(feature.notifications?.["itemLowStock"]).toMatchObject({
+      name: "itemLowStock",
+      trigger: { on: "item:lowStock" },
     });
-  }
+  });
+
+  test("config: { keys } returns one handle per key", () => {
+    const feature = defineFeature("a", (r) => {
+      const handles = r.config({ keys: { limit: { type: "number", scope: "tenant" } } });
+      expect(handles.limit.name).toBe("a:config:limit");
+    });
+    expect(feature.configKeys?.["limit"]).toMatchObject({ type: "number" });
+  });
 });
 
 describe("registrar — hook definitions are checked by the type system", () => {
@@ -307,41 +247,5 @@ describe("registrar — hook definitions are checked by the type system", () => 
         });
       }),
     ).toThrow(/only supports postSave\/preDelete\/postDelete\/postQuery/);
-  });
-
-  describe("positional calls missing a required argument", () => {
-    test("metric without options names the feature, method and argument", () => {
-      expect(() =>
-        defineFeature("missing-arg", (r) => {
-          // @ts-expect-error the typed overload requires options; an untyped JS caller can omit them
-          r.metric("orders_total");
-        }),
-      ).toThrow("[Feature missing-arg] r.metric() needs its options argument");
-    });
-
-    test("job without handler names the missing handler", () => {
-      expect(() =>
-        defineFeature("missing-arg", (r) => {
-          // @ts-expect-error the typed overload requires the handler
-          r.job("reconcile", { trigger: { manual: true } });
-        }),
-      ).toThrow("[Feature missing-arg] r.job() needs its handler argument");
-    });
-
-    test("relation without definition names the missing definition", () => {
-      expect(() =>
-        defineFeature("missing-arg", (r) => {
-          // @ts-expect-error the typed overload requires the definition
-          r.relation("item", "supplier");
-        }),
-      ).toThrow("[Feature missing-arg] r.relation() needs its definition argument");
-    });
-
-    test("the same calls with every argument register normally", () => {
-      const feature = defineFeature("complete-args", (r) => {
-        r.metric("orders_total", { type: "counter" });
-      });
-      expect(feature.metrics?.["orders_total"]).toMatchObject({ shortName: "orders_total" });
-    });
   });
 });

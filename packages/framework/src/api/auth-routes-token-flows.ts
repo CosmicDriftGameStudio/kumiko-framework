@@ -5,7 +5,7 @@ import { SYSTEM_TENANT_ID } from "../engine/types/index.ts";
 import type { Dispatcher } from "../pipeline/dispatcher.ts";
 import { Routes } from "./api-constants.ts";
 import type { AuthRouteContext } from "./auth-routes-context.ts";
-import type { PublicAuthErrorStatus } from "./auth-routes-shared.ts";
+import { toContentfulStatus } from "./contentful-status.ts";
 import { registerTokenRequestRoute } from "./auth-routes-shared.ts";
 import { toClientWriteErrorInfo } from "../errors/write-error-info.ts";
 
@@ -38,7 +38,7 @@ function registerTokenConfirmRoute(opts: {
       createAnonymousUser(SYSTEM_TENANT_ID),
     );
     if (!result.isSuccess) {
-      const status = result.error.httpStatus as PublicAuthErrorStatus; // @cast-boundary engine-payload
+      const status = toContentfulStatus(result.error.httpStatus);
       return c.json({ isSuccess: false, error: toClientWriteErrorInfo(result.error) }, status);
     }
     return c.json({ isSuccess: true });

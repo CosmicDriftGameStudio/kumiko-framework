@@ -1,3 +1,4 @@
+import { type QueryContract, qualifiedNameOf } from "@cosmicdrift/kumiko-types/handler-contract";
 import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 import { useQueryHub } from "../context/dispatcher-context.tsx";
 import { usePageVisibility } from "../context/page-visibility-context.tsx";
@@ -58,11 +59,22 @@ export type UseQueryOptions = {
   readonly resultField?: string;
 };
 
+export function useQuery<TPayload, TResult>(
+  contract: QueryContract<TPayload, TResult>,
+  payload: NoInfer<TPayload>,
+  options?: UseQueryOptions,
+): UseQueryResult<TResult>;
 export function useQuery<TData = unknown>(
   type: string,
   payload: unknown,
+  options?: UseQueryOptions,
+): UseQueryResult<TData>;
+export function useQuery<TData>(
+  target: string | QueryContract<unknown, TData>,
+  payload: unknown,
   options: UseQueryOptions = {},
 ): UseQueryResult<TData> {
+  const type = qualifiedNameOf(target);
   const hub = useQueryHub();
   const { enabled = true, live = false, refetchIntervalMs, concurrency, resultField } = options;
   const validConcurrency = isValidConcurrency(concurrency) ? concurrency : undefined;

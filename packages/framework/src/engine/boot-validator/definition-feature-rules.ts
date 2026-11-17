@@ -31,14 +31,4 @@ export const FEATURE_DEFINITION_RULES = {
     summary: "A feature calls r.uiHints() at most once.",
     fix: "Merge all UI hints into a single r.uiHints() call.",
   },
-  argumentMissing: {
-    id: "registrar/argument-missing",
-    summary: "Every registrar method receives all its required arguments.",
-    fix: "Pass the missing argument named in the message.",
-  },
-  optionsObjectRequired: {
-    id: "registrar/options-object-required",
-    summary: "Object-form registrar methods take one options object.",
-    fix: "Pass a single options object such as r.entity({ name: ... }).",
-  },
 } as const satisfies BootRuleTable;

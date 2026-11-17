@@ -6,7 +6,7 @@ import type {
   TranslationKeys,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { MetricOptions, SecretOptions } from "@cosmicdrift/kumiko-types/feature";
-import type { CallExpression, SourceFile } from "ts-morph";
+import type { CallExpression, ObjectLiteralExpression, SourceFile } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
 import type { ParseError } from "../parse.ts";
 import type {
@@ -27,7 +27,6 @@ import {
   ok,
   type ReadDataLiteralOptions,
   readDataLiteralNode,
-  readNameLiteral,
   readNameLiteralRef,
   readNameOrRef,
 } from "./shared.ts";
@@ -53,56 +52,35 @@ export function readNamedOptions(
   }
 
   const obj = first.asKind(SyntaxKind.ObjectLiteralExpression);
-  if (obj && args.length === 1) {
-    const nameInit = obj
-      .getProperty("name")
-      ?.asKind(SyntaxKind.PropertyAssignment)
-      ?.getInitializer()
-      ?.asKind(SyntaxKind.StringLiteral);
-    if (!nameInit) {
-      return fail(
-        methodName,
-        sourceLocationFromNode(call, sourceFile),
-        "object form requires a string-literal `name` property",
-      );
-    }
-    const data = readDataLiteralNode(obj, readOptions);
-    if (!isPlainObject(data)) {
-      return fail(
-        methodName,
-        sourceLocationFromNode(call, sourceFile),
-        "argument could not be read as a plain object",
-      );
-    }
-    const { name: _name, ...optionsWithoutName } = data;
-    return { kind: "ok", name: nameInit.getLiteralValue(), options: optionsWithoutName };
-  }
-
-  const name = readNameLiteral(first);
-  if (name === undefined) {
+  if (!obj || args.length !== 1) {
     return fail(
       methodName,
       sourceLocationFromNode(call, sourceFile),
-      "first argument must be a string literal name, or an identifier resolving to one (or use the object form)",
+      "expected a single options object",
     );
   }
-  const optionsArg = args[1];
-  if (!optionsArg) {
+  const nameInit = obj
+    .getProperty("name")
+    ?.asKind(SyntaxKind.PropertyAssignment)
+    ?.getInitializer()
+    ?.asKind(SyntaxKind.StringLiteral);
+  if (!nameInit) {
     return fail(
       methodName,
       sourceLocationFromNode(call, sourceFile),
-      "expected an options object as second argument",
+      "options object requires a string-literal `name` property",
     );
   }
-  const options = readDataLiteralNode(optionsArg, readOptions);
-  if (!isPlainObject(options)) {
+  const data = readDataLiteralNode(obj, readOptions);
+  if (!isPlainObject(data)) {
     return fail(
       methodName,
       sourceLocationFromNode(call, sourceFile),
-      "options could not be read as a plain object",
+      "argument could not be read as a plain object",
     );
   }
-  return { kind: "ok", name, options };
+  const { name: _name, ...optionsWithoutName } = data;
+  return { kind: "ok", name: nameInit.getLiteralValue(), options: optionsWithoutName };
 }
 
 export function extractConfig(
@@ -264,80 +242,38 @@ export function extractReferenceData(
   }
 
   const obj = first.asKind(SyntaxKind.ObjectLiteralExpression);
-  if (obj && args.length === 1) {
-    const entityInit = obj
-      .getProperty("entity")
-      ?.asKind(SyntaxKind.PropertyAssignment)
-      ?.getInitializer();
-    if (!entityInit) {
-      return fail(
-        "referenceData",
-        sourceLocationFromNode(call, sourceFile),
-        "object form requires an `entity` property",
-      );
-    }
-    const entityName = readNameOrRef(entityInit);
-    if (!entityName) {
-      return fail(
-        "referenceData",
-        sourceLocationFromNode(call, sourceFile),
-        '`entity` must be a string literal or `{ name: "..." }` ref',
-      );
-    }
-    const dataInit = obj
-      .getProperty("data")
-      ?.asKind(SyntaxKind.PropertyAssignment)
-      ?.getInitializer();
-    if (!dataInit) {
-      return fail(
-        "referenceData",
-        sourceLocationFromNode(call, sourceFile),
-        "object form requires a `data` property",
-      );
-    }
-    const data = readDataLiteralNode(dataInit);
-    if (!Array.isArray(data) || !data.every(isPlainObject)) {
-      return fail(
-        "referenceData",
-        sourceLocationFromNode(call, sourceFile),
-        "data must be an array of plain objects",
-      );
-    }
-    let upsertKey: string | undefined;
-    const upsertKeyInit = obj
-      .getProperty("upsertKey")
-      ?.asKind(SyntaxKind.PropertyAssignment)
-      ?.getInitializer()
-      ?.asKind(SyntaxKind.StringLiteral);
-    if (upsertKeyInit) {
-      upsertKey = upsertKeyInit.getLiteralValue();
-    }
-    return ok({
-      kind: "referenceData",
-      source: sourceLocationFromNode(call, sourceFile),
-      entityName,
-      data: data as readonly Record<string, unknown>[],
-      ...(upsertKey !== undefined && { upsertKey }),
-    });
+  if (!obj || args.length !== 1) {
+    return fail(
+      "referenceData",
+      sourceLocationFromNode(call, sourceFile),
+      "expected a single options object",
+    );
   }
-
-  const entityName = readNameOrRef(first);
+  const entityInit = obj.getProperty("entity")?.asKind(SyntaxKind.PropertyAssignment)?.getInitializer();
+  if (!entityInit) {
+    return fail(
+      "referenceData",
+      sourceLocationFromNode(call, sourceFile),
+      "options object requires an `entity` property",
+    );
+  }
+  const entityName = readNameOrRef(entityInit);
   if (!entityName) {
     return fail(
       "referenceData",
       sourceLocationFromNode(call, sourceFile),
-      'first argument must be a string literal or an inline { name: "..." } object (or use the object form)',
+      '`entity` must be a string literal or `{ name: "..." }` ref',
     );
   }
-  const dataArg = args[1];
-  if (!dataArg) {
+  const dataInit = obj.getProperty("data")?.asKind(SyntaxKind.PropertyAssignment)?.getInitializer();
+  if (!dataInit) {
     return fail(
       "referenceData",
       sourceLocationFromNode(call, sourceFile),
-      "expected a data array as second argument",
+      "options object requires a `data` property",
     );
   }
-  const data = readDataLiteralNode(dataArg);
+  const data = readDataLiteralNode(dataInit);
   if (!Array.isArray(data) || !data.every(isPlainObject)) {
     return fail(
       "referenceData",
@@ -345,147 +281,85 @@ export function extractReferenceData(
       "data must be an array of plain objects",
     );
   }
-  let upsertKey: string | undefined;
-  const optionsArg = args[2];
-  if (optionsArg) {
-    const options = readDataLiteralNode(optionsArg);
-    if (!isPlainObject(options)) {
-      return fail(
-        "referenceData",
-        sourceLocationFromNode(call, sourceFile),
-        "options could not be read as a plain object",
-      );
-    }
-    if (options["upsertKey"] !== undefined) {
-      if (typeof options["upsertKey"] !== "string") {
-        return fail(
-          "referenceData",
-          sourceLocationFromNode(call, sourceFile),
-          "upsertKey must be a string when provided",
-        );
-      }
-      upsertKey = options["upsertKey"];
-    }
-  }
+  const upsertKeyInit = obj
+    .getProperty("upsertKey")
+    ?.asKind(SyntaxKind.PropertyAssignment)
+    ?.getInitializer()
+    ?.asKind(SyntaxKind.StringLiteral);
   return ok({
     kind: "referenceData",
     source: sourceLocationFromNode(call, sourceFile),
     entityName,
     data: data as readonly Record<string, unknown>[],
-    ...(upsertKey !== undefined && { upsertKey }),
+    ...(upsertKeyInit !== undefined && { upsertKey: upsertKeyInit.getLiteralValue() }),
   });
 }
 
 const USE_EXTENSION_READ_OPTIONS = { functionValuesAsRaw: true } as const;
+
+// Options sit inline next to name and entity. A single `...ref` spread stays a raw reference.
+function readApplyExtensionOptions(
+  obj: ObjectLiteralExpression,
+): Readonly<Record<string, unknown>> | { readonly __raw: string } | undefined | "unreadable" {
+  const extras = obj.getProperties().filter((property) => {
+    const propertyName = property.asKind(SyntaxKind.PropertyAssignment)?.getName();
+    return propertyName !== "name" && propertyName !== "entity";
+  });
+  if (extras.length === 0) return undefined;
+  const [onlyExtra] = extras;
+  const spread = onlyExtra?.asKind(SyntaxKind.SpreadAssignment);
+  if (extras.length === 1 && spread) return { __raw: spread.getExpression().getText() };
+  const options: Record<string, unknown> = {};
+  for (const property of extras) {
+    const assignment = property.asKind(SyntaxKind.PropertyAssignment);
+    const init = assignment?.getInitializer();
+    if (assignment === undefined || init === undefined) return "unreadable";
+    options[assignment.getName()] = readDataLiteralNode(init, USE_EXTENSION_READ_OPTIONS);
+  }
+  return options;
+}
 
 export function extractUseExtension(
   call: CallExpression,
   sourceFile: SourceFile,
 ): ExtractOutput<UseExtensionPattern> {
   const args = call.getArguments();
-  const first = args[0];
-  if (!first) {
+  const obj = args[0]?.asKind(SyntaxKind.ObjectLiteralExpression);
+  if (!obj || args.length !== 1) {
     return fail(
       "useExtension",
       sourceLocationFromNode(call, sourceFile),
-      "expected at least one argument",
+      "expected a single options object",
     );
   }
-
-  const obj = first.asKind(SyntaxKind.ObjectLiteralExpression);
-  if (obj && args.length === 1) {
-    const nameInit = obj
-      .getProperty("name")
-      ?.asKind(SyntaxKind.PropertyAssignment)
-      ?.getInitializer()
-      ?.asKind(SyntaxKind.StringLiteral);
-    if (!nameInit) {
-      return fail(
-        "useExtension",
-        sourceLocationFromNode(call, sourceFile),
-        "object form requires a string-literal `name` property",
-      );
-    }
-    const entityInit = obj
-      .getProperty("entity")
-      ?.asKind(SyntaxKind.PropertyAssignment)
-      ?.getInitializer();
-    if (!entityInit) {
-      return fail(
-        "useExtension",
-        sourceLocationFromNode(call, sourceFile),
-        "object form requires an `entity` property",
-      );
-    }
-    const entityName = readNameOrRef(entityInit);
-    if (!entityName) {
-      return fail(
-        "useExtension",
-        sourceLocationFromNode(call, sourceFile),
-        '`entity` must be a string literal or `{ name: "..." }` ref',
-      );
-    }
-    let options: Readonly<Record<string, unknown>> | undefined;
-    const optionsInit = obj
-      .getProperty("options")
-      ?.asKind(SyntaxKind.PropertyAssignment)
-      ?.getInitializer();
-    if (optionsInit) {
-      const parsed = readDataLiteralNode(optionsInit, USE_EXTENSION_READ_OPTIONS);
-      if (!isPlainObject(parsed)) {
-        return fail(
-          "useExtension",
-          sourceLocationFromNode(call, sourceFile),
-          "options could not be read as a plain object",
-        );
-      }
-      options = parsed;
-    }
-    return ok({
-      kind: "useExtension",
-      source: sourceLocationFromNode(call, sourceFile),
-      extensionName: nameInit.getLiteralValue(),
-      entityName,
-      ...(options !== undefined && { options }),
-    });
-  }
-
-  const extensionNameRef = readNameLiteralRef(first);
+  const nameInit = obj.getProperty("name")?.asKind(SyntaxKind.PropertyAssignment)?.getInitializer();
+  const extensionNameRef = nameInit === undefined ? undefined : readNameLiteralRef(nameInit);
   if (extensionNameRef === undefined) {
     return fail(
       "useExtension",
       sourceLocationFromNode(call, sourceFile),
-      "first argument must be a string literal extension name, or an identifier resolving to one (or use the object form)",
+      "options object requires a `name` that is a string literal or an identifier resolving to one",
     );
   }
-  const entityRefArg = args[1];
-  if (!entityRefArg) {
+  const entityInit = obj
+    .getProperty("entity")
+    ?.asKind(SyntaxKind.PropertyAssignment)
+    ?.getInitializer();
+  const entityName = entityInit === undefined ? undefined : readNameOrRef(entityInit);
+  if (entityName === undefined) {
     return fail(
       "useExtension",
       sourceLocationFromNode(call, sourceFile),
-      "expected an entity reference as second argument",
+      '`entity` must be a string literal or `{ name: "..." }` ref',
     );
   }
-  const entityName = readNameOrRef(entityRefArg);
-  if (!entityName) {
+  const options = readApplyExtensionOptions(obj);
+  if (options === "unreadable" || (options !== undefined && !isPlainObject(options))) {
     return fail(
       "useExtension",
       sourceLocationFromNode(call, sourceFile),
-      'second argument must be a string literal or an inline { name: "..." } object',
+      "options could not be read as a plain object",
     );
-  }
-  const optionsArg = args[2];
-  let options: Readonly<Record<string, unknown>> | undefined;
-  if (optionsArg) {
-    const parsed = readDataLiteralNode(optionsArg, USE_EXTENSION_READ_OPTIONS);
-    if (!isPlainObject(parsed)) {
-      return fail(
-        "useExtension",
-        sourceLocationFromNode(call, sourceFile),
-        "options could not be read as a plain object",
-      );
-    }
-    options = parsed;
   }
   return ok({
     kind: "useExtension",

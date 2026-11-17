@@ -16,20 +16,20 @@ defineFeature("inventory", (r) => {
       onHand: { type: "number" },
     } });
 
-  r.relation("item", "supplier", { type: "belongsTo", target: "user", foreignKey: "supplierId" });
+  r.relation({ entity: "item", name: "supplier", type: "belongsTo", target: "user", foreignKey: "supplierId" });
 
-  r.metric("created", { type: "counter" });
-  r.secret("apiKey", { label: { en: "Stripe API Key" }, scope: "tenant" });
-  r.claimKey("teamId", { type: "string" });
+  r.metric({ name: "created", type: "counter" });
+  r.secret({ name: "apiKey", label: { en: "Stripe API Key" }, scope: "tenant" });
+  r.claimKey({ name: "teamId", type: "string" });
 
-  r.referenceData(
-    "category",
-    [
+  r.referenceData({
+    entity: "category",
+    data: [
       { id: "a", label: "A" },
       { id: "b", label: "B" },
     ],
-    { upsertKey: "id" },
-  );
+    upsertKey: "id",
+  });
 
   r.config({
     keys: {

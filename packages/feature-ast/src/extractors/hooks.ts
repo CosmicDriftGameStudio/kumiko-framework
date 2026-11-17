@@ -122,8 +122,9 @@ export function readOptionalEscapeHatch(value: unknown): EscapeHatchDeclaration 
   if (!isPlainObject(value)) return undefined;
   if (typeof value["reason"] !== "string") return undefined;
   const grants = value["grants"];
-  if (grants === undefined) return { reason: value["reason"] };
-  if (!Array.isArray(grants) || !grants.every(isEscapeHatchGrant)) return undefined;
+  if (!Array.isArray(grants) || grants.length === 0 || !grants.every(isEscapeHatchGrant)) {
+    return undefined;
+  }
   return { reason: value["reason"], grants };
 }
 

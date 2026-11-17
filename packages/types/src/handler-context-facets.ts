@@ -1,5 +1,11 @@
 /// <reference types="temporal-polyfill/global" preserve="true" />
 import type { KumikoEventTypeMap } from "./event-type-map.ts";
+import type {
+  ContractQuery,
+  ContractQueryAs,
+  ContractWrite,
+  ContractWriteAs,
+} from "./handler-contract.ts";
 import type { HandlerLifecycle } from "./handler-context-services.ts";
 import type {
   ActiveMembershipResult,
@@ -11,7 +17,6 @@ import type {
   SessionUser,
   TryAppendEventFn,
   UnsafeAppendEventFn,
-  WriteResult,
 } from "./handlers.ts";
 import type { TenantId } from "./identifiers.ts";
 import type { Logger } from "./logger.ts";
@@ -132,10 +137,10 @@ export type HandlerEvents<TMap extends object = KumikoEventTypeMap> = {
  * A typed result across features: queryByRef(ctx.dispatch, ref, payload) with the ref r.queryHandler returns.
  */
 export type HandlerDispatch = {
-  readonly query: (qn: string, payload: unknown) => Promise<unknown>;
-  readonly queryAs: (user: SessionUser, qn: string, payload: unknown) => Promise<unknown>;
-  readonly write: (qn: string, payload: unknown) => Promise<WriteResult>;
-  readonly writeAs: (user: SessionUser, qn: string, payload: unknown) => Promise<WriteResult>;
+  readonly query: ContractQuery;
+  readonly queryAs: ContractQueryAs;
+  readonly write: ContractWrite;
+  readonly writeAs: ContractWriteAs;
   // Read-only principal without `sid`; needs the same grant as a SYSTEM queryAs
   // (membership is resolved as SYSTEM), cached per handler invocation or job run.
   readonly queryAsMember: MemberReader;

@@ -54,3 +54,59 @@ bun node_modules/@cosmicdrift/kumiko-feature-ast/src/scripts/codemod/guard-marke
 ```
 
 Without a mode flag it writes. `--check` exits 1 while any marker is left.
+
+## registrar-single-form
+
+Every registrar verb takes one options object. Positional calls of `r.optionalRequires`,
+`r.readsConfig`, `r.relation`, `r.config`, `r.job`, `r.notification`, `r.referenceData`,
+`r.metric`, `r.secret`, `r.secretNamespace`, `r.claimKey` and `r.streamHandler` become the object
+form (an options argument that is an object literal is inlined, anything else is spread).
+`r.config("key", def)` becomes `r.config({ keys: { key: def } }).key`. `r.useExtension(...)` becomes
+`r.applyExtension({ name, entity, ...options })`, and the `biome-ignore lint/correctness/useHookAtTopLevel`
+line above it is removed. The receiver has to resolve to a `FeatureRegistrar` (defineFeature callback
+parameter or a `FeatureRegistrar`-typed binding).
+
+```bash
+bun node_modules/@cosmicdrift/kumiko-feature-ast/src/scripts/codemod/registrar-single-form.ts <dir> [--check | --dry-run | --write] [--no-format]
+```
+
+A spread argument, a missing required argument, a receiver that does not resolve, a single argument
+that may already be the options object and a `r.config` key that is no identifier are reported as
+`manual` and left alone. Calls already in the object form stay unchanged, so a second run is a no-op.
+`r.useExtension(` inside strings and Markdown is not touched.
+
+## escape-hatch-grants
+
+`escapeHatch: { reason }` on write and query handlers, hooks and jobs gets the `grants` it needs,
+in the order of `ESCAPE_HATCH_GRANTS`. The grants come from the definition literal and, when
+`handler` or `run` names a function of the same file, from that function's body: `unsafeRaw(` gives
+`unsafeRaw`, `.global(` `globalWrites`, `crossTenantReads` `crossTenantReads`, and `queryAs(`,
+`writeAs(`, `createSystemUser(`, `unsafeAllTenants` or `runAs` together with `SystemAdmin` give
+`systemIdentity`. `escapeHatch` in `r.applyExtension` / `r.useExtension` options is not touched.
+
+```bash
+bun node_modules/@cosmicdrift/kumiko-feature-ast/src/scripts/codemod/escape-hatch-grants.ts <dir> [--check | --dry-run | --write] [--no-format]
+```
+
+A declaration without a readable signal, a handler that passes `ctx` to an imported function, an
+imported handler and an `escapeHatch` that is no object literal are reported as `manual` ("grants not
+inferable"). Run the integration tests of the touched features afterwards: a missing grant only fails
+when that code path runs. Declarations that already carry `grants` stay unchanged.
+
+## entity-name
+
+The entity carries its name. Per `createEntity` declaration the codemod collects the names used in
+`r.entity({ name, ...entity })`, `r.crud("name", entity)`, `createEntityExecutor("name", entity)`,
+`buildEntityTable("name", entity)` and `deriveEntityTableMeta("name", entity)` (symbol resolution, also
+across files), writes the first one as `name` into the `createEntity({ ... })` call and drops the name
+argument at every use. A use under another name becomes `{ ...entity, name: "other" }`. Inline
+`r.entity({ name, fields })` literals stay as they are.
+
+```bash
+bun node_modules/@cosmicdrift/kumiko-feature-ast/src/scripts/codemod/entity-name.ts <dir> [--check | --dry-run | --write] [--no-format]
+```
+
+The analysis spans the whole project root (nearest `biome.json`, `tsconfig.json` there is used for
+module resolution), so run it on the directory that holds both the entity declarations and their uses.
+A non-literal name, an entity that does not resolve to a `createEntity` call and extra properties in
+the `r.entity` literal are reported as `manual`.

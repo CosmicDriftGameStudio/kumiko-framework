@@ -19,6 +19,7 @@ import { InternalError } from "../errors/index.ts";
 import { createTenantFileContext } from "../files/file-handle.ts";
 import { createEscapeHatchReporter } from "../observability/escape-hatch-report.ts";
 import { configAccessorFactoryOf } from "../pipeline/config-accessor-factory.ts";
+import { bindContractQuery, bindContractWrite } from "../pipeline/contract-dispatch.ts";
 import { createGatedIdentitySwitch } from "../pipeline/system-identity-switch.ts";
 import { buildPersonalDataGate } from "../pipeline/write-origin.ts";
 import { isScheduledTrigger } from "./cron-repeat-options.ts";
@@ -219,10 +220,12 @@ export function buildJobDispatchFacets(
     { reason: identitySwitchGrantReason, report: reportEscapeHatch },
   );
   return {
-    write: (qn: string, payload: unknown) =>
+    write: bindContractWrite((qn: string, payload: unknown) =>
       requireDispatchRef(scope, "write").write(systemUser, qn, payload, writeOrigin),
-    query: (qn: string, payload: unknown) =>
+    ),
+    query: bindContractQuery((qn: string, payload: unknown) =>
       requireDispatchRef(scope, "query").queryAs(systemUser, qn, payload, writeOrigin),
+    ),
     writeAs: gatedIdentitySwitch.writeAs,
     queryAs: gatedIdentitySwitch.queryAs,
     queryAsMember: (userId: string, qn: string, payload: unknown) => {

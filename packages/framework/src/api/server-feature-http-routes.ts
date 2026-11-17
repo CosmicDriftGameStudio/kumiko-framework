@@ -1,3 +1,4 @@
+import type { ContractQuery } from "@cosmicdrift/kumiko-types/handler-contract";
 import type {
   HttpRouteDefinition,
   HttpRouteMethod,
@@ -6,6 +7,7 @@ import type {
 import type { Context, Hono, MiddlewareHandler } from "hono";
 import { createAnonymousUser } from "../engine/system-user.ts";
 import type { TenantId } from "../engine/types/index.ts";
+import { bindContractQuery } from "../pipeline/contract-dispatch.ts";
 import type { Dispatcher } from "../pipeline/dispatcher.ts";
 import { httpRouteRateLimit } from "../rate-limit/index.ts";
 import { assertUnreachable } from "../utils/index.ts";
@@ -155,11 +157,12 @@ export function makeSystemQuery(
   c: import("hono").Context<any, any>,
   dispatcher: Dispatcher,
   clientIpResolver?: ClientIpResolver,
-): (type: string, payload: unknown, tenantId: TenantId) => Promise<unknown> {
-  return (type, payload, tenantId) =>
+): ContractQuery<[tenantId: TenantId]> {
+  return bindContractQuery<[tenantId: TenantId]>((type, payload, tenantId) =>
     requestContext.run(requestContext.get() ?? buildRequestContextData(c, clientIpResolver), () =>
       dispatcher.query(type, payload, createAnonymousUser(tenantId)),
-    );
+    ),
+  );
 }
 
 // Header and cookie stay out: on a public page the visitor must not choose the tenant.

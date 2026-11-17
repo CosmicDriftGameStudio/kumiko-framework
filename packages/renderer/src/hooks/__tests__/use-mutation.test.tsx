@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { writeContract } from "@cosmicdrift/kumiko-types/handler-contract";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
@@ -59,5 +60,28 @@ describe("useMutation", () => {
     act(() => result.current.reset());
     expect(result.current.error).toBeNull();
     expect(result.current.data).toBeNull();
+  });
+});
+
+describe("useMutation with a handler contract", () => {
+  test("writes by qualifiedName", async () => {
+    const seenTypes: string[] = [];
+    const dispatcher = createMockDispatcher({
+      write: async (type: string) => {
+        seenTypes.push(type);
+        return { isSuccess: true, data: { id: "1" } };
+      },
+    });
+    const contract = writeContract<{ name: string }, { id: string }>("f:write:x:create");
+
+    const { result } = renderHook(() => useMutation(contract), {
+      wrapper: wrapperFor(dispatcher),
+    });
+    await act(async () => {
+      await result.current.mutate({ name: "a" });
+    });
+
+    expect(seenTypes).toEqual(["f:write:x:create"]);
+    expect(result.current.data).toEqual({ id: "1" });
   });
 });

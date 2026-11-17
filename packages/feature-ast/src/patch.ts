@@ -653,6 +653,11 @@ export const SINGLETON_KINDS: ReadonlySet<PatternId["kind"]> = new Set([
  * silently win; we'd rather throw so Designer/AI surfacing the corrupt
  * feature can fix it explicitly.
  */
+// The pattern kind `useExtension` is stored by Studio, so it keeps its name while the verb is applyExtension.
+function registrarMethodOf(kind: PatternId["kind"]): string {
+  return kind === "useExtension" ? "applyExtension" : kind;
+}
+
 function findCallForId(sourceFile: SourceFile, id: PatternId): CallExpression | undefined {
   const setup = findSetupCallback(sourceFile);
   if (!setup) return undefined;
@@ -668,7 +673,7 @@ function findCallForId(sourceFile: SourceFile, id: PatternId): CallExpression | 
     const propAccess = call.getExpression().asKind(SyntaxKind.PropertyAccessExpression);
     if (!propAccess) continue;
     if (propAccess.getExpression().getText() !== registrarParam) continue;
-    if (propAccess.getName() !== id.kind) continue;
+    if (propAccess.getName() !== registrarMethodOf(id.kind)) continue;
     if (callMatchesId(call, id)) matches.push(call);
   }
 

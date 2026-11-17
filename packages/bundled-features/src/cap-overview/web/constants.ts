@@ -2,6 +2,9 @@
 // handlers/) and client (web/) code. See tier-engine/constants.ts for the
 // same convention.
 
+import { queryContract } from "@cosmicdrift/kumiko-types/handler-contract";
+import type { CapUsageWithMeta } from "../types.ts";
+
 export const CAP_OVERVIEW_FEATURE = "cap-overview" as const;
 
 export const TENANT_CAP_LIST_SCREEN_ID = "tenant-cap-list" as const;
@@ -12,6 +15,13 @@ export const CapOverviewQueries = {
   tenantCapsList: "cap-overview:query:tenant-caps:list",
   capsUsage: "cap-overview:query:caps:usage",
   tenantOptions: "cap-overview:query:tenant-options",
+} as const;
+
+export type CapsUsagePayload = { readonly tenantId?: string };
+export type CapsUsageResult = { readonly rows: readonly CapUsageWithMeta[] };
+
+export const CapOverviewContracts = {
+  capsUsage: queryContract<CapsUsagePayload, CapsUsageResult>(CapOverviewQueries.capsUsage),
 } as const;
 
 export const CAP_USAGE_CELL_COMPONENT = "CapUsageCell" as const;

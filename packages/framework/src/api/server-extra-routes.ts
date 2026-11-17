@@ -1,3 +1,4 @@
+import type { ContractQuery, ContractWrite } from "@cosmicdrift/kumiko-types/handler-contract";
 import type { WriteResult } from "@cosmicdrift/kumiko-types/handlers";
 import { isValidHttpRouteRateLimit } from "@cosmicdrift/kumiko-types/http-route";
 import type { Context, Hono } from "hono";
@@ -7,6 +8,7 @@ import type { Registry, SessionUser } from "../engine/types/index.ts";
 import { FILE_DOWNLOAD_LINK_ROUTE_PREFIX } from "../files/file-download-link.ts";
 
 import { createFallbackLogger } from "../logging/index.ts";
+import { bindContractQuery, bindContractWrite } from "../pipeline/contract-dispatch.ts";
 import type { Dispatcher } from "../pipeline/dispatcher.ts";
 import { assertUnreachable } from "../utils/index.ts";
 import { NON_PUBLIC_API_PATHS, PUBLIC_API_PATHS } from "./api-constants.ts";
@@ -244,16 +246,20 @@ function makeAnonymousWrite(
   // biome-ignore lint/suspicious/noExplicitAny: Hono context generics are invisible at the framework boundary
   c: import("hono").Context<any, any>,
   dispatcher: Dispatcher,
-): (type: string, payload: unknown) => Promise<WriteResult> {
-  return (type, payload) => dispatcher.write(type, payload, requireRequestSessionUser(c, "write"));
+): ContractWrite {
+  return bindContractWrite((type, payload) =>
+    dispatcher.write(type, payload, requireRequestSessionUser(c, "write")),
+  );
 }
 
 function makeAnonymousQuery(
   // biome-ignore lint/suspicious/noExplicitAny: Hono context generics are invisible at the framework boundary
   c: import("hono").Context<any, any>,
   dispatcher: Dispatcher,
-): (type: string, payload: unknown) => Promise<unknown> {
-  return (type, payload) => dispatcher.query(type, payload, requireRequestSessionUser(c, "query"));
+): ContractQuery {
+  return bindContractQuery((type, payload) =>
+    dispatcher.query(type, payload, requireRequestSessionUser(c, "query")),
+  );
 }
 
 const extraRouteLog = createFallbackLogger("extra-route");
@@ -318,8 +324,8 @@ function buildExtraRouteHonoHandler(
           app: shared.app,
           registry: shared.registry,
           user,
-          query: (type, payload) => shared.dispatcher.query(type, payload, user),
-          write: (type, payload) => shared.dispatcher.write(type, payload, user),
+          query: bindContractQuery((type, payload) => shared.dispatcher.query(type, payload, user)),
+          write: bindContractWrite((type, payload) => shared.dispatcher.write(type, payload, user)),
         });
       };
     case ExtraRouteEntries.signature:

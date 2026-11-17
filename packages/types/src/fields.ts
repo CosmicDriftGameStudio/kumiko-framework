@@ -1130,6 +1130,8 @@ export type EntityDefinition<
   F extends FieldsMap = FieldsMap,
   T extends EntityTenancy = EntityTenancy,
 > = {
+  /** Feature-local entity name; the table, the event stream and the handler names derive from it. */
+  readonly name: string;
   readonly table?: string;
   readonly fields: F;
   readonly softDelete?: boolean;

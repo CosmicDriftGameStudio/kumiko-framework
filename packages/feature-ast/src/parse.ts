@@ -461,7 +461,7 @@ function dispatchExtractor(
       return extractClaimKey(call, sourceFile);
     case "referenceData":
       return extractReferenceData(call, sourceFile);
-    case "useExtension":
+    case "applyExtension":
       return extractUseExtension(call, sourceFile);
     // Mixed (header + body) patterns
     case "hook":

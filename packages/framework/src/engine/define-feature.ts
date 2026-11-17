@@ -9,7 +9,6 @@ import { buildConfigEventsJobsMethods } from "./feature-config-events-jobs.ts";
 import { buildEntityHandlerMethods } from "./feature-entity-handlers.ts";
 import { buildProbeMethods } from "./feature-probes.ts";
 import { buildUiExtensionsMethods } from "./feature-ui-extensions.ts";
-import { isObjectArgument, throwObjectArgumentRequired, unwrapArrayForm } from "./object-form.ts";
 import type { FeatureDefinition } from "./types/index.ts";
 import { buildWebhookEventMethods } from "./webhook-events.ts";
 
@@ -25,14 +24,6 @@ import { buildWebhookEventMethods } from "./webhook-events.ts";
 // for `ctx.events.append({ type: eventDef.name, ... })` lights up. Apps
 // that don't care can keep the default-string and use the wrapper-based
 // strict-mode (string-literal types per call-site) like before.
-
-// optionalRequires accepts either variadic strings or a single `{ features }` object; requires
-// takes only the object (see RequiresApi).
-function resolveFeatureNamesArgs(
-  args: readonly [{ readonly features: readonly string[] }] | readonly string[],
-): readonly string[] {
-  return unwrapArrayForm(args, "features");
-}
 
 export type DefineFeatureSettings = {
   readonly dedupeOptions?: Readonly<Record<string, unknown>>;
@@ -82,11 +73,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
       state.description = text.trim();
     },
     requires: (() => {
-      const fn = (...args: readonly [{ readonly features: readonly string[] }]) => {
-        const [first, ...rest] = args;
-        if (rest.length > 0 || !isObjectArgument(first)) {
-          throwObjectArgumentRequired(name, "requires");
-        }
+      const fn = (first: { readonly features: readonly string[] }) => {
         // Untyped callers can pass `{ feature: [...] }`; without this the object would be
         // registered as a dependency name.
         if (!Array.isArray(first.features) || !first.features.every((f) => typeof f === "string")) {
@@ -105,10 +92,8 @@ export function defineFeature<const TName extends string, TExports = undefined>(
         },
       });
     })(),
-    optionalRequires(
-      ...args: readonly [{ readonly features: readonly string[] }] | readonly string[]
-    ): void {
-      state.optionalRequires.push(...resolveFeatureNamesArgs(args));
+    optionalRequires(options: { readonly features: readonly string[] }): void {
+      state.optionalRequires.push(...options.features);
     },
     toggleable(options: { default: boolean }): void {
       if (state.toggleableDefault !== undefined) {

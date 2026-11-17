@@ -4,7 +4,8 @@ import type { SessionUser } from "../engine/types/index.ts";
 import { SYSTEM_TENANT_ID } from "../engine/types/index.ts";
 import { Routes } from "./api-constants.ts";
 import type { AuthRouteContext } from "./auth-routes-context.ts";
-import type { PendingMfaStep, PublicAuthErrorStatus } from "./auth-routes-shared.ts";
+import type { PendingMfaStep } from "./auth-routes-shared.ts";
+import { toContentfulStatus } from "./contentful-status.ts";
 import {
   pendingMfaStepResponse,
   registerTokenRequestRoute,
@@ -53,8 +54,7 @@ export function registerSignupRoutes(ctx: AuthRouteContext): void {
 
       if (!result.isSuccess) {
         // 422 for invalid_signup_token (handler-level UnprocessableError).
-        // @cast-boundary engine-payload — KumikoError.httpStatus narrows to the http-status union
-        const status = result.error.httpStatus as PublicAuthErrorStatus;
+        const status = toContentfulStatus(result.error.httpStatus);
         return c.json({ isSuccess: false, error: toClientWriteErrorInfo(result.error) }, status);
       }
 

@@ -3,6 +3,7 @@
 // tier (`entry`) up front; buildServer wires the matching guard + deps
 // instead of handing every route a raw db/redis escape hatch.
 
+import type { ContractQuery, ContractWrite } from "@cosmicdrift/kumiko-types/handler-contract";
 import type { WriteResult } from "@cosmicdrift/kumiko-types/handlers";
 import type { HttpRouteMethod, HttpRouteRateLimit } from "@cosmicdrift/kumiko-types/http-route";
 import type { Context, Hono } from "hono";
@@ -22,17 +23,17 @@ export type AnonymousExtraRouteDeps = {
   // biome-ignore lint/suspicious/noExplicitAny: Hono's generic parameter is invisible at the framework boundary
   readonly app: Hono<any, any>;
   readonly registry: Registry;
-  readonly systemQuery: (type: string, payload: unknown, tenantId: TenantId) => Promise<unknown>;
+  readonly systemQuery: ContractQuery<[tenantId: TenantId]>;
   /** Runs as the session the /api chain resolved for this request —
    *  anonymous when no token is sent, the authenticated user otherwise.
    *  Never more than that caller could already do via /api/write: same
    *  user, same request-resolved tenant (never overridable), only under
    *  "/api/" (the only path that populates a session user). */
-  readonly write: (type: string, payload: unknown) => Promise<WriteResult>;
+  readonly write: ContractWrite;
   /** Same caller and tenant contract as `write`: runs as the session the /api chain
    *  resolved for this request, so it can read exactly what that caller could read via
    *  /api/query, nothing more. Only under "/api/". */
-  readonly query: (type: string, payload: unknown) => Promise<unknown>;
+  readonly query: ContractQuery;
   /** Resolved by the server's single trustedProxyHops-aware resolver —
    *  never read X-Forwarded-For yourself. */
   readonly clientIp: string;
@@ -58,8 +59,8 @@ export type UserExtraRouteDeps = {
   readonly app: Hono<any, any>;
   readonly registry: Registry;
   readonly user: SessionUser;
-  readonly query: (type: string, payload: unknown) => Promise<unknown>;
-  readonly write: (type: string, payload: unknown) => Promise<WriteResult>;
+  readonly query: ContractQuery;
+  readonly write: ContractWrite;
 };
 
 export type UserExtraRoute = {
@@ -106,7 +107,7 @@ export type SignatureExtraRouteDeps = {
   readonly app: Hono<any, any>;
   readonly registry: Registry;
   readonly secrets?: SecretsContext;
-  readonly systemQuery: (type: string, payload: unknown, tenantId: TenantId) => Promise<unknown>;
+  readonly systemQuery: ContractQuery<[tenantId: TenantId]>;
   /** Privilege scope: SystemAdmin of the target tenant, WITHOUT the route's
    *  access check — only reachable because verify() has already proven the
    *  caller's authenticity (signature, HMAC state, etc.). */

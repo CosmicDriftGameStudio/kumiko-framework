@@ -14,7 +14,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import type { CapUsageTone, CapUsageWithMeta } from "../../types.ts";
 import { CapCardsPanel } from "../cap-cards-panel.tsx";
-import { CapOverviewQueries } from "../constants.ts";
+import { CapOverviewContracts } from "../constants.ts";
 
 type CapsUsageResponse = { readonly rows: readonly CapUsageWithMeta[] };
 
@@ -244,7 +244,7 @@ describe("CapCardsPanel", () => {
     const cards = screen.getAllByTestId("cap-card");
     expect(cards).toHaveLength(1);
     expect(cards[0]?.textContent).toContain("Apps");
-    expect(useQuerySpy).toHaveBeenCalledWith(CapOverviewQueries.capsUsage, { tenantId: "t-1" });
+    expect(useQuerySpy).toHaveBeenCalledWith(CapOverviewContracts.capsUsage, { tenantId: "t-1" });
   });
 
   test("a non-array capKeys restricts nothing", () => {
@@ -360,7 +360,7 @@ describe("CapCardsPanel", () => {
   test("a string tenantId in filterParams is passed through to useQuery", () => {
     renderPanel({ tenantId: "t-42" });
 
-    expect(useQuerySpy).toHaveBeenCalledWith(CapOverviewQueries.capsUsage, { tenantId: "t-42" });
+    expect(useQuerySpy).toHaveBeenCalledWith(CapOverviewContracts.capsUsage, { tenantId: "t-42" });
   });
 
   test("missing or non-string tenantId in filterParams omits the tenantId key", () => {

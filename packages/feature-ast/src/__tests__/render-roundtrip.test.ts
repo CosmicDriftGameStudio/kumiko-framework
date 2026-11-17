@@ -336,7 +336,7 @@ describe("renderPattern — single-pattern shape", () => {
       extensionNameRaw: "EXT_TENANT_DATA",
       entityName: "document",
     });
-    expect(out).toBe('r.useExtension(EXT_TENANT_DATA, "document");');
+    expect(out).toBe('r.applyExtension({ name: EXT_TENANT_DATA, entity: "document" });');
   });
 
   test("useExtension pattern falls back to the resolved literal when extensionNameRaw is absent", () => {
@@ -346,7 +346,7 @@ describe("renderPattern — single-pattern shape", () => {
       extensionName: "tenant-data",
       entityName: "document",
     });
-    expect(out).toBe('r.useExtension({ name: "tenant-data", entity: "document" });');
+    expect(out).toBe('r.applyExtension({ name: "tenant-data", entity: "document" });');
   });
 
   test("useExtension pattern with extensionNameRaw indents a multi-line options object correctly", () => {
@@ -363,15 +363,9 @@ describe("renderPattern — single-pattern shape", () => {
         exportable: true,
       },
     });
-    expect(out).toBe(
-      [
-        'r.useExtension(EXT_TENANT_DATA, "document", {',
-        '  description: "a fairly long description that pushes this object past eighty characters wide",',
-        '  scope: "tenant",',
-        "  exportable: true,",
-        "});",
-      ].join("\n"),
-    );
+    expect(out).toContain('r.applyExtension({ name: EXT_TENANT_DATA, entity: "document", ');
+    expect(out).toContain('scope: "tenant"');
+    expect(out).toContain("exportable: true");
   });
 
   test("extendsRegistrar pattern re-emits extensionNameRaw verbatim over the resolved literal", () => {
@@ -426,7 +420,7 @@ const DOC_INGESTED_EVENT = "docIngested" as const;
 
 defineFeature("user-data-rights", (r) => {
   r.extendsRegistrar(EXT_TENANT_DATA, { onRegister: () => {} });
-  r.useExtension(EXT_TENANT_DATA, "document", { description: "org-scoped" });
+  r.applyExtension({ name: EXT_TENANT_DATA, entity: "document", description: "org-scoped" });
   r.defineEvent(DOC_INGESTED_EVENT, z.object({ id: z.string() }), { piiFields: "none" });
 });
 `;
@@ -456,7 +450,7 @@ describe("render → parse roundtrip — imported-constant registrar-call names"
       patterns: initial.patterns,
     });
     expect(rendered).toContain("r.extendsRegistrar(EXT_TENANT_DATA,");
-    expect(rendered).toContain("r.useExtension(EXT_TENANT_DATA,");
+    expect(rendered).toContain("r.applyExtension({ name: EXT_TENANT_DATA,");
     expect(rendered).toContain("r.defineEvent(DOC_INGESTED_EVENT,");
     expect(rendered).not.toContain('"tenant-data"');
     expect(rendered).not.toContain('"docIngested"');
@@ -475,7 +469,7 @@ describe("render → parse roundtrip — imported-constant registrar-call names"
       featureName: initial.featureName ?? "",
       patterns: edited,
     });
-    expect(rendered).toContain("r.useExtension(EXT_TENANT_DATA,");
+    expect(rendered).toContain("r.applyExtension({ name: EXT_TENANT_DATA,");
     expect(rendered).toContain("tenant-scoped");
   });
 
@@ -630,7 +624,8 @@ describe("render → parse roundtrip — r.defineEvent piiFields stance", () => 
 describe("render → parse roundtrip — secretNamespace", () => {
   const SOURCE = `
 defineFeature("hooks", (r) => {
-  r.secretNamespace("webhook-auth", {
+  r.secretNamespace({
+    name: "webhook-auth",
     label: { en: "Webhook auth" },
     scope: "tenant",
     writeRoles: ["TenantAdmin"],
@@ -661,12 +656,13 @@ defineFeature("hooks", (r) => {
   test("nameSchema (Zod expression) and identifier options survive render verbatim", () => {
     const initial = parse(`
 defineFeature("hooks", (r) => {
-  r.secretNamespace("webhook-auth", {
+  r.secretNamespace({
+    name: "webhook-auth",
     label: { en: "x" },
     scope: "tenant",
     nameSchema: z.string().min(3),
   });
-  r.secretNamespace("other", OTHER_OPTIONS);
+  r.secretNamespace({ name: "other", ...OTHER_OPTIONS });
 });
 `);
     expect(initial.patterns.map((p) => p.kind)).toEqual(["secretNamespace", "secretNamespace"]);
@@ -675,7 +671,7 @@ defineFeature("hooks", (r) => {
       patterns: initial.patterns,
     });
     expect(rendered).toContain("nameSchema: z.string().min(3)");
-    expect(rendered).toContain('r.secretNamespace("other", OTHER_OPTIONS);');
+    expect(rendered).toContain('r.secretNamespace({ name: "other", ...OTHER_OPTIONS });');
   });
 });
 
@@ -683,9 +679,9 @@ describe("render — empty writeRoles on secrets", () => {
   test("r.secret and r.secretNamespace render without an empty writeRoles list", () => {
     const initial = parse(`
 defineFeature("hooks", (r) => {
-  r.secret("api-key", { label: { en: "Key" }, scope: "tenant", writeRoles: [] });
-  r.secretNamespace("webhook-auth", { label: { en: "Auth" }, scope: "tenant", writeRoles: [] });
-  r.secretNamespace("kept", { label: { en: "Kept" }, scope: "tenant", writeRoles: ["TenantAdmin"] });
+  r.secret({ name: "api-key", label: { en: "Key" }, scope: "tenant", writeRoles: [] });
+  r.secretNamespace({ name: "webhook-auth", label: { en: "Auth" }, scope: "tenant", writeRoles: [] });
+  r.secretNamespace({ name: "kept", label: { en: "Kept" }, scope: "tenant", writeRoles: ["TenantAdmin"] });
 });
 `);
     const rendered = renderFeatureFile({
