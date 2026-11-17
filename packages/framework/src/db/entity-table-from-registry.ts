@@ -11,14 +11,14 @@
 // executor: seeds, jobs and consumers that talk to a feature's read model
 // directly.
 
-import type { Registry } from "../engine/index.ts";
+import type { EntityDefinition, Registry } from "../engine/index.ts";
 import type { SchemaTable } from "./dialect.ts";
 import { buildEntityTable } from "./table-builder.ts";
 
 export function entityTableFromRegistry(
   registry: Registry,
   entityName: string,
-  entity: Parameters<typeof buildEntityTable>[1],
+  entity: EntityDefinition,
 ): SchemaTable {
   for (const projection of registry.getAllProjections().values()) {
     if (!projection.isImplicit) continue;

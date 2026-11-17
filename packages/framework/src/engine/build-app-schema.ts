@@ -543,6 +543,7 @@ function projectEntity(entityName: string, entity: EntityDefinition): EntityDefi
   // in case apps reference `entity.table` directly.
   // No cast is needed: all omitted fields are optional (`?`).
   return {
+    name: entity.name,
     fields: fieldsOut,
     // @cast-boundary schema-walk: EntityDefinition.derivedFields is typed for
     // the SERVER (derive required); this is the one place a client schema
