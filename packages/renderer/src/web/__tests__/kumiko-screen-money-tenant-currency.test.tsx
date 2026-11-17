@@ -53,7 +53,7 @@ function makeDispatcher(overrides: MockDispatcherOptions = {}): Dispatcher {
             id: "inv-1",
             version: 4,
             price: null,
-            cost: { amount: 50, currency: "EUR" },
+            cost: { amount: 5000, currency: "EUR" },
             fee: null,
           },
         };
@@ -111,9 +111,9 @@ describe("money field currency: { kind: 'tenant' }", () => {
       id: "inv-1",
       version: 4,
       changes: {
-        price: { amount: 10, currency: "GBP" },
-        cost: { amount: 75, currency: "EUR" },
-        fee: { amount: 5, currency: "EUR" },
+        price: { amount: 1000, currency: "GBP" },
+        cost: { amount: 7500, currency: "EUR" },
+        fee: { amount: 500, currency: "EUR" },
       },
     });
   });
@@ -144,8 +144,8 @@ describe("money field currency: { kind: 'tenant' }", () => {
     const [call] = writeCalls;
     expect(call?.type).toBe("billing:write:invoice:create");
     const payload = call?.payload as { price?: unknown; cost?: unknown; fee?: unknown };
-    expect(payload.price).toEqual({ amount: 10, currency: "GBP" });
-    expect(payload.cost).toEqual({ amount: 20, currency: "EUR" });
+    expect(payload.price).toEqual({ amount: 1000, currency: "GBP" });
+    expect(payload.cost).toEqual({ amount: 2000, currency: "EUR" });
     expect(payload.fee).toBeUndefined();
   });
 
@@ -192,7 +192,7 @@ describe("money field currency: { kind: 'tenant' }", () => {
 
       await waitFor(() => expect(writeCalls.length).toBe(1));
       const payload = writeCalls[0]?.payload as { price?: unknown };
-      expect(payload.price).toEqual({ amount: 7, currency: "EUR" });
+      expect(payload.price).toEqual({ amount: 700, currency: "EUR" });
     });
   }
 

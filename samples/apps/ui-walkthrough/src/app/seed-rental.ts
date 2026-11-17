@@ -199,8 +199,8 @@ function boardLeaseId(index: number): string {
   return `00000000-0000-4000-8000-${String(3100 + index + 1).padStart(12, "0")}`;
 }
 
-function eur(amount: number) {
-  return { amount, currency: "EUR" } as const;
+function eur(amountEuro: number) {
+  return { amount: Math.round(amountEuro * 100), currency: "EUR" } as const;
 }
 
 function generatedLease(index: number): BoardLease & { readonly terminated: boolean } {

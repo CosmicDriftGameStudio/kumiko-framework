@@ -40,12 +40,7 @@ export function createShopFeature(): FeatureDefinition {
       id: "product-list",
       type: "entityList",
       entity: "product",
-      columns: [
-        "name",
-        { field: "price", renderer: { format: "currency", currency: "EUR" } },
-        "status",
-        "featured",
-      ],
+      columns: ["name", "price", "status", "featured"],
     });
 
     r.screen({

@@ -60,19 +60,19 @@ describe("list aggregate", () => {
       title: "alpha",
       status: "open",
       qty: 2,
-      amount: { amount: 10.5, currency: "EUR" },
+      amount: { amount: 1050, currency: "EUR" },
     });
     await order({
       title: "alpha two",
       status: "open",
       qty: 4,
-      amount: { amount: 20, currency: "EUR" },
+      amount: { amount: 2000, currency: "EUR" },
     });
     await order({
       title: "beta",
       status: "paid",
       qty: 10,
-      amount: { amount: 1.25, currency: "EUR" },
+      amount: { amount: 125, currency: "EUR" },
     });
     await order({ title: "no status", qty: 1 });
   }
@@ -213,13 +213,13 @@ describe("list aggregate", () => {
       title: "a",
       placedAt: "2026-03-01T10:00:00Z",
       dueOn: "2026-04-02",
-      amount: { amount: 12.34, currency: "EUR" },
+      amount: { amount: 1234, currency: "EUR" },
     });
     await order({
       title: "b",
       placedAt: "2026-05-09T08:30:00.250Z",
       dueOn: "2026-01-15",
-      amount: { amount: 99, currency: "EUR" },
+      amount: { amount: 9900, currency: "EUR" },
     });
     const agg = await stack.http.queryOk<AggResult>(
       LIST_ORDERS,
@@ -248,10 +248,10 @@ describe("list aggregate", () => {
   });
 
   test("money measures answer one value per currency and never add across currencies", async () => {
-    await order({ title: "a", status: "open", amount: { amount: 10, currency: "EUR" } });
-    await order({ title: "b", status: "open", amount: { amount: 5, currency: "USD" } });
-    await order({ title: "c", status: "open", amount: { amount: 2.5, currency: "EUR" } });
-    await order({ title: "d", status: "paid", amount: { amount: 7, currency: "USD" } });
+    await order({ title: "a", status: "open", amount: { amount: 1000, currency: "EUR" } });
+    await order({ title: "b", status: "open", amount: { amount: 500, currency: "USD" } });
+    await order({ title: "c", status: "open", amount: { amount: 250, currency: "EUR" } });
+    await order({ title: "d", status: "paid", amount: { amount: 700, currency: "USD" } });
     await order({ title: "e", status: "paid" });
     const agg = await stack.http.queryOk<AggResult>(
       LIST_ORDERS,
@@ -297,10 +297,10 @@ describe("list aggregate", () => {
   });
 
   test("a money range filter in minor units narrows the rows and the sum alike", async () => {
-    await order({ title: "low", status: "open", amount: { amount: 50, currency: "EUR" } });
-    await order({ title: "mid", status: "open", amount: { amount: 100, currency: "EUR" } });
-    await order({ title: "high", status: "open", amount: { amount: 150, currency: "EUR" } });
-    await order({ title: "top", status: "open", amount: { amount: 200, currency: "EUR" } });
+    await order({ title: "low", status: "open", amount: { amount: 5000, currency: "EUR" } });
+    await order({ title: "mid", status: "open", amount: { amount: 10000, currency: "EUR" } });
+    await order({ title: "high", status: "open", amount: { amount: 15000, currency: "EUR" } });
+    await order({ title: "top", status: "open", amount: { amount: 20000, currency: "EUR" } });
     const filters = [
       { field: "amount", op: "gte", value: 10000 },
       { field: "amount", op: "lte", value: 15000 },

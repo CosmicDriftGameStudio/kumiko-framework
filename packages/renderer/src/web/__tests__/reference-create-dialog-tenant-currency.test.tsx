@@ -83,7 +83,7 @@ describe("ReferenceCreateDialog — tenant-declared money currency", () => {
 
     await waitFor(() => expect(writeCalls.length).toBe(1));
     const payload = writeCalls[0]?.payload as { price?: unknown; cost?: unknown };
-    expect(payload.price).toEqual({ amount: 10, currency: "GBP" });
-    expect(payload.cost).toEqual({ amount: 20, currency: "EUR" });
+    expect(payload.price).toEqual({ amount: 1000, currency: "GBP" });
+    expect(payload.cost).toEqual({ amount: 2000, currency: "EUR" });
   });
 });

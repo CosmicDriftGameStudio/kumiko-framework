@@ -3,7 +3,6 @@ import {
   currencyDecimals,
   type EditFieldViewModel,
   formatMoney,
-  moneyAmountToMinor,
   resolveSafeMoneyLocale,
 } from "../headless/index.ts";
 import { useOptionalLocale } from "../i18n.tsx";
@@ -16,7 +15,7 @@ function chipValues(row: Readonly<Record<string, unknown>>, from: string): reado
   return Array.isArray(raw) ? raw.filter((v): v is number => typeof v === "number") : [];
 }
 
-// Chip values are major units, like the text on the chip.
+// Chip values are minor units for money, like the field value; the text shows major.
 function chipText(
   field: EditFieldViewModel,
   value: number,
@@ -24,20 +23,18 @@ function chipText(
   locale: string | undefined,
 ): string {
   if (field.type === "money") {
-    const decimals = currencyDecimals(currency);
-    return formatMoney(
-      Math.round(value * 10 ** decimals),
-      currency,
+    const wholeMajor = Number.isInteger(value / 10 ** currencyDecimals(currency));
+    return formatMoney(value, currency, {
       locale,
-      Number.isInteger(value) ? 0 : decimals,
-    );
+      ...(wholeMajor && { minimumFractionDigits: 0, maximumFractionDigits: 0 }),
+    });
   }
   const text = new Intl.NumberFormat(resolveSafeMoneyLocale(locale)).format(value);
   return typeof field.suffix === "string" ? `${text} ${field.suffix}` : text;
 }
 
-// The form holds a money value as { amount (major units), currency }.
-function currentMajorValue(field: EditFieldViewModel): number | undefined {
+// The form holds a money value as { amount (minor units), currency }.
+function currentMoneyValue(field: EditFieldViewModel): number | undefined {
   const { value } = field;
   if (field.type !== "money") return typeof value === "number" ? value : undefined;
   if (typeof value !== "object" || value === null || !("amount" in value)) return undefined;
@@ -62,13 +59,13 @@ export function ValueChipsControl({
   const locale = useOptionalLocale();
   const values = chipValues(row, from);
   const currency = resolveMoneyCurrency(field.value, field.currency);
-  const current = currentMajorValue(field);
+  const current = currentMoneyValue(field);
   const pick = (value: number): void => {
     if (field.type !== "money") {
       onChange(value);
       return;
     }
-    onChange(moneyPayload(moneyAmountToMinor(value, currency), currency));
+    onChange(moneyPayload(value, currency));
   };
   return (
     <>

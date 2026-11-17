@@ -261,7 +261,7 @@ export function defaultCellRender(
   }
   if (type === "money") {
     if (!isMoneyValue(value)) return String(value);
-    return formatMoneyValue(value, locale);
+    return formatMoneyValue(value, { locale });
   }
   if (type === "select" || type === "multiSelect") {
     const values = Array.isArray(value) ? value : [value];

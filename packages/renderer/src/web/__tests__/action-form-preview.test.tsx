@@ -160,9 +160,9 @@ describe("actionForm preview", () => {
       query: async () => ({
         isSuccess: true,
         data: {
-          total: { amount: 1234.5, currency: "EUR" },
+          total: { amount: 123450, currency: "EUR" },
           dueOn: "2026-11-30",
-          rows: [{ label: "Rate 1", amount: { amount: 12.5, currency: "EUR" } }],
+          rows: [{ label: "Rate 1", amount: { amount: 1250, currency: "EUR" } }],
         },
       }),
     });

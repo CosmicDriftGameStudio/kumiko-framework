@@ -555,6 +555,7 @@ export type MoneyCurrencySource =
  *  without a runtime-only import. */
 export const TENANT_CURRENCY_CONFIG_KEY = "tenant-settings:config:currency";
 
+/** The value is `{ amount, currency }` with amount as an integer in the currency's minor unit (cents for EUR, yen for JPY). */
 export type MoneyFieldDef = {
   readonly type: "money";
   readonly description?: string;

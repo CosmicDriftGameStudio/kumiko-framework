@@ -55,32 +55,36 @@ describe("applyFormDerivations", () => {
       },
       screen,
     );
-    // 19% of 10.05 = 1.9095 -> 1.91 EUR; 7% of 20.00 = 1.40 EUR
+    // 19% of 1005 = 190.95 -> 191 cents; 7% of 2000 = 140 cents
     expect(result).toMatchObject({
-      netTotal: eur(30.05),
-      vatTotal: eur(3.31),
-      grossTotal: eur(33.36),
+      netTotal: eur(3005),
+      vatTotal: eur(331),
+      grossTotal: eur(3336),
     });
   });
 
   test("no lines: net and rate are typed, VAT and gross follow", () => {
     const result = applyFormDerivations(
-      { lines: [], netTotal: eur(100), vatRate: 19, vatTotal: eur(5), grossTotal: eur(1) },
+      { lines: [], netTotal: eur(10000), vatRate: 19, vatTotal: eur(5), grossTotal: eur(1) },
       screen,
     );
-    expect(result).toMatchObject({ netTotal: eur(100), vatTotal: eur(19), grossTotal: eur(119) });
+    expect(result).toMatchObject({
+      netTotal: eur(10000),
+      vatTotal: eur(1900),
+      grossTotal: eur(11900),
+    });
   });
 
   test("a stale gross is overwritten and a manipulated target currency is ignored", () => {
     const result = applyFormDerivations(
       {
-        netTotal: eur(10),
+        netTotal: eur(1000),
         vatRate: 10,
         grossTotal: { amount: 500, currency: "USD" },
       },
       screen,
     );
-    expect(result).toMatchObject({ vatTotal: eur(1), grossTotal: eur(11) });
+    expect(result).toMatchObject({ vatTotal: eur(100), grossTotal: eur(1100) });
   });
 
   test("the source currency beats the client currency on a non-literal target", () => {
@@ -159,7 +163,7 @@ describe("isUnusedFallbackOperand", () => {
 });
 
 describe("money units as the form holds them", () => {
-  // A money Input yields major units ({ amount: 1234.56 }); embedded money cells hold minor units.
+  // Form values and embedded money cells are both integers in minor units ({ amount: 123456 } is 1234.56 EUR).
   const grossOnly: FormDerivationScreen = {
     fields: screen.fields,
     derive: { grossTotal: { op: "sum", from: ["netTotal", "vatTotal"] } },
@@ -167,18 +171,18 @@ describe("money units as the form holds them", () => {
 
   test("1.234,56 EUR plus 234,57 EUR sums to 1.469,13 EUR without float drift", () => {
     const result = applyFormDerivations(
-      { netTotal: eur(1234.56), vatTotal: eur(234.57) },
+      { netTotal: eur(123456), vatTotal: eur(23457) },
       grossOnly,
     );
-    expect(result).toMatchObject({ grossTotal: eur(1469.13) });
+    expect(result).toMatchObject({ grossTotal: eur(146913) });
   });
 
   test("0,10 EUR plus 0,20 EUR is exactly 0,30 EUR", () => {
-    const result = applyFormDerivations({ netTotal: eur(0.1), vatTotal: eur(0.2) }, grossOnly);
-    expect(result).toMatchObject({ grossTotal: eur(0.3) });
+    const result = applyFormDerivations({ netTotal: eur(10), vatTotal: eur(20) }, grossOnly);
+    expect(result).toMatchObject({ grossTotal: eur(30) });
   });
 
-  test("listSum of minor-unit cells lands as major units on the head field", () => {
+  test("listSum of minor-unit cells lands as minor units on the head field", () => {
     const result = applyFormDerivations(
       {
         lines: [
@@ -189,7 +193,7 @@ describe("money units as the form holds them", () => {
       },
       screen,
     );
-    expect(result).toMatchObject({ netTotal: eur(1234.57) });
+    expect(result).toMatchObject({ netTotal: eur(123457) });
   });
 });
 
@@ -201,12 +205,12 @@ describe("withFormDerivations", () => {
       screen,
     );
     const parsed = schema.parse({
-      netTotal: eur(200),
+      netTotal: eur(20000),
       vatRate: 19,
       vatTotal: eur(0),
       grossTotal: eur(0),
     });
-    expect(parsed.vatTotal).toEqual(eur(38));
-    expect(parsed.grossTotal).toEqual(eur(238));
+    expect(parsed.vatTotal).toEqual(eur(3800));
+    expect(parsed.grossTotal).toEqual(eur(23800));
   });
 });

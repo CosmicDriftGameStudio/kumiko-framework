@@ -76,7 +76,7 @@ export function renderMoneyInput(
     <Input
       kind="money"
       {...common}
-      value={moneyMinorValue(field.value, currency)}
+      value={moneyMinorValue(field.value)}
       onChange={(v) => onChange(moneyPayload(v, currency))}
       currency={currency}
       locale={appLocale}

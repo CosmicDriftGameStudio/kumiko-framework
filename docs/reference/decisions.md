@@ -311,3 +311,11 @@ Every content editor (mail and PDF templates, layouts, managed pages, text block
 ### 2026-11-17 agent-tools is a library, the API docs generator has its own subpath
 
 **`@cosmicdrift/kumiko-bundled-features/agent-tools` exports the tool catalog, agent manifest, tool dispatch and doc-gap lint; the API docs generator moves to `./agent-tools/api-docs`, and `createAgentToolsFeature` is removed.** The feature only registered a boot warning about agent doc gaps, no app mounted it, and `kumiko agent lint` reports the same gaps. Because the barrel re-exported the generator, every runtime import of `toolNameForQn` or `buildAgentManifest` loaded it along with its texts in five languages. Moving the generator into the CLI package, its only runtime caller, was rejected: it reads agent-tools internals (labels, handler schema, filter ops, doc-gap lint) and personal-access-tokens, which would all have had to become public exports of bundled-features.
+
+### 2026-11-17 Money is an integer in minor units everywhere
+
+**A money value is `{ amount, currency }` with `amount` as an integer in the currency's minor unit (10^currencyDecimals: cents for EUR, yen for JPY, fils for BHD) on every path: write payload, zod schema, event, read row, form derivations, renderer values and agent tools.** Only input widgets (MoneyInput, paste, range facets) and formatters (`formatMoney`, export cells) convert to and from the major number a person reads or types.
+
+Before, top-level `createMoneyField` payloads were major units, `flattenMoney` multiplied by a flat 100 and the read row carried both `amount` (major) and `amountScaled` (minor), while embedded rows, aggregates, range filters, template variables and document values were already minor and the renderer scaled per currency. Apps kept their own wire helpers to bridge the two, and JPY/BHD values were stored with the wrong scale. This supersedes the migration-guide note "amount is now always major units".
+
+Rejected: branded Major/Minor types with an executor option for raw minor input (keeps two units alive); renaming the key to `amountMinor` (breaks every path without making the unit safer than an integer schema does). `formatMoney(amountMinor, currency, options)` takes `locale`, `minimumFractionDigits`, `maximumFractionDigits`, `signDisplay` and `notation`, so apps stop writing their own money formatters.

@@ -1,14 +1,41 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import type { UnitKey } from "@cosmicdrift/kumiko-framework/engine";
-import { applyFormatSpec, moneyAmountToMinor, UNIT_FORMAT_KEYS } from "../index.ts";
+import { applyFormatSpec, formatMoney, UNIT_FORMAT_KEYS } from "../index.ts";
 
-describe("moneyAmountToMinor", () => {
-  test.each([
-    ["EUR", 12.5, 1250],
-    ["JPY", 1234, 1234],
-    ["BHD", 1.234, 1234],
-  ])("scales %s by its own decimals", (currency, amount, minor) => {
-    expect(moneyAmountToMinor(amount, currency)).toBe(minor);
+describe("formatMoney", () => {
+  test("takes minor units and scales by the currency decimals", () => {
+    expect(formatMoney(123450, "EUR", { locale: "de-DE" })).toBe("1.234,50 €");
+    expect(formatMoney(1234, "BHD", { locale: "en-US" })).toContain("1.234");
+    expect(formatMoney(1200, "JPY", { locale: "ja-JP" })).toContain("1,200");
+  });
+
+  test("signDisplay negative suppresses the sign of a rounded zero", () => {
+    const text = formatMoney(-30, "EUR", {
+      locale: "de-DE",
+      maximumFractionDigits: 0,
+      signDisplay: "negative",
+    });
+    expect(text).not.toContain("-");
+  });
+
+  test("compact notation follows Intl", () => {
+    const expected = new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "EUR",
+      notation: "compact",
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+    }).format(1234567);
+    const actual = formatMoney(123456700, "EUR", {
+      locale: "en-US",
+      notation: "compact",
+      maximumFractionDigits: 1,
+    });
+    expect(actual).toBe(expected);
+  });
+
+  test("an unknown currency code formats as a plain two-decimal number", () => {
+    expect(formatMoney(1050, "XX1", { locale: "en-US" })).toBe("10.50");
   });
 });
 
@@ -151,10 +178,10 @@ describe("applyFormatSpec — boolean/currency", () => {
   });
 
   test("currency formats the amount with Intl in the given locale", () => {
-    expect(applyFormatSpec({ format: "currency", currency: "EUR", locale: "de-DE" }, 1234.5)).toBe(
+    expect(applyFormatSpec({ format: "currency", currency: "EUR", locale: "de-DE" }, 123450)).toBe(
       "1.234,50\u00a0€",
     );
-    expect(applyFormatSpec({ format: "currency", currency: "USD", locale: "en-US" }, "99.9")).toBe(
+    expect(applyFormatSpec({ format: "currency", currency: "USD", locale: "en-US" }, "9990")).toBe(
       "$99.90",
     );
     expect(applyFormatSpec({ format: "currency", currency: "JPY", locale: "en-US" }, 1234)).toBe(
@@ -171,7 +198,7 @@ describe("applyFormatSpec — money", () => {
     expect(
       applyFormatSpec(
         { format: "money", locale: "de-DE" },
-        { amount: 1234.5, currency: "EUR", amountScaled: 123450 },
+        { amount: 123450, currency: "EUR" },
       ),
     ).toBe("1.234,50\u00a0€");
     expect(

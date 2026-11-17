@@ -176,7 +176,13 @@ export function useDashboardFormats(): DashboardFormats {
   const longDate = new Intl.DateTimeFormat(locale, { dateStyle: "full", timeZone });
   const medium = new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeZone });
   const formatMinor = (amountMinor: number, currency: string, fractionDigits?: number): string =>
-    formatMoney(amountMinor, currency, locale, fractionDigits);
+    formatMoney(amountMinor, currency, {
+      locale,
+      ...(fractionDigits !== undefined && {
+        minimumFractionDigits: fractionDigits,
+        maximumFractionDigits: fractionDigits,
+      }),
+    });
   return {
     timeZone,
     formatMedium: (atMs) => medium.format(atMs),

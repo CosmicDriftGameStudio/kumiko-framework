@@ -1425,7 +1425,7 @@ describe("DataTable", () => {
       render(
         <DataTable
           columns={cols}
-          rows={[{ id: "r1", values: { amount: 42 } }]}
+          rows={[{ id: "r1", values: { amount: 4200 } }]}
           onCellChange={onCellChange}
         />,
       );

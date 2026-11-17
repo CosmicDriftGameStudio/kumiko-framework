@@ -82,7 +82,7 @@ describe("actionForm money field currency source", () => {
     if (call === undefined) throw new Error("expected one write call");
     expect(call.type).toBe("billing:write:invoice:pay");
     expect((call.payload as { amount?: unknown }).amount).toEqual({
-      amount: 12.5,
+      amount: 1250,
       currency: "CHF",
     });
   });
@@ -254,7 +254,7 @@ describe("secretMint money field currency source", () => {
     if (confirmCall === undefined) throw new Error("expected a confirm write call");
     expect(confirmCall.type).toBe("billing:write:credit:confirm");
     expect((confirmCall.payload as { fee?: unknown }).fee).toEqual({
-      amount: 4.25,
+      amount: 425,
       currency: "GBP",
     });
   });

@@ -22,17 +22,15 @@ export type MockQueryLogEntry = {
 const QUERY_LOG: MockQueryLogEntry[] = [];
 Reflect.set(globalThis, "__E2E_QUERIES__", QUERY_LOG);
 
-// Money rows carry `{ amount, currency }` in major units; filters and
-// aggregates work on minor units like the server's integer column.
-const MINOR_UNITS = 100;
-
+// Money rows carry `{ amount, currency }` in minor units like the server; filters and
+// aggregates compare the same integer.
 function moneyOf(
   value: unknown,
 ): { readonly minor: number; readonly currency: string } | undefined {
   if (!isPlainObject(value)) return undefined;
   const { amount, currency } = value;
   if (typeof amount !== "number" || typeof currency !== "string") return undefined;
-  return { minor: Math.round(amount * MINOR_UNITS), currency };
+  return { minor: amount, currency };
 }
 
 function comparable(value: unknown): unknown {

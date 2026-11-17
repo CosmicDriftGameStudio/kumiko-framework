@@ -375,9 +375,9 @@ describe("invoice receive form derives its totals on the server", () => {
     // stack booted, so boot validation accepted the redirect to the invoice list.
     expect(totals).toEqual({
       invoiceNumber: "RE-2026-0042",
-      netTotal: eur(30.05),
-      vatTotal: eur(3.31),
-      grossTotal: eur(33.36),
+      netTotal: eur(3005),
+      vatTotal: eur(331),
+      grossTotal: eur(3336),
     });
   });
 

@@ -64,8 +64,6 @@ const open = openToAllSignedIn(
   "demo app: any signed-in user manages every lease; there is no per-user ownership in this sample",
 );
 
-const roundToCents = (amount: number): number => Math.round(amount * 100) / 100;
-
 // measure and vatRate only exist to give the walkthrough form realistic column
 // types; leasePosition has no fields for them.
 function positionFromItem(
@@ -78,7 +76,7 @@ function positionFromItem(
     art: item.kind,
     ...(unitLabel && { einheit: unitLabel }),
     betrag: {
-      amount: roundToCents(item.unitPrice.amount * item.quantity),
+      amount: Math.round(item.unitPrice.amount * item.quantity),
       currency: item.unitPrice.currency,
     },
     gueltigVon: item.validFrom,

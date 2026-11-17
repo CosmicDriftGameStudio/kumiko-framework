@@ -20,7 +20,7 @@ function safeLocale(locale: string): string {
 // template string. `n` is EUR in major units (catalog demo values like
 // 92753 read as €92,753), formatMoney wants minor units (cents).
 export function euro(n: number, locale: string): string {
-  return formatMoney(Math.round(n * 100), "EUR", safeLocale(locale));
+  return formatMoney(Math.round(n * 100), "EUR", { locale: safeLocale(locale) });
 }
 
 export function percent(n: number, locale: string): string {

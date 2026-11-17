@@ -2,7 +2,7 @@ import { fieldToZod, withFormDerivations } from "@cosmicdrift/kumiko-framework/e
 import { z } from "zod";
 import { receiveInvoiceLines, receiveInvoiceScreen } from "./screens";
 
-const moneyPayload = z.object({ amount: z.number(), currency: z.string().min(1) });
+const moneyPayload = z.object({ amount: z.number().int(), currency: z.string().min(1) });
 
 // Totals are recomputed from the lines before validation, so a client-sent
 // total never reaches the handler.

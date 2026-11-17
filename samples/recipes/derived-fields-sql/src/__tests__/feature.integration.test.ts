@@ -39,10 +39,10 @@ beforeAll(async () => {
   const harbor = await create("Harbor House", "The Harbor");
   const mill = await create("Old Mill");
   await create("Quiet Court");
-  await ticket(harbor, "Roof leak", "open", "2026-01-10", { amount: 800, currency: "EUR" });
-  await ticket(harbor, "Boiler", "inProgress", "2026-03-05", { amount: 1250.5, currency: "EUR" });
+  await ticket(harbor, "Roof leak", "open", "2026-01-10", { amount: 80000, currency: "EUR" });
+  await ticket(harbor, "Boiler", "inProgress", "2026-03-05", { amount: 125050, currency: "EUR" });
   await ticket(harbor, "Paint hall", "done", "2026-05-01");
-  await ticket(mill, "Broken window", "open", "2026-02-02", { amount: 90, currency: "CHF" });
+  await ticket(mill, "Broken window", "open", "2026-02-02", { amount: 9000, currency: "CHF" });
 });
 
 afterAll(async () => {
@@ -74,7 +74,7 @@ describe("derived-fields-sql recipe", () => {
     const page = await stack.http.queryOk<Page>(LIST, { limit: 10 }, user);
     const byName = new Map(page.rows.map((row) => [row["name"], row]));
 
-    expect(byName.get("Old Mill")?.["latestCost"]).toMatchObject({ amount: 90, currency: "CHF" });
+    expect(byName.get("Old Mill")?.["latestCost"]).toMatchObject({ amount: 9000, currency: "CHF" });
     // Harbor's newest ticket has no cost: no key, like an unset stored money field.
     expect(Object.hasOwn(byName.get("Harbor House") ?? {}, "latestCost")).toBe(false);
   });

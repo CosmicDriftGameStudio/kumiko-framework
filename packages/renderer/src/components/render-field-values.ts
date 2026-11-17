@@ -1,6 +1,5 @@
 import type { FieldAffix } from "@cosmicdrift/kumiko-framework/ui-types";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
-import { currencyDecimals, moneyAmountToMinor } from "../headless/index.ts";
 import type { SelectOptionEntry } from "./availability-options-select.tsx";
 
 export function stringValue(v: unknown): string {
@@ -13,16 +12,11 @@ export function numberValue(v: unknown): number | "" {
   return typeof v === "number" ? v : Number(v);
 }
 
-// Read/initial value → MoneyInput's minor-units contract. The server's
-// read shape is `{amount, currency, amountScaled}` in MAJOR units — deliberately
-// NOT reading `amountScaled` here: the server derives it via a flat
-// MINOR_UNIT_SCALE=100 (money.ts), which disagrees with currencyDecimals for
-// zero-decimal currencies like JPY, so it would double-scale JPY amounts.
-// Deriving from `amount * 10**currencyDecimals(currency)` keeps this the
-// exact inverse of moneyPayload below. A bare number (e.g. ConfigEditBody's
-// stored-config coercion) is MAJOR units too — every producer in this repo
-// hands rehydrateMoney's `{amount,…}` shape or a raw major-unit number, never
-// pre-scaled minor units.
+// Read/initial value → MoneyInput's minor-units contract. Money is minor
+// everywhere: the server's read shape is `{amount, currency}` with an integer
+// minor-unit amount, and a bare number (e.g. ConfigEditBody's stored-config
+// coercion) is minor too, so values pass through unchanged. Only MoneyInput
+// and the formatters convert to what the user sees.
 // A stored row can carry a legacy/imported currency that is not an ISO-4217
 // shape; Intl.NumberFormat throws a RangeError on it and would crash the screen.
 const ISO_CURRENCY_CODE = /^[A-Z]{3}$/;
@@ -101,22 +95,21 @@ export function withPinnedValues(
   return missingPinned.length === 0 ? next : [...next, ...missingPinned];
 }
 
-export function moneyMinorValue(v: unknown, currency: string): number | "" {
+export function moneyMinorValue(v: unknown): number | "" {
   if (v === undefined || v === null || v === "") return "";
-  if (typeof v === "number") return moneyAmountToMinor(v, currency);
+  if (typeof v === "number") return v;
   if (typeof v === "object") {
     const amount = propertyOf(v, "amount");
-    if (typeof amount === "number") return moneyAmountToMinor(amount, currency);
+    if (typeof amount === "number") return amount;
   }
   return "";
 }
 
 // MoneyInput's minor-units onChange → the server payload shape
-// (`z.object({amount, currency})`, schema-builder.ts) — MAJOR units, no
-// `amountScaled` (the server derives that itself on write).
+// (`z.object({amount, currency})`, schema-builder.ts); the value is minor everywhere.
 export function moneyPayload(minorUnits: number | undefined, currency: string): unknown {
   if (minorUnits === undefined) return undefined;
-  return { amount: minorUnits / 10 ** currencyDecimals(currency), currency };
+  return { amount: minorUnits, currency };
 }
 
 // A locatedTimestamp field value is supplied by the read wrapper as

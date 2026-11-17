@@ -58,7 +58,7 @@ role vocabulary overrides those instead of forking the feature.
 
 `buildInsertSchema` always makes `currency` required _inside_ a money field's
 value object, even when the field itself is optional — a caller literally
-cannot submit `{ amount: 1000 }` against the plain `defineEntityCreateHandler`.
+cannot submit `{ amount: 1000 }` (1000 minor units, 10.00 EUR) against the plain `defineEntityCreateHandler`.
 `defineCreateWithTenantDefaults` swaps in its own schema (`.extend()` over the
 same `buildInsertSchema` output, with just the declared `currencyFields`
 relaxed) so the caller _can_ omit `currency`, then fills it from

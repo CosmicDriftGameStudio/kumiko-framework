@@ -1,5 +1,4 @@
 import { isListAggregateCurrencyAmounts } from "@cosmicdrift/kumiko-types/list-aggregate-types";
-import { toMajorUnits } from "@cosmicdrift/kumiko-types/minor-units";
 import type { ReactNode } from "react";
 import type { DataTableMeasure } from "../../../data-table-aggregate-types.ts";
 import type { ListColumnViewModel } from "../../../headless/index.ts";
@@ -60,7 +59,7 @@ export function MeasureValue({
   return (
     <span className="inline-flex flex-col items-end">
       {value.map((entry) =>
-        cell({ amount: toMajorUnits(entry.value), currency: entry.currency }, entry.currency),
+        cell({ amount: entry.value, currency: entry.currency }, entry.currency),
       )}
     </span>
   );

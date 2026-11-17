@@ -149,7 +149,7 @@ export type FieldAiAssist = {
 };
 
 export type FieldValueChips = {
-  /** Name of a field of the same form whose value is an array of numbers. For `money`, major units. */
+  /** Name of a field of the same form whose value is an array of numbers. For `money`, minor units. */
   readonly from: string;
 };
 

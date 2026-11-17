@@ -42,8 +42,12 @@ function jsonSchemaTypeForField(
     case "number":
     case "bigInt":
     case "decimal":
-    case "money":
       return { type: "number" };
+    case "money":
+      return {
+        type: "integer",
+        description: "amount in minor units of the currency (cents for EUR)",
+      };
     case "reference":
       return { type: "string", description: `ID referencing "${field.entity}"` };
     default:

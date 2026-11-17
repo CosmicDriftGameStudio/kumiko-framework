@@ -128,12 +128,10 @@ describe("SQL derived money field", () => {
     const page = await list({ limit: 10 });
 
     expect(rowOf(page, P1)?.["currentRent"]).toEqual({
-      amount: 1200.5,
+      amount: 120050,
       currency: "EUR",
-      amountScaled: 120050,
-      amountMinor: 120050,
     });
-    expect(rowOf(page, P2)?.["currentRent"]).toMatchObject({ amount: 900, currency: "CHF" });
+    expect(rowOf(page, P2)?.["currentRent"]).toMatchObject({ amount: 90000, currency: "CHF" });
     expect(rowOf(page, P1)?.["currentRent"]).toEqual(rowOf(page, P1)?.["storedRent"]);
     expect(rowOf(page, P2)?.["currentRent"]).toEqual(rowOf(page, P2)?.["storedRent"]);
   });
@@ -165,6 +163,6 @@ describe("SQL derived money field", () => {
     expect(ids(asUser)).toEqual([P1, P2, P3, P4]);
 
     const asAdmin = await list({ limit: 10 });
-    expect(rowOf(asAdmin, P1)?.["currentSecretRent"]).toMatchObject({ amount: 7.77 });
+    expect(rowOf(asAdmin, P1)?.["currentSecretRent"]).toMatchObject({ amount: 777 });
   });
 });

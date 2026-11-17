@@ -1,15 +1,21 @@
-// 2 decimal places (cents) — covers every currently-supported currency
-// (EUR/USD/GBP/...). No ISO-4217 minor-unit table yet (JPY=0, BHD=3) —
-// upgrade path once a currency needing a different scale actually lands.
+// Money amounts travel as integers in the currency's minor unit (10^currencyDecimals).
 // Client-safe on purpose: db/money.ts pulls in engine runtime values.
-export const MINOR_UNIT_SCALE = 100;
 
-export function toMajorUnits(minorAmount: number): number {
-  return minorAmount / MINOR_UNIT_SCALE;
+// Currency decimal places — covers the world's zero- and three-decimal
+// outliers, defaults to 2 for everything else.
+export function currencyDecimals(code: string): number {
+  if (code === "JPY" || code === "KRW" || code === "VND" || code === "ISK") return 0;
+  if (code === "BHD" || code === "JOD" || code === "KWD" || code === "OMR" || code === "TND")
+    return 3;
+  return 2;
 }
 
-export function toMinorUnits(amount: number): number {
-  return Math.round(amount * MINOR_UNIT_SCALE);
+export function toMajorUnits(amountMinor: number, currency: string): number {
+  return amountMinor / 10 ** currencyDecimals(currency);
+}
+
+export function toMinorUnits(amountMajor: number, currency: string): number {
+  return Math.round(amountMajor * 10 ** currencyDecimals(currency));
 }
 
 export type MinorUnitShare = { readonly key: string; readonly weight: number };

@@ -83,7 +83,7 @@ function buildItemRows(count: number): Array<Record<string, unknown>> {
     sku: `KB-${100 + i}`,
     description: `Item ${i + 1}`,
     quantity: 1,
-    unitPrice: 10 + i,
+    unitPrice: (10 + i) * 100,
   }));
 }
 
@@ -129,8 +129,8 @@ export function createInMemoryDispatcher(): Dispatcher {
         isSuccess: true,
         data: {
           rows: [
-            { paidAt: "2026-08-21", amount: 936, method: "card", status: "settled" },
-            { paidAt: "2026-08-25", amount: 312, method: "invoice", status: "pending" },
+            { paidAt: "2026-08-21", amount: 93600, method: "card", status: "settled" },
+            { paidAt: "2026-08-25", amount: 31200, method: "invoice", status: "pending" },
           ],
         },
       };

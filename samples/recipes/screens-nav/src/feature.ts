@@ -55,15 +55,7 @@ export function createBookshopFeature(): FeatureDefinition {
       id: "book-list",
       type: "entityList",
       entity: "book",
-      columns: [
-        "title",
-        "author",
-        {
-          field: "price",
-          renderer: { format: "currency", currency: "EUR" },
-        },
-        "published",
-      ],
+      columns: ["title", "author", "price", "published"],
     });
 
     // entityEdit — sections + spans + declarative conditionals + slots.

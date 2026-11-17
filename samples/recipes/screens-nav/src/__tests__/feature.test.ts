@@ -110,7 +110,7 @@ describe("screens-nav showcase — field specs", () => {
 
   test("normalizeListColumn collapses string columns too", () => {
     expect(normalizeListColumn("author")).toEqual({ field: "author" });
-    const renderer = { format: "currency", currency: "EUR" } as const;
+    const renderer = { format: "number", grouping: false } as const;
     expect(normalizeListColumn({ field: "price", renderer })).toEqual({
       field: "price",
       renderer,

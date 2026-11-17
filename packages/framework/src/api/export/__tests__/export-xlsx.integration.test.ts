@@ -121,7 +121,7 @@ describe("POST /api/export/xlsx", () => {
     await createItem({
       title: "alpha",
       qty: 2,
-      amount: { amount: 10.5, currency: "EUR" },
+      amount: { amount: 1050, currency: "EUR" },
       status: "paid",
     });
     const res = await exportRequest({ screen: LIST_SCREEN, columns: ALL_COLUMNS });

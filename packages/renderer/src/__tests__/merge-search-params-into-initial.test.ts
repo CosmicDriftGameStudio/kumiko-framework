@@ -176,14 +176,14 @@ describe("mergeSearchParamsIntoInitial — coercion (every field URL-prefillable
 
   test("money-type field without a defaultCurrency coerces a bare numeric string (legacy callers, e.g. config-edit/action-form)", () => {
     const fields: Record<string, FieldDef> = { price: { type: "money" } };
-    const result = mergeWithAllFieldsUrlPrefillable(fields, { price: "19.99" });
-    expect(result["price"]).toBe(19.99);
+    const result = mergeWithAllFieldsUrlPrefillable(fields, { price: "1999" });
+    expect(result["price"]).toBe(1999);
   });
 
   test("money-type field WITH a defaultCurrency merges the entityEdit payload shape", () => {
     const fields: Record<string, FieldDef> = { price: { type: "money" } };
-    const result = mergeWithAllFieldsUrlPrefillable(fields, { price: "19.99" }, undefined, "USD");
-    expect(result["price"]).toEqual({ amount: 19.99, currency: "USD" });
+    const result = mergeWithAllFieldsUrlPrefillable(fields, { price: "1999" }, undefined, "USD");
+    expect(result["price"]).toEqual({ amount: 1999, currency: "USD" });
   });
 
   test("optional money-type field WITH a defaultCurrency but no matching searchParam seeds only its currency, so a typed 0 stays distinguishable", () => {
@@ -274,9 +274,9 @@ describe("mergeSearchParamsIntoInitial — coercion (every field URL-prefillable
   test("money-type field parses a JSON {amount, currency} param without a defaultCurrency", () => {
     const fields: Record<string, FieldDef> = { price: { type: "money" } };
     const result = mergeWithAllFieldsUrlPrefillable(fields, {
-      price: JSON.stringify({ amount: 19.99, currency: "CHF" }),
+      price: JSON.stringify({ amount: 1999, currency: "CHF" }),
     });
-    expect(result["price"]).toEqual({ amount: 19.99, currency: "CHF" });
+    expect(result["price"]).toEqual({ amount: 1999, currency: "CHF" });
   });
 
   test("money-type field keeps a prefilled 0 as 0, JSON and bare", () => {
@@ -295,19 +295,19 @@ describe("mergeSearchParamsIntoInitial — coercion (every field URL-prefillable
     const fields: Record<string, FieldDef> = { price: { type: "money" } };
     const result = mergeWithAllFieldsUrlPrefillable(
       fields,
-      { price: JSON.stringify({ amount: 19.99, currency: "CHF" }) },
+      { price: JSON.stringify({ amount: 1999, currency: "CHF" }) },
       undefined,
       "USD",
     );
-    expect(result["price"]).toEqual({ amount: 19.99, currency: "CHF" });
+    expect(result["price"]).toEqual({ amount: 1999, currency: "CHF" });
   });
 
   test("money-type field: bare number without a defaultCurrency keeps the number and warns", () => {
     const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
     try {
       const fields: Record<string, FieldDef> = { price: { type: "money" } };
-      const result = mergeWithAllFieldsUrlPrefillable(fields, { price: "19.99" });
-      expect(result["price"]).toBe(19.99);
+      const result = mergeWithAllFieldsUrlPrefillable(fields, { price: "1999" });
+      expect(result["price"]).toBe(1999);
       expect(consoleCallsMentioning(warnSpy, 'money field "price"')).toHaveLength(1);
     } finally {
       warnSpy.mockRestore();
@@ -598,11 +598,11 @@ describe("money currency sources on an entity-less form", () => {
   test("a literal source also carries into a URL-prefilled amount", () => {
     const fields = amountField({ kind: "literal", code: "CHF" });
     const result = mergeSearchParamsIntoInitial(fields, {
-      searchParams: { amount: "42.50" },
+      searchParams: { amount: "4250" },
       urlPrefillFields: ["amount"],
       moneyCurrencyOverrides: literalCurrencyOverrides(fields),
     });
-    expect(result["amount"]).toEqual({ amount: 42.5, currency: "CHF" });
+    expect(result["amount"]).toEqual({ amount: 4250, currency: "CHF" });
   });
 
   test("literalCurrencyOverrides ignores tenant-declared and undeclared money fields", () => {

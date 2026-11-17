@@ -1,3 +1,4 @@
+import { toMajorUnits } from "@cosmicdrift/kumiko-types/minor-units";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { Cell } from "write-excel-file/node";
 import { referenceCell } from "./export-cells-reference.ts";
@@ -98,7 +99,7 @@ function moneyCell(value: unknown): Cell {
   const format = CURRENCY_CODE.test(currency)
     ? `${PLAIN_MONEY_FORMAT} "${currency}"`
     : PLAIN_MONEY_FORMAT;
-  return numberCell(amount, format);
+  return numberCell(toMajorUnits(amount, currency), format);
 }
 
 function integerCell(value: unknown, kind: "number" | "decimal" | "bigInt"): Cell {

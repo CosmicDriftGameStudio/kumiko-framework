@@ -1,4 +1,4 @@
-import { moneyAmountToMinor } from "../headless/index.ts";
+import { toMinorUnits } from "@cosmicdrift/kumiko-types/minor-units";
 import type { EmbeddedListColumn } from "../primitives.tsx";
 
 // Locale-aware decimal parse for pasted text: strips space/NBSP thousands
@@ -38,7 +38,7 @@ function coerceNumber(text: string): number | undefined {
 function coerceMoney(text: string, currency: string): number | undefined {
   if (text.trim() === "") return undefined;
   const n = parseLocaleAwareDecimal(text);
-  return n === undefined ? undefined : moneyAmountToMinor(n, currency);
+  return n === undefined ? undefined : toMinorUnits(n, currency);
 }
 
 function coerceSelect(column: EmbeddedListColumn, text: string): string | undefined {

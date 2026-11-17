@@ -44,15 +44,13 @@ afterAll(async () => {
 test("no tenant override yet — new invoice gets the feature's own default (EUR/en)", async () => {
   const invoice = await stack.http.writeOk<{
     data: {
-      amount: { amount: number; currency: string; amountScaled: number; amountMinor: number };
+      amount: { amount: number; currency: string };
       language: string;
     };
   }>("invoice:write:invoice:create", { title: "Invoice 1", amount: { amount: 1000 } }, admin);
   expect(invoice.data.amount).toEqual({
     amount: 1000,
     currency: "EUR",
-    amountScaled: 100_000,
-    amountMinor: 100_000,
   });
   expect(invoice.data.language).toBe("en");
 });
@@ -71,7 +69,7 @@ test("tenant sets CHF/de — a new invoice without explicit values picks up the 
 
   const invoice = await stack.http.writeOk<{
     data: {
-      amount: { amount: number; currency: string; amountScaled: number; amountMinor: number };
+      amount: { amount: number; currency: string };
       language: string;
     };
   }>("invoice:write:invoice:create", { title: "Invoice 2", amount: { amount: 2000 } }, admin);
@@ -79,8 +77,6 @@ test("tenant sets CHF/de — a new invoice without explicit values picks up the 
   expect(invoice.data.amount).toEqual({
     amount: 2000,
     currency: "CHF",
-    amountScaled: 200_000,
-    amountMinor: 200_000,
   });
   expect(invoice.data.language).toBe("de");
 });
@@ -88,7 +84,7 @@ test("tenant sets CHF/de — a new invoice without explicit values picks up the 
 test("an explicit value in the payload wins over the tenant setting", async () => {
   const invoice = await stack.http.writeOk<{
     data: {
-      amount: { amount: number; currency: string; amountScaled: number; amountMinor: number };
+      amount: { amount: number; currency: string };
     };
   }>(
     "invoice:write:invoice:create",
@@ -98,7 +94,5 @@ test("an explicit value in the payload wins over the tenant setting", async () =
   expect(invoice.data.amount).toEqual({
     amount: 3000,
     currency: "USD",
-    amountScaled: 300_000,
-    amountMinor: 300_000,
   });
 });

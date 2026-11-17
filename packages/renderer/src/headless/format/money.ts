@@ -1,28 +1,20 @@
-// Currency decimal places — covers the world's zero- and three-decimal
-// outliers, defaults to 2 for everything else. Shared between renderer/web's
-// MoneyInput (minor-unit display factor) and RenderField's minor/major-unit
-// conversion — a single source keeps both sides
-// scaling the same currency the same way.
-export function currencyDecimals(code: string): number {
-  if (code === "JPY" || code === "KRW" || code === "VND" || code === "ISK") return 0;
-  if (code === "BHD" || code === "JOD" || code === "KWD" || code === "OMR" || code === "TND")
-    return 3;
-  return 2;
-}
+import { currencyDecimals } from "@cosmicdrift/kumiko-types/minor-units";
 
-// Major-unit amount → minor units scaled by currencyDecimals(currency), as
-// formatMoney expects. Deliberately not rehydrateMoney's `amountScaled`: that
-// uses a flat MINOR_UNIT_SCALE=100, which is wrong for JPY (0 decimals) and
-// BHD (3 decimals).
-export function moneyAmountToMinor(amount: number, currency: string): number {
-  return Math.round(amount * 10 ** currencyDecimals(currency));
-}
+export { currencyDecimals };
+
+export type FormatMoneyOptions = {
+  readonly locale?: string;
+  readonly minimumFractionDigits?: number;
+  readonly maximumFractionDigits?: number;
+  readonly signDisplay?: "auto" | "negative" | "always" | "exceptZero" | "never";
+  readonly notation?: "standard" | "compact";
+};
 
 export function formatMoneyValue(
   value: { readonly amount: number; readonly currency: string },
-  locale?: string,
+  options?: FormatMoneyOptions,
 ): string {
-  return formatMoney(moneyAmountToMinor(value.amount, value.currency), value.currency, locale);
+  return formatMoney(value.amount, value.currency, options);
 }
 
 const FALLBACK_MONEY_LOCALE = "en-US";
@@ -44,20 +36,23 @@ export function isCurrencyCode(code: string): boolean {
 
 // currency is validated against the 3-letter-alpha shape Intl.NumberFormat
 // requires: a non-conforming value (e.g. from a JSONB custom field) would throw
-// a RangeError and take down the whole render instead of just this value.
+// a RangeError and take down the whole render instead of just this value. Such a
+// value is shown as a plain two-decimal number without a symbol.
 export function formatMoney(
   amountMinor: number,
   currency: string,
-  locale?: string,
-  fractionDigits?: number,
+  options: FormatMoneyOptions = {},
 ): string {
-  if (!isCurrencyCode(currency)) return String(amountMinor);
-  const decimals = currencyDecimals(currency);
-  const displayDigits = fractionDigits ?? decimals;
-  return new Intl.NumberFormat(resolveSafeMoneyLocale(locale), {
-    style: "currency",
-    currency,
-    minimumFractionDigits: displayDigits,
-    maximumFractionDigits: displayDigits,
+  const validCurrency = isCurrencyCode(currency);
+  const decimals = validCurrency ? currencyDecimals(currency) : 2;
+  const max =
+    options.maximumFractionDigits ?? Math.max(decimals, options.minimumFractionDigits ?? decimals);
+  const min = options.minimumFractionDigits ?? Math.min(decimals, max);
+  return new Intl.NumberFormat(resolveSafeMoneyLocale(options.locale), {
+    ...(validCurrency && { style: "currency", currency }),
+    minimumFractionDigits: min,
+    maximumFractionDigits: max,
+    ...(options.signDisplay && { signDisplay: options.signDisplay }),
+    ...(options.notation && { notation: options.notation }),
   }).format(amountMinor / 10 ** decimals);
 }

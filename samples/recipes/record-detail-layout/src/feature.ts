@@ -139,9 +139,9 @@ export function createOrderDeskFeature(): FeatureDefinition {
       schema: rowIdSchema,
       handler: async () => ({
         rows: [
-          { sku: "KB-100", description: "Mechanical keyboard", quantity: 1, unitPrice: 148 },
-          { sku: "MS-220", description: "Wireless mouse", quantity: 2, unitPrice: 45 },
-          { sku: "PAD-01", description: "Desk mat", quantity: 1, unitPrice: 22 },
+          { sku: "KB-100", description: "Mechanical keyboard", quantity: 1, unitPrice: 14800 },
+          { sku: "MS-220", description: "Wireless mouse", quantity: 2, unitPrice: 4500 },
+          { sku: "PAD-01", description: "Desk mat", quantity: 1, unitPrice: 2200 },
         ],
       }),
       access: accessRoles,
@@ -152,8 +152,8 @@ export function createOrderDeskFeature(): FeatureDefinition {
       schema: rowIdSchema,
       handler: async () => ({
         rows: [
-          { paidAt: "2026-08-21", amount: 936, method: "card", status: "settled" },
-          { paidAt: "2026-08-25", amount: 312, method: "invoice", status: "pending" },
+          { paidAt: "2026-08-21", amount: 93600, method: "card", status: "settled" },
+          { paidAt: "2026-08-25", amount: 31200, method: "invoice", status: "pending" },
         ],
       }),
       access: accessRoles,

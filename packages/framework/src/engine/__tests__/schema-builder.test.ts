@@ -278,7 +278,18 @@ describe("buildInsertSchema", () => {
     });
     const schema = buildInsertSchema(entity);
     expect(schema.safeParse({ price: { amount: 1250, currency: "EUR" } }).success).toBe(true);
-    expect(schema.safeParse({ price: { amount: 99.99, currency: "USD" } }).success).toBe(true);
+    expect(schema.safeParse({ price: { amount: 9999, currency: "USD" } }).success).toBe(true);
+  });
+
+  test("money field rejects a fractional amount, amounts are integer minor units", () => {
+    const entity = createEntity({
+      table: "Test",
+      fields: { price: createMoneyField({ required: true }) },
+      defaultCurrency: "EUR",
+    });
+    const schema = buildInsertSchema(entity);
+    expect(schema.safeParse({ price: { amount: 12.5, currency: "EUR" } }).success).toBe(false);
+    expect(schema.safeParse({ price: { amount: 1250, currency: "EUR" } }).success).toBe(true);
   });
 
   test("money field rejects invalid currency", () => {
@@ -735,10 +746,10 @@ describe("totalsMatch", () => {
     });
   }
 
-  test("accepts when the sum of line amounts (minor units) equals the sibling total (major units)", () => {
+  test("accepts when the sum of line amounts equals the sibling total (both minor units)", () => {
     const schema = buildInsertSchema(invoiceEntity());
     const result = schema.safeParse({
-      total: { amount: 30, currency: "EUR" },
+      total: { amount: 3000, currency: "EUR" },
       lines: [{ amount: 1000 }, { amount: 2000 }],
     });
     expect(result.success).toBe(true);
@@ -747,7 +758,7 @@ describe("totalsMatch", () => {
   test("rejects when the sum diverges from the sibling total, issue path is the embedded field name", () => {
     const schema = buildInsertSchema(invoiceEntity());
     const result = schema.safeParse({
-      total: { amount: 30, currency: "EUR" },
+      total: { amount: 3000, currency: "EUR" },
       lines: [{ amount: 1000 }, { amount: 1500 }],
     });
     expect(result.success).toBe(false);
@@ -758,17 +769,14 @@ describe("totalsMatch", () => {
 
   test("update payload omitting the embedded list is rejected (totalsMatch pair incomplete)", () => {
     const schema = buildUpdateSchema(invoiceEntity());
-    expect(schema.safeParse({ total: { amount: 30, currency: "EUR" } }).success).toBe(false);
+    expect(schema.safeParse({ total: { amount: 3000, currency: "EUR" } }).success).toBe(false);
   });
 
-  // A round total (30 EUR = 3000 minor) still passes
-  // even if the major/minor conversion is silently skipped, because 30 and
-  // 3000 both "look" plausible under either interpretation. A crooked
-  // amount catches that a round-number fixture wouldn't.
-  test("accepts a crooked total (1234.56 EUR) whose minor-unit line sum matches exactly", () => {
+  // A round total can hide a unit mix-up (3000 vs 30); a crooked amount does not.
+  test("accepts a crooked total (1234.56 EUR) whose line sum matches exactly", () => {
     const schema = buildInsertSchema(invoiceEntity());
     const result = schema.safeParse({
-      total: { amount: 1234.56, currency: "EUR" },
+      total: { amount: 123456, currency: "EUR" },
       lines: [{ amount: 100000 }, { amount: 23456 }],
     });
     expect(result.success).toBe(true);
@@ -798,7 +806,7 @@ describe("totalsMatch", () => {
   test("rejects a sibling total tagged with a currency other than the entity's default, even when the raw minor-unit amounts match", () => {
     const schema = buildInsertSchema(invoiceEntity());
     const result = schema.safeParse({
-      total: { amount: 30, currency: "USD" },
+      total: { amount: 3000, currency: "USD" },
       lines: [{ amount: 1000 }, { amount: 2000 }],
     });
     expect(result.success).toBe(false);
@@ -1006,7 +1014,7 @@ describe("embedded-list derived cell recomputation", () => {
     // Sibling total must equal the sum of the ROUNDED amounts (26.58 EUR),
     // not the sum of the raw fractional products.
     const result = schema.safeParse({
-      total: { amount: 26.58, currency: "EUR" },
+      total: { amount: 2658, currency: "EUR" },
       lines: [
         { qty: 2.5, price: 923 },
         { qty: 3.5, price: 100 },

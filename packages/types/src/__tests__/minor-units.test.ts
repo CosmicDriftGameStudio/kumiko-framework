@@ -1,5 +1,23 @@
 import { describe, expect, test } from "bun:test";
-import { allocateMinorUnits } from "../minor-units.ts";
+import { allocateMinorUnits, currencyDecimals, toMajorUnits, toMinorUnits } from "../minor-units.ts";
+
+describe("currency-aware conversion", () => {
+  test("toMinorUnits scales by the currency decimals", () => {
+    expect(toMinorUnits(12.5, "EUR")).toBe(1250);
+    expect(toMinorUnits(1200, "JPY")).toBe(1200);
+    expect(toMinorUnits(1.234, "BHD")).toBe(1234);
+  });
+  test("toMajorUnits scales by the currency decimals", () => {
+    expect(toMajorUnits(1250, "EUR")).toBe(12.5);
+    expect(toMajorUnits(1200, "JPY")).toBe(1200);
+    expect(toMajorUnits(1234, "BHD")).toBe(1.234);
+  });
+  test("currencyDecimals", () => {
+    expect(currencyDecimals("EUR")).toBe(2);
+    expect(currencyDecimals("JPY")).toBe(0);
+    expect(currencyDecimals("BHD")).toBe(3);
+  });
+});
 
 describe("allocateMinorUnits", () => {
   test("splits into whole minor units that sum to the total", () => {

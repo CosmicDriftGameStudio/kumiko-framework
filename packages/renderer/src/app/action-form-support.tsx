@@ -187,7 +187,7 @@ function formatTypedFact(
   locale: string,
 ): string | undefined {
   if (type === "money" && isMoneyValue(entry)) {
-    return formatMoneyValue(entry, locale);
+    return formatMoneyValue(entry, { locale });
   }
   if ((type === "date" || type === "timestamp") && typeof entry === "string") {
     return applyFormatSpec({ format: type, locale }, entry);

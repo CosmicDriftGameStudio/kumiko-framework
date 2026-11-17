@@ -65,7 +65,7 @@ describe("RenderList — column-renderer registry", () => {
       <RenderList
         screen={screenWithFmt}
         entity={taskEntity}
-        rows={[{ id: "r1", title: "Alpha", color: "42" }]}
+        rows={[{ id: "r1", title: "Alpha", color: "4200" }]}
         featureName="tasks"
       />,
     );

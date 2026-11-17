@@ -16,6 +16,7 @@ const entity = {
     price: { type: "money" },
     seats: { type: "number" },
     suggestions: { type: "jsonb" },
+    priceSuggestions: { type: "jsonb" },
   },
 } as unknown as EntityDefinition;
 
@@ -29,6 +30,7 @@ const SCREEN: EntityEditScreenDefinition = {
         title: "Offer",
         fields: [
           { field: "suggestions", visible: false },
+          { field: "priceSuggestions", visible: false },
           {
             field: "note",
             aiAssist: {
@@ -41,7 +43,7 @@ const SCREEN: EntityEditScreenDefinition = {
               prompt: { param: "instruction", placeholder: "Tell the AI" },
             },
           },
-          { field: "price", valueChips: { from: "suggestions" } },
+          { field: "price", valueChips: { from: "priceSuggestions" } },
           { field: "seats", suffix: "seats", valueChips: { from: "suggestions" } },
         ],
       },
@@ -57,7 +59,7 @@ function renderOffer(query: MockQueryHandler | undefined) {
         screen={SCREEN}
         entity={entity}
         featureName="demo"
-        initial={{ note: "hi there", price: null, seats: null, suggestions: [3, 5] }}
+        initial={{ note: "hi there", price: null, seats: null, suggestions: [3, 5], priceSuggestions: [300, 500] }}
         writeCommand="offer:create"
       />
     </DispatcherProvider>,
@@ -148,7 +150,7 @@ describe("valueChips", () => {
       expect(screen.getByTestId("field-seats").querySelector("input")?.value).toBe("5"),
     );
 
-    await user.click(screen.getByTestId("field-value-chip-price-3"));
+    await user.click(screen.getByTestId("field-value-chip-price-300"));
     await waitFor(() =>
       expect(screen.getByTestId("field-price").querySelector("input")?.value).toMatch(/3/),
     );
@@ -161,16 +163,16 @@ describe("valueChips", () => {
 
   test("chip text follows the field type and the chip equal to the value is pressed with a check", async () => {
     renderOffer(undefined);
-    const priceChip = screen.getByTestId("field-value-chip-price-3");
+    const priceChip = screen.getByTestId("field-value-chip-price-300");
     expect(priceChip.textContent).toMatch(/3/);
     expect(priceChip.textContent).toMatch(/\$|€|USD|EUR/);
     expect(priceChip.getAttribute("aria-pressed")).toBe("false");
 
     await userEvent.setup().click(priceChip);
-    const pressedChip = () => screen.getByTestId("field-value-chip-price-3");
+    const pressedChip = () => screen.getByTestId("field-value-chip-price-300");
     await waitFor(() => expect(pressedChip().getAttribute("aria-pressed")).toBe("true"));
     expect(pressedChip().textContent).toContain("✓");
-    expect(screen.getByTestId("field-value-chip-price-5").getAttribute("aria-pressed")).toBe(
+    expect(screen.getByTestId("field-value-chip-price-500").getAttribute("aria-pressed")).toBe(
       "false",
     );
   });

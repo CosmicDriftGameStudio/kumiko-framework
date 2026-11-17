@@ -249,8 +249,8 @@ export type ActionFormLoad = {
 };
 
 /** How a preview value or success fact is formatted, by the same formatters a list cell uses.
- *  `number`: a number. `money`: a money object `{ amount, currency }` with `amount` in major units
- *  (12.5 is 12.50 EUR), not minor units. `date` and `timestamp`: an ISO date or timestamp string.
+ *  `number`: a number. `money`: a money object `{ amount, currency }` with `amount` in minor units
+ *  (1250 is 12.50 EUR). `date` and `timestamp`: an ISO date or timestamp string.
  *  `text` (default) shows the value as it is. */
 export type ActionFormValueType = "text" | "number" | "money" | "date" | "timestamp";
 

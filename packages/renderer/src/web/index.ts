@@ -235,7 +235,7 @@ export {
   ScreenWidthProvider,
 } from "./primitives/index.tsx";
 export { PageSection, Stack } from "./primitives/layout.tsx";
-export { formatMoney } from "./primitives/money-input.tsx";
+export { type FormatMoneyOptions, formatMoney } from "./primitives/money-input.tsx";
 export type { ToastOptions, ToastProviderProps, ToastVariant } from "./primitives/toast.tsx";
 export { ToastProvider, useToast } from "./primitives/toast.tsx";
 export { useIsNarrowViewport, useIsViewportBelow } from "./primitives/use-narrow-viewport.ts";

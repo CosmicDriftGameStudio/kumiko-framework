@@ -5,7 +5,6 @@ import type {
 } from "@cosmicdrift/kumiko-types/fields";
 import { isFileHandle } from "@cosmicdrift/kumiko-types/identifiers";
 import * as z from "zod";
-import { moneyPayloadToMinorUnits } from "../db/money.ts";
 import { isValidIanaTimeZone } from "../time/index.ts";
 import { assertUnreachable } from "../utils/index.ts";
 import { withDerivedCells } from "./embedded-derived.ts";
@@ -222,7 +221,7 @@ function moneyFieldToZod(currencies: readonly string[]): z.ZodTypeAny {
   const [first, ...rest] = currencies;
   if (!first) throw new Error("No currencies configured");
   return z.object({
-    amount: z.number(),
+    amount: z.number().int().safe(),
     currency: z.enum([first, ...rest]),
   });
 }
@@ -421,7 +420,11 @@ function applyTotalsMatchRefinements(
         // Not an array -> a different refinement already rejects the shape;
         // this check isn't the right place to report it.
         if (!Array.isArray(rawRows)) continue;
-        const siblingMinor = moneyPayloadToMinorUnits(siblingRaw);
+        const siblingAmount =
+          typeof siblingRaw === "object" && siblingRaw !== null
+            ? Reflect.get(siblingRaw, "amount")
+            : undefined;
+        const siblingMinor = typeof siblingAmount === "number" ? siblingAmount : undefined;
         if (siblingMinor === undefined) continue;
         const siblingCurrency =
           typeof siblingRaw === "object" && siblingRaw !== null && "currency" in siblingRaw

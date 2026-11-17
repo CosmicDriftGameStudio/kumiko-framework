@@ -49,8 +49,8 @@ describe("flattenCompoundTypes — Pipeline", () => {
     expect(flat["label"]).toBe("ACME");
     expect((flat["pickupUtc"] as Temporal.Instant).toString()).toBe("2026-04-15T09:00:00Z");
     expect(flat["pickupTz"]).toBe("Europe/Lisbon");
-    // flattenMoney converts major units (API) → minor units (DB, ×100).
-    expect(flat["buyingPrice"]).toBe(4_500_000);
+    // flattenMoney passes the minor-unit amount through to the DB column.
+    expect(flat["buyingPrice"]).toBe(45_000);
     expect(flat["buyingPriceCurrency"]).toBe("EUR");
   });
 
@@ -76,7 +76,7 @@ describe("rehydrateCompoundTypes — Pipeline", () => {
         label: "ACME",
         pickupUtc: "2026-04-15T09:00:00Z",
         pickupTz: "Europe/Lisbon",
-        buyingPrice: 4_500_000,
+        buyingPrice: 45_000,
         buyingPriceCurrency: "EUR",
       },
       mixedEntity,
@@ -84,13 +84,8 @@ describe("rehydrateCompoundTypes — Pipeline", () => {
     expect(out).toEqual({
       label: "ACME",
       pickup: { at: "2026-04-15T10:00:00", tz: "Europe/Lisbon", utc: "2026-04-15T09:00:00Z" },
-      // rehydrateMoney converts minor units (DB) → major units (API, ÷100).
-      buyingPrice: {
-        amount: 45_000,
-        currency: "EUR",
-        amountScaled: 4_500_000,
-        amountMinor: 4_500_000,
-      },
+      // rehydrateMoney returns the minor-unit amount unchanged.
+      buyingPrice: { amount: 45_000, currency: "EUR" },
     });
   });
 
@@ -103,12 +98,7 @@ describe("rehydrateCompoundTypes — Pipeline", () => {
     const round = rehydrateCompoundTypes(flattenCompoundTypes(original, mixedEntity), mixedEntity);
     // utc is added to pickup when reading; it was not set during insertion
     expect((round["pickup"] as { utc: string }).utc).toBe("2026-04-15T09:00:00Z");
-    expect(round["buyingPrice"]).toEqual({
-      amount: 100,
-      currency: "EUR",
-      amountScaled: 10_000,
-      amountMinor: 10_000,
-    });
+    expect(round["buyingPrice"]).toEqual({ amount: 100, currency: "EUR" });
     expect(round["label"]).toBe("ACME");
   });
 

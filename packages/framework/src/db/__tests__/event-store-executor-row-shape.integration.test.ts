@@ -144,7 +144,7 @@ describe("executor.detail()/list() row shape", () => {
         qty: 3,
         rate: 1.25,
         big: 9,
-        price: { amount: 1.5, currency: "EUR" },
+        price: { amount: 150, currency: "EUR" },
         day: Temporal.PlainDate.from("2026-01-02"),
         at: Temporal.Instant.from("2026-01-02T03:04:05Z"),
         seen: { at: "2026-01-02T03:04:05", tz: "Europe/Berlin" },
@@ -214,12 +214,7 @@ describe("executor.detail()/list() row shape", () => {
 
   test("money and locatedTimestamp are one object key; the column pair does not leak", async () => {
     const row = await createRow();
-    expect(row.price).toEqual({
-      amount: 1.5,
-      currency: "EUR",
-      amountScaled: 150,
-      amountMinor: 150,
-    });
+    expect(row.price).toEqual({ amount: 150, currency: "EUR" });
     expect(row.seen).toEqual({
       at: "2026-01-02T03:04:05",
       tz: "Europe/Berlin",

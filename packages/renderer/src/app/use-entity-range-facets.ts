@@ -74,7 +74,7 @@ function rangeFiltersOf(
       const typed = boundOf(urlFilters, spec.field, bound);
       const amount = Number(typed);
       if (typed === "" || !Number.isFinite(amount)) return [];
-      const value = spec.money ? toMinorUnits(amount) : amount;
+      const value = spec.money ? toMinorUnits(amount, spec.unit ?? "EUR") : amount;
       return [{ field: spec.field, op: bound === "min" ? "gte" : "lte", value }];
     }),
   );

@@ -5,7 +5,7 @@ import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { isOneOf, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { rendererWarn } from "../../dev-console.ts";
 import { serverNowMs } from "../../server-clock.ts";
-import { formatMoneyValue, isCurrencyCode } from "./money.ts";
+import { formatMoney, isCurrencyCode } from "./money.ts";
 import { formatRelativeTime } from "./relative-time.ts";
 
 export const EMPTY_VALUE_PLACEHOLDER = "—";
@@ -172,8 +172,8 @@ export { type HtmlValue, html, RawHtml, raw } from "./html-template.ts";
 export {
   currencyDecimals,
   formatMoney,
+  type FormatMoneyOptions,
   formatMoneyValue,
-  moneyAmountToMinor,
   resolveSafeMoneyLocale,
 } from "./money.ts";
 export { telHref } from "./phone.ts";
@@ -294,7 +294,10 @@ function formatCurrencyCell(spec: CellFormatSpec, value: unknown): string {
   if (currency === undefined || !isCurrencyCode(currency) || !Number.isFinite(amount)) {
     return String(value);
   }
-  return formatMoneyValue({ amount, currency: currency.toUpperCase() }, stringSpec(spec, "locale"));
+  return formatMoney(amount, currency.toUpperCase(), {
+    locale: stringSpec(spec, "locale"),
+    ...fractionDigitsSpec(spec),
+  });
 }
 
 function formatMoneyCell(spec: CellFormatSpec, value: unknown): string {
@@ -308,7 +311,10 @@ function formatMoneyCell(spec: CellFormatSpec, value: unknown): string {
   ) {
     return typeof value === "string" || typeof value === "number" ? String(value) : "";
   }
-  return formatMoneyValue({ amount, currency: currency.toUpperCase() }, stringSpec(spec, "locale"));
+  return formatMoney(amount, currency.toUpperCase(), {
+    locale: stringSpec(spec, "locale"),
+    ...fractionDigitsSpec(spec),
+  });
 }
 
 function formatNumericCell(spec: CellFormatSpec, value: unknown): string {

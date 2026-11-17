@@ -638,11 +638,11 @@ describe("MailEditor", () => {
     await openPreview();
 
     expect((await screen.findByTestId("mail-sample-total")).textContent).toContain(
-      formatMoney(128450, "EUR", "de"),
+      formatMoney(128450, "EUR", { locale: "de" }),
     );
     await waitFor(() =>
       expect(screen.getByTestId("mail-sample-fee").textContent).toContain(
-        formatMoney(500, "CHF", "de"),
+        formatMoney(500, "CHF", { locale: "de" }),
       ),
     );
     expect(screen.getByTestId("mail-sample-dueDate").textContent).toContain("15. Januar 2026");

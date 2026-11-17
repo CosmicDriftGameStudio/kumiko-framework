@@ -69,7 +69,7 @@ const TITLES = ["Train", "Hotel", "Paper", "Laptop", "Licence", "Taxi", "Lunch",
 const STATUS_COUNTS = { open: 12, approved: 7, paid: 9 } as const;
 const CATEGORIES = ["travel", "office", "software"] as const;
 
-/** 28 expenses; amount i×10.50 EUR so every sum is exact and distinct. */
+/** 28 expenses; amount i×10.50 EUR (minor units: i×1050) so every sum is exact and distinct. */
 export const EXPENSE_ROWS = Object.entries(STATUS_COUNTS).flatMap(([status, count], statusIndex) =>
   Array.from({ length: count }, (_, index) => {
     const n = statusIndex * 100 + index + 1;
@@ -78,14 +78,14 @@ export const EXPENSE_ROWS = Object.entries(STATUS_COUNTS).flatMap(([status, coun
       title: `${TITLES[n % TITLES.length]} ${String(n).padStart(3, "0")}`,
       status,
       category: CATEGORIES[n % CATEGORIES.length],
-      amount: { amount: (index + 1) * 10.5, currency: "EUR" },
+      amount: { amount: (index + 1) * 1050, currency: "EUR" },
     };
   }),
 );
 
-/** Sum in EUR over the rows the predicate keeps; mirrors what the server answers. */
+/** Sum in EUR (major units) over the rows the predicate keeps; mirrors what the server answers. */
 export function expenseSum(keep: (row: (typeof EXPENSE_ROWS)[number]) => boolean): number {
-  return EXPENSE_ROWS.filter(keep).reduce((sum, row) => sum + row.amount.amount, 0);
+  return EXPENSE_ROWS.filter(keep).reduce((sum, row) => sum + row.amount.amount, 0) / 100;
 }
 
 export const expenseTranslations = {

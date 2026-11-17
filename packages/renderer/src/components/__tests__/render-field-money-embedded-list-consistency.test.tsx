@@ -1,20 +1,16 @@
-// One form, two money contracts. A top-level money
-// field's write payload is `{amount, currency}` in MAJOR units
-// (render-field.tsx's moneyPayload) while an embedded-list row's money
-// sub-field is a bare number in MINOR units (embedded-list-field.tsx passes
-// the widget's minor-unit value straight through — currency lives on the
-// head aggregate, not the row). Both are correct in isolation; the risk is
-// a consumer that reads the combined payload and compares the two amounts
-// without converting units first (exactly the reported incident:
-// `linesSum:10000` vs `netTotal:100`).
+// One form, one money unit. A top-level money field's write payload is
+// `{amount, currency}` and an embedded-list row's money sub-field is a bare
+// number; both carry MINOR units (render-field.tsx's moneyPayload and
+// embedded-list-field.tsx pass the widget's minor-unit value straight
+// through; the currency lives on the head aggregate, not the row), so
+// totalsMatch can compare them as plain integers.
 //
-// This test drives BOTH real conversion paths — RenderField's moneyPayload
-// for the top-level field, EmbeddedListField's handleCellChange for the
-// list rows — with a crooked amount (not a round number, which can hide a
-// factor-of-100 bug by coincidence), assembles the resulting wire payload
-// exactly like a real form submission would, and validates it against the
-// real server schema (buildInsertSchema + EmbeddedFieldDef.totalsMatch). No
-// hand-built wire-form fixture stands in for either conversion function.
+// This test drives BOTH real paths — RenderField's moneyPayload for the
+// top-level field, EmbeddedListField's handleCellChange for the list rows —
+// with a crooked amount, assembles the resulting wire payload exactly like a
+// real form submission would, and validates it against the real server schema
+// (buildInsertSchema + EmbeddedFieldDef.totalsMatch). No hand-built wire-form
+// fixture stands in for either path.
 
 import { describe, expect, test } from "bun:test";
 import {
@@ -179,10 +175,9 @@ describe("RenderField money contract consistency across top-level + embedded-lis
     expect(lastLinesPayload).toEqual([{ amount: 100_000 }, { amount: 23_456 }]);
 
     // Top-level total: the widget (MoneyInput) emits minor units on blur;
-    // RenderField's moneyPayload converts that to the wire's major-unit
-    // object.
+    // RenderField's moneyPayload wraps it unchanged into the wire object.
     emitMoneyChange(123_456); // 1234.56 EUR, minor units
-    expect(lastTotalPayload).toEqual({ amount: 1234.56, currency: "EUR" });
+    expect(lastTotalPayload).toEqual({ amount: 123_456, currency: "EUR" });
 
     const result = buildInsertSchema(entity).safeParse({
       total: lastTotalPayload,
@@ -198,7 +193,7 @@ describe("RenderField money contract consistency across top-level + embedded-lis
     expect(lastLinesPayload).toEqual([{ amount: 100_000 }]);
 
     emitMoneyChange(50_000); // user enters 500.00 EUR — doesn't match the line
-    expect(lastTotalPayload).toEqual({ amount: 500, currency: "EUR" });
+    expect(lastTotalPayload).toEqual({ amount: 50_000, currency: "EUR" });
 
     const result = buildInsertSchema(entity).safeParse({
       total: lastTotalPayload,

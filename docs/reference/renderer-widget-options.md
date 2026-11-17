@@ -235,7 +235,7 @@ r.screen({
 
 **Totals row.** `totals` sends one `aggregate` query without `groupBy` over the same filters and search, kept live like the list. Money measures come back per currency and show one amount per currency. When the server caps groups or search hits, the toolbar shows a hint (`truncated`, `searchTruncated`).
 
-**Number range facet.** `facets: { amount: { display: "range" } }` on a `number`, `decimal`, `money` or `bigInt` field that is `filterable` shows from/to inputs. They land in the URL as `<screenId>.f.<field>.min` and `.max` and reach the query as `gte`/`lte` filters. Money is typed in major units and sent in minor units (×100). Groups, totals and rows all follow the range.
+**Number range facet.** `facets: { amount: { display: "range" } }` on a `number`, `decimal`, `money` or `bigInt` field that is `filterable` shows from/to inputs. They land in the URL as `<screenId>.f.<field>.min` and `.max` and reach the query as `gte`/`lte` filters. Money is typed in major units and sent in minor units, scaled per currency (10^decimals). Groups, totals and rows all follow the range.
 
 **Session storage.** Choices live in `sessionStorage` under `kumiko.list.<tenantId>.<userId>.<storeKey>`, so they last for the tab only. The marker `kumiko.list.identity` records who wrote them. They are removed when the user or tenant changes, when the identity disappears, and on logout. An app without a current user keeps them in memory only and writes nothing to `sessionStorage`.
 
@@ -317,7 +317,7 @@ preview: {
 
 - The query payload is the current value of `fields` (all form fields when unset). It runs 300 ms after the last change of a sent field and not while a required field among them is empty.
 - `facts` read numbers, strings or arrays from the result like the success box. `list.field` names an array of objects in the result; each `columns` entry shows one field of every object.
-- A fact or column takes `type` (`text` default, `number`, `money`, `date`, `timestamp`) and formats like a list cell. A fact also takes `file`: a stored file id or an array of them, shown with name, download link and PDF preview. A `money` value is an object `{ amount, currency }` with `amount` in major units (12.5 is 12.50 EUR), not minor units; `date` and `timestamp` values are ISO strings. The same `type` on a success fact formats the success box.
+- A fact or column takes `type` (`text` default, `number`, `money`, `date`, `timestamp`) and formats like a list cell. A fact also takes `file`: a stored file id or an array of them, shown with name, download link and PDF preview. A `money` value is an object `{ amount, currency }` with `amount` in minor units (1250 is 12.50 EUR); `date` and `timestamp` values are ISO strings. The same `type` on a success fact formats the success box.
 - `section` names a layout section id (fields section): the panel then renders at the end of that section instead of above the submit button. Boot rejects an id no fields section has. Without `title` the panel has no title row.
 - A failing query shows a warning in the panel and never blocks the submit. The panel shows a loading banner until the first result.
 - Let the query and the write handler call one pure function, so the preview shows what the handler will do. The boot validator rejects an unknown query, a `fields` entry that is no form field, a fact or column without a label and a preview without facts and list.

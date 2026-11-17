@@ -360,7 +360,7 @@ describe("KumikoScreen / configEdit", () => {
     const dispatcher: Dispatcher = createMockDispatcher({
       query: async () => ({
         isSuccess: true,
-        data: { "demo:config:price-limit": { value: 12.99, scope: "tenant" } },
+        data: { "demo:config:price-limit": { value: 1299, scope: "tenant" } },
       }),
       batch: batchSpy,
     });
@@ -386,7 +386,7 @@ describe("KumikoScreen / configEdit", () => {
     expect(commands).toHaveLength(1);
     expect(commands[0]).toEqual({
       type: "config:write:set",
-      payload: { key: "demo:config:price-limit", value: 15, scope: "tenant" },
+      payload: { key: "demo:config:price-limit", value: 1500, scope: "tenant" },
     });
   });
 
@@ -1103,7 +1103,7 @@ describe("KumikoScreen / configEdit empty number fields", () => {
     const dispatcher: Dispatcher = createMockDispatcher({
       query: async () => ({
         isSuccess: true,
-        data: { "demo:config:price-limit": { value: 12.99, scope: "tenant" } },
+        data: { "demo:config:price-limit": { value: 1299, scope: "tenant" } },
       }),
       batch: batchSpy,
     });

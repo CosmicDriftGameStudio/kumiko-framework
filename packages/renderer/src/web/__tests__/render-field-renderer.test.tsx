@@ -63,7 +63,7 @@ describe("RenderField — field.renderer on a readOnly head field", () => {
         })}
         entity={invoiceEntity}
         featureName="invoices"
-        initial={{ title: "Alpha", status: "42" }}
+        initial={{ title: "Alpha", status: "4200" }}
         customSubmit={noopSubmit}
       />,
     );

@@ -1,5 +1,6 @@
 import { createEntityExecutor } from "@cosmicdrift/kumiko-framework/engine";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import { formatMoney } from "@cosmicdrift/kumiko-renderer/headless";
 import { z } from "zod";
 import {
   leaseEntity,
@@ -46,12 +47,12 @@ export const fileRefIdsPayloadSchema = z.object({
 export const rentAdjustPayloadSchema = z.object({
   positionId: z.uuid(),
   wirksamAb: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  einzelpreis: z.object({ amount: z.number(), currency: z.string() }).optional(),
-  neuerBetrag: z.object({ amount: z.number(), currency: z.string() }),
+  einzelpreis: z.object({ amount: z.number().int(), currency: z.string() }).optional(),
+  neuerBetrag: z.object({ amount: z.number().int(), currency: z.string() }),
   begruendung: z.string().optional(),
 });
 
-const moneySchema = z.object({ amount: z.number(), currency: z.string() });
+const moneySchema = z.object({ amount: z.number().int(), currency: z.string() });
 
 export const POSITION_KINDS = ["grundmiete", "nebenkosten", "heizkosten", "stellplatz"] as const;
 export const POSITION_MEASURES = ["monat", "quadratmeter", "stueck"] as const;
@@ -143,9 +144,7 @@ export function formatGermanDate(isoDate: string): string {
 }
 
 export function formatGermanMoney(money: z.infer<typeof moneySchema>): string {
-  return new Intl.NumberFormat("de-DE", { style: "currency", currency: money.currency }).format(
-    money.amount,
-  );
+  return formatMoney(money.amount, money.currency, { locale: "de-DE" });
 }
 
 export function dayBefore(isoDate: string): string {
