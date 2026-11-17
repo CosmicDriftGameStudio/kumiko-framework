@@ -24,6 +24,7 @@ type: breaking
 title: admin-shell workspaces collect navs; includeDocumentDesigner removed
 detail: The tenant and platform workspaces of admin-shell now use `collectAdminArea`, so they also list event consumers, export jobs, feature toggles, the cap list and the document templates of mounted features. A new platform nav `admin-shell:nav:users` opens `user:screen:user-list` for SystemAdmin. Apps that keep `registerWorkspaces: false` set `collectAdminArea` on their own workspaces and drop the hand-written nav lists. The option `includeDocumentDesigner` is removed because the document-designer navs carry their area.
 migration: Remove `includeDocumentDesigner` from `createAdminShellFeature`. In app workspaces replace the lists of standard nav QNs with `collectAdminArea: "tenant"` or `"platform"`, and delete own users and system-check navs in favour of `admin-shell:nav:users` and `createReadinessFeature({ nav: { adminArea: "platform" } })`.
+affects: createAdminShellFeature, includeDocumentDesigner, registerWorkspaces, admin-shell:nav
 -->
 
 delivery and sessions let the app pick the admin area of their log navs.

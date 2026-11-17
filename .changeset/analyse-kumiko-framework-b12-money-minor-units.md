@@ -13,4 +13,5 @@ type: breaking
 title: Money amounts are integers in minor units everywhere
 detail: Top-level money fields used major units on write and read while embedded rows, aggregates and template variables used minor units, and the database scaled by a flat 100 regardless of currency. Now every path carries the same integer in the currency's minor unit; only input widgets and formatters convert.
 migration: Multiply every top-level money amount you send or seed by 10^decimals of its currency (×100 for EUR). Replace reads of `amountScaled`/`amountMinor` with `amount`. Remove own ×100/÷100 wire helpers. Pass the currency to `toMinorUnits(amount, currency)` and `toMajorUnits(amount, currency)`. Replace `moneyAmountToMinor(x, c)` with `toMinorUnits(x, c)` from `@cosmicdrift/kumiko-types`.
+affects: all
 -->

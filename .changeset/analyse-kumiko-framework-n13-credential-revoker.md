@@ -12,7 +12,8 @@ feature: auth-foundation
 type: breaking
 title: credentialRevoker extension point replaces the session mass-revoke callbacks
 detail: New `EXT_CREDENTIAL_REVOKER`, `CredentialRevoker`, `isCredentialRevoker` and `revokeAllUserCredentials(registry, runner, userId, { keepSessionId })`. sessions and personal-access-tokens register as providers; a password change (user feature postSave hook, in transaction) and every MFA state change call all providers in the triggering transaction, so a failing revoke rolls the change back. `SessionStore` loses `massRevoker` and `revokeAllOthers`; removed export: `SessionMassRevoker`.
-migration: Drop `massRevoker` and `revokeAllOthers` from custom sessionStore providers. A custom credential store registers `r.useExtension(EXT_CREDENTIAL_REVOKER, "<key>", { revokeAllForUser })`.
+migration: Drop `massRevoker` and `revokeAllOthers` from custom sessionStore providers. A custom credential store registers `r.applyExtension({ name: EXT_CREDENTIAL_REVOKER, entity: "<key>", revokeAllForUser })`.
+affects: massRevoker, revokeAllOthers, SessionMassRevoker
 -->
 
 <!-- kumiko-changes
@@ -21,6 +22,7 @@ type: breaking
 title: autoRevokeOnPasswordChange option and late binding removed
 detail: Sessions are revoked on password change through the auth-foundation credentialRevoker, synchronously in the user write's transaction. Removed: the `autoRevokeOnPasswordChange` option, `bindAutoRevokeFromFeature`, `BindAutoRevokeOnPasswordChange`, `SessionMassRevoker`, the `sessionMassRevoker` and `sessionRevokeAllOthers` fields of `createSessionCallbacks()`, and `asMassRevoker` from `sessionCallbacksFromLateBound`.
 migration: Remove `autoRevokeOnPasswordChange` from `createSessionsFeature(...)` and every `bindAutoRevokeFromFeature(...)`/`asMassRevoker()` call; nothing replaces them.
+affects: autoRevokeOnPasswordChange, bindAutoRevokeFromFeature, BindAutoRevokeOnPasswordChange, SessionMassRevoker, sessionMassRevoker, sessionRevokeAllOthers, asMassRevoker
 -->
 
 <!-- kumiko-changes
@@ -29,6 +31,7 @@ type: breaking
 title: PAT auto-revoke option and late binding removed
 detail: Access tokens are revoked on password change and MFA state change through the auth-foundation credentialRevoker. Removed: the `autoRevokeOnPasswordChange` option, `bindPatAutoRevokeOnPasswordChangeFromFeature`, `BindPatAutoRevokeOnPasswordChange`. `revokeAllPatTokensForUser` stays.
 migration: Remove the option and the bind call; nothing replaces them.
+affects: autoRevokeOnPasswordChange, bindPatAutoRevokeOnPasswordChangeFromFeature, BindPatAutoRevokeOnPasswordChange
 -->
 
 <!-- kumiko-changes
@@ -37,6 +40,7 @@ type: breaking
 title: MFA revoke bindings removed; regenerate-recovery also revokes access tokens
 detail: enable-confirm, enable-confirm-preauth, disable and regenerate-recovery revoke every other session and all access tokens through the auth-foundation credentialRevoker in their own transaction. Removed: `bindMfaRevokeAllOtherSessionsFromFeature`, `bindRevokeAllPatTokensFromFeature`, `BindMfaRevokeAllOtherSessions`, `BindRevokeAllPatTokens`.
 migration: Remove the bind calls; mount auth-foundation with sessions and personal-access-tokens as before.
+affects: bindMfaRevokeAllOtherSessionsFromFeature, bindRevokeAllPatTokensFromFeature, BindMfaRevokeAllOtherSessions, BindRevokeAllPatTokens
 -->
 
 <!-- kumiko-changes
@@ -45,6 +49,7 @@ type: breaking
 title: late-bound slot helper removed
 detail: Removed exports: `createLateBoundSlot`, `LateBoundSlot`; their only users were the removed revoke bindings.
 migration: None for apps.
+affects: createLateBoundSlot, LateBoundSlot
 -->
 
 <!-- kumiko-changes
@@ -53,4 +58,5 @@ type: breaking
 title: SessionMassRevoker type removed
 detail: Removed export: `SessionMassRevoker` from the api entry point; mass revocation runs through the auth-foundation credentialRevoker.
 migration: Use `CredentialRevoker` from auth-foundation.
+affects: SessionMassRevoker
 -->

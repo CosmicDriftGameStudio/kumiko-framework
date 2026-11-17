@@ -18,4 +18,5 @@ type: breaking
 title: Overrides of Kumiko packages fail the managed-files check
 detail: `kumiko check-managed` reports every `@cosmicdrift/kumiko-*` or `@cosmicdriftgamestudio/kumiko-*` entry in `overrides` or `resolutions`. Published Kumiko packages pin each other exactly, so such an override only hides a version drift.
 migration: Delete the Kumiko entries from `overrides` and `resolutions` and keep the exact pins in `dependencies`. Also delete overrides for html-to-text, nodemailer, sharp and happy-dom, which the framework now brings in patched versions.
+affects: overrides, resolutions
 -->

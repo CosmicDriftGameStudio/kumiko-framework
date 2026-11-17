@@ -10,4 +10,5 @@ type: breaking
 title: Ledger reversal and schedule links moved out of reference
 detail: Reversals set reversesTransactionId (unique per tenant), confirmed schedule periods set scheduleId and period, and the Storno copies scheduleId, period and subject from its original. create-transaction accepts an optional period but can no longer forge a reversal or a booked period through reference. Reversing a Storno is rejected with transaction_is_reversal. scheduleReference was removed; findReversedIds and LedgerTxRow use the new columns.
 migration: Replace scheduleReference matching with LedgerTxRow.scheduleId/period and read reversals via reversesTransactionId. Load schedule bookings with ledger:query:schedule-actuals instead of paging the transaction list. Existing rows carry no links; there is no upcaster.
+affects: ledger, scheduleReference, LedgerTxRow, findReversedIds
 -->
