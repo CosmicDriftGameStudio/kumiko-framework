@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { formatFileHandle } from "@cosmicdrift/kumiko-types/identifiers";
 import { createEventStoreExecutor } from "../db/event-store-executor.ts";
 import type { TenantDb } from "../db/tenant-db.ts";
@@ -81,6 +82,7 @@ export type CreatedFileRef = {
   readonly mimeType: string;
   readonly size: number;
   readonly storageKey: string;
+  readonly contentSha256: string;
 };
 
 export type UploadedFileBytes = {
@@ -88,6 +90,7 @@ export type UploadedFileBytes = {
   readonly fileName: string;
   readonly mimeType: string;
   readonly size: number;
+  readonly contentSha256: string;
   readonly entityType?: string | undefined;
   readonly entityId?: string | undefined;
   readonly fieldName?: string | undefined;
@@ -230,6 +233,7 @@ export async function writeAcceptedFileBytes(
       fileName,
       mimeType,
       size: data.byteLength,
+      contentSha256: createHash("sha256").update(data).digest("hex"),
       entityType: actionForm ?? entityType,
       entityId,
       fieldName,
@@ -252,6 +256,7 @@ export async function createFileRefRow(
       fileName: uploaded.fileName,
       mimeType: uploaded.mimeType,
       size: uploaded.size,
+      contentSha256: uploaded.contentSha256,
       entityType: uploaded.entityType ?? null,
       entityId: uploaded.entityId ?? null,
       fieldName: uploaded.fieldName ?? null,
@@ -276,6 +281,7 @@ export async function createFileRefRow(
       mimeType: uploaded.mimeType,
       size: uploaded.size,
       storageKey: uploaded.storageKey,
+      contentSha256: uploaded.contentSha256,
     },
   };
 }

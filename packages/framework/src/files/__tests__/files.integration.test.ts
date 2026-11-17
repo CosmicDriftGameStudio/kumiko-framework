@@ -1,4 +1,5 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { createHash } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -553,6 +554,18 @@ describe("file upload flow via API", () => {
     0x0a, // PNG header
     ...Array(100).fill(0),
   ]);
+
+  test("the upload response and the stored row carry the SHA-256 of the bytes", async () => {
+    const bytes = new TextEncoder().encode("sha256 probe, not a real document");
+    const res = await uploadFile(adminUser, "probe.txt", bytes, "text/plain");
+
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    const expected = createHash("sha256").update(bytes).digest("hex");
+    expect(body.contentSha256).toBe(expected);
+    const [row] = await selectMany(testDb.db, fileRefsTable, { id: body.id });
+    expect(row?.["contentSha256"]).toBe(expected);
+  });
 
   test("an octet-stream XML upload is stored as application/xml", async () => {
     const res = await uploadFile(

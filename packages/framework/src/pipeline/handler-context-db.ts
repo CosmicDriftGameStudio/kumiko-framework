@@ -15,6 +15,7 @@ import { mayOverrideTenant } from "../engine/cross-tenant.ts";
 import type { TenantId } from "../engine/types/identifiers.ts";
 
 import { AccessDeniedError, FrameworkReasons } from "../errors/index.ts";
+import { createFileDownloadLinks } from "../files/file-download-link.ts";
 import { createTenantFileContext } from "../files/file-handle.ts";
 import { attachOutsideTransaction } from "./attach-outside-transaction.ts";
 import {
@@ -211,5 +212,18 @@ export function buildFileFragment(scope: HandlerContextScope, db: TenantDb | und
     files && db
       ? createDerivativesContext({ files, registry, db, tenantId: user.tenantId })
       : context.derivatives;
-  return { ...(files && { files }), ...(derivatives && { derivatives }) };
+  const downloadLinkSigner = context._fileDownloadLinkSigner;
+  const fileDownloadLinks =
+    files && downloadLinkSigner
+      ? createFileDownloadLinks({
+          signer: downloadLinkSigner,
+          tenantId: user.tenantId,
+          now: () => context.clock?.now() ?? Temporal.Now.instant(),
+        })
+      : context.fileDownloadLinks;
+  return {
+    ...(files && { files }),
+    ...(derivatives && { derivatives }),
+    ...(fileDownloadLinks && { fileDownloadLinks }),
+  };
 }

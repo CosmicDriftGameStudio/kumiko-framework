@@ -13,7 +13,11 @@ import type {
 import type { DerivativesContext } from "./derivatives-types.ts";
 import type { EventMetadata, WriteOrigin } from "./event-store-types.ts";
 import type { KumikoEventTypeMap } from "./event-type-map.ts";
-import type { FileContext } from "./file-handle-types.ts";
+import type {
+  FileContext,
+  FileDownloadLinks,
+  FileDownloadLinkSigner,
+} from "./file-handle-types.ts";
 import type { FileProviderResolver } from "./file-provider-resolver-types.ts";
 import type { GeoTzProvider } from "./geo-tz.ts";
 import type {
@@ -581,6 +585,9 @@ type SharedContextFields = {
   readonly _visitorKeyDigest?: (value: string) => string;
   readonly searchAdapter?: SearchAdapter;
   readonly files?: FileContext;
+  readonly fileDownloadLinks?: FileDownloadLinks;
+  // Internal: signs download-link tokens. Set by buildServer; read by the handler-context builder and the link route.
+  readonly _fileDownloadLinkSigner?: FileDownloadLinkSigner;
   readonly derivatives?: DerivativesContext;
   readonly _fileProviderResolver?: FileProviderResolver;
   readonly notify?: NotifyFn;

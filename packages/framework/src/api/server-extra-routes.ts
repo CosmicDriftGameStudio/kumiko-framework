@@ -4,6 +4,7 @@ import type { Context, Hono } from "hono";
 import { ROLES } from "../auth/roles.ts";
 import { createSystemUser } from "../engine/system-user.ts";
 import type { Registry, SessionUser } from "../engine/types/index.ts";
+import { FILE_DOWNLOAD_LINK_ROUTE_PREFIX } from "../files/file-download-link.ts";
 
 import { createFallbackLogger } from "../logging/index.ts";
 import type { Dispatcher } from "../pipeline/dispatcher.ts";
@@ -31,6 +32,15 @@ import { tenantScopedSecrets } from "./tenant-scoped-secrets.ts";
 
 export type PublicApiRequestMatcher = (c: Context) => boolean;
 
+// The signed token is the permission. Exactly one segment after the prefix, so a deeper path such
+// as /files/:id/variant/:name with id "link" keeps its session guard.
+function isFileDownloadLinkPath(path: string): boolean {
+  return (
+    path.startsWith(FILE_DOWNLOAD_LINK_ROUTE_PREFIX) &&
+    !path.includes("/", FILE_DOWNLOAD_LINK_ROUTE_PREFIX.length)
+  );
+}
+
 // Only entry:"signature" bypasses jwtGuard (verify() authenticates
 // itself); entry:"anonymous" still needs the anonymousAccess fallthrough
 // (tenant-by-host), entry:"user" needs c.get("user") populated.
@@ -42,6 +52,7 @@ export function compilePublicApiRequestMatcher(
     .map((route) => ({ method: route.method, pattern: honoPathToRegex(route.path) }));
   return (c) =>
     PUBLIC_API_PATHS.has(c.req.path) ||
+    (c.req.method === "GET" && isFileDownloadLinkPath(c.req.path)) ||
     matchers.some((m) => m.method === c.req.method && m.pattern.test(c.req.path));
 }
 

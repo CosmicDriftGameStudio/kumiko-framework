@@ -45,7 +45,7 @@ export function resolveServerRateLimit(
   // Master for the payload-bucket HMAC: the current signing secret (the
   // keyring's signKid for rotation setups). buildServer always has one, so
   // the digest is available whenever a handler declares additionalRateLimits.
-  const digestMasterSecret = payloadDigestMasterSecret(options.jwtSecret);
+  const digestMasterSecret = signingMasterSecret(options.jwtSecret);
   const payloadDigest = createPayloadDigest(digestMasterSecret);
   const visitorKeyDigest = createVisitorKeyDigest(digestMasterSecret);
   const rateLimitResolver =
@@ -64,7 +64,7 @@ export function resolveServerRateLimit(
   };
 }
 
-function payloadDigestMasterSecret(jwtSecret: ServerOptions["jwtSecret"]): string {
+export function signingMasterSecret(jwtSecret: ServerOptions["jwtSecret"]): string {
   if (typeof jwtSecret === "string") return jwtSecret;
   const signingSecret = jwtSecret.keys[jwtSecret.signKid];
   if (signingSecret === undefined) {

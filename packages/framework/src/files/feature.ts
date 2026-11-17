@@ -7,7 +7,10 @@ import {
   MIN_UPLOAD_SWEEP_GRACE_HOURS,
   sweepOrphanedUploads,
 } from "./sweep-orphaned-uploads.ts";
-import { sweepStalePendingFileRefs } from "./sweep-stale-pending-file-refs.ts";
+import {
+  sweepStaleAnonymousUploads,
+  sweepStalePendingFileRefs,
+} from "./sweep-stale-pending-file-refs.ts";
 import { fileUploadLedgerTable } from "./upload-ledger.ts";
 
 export { fileRefEntity } from "./file-ref-entity.ts";
@@ -35,7 +38,11 @@ export type FilesFeatureOptions = {
   // soft-deletes it (abandoned forms). Off by default: an app that keeps fileRef ids without
   // binding them would lose those files. Whole hours, at least 1.
   readonly pendingUploadGraceHours?: number;
+  // Grace before a never-bound upload of an anonymous visitor is soft-deleted. Whole hours, at least 1.
+  readonly anonymousUploadGraceHours?: number;
 };
+
+export const DEFAULT_ANONYMOUS_UPLOAD_GRACE_HOURS = 24;
 
 // `fileRef` is a regular ES entity. Uploads and deletes go through the standard
 // entity executor (file-routes.ts: executor.create/delete → `fileRef.created` /
@@ -64,6 +71,9 @@ export function createFilesFeature(options: FilesFeatureOptions = {}): FeatureDe
   if (pendingUploadGraceHours !== undefined) {
     assertValidSweepGraceHours("pendingUploadGraceHours", pendingUploadGraceHours);
   }
+  const anonymousUploadGraceHours =
+    options.anonymousUploadGraceHours ?? DEFAULT_ANONYMOUS_UPLOAD_GRACE_HOURS;
+  assertValidSweepGraceHours("anonymousUploadGraceHours", anonymousUploadGraceHours);
   return defineFeature(FILES_FEATURE, (r) => {
     r.describe(
       "Exposes the `fileRef` entity from the framework core so that uploaded files — tracked in the `file_refs` table by `createFileRoutes` — participate in cross-feature hooks: `user-data-rights-defaults` automatically includes file blobs in GDPR exports and forget flows, and tenant-lifecycle cleanup deletes all refs on tenant destroy. Upload/download routes are registered by the server bootstrap when a `file-provider-*` feature is mounted; this feature carries their access/size policy via `createFilesFeature(opts?)`.",
@@ -98,6 +108,13 @@ export function createFilesFeature(options: FilesFeatureOptions = {}): FeatureDe
             log: ctx.obs.log,
           });
         }
+        // Anonymous uploads have no account behind them, so they never wait for an opt-in.
+        await sweepStaleAnonymousUploads({
+          db: ctx.db,
+          now: ctx.tz.now(),
+          graceHours: anonymousUploadGraceHours,
+          log: ctx.obs.log,
+        });
       },
     });
     return { routeOptions: options };

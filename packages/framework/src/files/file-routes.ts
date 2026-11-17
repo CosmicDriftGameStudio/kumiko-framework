@@ -1,5 +1,7 @@
+import type { FileDownloadLinkSigner } from "@cosmicdrift/kumiko-types/file-handle-types";
 import { isUuid } from "@cosmicdrift/kumiko-types/identifiers";
 import type { RateLimitResolver } from "@cosmicdrift/kumiko-types/rate-limit-types";
+import type { Clock } from "@cosmicdrift/kumiko-types/tz-context";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { WriteErrorInfo } from "@cosmicdrift/kumiko-types/write-error-info-types";
 import { type Context, Hono, type MiddlewareHandler } from "hono";
@@ -123,6 +125,9 @@ export type FileAccessGuard = (args: {
 
 export type FileRoutesOptions = {
   readonly db: DbConnection;
+  // Absent: GET /files/link/:token is not mounted.
+  readonly downloadLinkSigner?: FileDownloadLinkSigner;
+  readonly clock?: Clock;
   // Charges GET /files/meta by id count (every id costs a KMS-decrypting read) and anonymous
   // uploads by client IP. Absent: these routes are limited only by the global request limiter.
   readonly rateLimitResolver?: RateLimitResolver;
@@ -539,6 +544,53 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     return c.json({ files });
   });
 
+  async function streamFileRef(
+    fileRef: FileRef,
+    extraHeaders: Readonly<Record<string, string>> = {},
+  ): Promise<Response> {
+    const storageProvider = await options.resolveProvider(fileRef.tenantId);
+    const { prefix, body } = await readStreamWithPrefix(
+      storageProvider.readStream(fileRef.storageKey),
+      SNIFF_PREFIX_BYTE_COUNT,
+    );
+    // The stored mimeType is client-declared (file.type off the upload) and
+    // never verified against the bytes — serving it as-is would let a
+    // client label real HTML/SVG as e.g. image/png to slip active content
+    // out under a trusted-looking Content-Type. Sniff the leading bytes
+    // instead; anything that isn't a known-safe binary signature
+    // (including svg/html, which have none) goes out as application/octet-stream.
+    const contentType = resolveServedContentType(prefix, fileRef.mimeType);
+    return new Response(body, {
+      headers: {
+        "Content-Type": contentType,
+        "Content-Disposition": buildContentDispositionHeader(await resolveFileName(fileRef)),
+        "Content-Length": String(fileRef.size),
+        "X-Content-Type-Options": "nosniff",
+        ...extraHeaders,
+      },
+    });
+  }
+
+  if (options.downloadLinkSigner) {
+    const downloadLinkSigner = options.downloadLinkSigner;
+    // The issuing handler checked access; the signed, tenant-bound token is the only credential here.
+    api.get("/files/link/:token", async (c) => {
+      const link = downloadLinkSigner.verify(
+        c.req.param("token"),
+        options.clock?.now() ?? Temporal.Now.instant(),
+      );
+      if (link === undefined) return c.json({ error: "not_found" }, 404);
+      return runInRowLevelSecurityScope(tenantRowLevelSecurityScope(link.tenantId), async () => {
+        const fileRef = await loadFileForTenant(link.fileRefId, link.tenantId);
+        if (!fileRef) return c.json({ error: "not_found" }, 404);
+        return streamFileRef(fileRef, {
+          "Cache-Control": "private, no-store",
+          "Referrer-Policy": "no-referrer",
+        });
+      });
+    });
+  }
+
   // GET /files/:id — download.
   //
   // Authorization stack:
@@ -561,26 +613,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
       return c.json({ error: "not_found" }, 404);
     }
 
-    const storageProvider = await options.resolveProvider(fileRef.tenantId);
-    const { prefix, body } = await readStreamWithPrefix(
-      storageProvider.readStream(fileRef.storageKey),
-      SNIFF_PREFIX_BYTE_COUNT,
-    );
-    // The stored mimeType is client-declared (file.type off the upload) and
-    // never verified against the bytes — serving it as-is would let a
-    // client label real HTML/SVG as e.g. image/png to slip active content
-    // out under a trusted-looking Content-Type. Sniff the leading bytes
-    // instead; anything that isn't a known-safe binary signature
-    // (including svg/html, which have none) goes out as application/octet-stream.
-    const contentType = resolveServedContentType(prefix, fileRef.mimeType);
-    return new Response(body, {
-      headers: {
-        "Content-Type": contentType,
-        "Content-Disposition": buildContentDispositionHeader(await resolveFileName(fileRef)),
-        "Content-Length": String(fileRef.size),
-        "X-Content-Type-Options": "nosniff",
-      },
-    });
+    return streamFileRef(fileRef);
   });
 
   // GET /files/:id/variant/:name — a named derived version of the file.

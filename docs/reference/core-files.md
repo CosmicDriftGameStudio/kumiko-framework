@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-08-30
+verified: 2026-11-17
 evidence: "kumiko-framework#1954; framework#2461/#2475 (derivatives on user-forget); framework#2476 (tenant-destroy → fileRef forget)"
 ---
 
@@ -207,7 +207,7 @@ body limit like an entity field does. The route answers `403` before any byte is
 written when the caller may not submit the form: the screen's `access` (if set)
 and the access of its `handler` must both pass. Anonymous callers get no upload.
 
-Anonymous visitors get `401` on every upload unless the target is an entity file field with `anonymousUpload: true`, sent without `entityId` and `actionForm`: that stores a pending upload the app binds itself.
+Anonymous visitors get `401` on every upload unless the target is an entity file field with `anonymousUpload: true`, sent without `entityId` and `actionForm`: that stores a pending upload the app binds itself. A pending anonymous upload that no record bound within `anonymousUploadGraceHours` (`createFilesFeature` option, default 24) is soft-deleted by the files maintenance job; pending uploads of signed-in users are only swept when `pendingUploadGraceHours` is set.
 An unknown screen, a screen of another type, a missing or non-file field and a
 malformed QN answer `400`.
 
@@ -260,6 +260,16 @@ expiry (`SIGNED_URL_DEFAULT_EXPIRY_SECONDS`,
 trade-off, not an arbitrary default: long enough that a download reliably
 starts, short enough that a leaked URL (browser history, a screenshot, a
 shared clipboard) isn't a long-lived credential.
+
+## Download links issued by a handler
+
+A handler hands out a link with `ctx.services.fileDownloadLinks.issue(fileRefId, { expiresInSeconds? })`. It returns `{ path, expiresAt }`: `path` is `/api/files/link/<token>`, `expiresAt` an ISO instant. The default lifetime is 15 minutes, the maximum 60; a larger or non-integer value, or a `fileRefId` that is not a UUID, throws. The token is an HMAC over tenant, file and expiry, keyed from the server's signing secret (`jwtSecret`, the `signKid` key for a keyring). Rotating `signKid` invalidates open links.
+
+`GET /api/files/link/:token` streams the file without a session, so a browser can use the path directly in an `<a>` or `<img>`. There is no access guard on this route: the issuing handler is the access check and must only issue links for files it released to the caller. A malformed, tampered, expired or deleted link answers `404`, and the file is always read in the tenant the token names. Responses carry `Cache-Control: private, no-store` and `Referrer-Policy: no-referrer`. Use a link instead of returning file bytes as base64 in a handler result.
+
+## Content hash
+
+Every upload stores the hex SHA-256 of the saved bytes as `contentSha256` on the `fileRef`, and the upload response and `CreatedFileRef` carry it. Rows from before this field exist keep `null`.
 
 ## Storage tracking: counted now, enforced later
 

@@ -14,6 +14,8 @@ export const APP_CONTEXT_KEY_ROLES = {
   secrets: "service",
   kms: "service",
   files: "service",
+  fileDownloadLinks: "service",
+  _fileDownloadLinkSigner: "wiring",
   derivatives: "service",
   configResolver: "service",
   configEncryption: "service",

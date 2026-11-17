@@ -20,15 +20,28 @@ function isStalePendingUpload(row: PendingRow): boolean {
   return row.insertedById !== SYSTEM_USER_ID;
 }
 
-// Soft-deletes pending uploads whose record never came, through the fileRef executor, so the
-// soft-delete cleanup later removes their bytes like those of any deleted file.
-export async function sweepStalePendingFileRefs(args: {
+type SweepArgs = {
   readonly db: TenantDb;
   readonly now: Temporal.Instant;
   readonly graceHours: number;
   readonly log: Pick<Logger, "warn"> | undefined;
   readonly pageSize?: number;
-}): Promise<number> {
+};
+
+// Soft-deletes pending uploads whose record never came, through the fileRef executor, so the
+// soft-delete cleanup later removes their bytes like those of any deleted file.
+export function sweepStalePendingFileRefs(args: SweepArgs): Promise<number> {
+  return sweepPendingFileRefs({ ...args, anonymousOnly: false, logTag: "pending-upload-sweep" });
+}
+
+// Only uploads that carry a claim hash, i.e. those of anonymous visitors.
+export function sweepStaleAnonymousUploads(args: SweepArgs): Promise<number> {
+  return sweepPendingFileRefs({ ...args, anonymousOnly: true, logTag: "anonymous-upload-sweep" });
+}
+
+async function sweepPendingFileRefs(
+  args: SweepArgs & { readonly anonymousOnly: boolean; readonly logTag: string },
+): Promise<number> {
   const { db, now, graceHours, log } = args;
   const pageSize = args.pageSize ?? STALE_PENDING_FILE_REF_SWEEP_BATCH;
   const cutoff = now.subtract({ hours: graceHours });
@@ -45,6 +58,7 @@ export async function sweepStalePendingFileRefs(args: {
         entityType: { ne: null },
         isDeleted: false,
         insertedAt: { lt: cutoff },
+        ...(args.anonymousOnly && { claimHash: { ne: null } }),
         ...(cursor !== undefined && { id: { gt: cursor } }),
       },
       {
@@ -68,7 +82,7 @@ export async function sweepStalePendingFileRefs(args: {
         continue;
       }
       log?.warn(
-        `[pending-upload-sweep] pending fileRef ${row.id} not deleted, retried next run: ${removed.error.code}`,
+        `[${args.logTag}] pending fileRef ${row.id} not deleted, retried next run: ${removed.error.code}`,
       );
     }
   }
