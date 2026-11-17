@@ -433,12 +433,6 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "billing-foundation.plans.switch": "Zu {plan} wechseln",
   "billing-foundation.plans.switchRequiresReactivation":
     "Das Abo muss vor einem Tarifwechsel reaktiviert werden.",
-  "cap-counter:entity:cap-counter:field:capName": "Limit",
-  "cap-counter:entity:cap-counter:field:lastSoftWarnedAt": "Letzte Soft-Warnung",
-  "cap-counter:entity:cap-counter:field:periodStart": "Periodenstart",
-  "cap-counter:entity:cap-counter:field:tenantId": "Mandant",
-  "cap-counter:entity:cap-counter:field:value": "Wert",
-  "cap-counter:nav.cap-list": "Limits",
   "cap-overview.cards.empty": "Für diesen Mandanten sind keine Caps konfiguriert.",
   "cap-overview.cards.loading": "Lade Nutzungsdaten …",
   "cap-overview.cards.noneLeft": "Nichts mehr frei",
@@ -1312,7 +1306,6 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "billing-foundation:notify.contract-termination-operator-notice.label":
     "Kündigungshinweis an den Betreiber",
   "screen:branding-settings.title": "Branding",
-  "screen:cap-list.title": "Nutzungslimits",
   "screen:delivery-log.title": "Zustellprotokoll",
   "screen:download-attempt-list.title": "Download-Versuche",
   "screen:export-job-detail.title": "Export-Job",

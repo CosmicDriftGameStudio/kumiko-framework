@@ -50,6 +50,8 @@ usage: (db, tenantId) => db.fetchOne(table, { tenantId, ... }),
 
 Für ein Rolling-Window-Cap (z.B. AI-Tokens/7d) das `cap-counter`-Feature nutzen: Buchen per `ctx.dispatch.write(CapCounterHandlers.incrementRolling, { capName, amount })` (SystemAdmin-only Handler, Konstante aus `cap-counter`; addiert in einen Stunden-Bucket in `store_cap_rolling_usage`), `readRollingCapUsage(db, tenantId, { capName, windowDays })` (1 bis 90 ganze Tage) als `usage`-Callback.
 
+Für Kalender-Caps `readCalendarCapCounter(db, tenantId, { capName, periodStartIso })` als `usage` und `readCalendarCapUsageByTenant(db, tenantIds, { capName, periodStartIso })` als `usageBatch` verwenden.
+
 ## Registrierte Screens
 
 | Screen | Zweck |

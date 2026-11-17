@@ -429,12 +429,6 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "billing-foundation.plans.switch": "Passa a {plan}",
   "billing-foundation.plans.switchRequiresReactivation":
     "Riattiva l'abbonamento prima di cambiare piano.",
-  "cap-counter:entity:cap-counter:field:capName": "Limite",
-  "cap-counter:entity:cap-counter:field:lastSoftWarnedAt": "Ultimo avviso preventivo",
-  "cap-counter:entity:cap-counter:field:periodStart": "Inizio del periodo",
-  "cap-counter:entity:cap-counter:field:tenantId": "Organizzazione",
-  "cap-counter:entity:cap-counter:field:value": "Valore",
-  "cap-counter:nav.cap-list": "Limiti",
   "cap-overview.cards.empty": "Nessun limite configurato per questa organizzazione.",
   "cap-overview.cards.loading": "Caricamento dell'utilizzo…",
   "cap-overview.cards.noneLeft": "Niente disponibile",
@@ -1308,7 +1302,6 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "billing-foundation:notify.contract-termination-operator-notice.label":
     "Avviso di disdetta al gestore",
   "screen:branding-settings.title": "Identità visiva",
-  "screen:cap-list.title": "Limiti di utilizzo",
   "screen:delivery-log.title": "Registro degli invii",
   "screen:download-attempt-list.title": "Tentativi di download",
   "screen:export-job-detail.title": "Job di esportazione",

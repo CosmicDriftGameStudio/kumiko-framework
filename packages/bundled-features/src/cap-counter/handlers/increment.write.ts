@@ -16,21 +16,12 @@ const incrementSchema = z.object({
 });
 type IncrementPayload = z.infer<typeof incrementSchema>;
 
-// increment-cap — atomic counter increment via the event-store's
-// optimistic-lock. Two parallel increments for the same (tenant, cap,
-// period) go to the same aggregate; parallel-safety comes from the
-// re-read-and-retry loop inside bookCapUsage, not from this handler.
+// increment-cap — one atomic upsert increment on the counter row of (tenant, cap, period); parallel
+// bookings serialize on the row lock, so no retry loop is needed.
 //
-// **Two paths:**
-//   1. Aggregate doesn't exist yet (first increment of the period) →
-//      executor.create with deterministic id, value = amount.
-//   2. Aggregate exists → executor.update with current value + amount.
-//
-// **Why no `r.systemScope`:** counters are tenant-scoped (one row per
-// tenant per cap per period). The dispatcher's tenant-filter on ctx.db
-// ensures a tenant can only see/increment their own counters. Cross-
-// tenant cap-rebuild for ops uses raw DB-access at the framework layer,
-// not this handler.
+// **Why no `r.systemScope`:** counters are tenant-scoped (one row per tenant per cap per period).
+// The dispatcher's tenant-filter on ctx.db ensures a tenant can only see/increment their own
+// counters.
 export const incrementCapHandler: WriteHandlerDef = {
   name: "increment",
   agent: { expose: false },
@@ -42,10 +33,11 @@ export const incrementCapHandler: WriteHandlerDef = {
   access: { roles: ["SystemAdmin"] },
   handler: async (event, ctx) => {
     const payload = event.payload as IncrementPayload; // @cast-boundary engine-payload
-    return bookCapUsage(ctx, {
+    const { value } = await bookCapUsage(ctx, {
       capName: payload.capName,
       periodStartIso: payload.periodStartIso,
       amount: payload.amount,
     });
+    return { isSuccess: true as const, data: { value } };
   },
 };

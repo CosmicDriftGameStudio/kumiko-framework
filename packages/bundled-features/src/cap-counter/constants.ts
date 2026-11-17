@@ -1,8 +1,6 @@
 // Feature name
 export const CAP_COUNTER_FEATURE = "cap-counter" as const;
 
-export const CAP_COUNTER_LIST_SCREEN_ID = "cap-list" as const;
-
 // Upper bound for readRollingCapUsage windows; increments delete buckets older than this.
 export const ROLLING_CAP_MAX_WINDOW_DAYS = 90;
 
@@ -13,6 +11,9 @@ export const CAP_RESERVATION_TTL_MINUTES = 60;
 // A settled reservation stays as a tombstone this long so a retried or lost-ack settle stays a no-op.
 export const CAP_SETTLED_TOMBSTONE_TTL_MINUTES = 24 * 60;
 
+// The share of an AI cost cap one user may use; apps pass it, the framework applies no default.
+export const DEFAULT_AI_CAP_SUBJECT_SHARE = 0.25;
+
 // Qualified write handler names (QN format: scope:type:name).
 export const CapCounterHandlers = {
   increment: "cap-counter:write:increment",
@@ -22,6 +23,5 @@ export const CapCounterHandlers = {
 
 // Qualified query handler names.
 export const CapCounterQueries = {
-  list: "cap-counter:query:cap-counter:list",
   getCounter: "cap-counter:query:get-counter",
 } as const;

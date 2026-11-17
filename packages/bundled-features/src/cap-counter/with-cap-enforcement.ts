@@ -27,6 +27,7 @@ import type {
   WriteHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { reserveEnforcedCalendarCap } from "./calendar-cap-usage-reservation.ts";
+import type { CapSubject } from "./cap-subject.ts";
 import type { CapToleranceProfileName, SoftHitNotifier } from "./enforce-cap.ts";
 import { chainReservations } from "./reservation-chain.ts";
 
@@ -50,6 +51,7 @@ export type CalendarCapDef = {
   /** Increment-amount post-success. Default 1. */
   readonly amount?: number;
   readonly notify: SoftHitNotifier;
+  readonly subject?: CapSubject;
 };
 
 /** Resolver-fn that the wrapper calls before each handler invocation

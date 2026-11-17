@@ -42,6 +42,7 @@ import {
   createTransportForTenant,
   type MailTransportContext,
 } from "@cosmicdrift/kumiko-bundled-features/mail-foundation";
+import { subjectKeyForUser } from "@cosmicdrift/kumiko-framework/crypto";
 import {
   access,
   createTenantConfig,
@@ -67,6 +68,8 @@ function mailContextOf(
   };
 }
 const NEWSLETTER_CAP = "newsletters-per-month";
+// One sender may use a quarter of the pro budget.
+const PRO_SENDER_SHARE = 0.25;
 
 // =============================================================================
 // Inner send-handler
@@ -168,7 +171,7 @@ function buildSoftHitNotifier(ctx: ReservationContext): SoftHitNotifier {
 // Wrapped send-handler (cap-aware)
 // =============================================================================
 
-const wrappedSendHandler = withCapEnforcement(innerSendHandler, async (_event, ctx) => {
+const wrappedSendHandler = withCapEnforcement(innerSendHandler, async (event, ctx) => {
   const tier = await resolveTier(ctx);
   // resolveTier returns one of TIER_NAMES; DEMO_TIER_MAP has an entry
   // for each. tsc's `noUncheckedIndexedAccess` doesn't carry that
@@ -186,6 +189,9 @@ const wrappedSendHandler = withCapEnforcement(innerSendHandler, async (_event, c
     limit,
     profile: "burstable",
     notify: buildSoftHitNotifier(ctx),
+    ...(tier === "pro" && {
+      subject: { key: subjectKeyForUser(event.user.id), share: PRO_SENDER_SHARE },
+    }),
   };
 });
 

@@ -1,81 +1,45 @@
 // In-process cap booking for the caller's own tenant; no SystemAdmin dispatch needed.
 
 import { runInOwnTransaction, type TenantDb } from "@cosmicdrift/kumiko-framework/db";
-import {
-  createEntityExecutor,
-  type HandlerContext,
-  type JobContext,
-  type ReservationContext,
-  type SessionUser,
-  type TenantId,
-  type WriteResult,
+import type {
+  HandlerContext,
+  JobContext,
+  ReservationContext,
+  SessionUser,
+  TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { AccessDeniedError, isVersionConflictFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { VersionConflictError } from "@cosmicdrift/kumiko-framework/event-store";
+import { AccessDeniedError } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
-import { capCounterAggregateId } from "./aggregate-id.ts";
+import { capSubjectHash, TENANT_WIDE_SUBJECT_HASH } from "./cap-subject.ts";
 import { ROLLING_CAP_MAX_WINDOW_DAYS } from "./constants.ts";
-import { capCounterEntity } from "./entity.ts";
-import { rollingCapUsageTable } from "./tables.ts";
+import { capCountersTableMeta, rollingCapUsageTable } from "./tables.ts";
 
-const { table, executor } = createEntityExecutor("cap-counter", capCounterEntity);
-
-// periodStartIso feeds the aggregate id and Temporal.Instant.from(); a non-instant string would
-// silently fork a counter row on update and throw a RangeError (500) on create.
+// periodStartIso goes through Temporal.Instant.from(); a non-instant string would throw a RangeError (500).
 const capPeriodSchema = z.object({
   capName: z.string().min(1).max(100),
   periodStartIso: z.iso.datetime({ offset: true }),
 });
 
-const capBookingSchema = capPeriodSchema.extend({
-  amount: z.number().int().positive().default(1),
-});
-
-// Each attempt writes event + projection atomically, so a conflict means another booker just committed. Contention is bounded by the bookers running at once across ALL replicas on the same DB (not per pool), so the jittered backoff spreads out losers instead of letting them collide again in lockstep; the ceiling only guards against non-convergence.
-const MAX_COUNTER_WRITE_ATTEMPTS = 20;
-const BACKOFF_JITTER_MS_PER_ATTEMPT = 5;
-
-function sleepMs(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-export async function retryCounterWriteOnVersionConflict(
-  writeAttempt: () => Promise<WriteResult>,
-): Promise<WriteResult> {
-  let result: WriteResult = await writeAttempt();
-  for (
-    let attempt = 1;
-    attempt < MAX_COUNTER_WRITE_ATTEMPTS && isVersionConflictFailure(result);
-    attempt++
-  ) {
-    await sleepMs(Math.random() * attempt * BACKOFF_JITTER_MS_PER_ATTEMPT);
-    result = await writeAttempt();
-  }
-  return result;
-}
-
-// Event-store appends signal a lost race by throwing; the whole attempt (read, guard, append) is repeated.
-export async function retryOnStreamVersionConflict<T>(attempt: () => Promise<T>): Promise<T> {
-  for (let tries = 1; ; tries++) {
-    try {
-      return await attempt();
-    } catch (error) {
-      if (!(error instanceof VersionConflictError) || tries >= MAX_COUNTER_WRITE_ATTEMPTS) {
-        throw error;
-      }
-      await sleepMs(Math.random() * tries * BACKOFF_JITTER_MS_PER_ATTEMPT);
-    }
-  }
-}
+const COUNTER_CONFLICT_TARGET = ["tenantId", "capName", "periodStart", "subjectHash"] as const;
 
 export type BookCapUsageOptions = {
   readonly capName: string;
   readonly periodStartIso: string;
   readonly amount?: number;
   readonly outsideTransaction?: boolean;
-  // Runs on every attempt with the freshly read value, so a throw rejects the booking against the state it would actually be applied to (a version-conflict retry re-reads and re-checks).
-  readonly guardCurrentValue?: (currentValue: number) => void;
+  readonly subjectKey?: string;
+};
+
+// Guards run on the value before this booking and a throw must roll the transaction back, so only
+// callers that own their transaction pass them.
+export type CapDelta = {
+  readonly capName: string;
+  readonly periodStartIso: string;
+  readonly amount: number;
+  readonly subjectHash: string | null;
+  readonly guardTenantValue?: (valueBefore: number) => void;
+  readonly guardSubjectValue?: (valueBefore: number) => void;
 };
 
 export type CapCounterContext = HandlerContext | JobContext | ReservationContext;
@@ -139,85 +103,111 @@ export function resolveCapCounterScope(
   };
 }
 
-export async function bookCapUsage(
-  ctx: CapCounterContext,
-  options: BookCapUsageOptions,
-): Promise<WriteResult> {
-  return applyCapDelta(ctx, options, "add");
+type CounterRow = { readonly value: number };
+
+function counterKey(
+  tenantId: TenantId,
+  capName: string,
+  periodStart: Temporal.Instant,
+  subjectHash: string,
+) {
+  return { tenantId, capName, periodStart, subjectHash };
 }
 
-// Gives back a reservation whose operation failed afterwards; the counter never drops below 0.
-export async function releaseCapUsage(
-  ctx: CapCounterContext,
-  options: Omit<BookCapUsageOptions, "guardCurrentValue">,
-): Promise<WriteResult> {
-  return applyCapDelta(ctx, options, "subtract");
+async function incrementCounterRow(
+  db: TenantDb,
+  key: ReturnType<typeof counterKey>,
+  delta: number,
+): Promise<number> {
+  const row = await db.upsert<CounterRow>(capCountersTableMeta, key, {
+    conflictTarget: COUNTER_CONFLICT_TARGET,
+    increment: { value: delta },
+  });
+  if (!row) throw new Error("cap-counter: counter upsert returned no row");
+  return row.value;
 }
 
-// One attempt against an already-open db handle; a lost race comes back as a version_conflict failure the caller retries.
+async function decrementCounterRow(
+  db: TenantDb,
+  key: ReturnType<typeof counterKey>,
+  amount: number,
+): Promise<void> {
+  const row = await db.upsert<CounterRow>(
+    capCountersTableMeta,
+    { ...key, value: 0 },
+    { conflictTarget: COUNTER_CONFLICT_TARGET, increment: { value: -amount } },
+  );
+  if (!row) throw new Error("cap-counter: counter upsert returned no row");
+  // The counter never drops below 0; a missing row is created at 0, which is the same usage.
+  // The row is locked by this transaction, so the clamp cannot race another booking.
+  if (row.value < 0) await db.updateMany(capCountersTableMeta, { value: 0 }, key);
+}
+
+// Returns the tenant-wide value after the booking.
 export async function applyCapDeltaOn(
   db: TenantDb,
   user: SessionUser,
-  options: BookCapUsageOptions,
+  delta: CapDelta,
   direction: "add" | "subtract",
-): Promise<WriteResult> {
-  const parsed = capBookingSchema.parse(options);
-  const aggregateId = capCounterAggregateId(user.tenantId, parsed.capName, parsed.periodStartIso);
+): Promise<number> {
+  const { capName, periodStartIso } = capPeriodSchema.parse(delta);
+  if (!Number.isSafeInteger(delta.amount) || delta.amount <= 0) {
+    throw new Error(`cap-counter: amount must be a positive integer, got ${delta.amount}`);
+  }
+  const periodStart = Temporal.Instant.from(periodStartIso);
+  const keyFor = (subjectHash: string) =>
+    counterKey(user.tenantId, capName, periodStart, subjectHash);
 
-  const existing = await db.selectMany(table, { id: aggregateId }, { limit: 1 });
-  if (existing.length === 0) {
-    options.guardCurrentValue?.(0);
-    if (direction === "subtract") return { isSuccess: true, data: {} };
-    return executor.create(
-      {
-        id: aggregateId,
-        capName: parsed.capName,
-        value: parsed.amount,
-        periodStart: Temporal.Instant.from(parsed.periodStartIso),
-        lastSoftWarnedAt: null,
-      },
-      user,
-      db,
-    );
+  if (direction === "subtract") {
+    await decrementCounterRow(db, keyFor(TENANT_WIDE_SUBJECT_HASH), delta.amount);
+    if (delta.subjectHash !== null) {
+      await decrementCounterRow(db, keyFor(delta.subjectHash), delta.amount);
+    }
+    return 0;
   }
 
-  const currentRow = existing[0];
-  if (!currentRow) {
-    throw new Error("cap-counter.bookCapUsage: row vanished between length-check and read");
-  }
-  const currentValue = currentRow["value"] as number; // @cast-boundary db-row
-  const currentVersion = currentRow["version"] as number; // @cast-boundary db-row
-  options.guardCurrentValue?.(currentValue);
-  return executor.update(
-    {
-      id: aggregateId,
-      version: currentVersion,
-      changes: {
-        value:
-          direction === "add"
-            ? currentValue + parsed.amount
-            : Math.max(0, currentValue - parsed.amount),
-      },
-    },
-    user,
+  const tenantValue = await incrementCounterRow(
     db,
+    keyFor(TENANT_WIDE_SUBJECT_HASH),
+    delta.amount,
   );
+  delta.guardTenantValue?.(tenantValue - delta.amount);
+  if (delta.subjectHash !== null) {
+    // Always the tenant row before the subject row: a fixed lock order keeps two bookings of the
+    // same tenant from deadlocking on each other.
+    const subjectValue = await incrementCounterRow(db, keyFor(delta.subjectHash), delta.amount);
+    delta.guardSubjectValue?.(subjectValue - delta.amount);
+    // Data minimisation: subject rows of finished periods are not needed, tenant rows stay for billing.
+    await db.deleteMany(capCountersTableMeta, {
+      tenantId: user.tenantId,
+      capName,
+      subjectHash: { ne: TENANT_WIDE_SUBJECT_HASH },
+      periodStart: { lt: periodStart },
+    });
+  }
+  return tenantValue;
 }
 
-async function applyCapDelta(
+function toCapDelta(options: BookCapUsageOptions): CapDelta {
+  return {
+    capName: options.capName,
+    periodStartIso: options.periodStartIso,
+    amount: options.amount ?? 1,
+    subjectHash: options.subjectKey === undefined ? null : capSubjectHash(options.subjectKey),
+  };
+}
+
+export async function bookCapUsage(
   ctx: CapCounterContext,
   options: BookCapUsageOptions,
-  direction: "add" | "subtract",
-): Promise<WriteResult> {
+): Promise<{ value: number }> {
+  capPeriodSchema.parse(options);
   const { user, writeDb } = resolveCapCounterScope(ctx, options.outsideTransaction === true);
-  if (options.outsideTransaction) {
-    return retryCounterWriteOnVersionConflict(() =>
-      runInOwnTransaction(writeDb, (txDb) => applyCapDeltaOn(txDb, user, options, direction)),
-    );
-  }
-  return retryCounterWriteOnVersionConflict(() =>
-    applyCapDeltaOn(writeDb, user, options, direction),
-  );
+  const delta = toCapDelta(options);
+  const value = options.outsideTransaction
+    ? await runInOwnTransaction(writeDb, (tx) => applyCapDeltaOn(tx, user, delta, "add"))
+    : await applyCapDeltaOn(writeDb, user, delta, "add");
+  return { value };
 }
 
 export type MarkCapSoftWarnedOptions = {
@@ -226,47 +216,81 @@ export type MarkCapSoftWarnedOptions = {
   readonly outsideTransaction?: boolean;
 };
 
+// True only for the call that set the flag.
 export async function markCapSoftWarned(
   ctx: CapCounterContext,
   options: MarkCapSoftWarnedOptions,
-): Promise<WriteResult> {
+): Promise<boolean> {
   const parsed = capPeriodSchema.parse(options);
   const { user, writeDb } = resolveCapCounterScope(ctx, options.outsideTransaction === true);
-  const aggregateId = capCounterAggregateId(user.tenantId, parsed.capName, parsed.periodStartIso);
+  const key = counterKey(
+    user.tenantId,
+    parsed.capName,
+    Temporal.Instant.from(parsed.periodStartIso),
+    TENANT_WIDE_SUBJECT_HASH,
+  );
 
-  async function attemptMark(db: TenantDb): Promise<WriteResult> {
-    const existing = await db.selectMany(table, { id: aggregateId }, { limit: 1 });
-    if (existing.length === 0) {
-      throw new Error(
-        `cap-counter: cannot mark-soft-warned, no counter found for tenant=${user.tenantId} cap=${parsed.capName} period=${parsed.periodStartIso}`,
-      );
-    }
-    const row = existing[0];
-    if (!row) {
-      throw new Error("cap-counter.markCapSoftWarned: row vanished between length-check and read");
-    }
-    // A version-conflict retry lands here after a parallel warner already set the flag; a second
-    // write would only append a redundant event with a newer timestamp.
-    if (row["lastSoftWarnedAt"] !== null) {
-      return { isSuccess: true, data: row };
-    }
-    const currentVersion = row["version"] as number; // @cast-boundary db-row
-
-    return executor.update(
-      {
-        id: aggregateId,
-        version: currentVersion,
-        changes: { lastSoftWarnedAt: Temporal.Now.instant() },
-      },
-      user,
-      db,
+  async function mark(db: TenantDb): Promise<boolean> {
+    await db.upsert(capCountersTableMeta, key, {
+      conflictTarget: COUNTER_CONFLICT_TARGET,
+      increment: { value: 0 },
+    });
+    // The conditional update re-checks the null after the row lock, so exactly one parallel caller gets true.
+    const changed = await db.updateMany(
+      capCountersTableMeta,
+      { lastSoftWarnedAt: Temporal.Now.instant() },
+      { ...key, lastSoftWarnedAt: null },
     );
+    return changed.length > 0;
   }
 
-  if (options.outsideTransaction) {
-    return retryCounterWriteOnVersionConflict(() => runInOwnTransaction(writeDb, attemptMark));
-  }
-  return retryCounterWriteOnVersionConflict(() => attemptMark(writeDb));
+  return options.outsideTransaction ? runInOwnTransaction(writeDb, mark) : mark(writeDb);
+}
+
+export type ReadCalendarCapCounterOptions = {
+  readonly capName: string;
+  readonly periodStartIso: string;
+  readonly subjectKey?: string;
+};
+
+export type CalendarCapCounter = {
+  readonly value: number;
+  readonly lastSoftWarnedAt: Temporal.Instant | null;
+};
+
+export async function readCalendarCapCounter(
+  db: TenantDb,
+  tenantId: TenantId,
+  options: ReadCalendarCapCounterOptions,
+): Promise<CalendarCapCounter | undefined> {
+  const { capName, periodStartIso } = capPeriodSchema.parse(options);
+  const subjectHash =
+    options.subjectKey === undefined
+      ? TENANT_WIDE_SUBJECT_HASH
+      : capSubjectHash(options.subjectKey);
+  const row = await db.fetchOne<CalendarCapCounter>(
+    capCountersTableMeta,
+    counterKey(tenantId, capName, Temporal.Instant.from(periodStartIso), subjectHash),
+  );
+  return row && { value: row.value, lastSoftWarnedAt: row.lastSoftWarnedAt };
+}
+
+export async function readCalendarCapUsageByTenant(
+  db: TenantDb,
+  tenantIds: readonly TenantId[],
+  options: { readonly capName: string; readonly periodStartIso: string },
+): Promise<Map<TenantId, number>> {
+  const { capName, periodStartIso } = capPeriodSchema.parse(options);
+  const usage = new Map<TenantId, number>(tenantIds.map((tenantId) => [tenantId, 0]));
+  if (tenantIds.length === 0) return usage;
+  const rows = await db.selectMany<{ tenantId: TenantId; value: number }>(capCountersTableMeta, {
+    tenantId: { in: [...tenantIds] },
+    subjectHash: TENANT_WIDE_SUBJECT_HASH,
+    capName,
+    periodStart: Temporal.Instant.from(periodStartIso),
+  });
+  for (const row of rows) usage.set(row.tenantId, row.value);
+  return usage;
 }
 
 export type ReadRollingCapUsageOptions = {

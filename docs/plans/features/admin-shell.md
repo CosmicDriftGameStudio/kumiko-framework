@@ -66,7 +66,6 @@ workspaces instead of listing the standard nav QNs, and mount
 | `delivery` | `delivery-log` | `access.admin` | Tenant-scoped |
 | `feature-toggles` | `toggle-admin` | `SystemAdmin` | Platform nav only |
 | `compliance-profiles` | `profile-picker` | `access.admin` | `crossTenantOverrideDenied` on write |
-| `cap-counter` | `cap-list` | `SystemAdmin` | `entityList` |
 
 ## Overview home (query allowlist)
 

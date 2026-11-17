@@ -414,12 +414,6 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "billing-foundation.plans.switch": "Switch to {plan}",
   "billing-foundation.plans.switchRequiresReactivation":
     "Reactivate your subscription before switching plans.",
-  "cap-counter:entity:cap-counter:field:capName": "Cap",
-  "cap-counter:entity:cap-counter:field:lastSoftWarnedAt": "Last soft warning",
-  "cap-counter:entity:cap-counter:field:periodStart": "Period start",
-  "cap-counter:entity:cap-counter:field:tenantId": "Tenant",
-  "cap-counter:entity:cap-counter:field:value": "Value",
-  "cap-counter:nav.cap-list": "Caps",
   "cap-overview.cards.empty": "No caps configured for this tenant.",
   "cap-overview.cards.loading": "Loading usage…",
   "cap-overview.cards.noneLeft": "None left",
@@ -1274,7 +1268,6 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "billing-foundation:notify.contract-termination-operator-notice.label":
     "Termination notice to operator",
   "screen:branding-settings.title": "Branding",
-  "screen:cap-list.title": "Usage caps",
   "screen:delivery-log.title": "Delivery log",
   "screen:download-attempt-list.title": "Download attempts",
   "screen:export-job-detail.title": "Export job",

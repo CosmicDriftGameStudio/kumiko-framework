@@ -4,8 +4,8 @@ import {
   runInOwnTransaction,
   type TenantDb,
 } from "@cosmicdrift/kumiko-framework/db";
-import type { SessionUser, WriteResult } from "@cosmicdrift/kumiko-framework/engine";
-import { reraiseAsKumikoError, UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
+import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
+import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import type {
   ReservationConfirmContext,
@@ -16,10 +16,10 @@ import {
   applyCapDeltaOn,
   type BookCapUsageOptions,
   type CapCounterContext,
+  type CapDelta,
   resolveCapCounterScope,
-  retryCounterWriteOnVersionConflict,
-  retryOnStreamVersionConflict,
 } from "./book-cap-usage.ts";
+import { capSubjectHash } from "./cap-subject.ts";
 import {
   CAP_RESERVATION_TTL_MINUTES,
   CAP_SETTLED_TOMBSTONE_TTL_MINUTES,
@@ -38,12 +38,11 @@ type CapReservationRow = {
   // Units consume already turned into booked ones; the counter holds them on top of amount.
   readonly consumedAmount: number;
   readonly releasedAt: Temporal.Instant | null;
+  readonly subjectHash: string | null;
 };
 
-const NOTHING_TO_RELEASE: WriteResult = { isSuccess: true, data: {} };
-
 type ReservationRowDraft = Pick<CapReservationRow, "capName" | "kind" | "amount"> &
-  Pick<Partial<CapReservationRow>, "periodStartIso">;
+  Pick<Partial<CapReservationRow>, "periodStartIso" | "subjectHash">;
 
 async function insertReservationRow(
   txDb: TenantDb,
@@ -64,6 +63,7 @@ async function insertReservationRow(
     settledAt: null,
     consumedAmount: 0,
     releasedAt: null,
+    subjectHash: draft.subjectHash ?? null,
   });
 }
 
@@ -87,7 +87,12 @@ function toHandle(
 export type ReserveCalendarCapOptions = Required<
   Pick<BookCapUsageOptions, "capName" | "periodStartIso" | "amount">
 > &
-  Pick<BookCapUsageOptions, "guardCurrentValue">;
+  Pick<BookCapUsageOptions, "subjectKey"> &
+  Pick<CapDelta, "guardTenantValue" | "guardSubjectValue">;
+
+function hashOfSubjectKey(subjectKey: string | undefined): string | null {
+  return subjectKey === undefined ? null : capSubjectHash(subjectKey);
+}
 
 // The counter increment and the reservation row commit together, so a booked amount never exists
 // without a row that can give it back.
@@ -98,34 +103,31 @@ export async function reserveCalendarCap(
 ): Promise<CalendarCapReservation> {
   const { user, writeDb } = resolveCapCounterScope(ctx, outsideTransaction);
   const id = generateId();
-  // The last attempt is the one that committed, so this holds the value its increment started from.
-  let valueBeforeBooking = 0;
-  const observedOptions: ReserveCalendarCapOptions = {
-    ...options,
-    guardCurrentValue: (currentValue) => {
-      options.guardCurrentValue?.(currentValue);
-      valueBeforeBooking = currentValue;
-    },
-  };
-  const reserved = await retryCounterWriteOnVersionConflict(() =>
-    runInOwnTransaction(writeDb, async (txDb) => {
-      const booked = await applyCapDeltaOn(txDb, user, observedOptions, "add");
-      if (!booked.isSuccess) return booked;
-      await insertReservationRow(txDb, user, id, {
+  const subjectHash = hashOfSubjectKey(options.subjectKey);
+  const counterValue = await runInOwnTransaction(writeDb, async (txDb) => {
+    const tenantValue = await applyCapDeltaOn(
+      txDb,
+      user,
+      {
         capName: options.capName,
-        kind: "calendar",
         periodStartIso: options.periodStartIso,
         amount: options.amount,
-      });
-      return booked;
-    }),
-  );
-  if (!reserved.isSuccess) throw reraiseAsKumikoError(reserved.error);
-  return {
-    ...toHandle(ctx, id, outsideTransaction),
-    reservationId: id,
-    counterValue: valueBeforeBooking + options.amount,
-  };
+        subjectHash,
+        ...(options.guardTenantValue && { guardTenantValue: options.guardTenantValue }),
+        ...(options.guardSubjectValue && { guardSubjectValue: options.guardSubjectValue }),
+      },
+      "add",
+    );
+    await insertReservationRow(txDb, user, id, {
+      capName: options.capName,
+      kind: "calendar",
+      periodStartIso: options.periodStartIso,
+      amount: options.amount,
+      subjectHash,
+    });
+    return tenantValue;
+  });
+  return { ...toHandle(ctx, id, outsideTransaction), reservationId: id, counterValue };
 }
 
 // Deleting the row takes its row lock inside the handler transaction, so a release started after a
@@ -146,16 +148,21 @@ async function giveBackCalendar(
   txDb: TenantDb,
   user: SessionUser,
   row: CapReservationRow,
-): Promise<WriteResult> {
+): Promise<void> {
   if (row.periodStartIso === null) {
     throw new Error(`cap-counter: calendar reservation ${row.id} has no period to release against`);
   }
   // Fully consumed by consumeCalendarCapReservation: nothing left to give back.
-  if (row.amount === 0) return NOTHING_TO_RELEASE;
-  return applyCapDeltaOn(
+  if (row.amount === 0) return;
+  await applyCapDeltaOn(
     txDb,
     user,
-    { capName: row.capName, periodStartIso: row.periodStartIso, amount: row.amount },
+    {
+      capName: row.capName,
+      periodStartIso: row.periodStartIso,
+      amount: row.amount,
+      subjectHash: row.subjectHash,
+    },
     "subtract",
   );
 }
@@ -164,21 +171,20 @@ async function giveBackReservation(
   txDb: TenantDb,
   user: SessionUser,
   id: string,
-): Promise<WriteResult> {
+): Promise<void> {
   const ownRow = { id, tenantId: user.tenantId };
   const row = await txDb.fetchOne<CapReservationRow>(capReservationsTable, {
     ...ownRow,
     settledAt: null,
   });
-  if (!row) return NOTHING_TO_RELEASE;
+  if (!row) return;
   const claimed = await claimReservationRow(txDb, user, row);
-  if (!claimed || claimed.releasedAt !== null) return NOTHING_TO_RELEASE;
-  const given = await giveBackCalendar(txDb, user, claimed);
-  if (!given.isSuccess) return given;
+  if (!claimed || claimed.releasedAt !== null) return;
+  await giveBackCalendar(txDb, user, claimed);
   // Only consumed units need remembering: a later settle or consume must not count them twice.
   if (claimed.consumedAmount === 0) {
     await txDb.deleteMany(capReservationsTable, ownRow);
-    return given;
+    return;
   }
   const now = Temporal.Now.instant();
   await txDb.updateMany(
@@ -190,7 +196,6 @@ async function giveBackReservation(
     },
     ownRow,
   );
-  return given;
 }
 
 // Waits for a confirm still holding the row; undefined means that confirm or a settle won (Postgres
@@ -216,17 +221,13 @@ export async function releaseCapReservation(
   outsideTransaction = true,
 ): Promise<void> {
   const { user, writeDb } = resolveCapCounterScope(ctx, outsideTransaction);
-  const released = await retryOnStreamVersionConflict(() =>
-    retryCounterWriteOnVersionConflict(() =>
-      runInOwnTransaction(writeDb, (txDb) => giveBackReservation(txDb, user, id)),
-    ),
-  );
-  if (!released.isSuccess) throw reraiseAsKumikoError(released.error);
+  await runInOwnTransaction(writeDb, (txDb) => giveBackReservation(txDb, user, id));
 }
 
 export type SettleCalendarCapOptions = {
   readonly capName: string;
   readonly periodStartIso: string;
+  readonly subjectKey?: string;
   // Total used, including units already consumed through a handle.
   readonly actualAmount: number;
 };
@@ -249,17 +250,18 @@ export class CapReservationSettledError extends UnprocessableError {
   }
 }
 
-function bookCalendarDelta(
+async function bookCalendarDelta(
   txDb: TenantDb,
   user: SessionUser,
   period: Pick<SettleCalendarCapOptions, "capName" | "periodStartIso">,
   delta: number,
-): Promise<WriteResult> {
-  if (delta === 0) return Promise.resolve({ isSuccess: true, data: {} });
-  return applyCapDeltaOn(
+  subjectHash: string | null,
+): Promise<void> {
+  if (delta === 0) return;
+  await applyCapDeltaOn(
     txDb,
     user,
-    { ...period, amount: Math.abs(delta) },
+    { ...period, amount: Math.abs(delta), subjectHash },
     delta > 0 ? "add" : "subtract",
   );
 }
@@ -284,7 +286,7 @@ async function settleInTransaction(
   user: SessionUser,
   id: string,
   options: SettleCalendarCapOptions,
-): Promise<WriteResult> {
+): Promise<void> {
   const ownRow = { id, tenantId: user.tenantId };
   const open = await txDb.fetchOne<CapReservationRow>(capReservationsTable, {
     ...ownRow,
@@ -300,29 +302,27 @@ async function settleInTransaction(
       );
     }
     const alreadyBooked = claimed.amount + claimed.consumedAmount;
-    const booked = await bookCalendarDelta(
+    await bookCalendarDelta(
       txDb,
       user,
       options,
       options.actualAmount - alreadyBooked,
+      claimed.subjectHash,
     );
-    if (!booked.isSuccess) return booked;
     const now = Temporal.Now.instant();
     await txDb.updateMany(
       capReservationsTable,
       { settledAt: now, expiresAt: now.add({ minutes: CAP_SETTLED_TOMBSTONE_TTL_MINUTES }) },
       ownRow,
     );
-    return booked;
+    return;
   }
-  if (await hasSettledTombstone(txDb, user, id)) return NOTHING_TO_RELEASE;
+  if (await hasSettledTombstone(txDb, user, id)) return;
   // Row swept or released: its amount was given back, so the full actual amount is booked and a
   // tombstone makes a repeated settle a no-op. A parallel settle or consume inserting first fails
   // this insert.
-  // Booking first: a lost counter race returns a result instead of throwing, so the transaction
-  // commits and a tombstone written before it would turn the retry into a no-op.
-  const booked = await bookCalendarDelta(txDb, user, options, options.actualAmount);
-  if (!booked.isSuccess) return booked;
+  const subjectHash = hashOfSubjectKey(options.subjectKey);
+  await bookCalendarDelta(txDb, user, options, options.actualAmount, subjectHash);
   const now = Temporal.Now.instant();
   await txDb.insertOne(capReservationsTable, {
     ...ownRow,
@@ -335,13 +335,13 @@ async function settleInTransaction(
     settledAt: now,
     consumedAmount: 0,
     releasedAt: null,
+    subjectHash,
   });
-  return booked;
 }
 
 // The failed tombstone insert aborts the whole attempt, so nothing was booked; the repeat sees the
 // winner's tombstone.
-async function retryOnceOnTombstoneRace(attempt: () => Promise<WriteResult>): Promise<WriteResult> {
+async function retryOnceOnTombstoneRace<T>(attempt: () => Promise<T>): Promise<T> {
   try {
     return await attempt();
   } catch (error) {
@@ -364,17 +364,15 @@ export async function settleCalendarCapReservation(
     );
   }
   const { user, writeDb } = resolveCapCounterScope(ctx, outsideTransaction);
-  const settled = await retryCounterWriteOnVersionConflict(() =>
-    retryOnceOnTombstoneRace(() =>
-      runInOwnTransaction(writeDb, (txDb) => settleInTransaction(txDb, user, id, options)),
-    ),
+  await retryOnceOnTombstoneRace(() =>
+    runInOwnTransaction(writeDb, (txDb) => settleInTransaction(txDb, user, id, options)),
   );
-  if (!settled.isSuccess) throw reraiseAsKumikoError(settled.error);
 }
 
 export type ConsumeCalendarCapOptions = {
   readonly capName: string;
   readonly periodStartIso: string;
+  readonly subjectKey?: string;
   readonly units: number;
 };
 
@@ -392,12 +390,11 @@ async function consumeClaimedRow(
   user: SessionUser,
   claimed: CapReservationRow,
   options: ConsumeCalendarCapOptions,
-): Promise<WriteResult> {
+): Promise<void> {
   const ownRow = { id: claimed.id, tenantId: user.tenantId };
   if (claimed.releasedAt !== null) {
     // The reserved rest was given back, so each unit is booked on top of what is still counted.
-    const booked = await bookCalendarDelta(txDb, user, options, options.units);
-    if (!booked.isSuccess) return booked;
+    await bookCalendarDelta(txDb, user, options, options.units, claimed.subjectHash);
     await txDb.updateMany(
       capReservationsTable,
       {
@@ -407,7 +404,7 @@ async function consumeClaimedRow(
       },
       ownRow,
     );
-    return booked;
+    return;
   }
   if (options.units > claimed.amount) {
     throw new CapReservationOverConsumedError(options.capName, claimed.amount, options.units);
@@ -420,7 +417,6 @@ async function consumeClaimedRow(
     },
     ownRow,
   );
-  return NOTHING_TO_RELEASE;
 }
 
 // Row already expired away: the units are booked directly and a released tombstone remembers them
@@ -430,10 +426,9 @@ async function consumeWithoutRow(
   user: SessionUser,
   id: string,
   options: ConsumeCalendarCapOptions,
-): Promise<WriteResult> {
-  // Booking first, for the same reason as settle's missing-row path.
-  const booked = await bookCalendarDelta(txDb, user, options, options.units);
-  if (!booked.isSuccess) return booked;
+): Promise<void> {
+  const subjectHash = hashOfSubjectKey(options.subjectKey);
+  await bookCalendarDelta(txDb, user, options, options.units, subjectHash);
   const now = Temporal.Now.instant();
   await txDb.insertOne(capReservationsTable, {
     id,
@@ -447,8 +442,8 @@ async function consumeWithoutRow(
     settledAt: null,
     consumedAmount: options.units,
     releasedAt: now,
+    subjectHash,
   });
-  return booked;
 }
 
 async function consumeInTransaction(
@@ -456,7 +451,7 @@ async function consumeInTransaction(
   user: SessionUser,
   id: string,
   options: ConsumeCalendarCapOptions,
-): Promise<WriteResult> {
+): Promise<void> {
   const ownRow = { id, tenantId: user.tenantId };
   const open = await txDb.fetchOne<CapReservationRow>(capReservationsTable, {
     ...ownRow,
@@ -487,12 +482,9 @@ export async function consumeCalendarCapReservation(
     throw new Error(`cap-counter: consume units must be a positive integer, got ${options.units}`);
   }
   const { user, writeDb } = resolveCapCounterScope(ctx, outsideTransaction);
-  const consumed = await retryCounterWriteOnVersionConflict(() =>
-    retryOnceOnTombstoneRace(() =>
-      runInOwnTransaction(writeDb, (txDb) => consumeInTransaction(txDb, user, id, options)),
-    ),
+  await retryOnceOnTombstoneRace(() =>
+    runInOwnTransaction(writeDb, (txDb) => consumeInTransaction(txDb, user, id, options)),
   );
-  if (!consumed.isSuccess) throw reraiseAsKumikoError(consumed.error);
 }
 
 // A failed release leaves its row behind; giving it back once the TTL passed bounds how long that

@@ -7,6 +7,7 @@ import {
   reserveCalendarCap,
   settleCalendarCapReservation,
 } from "./cap-reservation.ts";
+import { capSubjectLimit, capSubjectSchema } from "./cap-subject.ts";
 import {
   assertBelowHardCap,
   enforceCapAndMaybeNotify,
@@ -38,6 +39,8 @@ export async function reserveEnforcedCalendarCap(
   ctx: CapCounterContext,
   cap: CalendarCapUsageReservationSpec,
 ): Promise<CalendarCapReservation> {
+  const subject = cap.subject && capSubjectSchema.parse(cap.subject);
+  const share = subject?.share;
   const outsideTransaction = cap.outsideTransaction ?? true;
   await releaseExpiredCapReservations(ctx, cap.capName, outsideTransaction);
   if (cap.notify) {
@@ -51,6 +54,7 @@ export async function reserveEnforcedCalendarCap(
       ...(cap.periodEndIso !== undefined && { periodEndIso: cap.periodEndIso }),
       ...(cap.i18nKey !== undefined && { i18nKey: cap.i18nKey }),
       markSoftWarnedOutsideTransaction: outsideTransaction,
+      ...(subject !== undefined && { subject }),
     });
   }
   return reserveCalendarCap(
@@ -59,7 +63,16 @@ export async function reserveEnforcedCalendarCap(
       capName: cap.capName,
       amount: cap.amount,
       periodStartIso: cap.periodStartIso,
-      guardCurrentValue: (currentValue) => assertBelowHardCap(currentValue + cap.amount - 1, cap),
+      ...(subject !== undefined && { subjectKey: subject.key }),
+      guardTenantValue: (before) => assertBelowHardCap(before + cap.amount - 1, cap),
+      ...(share !== undefined && {
+        guardSubjectValue: (before: number) =>
+          assertBelowHardCap(
+            before + cap.amount - 1,
+            { ...cap, limit: capSubjectLimit(cap.limit, share) },
+            "subject",
+          ),
+      }),
     },
     outsideTransaction,
   );
@@ -92,6 +105,7 @@ export async function reserveCalendarCapUsage(
             capName: spec.capName,
             periodStartIso: spec.periodStartIso,
             actualAmount,
+            ...(spec.subject !== undefined && { subjectKey: spec.subject.key }),
           },
           outsideTransaction,
         );
@@ -111,7 +125,7 @@ export async function reserveCalendarCapUsage(
 
 export type CalendarCapReservationHandleSpec = Pick<
   CalendarCapUsageReservationSpec,
-  "capName" | "periodStartIso" | "outsideTransaction"
+  "capName" | "periodStartIso" | "outsideTransaction" | "subject"
 >;
 
 export type CalendarCapReservationHandle = {
@@ -131,6 +145,8 @@ export function calendarCapReservationHandle(
   reservationId: string,
   spec: CalendarCapReservationHandleSpec,
 ): CalendarCapReservationHandle {
+  const subject = spec.subject && capSubjectSchema.parse(spec.subject);
+  const subjectKeyOption = subject === undefined ? {} : { subjectKey: subject.key };
   const outsideTransaction = spec.outsideTransaction ?? true;
   let released = false;
   return {
@@ -141,7 +157,7 @@ export function calendarCapReservationHandle(
       await consumeCalendarCapReservation(
         ctx,
         reservationId,
-        { capName: spec.capName, periodStartIso: spec.periodStartIso, units },
+        { capName: spec.capName, periodStartIso: spec.periodStartIso, units, ...subjectKeyOption },
         outsideTransaction,
       );
     },
@@ -155,7 +171,12 @@ export function calendarCapReservationHandle(
       await settleCalendarCapReservation(
         ctx,
         reservationId,
-        { capName: spec.capName, periodStartIso: spec.periodStartIso, actualAmount },
+        {
+          capName: spec.capName,
+          periodStartIso: spec.periodStartIso,
+          actualAmount,
+          ...subjectKeyOption,
+        },
         outsideTransaction,
       );
     },

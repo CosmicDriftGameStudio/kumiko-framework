@@ -2,14 +2,13 @@
 // as resetAt and a matching Retry-After header, over the real HTTP stack.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { createEntityExecutor, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
@@ -18,8 +17,8 @@ import {
   currentCalendarMonthStartIso,
   type SoftHitNotifier,
 } from "../enforce-cap.ts";
-import { capCounterEntity } from "../entity.ts";
 import { createCapCounterFeature } from "../feature.ts";
+import { capCountersTable } from "../tables.ts";
 import { withCapEnforcement } from "../with-cap-enforcement.ts";
 
 const noopNotifier: SoftHitNotifier = () => {};
@@ -68,13 +67,11 @@ const probeFeature = defineFeature("probe", (r) => {
   r.writeHandler(overrideProbe);
 });
 
-const { table: capCounterTable } = createEntityExecutor("cap-counter", capCounterEntity);
 
 let stack: TestStack;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [createCapCounterFeature(), probeFeature] });
-  await unsafeCreateEntityTable(stack.db, capCounterEntity);
 });
 
 afterAll(async () => {
@@ -82,7 +79,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await resetTestTables(stack.db, [capCounterTable, eventsTable]);
+  await resetTestTables(stack.db, [capCountersTable, eventsTable]);
 });
 
 const admin = createTestUser({

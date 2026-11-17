@@ -1,17 +1,32 @@
 import { describe, expect, test } from "bun:test";
-import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
-import { capCounterEntity } from "../entity.ts";
-import { capReservationsTableMeta, rollingCapUsageTableMeta } from "../tables.ts";
+import {
+  capCountersTableMeta,
+  capReservationsTableMeta,
+  rollingCapUsageTableMeta,
+} from "../tables.ts";
 
 function pgTypeOf(table: unknown, dbName: string): string | undefined {
   const cols = (table as { columns?: ReadonlyArray<{ name: string; pgType?: string }> }).columns;
   return cols?.find((c) => c.name === dbName)?.pgType;
 }
 
-describe("capCounterEntity — DDL", () => {
-  test("value column is bigint, not double precision", () => {
-    const table = buildEntityTable("cap-counter", capCounterEntity);
-    expect(pgTypeOf(table, "value")).toBe("bigint");
+describe("cap-counter store tables — DDL", () => {
+  test("counter table meta matches the hand-frozen DDL", () => {
+    expect(capCountersTableMeta.tableName).toBe("store_cap_counters");
+    expect(capCountersTableMeta.columns).toEqual([
+      { name: "tenant_id", pgType: "uuid", notNull: true },
+      { name: "cap_name", pgType: "text", notNull: true },
+      { name: "period_start", pgType: "timestamptz", notNull: true },
+      { name: "subject_hash", pgType: "text", notNull: true },
+      { name: "value", pgType: "bigint", notNull: true },
+      { name: "last_soft_warned_at", pgType: "timestamptz", notNull: false },
+    ]);
+    expect(capCountersTableMeta.compositePrimaryKey).toMatchObject({
+      columns: ["tenant_id", "cap_name", "period_start", "subject_hash"],
+    });
+    expect(capCountersTableMeta.indexes).toMatchObject([
+      { name: "store_cap_counters_subject_hash_idx", columns: ["subject_hash"] },
+    ]);
   });
 
   test("reservation table carries the nullable settled_at tombstone column", () => {
@@ -33,6 +48,7 @@ describe("capCounterEntity — DDL", () => {
       { name: "settled_at", pgType: "timestamptz", notNull: false },
       { name: "consumed_amount", pgType: "integer", notNull: true, defaultSql: "0" },
       { name: "released_at", pgType: "timestamptz", notNull: false },
+      { name: "subject_hash", pgType: "text", notNull: false },
     ]);
     expect(capReservationsTableMeta.indexes).toMatchObject([
       {

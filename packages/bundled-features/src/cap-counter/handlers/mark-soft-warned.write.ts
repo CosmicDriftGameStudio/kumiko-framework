@@ -4,14 +4,13 @@ import { markCapSoftWarned } from "../book-cap-usage.ts";
 
 // mark-soft-warned — sets lastSoftWarnedAt on the counter so subsequent
 // soft-cap-hits in the same period don't re-trigger notifications.
-// This prevents notification storms.
+// This prevents notification storms. Creates the counter row when it does not exist yet and
+// answers `marked: true` only for the call that set the flag.
 //
-// **Caller pattern:** enforceCap-Helper checks whether the value crosses the
-// soft threshold while lastSoftWarnedAt is null, then calls this handler and
-// emits the application-specific notification. This handler only sets the flag.
+// **Caller pattern:** enforceCapAndMaybeNotify marks first and notifies only when it got `true`.
 const markSoftWarnedSchema = z.object({
   capName: z.string().min(1).max(100),
-  periodStartIso: z.string().min(1),
+  periodStartIso: z.iso.datetime({ offset: true }),
 });
 
 export const markSoftWarnedHandler: WriteHandlerDef = {
@@ -21,9 +20,14 @@ export const markSoftWarnedHandler: WriteHandlerDef = {
   access: { roles: ["SystemAdmin"] },
   handler: async (event, ctx) => {
     const payload = event.payload as z.infer<typeof markSoftWarnedSchema>; // @cast-boundary engine-payload
-    return markCapSoftWarned(ctx, {
-      capName: payload.capName,
-      periodStartIso: payload.periodStartIso,
-    });
+    return {
+      isSuccess: true as const,
+      data: {
+        marked: await markCapSoftWarned(ctx, {
+          capName: payload.capName,
+          periodStartIso: payload.periodStartIso,
+        }),
+      },
+    };
   },
 };

@@ -14,7 +14,6 @@ import {
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
-  createEntityExecutor,
   defineFeature,
   type WriteHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -24,7 +23,6 @@ import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
@@ -37,9 +35,8 @@ import {
   enforceCapAndMaybeNotify,
   type SoftHitNotifier,
 } from "../enforce-cap.ts";
-import { capCounterEntity } from "../entity.ts";
 import { createCapCounterFeature } from "../feature.ts";
-import { rollingCapUsageTable } from "../tables.ts";
+import { capCountersTable, rollingCapUsageTable } from "../tables.ts";
 import { fetchCounterRow } from "./read-counter.ts";
 
 // --- Test-Probe-Feature: drives enforceCap from inside a real handler ---
@@ -136,7 +133,6 @@ beforeAll(async () => {
   });
   db = stack.db;
 
-  await unsafeCreateEntityTable(db, capCounterEntity);
 });
 
 afterAll(async () => {
@@ -147,10 +143,9 @@ afterAll(async () => {
 // which month — just need a stable iso-string so `increment` +
 // `readCounter` hit the same aggregate.
 const PERIOD = "2026-05-01T00:00:00Z";
-const { table: capCounterTable } = createEntityExecutor("cap-counter", capCounterEntity);
 
 beforeEach(async () => {
-  await resetTestTables(db, [capCounterTable, eventsTable, rollingCapUsageTable]);
+  await resetTestTables(db, [capCountersTable, eventsTable, rollingCapUsageTable]);
 });
 
 const sysadmin = TestUsers.systemAdmin;

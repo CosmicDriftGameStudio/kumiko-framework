@@ -1,12 +1,13 @@
 // Public API of the cap-counter bundled-feature.
 
-export { capCounterAggregateId } from "./aggregate-id.ts";
 export {
   type BookCapUsageOptions,
   bookCapUsage,
   type MarkCapSoftWarnedOptions,
   markCapSoftWarned,
   type ReadRollingCapUsageOptions,
+  readCalendarCapCounter,
+  readCalendarCapUsageByTenant,
   readRollingCapUsage,
 } from "./book-cap-usage.ts";
 export {
@@ -22,14 +23,17 @@ export {
   CapReservationSettledError,
   CapSettleBelowConsumedError,
 } from "./cap-reservation.ts";
+export { type CapSubject, forgetCapCounterSubject } from "./cap-subject.ts";
 export {
   CAP_COUNTER_FEATURE,
   CapCounterHandlers,
   CapCounterQueries,
+  DEFAULT_AI_CAP_SUBJECT_SHARE,
 } from "./constants.ts";
 export {
   CAP_TOLERANCES,
   CapExceededError,
+  type CapLimitScope,
   type CapToleranceProfile,
   type CapToleranceProfileName,
   calendarMonthPeriodEndIso,
@@ -41,7 +45,6 @@ export {
   type SoftHitNotifier,
   type StockCapResult,
 } from "./enforce-cap.ts";
-export { capCounterEntity } from "./entity.ts";
 export { createCapCounterFeature } from "./feature.ts";
 export { readPayloadField } from "./payload-field.ts";
 export {
@@ -51,7 +54,12 @@ export {
   type StockCapGuard,
   type StockCapSpec,
 } from "./stock-cap-guard.ts";
-export { capReservationsTable, capReservationsTableMeta } from "./tables.ts";
+export {
+  capCountersTable,
+  capCountersTableMeta,
+  capReservationsTable,
+  capReservationsTableMeta,
+} from "./tables.ts";
 export {
   type CalendarCapDef,
   type CalendarCapResolver,

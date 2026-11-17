@@ -4,6 +4,7 @@ import {
   purgeSearchDocumentsForSubject,
   type SearchAdapter,
 } from "@cosmicdrift/kumiko-framework/search";
+import { forgetCapCounterSubject } from "../cap-counter/index.ts";
 import { purgeFilesReachingSubject } from "./purge-files-reaching-subject.ts";
 
 // The one erasure order both Art.-17 entries share (forget-subject, user-data-rights cleanup).
@@ -30,4 +31,6 @@ export async function eraseSubjectData(
   await eraseRows();
   // The deterministic HMAC would stay equality-matchable until the next rebuild.
   await nullBlindIndexesForSubject(args.db, args.registry.features, subjectKey);
+  // Subject usage rows are keyed by an HMAC of the subject key and would stay linkable.
+  await forgetCapCounterSubject(args.db, args.registry.features, subjectKey);
 }

@@ -10,11 +10,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 
-import {
-  asRawClient,
-  type DbConnection,
-  selectMany,
-} from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createEntityExecutor,
@@ -36,12 +32,11 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { capCounterAggregateId } from "../aggregate-id.ts";
 import { bookCapUsage, markCapSoftWarned } from "../book-cap-usage.ts";
 import { CapCounterHandlers } from "../constants.ts";
 import type { SoftHitNotifier } from "../enforce-cap.ts";
-import { capCounterEntity } from "../entity.ts";
 import { createCapCounterFeature } from "../feature.ts";
+import { capCountersTable } from "../tables.ts";
 import { withCapEnforcement } from "../with-cap-enforcement.ts";
 import { fetchCounterRow } from "./read-counter.ts";
 
@@ -77,8 +72,6 @@ const innerSendHandler: WriteHandlerDef = {
 };
 
 const PERIOD = "2026-07-01T00:00:00Z";
-
-const { table: capCounterTable } = createEntityExecutor("cap-counter", capCounterEntity);
 
 const wrappedCalendar = withCapEnforcement(innerSendHandler, () => ({
   capName: "newsletter-cap",
@@ -230,8 +223,7 @@ const NEWSLETTER_TENANT_ONLY_QN = "newsletter:write:send-newsletter-tenant-only"
 const BOOK_OUTSIDE_TX_QN = "newsletter:write:book-outside-tx-then-fail";
 
 // =============================================================================
-// Parallel-booking-race probes — return bookCapUsage's result
-// directly so a lost optimistic-lock race surfaces as an HTTP error instead
+// Parallel-booking-race probes — a failed booking surfaces as an HTTP error instead
 // of being swallowed.
 // =============================================================================
 
@@ -240,11 +232,13 @@ const bookCapUsageInTxHandler: WriteHandlerDef = {
   name: "book-cap-usage-in-tx",
   schema: z.object({}),
   access: { roles: ["TenantAdmin"] },
-  handler: (_event, ctx) =>
-    bookCapUsage(ctx, {
+  handler: async (_event, ctx) => {
+    await bookCapUsage(ctx, {
       capName: PARALLEL_BOOKING_IN_TX_CAP_NAME,
       periodStartIso: TENANT_ONLY_PERIOD,
-    }),
+    });
+    return { isSuccess: true as const, data: {} };
+  },
 };
 
 const PARALLEL_BOOKING_OUTSIDE_TX_CAP_NAME = "parallel-booking-outside-tx-cap";
@@ -252,12 +246,14 @@ const bookCapUsageOutsideTxHandler: WriteHandlerDef = {
   name: "book-cap-usage-outside-tx",
   schema: z.object({}),
   access: { roles: ["TenantAdmin"] },
-  handler: (_event, ctx) =>
-    bookCapUsage(ctx, {
+  handler: async (_event, ctx) => {
+    await bookCapUsage(ctx, {
       capName: PARALLEL_BOOKING_OUTSIDE_TX_CAP_NAME,
       periodStartIso: TENANT_ONLY_PERIOD,
       outsideTransaction: true,
-    }),
+    });
+    return { isSuccess: true as const, data: {} };
+  },
 };
 
 const PARALLEL_SOFT_WARN_CAP_NAME = "parallel-soft-warn-cap";
@@ -265,12 +261,26 @@ const markCapSoftWarnedHandler: WriteHandlerDef = {
   name: "mark-cap-soft-warned",
   schema: z.object({}),
   access: { roles: ["TenantAdmin"] },
-  handler: (_event, ctx) =>
-    markCapSoftWarned(ctx, {
+  handler: async (_event, ctx) => {
+    const marked = await markCapSoftWarned(ctx, {
       capName: PARALLEL_SOFT_WARN_CAP_NAME,
       periodStartIso: TENANT_ONLY_PERIOD,
-    }),
+    });
+    return { isSuccess: true as const, data: { marked } };
+  },
 };
+
+// Burstable limit 100: soft at 110, hard at 120, so both racing requests stay below the hard cap.
+const SOFT_RACE_CAP_NAME = "soft-race-cap";
+const SOFT_RACE_SEED = 110;
+const wrappedSoftRace = withCapEnforcement({ ...tenantOnlyInnerHandler, name: "send-soft-race" }, () => ({
+  capName: SOFT_RACE_CAP_NAME,
+  periodStartIso: TENANT_ONLY_PERIOD,
+  limit: 100,
+  profile: "burstable",
+  notify: recordingNotifier,
+}));
+const SOFT_RACE_QN = "newsletter:write:send-soft-race";
 
 const BOOK_CAP_USAGE_IN_TX_QN = "newsletter:write:book-cap-usage-in-tx";
 const MARK_CAP_SOFT_WARNED_QN = "newsletter:write:mark-cap-soft-warned";
@@ -279,6 +289,7 @@ const BOOK_CAP_USAGE_OUTSIDE_TX_QN = "newsletter:write:book-cap-usage-outside-tx
 const newsletterFeature = defineFeature("newsletter", (r) => {
   r.writeHandler(wrappedCalendar);
   r.writeHandler(wrappedCalendarTenantOnly);
+  r.writeHandler(wrappedSoftRace);
   r.writeHandler(wrappedAtomic);
   r.writeHandler(nestedAtomicCaller);
   r.writeHandler(wrappedCommitFailing);
@@ -300,7 +311,6 @@ let db: DbConnection;
 beforeAll(async () => {
   stack = await setupTestStack({ features: [createCapCounterFeature(), newsletterFeature] });
   db = stack.db;
-  await unsafeCreateEntityTable(db, capCounterEntity);
   await unsafeCreateEntityTable(db, commitProbeEntity);
   await asRawClient(db).unsafe(`
     CREATE FUNCTION cap_commit_probe_reject_at_commit() RETURNS trigger AS $$
@@ -320,7 +330,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await resetTestTables(db, [capCounterTable, eventsTable]);
+  await resetTestTables(db, [capCountersTable, eventsTable]);
 });
 
 function adminFor(tenantNumber: number) {
@@ -664,8 +674,8 @@ describe("withCapEnforcement - atomic reservation", () => {
   });
 });
 
-describe("markCapSoftWarned - parallel marks on an existing counter", () => {
-  test("N concurrent marks all succeed and lastSoftWarnedAt is set", async () => {
+describe("markCapSoftWarned - parallel marks", () => {
+  test("N concurrent marks yield exactly one marked=true and lastSoftWarnedAt is set", async () => {
     const user = tenantAdminOnlyFor(2603);
     await stack.http.writeOk(
       CapCounterHandlers.increment,
@@ -678,24 +688,30 @@ describe("markCapSoftWarned - parallel marks on an existing counter", () => {
       ],
     ).toBeNull();
 
-    await Promise.all(
+    const results = await Promise.all(
       Array.from({ length: PARALLEL_BOOKINGS }, () =>
-        stack.http.writeOk(MARK_CAP_SOFT_WARNED_QN, {}, user),
+        stack.http.writeOk<{ marked: boolean }>(MARK_CAP_SOFT_WARNED_QN, {}, user),
       ),
     );
 
+    expect(results.filter((result) => result.marked)).toHaveLength(1);
     const counter = await readCounter(user, PARALLEL_SOFT_WARN_CAP_NAME, TENANT_ONLY_PERIOD);
     expect(counter?.["lastSoftWarnedAt"]).not.toBeNull();
+  });
 
-    // Losers of the version race must see the flag on retry and not append duplicates:
-    // one create (increment) + exactly one update (the winning mark).
-    const events = await selectMany(stack.db, eventsTable, {
-      aggregateId: capCounterAggregateId(
-        user.tenantId,
-        PARALLEL_SOFT_WARN_CAP_NAME,
-        TENANT_ONLY_PERIOD,
-      ),
-    });
-    expect(events).toHaveLength(2);
+  test("two parallel requests crossing the soft threshold notify exactly once", async () => {
+    const user = tenantAdminOnlyFor(2604);
+    await stack.http.writeOk(
+      CapCounterHandlers.increment,
+      { capName: SOFT_RACE_CAP_NAME, periodStartIso: TENANT_ONLY_PERIOD, amount: SOFT_RACE_SEED },
+      adminFor(2604),
+    );
+
+    await Promise.all([
+      stack.http.writeOk(SOFT_RACE_QN, { to: "a" }, user),
+      stack.http.writeOk(SOFT_RACE_QN, { to: "b" }, user),
+    ]);
+
+    expect(recordedNotifications.filter((n) => n.capName === SOFT_RACE_CAP_NAME)).toHaveLength(1);
   });
 });

@@ -250,20 +250,6 @@ describe("currentCalendarMonthStartIso", () => {
   });
 });
 
-// =============================================================================
-// Aggregate-ID drift pins — changing the namespace would completely re-key
-// tenant-stored counter history. These tests pin the UUIDs.
-// =============================================================================
-
-describe("aggregate-id namespaces — drift-pin", () => {
-  test("calendar capCounterAggregateId stable for (tenant, capName, period)", async () => {
-    const { capCounterAggregateId } = await import("../aggregate-id.ts");
-    expect(capCounterAggregateId("tenant-1", "cap-x", "2026-05-01T00:00:00Z")).toBe(
-      "2e74a706-7cc1-51ca-a1a7-89e5c5bccb7e",
-    );
-  });
-});
-
 describe("calendarMonthPeriodEndIso", () => {
   test("adds one calendar month in UTC", () => {
     expect(calendarMonthPeriodEndIso("2026-07-01T00:00:00Z")).toBe("2026-08-01T00:00:00Z");

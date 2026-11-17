@@ -1,14 +1,12 @@
-import { createEntityExecutor } from "@cosmicdrift/kumiko-framework/engine";
-import { KumikoError, reraiseAsKumikoError } from "@cosmicdrift/kumiko-framework/errors";
+import { KumikoError } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import {
   type CapCounterContext,
   markCapSoftWarned,
+  readCalendarCapCounter,
   resolveCapCounterScope,
 } from "./book-cap-usage.ts";
-import { capCounterEntity } from "./entity.ts";
-
-const { table } = createEntityExecutor("cap-counter", capCounterEntity);
+import { type CapSubject, capSubjectLimit, capSubjectSchema } from "./cap-subject.ts";
 
 // =============================================================================
 // Cap-Toleranz-Multipliers
@@ -57,6 +55,8 @@ export type EnforceCapResult =
       readonly crossed: boolean;
     };
 
+export type CapLimitScope = "tenant" | "subject";
+
 export function assertBelowHardCap(
   valueSeenByLastUnit: number,
   cap: {
@@ -68,6 +68,7 @@ export function assertBelowHardCap(
     readonly periodEndIso?: string;
     readonly i18nKey?: string;
   },
+  scope: CapLimitScope = "tenant",
 ): void {
   const tolerance = CAP_TOLERANCES[cap.profile];
   // Validated on every call so a misconfigured period fails deterministically, not only at the limit.
@@ -76,6 +77,7 @@ export function assertBelowHardCap(
     throw new CapExceededError(cap.capName, cap.limit, valueSeenByLastUnit, tolerance, {
       ...(resetAt !== undefined && { resetAt }),
       ...(cap.i18nKey !== undefined && { i18nKey: cap.i18nKey }),
+      scope,
     });
   }
 }
@@ -134,8 +136,10 @@ export async function enforceCap(
     // Default: end of the calendar month that starts at periodStartIso.
     readonly periodEndIso?: string;
     readonly i18nKey?: string;
+    readonly subject?: CapSubject;
   },
 ): Promise<EnforceCapResult> {
+  const subject = options.subject && capSubjectSchema.parse(options.subject);
   const { user, readDb } = resolveCapCounterScope(ctx, false);
 
   const amount = options.amount ?? 1;
@@ -148,22 +152,31 @@ export async function enforceCap(
   const tolerance = CAP_TOLERANCES[options.profile];
   const softThreshold = options.limit * tolerance.soft;
 
-  const rows = await readDb.selectMany(
-    table,
-    { tenantId: user.tenantId, capName: options.capName, periodStart: options.periodStartIso },
-    { limit: 1 },
-  );
-
-  const row = rows[0];
-  const storedValue = row ? (row["value"] as number) : 0; // @cast-boundary db-row
+  const row = await readCalendarCapCounter(readDb, user.tenantId, {
+    capName: options.capName,
+    periodStartIso: options.periodStartIso,
+  });
+  const storedValue = row?.value ?? 0;
   // The last of `amount` units sees this value before its own increment.
   const value = storedValue + amount - 1;
 
   assertBelowHardCap(value, options);
 
+  if (subject?.share !== undefined) {
+    const subjectRow = await readCalendarCapCounter(readDb, user.tenantId, {
+      capName: options.capName,
+      periodStartIso: options.periodStartIso,
+      subjectKey: subject.key,
+    });
+    assertBelowHardCap(
+      (subjectRow?.value ?? 0) + amount - 1,
+      { ...options, limit: capSubjectLimit(options.limit, subject.share) },
+      "subject",
+    );
+  }
+
   if (value >= softThreshold) {
-    const lastSoftWarnedAt = row ? row["lastSoftWarnedAt"] : null;
-    return { state: "soft-hit", value, crossed: lastSoftWarnedAt === null };
+    return { state: "soft-hit", value, crossed: (row?.lastSoftWarnedAt ?? null) === null };
   }
 
   return { state: "ok", value };
@@ -194,6 +207,7 @@ export class CapExceededError extends KumikoError {
     options?: {
       readonly resetAt?: string;
       readonly i18nKey?: string;
+      readonly scope?: CapLimitScope;
       readonly cause?: Error;
       // Deterministic tests only.
       readonly now?: Temporal.Instant;
@@ -219,6 +233,7 @@ export class CapExceededError extends KumikoError {
         limit,
         currentValue,
         tolerance,
+        ...(options?.scope === "subject" && { scope: "subject" }),
         ...(resetAt !== undefined && { resetAt, retryAfterSeconds }),
       },
       ...(retryAfterSeconds !== undefined && { retryAfterSeconds }),
@@ -273,7 +288,7 @@ export function calendarMonthPeriodEndIso(periodStartIso: string): string {
  * Soft-hit notifier callback. The caller supplies the function that emits
  * a delivery event (for example, `delivery.send({to, template, payload})`).
  * It is called exactly once per period for the calendar counter
- * (`crossed === true`, deduplicated via `markSoftWarnedHandler`).
+ * (`crossed === true`, deduplicated by the atomic soft-warned mark).
  */
 export type SoftHitNotifier = (info: {
   readonly capName: string;
@@ -284,9 +299,9 @@ export type SoftHitNotifier = (info: {
 
 /**
  * Calendar-period enforcement with automatic soft-hit notification.
- * Calls `enforceCap`; when `crossed: true`, it calls the notifier and the
- * `mark-soft-warned` handler, which flips `lastSoftWarnedAt` so that the
- * same period does not trigger another notification.
+ * Calls `enforceCap`; when `crossed: true`, it sets `lastSoftWarnedAt` and only
+ * the call that set it runs the notifier, so the same period does not trigger
+ * another notification.
  *
  * Returns the `EnforceCapResult` unchanged, allowing the caller to branch
  * on the result, such as showing a UI toast in addition to the email
@@ -304,6 +319,7 @@ export async function enforceCapAndMaybeNotify(
     readonly periodEndIso?: string;
     readonly i18nKey?: string;
     readonly markSoftWarnedOutsideTransaction?: boolean;
+    readonly subject?: CapSubject;
   },
 ): Promise<EnforceCapResult> {
   const result = await enforceCap(ctx, {
@@ -314,22 +330,24 @@ export async function enforceCapAndMaybeNotify(
     ...(options.amount !== undefined && { amount: options.amount }),
     ...(options.periodEndIso !== undefined && { periodEndIso: options.periodEndIso }),
     ...(options.i18nKey !== undefined && { i18nKey: options.i18nKey }),
+    ...(options.subject !== undefined && { subject: options.subject }),
   });
 
   if (result.state === "soft-hit" && result.crossed) {
-    await options.notify({
-      capName: options.capName,
-      value: result.value,
-      limit: options.limit,
-      tenantId: resolveCapCounterScope(ctx, false).user.tenantId,
-    });
-    // Flip the soft-warned flag so the same period doesn't re-notify.
+    // At most one notification per period; a notify failure after the mark is not retried.
     const marked = await markCapSoftWarned(ctx, {
       capName: options.capName,
       periodStartIso: options.periodStartIso,
       ...(options.markSoftWarnedOutsideTransaction && { outsideTransaction: true }),
     });
-    if (!marked.isSuccess) throw reraiseAsKumikoError(marked.error);
+    if (marked) {
+      await options.notify({
+        capName: options.capName,
+        value: result.value,
+        limit: options.limit,
+        tenantId: resolveCapCounterScope(ctx, false).user.tenantId,
+      });
+    }
   }
 
   return result;

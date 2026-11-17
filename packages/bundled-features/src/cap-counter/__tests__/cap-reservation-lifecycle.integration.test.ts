@@ -9,7 +9,6 @@ import {
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
-  createEntityExecutor,
   defineFeature,
   type WriteHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -21,7 +20,6 @@ import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import type {
   RateLimitConfig,
@@ -32,9 +30,8 @@ import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { CapCounterHandlers } from "../constants.ts";
 import type { SoftHitNotifier } from "../enforce-cap.ts";
-import { capCounterEntity } from "../entity.ts";
 import { createCapCounterFeature } from "../feature.ts";
-import { capReservationsTable } from "../tables.ts";
+import { capCountersTable, capReservationsTable } from "../tables.ts";
 import { withCapEnforcement } from "../with-cap-enforcement.ts";
 import { fetchCounterRow } from "./read-counter.ts";
 
@@ -179,7 +176,6 @@ const capGateFeature = defineFeature("capgate", (r) => {
 // Setup
 // =============================================================================
 
-const { table: capCounterTable } = createEntityExecutor("cap-counter", capCounterEntity);
 
 let stack: TestStack;
 let db: DbConnection;
@@ -190,7 +186,6 @@ beforeAll(async () => {
     extraContext: { rateLimit: countingRateLimiter },
   });
   db = stack.db;
-  await unsafeCreateEntityTable(db, capCounterEntity);
 });
 
 afterAll(async () => {
@@ -198,7 +193,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await resetTestTables(db, [capCounterTable, eventsTable, capReservationsTable]);
+  await resetTestTables(db, [capCountersTable, eventsTable, capReservationsTable]);
   handlerRuns = 0;
   softHitNotifications.length = 0;
   rateLimitBuckets.clear();

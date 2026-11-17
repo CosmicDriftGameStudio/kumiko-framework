@@ -12,7 +12,6 @@ import {
 } from "bun:test";
 import { updateMany } from "@cosmicdrift/kumiko-framework/db";
 import {
-  createEntityExecutor,
   defineFeature,
   type WriteHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -22,7 +21,6 @@ import { burst, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
@@ -32,14 +30,12 @@ import {
 } from "../calendar-cap-usage-reservation.ts";
 import { releaseExpiredCapReservations } from "../cap-reservation.ts";
 import { CAP_RESERVATION_TTL_MINUTES, CAP_SETTLED_TOMBSTONE_TTL_MINUTES } from "../constants.ts";
-import { capCounterEntity } from "../entity.ts";
 import { createCapCounterFeature } from "../feature.ts";
-import { capReservationsTable } from "../tables.ts";
+import { capCountersTable, capReservationsTable } from "../tables.ts";
 import { fetchCounterValue } from "./read-counter.ts";
 
 const PERIOD = "2026-09-01T00:00:00Z";
 
-const { table: capCounterTable } = createEntityExecutor("cap-counter", capCounterEntity);
 
 const reservePayload = z.object({
   capName: z.string(),
@@ -135,7 +131,6 @@ let stack: TestStack;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [createCapCounterFeature(), capHandleFeature] });
-  await unsafeCreateEntityTable(stack.db, capCounterEntity);
 });
 
 afterAll(async () => {
@@ -147,7 +142,7 @@ afterEach(() => {
 });
 
 beforeEach(async () => {
-  await resetTestTables(stack.db, [capCounterTable, eventsTable, capReservationsTable]);
+  await resetTestTables(stack.db, [capCountersTable, eventsTable, capReservationsTable]);
 });
 
 function adminFor(tenantNumber: number) {
