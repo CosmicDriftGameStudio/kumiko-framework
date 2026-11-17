@@ -143,9 +143,7 @@ export function buildProdAuthRoutes(
     // each replica its own bucket. Redis is required infra
     // here already (REDIS_URL), so this is free.
     loginRateLimit: createRedisLoginRateLimiter(redis),
-    ...(effectiveAuth.secureCookies !== undefined && {
-      secureCookies: effectiveAuth.secureCookies,
-    }),
+    secureCookies: effectiveAuth.secureCookies ?? true,
     ...(authPublicOrigin !== undefined && { publicOrigin: authPublicOrigin }),
     ...(previewLogin && { previewLogin }),
     ...(trustedProxyHops !== undefined && { trustedProxyHops }),

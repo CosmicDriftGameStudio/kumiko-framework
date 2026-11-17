@@ -252,8 +252,12 @@ export async function verifyUnsubscribeToken(
             issuer: UNSUBSCRIBE_ISSUER,
             audience: RESUBSCRIBE_AUDIENCE,
             requiredClaims: ["exp"],
+            algorithms: ["HS256"],
           })
-        : await jose.jwtVerify(token, encodedSecret, { issuer: UNSUBSCRIBE_ISSUER });
+        : await jose.jwtVerify(token, encodedSecret, {
+            issuer: UNSUBSCRIBE_ISSUER,
+            algorithms: ["HS256"],
+          });
     // jose only checks `aud` when asked to, so an unsubscribe route would accept an undo token.
     if (purpose === "unsubscribe" && verifiedPayload.aud !== undefined) {
       throw new ExtraRouteRejection(

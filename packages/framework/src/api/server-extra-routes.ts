@@ -57,6 +57,7 @@ export function mountExtraRoutes(
     for (const route of options.extraRoutes) {
       assertValidExtraRoute(route);
     }
+    assertSignatureRoutesDoNotOverlapMountedRoutes(app, options.extraRoutes);
     const dispatchSystemWrite = makeDispatchSystemWrite(dispatcher);
     const dispatchSystemQuery = makeDispatchSystemQuery(dispatcher);
     const dispatchWriteAs = makeDispatchWriteAs(dispatcher);
@@ -121,6 +122,35 @@ function assertValidExtraRoute(route: ExtraRouteDefinition): void {
       throw new Error(
         `[kumiko] extraRoutes: entry:"signature" route "${route.method} ${route.path}" must not ` +
           `match the framework path "${shadowedFrameworkPath}" — it would bypass the auth chain for it.`,
+      );
+    }
+  }
+}
+
+// The public matcher lets every request through that a signature route's pattern matches, so a
+// signature route must not overlap a /api route that relies on the auth chain: the framework's own
+// sub-routes (mounted before extraRoutes, e.g. /api/files/:id) and the non-signature extraRoutes.
+function assertSignatureRoutesDoNotOverlapMountedRoutes(
+  app: Hono,
+  extraRoutes: readonly ExtraRouteDefinition[],
+): void {
+  const guardedRoutes: readonly { readonly method: string; readonly path: string }[] = [
+    ...app.routes.filter((route) => route.method !== "ALL" && route.path.startsWith("/api/")),
+    ...extraRoutes.filter((route) => route.entry !== ExtraRouteEntries.signature),
+  ];
+  for (const signatureRoute of extraRoutes) {
+    if (signatureRoute.entry !== ExtraRouteEntries.signature) continue;
+    const signatureMethod: string = signatureRoute.method;
+    const signaturePattern = honoPathToRegex(signatureRoute.path);
+    const overlapped = guardedRoutes.find(
+      (route) =>
+        route.method === signatureMethod &&
+        (signaturePattern.test(route.path) || honoPathToRegex(route.path).test(signatureRoute.path)),
+    );
+    if (overlapped !== undefined) {
+      throw new Error(
+        `[kumiko] extraRoutes: entry:"signature" route "${signatureRoute.method} ${signatureRoute.path}" must not ` +
+          `overlap the route "${overlapped.method} ${overlapped.path}" — it would bypass the auth chain for it.`,
       );
     }
   }

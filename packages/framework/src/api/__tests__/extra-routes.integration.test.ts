@@ -9,6 +9,7 @@ import { errorCodeOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
 import { createRegistry, defineFeature, type TenantId } from "../../engine/index.ts";
 import { isKumikoError, RateLimitError } from "../../errors/index.ts";
+import { createInMemoryFileProvider } from "../../files/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import {
   type AnonymousExtraRoute,
@@ -875,3 +876,73 @@ function _userDepsHaveNoDispatchSystemWrite(): UserExtraRoute {
     },
   };
 }
+
+function hooksUserRoute(): UserExtraRoute {
+  return {
+    method: "GET",
+    path: "/api/hooks/me",
+    entry: "user",
+    handler: async (c) => c.json({}),
+  };
+}
+
+function hooksSignatureRoute(method: "GET" | "POST") {
+  return signatureRoute({
+    method,
+    path: "/api/hooks/:id",
+    entry: "signature",
+    verify: async () => true,
+    handler: async (c) => c.json({}),
+  });
+}
+
+test("extraRoutes: entry:signature route overlapping a user extraRoute throws at boot", () => {
+  const registry = createRegistry([probeFeature]);
+  const overlapMessage = /must not\s+overlap the route "GET \/api\/hooks\/me"/;
+  expect(() =>
+    buildServer({
+      registry,
+      context: {},
+      jwtSecret: JWT_SECRET,
+      extraRoutes: [hooksUserRoute(), hooksSignatureRoute("GET")],
+    }),
+  ).toThrow(overlapMessage);
+  expect(() =>
+    buildServer({
+      registry,
+      context: {},
+      jwtSecret: JWT_SECRET,
+      extraRoutes: [hooksSignatureRoute("GET"), hooksUserRoute()],
+    }),
+  ).toThrow(overlapMessage);
+});
+
+test("extraRoutes: entry:signature route overlapping a mounted framework sub-route throws at boot", async () => {
+  await expect(
+    setupTestStack({
+      features: [probeFeature],
+      files: { storageProvider: createInMemoryFileProvider() },
+      extraRoutes: [
+        signatureRoute({
+          method: "GET",
+          path: "/api/files/:id",
+          entry: "signature",
+          verify: async () => true,
+          handler: async (c) => c.json({}),
+        }),
+      ],
+    }),
+  ).rejects.toThrow(/overlap the route "GET \/api\/files\/:id"/);
+});
+
+test("extraRoutes: a signature route with a different method than the user route boots", () => {
+  const registry = createRegistry([probeFeature]);
+  expect(() =>
+    buildServer({
+      registry,
+      context: {},
+      jwtSecret: JWT_SECRET,
+      extraRoutes: [hooksUserRoute(), hooksSignatureRoute("POST")],
+    }),
+  ).not.toThrow();
+});

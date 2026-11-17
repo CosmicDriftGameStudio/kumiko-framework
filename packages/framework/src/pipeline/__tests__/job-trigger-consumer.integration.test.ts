@@ -26,9 +26,10 @@ import {
 import * as z from "zod";
 import { entityEventName } from "../../db/index.ts";
 import { defineFeature, type JobContext } from "../../engine/index.ts";
-import { loadAggregate } from "../../event-store/index.ts";
+import { append, loadAggregate } from "../../event-store/index.ts";
 import { createInMemoryFileProvider, type InMemoryFileProvider } from "../../files/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
+import { generateId } from "../../utils/index.ts";
 
 const ITEM_REQUESTED_EVENT_QN = "job-trigger-fixture:event:item-requested";
 const FILE_REF_CREATED = entityEventName("fileRef", "created");
@@ -39,6 +40,8 @@ const processedItems: Array<{
   readonly triggerEvent: JobContext["triggerEvent"];
   readonly rawDataKeys: readonly string[];
 }> = [];
+
+const versionedNotes: string[] = [];
 
 const jobTriggerFixtureFeature = defineFeature("job-trigger-fixture", (r) => {
   r.defineEvent("item-requested", z.object({ fileRefId: z.string().min(1) }), {
@@ -77,6 +80,39 @@ const jobTriggerFixtureFeature = defineFeature("job-trigger-fixture", (r) => {
       });
     },
   );
+
+  // Stored v1 events must reach the job in the current schema.
+  const versionedRequested = r.defineEvent(
+    "versioned-requested",
+    z.object({ note: z.string() }),
+    {
+      piiFields: "none",
+      version: 2,
+      migrations: [{ fromVersion: 1, toVersion: 2, transform: { default: { note: "from-v1" } } }],
+    },
+  );
+  r.job(
+    "versioned-job",
+    { trigger: { on: versionedRequested.name }, runIn: "worker" },
+    async (payload) => {
+      versionedNotes.push(payload["note"] as string);
+    },
+  );
+
+  // Its upcaster always throws and no job listens to it: it must not stall the consumer.
+  r.defineEvent("poison", z.object({ id: z.uuid() }), {
+    piiFields: "none",
+    version: 2,
+    migrations: [
+      {
+        fromVersion: 1,
+        toVersion: 2,
+        transform: () => {
+          throw new Error("poison upcaster must not run for the job-trigger consumer");
+        },
+      },
+    ],
+  });
 });
 
 // trigger.where partition fixture — two jobs share one broad QN, each
@@ -165,6 +201,7 @@ afterAll(async () => {
 
 beforeEach(() => {
   processedItems.length = 0;
+  versionedNotes.length = 0;
   provider.clear();
   alphaProcessed.length = 0;
   betaProcessed.length = 0;
@@ -208,6 +245,37 @@ describe("job-trigger event consumer", () => {
 
     // Reserved keys never leak into the payload the handler receives.
     expect(processed?.rawDataKeys).not.toContain("_triggerEvent");
+  });
+
+  test("event-triggered job sees the upcast payload of a stored v1 event", async () => {
+    const poisonId = generateId();
+    await append(stack.db, {
+      aggregateId: poisonId,
+      aggregateType: "poison",
+      tenantId: TestUsers.admin.tenantId,
+      expectedVersion: 0,
+      type: "job-trigger-fixture:event:poison",
+      eventVersion: 1,
+      payload: { id: poisonId },
+      metadata: { userId: TestUsers.admin.id },
+    });
+    const versionedId = generateId();
+    await append(stack.db, {
+      aggregateId: versionedId,
+      aggregateType: "versioned-request",
+      tenantId: TestUsers.admin.tenantId,
+      expectedVersion: 0,
+      type: "job-trigger-fixture:event:versioned-requested",
+      eventVersion: 1,
+      payload: {},
+      metadata: { userId: TestUsers.admin.id },
+    });
+
+    await waitFor(async () => {
+      await stack.eventDispatcher?.runOnce();
+      await stack.drainJobs();
+      expect(versionedNotes).toEqual(["from-v1"]);
+    });
   });
 });
 

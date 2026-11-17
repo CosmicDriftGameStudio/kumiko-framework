@@ -87,21 +87,6 @@ export type ProdComposedFeatures = ReturnType<typeof resolveUnsubscribeWiring> &
   readonly registry: Registry;
 };
 
-let warnedLegacyJwtSecret = false;
-function warnLegacyJwtSecretOnce(): void {
-  // skip: already warned once this process — avoid log spam on every boot path.
-  if (warnedLegacyJwtSecret) return;
-  warnedLegacyJwtSecret = true;
-  createFallbackLogger("runProdApp").warn(
-    "JWT keyring carries a legacy (pre-rotation) verify-only key — " +
-      "it never expires on its own. JWT_SECRET remains a required env (hmacSecret " +
-      "fallback + boot requireEnv). To stop verifying with the pre-rotation secret: " +
-      "set auth.mail.hmacSecret explicitly, then rotate JWT_SECRET to a fresh value " +
-      "that is no longer present in any in-flight token (see resolveAuthMail / " +
-      "loadJwtSecretOrKeyring).",
-  );
-}
-
 export async function resolveProdBootConfig(
   options: RunProdAppOptions,
   decryptedEnvSource: Record<string, string | undefined>,
@@ -136,14 +121,6 @@ export async function resolveProdBootConfig(
   // rotation of the session-JWT signing key — see loadJwtSecretOrKeyring.
   const jwtSecret = requireEnv("JWT_SECRET", envSource);
   const jwtSecretOrKeyring = loadJwtSecretOrKeyring(envSource);
-  if (typeof jwtSecretOrKeyring === "object" && Object.hasOwn(jwtSecretOrKeyring.keys, "legacy")) {
-    // Once per process — JWT_SECRET stays a required env (requireEnv above +
-    // resolveAuthMail hmacSecret fallback). Retiring the *legacy verify key*
-    // means setting auth.mail.hmacSecret explicitly and rotating JWT_SECRET
-    // to a fresh value that is no longer in any in-flight token; unsetting
-    // JWT_SECRET entirely hard-crashes boot.
-    warnLegacyJwtSecretOnce();
-  }
   const jwtIssuer = readEnv("JWT_ISSUER", envSource);
   const instanceId = readEnv("KUMIKO_INSTANCE_ID", envSource);
   // options.auth.trustedProxyHops wins; falls back

@@ -88,7 +88,15 @@ import {
 // enable/skipPoisonEvent/progress) lives in event-dispatcher-admin.ts. This
 // file is the facade: public types + the createEventDispatcher() factory.
 
-export type EventConsumerHandler = (event: StoredEvent, ctx: AppContext) => Promise<void>;
+// The dispatcher's consumer turn; present on every delivery through the dispatcher. Writes on `tx`
+// commit atomically with the consumer cursor.
+export type ConsumerTurn = { readonly tx: DbTx };
+
+export type EventConsumerHandler = (
+  event: StoredEvent,
+  ctx: AppContext,
+  turn?: ConsumerTurn,
+) => Promise<void>;
 
 // Batch variant of EventConsumerHandler — receives all events of one
 // delivery turn in id order, meant for side-effect sinks (search index,

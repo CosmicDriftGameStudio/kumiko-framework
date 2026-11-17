@@ -64,6 +64,7 @@ import {
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { testRunQueueNamePrefix, unsafeEnsureEntityTable } from "@cosmicdrift/kumiko-testing/stack";
+import { AUTH_COOKIE_BASE, sessionCookieName } from "@cosmicdrift/kumiko-types/session-cookies";
 import { Queue } from "bullmq";
 import * as z from "zod";
 import { type ProdAppHandle, runProdApp } from "../run-prod-app.ts";
@@ -804,8 +805,9 @@ describe("runProdApp", () => {
       tenantId: TENANT_ID as import("@cosmicdrift/kumiko-framework/engine").TenantId,
       roles: ["User"],
     });
+    const authCookie = `${sessionCookieName(AUTH_COOKIE_BASE, { secure: true })}=${token}`;
     const schemaRes = await handle.fetch(
-      new Request("http://test/api/schema", { headers: { Cookie: `kumiko_auth=${token}` } }),
+      new Request("http://test/api/schema", { headers: { Cookie: authCookie } }),
     );
     expect(schemaRes.status).toBe(200);
     const schema = (await schemaRes.json()) as { features: readonly unknown[] };

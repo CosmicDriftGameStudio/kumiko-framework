@@ -129,8 +129,9 @@ export type MspErrorMode = {
 // Marten-style MultiStreamProjection: aggregates events from many streams
 // into one cross-cutting read-model. Unlike ProjectionDefinition (single-
 // source, inline in the write-TX), an MSP is ASYNC — the event-dispatcher
-// picks events off the log via its own cursor. Handlers MUST be idempotent
-// because the dispatcher guarantees at-least-once delivery.
+// picks events off the log via its own cursor. DB writes through the apply
+// runner commit atomically with the cursor; side effects outside it (jobs,
+// external calls, derivatives) are at-least-once and must be idempotent.
 //
 // Use for Sagas / process managers, customer-centric views that span
 // multiple aggregate types, cross-feature aggregations, audit logs. With
@@ -157,8 +158,9 @@ export type MultiStreamProjectionDefinition = {
   readonly runIn?: RunIn;
   // Delivery semantics across multi-instance deploys:
   //   "shared"       (default) — one cursor across all dispatcher instances,
-  //                   SKIP LOCKED serialises; each event delivered exactly
-  //                   once globally. The right choice for side-effects with
+  //                   SKIP LOCKED serialises to one consumer turn at a time;
+  //                   apply's DB writes commit with the cursor, side effects are
+  //                   at-least-once. The right choice for side-effects with
   //                   any downstream state: notifications, external APIs,
   //                   projection tables, audit rows.
   //   "per-instance" — one cursor PER dispatcher instance, so every process

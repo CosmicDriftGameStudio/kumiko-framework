@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { Hono } from "hono";
 import * as z from "zod";
 import { tenantChannel } from "../../engine/constants.ts";
@@ -19,6 +20,7 @@ import {
 } from "../sse-broker.ts";
 import {
   createSseRoute,
+  SSE_MAX_CONNECTIONS_PER_USER,
   SSE_STALLED_CLIENT_TIMEOUT_MS,
   type SseRouteOptions,
 } from "../sse-route.ts";
@@ -709,5 +711,67 @@ describe("sse-route backpressure", () => {
     local.pushToChannel(channel, userUpdated(4));
     expect(JSON.parse((await readNextEntityFrame(fastReader)).data).id).toBe("u4");
     await fastReader.cancel();
+  });
+});
+
+describe("sse-route connection limit", () => {
+  async function openLimitedApp() {
+    const { app, token } = await buildSseApp(createSseBroker());
+    const readers: ReadableStreamDefaultReader<Uint8Array>[] = [];
+    const requestSse = (bearer: string) =>
+      app.request("/api/sse", { headers: { Authorization: `Bearer ${bearer}` } });
+    const fillQuota = async () => {
+      for (let n = 0; n < SSE_MAX_CONNECTIONS_PER_USER; n++) {
+        const response = await requestSse(token);
+        expect(response.status).toBe(200);
+        readers.push(response.body!.getReader());
+      }
+    };
+    const cancelAll = async () => {
+      await Promise.all(readers.map((reader) => reader.cancel()));
+    };
+    return { token, readers, requestSse, fillQuota, cancelAll };
+  }
+
+  test("rejects the connection beyond SSE_MAX_CONNECTIONS_PER_USER with 429", async () => {
+    const { token, requestSse, fillQuota, cancelAll } = await openLimitedApp();
+    try {
+      await fillQuota();
+      const rejected = await requestSse(token);
+      expect(rejected.status).toBe(429);
+      const body = (await rejected.json()) as { error: { code: string } };
+      expect(body.error.code).toBe("sse_connection_limit");
+    } finally {
+      await cancelAll();
+    }
+  });
+
+  test("another user is not affected by the cap", async () => {
+    const { requestSse, fillQuota, cancelAll } = await openLimitedApp();
+    try {
+      await fillQuota();
+      const adminToken = await createJwtHelper(JWT_SECRET).sign(TestUsers.admin);
+      const response = await requestSse(adminToken);
+      expect(response.status).toBe(200);
+      await response.body!.cancel();
+    } finally {
+      await cancelAll();
+    }
+  });
+
+  test("closing a stream frees its slot", async () => {
+    const { token, readers, requestSse, fillQuota, cancelAll } = await openLimitedApp();
+    try {
+      await fillQuota();
+      expect((await requestSse(token)).status).toBe(429);
+      await readers[0]!.cancel();
+      await waitFor(async () => {
+        const response = await requestSse(token);
+        expect(response.status).toBe(200);
+        readers.push(response.body!.getReader());
+      });
+    } finally {
+      await cancelAll();
+    }
   });
 });

@@ -72,34 +72,17 @@ function normalizeKeyring(secretOrKeyring: string | JwtKeyring): NormalizedKeyri
   return { verifyKeys, signKid: secretOrKeyring.signKid, signKey };
 }
 
-// Tokens carry `kid` in the protected header when signed from a keyring — pick the
-// matching verify-key directly. Tokens without `kid` (single-secret form, or in-flight
-// tokens signed before a rotation) fall back to trying every verify-key.
-async function verifyWithKeyring(token: string, keyring: NormalizedKeyring, issuer: string) {
-  const { kid } = jose.decodeProtectedHeader(token);
-  if (typeof kid === "string" && keyring.verifyKeys.size > 0) {
-    const key = keyring.verifyKeys.get(kid);
-    if (!key) {
-      throw new Error(`JWT verification failed: unknown kid "${kid}"`);
-    }
-    return jose.jwtVerify(token, key, { issuer });
-  }
+const JWT_ALGORITHMS = ["HS256"];
 
-  // ponytail: tries every key in the ring (O(keys) per legacy-token verify) — fine for a
-  // rotation window of a handful of keys, revisit if the keyring ever grows large.
-  const candidates =
-    keyring.verifyKeys.size > 0 ? [...keyring.verifyKeys.values()] : [keyring.signKey];
-  let lastError: unknown;
-  for (const key of candidates) {
-    try {
-      return await jose.jwtVerify(token, key, { issuer });
-    } catch (err) {
-      lastError = err;
-    }
-  }
-  throw lastError instanceof Error
-    ? lastError
-    : new Error("JWT verification failed: no matching key");
+// Keyring tokens always carry the kid they were signed with; a kid-less token can only come from the single-secret form, so a keyring rejects it.
+async function verifyWithKeyring(token: string, keyring: NormalizedKeyring, issuer: string) {
+  const verifyOptions = { issuer, algorithms: JWT_ALGORITHMS };
+  if (keyring.verifyKeys.size === 0) return jose.jwtVerify(token, keyring.signKey, verifyOptions);
+  const { kid } = jose.decodeProtectedHeader(token);
+  if (typeof kid !== "string") throw new Error("JWT verification failed: token has no kid");
+  const key = keyring.verifyKeys.get(kid);
+  if (!key) throw new Error(`JWT verification failed: unknown kid "${kid}"`);
+  return jose.jwtVerify(token, key, verifyOptions);
 }
 
 const DEFAULT_JWT_TTL_SECONDS = 24 * 60 * 60;
@@ -259,21 +242,6 @@ export function loadJwtSecretOrKeyring(
         `(have versions: ${Object.keys(keys).sort().join(", ")}). ` +
         `Check JWT_SECRET_V${currentRaw} is set.`,
     );
-  }
-  // Carry the pre-rotation plain JWT_SECRET into the ring as a verify-only
-  // legacy key: sessions signed before JWT_SECRET_V<n> was first set have no
-  // `kid`, so verifyWithKeyring's no-kid fallback tries every key in `keys` —
-  // if the plain secret isn't one of them, every in-flight session breaks the
-  // moment rotation is adopted, exactly the mass-invalidation this keyring
-  // exists to avoid. Never becomes signKid — only JWT_SECRET_V<n> can sign.
-  // Retirement: has no automatic expiry — verifies unbounded as long as
-  // JWT_SECRET stays set. Operators must explicitly unset JWT_SECRET once
-  // max token TTL (`ttlSeconds`) has elapsed since cutover to actually
-  // retire a rotated-out secret (see run-prod-app.ts boot warning).
-  const legacySecret = env["JWT_SECRET"];
-  if (legacySecret) {
-    assertMinLength("JWT_SECRET", legacySecret);
-    keys["legacy"] = legacySecret;
   }
   return { keys, signKid };
 }

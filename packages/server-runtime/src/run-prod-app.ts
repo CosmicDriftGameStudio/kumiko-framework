@@ -28,15 +28,9 @@
 //   JWT_SECRET_V1=<random-32+>  (repeat _V2, _V3, ... per rotation)
 //   JWT_SECRET_CURRENT_VERSION=1  (which V<n> signs new tokens; the others
 //     still verify in-flight tokens until they expire)
-//   When adopting rotation for the first time (with no JWT_SECRET_V<n> set),
-//   the plain JWT_SECRET remains set and is carried into the keyring as a
-//   verify-only legacy key (loadJwtSecretOrKeyring), so sessions signed before
-//   cutover continue to verify without a mass logout. This legacy key never
-//   expires automatically; boot logs a warning while it is present. Once the
-//   maximum token TTL has elapsed since cutover, unset JWT_SECRET to retire
-//   it. First check whether the app relies on auth.mail's convenience default
-//   for passwordReset/emailVerification hmacSecret, which falls back to this
-//   same JWT_SECRET.
+//   Setting JWT_SECRET_V1 + JWT_SECRET_CURRENT_VERSION switches to the keyring: every token carries a kid,
+//   tokens without one are rejected, so users log in once after the switch. JWT_SECRET stays required for
+//   the HMAC token family.
 //   PORT=3000
 //   KUMIKO_INSTANCE_ID=<stable per replica>
 
@@ -306,8 +300,7 @@ export type RunProdAppAuthOptions = AppRuntimeAuthOptions & {
    *  (invitation, global role granted on accept) instead. */
   readonly admin?: SeedAdminOptions;
   /** Secure flag for the session cookies (see AuthRoutesConfig.secureCookies).
-   *  Defaults to NODE_ENV === "production"; set it to true when TLS ends at a
-   *  proxy and NODE_ENV is not "production". */
+   *  Defaults to true; set false only for plain-HTTP runs on a non-localhost host. */
   readonly secureCookies?: boolean;
   /** Canonical public origin for the default Origin guard (see
    *  AuthRoutesConfig.publicOrigin). Defaults to the origin of

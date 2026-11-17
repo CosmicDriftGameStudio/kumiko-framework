@@ -157,16 +157,35 @@ describe("createJwtHelper — keyring form", () => {
     expect(payload.sub).toBe(user.id);
   });
 
-  it("verifies a legacy no-kid token against a multi-key keyring", async () => {
-    const legacy = createJwtHelper(SECRET);
-    const token = await legacy.sign(user);
+  it("rejects a kid-less token in keyring mode", async () => {
+    const token = await createJwtHelper(SECRET).sign(user);
 
-    const rotated = createJwtHelper({
+    const keyringHelper = createJwtHelper({
       keys: { v1: "unrelated-secret-32-characters-longg", v2: SECRET },
       signKid: "v2",
     });
-    const payload = await rotated.verify(token);
-    expect(payload.sub).toBe(user.id);
+    await expect(keyringHelper.verify(token)).rejects.toThrow(/no kid/);
+  });
+
+  it("rejects an HS512 token signed with the same secret (string helper)", async () => {
+    const token = await new jose.SignJWT({ tenantId: TENANT, roles: [] })
+      .setProtectedHeader({ alg: "HS512" })
+      .setIssuer(ISSUER)
+      .setSubject(user.id)
+      .setExpirationTime("5m")
+      .sign(new TextEncoder().encode(SECRET));
+    await expect(createJwtHelper(SECRET).verify(token)).rejects.toThrow();
+  });
+
+  it("rejects an HS512 token signed with the same secret (keyring helper)", async () => {
+    const token = await new jose.SignJWT({ tenantId: TENANT, roles: [] })
+      .setProtectedHeader({ alg: "HS512", kid: "v1" })
+      .setIssuer(ISSUER)
+      .setSubject(user.id)
+      .setExpirationTime("5m")
+      .sign(new TextEncoder().encode(SECRET));
+    const keyringHelper = createJwtHelper({ keys: { v1: SECRET }, signKid: "v1" });
+    await expect(keyringHelper.verify(token)).rejects.toThrow();
   });
 
   it("rejects a token whose kid is not in the keyring", async () => {
@@ -226,31 +245,15 @@ describe("loadJwtSecretOrKeyring", () => {
     ).toThrow(/not present in the keyring/);
   });
 
-  it("plain JWT_SECRET carries over as a verify-only legacy key once a keyring is adopted", () => {
-    // Adopting rotation for the first time doesn't unset JWT_SECRET (it still
-    // signs the separate password-reset/email-verification HMAC family) —
-    // and sessions signed before adoption have no `kid`, so they must keep
-    // verifying against this exact value, not get orphaned the moment
-    // JWT_SECRET_V1 shows up.
-    const PLAIN_SECRET = "pre-rotation-plain-secret-32-chars-long!!";
+  it("plain JWT_SECRET alongside a keyring is not carried into it", () => {
+    const PLAIN_SECRET = "plain-secret-at-least-32-characters-long-bb";
     expect(
       loadJwtSecretOrKeyring({
         JWT_SECRET: PLAIN_SECRET,
         JWT_SECRET_V1: SECRET,
         JWT_SECRET_CURRENT_VERSION: "1",
       }),
-    ).toEqual({ keys: { v1: SECRET, legacy: PLAIN_SECRET }, signKid: "v1" });
-  });
-
-  it("legacy JWT_SECRET never becomes the sign key, only ever verify-only", () => {
-    const PLAIN_SECRET = "pre-rotation-plain-secret-32-chars-long!!";
-    const keyring = loadJwtSecretOrKeyring({
-      JWT_SECRET: PLAIN_SECRET,
-      JWT_SECRET_V1: SECRET,
-      JWT_SECRET_CURRENT_VERSION: "1",
-    });
-    expect(typeof keyring).not.toBe("string");
-    expect((keyring as { signKid: string }).signKid).toBe("v1");
+    ).toEqual({ keys: { v1: SECRET }, signKid: "v1" });
   });
 
   it("no plain JWT_SECRET set alongside a keyring → no legacy key added", () => {
@@ -275,20 +278,6 @@ describe("loadJwtSecretOrKeyring", () => {
         JWT_SECRET_CURRENT_VERSION: "1",
       }),
     ).toThrow(/JWT_SECRET_V1 must be ≥32 chars/);
-  });
-
-  it("short legacy JWT_SECRET is rejected, not silently carried into the keyring", () => {
-    // Auth-bypass: a short JWT_SECRET carried into keys["legacy"] without a
-    // length check would be offline-bruteforceable — an attacker forges
-    // {alg:"HS256", kid:"legacy"} with arbitrary sub/tenantId/roles and
-    // verifyWithKeyring looks the key up by kid straight from the header.
-    expect(() =>
-      loadJwtSecretOrKeyring({
-        JWT_SECRET: "short",
-        JWT_SECRET_V1: SECRET,
-        JWT_SECRET_CURRENT_VERSION: "1",
-      }),
-    ).toThrow(/JWT_SECRET must be ≥32 chars/);
   });
 
   it("empty JWT_SECRET_V<n> throws instead of silently falling back to single-secret mode", () => {
