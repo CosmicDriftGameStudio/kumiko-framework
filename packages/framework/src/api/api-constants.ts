@@ -14,6 +14,7 @@ export const Routes = {
   exportXlsx: "/export/xlsx",
   auth: "/auth",
   authLogin: "/auth/login",
+  authSessionExchange: "/auth/session-exchange",
   authMfaVerify: "/auth/mfa/verify",
   authMfaPreauthEnableStart: "/auth/mfa/preauth-enable-start",
   authMfaPreauthConfirm: "/auth/mfa/preauth-confirm",
@@ -45,6 +46,7 @@ export const Routes = {
 // The auth middleware skips these paths.
 export const PUBLIC_API_PATHS: ReadonlySet<string> = new Set([
   `/api${Routes.authLogin}`,
+  `/api${Routes.authSessionExchange}`,
   `/api${Routes.authMfaVerify}`,
   `/api${Routes.authMfaPreauthEnableStart}`,
   `/api${Routes.authMfaPreauthConfirm}`,

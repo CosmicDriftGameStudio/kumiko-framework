@@ -3,9 +3,11 @@ import * as z from "zod";
 import { createAnonymousUser } from "../engine/system-user.ts";
 import { SYSTEM_TENANT_ID } from "../engine/types/index.ts";
 import { NotFoundError } from "../errors/index.ts";
+import { toClientWriteErrorInfo, type WriteErrorInfo } from "../errors/write-error-info.ts";
 import { createFallbackLogger } from "../logging/utils.ts";
 import type { Dispatcher } from "../pipeline/dispatcher.ts";
 import { MAX_RETURN_PATH_LENGTH } from "../utils/return-path-limit.ts";
+import { toContentfulStatus } from "./contentful-status.ts";
 
 const log = createFallbackLogger("kumiko");
 
@@ -128,4 +130,17 @@ export function readErrorReason(details: unknown): string | undefined {
     typeof details.reason === "string"
     ? details.reason
     : undefined;
+}
+
+// A handler failure answers with the status the route maps its reason to, else
+// with the error's own status. Shared so the auth routes cannot drift apart.
+export function handlerFailureResponse(
+  c: Context,
+  error: WriteErrorInfo,
+  statusMap: Readonly<Record<string, number>>,
+) {
+  const reason = readErrorReason(error.details) ?? error.code;
+  const status = toContentfulStatus(statusMap[reason] ?? error.httpStatus);
+  // c.json (not Response.json) keeps headers middleware set via c.header before next().
+  return c.json({ isSuccess: false, error: toClientWriteErrorInfo(error) }, status);
 }

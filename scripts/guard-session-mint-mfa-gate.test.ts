@@ -18,7 +18,9 @@ type MintGate =
       readonly kind: "handler-gate" | "route-gate" | "signed-link";
       readonly evidence: string;
     }
-  | { readonly kind: "second-factor" };
+  | { readonly kind: "second-factor" }
+  // The route cannot run a second factor at all, so boot refuses it next to auth-mfa; evidence lives in that boot file.
+  | { readonly kind: "boot-refused"; readonly file: string; readonly evidence: string };
 
 const JWT_SIGN_FILES: Record<string, string> = {
   [AUTH_MINT_FILE]: "mintSessionAndRespond is the single production mint point",
@@ -37,6 +39,11 @@ const MINTING_ROUTES: Record<string, MintGate> = {
   authMfaPreauthConfirm: { kind: "second-factor" },
   // Only mounted when previewLogin is configured (preview deployments); Studio signs the link after its own login, so the preview app's MFA policy is deliberately not applied.
   PREVIEW_LOGIN_PATH: { kind: "signed-link", evidence: "isValidPreviewLoginLink(" },
+  authSessionExchange: {
+    kind: "boot-refused",
+    file: "server-runtime/src/boot/shared-boot-steps.ts",
+    evidence: "session-exchange handlers cannot enforce MFA yet",
+  },
 };
 
 function stripComments(source: string): string {
@@ -124,7 +131,9 @@ describe("session minting stays behind the MFA gate", () => {
   for (const [routeName, gate] of Object.entries(MINTING_ROUTES)) {
     if (gate.kind === "second-factor") continue;
     it(`${routeName} (${gate.kind}) shows its MFA gate`, () => {
-      expect(routeBlock(authRouteCode(), routeName)).toContain(gate.evidence);
+      const source =
+        gate.kind === "boot-refused" ? readCode(gate.file) : routeBlock(authRouteCode(), routeName);
+      expect(source).toContain(gate.evidence);
     });
   }
 });

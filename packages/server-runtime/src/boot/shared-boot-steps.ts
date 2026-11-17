@@ -214,6 +214,8 @@ export type SharedAuthRouteSource = SharedAuthFlowFields &
   Pick<
     RunProdAppAuthOptions,
     | "loginErrorStatusMap"
+    | "sessionExchangeHandlers"
+    | "sessionExchangeRateLimit"
     | "cookieDomain"
     | "retiredCookieDomains"
     | "allowedOrigins"
@@ -227,6 +229,8 @@ export type SharedAuthRoutes = AuthFlowRoutes &
     | "membershipQuery"
     | "loginHandler"
     | "loginErrorStatusMap"
+    | "sessionExchangeHandlers"
+    | "sessionExchangeRateLimit"
     | "cookieDomain"
     | "retiredCookieDomains"
     | "allowedOrigins"
@@ -242,6 +246,14 @@ export function buildSharedAuthRoutes(
   effectiveAuth: SharedAuthRouteSource,
   hasMfa: boolean,
 ): SharedAuthRoutes {
+  // The exchange route mints sessions without a second factor, so with auth-mfa
+  // mounted it would be a way around MFA.
+  if (hasMfa && Object.keys(effectiveAuth.sessionExchangeHandlers ?? {}).length > 0) {
+    throw new Error(
+      "[kumiko:boot] session-exchange handlers cannot enforce MFA yet; " +
+        "unmount auth-mfa or remove sessionExchangeHandlers.",
+    );
+  }
   return {
     membershipQuery: TenantQueries.memberships,
     loginHandler: AuthHandlers.login,
@@ -249,6 +261,12 @@ export function buildSharedAuthRoutes(
       [AuthErrors.invalidCredentials]: 401,
       [AuthErrors.noMembership]: 403,
     },
+    ...(effectiveAuth.sessionExchangeRateLimit !== undefined && {
+      sessionExchangeRateLimit: effectiveAuth.sessionExchangeRateLimit,
+    }),
+    ...(effectiveAuth.sessionExchangeHandlers !== undefined && {
+      sessionExchangeHandlers: effectiveAuth.sessionExchangeHandlers,
+    }),
     ...(effectiveAuth.cookieDomain !== undefined && {
       cookieDomain: effectiveAuth.cookieDomain,
     }),

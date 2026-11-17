@@ -1,5 +1,30 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.424.1
+
+### Patch Changes
+
+- 3116b76: The focus rail shows listed nav entries that sit inside a group.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: focus rail shows listed entries that sit inside a group
+  detail: `focusRailNavQns` only matched top-level nav nodes, so a listed entry below a group was missing from the rail. The rail now finds listed entries at any depth and shows them in list order. When a listed entry nests in another listed tile, only the inner one is marked active, and "More" stays plain when a shown nested tile holds the active screen.
+  -->
+- 557fd97: `load.passPrefill` also sends the values of a navigation handoff to the load query.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: actionForm load.passPrefill passes handoff values
+  detail: An actionForm with `load` takes its values only from the load query. `passPrefill` sent the drawer's prefill values there but not the values of a navigation handoff (`useNavigateWithInitialValues`), so a form opened from an assistant step lost the step's values. The handoff values now travel in the load payload the same way; the query's schema must accept them.
+  -->
+- Updated dependencies [557fd97]
+- Updated dependencies [3bcef0e]
+  - @cosmicdrift/kumiko-types@0.424.1
+  - @cosmicdrift/kumiko-framework@0.424.1
+
 ## 0.424.0
 
 ### Patch Changes

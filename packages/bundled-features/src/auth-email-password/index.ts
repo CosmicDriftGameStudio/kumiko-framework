@@ -43,6 +43,10 @@ export type {
   SignupOptions,
 } from "./feature.ts";
 export { authEmailPasswordEnvSchema, createAuthEmailPasswordFeature } from "./feature.ts";
+export {
+  sessionForVerifiedUser,
+  type VerifiedUserLookup,
+} from "./handlers/login.write.ts";
 export { AuthMailNotificationTypes } from "./mail-notifications.ts";
 export {
   AUTH_SELF_REGISTRATION_FEATURE,

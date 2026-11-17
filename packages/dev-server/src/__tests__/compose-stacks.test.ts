@@ -453,8 +453,8 @@ describe("auth, saas and security stacks", () => {
       ...composeSecurityStack(),
     ]);
 
-    expect(registry.getFeature("sessions")).toBeDefined();
-    expect(registry.getFeature("crypto-shredding")).toBeDefined();
+    expect(registry.getFeature("sessions")?.name).toBe("sessions");
+    expect(registry.getFeature("crypto-shredding")?.name).toBe("crypto-shredding");
   });
 
   test("composeSecurityStack yields fresh feature instances on each call", () => {

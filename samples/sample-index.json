@@ -40,6 +40,7 @@
       "samples": [
         "apps-ui-walkthrough",
         "recipes-apex-surface-auth",
+        "recipes-session-exchange",
         "recipes-user-profile"
       ],
       "hasVisualOutput": true,
@@ -506,6 +507,7 @@
       "samples": [
         "recipes-apex-surface-auth",
         "recipes-security-baseline",
+        "recipes-session-exchange",
         "recipes-user-profile"
       ],
       "hasVisualOutput": false,
@@ -549,6 +551,7 @@
       "samples": [
         "recipes-apex-surface-auth",
         "recipes-security-baseline",
+        "recipes-session-exchange",
         "recipes-user-profile"
       ],
       "hasVisualOutput": false,

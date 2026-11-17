@@ -1,0 +1,12 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-session-exchange",
+  "description": "auth.sessionExchangeHandlers — app-defined login methods (ID token, email code) that the framework mints into a session.",
+  "private": true,
+  "dependencies": {
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*"
+  },
+  "devDependencies": {
+    "@cosmicdrift/kumiko-testing": "workspace:*"
+  }
+}

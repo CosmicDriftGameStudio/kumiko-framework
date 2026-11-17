@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.424.1",
+    "type": "fix",
+    "title": "focus rail shows listed entries that sit inside a group",
+    "detail": "`focusRailNavQns` only matched top-level nav nodes, so a listed entry below a group was missing from the rail. The rail now finds listed entries at any depth and shows them in list order. When a listed entry nests in another listed tile, only the inner one is marked active, and \"More\" stays plain when a shown nested tile holds the active screen."
+  },
+  {
+    "version": "0.424.1",
+    "type": "fix",
+    "title": "actionForm load.passPrefill passes handoff values",
+    "detail": "An actionForm with `load` takes its values only from the load query. `passPrefill` sent the drawer's prefill values there but not the values of a navigation handoff (`useNavigateWithInitialValues`), so a form opened from an assistant step lost the step's values. The handoff values now travel in the load payload the same way; the query's schema must accept them."
+  },
+  {
     "version": "0.424.0",
     "type": "fix",
     "title": "Action-form preview hides an empty list next to facts",
