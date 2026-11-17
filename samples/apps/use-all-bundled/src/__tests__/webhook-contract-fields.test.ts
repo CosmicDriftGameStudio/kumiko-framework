@@ -17,7 +17,7 @@ const RELEASABLE_FIELDS: Readonly<Record<string, string>> = {
   "tenant/tenant":
     "id key isEnabled status destroyRequestedAt destroyRequestedBy gracePeriodEnd destroyStartedAt destroyedAt",
   "tenant/tenant-membership": "id userId roles",
-  "tenant/tenant-invitation": "id role status membershipVersion expiresAt",
+  "tenant/tenant-invitation": "id role globalRoles status membershipVersion expiresAt",
   "secrets/tenant-secret": "id key kekVersion",
   "auth-mfa/user-mfa": "id userId enabledAt lastUsedAt",
   "readiness/probe-run":
@@ -26,6 +26,7 @@ const RELEASABLE_FIELDS: Readonly<Record<string, string>> = {
   "delivery/notification-address-opt-out": "id notificationType channel",
   "files/fileRef": "id mimeType size contentSha256 entityType entityId fieldName",
   "tier-engine/tier-assignment": "id tier source",
+  "cap-counter/cap-counter": "id capName value periodStart lastSoftWarnedAt",
   "compliance-profiles/tenant-compliance-profile": "id profileKey override",
   "data-retention/tenant-retention-override": "id entityName config reason",
   "user-data-rights/export-job":
