@@ -28,7 +28,7 @@ const REQUIRED_I18N: Record<string, { de: TranslationValue; en: TranslationValue
 export const taskFeature = defineFeature("tasks", (r) => {
   r.translations({ keys: REQUIRED_I18N });
 
-  r.crud("task", taskEntity, { write: open, read: open });
+  r.crud(taskEntity, { write: open, read: open });
   r.screen(editScreen);
   r.screen(listScreen);
   r.nav({ id: "general", label: i18nKey("tasks.nav.group"), order: 90 });

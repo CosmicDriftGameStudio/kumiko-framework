@@ -16,6 +16,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 
 const taskEntity = createEntity({
+  name: "task",
   description: "A to-do item with a title, status, priority and urgency flag.",
   fields: {
     title: createTextField({
@@ -72,7 +73,7 @@ const TASKS_I18N = {
 export function createDemoTasksFeature(): FeatureDefinition {
   return defineFeature("tasks", (r) => {
     r.translations({ keys: TASKS_I18N });
-    r.crud("task", taskEntity, {
+    r.crud(taskEntity, {
       write: open,
       read: open,
       descriptions: {

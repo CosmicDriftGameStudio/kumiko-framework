@@ -46,7 +46,7 @@ let poisonNames = new Set<string>();
 let observed: Array<{ name: string }> = [];
 
 const recoveryFeature = defineFeature("recoverytest", (r) => {
-  r.entity({ name: "widget", ...sharedWidgetEntity });
+  r.entity(sharedWidgetEntity);
 
   r.multiStreamProjection({
     name: "observer",

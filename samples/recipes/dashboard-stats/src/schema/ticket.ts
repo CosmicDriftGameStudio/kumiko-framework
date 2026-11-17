@@ -8,6 +8,7 @@ import {
 export const TICKET_STATUSES = ["open", "closed"] as const;
 
 export const ticketEntity = createEntity({
+  name: "ticket",
   table: "read_sample_tickets",
   fields: {
     title: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -19,4 +20,4 @@ export const ticketEntity = createEntity({
   },
 });
 
-export const { executor: ticketExecutor } = createEntityExecutor("ticket", ticketEntity);
+export const { executor: ticketExecutor } = createEntityExecutor(ticketEntity);

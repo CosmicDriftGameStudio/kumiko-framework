@@ -168,7 +168,7 @@ export function createSignupConfirmHandler(opts: SignupConfirmOptions = {}) {
         // Tenant key: a two-word slug from framework/random, with a DB conflict
         // check against tenants.key. 22,500 default combinations plus a
         // suffix fallback in case of collision (see generateUniqueName).
-        const dbConn = ctx.db.unsafeRaw();
+        const dbConn = ctx.db.unsafeRawAllTenants();
 
         const tenantKey = await generateUniqueName({
           isAvailable: async (slug) => {

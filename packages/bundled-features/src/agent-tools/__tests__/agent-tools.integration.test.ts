@@ -26,6 +26,7 @@ import { dispatchToolCall } from "../tool-dispatch.ts";
 const FEATURE_NAME = "agent-tools-int-test";
 
 const widgetEntity = createEntity({
+  name: "widget",
   table: "agent_tools_int_test_widgets",
   fields: {
     name: createTextField({
@@ -40,7 +41,7 @@ const widgetEntity = createEntity({
 });
 
 const widgetFeature = defineFeature(FEATURE_NAME, (r) => {
-  r.crud("widget", widgetEntity, {
+  r.crud(widgetEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: { roles: ["Admin", "Reader"] } },
   });

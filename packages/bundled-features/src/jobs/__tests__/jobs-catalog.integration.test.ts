@@ -20,12 +20,8 @@ let stack: TestStack;
 const systemAdmin = TestUsers.systemAdmin;
 
 const appFeature = defineFeature("catalog-app", (r) => {
-  r.job(
-    "manualEcho",
-    { trigger: { manual: true }, schema: z.object({ entity: z.string().min(1) }) },
-    async () => {},
-  );
-  r.job("cronOnly", { trigger: { cron: "0 * * * *" } }, async () => {});
+  r.job({ name: "manualEcho", trigger: { manual: true }, schema: z.object({ entity: z.string().min(1) }), handler: async () => {} });
+  r.job({ name: "cronOnly", trigger: { cron: "0 * * * *" }, handler: async () => {} });
 });
 
 beforeAll(async () => {

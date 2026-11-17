@@ -34,18 +34,20 @@ const PDF_BYTES = new TextEncoder().encode("%PDF-1.4 anonymous claim probe");
 const OTHER_CLAIM = "A".repeat(43);
 
 const photoEntity = createEntity({
+  name: "photo",
   table: "anonymous_claim_photos",
   fields: {
     shot: createFileField({ anonymousUpload: true, accept: ["pdf"] }),
     gallery: createFilesField({ anonymousUpload: true, accept: ["pdf"], maxCount: 3 }),
   },
 });
-const photoTable = buildEntityTable("photo", photoEntity);
+const photoTable = buildEntityTable(photoEntity);
 const badgeEntity = createEntity({
+  name: "badge",
   table: "anonymous_claim_badges",
   fields: { logo: createFileField({ accept: ["pdf"] }) },
 });
-const badgeTable = buildEntityTable("badge", badgeEntity);
+const badgeTable = buildEntityTable(badgeEntity);
 const photoPayload = z.object({
   shot: z.string().optional(),
   gallery: z.array(z.string()).optional(),
@@ -54,7 +56,7 @@ const photoPayload = z.object({
 const updatePayload = z.object({ id: z.string(), version: z.number(), changes: photoPayload });
 
 const probeFeature = defineFeature("claimprobe", (r) => {
-  r.entity({ name: "photo", ...photoEntity });
+  r.entity(photoEntity);
   r.writeHandler({
     name: "create-photo",
     schema: photoPayload,
@@ -66,7 +68,7 @@ const probeFeature = defineFeature("claimprobe", (r) => {
         ctx.db,
       ),
   });
-  r.entity({ name: "badge", ...badgeEntity });
+  r.entity(badgeEntity);
   r.writeHandler({
     name: "create-badge",
     schema: z.object({ logo: z.string().optional() }),

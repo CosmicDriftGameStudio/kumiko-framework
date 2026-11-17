@@ -84,7 +84,7 @@ export function createSetCustomFieldHandler(
       }
 
       const loaded = await loadFieldDefinition(
-        ctx.db.unsafeRaw(),
+        ctx.db.unsafeRawAllTenants(),
         event.user.tenantId,
         payload.entityName,
         payload.fieldKey,

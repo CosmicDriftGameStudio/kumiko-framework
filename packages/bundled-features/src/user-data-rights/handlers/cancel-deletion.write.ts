@@ -42,7 +42,7 @@ export async function cancelPendingDeletion(
   }
 
   const { applied } = await updateUserLifecycle(
-    ctx.db.unsafeRaw(),
+    ctx.db.unsafeRawAllTenants(),
     userId,
     {
       status: USER_STATUS.Active,

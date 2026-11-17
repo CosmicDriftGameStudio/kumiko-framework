@@ -37,38 +37,30 @@ let queuedAttempts = 0;
 
 const idemProbeFeature = defineFeature("idem-probe", (r) => {
   r.requires({ features: ["delivery"] });
-  r.useExtension(DELIVERY_CHANNEL_EXTENSION, "idem-inline-ok", {
-    mode: "inline",
+  r.applyExtension({ name: DELIVERY_CHANNEL_EXTENSION, entity: "idem-inline-ok", mode: "inline",
     send: async (address) => {
       sentTo.push(address);
       return { status: "sent" };
-    },
-  });
-  r.useExtension(DELIVERY_CHANNEL_EXTENSION, "idem-inline-flaky", {
-    mode: "inline",
+    } });
+  r.applyExtension({ name: DELIVERY_CHANNEL_EXTENSION, entity: "idem-inline-flaky", mode: "inline",
     send: async (address) => {
       if (failFlakyInline) throw new Error("transport down");
       sentTo.push(address);
       return { status: "sent" };
-    },
-  });
-  r.useExtension(DELIVERY_CHANNEL_EXTENSION, "idem-queued", {
-    mode: "queued",
+    } });
+  r.applyExtension({ name: DELIVERY_CHANNEL_EXTENSION, entity: "idem-queued", mode: "queued",
     send: async (address) => {
       queuedAttempts++;
       if (failQueued) throw new Error("transport down");
       sentTo.push(address);
       return { status: "sent" };
-    },
-  });
-  r.useExtension(DELIVERY_CHANNEL_EXTENSION, "idem-queued-soft", {
-    mode: "queued",
+    } });
+  r.applyExtension({ name: DELIVERY_CHANNEL_EXTENSION, entity: "idem-queued-soft", mode: "queued",
     send: async (address) => {
       if (softFailQueued) return { status: "failed", error: "send_failed" };
       sentTo.push(address);
       return { status: "sent" };
-    },
-  });
+    } });
   r.writeHandler(
     defineWriteHandler({
       name: "ping",

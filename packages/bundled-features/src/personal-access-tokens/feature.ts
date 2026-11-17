@@ -88,13 +88,13 @@ export function createPersonalAccessTokensFeature(
     // Self-registers as a bearer-auth provider instead of the app wiring a
     // dedicated patResolver callback — the middleware finds it generically
     // via resolveTokenVerifier(), shape-matched by the PAT token prefix.
-    r.useExtension(EXT_TOKEN_VERIFIER, "pat", {
+    r.applyExtension({ name: EXT_TOKEN_VERIFIER, entity: "pat", ...{
       shape: { kind: "prefix", prefix: PAT_TOKEN_PREFIX },
       build: (deps) => createPatResolver({ db: deps.db, scopes }),
-    } satisfies AuthProviderPlugin);
-    r.useExtension(EXT_CREDENTIAL_REVOKER, "personal-access-tokens", {
+    } satisfies AuthProviderPlugin });
+    r.applyExtension({ name: EXT_CREDENTIAL_REVOKER, entity: "personal-access-tokens", ...{
       revokeAllForUser: (runner, userId) => revokeAllPatTokensForUser(runner, userId),
-    } satisfies CredentialRevoker);
+    } satisfies CredentialRevoker });
     // Direct-write store like store_user_sessions: create/revoke write it, the
     // resolver point-reads it. r.entity would make it a rebuildable projection
     // whose replay (no token events) would wipe every live token.

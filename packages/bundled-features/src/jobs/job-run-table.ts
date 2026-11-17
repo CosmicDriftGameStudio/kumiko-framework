@@ -40,6 +40,7 @@ export type JobLogLevel = "info" | "warn" | "error";
 // rebuildable projection — `defineUnmanagedTable`/`deriveEntityTableMeta`
 // reject the `read_` prefix for `source: "unmanaged"`.
 export const jobRunEntity = createEntity({
+  name: "read_job_runs",
   table: "store_job_runs",
   fields: {
     jobName: createTextField({ required: true, personal: false, reason: "system_metadata" }),
@@ -73,7 +74,7 @@ export const jobRunEntity = createEntity({
 // executor may write it): job-run is an unmanaged direct-write store, so
 // onJobStart/-Complete/-Failed need to write via ctx.db/insertOne directly
 // (same pattern as sessions/schema/user-session.ts).
-export const jobRunsTable: WritableTable = deriveEntityTableMeta("job-run", jobRunEntity, {
+export const jobRunsTable: WritableTable = deriveEntityTableMeta({ ...jobRunEntity, name: "job-run" }, {
   source: "unmanaged",
 });
 export const jobRunsTableMeta = jobRunsTable;

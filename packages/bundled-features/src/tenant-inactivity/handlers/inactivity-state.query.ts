@@ -31,7 +31,7 @@ export function createInactivityStateQuery<TTier extends string>(
         if (!query.user.roles.includes("SystemAdmin")) throw new AccessDeniedError();
         const tenantId = parseTenantId(requested);
         if (tenantId === null) throw new UnprocessableError("invalid_tenant_id");
-        db = createTenantDb({ db: ctx.db.unsafeRaw(), tenantId });
+        db = createTenantDb({ db: ctx.db.unsafeRawAllTenants(), tenantId });
       }
       const rule = await resolveInactivityRule(options, db);
       const stored = await loadInactivityState(db);

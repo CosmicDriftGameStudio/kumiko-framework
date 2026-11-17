@@ -99,7 +99,7 @@ const mockProviderFeature = defineFeature("test-mock-provider", (r) => {
       return { url: `https://mock.example/portal/${options.providerCustomerId}` };
     },
   };
-  r.useExtension("subscriptionProvider", "mock", plugin);
+  r.applyExtension({ name: "subscriptionProvider", entity: "mock", ...plugin });
 });
 
 const PRICE_FOR_TIER: Readonly<Record<string, string>> = {
@@ -116,8 +116,8 @@ const tierProviderPlugin: SubscriptionProviderPlugin = {
 
 const tierProvidersFeature = defineFeature("test-tier-providers", (r) => {
   r.requires({ features: ["billing-foundation"] });
-  r.useExtension("subscriptionProvider", "stripe", tierProviderPlugin);
-  r.useExtension("subscriptionProvider", "paypal", tierProviderPlugin);
+  r.applyExtension({ name: "subscriptionProvider", entity: "stripe", ...tierProviderPlugin });
+  r.applyExtension({ name: "subscriptionProvider", entity: "paypal", ...tierProviderPlugin });
 });
 
 // Second mock provider — parses its rawBody straight into a PaymentEvent
@@ -139,7 +139,7 @@ const mockPaymentProviderFeature = defineFeature("test-mock-payment-provider", (
       };
     },
   };
-  r.useExtension("subscriptionProvider", "mock-payment", plugin);
+  r.applyExtension({ name: "subscriptionProvider", entity: "mock-payment", ...plugin });
 });
 
 // =============================================================================

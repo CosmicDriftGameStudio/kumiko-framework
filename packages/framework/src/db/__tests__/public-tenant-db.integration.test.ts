@@ -28,7 +28,7 @@ const pubdbFeature = defineFeature("pubdb", (r) => {
       reason: "test: public createTenantDb refuses an unsafeRaw runner",
     },
     handler: async ({ payload }, ctx) => {
-      createTenantDb({ db: ctx.db.unsafeRaw(), tenantId: tenantIdOrThrow(payload.tenantId) });
+      createTenantDb({ db: ctx.db.unsafeRawAllTenants(), tenantId: tenantIdOrThrow(payload.tenantId) });
       return { ok: true };
     },
   });

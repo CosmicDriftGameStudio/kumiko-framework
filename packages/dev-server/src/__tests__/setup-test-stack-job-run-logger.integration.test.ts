@@ -40,17 +40,11 @@ const appFeature = defineFeature("app", (r) => {
   r.defineEvent("generation-requested", z.object({ campaignId: z.string() }), {
     piiFields: "none",
   });
-  r.job(
-    "generateTexts",
-    {
-      trigger: { on: "generation-requested" },
+  r.job({ name: "generateTexts", trigger: { on: "generation-requested" },
       retries: 0,
-      tenantVisibleFailure: { messageKey: FAILURE_KEY, subjectFields: ["campaignId"] },
-    },
-    async () => {
+      tenantVisibleFailure: { messageKey: FAILURE_KEY, subjectFields: ["campaignId"] }, handler: async () => {
       throw new Error(PROVIDER_MESSAGE);
-    },
-  );
+    } });
 });
 
 type FailureRow = { readonly jobName: string; readonly messageKey: string };

@@ -25,6 +25,7 @@ const textField = () =>
   });
 
 const hostEntity = createEntity({
+  name: "host",
   table: "read_hosts",
   fields: { name: textField() },
 });
@@ -48,7 +49,7 @@ const validRef = {
 } as const;
 
 const defaultHosts = defineFeature("default-hosts", (r) => {
-  r.entity({ name: "host", ...hostEntity });
+  r.entity(hostEntity);
 });
 
 function featureMapOf(...features: readonly FeatureDefinition[]) {
@@ -80,7 +81,7 @@ describe("validateParentRefs", () => {
 
   test("an entity with no parentRef is not checked at all", () => {
     const feature = defineFeature("plain", (r) => {
-      r.entity({ name: "host", ...hostEntity });
+      r.entity(hostEntity);
       r.queryHandler({
         name: "host:list",
         schema: z.object({}),
@@ -121,7 +122,7 @@ describe("validateParentRefs", () => {
 
   test("accepts an allowedTypes entry registered by another feature", () => {
     const hosts = defineFeature("hosts", (r) => {
-      r.entity({ name: "foreign-host", ...hostEntity });
+      r.entity({ ...hostEntity, name: "foreign-host" });
     });
     const entity = joinEntity({ ...validRef, allowedTypes: ["foreign-host"] });
     const feature = defineFeature("joins", (r) => {
@@ -195,6 +196,7 @@ describe("validateParentRefs", () => {
 
   test("accepts update/delete/restore registered through defineEntityWriteHandler", () => {
     const entity = createEntity({
+      name: "join",
       table: "read_joins_soft",
       softDelete: true,
       fields: {
@@ -204,7 +206,7 @@ describe("validateParentRefs", () => {
       parentRef: validRef,
     });
     const feature = defineFeature("joins", (r) => {
-      r.entity({ name: "join", ...entity });
+      r.entity(entity);
       for (const verb of ["update", "delete", "restore"] as const) {
         r.writeHandler(
           defineEntityWriteHandler(`join:${verb}`, entity, {

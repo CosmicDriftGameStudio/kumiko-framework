@@ -81,7 +81,7 @@ function mockProviderFeature(
       priceToTier: PRICE_TO_TIER,
       ...(retrieveSubscription !== undefined && { retrieveSubscription }),
     };
-    r.useExtension("subscriptionProvider", "mock", plugin);
+    r.applyExtension({ name: "subscriptionProvider", entity: "mock", ...plugin });
   });
 }
 

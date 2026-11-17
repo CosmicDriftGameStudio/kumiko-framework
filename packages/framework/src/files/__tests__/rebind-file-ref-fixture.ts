@@ -33,6 +33,7 @@ const name = () =>
   createTextField({ required: true, maxLength: 64, personal: false, reason: "test" });
 
 const uploadEntity = createEntity({
+  name: "upload",
   table: "rebind_t_uploads",
   fields: {
     name: name(),
@@ -43,10 +44,12 @@ const uploadEntity = createEntity({
 });
 // A source like an inbound mail: no update handler, so only the system job may take its file.
 const inboxEntity = createEntity({
+  name: "inbox",
   table: "rebind_t_inbox",
   fields: { name: name(), file: createFileField() },
 });
 const contactEntity = createEntity({
+  name: "contact",
   table: "rebind_t_contacts",
   fields: {
     name: name(),
@@ -100,9 +103,9 @@ export function armArchiveHold(): {
 }
 
 const probeFeature = defineFeature("rebind-probe", (r) => {
-  r.entity({ name: "upload", ...uploadEntity });
-  r.entity({ name: "inbox", ...inboxEntity });
-  r.entity({ name: "contact", ...contactEntity });
+  r.entity(uploadEntity);
+  r.entity(inboxEntity);
+  r.entity(contactEntity);
   r.writeHandler(defineEntityCreateHandler("upload", uploadEntity, { access: openToAll }));
   r.queryHandler(
     defineEntityDetailHandler("upload", uploadEntity, {
@@ -145,13 +148,13 @@ const probeFeature = defineFeature("rebind-probe", (r) => {
       return { isSuccess: true as const, data: { outcome } };
     },
   });
-  r.job("rebind-as-system", { trigger: { manual: true }, retries: 0 }, async (payload, ctx) => {
+  r.job({ name: "rebind-as-system", trigger: { manual: true }, retries: 0, handler: async (payload, ctx) => {
     const outcome = await rebindFileRef(
       { db: ctx.db, registry: ctx.registry, user: ctx.systemUser },
       ownersOf(rebindPayload.parse(payload)),
     );
     if (outcome !== "rebound") throw new Error(`rebind outcome: ${outcome}`);
-  });
+  } });
 });
 
 export const tenant = testTenantId(1);

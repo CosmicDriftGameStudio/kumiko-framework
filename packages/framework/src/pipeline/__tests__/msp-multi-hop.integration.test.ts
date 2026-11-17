@@ -28,19 +28,20 @@ import { TestUsers } from "../../seeding/seed-users.ts";
 // --- Feature ---
 
 const orderEntity = createEntity({
+  name: "mmh-order",
   table: "read_mmh_orders",
   fields: {
     item: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
 
-const orderTable = buildEntityTable("mmh-order", orderEntity);
+const orderTable = buildEntityTable(orderEntity);
 
 // Snapshot what each MSP-apply observed via ctx.events.load.
 const confirmLoadCounts: number[] = [];
 
 const mmhFeature = defineFeature("mmh", (r) => {
-  r.entity({ name: "mmh-order", ...orderEntity });
+  r.entity(orderEntity);
 
   const placed = r.defineEvent("placed", z.object({ orderId: z.uuid() }), { piiFields: "none" });
   const confirmed = r.defineEvent("confirmed", z.object({ orderId: z.uuid() }), {

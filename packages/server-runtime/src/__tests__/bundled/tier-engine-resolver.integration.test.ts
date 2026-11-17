@@ -65,7 +65,7 @@ const featProFeature = defineFeature("feat-pro", (r) => {
   });
 });
 
-const tierAssignmentTable = buildEntityTable("tier-assignment", tierAssignmentEntity);
+const tierAssignmentTable = buildEntityTable(tierAssignmentEntity);
 
 const features = composeFeatures(
   [createTierEngineFeature({ tierMap: TEST_TIER_MAP }), featProFeature],

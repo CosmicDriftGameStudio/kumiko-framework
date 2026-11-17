@@ -50,6 +50,7 @@ const dpoUser = {
 };
 
 const subscriberEntity = createEntity({
+  name: "forgetRowsSubscriber",
   table: "read_forget_rows_subscriber",
   forgetWithSubject: true,
   fields: {
@@ -57,6 +58,7 @@ const subscriberEntity = createEntity({
   },
 });
 const supportNoteEntity = createEntity({
+  name: "forgetRowsSupportNote",
   table: "read_forget_rows_support_note",
   forgetWithSubject: true,
   fields: {
@@ -64,22 +66,23 @@ const supportNoteEntity = createEntity({
   },
 });
 const plainNoteEntity = createEntity({
+  name: "forgetRowsPlainNote",
   table: "read_forget_rows_plain_note",
   fields: {
     body: createTextField({ personal: { of: "id" }, find: "none" }),
   },
 });
 
-const subscriberTable = buildEntityTable("forgetRowsSubscriber", subscriberEntity);
-const supportNoteTable = buildEntityTable("forgetRowsSupportNote", supportNoteEntity);
-const plainNoteTable = buildEntityTable("forgetRowsPlainNote", plainNoteEntity);
+const subscriberTable = buildEntityTable(subscriberEntity);
+const supportNoteTable = buildEntityTable(supportNoteEntity);
+const plainNoteTable = buildEntityTable(plainNoteEntity);
 
 const probeFeature = defineFeature("forget-rows-probe", (r) => {
   const noCrudVerbs = { create: false, delete: false, detail: false, list: false } as const;
   const write = { access: { roles: ["DataProtectionOfficer"] } };
-  r.crud("subscriber", subscriberEntity, { verbs: noCrudVerbs, write });
-  r.crud("support-note", supportNoteEntity, { verbs: noCrudVerbs, write });
-  r.crud("plain-note", plainNoteEntity, { verbs: noCrudVerbs, write });
+  r.crud({ ...subscriberEntity, name: "subscriber" }, { verbs: noCrudVerbs, write });
+  r.crud({ ...supportNoteEntity, name: "support-note" }, { verbs: noCrudVerbs, write });
+  r.crud({ ...plainNoteEntity, name: "plain-note" }, { verbs: noCrudVerbs, write });
 });
 
 function tenantDbOf(stack: TestStack, tenantId: TenantId) {

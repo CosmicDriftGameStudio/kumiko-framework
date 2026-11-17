@@ -29,12 +29,12 @@ import type { PaymentEventPayload, SubscriptionEventPayload } from "./events.ts"
 // This Drizzle table instance is derived from the entity shape and is shared
 // by the projection apply, list query, and get helper so all three use the
 // same column namespace.
-export const subscriptionsProjectionTable = buildEntityTable("subscription", subscriptionEntity);
+export const subscriptionsProjectionTable = buildEntityTable(subscriptionEntity);
 
 // Same production-deployment caveat as subscriptionsProjectionTable above:
 // raw drizzle-pgTable, not an r.entity — apps mounting billing-foundation in
 // production must add read_payments to their own drizzle/generate.ts too.
-export const paymentsProjectionTable = buildEntityTable("payment", paymentEntity);
+export const paymentsProjectionTable = buildEntityTable(paymentEntity);
 
 // Unbranded metas: the apply functions below ARE the executor of these
 // projections, so they may write through the typed helpers.

@@ -89,7 +89,7 @@ describe("validateBoot collects violations", () => {
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
       });
-      r.useExtension("credit-cap", "credit");
+      r.applyExtension({ name: "credit-cap", entity: "credit" });
     });
     const violations = violationsOf(() => validateBoot([ext, consumer]));
     expect(

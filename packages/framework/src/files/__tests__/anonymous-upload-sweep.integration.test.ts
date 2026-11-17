@@ -27,14 +27,15 @@ const SWEEP_JOB = "files:job:sweep-orphaned-uploads";
 const PDF_BYTES = new TextEncoder().encode("%PDF-1.4 anonymous sweep probe");
 
 const photoEntity = createEntity({
+  name: "photo",
   table: "anonymous_sweep_photos",
   fields: { shot: createFileField({ anonymousUpload: true, accept: ["pdf"] }) },
 });
-const photoTable = buildEntityTable("photo", photoEntity);
+const photoTable = buildEntityTable(photoEntity);
 const photoPayload = z.object({ shot: z.string().optional() });
 
 const probeFeature = defineFeature("sweepprobe", (r) => {
-  r.entity({ name: "photo", ...photoEntity });
+  r.entity(photoEntity);
   r.writeHandler({
     name: "create-photo",
     schema: photoPayload,

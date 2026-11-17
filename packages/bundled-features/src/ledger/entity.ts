@@ -16,6 +16,7 @@ import { ACCOUNT_TYPES, SCHEDULE_INTERVALS, TRANSACTION_STATUS } from "./web/con
 // money column — balances are DERIVED from postings, never stored.
 // tenantId is a base column set by the framework → each tenant has its own books.
 export const accountEntity = createEntity({
+  name: "account",
   table: "read_ledger_accounts",
   description:
     "One node of a tenant's chart of accounts: a name, an asset/liability/equity/income/expense type that decides how reports read its balance, an optional account code and an optional parent account forming the account tree; balances are derived from postings, never stored here.",
@@ -57,6 +58,7 @@ export const accountEntity = createEntity({
 // posted entry is a fact; corrections are reverse-transaction entries.
 // `status` carries draft|posted.
 export const transactionEntity = createEntity({
+  name: "transaction",
   table: "read_ledger_transactions",
   description:
     "One journal entry: a booking date, a narration, an optional display reference, system links to the reversed entry (reversesTransactionId) and to a schedule period (scheduleId, period), an optional period for manual bookings, an optional caller key (sourceRef) unique per tenant, a draft/posted status and the embedded posting lines of accountId plus signed minor-unit amount that must sum to zero; posted entries are immutable and corrected only by a reversing entry.",
@@ -164,6 +166,7 @@ export const transactionEntity = createEntity({
 // which books a balanced transaction; confirmed periods carry scheduleId + period on the transaction.
 // amount is stored positive (minor units); the confirm handler assigns the signs.
 export const scheduleEntity = createEntity({
+  name: "schedule",
   table: "read_ledger_schedules",
   description:
     "One recurring booking template: book a positive minor-unit amount from a debit account to a credit account each interval between a start date and an optional open end; it holds no bookings itself, periods become real entries only when confirmed.",

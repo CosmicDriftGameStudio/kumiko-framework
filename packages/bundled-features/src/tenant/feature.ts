@@ -95,9 +95,9 @@ export function createTenantFeature(options?: TenantFeatureOptions): FeatureDefi
         });
       }
     });
-    r.entity({ name: "tenant", ...tenantEntity });
-    r.entity({ name: "tenant-membership", ...tenantMembershipEntity });
-    r.entity({ name: "tenant-invitation", ...tenantInvitationEntity });
+    r.entity(tenantEntity);
+    r.entity(tenantMembershipEntity);
+    r.entity(tenantInvitationEntity);
 
     r.config({
       keys: {

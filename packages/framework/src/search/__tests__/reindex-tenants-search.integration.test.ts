@@ -21,6 +21,7 @@ import {
 import { TestUsers } from "../../seeding/seed-users.ts";
 
 const noteEntity = createEntity({
+  name: "note",
   table: "read_reindex_tenants_notes",
   fields: {
     title: createTextField({
@@ -31,8 +32,9 @@ const noteEntity = createEntity({
     }),
   },
 });
-const noteTable = buildEntityTable("note", noteEntity);
+const noteTable = buildEntityTable(noteEntity);
 const platformNoteEntity = createEntity({
+  name: "platformNote",
   table: "read_reindex_tenants_platform_notes",
   systemStream: true,
   fields: {
@@ -45,8 +47,8 @@ const platformNoteEntity = createEntity({
   },
 });
 const noteFeature = defineFeature("reindex-tenants-test", (r) => {
-  r.entity({ name: "note", ...noteEntity });
-  r.entity({ name: "platformNote", ...platformNoteEntity });
+  r.entity(noteEntity);
+  r.entity(platformNoteEntity);
 });
 
 let stack: TestStack;

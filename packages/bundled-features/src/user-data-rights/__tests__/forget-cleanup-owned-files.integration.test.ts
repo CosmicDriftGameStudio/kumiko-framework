@@ -39,6 +39,7 @@ import { runForgetCleanup } from "../run-forget-cleanup.ts";
 import { createForgetSeeders, type ForgetSeeders, nowInstant } from "./forget-test-helpers.ts";
 
 const ownedDocEntity = createEntity({
+  name: "owned-doc",
   table: "read_ffc_owned_doc",
   fields: {
     ownerId: createTextField({ required: true, personal: false, reason: "pseudonymous_fk" }),
@@ -47,7 +48,7 @@ const ownedDocEntity = createEntity({
 });
 
 const ownedDocFeature = defineFeature("ffc-probe", (r) => {
-  r.entity({ name: "owned-doc", ...ownedDocEntity });
+  r.entity(ownedDocEntity);
   r.writeHandler(
     defineEntityCreateHandler("owned-doc", ownedDocEntity, { access: { roles: ["Admin"] } }),
   );

@@ -12,6 +12,7 @@ type SeenRun = {
 const seen: SeenRun[] = [];
 
 const itemEntity = createEntity({
+  name: "item",
   table: "read_job_trigger_items",
   fields: {
     title: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -19,18 +20,14 @@ const itemEntity = createEntity({
 });
 
 const jobTriggerFixtureFeature = defineFeature("jobtriggerfixture", (r) => {
-  r.crud("item", itemEntity, {
+  r.crud(itemEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: { roles: ["Admin"] } },
     verbs: { update: false },
   });
-  r.job(
-    "onItemWritten",
-    { trigger: { on: ["item.created", "item.deleted"] } },
-    async (_payload, ctx) => {
+  r.job({ name: "onItemWritten", trigger: { on: ["item.created", "item.deleted"] }, handler: async (_payload, ctx) => {
       seen.push({ triggerName: ctx.triggerName, triggerEvent: ctx.triggerEvent });
-    },
-  );
+    } });
 });
 
 let stack: TestStack;

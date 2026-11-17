@@ -76,7 +76,7 @@ export function createAuthMfaFeature(
     // the app boots clean and the first MFA login dies at runtime on an
     // unknown handler instead of failing at mount time.
     r.requires({ features: ["tenant"] });
-    r.config("required", mfaRequiredConfigKey(opts.requiredPolicy));
+    r.config({ keys: { required: mfaRequiredConfigKey(opts.requiredPolicy) } }).required;
 
     // Declarative secretMint screen — mint (no input) -> reveal QR/secret/
     // recovery-codes -> confirm with a code. App places it via r.nav in its
@@ -100,15 +100,13 @@ export function createAuthMfaFeature(
         mfaReencryptJob(
           payload,
           ctx,
-          ctx.db.unsafeRaw(),
+          ctx.db.unsafeRawAllTenants(),
         ),
     });
 
-    r.entity({ name: "user-mfa", ...userMfaEntity });
-    r.useExtension(EXT_USER_DATA, "user-mfa", {
-      export: userMfaExportHook,
-      delete: userMfaDeleteHook,
-    });
+    r.entity(userMfaEntity);
+    r.applyExtension({ name: EXT_USER_DATA, entity: "user-mfa", export: userMfaExportHook,
+      delete: userMfaDeleteHook });
 
     // Handlers and the status checker read the secrets through these getters
     // on each call, so the boot can bind them after env validation. Never

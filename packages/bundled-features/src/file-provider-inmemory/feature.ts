@@ -85,7 +85,7 @@ export function createFileProviderInMemoryFeature() {
           return getOrCreateProviderForTenant(tenantId);
         },
       };
-      r.useExtension("fileProvider", "inmemory", plugin);
+      r.applyExtension({ name: "fileProvider", entity: "inmemory", ...plugin });
     },
     { dedupeOptions: {} },
   );

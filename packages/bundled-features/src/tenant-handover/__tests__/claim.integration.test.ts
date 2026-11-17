@@ -42,6 +42,7 @@ const CLAIM = "tenant-handover:write:claim";
 const SECRET = "tenant-handover-integration-secret";
 
 const runEntity: EntityDefinition = createEntity({
+  name: "run",
   table: "handover_run",
   idType: "uuid",
   transferable: true,
@@ -56,6 +57,7 @@ const runEntity: EntityDefinition = createEntity({
 });
 
 const photoEntity: EntityDefinition = createEntity({
+  name: "photo",
   table: "handover_photo",
   idType: "uuid",
   transferable: true,
@@ -69,6 +71,7 @@ const photoEntity: EntityDefinition = createEntity({
 
 // Deliberately declares NO `transferable` — proves the named-error rejection.
 const noteEntity: EntityDefinition = createEntity({
+  name: "note",
   table: "handover_note",
   idType: "uuid",
   parentRef: { entityTypeField: "hostType", entityIdField: "hostId", allowedTypes: ["run"] },
@@ -82,6 +85,7 @@ const noteEntity: EntityDefinition = createEntity({
 // A second edge off the root, so `campaign` below is reachable both directly
 // from the run and one hop further out through here.
 const bundleEntity: EntityDefinition = createEntity({
+  name: "bundle",
   table: "handover_bundle",
   idType: "uuid",
   transferable: true,
@@ -96,6 +100,7 @@ const bundleEntity: EntityDefinition = createEntity({
 // campaign reached through the bundle names no run, which is what puts it on the
 // longer of the two paths.
 const campaignEntity: EntityDefinition = createEntity({
+  name: "campaign",
   table: "handover_campaign",
   idType: "uuid",
   transferable: true,
@@ -109,6 +114,7 @@ const campaignEntity: EntityDefinition = createEntity({
 // The second level: references the campaign, not the root. Nothing links it to
 // the run directly, so it only moves if the graph nests.
 const channelTextEntity: EntityDefinition = createEntity({
+  name: "channelText",
   table: "handover_channel_text",
   idType: "uuid",
   transferable: true,
@@ -124,6 +130,7 @@ const channelTextEntity: EntityDefinition = createEntity({
 // check cannot measure, because how far it runs depends on the rows rather than
 // the declaration.
 const linkAEntity: EntityDefinition = createEntity({
+  name: "linkA",
   table: "handover_link_a",
   idType: "uuid",
   transferable: true,
@@ -134,6 +141,7 @@ const linkAEntity: EntityDefinition = createEntity({
 });
 
 const linkBEntity: EntityDefinition = createEntity({
+  name: "linkB",
   table: "handover_link_b",
   idType: "uuid",
   transferable: true,
@@ -146,6 +154,7 @@ const linkBEntity: EntityDefinition = createEntity({
 // plain reference edge (not a parentRef) — proves the named-error rejection on
 // that edge kind.
 const memoEntity: EntityDefinition = createEntity({
+  name: "memo",
   table: "handover_memo",
   idType: "uuid",
   fields: {
@@ -156,6 +165,7 @@ const memoEntity: EntityDefinition = createEntity({
 
 // Not transferable, and its reference says so: rows stay behind on purpose.
 const stayMemoEntity: EntityDefinition = createEntity({
+  name: "stayMemo",
   table: "handover_stay_memo",
   idType: "uuid",
   fields: {
@@ -165,16 +175,16 @@ const stayMemoEntity: EntityDefinition = createEntity({
 });
 
 const handoverFixturesFeature = defineFeature("handover-fixtures", (r) => {
-  r.entity({ name: "run", ...runEntity });
-  r.entity({ name: "photo", ...photoEntity });
-  r.entity({ name: "note", ...noteEntity });
-  r.entity({ name: "bundle", ...bundleEntity });
-  r.entity({ name: "campaign", ...campaignEntity });
-  r.entity({ name: "channelText", ...channelTextEntity });
-  r.entity({ name: "linkA", ...linkAEntity });
-  r.entity({ name: "linkB", ...linkBEntity });
-  r.entity({ name: "memo", ...memoEntity });
-  r.entity({ name: "stayMemo", ...stayMemoEntity });
+  r.entity(runEntity);
+  r.entity(photoEntity);
+  r.entity(noteEntity);
+  r.entity(bundleEntity);
+  r.entity(campaignEntity);
+  r.entity(channelTextEntity);
+  r.entity(linkAEntity);
+  r.entity(linkBEntity);
+  r.entity(memoEntity);
+  r.entity(stayMemoEntity);
 });
 
 // A `reference` field's `entity` may carry a feature prefix
@@ -185,6 +195,7 @@ const handoverFixturesFeature = defineFeature("handover-fixtures", (r) => {
 // grandchild (a THIRD feature), both edges declared with a feature-prefixed
 // target.
 const prefixedChildEntity: EntityDefinition = createEntity({
+  name: "prefixedChild",
   table: "handover_prefixed_child",
   idType: "uuid",
   transferable: true,
@@ -195,10 +206,11 @@ const prefixedChildEntity: EntityDefinition = createEntity({
 });
 
 const handoverPrefixedChildFeature = defineFeature("handover-fixtures-prefixed-child", (r) => {
-  r.entity({ name: "prefixedChild", ...prefixedChildEntity });
+  r.entity(prefixedChildEntity);
 });
 
 const prefixedGrandchildEntity: EntityDefinition = createEntity({
+  name: "prefixedGrandchild",
   table: "handover_prefixed_grandchild",
   idType: "uuid",
   transferable: true,
@@ -215,22 +227,22 @@ const prefixedGrandchildEntity: EntityDefinition = createEntity({
 const handoverPrefixedGrandchildFeature = defineFeature(
   "handover-fixtures-prefixed-grandchild",
   (r) => {
-    r.entity({ name: "prefixedGrandchild", ...prefixedGrandchildEntity });
+    r.entity(prefixedGrandchildEntity);
   },
 );
 
-const runTable = buildEntityTable("run", runEntity);
-const photoTable = buildEntityTable("photo", photoEntity);
-const noteTable = buildEntityTable("note", noteEntity);
-const bundleTable = buildEntityTable("bundle", bundleEntity);
-const campaignTable = buildEntityTable("campaign", campaignEntity);
-const channelTextTable = buildEntityTable("channelText", channelTextEntity);
-const linkATable = buildEntityTable("linkA", linkAEntity);
-const linkBTable = buildEntityTable("linkB", linkBEntity);
-const memoTable = buildEntityTable("memo", memoEntity);
-const stayMemoTable = buildEntityTable("stayMemo", stayMemoEntity);
-const prefixedChildTable = buildEntityTable("prefixedChild", prefixedChildEntity);
-const prefixedGrandchildTable = buildEntityTable("prefixedGrandchild", prefixedGrandchildEntity);
+const runTable = buildEntityTable(runEntity);
+const photoTable = buildEntityTable(photoEntity);
+const noteTable = buildEntityTable(noteEntity);
+const bundleTable = buildEntityTable(bundleEntity);
+const campaignTable = buildEntityTable(campaignEntity);
+const channelTextTable = buildEntityTable(channelTextEntity);
+const linkATable = buildEntityTable(linkAEntity);
+const linkBTable = buildEntityTable(linkBEntity);
+const memoTable = buildEntityTable(memoEntity);
+const stayMemoTable = buildEntityTable(stayMemoEntity);
+const prefixedChildTable = buildEntityTable(prefixedChildEntity);
+const prefixedGrandchildTable = buildEntityTable(prefixedGrandchildEntity);
 
 const runCrud = createEventStoreExecutor(runTable, runEntity, { entityName: "run" });
 const photoCrud = createEventStoreExecutor(photoTable, photoEntity, { entityName: "photo" });

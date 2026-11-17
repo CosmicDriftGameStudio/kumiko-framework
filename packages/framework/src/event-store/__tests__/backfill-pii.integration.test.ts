@@ -50,16 +50,17 @@ const TENANT = "00000000-0000-4000-8000-000000000001" as TenantId;
 const BIDX_KEY = Buffer.alloc(32, 5).toString("base64");
 
 const contactEntity = createEntity({
+  name: "contact",
   fields: {
     email: createTextField({ required: true, personal: "self", find: "exact" }),
     displayName: createTextField({ personal: false, reason: "test_fixture" }),
     avatar: createFileField({ personal: "self" }),
   },
 });
-const contactTable = buildEntityTable("contact", contactEntity);
+const contactTable = buildEntityTable(contactEntity);
 
 const crmFeature = defineFeature("crm", (r) => {
-  r.entity({ name: "contact", ...contactEntity });
+  r.entity(contactEntity);
 });
 
 // Qualified event-type strings are kebab-case (qn/toKebab, feature-config-
@@ -100,44 +101,48 @@ const signalsFeature = defineFeature("signals", (r) => {
 // personal: { of } (not "self") — the named owner field can legitimately be
 // absent from an old event's payload, unlike contact.email (self-subject via row id).
 const noteEntity = createEntity({
+  name: "note",
   fields: {
     authorId: createTextField({ personal: false, reason: "test_fixture" }),
     body: createTextField({ personal: { of: "authorId" }, find: "none" }),
   },
 });
-const noteTable = buildEntityTable("note", noteEntity);
+const noteTable = buildEntityTable(noteEntity);
 
 const memoEntity = createEntity({
+  name: "memo",
   fields: {
     ownerId: createTextField({ personal: "ref" }),
     body: createTextField({ personal: { of: "ownerId", whenAbsent: "tenant" }, find: "none" }),
   },
 });
-const memoTable = buildEntityTable("memo", memoEntity);
+const memoTable = buildEntityTable(memoEntity);
 
 // whenAbsent: "self" — an ownerless row is keyed on the record itself.
 const slipEntity = createEntity({
+  name: "slip",
   fields: {
     ownerId: createTextField({ personal: "ref" }),
     body: createTextField({ personal: { of: "ownerId", whenAbsent: "self" }, find: "none" }),
   },
 });
-const slipTable = buildEntityTable("slip", slipEntity);
+const slipTable = buildEntityTable(slipEntity);
 
 // The field is its own owner, like tenant-invitation.invitedBy.
 const inviteEntity = createEntity({
+  name: "invite",
   fields: {
     label: createTextField({ personal: false, reason: "test_fixture" }),
     invitedBy: createTextField({ personal: { of: "invitedBy" }, find: "none" }),
   },
 });
-const inviteTable = buildEntityTable("invite", inviteEntity);
+const inviteTable = buildEntityTable(inviteEntity);
 
 const notesFeature = defineFeature("notes", (r) => {
-  r.entity({ name: "invite", ...inviteEntity });
-  r.entity({ name: "note", ...noteEntity });
-  r.entity({ name: "memo", ...memoEntity });
-  r.entity({ name: "slip", ...slipEntity });
+  r.entity(inviteEntity);
+  r.entity(noteEntity);
+  r.entity(memoEntity);
+  r.entity(slipEntity);
 });
 
 // personal: { of: "id" } → recordOwned: the row
@@ -145,13 +150,14 @@ const notesFeature = defineFeature("notes", (r) => {
 // This fixture proves the pre-existing generic backfill already covers the
 // record subject kind for lifecycle events, no new code needed.
 const surveyEntity = createEntity({
+  name: "survey",
   fields: {
     answer: createTextField({ personal: { of: "id" }, find: "none" }),
   },
 });
-const surveyTable = buildEntityTable("survey", surveyEntity);
+const surveyTable = buildEntityTable(surveyEntity);
 const surveyFeature = defineFeature("survey", (r) => {
-  r.entity({ name: "survey", ...surveyEntity });
+  r.entity(surveyEntity);
 });
 
 let testDb: TestDb;

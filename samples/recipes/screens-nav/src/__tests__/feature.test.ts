@@ -140,7 +140,7 @@ describe("screens-nav showcase — boot-validator catches author mistakes", () =
     // Typo-protection: field refs must exist on the entity. Mis-spelled
     // column names would otherwise silently vanish from the form.
     const broken = defineFeature("broken-shop", (r) => {
-      r.entity({ name: "book", ...bookEntity });
+      r.entity(bookEntity);
       r.screen({
         id: "book-edit",
         type: "entityEdit",

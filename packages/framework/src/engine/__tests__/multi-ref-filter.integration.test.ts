@@ -13,6 +13,7 @@ const ATTENDEE_B = "22222222-2222-4222-8222-222222222222";
 const ATTENDEE_C = "33333333-3333-4333-8333-333333333333";
 
 const protocolEntity = createEntity({
+  name: "protocol",
   table: "mr_filter_protocol",
   fields: {
     title: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -24,7 +25,7 @@ const LIST_QN = "meetings:query:protocol:list";
 const CREATE_QN = "meetings:write:protocol:create";
 
 const meetingsFeature = defineFeature("meetings", (r) => {
-  r.crud("protocol", protocolEntity, {
+  r.crud(protocolEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   });

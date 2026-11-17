@@ -97,7 +97,7 @@ export function createMailTransportInMemoryFeature() {
           return getOrCreateTransportForTenant(tenantId);
         },
       };
-      r.useExtension(MAIL_TRANSPORT_EXTENSION, "inmemory", plugin);
+      r.applyExtension({ name: MAIL_TRANSPORT_EXTENSION, entity: "inmemory", ...plugin });
       r.translations({
         keys: { "mail-transport-inmemory.settings": { en: "Test inbox (in memory)" } },
       });

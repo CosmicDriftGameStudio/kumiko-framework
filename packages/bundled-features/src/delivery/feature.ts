@@ -70,19 +70,11 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
     // Backing table: the (tenant,user,type,channel) uniqueIndex lives only on
     // the physical table, not on the entity fields, so the generator would
     // otherwise omit it → duplicate preference rows on concurrent upserts.
-    r.entity({
-      name: "notification-preference",
-      ...notificationPreferenceEntity,
-      backingTable: notificationPreferencesTable,
-    });
+    r.entity({ ...notificationPreferenceEntity, backingTable: notificationPreferencesTable });
     // Same ride-along reason as notification-preference above: the
     // (tenant,addressHash,type,channel) uniqueIndex lives only on the
     // physical table.
-    r.entity({
-      name: "notification-address-opt-out",
-      ...notificationAddressOptOutEntity,
-      backingTable: notificationAddressOptOutsTable,
-    });
+    r.entity({ ...notificationAddressOptOutEntity, backingTable: notificationAddressOptOutsTable });
     // Projection of the deliveryAttempt stream without r.entity, hence storeTable instead of a read_ entity table.
     r.storeTable(deliveryAttemptsTableMeta, {
       reason: "read_side.delivery_attempt_log_entityless_projection",
@@ -171,20 +163,16 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
 
     // One job for queued-mode channels: it renders (when the channel has render()) and sends.
     // Dispatched explicitly from the delivery-service, hence manual trigger.
-    r.job(
-      DeliveryJobNames.send,
-      { trigger: { manual: true }, retries: 3, backoff: "exponential" },
-      deliverySendJob,
-    );
+    r.job({ name: DeliveryJobNames.send, trigger: { manual: true }, retries: 3, backoff: "exponential", handler: deliverySendJob });
 
     if (attemptLogRetentionDays !== undefined) {
       r.job({
         name: DeliveryJobNames.attemptLogRetention,
         trigger: { maintenance: true },
         concurrency: "skip",
-        escapeHatch: { reason: ATTEMPT_LOG_RETENTION_ESCAPE_HATCH_REASON },
+        escapeHatch: { reason: ATTEMPT_LOG_RETENTION_ESCAPE_HATCH_REASON, grants: ["unsafeRaw"] },
         handler: async (_payload, ctx) => {
-          const db = ctx.db.unsafeRaw();
+          const db = ctx.db.unsafeRawAllTenants();
           try {
             const pruned = await runAttemptLogRetention(db, {
               olderThanDays: attemptLogRetentionDays,

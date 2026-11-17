@@ -53,8 +53,8 @@ const adminUser = TestUsers.admin;
 let testDb: TestDb;
 let testRedis: TestRedis;
 
-const orderTable = buildEntityTable("order", orderEntity);
-const fulfillmentTable = buildEntityTable("fulfillment", fulfillmentEntity);
+const orderTable = buildEntityTable(orderEntity);
+const fulfillmentTable = buildEntityTable(fulfillmentEntity);
 
 beforeAll(async () => {
   [testDb, testRedis] = await Promise.all([createTestDb(), createTestRedis()]);

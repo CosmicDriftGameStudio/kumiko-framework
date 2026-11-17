@@ -51,7 +51,7 @@ export function createClaimTenantHandoverHandler(opts: ClaimTenantHandoverOption
     agent: { expose: false },
     rateLimit: { per: "user", limit: 10, windowSeconds: 60 },
     handler: async (event, ctx) => {
-      const db = ctx.db.unsafeRaw();
+      const db = ctx.db.unsafeRawAllTenants();
       const rootLocation = resolveRootAnchorLocation(ctx.registry, db, event.payload.entityType);
       if (!rootLocation) return notTransferable(event.payload.entityType);
       const { rootTableName, rootIdCol, rootTenantCol, loadAnchor } = rootLocation;

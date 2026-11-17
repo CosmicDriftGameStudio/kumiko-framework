@@ -23,6 +23,7 @@ const admin = TestUsers.admin;
 const OWNER = generateId();
 
 const slipEntity = createEntity({
+  name: "slip",
   table: "pii_owner_absent_self_slips",
   fields: {
     ownerId: createTextField({ personal: "ref" }),
@@ -31,11 +32,11 @@ const slipEntity = createEntity({
   },
 });
 
-const slipTable = buildEntityTable("slip", slipEntity);
+const slipTable = buildEntityTable(slipEntity);
 
 const feature = defineFeature("ownerabsentself", (r) => {
-  r.entity({ name: "slip", ...slipEntity });
-  r.crud("slip", slipEntity, {
+  r.entity(slipEntity);
+  r.crud(slipEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: { roles: ["Admin"] } },
   });

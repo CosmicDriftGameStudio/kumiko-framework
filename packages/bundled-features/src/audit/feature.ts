@@ -69,13 +69,10 @@ export function createAuditFeature(): FeatureDefinition {
       // Registered so ops tools/MSPs can discover the type — escape-hatch-audit-sink.ts appends it via the low-level event-store API.
       r.defineEvent("escape-hatch-used", escapeHatchUsedSchema, { piiFields: "none" });
 
-      r.config(
-        "escapeHatchRetentionDays",
-        createSystemConfig("number", {
+      r.config({ keys: { escapeHatchRetentionDays: createSystemConfig("number", {
           default: DEFAULT_ESCAPE_HATCH_RETENTION_DAYS,
           bounds: { min: 1 },
-        }),
-      );
+        }) } }).escapeHatchRetentionDays;
 
       r.job({
         name: "escape-hatch-retention",
@@ -93,7 +90,7 @@ export function createAuditFeature(): FeatureDefinition {
             );
           }
           await runEscapeHatchRetention({
-            db: ctx.db.unsafeRaw(),
+            db: ctx.db.unsafeRawAllTenants(),
             registry: ctx.registry,
             configResolver: ctx.services.configResolver,
             userId: SYSTEM_USER_ID,

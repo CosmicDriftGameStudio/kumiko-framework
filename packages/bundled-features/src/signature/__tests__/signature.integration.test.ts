@@ -109,20 +109,20 @@ const fileRefExecutor = createEventStoreExecutor(fileRefsTable, fileRefEntity, {
 });
 
 const deliveryOutboxEntity = createEntity({
+  name: "deliveryOutbox",
   table: "signature_test_delivery_outbox",
   fields: {
     signerId: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
 const { executor: deliveryOutboxExecutor, table: deliveryOutboxTable } = createEntityExecutor(
-  "deliveryOutbox",
   deliveryOutboxEntity,
 );
 const DELIVERY_OUTBOX_ENQUEUE = "delivery-outbox-test:write:enqueue";
 
 // Stands in for the app's own mail write that deliverLink dispatches.
 const deliveryOutboxFeature = defineFeature("delivery-outbox-test", (r) => {
-  r.entity({ name: "deliveryOutbox", ...deliveryOutboxEntity });
+  r.entity(deliveryOutboxEntity);
   r.writeHandler({
     name: "enqueue",
     schema: z.object({ signerId: z.string() }),

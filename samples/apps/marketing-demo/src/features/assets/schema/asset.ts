@@ -34,6 +34,7 @@ export const ASSET_DEPARTMENTS = [
 export type AssetDepartment = (typeof ASSET_DEPARTMENTS)[number];
 
 export const assetEntity = createEntity({
+  name: "asset",
   fields: {
     name: createTextField({
       personal: false,

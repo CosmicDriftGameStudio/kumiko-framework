@@ -28,12 +28,13 @@ import { withExecutorManagedWrites } from "../tenant-db.ts";
 import { type BunTestDb, createTestDb } from "./query/bun-test-db.ts";
 
 const entity = createEntity({
+  name: "apply-tenant-check",
   table: "read_apply_tenant_check",
   fields: {
     name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
   },
 });
-const table = buildEntityTable("apply-tenant-check", entity);
+const table = buildEntityTable(entity);
 
 let testDb: BunTestDb;
 

@@ -16,7 +16,7 @@ let testRedis: TestRedis;
 let redisUrl: string;
 
 const testFeature = defineFeature("test-queue-depth", (r) => {
-  r.job("noop", { trigger: { manual: true } }, async () => {});
+  r.job({ name: "noop", trigger: { manual: true }, handler: async () => {} });
 });
 
 beforeAll(async () => {

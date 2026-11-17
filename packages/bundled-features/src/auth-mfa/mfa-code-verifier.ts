@@ -30,7 +30,7 @@ export function createMfaCodeVerifier(): MfaCodeVerifier {
         "reads the MFA enrollment of the user being re-authenticated on the caller's handler context; the calling handler declares its own escapeHatch",
     });
     const scopedDb = createTenantDb({
-      db: ctx.db.unsafeRaw(),
+      db: ctx.db.unsafeRawAllTenants(),
       tenantId,
       mode: "system",
       reason:

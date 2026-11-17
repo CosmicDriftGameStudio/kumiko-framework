@@ -143,10 +143,7 @@ const ordersFeature = defineFeature("orders", (r) => {
 // wiring end-to-end (registry → resolver → ctx.config). No seeds needed here.
 const configKeyDemoFeature = defineFeature("configkeydemo", (r) => {
   r.requires({ features: ["config"] });
-  const betaEnabled = r.config(
-    "betaEnabled",
-    createTenantConfig("boolean", { default: false, write: access.roles("Admin") }),
-  );
+  const betaEnabled = r.config({ keys: { betaEnabled: createTenantConfig("boolean", { default: false, write: access.roles("Admin") }) } }).betaEnabled;
   return { betaEnabled };
 });
 

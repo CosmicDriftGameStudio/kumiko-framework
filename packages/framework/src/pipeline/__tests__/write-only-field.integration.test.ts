@@ -17,6 +17,7 @@ const PLAINTEXT = "sk-live-super-secret-0001";
 const NEXT_PLAINTEXT = "sk-live-super-secret-0002";
 
 const connectionEntity = createEntity({
+  name: "connection",
   table: "wo_connections",
   fields: {
     label: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -32,6 +33,7 @@ const connectionEntity = createEntity({
 });
 
 const linkEntity = createEntity({
+  name: "link",
   table: "wo_links",
   fields: {
     label: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -40,6 +42,7 @@ const linkEntity = createEntity({
 });
 
 const vaultEntity = createEntity({
+  name: "vault",
   table: "wo_vaults",
   fields: {
     name: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -47,7 +50,7 @@ const vaultEntity = createEntity({
 });
 
 const connectionExecutor = createEventStoreExecutor(
-  buildEntityTable("connection", connectionEntity),
+  buildEntityTable(connectionEntity),
   connectionEntity,
   { entityName: "connection" },
 );
@@ -56,7 +59,7 @@ const connectionExecutor = createEventStoreExecutor(
 const hookSawApiKeys: unknown[] = [];
 
 const feature = defineFeature("wo", (r) => {
-  const connection = r.entity({ name: "connection", ...connectionEntity });
+  const connection = r.entity(connectionEntity);
   r.hook({
     type: "postSave",
     target: { allOf: connection },
@@ -75,23 +78,21 @@ const feature = defineFeature("wo", (r) => {
     },
     access: { roles: ["Admin"] },
   });
-  r.crud("connection", connectionEntity, {
+  r.crud(connectionEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: { roles: ["Admin"] } },
   });
-  r.entity({ name: "link", ...linkEntity });
-  r.crud("link", linkEntity, {
+  r.entity(linkEntity);
+  r.crud(linkEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: { roles: ["Admin"] } },
   });
-  r.entity({ name: "vault", ...vaultEntity });
-  r.relation("vault", "connections", {
-    type: "hasMany",
+  r.entity(vaultEntity);
+  r.relation({ entity: "vault", name: "connections", type: "hasMany",
     target: "connection",
     foreignKey: "vaultId",
-    nestedWrite: true,
-  });
-  r.crud("vault", vaultEntity, {
+    nestedWrite: true });
+  r.crud(vaultEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: { roles: ["Admin"] } },
   });

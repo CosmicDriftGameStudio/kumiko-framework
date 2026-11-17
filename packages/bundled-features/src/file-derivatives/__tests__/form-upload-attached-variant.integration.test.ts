@@ -69,6 +69,7 @@ const QR_LAYER = {
 const CARD_VARIANT = { maxEdge: 400, format: "webp", overlays: [QR_LAYER] } as const;
 
 const gadgetEntity = createEntity({
+  name: "fieldGadget",
   table: "form_upload_gadgets",
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -95,7 +96,7 @@ const stubRenderer: DerivativeRendererPlugin = {
 
 const gadgetFeature = defineFeature("form-upload-gadget", (r) => {
   r.requires({ features: ["file-derivatives"] });
-  r.entity({ name: "fieldGadget", ...gadgetEntity });
+  r.entity(gadgetEntity);
   r.writeHandler(
     defineEntityCreateHandler("fieldGadget", gadgetEntity, { access: { roles: ["Admin"] } }),
   );
@@ -109,13 +110,11 @@ const gadgetFeature = defineFeature("form-upload-gadget", (r) => {
       access: { roles: ["Admin", "Technician"] },
     }),
   );
-  r.useExtension(EXT_DERIVATIVE_RENDERER, "image/*", stubRenderer);
-  r.useExtension(EXT_DERIVATIVE_OVERLAY_RESOLVER, "fieldGadget", {
-    resolve: async (args: ResolverArgs) => {
+  r.applyExtension({ name: EXT_DERIVATIVE_RENDERER, entity: "image/*", ...stubRenderer });
+  r.applyExtension({ name: EXT_DERIVATIVE_OVERLAY_RESOLVER, entity: "fieldGadget", resolve: async (args: ResolverArgs) => {
       resolverCalls.push(args);
       return `https://example.com/gadget/${args.entityId}`;
-    },
-  });
+    } });
   r.writeHandler({
     name: "attach-generated-photo",
     schema: z.object({ gadgetId: z.uuid(), version: z.number() }),

@@ -23,6 +23,7 @@ import { TestUsers } from "../../seeding/seed-users.ts";
 import { SEARCH_CONSUMER_NAME } from "../system-hooks.ts";
 
 const noteEntity = createEntity({
+  name: "note",
   table: "read_named_search_notes",
   fields: {
     label: createTextField({
@@ -35,20 +36,22 @@ const noteEntity = createEntity({
   },
   softDelete: true,
 });
-const noteTable = buildEntityTable("note", noteEntity);
+const noteTable = buildEntityTable(noteEntity);
 
 // personal: "self" + find: "fuzzy" → searchable, but the read row holds ciphertext.
 const secretEntity = createEntity({
+  name: "secret",
   table: "read_named_search_secrets",
   fields: {
     label: createTextField({ required: true, maxLength: 100, personal: "self", find: "fuzzy" }),
   },
 });
-const secretTable = buildEntityTable("secret", secretEntity);
+const secretTable = buildEntityTable(secretEntity);
 
 // No DDL table for this one — proves the searchable-fields gate runs
 // before any query, not after a failed one.
 const ghostEntity = createEntity({
+  name: "ghost",
   table: "read_named_search_ghosts",
   fields: {
     note: createTextField({
@@ -63,6 +66,7 @@ const ghostEntity = createEntity({
 // No searchable stem field at all — only a searchPayloadExtension feeds the
 // index (the customFields-only case). The extension indexes the row's `marker`.
 const extOnlyEntity = createEntity({
+  name: "ext-only",
   table: "read_named_search_ext_only",
   fields: {
     marker: createTextField({
@@ -73,11 +77,12 @@ const extOnlyEntity = createEntity({
     }),
   },
 });
-const extOnlyTable = buildEntityTable("ext-only", extOnlyEntity);
+const extOnlyTable = buildEntityTable(extOnlyEntity);
 const EXT_ROW_MARKER = "ext-row-projection-marker";
 
 // Holds a sensitive column; a generic extension that echoes the state's keys must never see it.
 const vaultEntity = createEntity({
+  name: "vault",
   table: "read_named_search_vaults",
   fields: {
     title: createTextField({
@@ -95,21 +100,21 @@ const vaultEntity = createEntity({
     }),
   },
 });
-const vaultTable = buildEntityTable("vault", vaultEntity);
+const vaultTable = buildEntityTable(vaultEntity);
 
 const ROW_LABEL = "row-projection-value";
 
 const namedSearchFeature = defineFeature("named-search", (r) => {
-  r.entity({ name: "note", ...noteEntity });
-  r.entity({ name: "ghost", ...ghostEntity });
-  r.entity({ name: "secret", ...secretEntity });
-  const extOnly = r.entity({ name: "ext-only", ...extOnlyEntity });
+  r.entity(noteEntity);
+  r.entity(ghostEntity);
+  r.entity(secretEntity);
+  const extOnly = r.entity(extOnlyEntity);
   r.searchPayloadExtension(extOnly, ({ state }) => ({ extIndexed: state["marker"] }));
 
   const relabeled = r.defineEvent("relabeled", z.object({ label: z.string() }), {
     piiFields: "none",
   });
-  const vault = r.entity({ name: "vault", ...vaultEntity });
+  const vault = r.entity(vaultEntity);
   r.searchPayloadExtension(vault, ({ state }) => ({ stateKeys: Object.keys(state).join(" ") }));
 
   const poked = r.defineEvent("poked", z.object({}), { piiFields: "none" });
@@ -145,14 +150,14 @@ const namedSearchFeature = defineFeature("named-search", (r) => {
       // executor-built table is write-locked to the executor) so the row
       // ends up with a value distinct from the event payload above. Proves
       // the search consumer reads the row, not the payload.
-      await asRawClient(ctx.db.unsafeRaw()).unsafe(
+      await asRawClient(ctx.db.unsafeRawAllTenants()).unsafe(
         `UPDATE read_named_search_notes SET label = $1 WHERE id = $2`,
         [ROW_LABEL, event.payload.id],
       );
       return { isSuccess: true as const, data: { id: event.payload.id } };
     },
     access: { roles: ["Admin"] },
-    escapeHatch: { reason: "test: raw row update bypassing the executor" },
+    escapeHatch: { reason: "test: raw row update bypassing the executor", grants: ["unsafeRaw"] },
   });
 
   r.writeHandler({
@@ -167,14 +172,14 @@ const namedSearchFeature = defineFeature("named-search", (r) => {
         payload: {},
       });
       // Raw update (not the executor) so only the named-event path can see this value.
-      await asRawClient(ctx.db.unsafeRaw()).unsafe(
+      await asRawClient(ctx.db.unsafeRawAllTenants()).unsafe(
         `UPDATE read_named_search_ext_only SET marker = $1 WHERE id = $2`,
         [EXT_ROW_MARKER, event.payload.id],
       );
       return { isSuccess: true as const, data: { id: event.payload.id } };
     },
     access: { roles: ["Admin"] },
-    escapeHatch: { reason: "test: raw row update bypassing the executor" },
+    escapeHatch: { reason: "test: raw row update bypassing the executor", grants: ["unsafeRaw"] },
   });
 
   r.writeHandler({

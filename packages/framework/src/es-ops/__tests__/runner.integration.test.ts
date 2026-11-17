@@ -45,16 +45,17 @@ import { runPendingSeedMigrations } from "../runner.ts";
 // WriteResult (via a thrown VersionConflictError) so the isSuccess:false path
 // is exercised against the production write-pipeline, not a stubbed return.
 const probeEntity = createEntity({
+  name: "esops-probe",
   table: "read_esops_probes",
   fields: { label: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
-const probeTable = buildEntityTable("esops-probe", probeEntity);
+const probeTable = buildEntityTable(probeEntity);
 const probeExecutor = createEventStoreExecutor(probeTable, probeEntity, {
   entityName: "esops-probe",
 });
 
 const seedTestFeature = defineFeature("esopstest", (r) => {
-  r.entity({ name: "esops-probe", ...probeEntity });
+  r.entity(probeEntity);
   // openToAll: reachable by the seed's system user (roles ["system"]) —
   // hasAccess has no system-bypass, so a role-gated handler would be denied.
   r.writeHandler({

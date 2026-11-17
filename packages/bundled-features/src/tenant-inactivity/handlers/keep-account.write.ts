@@ -27,7 +27,7 @@ export function createKeepAccountHandler(opts: { readonly keepAccountTokenSecret
     description:
       "Redeems the keep-account link from an inactivity warning mail: counts as activity, resets the warning cycle and invalidates every earlier link.",
     handler: async (event, ctx) => {
-      const runner = ctx.db.unsafeRaw();
+      const runner = ctx.db.unsafeRawAllTenants();
       const now = ctx.tz.now();
       const redeemed = await redeemKeepAccountToken({
         token: event.payload.token,

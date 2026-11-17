@@ -288,6 +288,7 @@ describe("crypto-shredding :: forget-subject", () => {
 // scenarios above.
 describe("crypto-shredding :: forget-subject purges the derived search index", () => {
   const probeEntity = createEntity({
+    name: "forgetSubjectSearchProbe",
     table: "read_forget_subject_search_probe",
     fields: {
       ownerId: createTextField({ required: true, personal: false, reason: "pseudonymous_fk" }),
@@ -305,9 +306,9 @@ describe("crypto-shredding :: forget-subject purges the derived search index", (
       }),
     },
   });
-  const probeTable = buildEntityTable("forgetSubjectSearchProbe", probeEntity);
+  const probeTable = buildEntityTable(probeEntity);
   const probeFeature = defineFeature("forget-subject-search-probe", (r) => {
-    r.entity({ name: "probe", ...probeEntity });
+    r.entity({ ...probeEntity, name: "probe" });
   });
 
   let searchStack: TestStack;
@@ -413,6 +414,7 @@ describe("crypto-shredding :: forget-subject purges the derived search index", (
 // Unreachable Meilisearch: the purge fails with a genuine connection error.
 describe("crypto-shredding :: forget-subject when the search purge fails", () => {
   const probeEntity = createEntity({
+    name: "forgetSubjectFailingSearchProbe",
     table: "read_forget_subject_failing_search_probe",
     fields: {
       ownerId: createTextField({ required: true, personal: false, reason: "pseudonymous_fk" }),
@@ -424,9 +426,9 @@ describe("crypto-shredding :: forget-subject when the search purge fails", () =>
       }),
     },
   });
-  const probeTable = buildEntityTable("forgetSubjectFailingSearchProbe", probeEntity);
+  const probeTable = buildEntityTable(probeEntity);
   const probeFeature = defineFeature("forget-subject-failing-search-probe", (r) => {
-    r.entity({ name: "probe", ...probeEntity });
+    r.entity({ ...probeEntity, name: "probe" });
   });
 
   let failingStack: TestStack;
@@ -495,6 +497,7 @@ describe("crypto-shredding :: forget-subject when the search purge fails", () =>
 // login door (status + PATs) included.
 describe("crypto-shredding :: forget-subject with a failing search purge leaves the login door untouched", () => {
   const probeEntity = createEntity({
+    name: "forgetSubjectDoorFailingSearchProbe",
     table: "read_forget_subject_door_failing_search_probe",
     fields: {
       ownerId: createTextField({ required: true, personal: false, reason: "pseudonymous_fk" }),
@@ -506,9 +509,9 @@ describe("crypto-shredding :: forget-subject with a failing search purge leaves 
       }),
     },
   });
-  const probeTable = buildEntityTable("forgetSubjectDoorFailingSearchProbe", probeEntity);
+  const probeTable = buildEntityTable(probeEntity);
   const probeFeature = defineFeature("forget-subject-door-failing-search-probe", (r) => {
-    r.entity({ name: "probe", ...probeEntity });
+    r.entity({ ...probeEntity, name: "probe" });
   });
 
   let doorStack: TestStack;
@@ -612,6 +615,7 @@ describe("crypto-shredding :: forget-subject closes the login door (user feature
   // membership row. The guard must fall back to the subject row's own
   // tenant_id for these.
   const shareLikeEntity = createEntity({
+    name: "forgetSubjectShareLikeProbe",
     table: "read_forget_subject_share_like_probe",
     fields: {
       recipientName: createTextField({
@@ -622,9 +626,9 @@ describe("crypto-shredding :: forget-subject closes the login door (user feature
       }),
     },
   });
-  const shareLikeTable = buildEntityTable("forgetSubjectShareLikeProbe", shareLikeEntity);
+  const shareLikeTable = buildEntityTable(shareLikeEntity);
   const shareLikeFeature = defineFeature("forget-subject-share-like-probe", (r) => {
-    r.entity({ name: "probe", ...shareLikeEntity });
+    r.entity({ ...shareLikeEntity, name: "probe" });
   });
 
   function shareLikeProbeExecutor() {
@@ -989,6 +993,7 @@ describe("crypto-shredding :: forget-subject closes the login door (user feature
 // existence probe returns null and that entity is skipped.
 describe("crypto-shredding :: forget-subject subjectRowExistsInTenant missing table", () => {
   const missingTableProbeEntity = createEntity({
+    name: "probe",
     table: "read_forget_subject_missing_table_probe",
     fields: {
       recipientName: createTextField({
@@ -1000,7 +1005,7 @@ describe("crypto-shredding :: forget-subject subjectRowExistsInTenant missing ta
     },
   });
   const missingTableProbeFeature = defineFeature("forget-subject-missing-table-probe", (r) => {
-    r.entity({ name: "probe", ...missingTableProbeEntity });
+    r.entity(missingTableProbeEntity);
   });
 
   let missingTableStack: TestStack;

@@ -361,11 +361,11 @@ describe("scenario 2.6: multi-feature drift warnings fire independently", () => 
     // undeclared `extra`. Both should fire drift warnings — distinct feature
     // names, distinct keys.
     const featA = defineFeature("alpha", (r) => {
-      r.claimKey("teamId", { type: "string" });
+      r.claimKey({ name: "teamId", type: "string" });
       r.authClaims(async () => ({ teamId: "t1", stray: "drift-a" }));
     });
     const featB = defineFeature("beta", (r) => {
-      r.claimKey("plan", { type: "string" });
+      r.claimKey({ name: "plan", type: "string" });
       r.authClaims(async () => ({ plan: "pro", extra: "drift-b" }));
     });
 

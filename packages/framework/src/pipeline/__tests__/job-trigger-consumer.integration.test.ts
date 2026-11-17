@@ -45,6 +45,7 @@ const processedItems: Array<{
 const versionedNotes: string[] = [];
 
 const itemEntity = createEntity({
+  name: "item",
   table: "read_job_trigger_consumer_items",
   fields: {
     title: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -81,27 +82,23 @@ const jobTriggerFixtureFeature = defineFeature("job-trigger-fixture", (r) => {
     },
   });
 
-  r.crud("item", itemEntity, {
+  r.crud(itemEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: { roles: ["Admin"] } },
   });
-  r.job("count-item", { trigger: { on: "item.created" }, runIn: "worker" }, async (_payload, ctx) => {
+  r.job({ name: "count-item", trigger: { on: "item.created" }, runIn: "worker", handler: async (_payload, ctx) => {
     itemRuns.push({ triggerName: ctx.triggerName, aggregateId: ctx.triggerEvent?.aggregateId });
-  });
+  } });
 
   // Under test: only reachable via createJobTriggerEventConsumer, since
   // ITEM_REQUESTED_EVENT_QN is an r.defineEvent QN, not a handler QN.
-  r.job(
-    "process-item",
-    { trigger: { on: ITEM_REQUESTED_EVENT_QN }, runIn: "worker" },
-    async (payload, ctx) => {
+  r.job({ name: "process-item", trigger: { on: ITEM_REQUESTED_EVENT_QN }, runIn: "worker", handler: async (payload, ctx) => {
       processedItems.push({
         fileRefId: payload["fileRefId"] as string,
         triggerEvent: ctx.triggerEvent,
         rawDataKeys: Object.keys(payload),
       });
-    },
-  );
+    } });
 
   // Stored v1 events must reach the job in the current schema.
   const versionedRequested = r.defineEvent(
@@ -113,13 +110,9 @@ const jobTriggerFixtureFeature = defineFeature("job-trigger-fixture", (r) => {
       migrations: [{ fromVersion: 1, toVersion: 2, transform: { default: { note: "from-v1" } } }],
     },
   );
-  r.job(
-    "versioned-job",
-    { trigger: { on: versionedRequested.name }, runIn: "worker" },
-    async (payload) => {
+  r.job({ name: "versioned-job", trigger: { on: versionedRequested.name }, runIn: "worker", handler: async (payload) => {
       versionedNotes.push(payload["note"] as string);
-    },
-  );
+    } });
 
   // Its upcaster always throws and no job listens to it: it must not stall the consumer.
   r.defineEvent("poison", z.object({ id: z.uuid() }), {
@@ -172,20 +165,12 @@ const jobTriggerWhereFixtureFeature = defineFeature("job-trigger-where-fixture",
 
   // Under test: both jobs trigger on the SAME QN; only the one whose
   // `where` matches the appended payload's `kind` may run.
-  r.job(
-    "process-alpha",
-    { trigger: { on: WHERE_ITEM_REQUESTED_EVENT_QN, where: { kind: "alpha" } }, runIn: "worker" },
-    async (payload) => {
+  r.job({ name: "process-alpha", trigger: { on: WHERE_ITEM_REQUESTED_EVENT_QN, where: { kind: "alpha" } }, runIn: "worker", handler: async (payload) => {
       alphaProcessed.push({ fileRefId: payload["fileRefId"] as string });
-    },
-  );
-  r.job(
-    "process-beta",
-    { trigger: { on: WHERE_ITEM_REQUESTED_EVENT_QN, where: { kind: "beta" } }, runIn: "worker" },
-    async (payload) => {
+    } });
+  r.job({ name: "process-beta", trigger: { on: WHERE_ITEM_REQUESTED_EVENT_QN, where: { kind: "beta" } }, runIn: "worker", handler: async (payload) => {
       betaProcessed.push({ fileRefId: payload["fileRefId"] as string });
-    },
-  );
+    } });
 });
 
 let stack: TestStack;

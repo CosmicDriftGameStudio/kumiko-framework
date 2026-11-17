@@ -12,6 +12,7 @@ import { createDocumentsFeature } from "../feature.ts";
 import { documentsTab } from "../tab.ts";
 
 const propertyEntity = createEntity({
+  name: "property",
   table: "doc_tab_properties",
   fields: {
     name: createTextField({ required: true, maxLength: 64, personal: false, reason: "test" }),
@@ -19,7 +20,7 @@ const propertyEntity = createEntity({
 });
 
 const hostFeature = defineFeature("tab-host", (r) => {
-  r.entity({ name: "property", ...propertyEntity });
+  r.entity(propertyEntity);
   r.queryHandler(
     defineEntityDetailHandler("property", propertyEntity, { access: { roles: ["TenantAdmin"] } }),
   );

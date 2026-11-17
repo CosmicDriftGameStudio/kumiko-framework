@@ -376,10 +376,8 @@ describe("buildServer — auth membershipQuery requires a principalStatus provid
 
   const principalStatusFeature = defineFeature("has-principal-status", (r) => {
     r.extendsRegistrar(EXT_PRINCIPAL_STATUS, {});
-    r.useExtension(EXT_PRINCIPAL_STATUS, "has-principal-status", {
-      resolveStatus: async () => "active" as const,
-      resolveProfile: async () => ({ globalRoles: [] }),
-    });
+    r.applyExtension({ name: EXT_PRINCIPAL_STATUS, entity: "has-principal-status", resolveStatus: async () => "active" as const,
+      resolveProfile: async () => ({ globalRoles: [] }) });
   });
 
   test("throws when membershipQuery is registered but no feature provides principalStatus", () => {
@@ -395,10 +393,8 @@ describe("buildServer — auth membershipQuery requires a principalStatus provid
 
   test("throws when more than one feature provides principalStatus", () => {
     const secondPrincipalStatusFeature = defineFeature("second-principal-status", (r) => {
-      r.useExtension(EXT_PRINCIPAL_STATUS, "second-principal-status", {
-        resolveStatus: async () => "active" as const,
-        resolveProfile: async () => ({ globalRoles: [] }),
-      });
+      r.applyExtension({ name: EXT_PRINCIPAL_STATUS, entity: "second-principal-status", resolveStatus: async () => "active" as const,
+        resolveProfile: async () => ({ globalRoles: [] }) });
     });
     expect(() =>
       buildServer({
@@ -441,10 +437,10 @@ describe("buildServer — tenant-lifecycle gate derivation", () => {
   const lifecyclePlugin = { resolveStatus: async () => null };
   const providerFeature = defineFeature("lifecycle-provider", (r) => {
     r.extendsRegistrar(EXT_TENANT_LIFECYCLE_STATUS, {});
-    r.useExtension(EXT_TENANT_LIFECYCLE_STATUS, "lifecycle-provider", lifecyclePlugin);
+    r.applyExtension({ name: EXT_TENANT_LIFECYCLE_STATUS, entity: "lifecycle-provider", ...lifecyclePlugin });
   });
   const secondProviderFeature = defineFeature("lifecycle-provider-2", (r) => {
-    r.useExtension(EXT_TENANT_LIFECYCLE_STATUS, "lifecycle-provider-2", lifecyclePlugin);
+    r.applyExtension({ name: EXT_TENANT_LIFECYCLE_STATUS, entity: "lifecycle-provider-2", ...lifecyclePlugin });
   });
 
   test("throws when a lifecycle provider is mounted but context.db is missing", () => {

@@ -68,7 +68,7 @@ export const createReconnectMailboxHandler = ({ memberRoles, adminRoles }: Inbou
       const secrets = requireSecretsContext(
         { secrets: ctx.services.secrets, user: ctx.user },
         "reconnect-mailbox",
-      ).withRunner(ctx.db.unsafeRaw());
+      ).withRunner(ctx.db.unsafeRawAllTenants());
       await secrets.set(
         event.user.tenantId,
         inboundCredentialSecretKey(accountId),

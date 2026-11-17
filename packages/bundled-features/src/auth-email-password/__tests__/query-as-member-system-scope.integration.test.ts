@@ -56,13 +56,14 @@ const REASON = "test: system-scope probe";
 // Unmanaged store: the runtime ES-write lock would deny a direct write on an event-fed
 // table before the READ ONLY transaction under test is reached.
 const guardEntity = createEntity({
+  name: "guard",
   table: "store_qamsys_guard",
   fields: {
     body: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
   access: { read: { Admin: "all" }, write: { Admin: "all" } },
 });
-const guardTable = deriveEntityTableMeta("guard", guardEntity, { source: "unmanaged" });
+const guardTable = deriveEntityTableMeta(guardEntity, { source: "unmanaged" });
 
 const READ_AS_MEMBER_QN = "qamsys:write:read-as-member";
 const READS_USER_ROWS_QN = "qamsys:query:reads-user-rows";

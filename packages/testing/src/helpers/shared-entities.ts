@@ -17,17 +17,19 @@ import {
 // Used by every pipeline test that only needs SOMETHING to write events
 // against (event-dispatcher*, event-retention, event-dedup, …).
 export const sharedWidgetEntity = createEntity({
+  name: "widget",
   fields: {
     name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
   },
   softDelete: true,
 });
-export const sharedWidgetTable = buildEntityTable("widget", sharedWidgetEntity);
+export const sharedWidgetTable = buildEntityTable(sharedWidgetEntity);
 
 // User with searchable name/email fields. Used by full-stack, cascade,
 // and any test that exercises search-indexing or field-access on a
 // realistic-looking user record.
 export const sharedUserEntity = createEntity({
+  name: "user",
   fields: {
     email: createTextField({
       required: true,
@@ -51,15 +53,16 @@ export const sharedUserEntity = createEntity({
   softDelete: true,
   searchWeight: 10,
 });
-export const sharedUserTable = buildEntityTable("user", sharedUserEntity);
+export const sharedUserTable = buildEntityTable(sharedUserEntity);
 
 // Item with name + optional price. Used by error-contract, batch,
 // projection-rebuild — tests that need "a thing you can CRUD".
 export const sharedItemEntity = createEntity({
+  name: "item",
   fields: {
     name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
     price: createNumberField(),
   },
   softDelete: true,
 });
-export const sharedItemTable = buildEntityTable("item", sharedItemEntity);
+export const sharedItemTable = buildEntityTable(sharedItemEntity);

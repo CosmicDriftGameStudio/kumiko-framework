@@ -10,6 +10,7 @@ import {
 // product, has a unit (select), and a derived amount (qty × unitPrice)
 // that the entity sums across all lines.
 export const invoiceEntity = createEntity({
+  name: "invoice",
   table: "read_sample_invoices",
   fields: {
     customer: createTextField({ personal: { of: "id" }, find: "none", required: true }),
@@ -38,4 +39,4 @@ export const invoiceEntity = createEntity({
   },
 });
 
-export const invoiceTable = buildEntityTable("invoice", invoiceEntity);
+export const invoiceTable = buildEntityTable(invoiceEntity);

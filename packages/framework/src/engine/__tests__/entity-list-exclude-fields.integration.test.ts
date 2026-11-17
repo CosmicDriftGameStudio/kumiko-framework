@@ -22,6 +22,7 @@ import {
 } from "../index.ts";
 
 const noteEntity = createEntity({
+  name: "brief-note",
   table: "read_list_exclude_notes",
   fields: {
     title: createTextField({
@@ -35,13 +36,13 @@ const noteEntity = createEntity({
   },
 });
 
-const noteTable = buildEntityTable("brief-note", noteEntity);
+const noteTable = buildEntityTable(noteEntity);
 const LIST = "listexclude:query:brief-note:list";
 const DETAIL = "listexclude:query:brief-note:detail";
 const NOTE_BODY = "long text ".repeat(50);
 
 const listExcludeFeature = defineFeature("listexclude", (r) => {
-  r.entity({ name: "brief-note", ...noteEntity });
+  r.entity(noteEntity);
 
   const noteExecutor = createEventStoreExecutor(noteTable, noteEntity, {
     entityName: "brief-note",

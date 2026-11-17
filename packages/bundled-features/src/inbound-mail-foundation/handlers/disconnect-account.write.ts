@@ -79,7 +79,7 @@ export function createDisconnectAccountHandler({ adminRoles }: InboundMailRoles)
           { secrets: ctx.services.secrets, user: ctx.user },
           "disconnect-account",
         )
-          .withRunner(ctx.db.unsafeRaw())
+          .withRunner(ctx.db.unsafeRawAllTenants())
           .delete(event.user.tenantId, inboundCredentialSecretKey(payload.accountId), {
             deletedBy: event.user.id,
           });

@@ -22,6 +22,7 @@ import { buildEntityTable } from "../table-builder.ts";
 const fixture = { personal: false, reason: "test_fixture" } as const;
 
 const liveOnlyEntity = createEntity({
+  name: "dsql-live-only",
   table: "dsql_live_only",
   fields: {
     boxId: { type: "reference", entity: "dsql-box" },
@@ -31,6 +32,7 @@ const liveOnlyEntity = createEntity({
 });
 
 const ownQueryEntity = createEntity({
+  name: "dsql-own-query",
   table: "dsql_own_query",
   fields: { boxId: { type: "reference", entity: "dsql-box" } },
   indexes: [{ columns: ["boxId"] }],
@@ -44,6 +46,7 @@ const related = (entity: string) =>
   }) as const;
 
 const boxEntity = createEntity({
+  name: "dsql-box",
   table: "dsql_boxes",
   fields: { name: createTextField({ required: true, ...fixture }) },
   derivedFields: {
@@ -67,8 +70,8 @@ const boxEntity = createEntity({
 
 const feature = defineFeature("dsql", (r) => {
   const access = { roles: ["Admin", "TenantMember"] };
-  r.crud("dsql-box", boxEntity, { write: { access }, read: { access } });
-  r.entity({ name: "dsql-live-only", ...liveOnlyEntity });
+  r.crud(boxEntity, { write: { access }, read: { access } });
+  r.entity(liveOnlyEntity);
   r.queryHandler(
     defineEntityQueryHandler("dsql-live-only:list", liveOnlyEntity, {
       access: { roles: ["Admin"] },
@@ -81,7 +84,7 @@ const feature = defineFeature("dsql", (r) => {
     access: { roles: ["TenantMember"] },
     liveEntities: ["dsql-live-only"],
   });
-  r.entity({ name: "dsql-own-query", ...ownQueryEntity });
+  r.entity(ownQueryEntity);
   r.queryHandler(
     defineEntityQueryHandler("dsql-own-query:list", ownQueryEntity, {
       access: { roles: ["TenantMember"] },
@@ -109,13 +112,13 @@ describe("SQL derived fields and liveEntities", () => {
     const tenantId = admin.tenantId;
     await seedRows(
       stack.db,
-      buildEntityTable("dsql-box", boxEntity),
+      buildEntityTable(boxEntity),
       [{ id: BOX, tenantId, name: "Box" }],
       { projectionOnly: "fixture plants a projection row without its event" },
     );
     await seedRows(
       stack.db,
-      buildEntityTable("dsql-live-only", liveOnlyEntity),
+      buildEntityTable(liveOnlyEntity),
       [
         { tenantId, boxId: BOX, note: "n1" },
         { tenantId, boxId: BOX, note: "n2" },
@@ -124,7 +127,7 @@ describe("SQL derived fields and liveEntities", () => {
     );
     await seedRows(
       stack.db,
-      buildEntityTable("dsql-own-query", ownQueryEntity),
+      buildEntityTable(ownQueryEntity),
       [{ tenantId, boxId: BOX }],
       { projectionOnly: "fixture plants a projection row without its event" },
     );

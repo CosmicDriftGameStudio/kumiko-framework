@@ -48,7 +48,7 @@ const featProFeature = defineFeature(PRO_FEATURE, (r) => {
   });
 });
 
-const tierAssignmentTable = buildEntityTable("tier-assignment", tierAssignmentEntity);
+const tierAssignmentTable = buildEntityTable(tierAssignmentEntity);
 const preloadedTenant = "00000000-0000-4000-8000-0000000000d1" as TenantId;
 const reloadedTenant = "00000000-0000-4000-8000-0000000000d2" as TenantId;
 const trialTenant = "00000000-0000-4000-8000-0000000000d3" as TenantId;

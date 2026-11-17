@@ -129,14 +129,9 @@ describe("defineFeature", () => {
   test("streamHandler registers on feature.streamHandlers with schema/access/handler intact", async () => {
     let ref: { name: string } | undefined;
     const feature = defineFeature("test", (r) => {
-      ref = r.streamHandler(
-        "chat:complete",
-        z.object({ prompt: z.string() }),
-        async function* (query) {
+      ref = r.streamHandler({ name: "chat:complete", schema: z.object({ prompt: z.string() }), handler: async function* (query) {
           yield `echo:${query.payload.prompt}`;
-        },
-        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-      );
+        }, access: { openToAll: { reason: "test handler callable by any signed-in test user" } } });
     });
     expect(ref?.name).toBe("chat:complete");
 
@@ -1322,9 +1317,7 @@ describe("createApp", () => {
 
   test("validates stream handler roles against app-defined roles", () => {
     const feature = defineFeature("admin", (r) => {
-      r.streamHandler("admin.tail", z.object({}), async function* () {}, {
-        access: { roles: ["SuperAdmin"] },
-      });
+      r.streamHandler({ name: "admin.tail", schema: z.object({}), handler: async function* () {}, access: { roles: ["SuperAdmin"] } });
     });
 
     expect(() =>
@@ -1337,9 +1330,7 @@ describe("createApp", () => {
 
   test("passes when stream handler roles are valid", () => {
     const feature = defineFeature("admin", (r) => {
-      r.streamHandler("admin.tail", z.object({}), async function* () {}, {
-        access: { roles: ["Admin"] },
-      });
+      r.streamHandler({ name: "admin.tail", schema: z.object({}), handler: async function* () {}, access: { roles: ["Admin"] } });
     });
 
     expect(() =>
@@ -2023,7 +2014,7 @@ describe("r.requires()", () => {
   test("optionalRequires stores optional dependency names", () => {
     const feature = defineFeature("invoicing", (r) => {
       r.requires({ features: ["config"] });
-      r.optionalRequires("tags", "customFields");
+      r.optionalRequires({ features: ["tags", "customFields"] });
     });
 
     expect(feature.requires).toEqual(["config"]);
@@ -2032,7 +2023,7 @@ describe("r.requires()", () => {
 
   test("missing optionalRequires does not throw in registry", () => {
     const f1 = defineFeature("a", (r) => {
-      r.optionalRequires("nonexistent");
+      r.optionalRequires({ features: ["nonexistent"] });
     });
 
     // No error — optional dependency is not enforced
@@ -2248,7 +2239,7 @@ describe("r.config() single-key overload", () => {
     let viaSingleKey!: { readonly name: string; readonly type: "boolean" };
     let viaMultiKey!: { readonly defaultVat: { readonly name: string; readonly type: "number" } };
     defineFeature("invoicing", (r) => {
-      viaSingleKey = r.config("enabled", createTenantConfig("boolean", { default: false }));
+      viaSingleKey = r.config({ keys: { enabled: createTenantConfig("boolean", { default: false }) } }).enabled;
     });
     defineFeature("invoicing2", (r) => {
       viaMultiKey = r.config({
@@ -2266,7 +2257,7 @@ describe("r.config() single-key overload", () => {
 
   test("registers the key on the feature exactly like the multi-key form would", () => {
     const feature = defineFeature("shop", (r) => {
-      r.config("maxItems", createTenantConfig("number", { default: 10 }));
+      r.config({ keys: { maxItems: createTenantConfig("number", { default: 10 }) } }).maxItems;
     });
     expect(feature.configKeys["maxItems"]).toBeDefined();
     expect(feature.configKeys["maxItems"]?.type).toBe("number");
@@ -2279,7 +2270,7 @@ describe("r.config() single-key overload", () => {
   test("camelCase feature + key are kebab-cased in the handle name", () => {
     let handle!: { readonly name: string };
     defineFeature("billingCore", (r) => {
-      handle = r.config("monthlyTotalCents", createSystemConfig("number", { default: 0 }));
+      handle = r.config({ keys: { monthlyTotalCents: createSystemConfig("number", { default: 0 }) } }).monthlyTotalCents;
     });
     expect(handle.name).toBe("billing-core:config:monthly-total-cents");
   });
@@ -2304,11 +2295,9 @@ describe("r.relation()", () => {
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
       });
-      r.relation("user", "department", {
-        type: "belongsTo",
+      r.relation({ entity: "user", name: "department", type: "belongsTo",
         target: "department",
-        foreignKey: "departmentId",
-      });
+        foreignKey: "departmentId" });
     });
 
     expect(feature.relations["user"]).toBeDefined();
@@ -2325,11 +2314,9 @@ describe("r.relation()", () => {
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
       });
-      r.relation("user", "roles", {
-        type: "manyToMany",
+      r.relation({ entity: "user", name: "roles", type: "manyToMany",
         target: "role",
-        through: { table: "UserRoles", sourceKey: "userId", targetKey: "roleId" },
-      });
+        through: { table: "UserRoles", sourceKey: "userId", targetKey: "roleId" } });
     });
 
     const rel = feature.relations["user"]?.["roles"];
@@ -2343,11 +2330,9 @@ describe("r.relation()", () => {
     const feature = defineFeature("test", (r) => {
       r.entity({ name: "department", ...createEntity({ table: "Departments", fields: {} }) });
       r.entity({ name: "user", ...createEntity({ table: "Users", fields: {} }) });
-      r.relation("department", "users", {
-        type: "hasMany",
+      r.relation({ entity: "department", name: "users", type: "hasMany",
         target: "user",
-        foreignKey: "departmentId",
-      });
+        foreignKey: "departmentId" });
     });
 
     expect(feature.relations["department"]?.["users"]?.type).toBe("hasMany");
@@ -2365,11 +2350,9 @@ describe("registry relations", () => {
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
       });
-      r.relation("user", "roles", {
-        type: "manyToMany",
+      r.relation({ entity: "user", name: "roles", type: "manyToMany",
         target: "role",
-        through: { table: "UserRoles", sourceKey: "userId", targetKey: "roleId" },
-      });
+        through: { table: "UserRoles", sourceKey: "userId", targetKey: "roleId" } });
     });
 
     const registry = createRegistry([f1]);
@@ -2380,11 +2363,9 @@ describe("registry relations", () => {
   test("throws on relation to non-existent entity", () => {
     const feature = defineFeature("test", (r) => {
       r.entity({ name: "user", ...createEntity({ table: "Users", fields: {} }) });
-      r.relation("user", "ghost", {
-        type: "belongsTo",
+      r.relation({ entity: "user", name: "ghost", type: "belongsTo",
         target: "nonexistent",
-        foreignKey: "ghostId",
-      });
+        foreignKey: "ghostId" });
     });
 
     expect(() => createRegistry([feature])).toThrow(/nonexistent.*does not exist/i);
@@ -2395,16 +2376,12 @@ describe("registry relations", () => {
     const f1 = defineFeature("a", (r) => {
       r.entity({ name: "user", ...createEntity({ table: "Users", fields: {} }) });
       r.entity({ name: "role", ...createEntity({ table: "Roles", fields: {} }) });
-      r.relation("user", "roles", {
-        type: "manyToMany",
+      r.relation({ entity: "user", name: "roles", type: "manyToMany",
         target: "role",
-        through: { table: "UR1", sourceKey: "userId", targetKey: "roleId" },
-      });
-      r.relation("user", "roles", {
-        type: "manyToMany",
+        through: { table: "UR1", sourceKey: "userId", targetKey: "roleId" } });
+      r.relation({ entity: "user", name: "roles", type: "manyToMany",
         target: "role",
-        through: { table: "UR2", sourceKey: "userId", targetKey: "roleId" },
-      });
+        through: { table: "UR2", sourceKey: "userId", targetKey: "roleId" } });
     });
 
     const registry = createRegistry([f1]);
@@ -2417,19 +2394,15 @@ describe("registry relations", () => {
     const core = defineFeature("core", (r) => {
       r.entity({ name: "user", ...createEntity({ table: "Users", fields: {} }) });
       r.entity({ name: "role", ...createEntity({ table: "Roles", fields: {} }) });
-      r.relation("user", "roles", {
-        type: "manyToMany",
+      r.relation({ entity: "user", name: "roles", type: "manyToMany",
         target: "role",
-        through: { table: "UserRoles", sourceKey: "userId", targetKey: "roleId" },
-      });
+        through: { table: "UserRoles", sourceKey: "userId", targetKey: "roleId" } });
     });
     const billing = defineFeature("billing", (r) => {
       r.entity({ name: "invoice", ...createEntity({ table: "Invoices", fields: {} }) });
-      r.relation("user", "invoices", {
-        type: "hasMany",
+      r.relation({ entity: "user", name: "invoices", type: "hasMany",
         target: "invoice",
-        foreignKey: "userId",
-      });
+        foreignKey: "userId" });
     });
 
     const registry = createRegistry([core, billing]);
@@ -2510,7 +2483,7 @@ describe("registry boot validation", () => {
 
   test("throws for job event trigger targeting non-existent handler", () => {
     const feature = defineFeature("test", (r) => {
-      r.job("myJob", { trigger: { on: "ghost-handler" } }, async () => {});
+      r.job({ name: "myJob", trigger: { on: "ghost-handler" }, handler: async () => {} });
     });
 
     expect(() => createRegistry([feature])).toThrow(/my-job.*ghost-handler.*no event/i);
@@ -2532,11 +2505,7 @@ describe("registry boot validation", () => {
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       // One job body, two triggers — a DRY pattern for fan-out cases.
-      r.job(
-        "fanout",
-        { trigger: { on: ["order.created", "order.deleted"] } },
-        async () => {},
-      );
+      r.job({ name: "fanout", trigger: { on: ["order.created", "order.deleted"] }, handler: async () => {} });
     });
     const registry = createRegistry([feature]);
     const job = registry.getJob("shop:job:fanout");
@@ -2556,18 +2525,14 @@ describe("registry boot validation", () => {
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       // order.created is an entity event, ghost.created names no entity — the second trigger is dangling
-      r.job(
-        "fanout",
-        { trigger: { on: ["order.created", "ghost.created"] } },
-        async () => {},
-      );
+      r.job({ name: "fanout", trigger: { on: ["order.created", "ghost.created"] }, handler: async () => {} });
     });
     expect(() => createRegistry([feature])).toThrow(/fanout.*ghost.*no event/i);
   });
 
   test("throws for extension usage referencing non-existent extension", () => {
     const feature = defineFeature("test", (r) => {
-      r.useExtension("nonexistent", "user");
+      r.applyExtension({ name: "nonexistent", entity: "user" });
     });
 
     expect(() => createRegistry([feature])).toThrow(/nonexistent.*does not exist/i);
@@ -2590,8 +2555,8 @@ describe("registry boot validation", () => {
 
   test("allows cron and manual job triggers (no handler reference)", () => {
     const feature = defineFeature("test", (r) => {
-      r.job("cleanup", { trigger: { cron: "0 * * * *" } }, async () => {});
-      r.job("sync", { trigger: { manual: true } }, async () => {});
+      r.job({ name: "cleanup", trigger: { cron: "0 * * * *" }, handler: async () => {} });
+      r.job({ name: "sync", trigger: { manual: true }, handler: async () => {} });
     });
 
     expect(() => createRegistry([feature])).not.toThrow();
@@ -2599,9 +2564,9 @@ describe("registry boot validation", () => {
 
   test("runIn flows through r.job into the registry", () => {
     const feature = defineFeature("test", (r) => {
-      r.job("cleanup-api", { trigger: { manual: true }, runIn: "api" }, async () => {});
-      r.job("cleanup-worker", { trigger: { manual: true }, runIn: "worker" }, async () => {});
-      r.job("cleanup-default", { trigger: { manual: true } }, async () => {});
+      r.job({ name: "cleanup-api", trigger: { manual: true }, runIn: "api", handler: async () => {} });
+      r.job({ name: "cleanup-worker", trigger: { manual: true }, runIn: "worker", handler: async () => {} });
+      r.job({ name: "cleanup-default", trigger: { manual: true }, handler: async () => {} });
     });
 
     const registry = createRegistry([feature]);
@@ -2617,11 +2582,7 @@ describe("registry boot validation", () => {
     // TS-level JobRunIn = Exclude<RunIn, "both"> already rejects this; the
     // runtime guard exists for config-driven or cast-through paths.
     const feature = defineFeature("test", (r) => {
-      r.job(
-        "bad",
-        { trigger: { manual: true }, runIn: "both" as unknown as "api" | "worker" },
-        async () => {},
-      );
+      r.job({ name: "bad", trigger: { manual: true }, runIn: "both" as unknown as "api" | "worker", handler: async () => {} });
     });
 
     expect(() => createRegistry([feature])).toThrow(

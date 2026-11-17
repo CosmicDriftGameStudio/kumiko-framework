@@ -41,39 +41,24 @@ const echoFeature = defineFeature("echo", (r) => {
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
 
-  r.streamHandler(
-    "item:tail",
-    z.object({ count: z.number().int().min(0) }),
-    async function* (query) {
+  r.streamHandler({ name: "item:tail", schema: z.object({ count: z.number().int().min(0) }), handler: async function* (query) {
       for (let i = 0; i < query.payload.count; i++) {
         yield { i };
       }
-    },
-    { access: { roles: ["Admin"] } },
-  );
+    }, access: { roles: ["Admin"] } });
 
-  r.streamHandler(
-    "item:tail-leak",
-    z.object({}),
-    async function* () {
+  r.streamHandler({ name: "item:tail-leak", schema: z.object({}), handler: async function* () {
       yield { apiKey: createSecret("leak-me") };
-    },
-    { access: { roles: ["Admin"] } },
-  );
+    }, access: { roles: ["Admin"] } });
 
-  r.streamHandler(
-    "item:tail-cleanup",
-    z.object({}),
-    async function* () {
+  r.streamHandler({ name: "item:tail-cleanup", schema: z.object({}), handler: async function* () {
       try {
         yield { i: 0 };
         yield { i: 1 };
       } finally {
         streamCleanupState.closed = true;
       }
-    },
-    { access: { roles: ["Admin"] } },
-  );
+    }, access: { roles: ["Admin"] } });
 
   r.hook({
     type: "validation",
@@ -352,17 +337,12 @@ describe("dispatcher.stream", () => {
     });
 
     const revokeFeature = defineFeature("revoke", (r) => {
-      r.streamHandler(
-        "tail",
-        z.object({}),
-        async function* () {
+      r.streamHandler({ name: "tail", schema: z.object({}), handler: async function* () {
           yield { i: 0 };
           await hang;
           yield { i: 1 };
           releaseHang?.();
-        },
-        { access: { roles: ["Admin"] } },
-      );
+        }, access: { roles: ["Admin"] } });
     });
 
     const user = createTestUser({ roles: ["Admin"] });
@@ -411,10 +391,7 @@ describe("dispatcher.stream", () => {
     });
 
     const expiryFeature = defineFeature("expiry", (r) => {
-      r.streamHandler(
-        "tail",
-        z.object({}),
-        async function* () {
+      r.streamHandler({ name: "tail", schema: z.object({}), handler: async function* () {
           try {
             yield { i: 0 };
             await hang;
@@ -422,9 +399,7 @@ describe("dispatcher.stream", () => {
           } finally {
             handlerCleanups++;
           }
-        },
-        { access: { roles: ["Admin"] } },
-      );
+        }, access: { roles: ["Admin"] } });
     });
 
     const dispatcher = createDispatcher(createRegistry([expiryFeature]), {}, { sseBroker: broker });
@@ -484,18 +459,13 @@ describe("dispatcher.stream", () => {
     // active at that pull (or none) instead of the stream's dispatcher span.
     const provider = createRecordingProvider();
     const nestedFeature = defineFeature("nested", (r) => {
-      r.streamHandler(
-        "tail",
-        z.object({ count: z.number().int().min(0) }),
-        async function* (query, handlerCtx) {
+      r.streamHandler({ name: "tail", schema: z.object({ count: z.number().int().min(0) }), handler: async function* (query, handlerCtx) {
           for (let i = 0; i < query.payload.count; i++) {
             const child = handlerCtx.obs.tracer.startSpan("nested.child");
             child.end();
             yield { i };
           }
-        },
-        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-      );
+        }, access: { openToAll: { reason: "test handler callable by any signed-in test user" } } });
     });
     const dispatcher = createDispatcher(createRegistry([nestedFeature]), {
       tracer: provider.tracer,
@@ -520,10 +490,7 @@ describe("dispatcher.stream", () => {
     // both the error-counter and the span status.
     const provider = createRecordingProvider();
     const closeFailFeature = defineFeature("closefail", (r) => {
-      r.streamHandler(
-        "tail",
-        z.object({}),
-        async function* () {
+      r.streamHandler({ name: "tail", schema: z.object({}), handler: async function* () {
           try {
             yield { i: 0 };
             yield { i: 1 };
@@ -531,9 +498,7 @@ describe("dispatcher.stream", () => {
             // biome-ignore lint/correctness/noUnsafeFinally: deliberately simulating a handler whose close-time cleanup fails
             throw new Error("close-boom");
           }
-        },
-        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-      );
+        }, access: { openToAll: { reason: "test handler callable by any signed-in test user" } } });
     });
     const dispatcher = createDispatcher(createRegistry([closeFailFeature]), {
       tracer: provider.tracer,
@@ -559,15 +524,10 @@ describe("dispatcher.stream", () => {
     // cannot silently reclassify clean streams as aborted.
     const provider = createRecordingProvider();
     const feature = defineFeature("complete", (r) => {
-      r.streamHandler(
-        "tail",
-        z.object({}),
-        async function* () {
+      r.streamHandler({ name: "tail", schema: z.object({}), handler: async function* () {
           yield { i: 0 };
           yield { i: 1 };
-        },
-        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-      );
+        }, access: { openToAll: { reason: "test handler callable by any signed-in test user" } } });
     });
     const dispatcher = createDispatcher(createRegistry([feature]), {
       tracer: provider.tracer,
@@ -594,16 +554,11 @@ describe("dispatcher.stream", () => {
     // the loop.
     const provider = createRecordingProvider();
     const feature = defineFeature("abort", (r) => {
-      r.streamHandler(
-        "tail",
-        z.object({}),
-        async function* () {
+      r.streamHandler({ name: "tail", schema: z.object({}), handler: async function* () {
           yield { i: 0 };
           yield { i: 1 };
           yield { i: 2 };
-        },
-        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-      );
+        }, access: { openToAll: { reason: "test handler callable by any signed-in test user" } } });
     });
     const dispatcher = createDispatcher(createRegistry([feature]), {
       tracer: provider.tracer,
@@ -802,10 +757,7 @@ describe("dispatcher feature-gate", () => {
         handler: async (event) => ({ isSuccess: true, data: { name: event.payload.name } }),
         access: { roles: ["Admin"] },
       });
-      r.streamHandler(
-        "widget:tail",
-        z.object({}).passthrough(),
-        async function* () {
+      r.streamHandler({ name: "widget:tail", schema: z.object({}).passthrough(), handler: async function* () {
           // Never completes on its own — the mid-stream toggle-off test
           // relies on the generator staying open past the first yield.
           let i = 0;
@@ -813,9 +765,7 @@ describe("dispatcher feature-gate", () => {
             yield { i };
             i++;
           }
-        },
-        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-      );
+        }, access: { openToAll: { reason: "test handler callable by any signed-in test user" } } });
     });
   }
 

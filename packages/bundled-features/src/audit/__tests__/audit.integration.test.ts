@@ -31,6 +31,7 @@ import { createAuditFeature } from "../feature.ts";
 import { AUDIT_LOG_SCREEN_ID, AuditQueries } from "../web/constants.ts";
 
 const widgetEntity = createEntity({
+  name: "widget",
   table: "audit_widgets",
   fields: {
     name: createTextField({ required: true, personal: false, reason: "technical_reference" }),
@@ -39,7 +40,7 @@ const widgetEntity = createEntity({
 });
 
 const widgetFeature = defineFeature("widgets", (r) => {
-  r.entity({ name: "widget", ...widgetEntity });
+  r.entity(widgetEntity);
   const widgetAccess = { access: { roles: ["Admin", "User", "SystemAdmin"] } };
   r.writeHandler(defineEntityCreateHandler("widget", widgetEntity, widgetAccess));
   r.writeHandler(defineEntityUpdateHandler("widget", widgetEntity, widgetAccess));

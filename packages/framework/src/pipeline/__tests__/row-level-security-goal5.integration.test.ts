@@ -42,11 +42,12 @@ const countsTable = table("fw4_goal5_counts", {
 });
 
 const entity = createEntity({
+  name: "goal5-entry",
   table: "read_goal5_entries",
   fields: { groupId: createTextField({ personal: false, reason: "test_fixture", required: true }) },
   softDelete: true,
 });
-const entryTable = buildEntityTable("goal5-entry", entity);
+const entryTable = buildEntityTable(entity);
 const entryExecutor = createEventStoreExecutor(entryTable, entity, { entityName: "goal5-entry" });
 
 const admin = TestUsers.admin;
@@ -64,7 +65,7 @@ async function pgCodeOf(statement: Promise<unknown>): Promise<string | undefined
 
 const feature = defineFeature("goal5", (r) => {
   r.requires.projection("fw4_goal5_items");
-  r.entity({ name: "goal5-entry", ...entity });
+  r.entity(entity);
   r.projection({
     name: "per-group",
     source: "goal5-entry",
@@ -84,10 +85,10 @@ const feature = defineFeature("goal5", (r) => {
       name: "raw-all",
       schema: z.object({}),
       access: { roles: ["Admin"] },
-      escapeHatch: { reason: REASON },
+      escapeHatch: { reason: REASON, grants: ["unsafeRaw"] },
       handler: async (_event, ctx) => ({
         isSuccess: true as const,
-        data: { labels: labelsOf(await selectMany(ctx.db.unsafeRaw(), itemsTable)) },
+        data: { labels: labelsOf(await selectMany(ctx.db.unsafeRawAllTenants(), itemsTable)) },
       }),
     }),
   );
@@ -100,7 +101,7 @@ const systemFeature = defineFeature("goal5sys", (r) => {
       name: "raw-all",
       schema: z.object({}),
       access: { roles: ["Admin"] },
-      escapeHatch: { reason: REASON },
+      escapeHatch: { reason: REASON, grants: ["unsafeRaw"] },
       handler: async (_event, ctx) => {
         if (!ctx.systemDb) throw new Error("expected ctx.systemDb on a systemScope() handler");
         const labels = labelsOf(await selectMany(ctx.systemDb.unsafeRaw(REASON), itemsTable));

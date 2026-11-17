@@ -117,10 +117,8 @@ export function createSignatureFeature(opts: SignatureOptions): FeatureDefinitio
     r.queryHandler(requestDetail);
     r.queryHandler(gateSignerListByRequestHost(signerList, requestExecutor));
 
-    r.useExtension(EXT_USER_DATA, SIGNATURE_SIGNER_ENTITY, {
-      export: signatureExportHook,
-      delete: signatureDeleteHook,
-    });
+    r.applyExtension({ name: EXT_USER_DATA, entity: SIGNATURE_SIGNER_ENTITY, export: signatureExportHook,
+      delete: signatureDeleteHook });
 
     r.job({
       name: "sweep",

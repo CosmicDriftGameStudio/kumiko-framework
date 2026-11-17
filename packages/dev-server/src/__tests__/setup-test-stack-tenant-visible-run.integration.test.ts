@@ -36,14 +36,8 @@ const appFeature = defineFeature("app", (r) => {
   r.defineEvent("generation-requested", z.object({ campaignId: z.string() }), {
     piiFields: "none",
   });
-  r.job(
-    "generateTexts",
-    {
-      trigger: { on: "generation-requested" },
-      tenantVisibleRun: { subjectFields: ["campaignId"] },
-    },
-    async () => {},
-  );
+  r.job({ name: "generateTexts", trigger: { on: "generation-requested" },
+      tenantVisibleRun: { subjectFields: ["campaignId"] }, handler: async () => {} });
 });
 
 type RunRow = {

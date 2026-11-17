@@ -26,6 +26,7 @@ import { createCustomFieldsFeature } from "../feature.ts";
 import { customFieldsField, wireCustomFieldsFor } from "../wire-for-entity.ts";
 
 const propertyEntity = createEntity({
+  name: "property",
   table: "read_hv_properties",
   fields: {
     name: createTextField({ required: true, personal: false, reason: "technical_reference" }),
@@ -33,24 +34,25 @@ const propertyEntity = createEntity({
   },
 });
 const unitEntity = createEntity({
+  name: "unit",
   table: "read_hv_units",
   fields: {
     name: createTextField({ required: true, personal: false, reason: "technical_reference" }),
     customFields: customFieldsField(),
   },
 });
-const propertyTable = buildEntityTable("property", propertyEntity);
-const unitTable = buildEntityTable("unit", unitEntity);
+const propertyTable = buildEntityTable(propertyEntity);
+const unitTable = buildEntityTable(unitEntity);
 
 const estateFeature = defineFeature("estate-hv", (r) => {
-  r.entity({ name: "property", ...propertyEntity });
-  r.entity({ name: "unit", ...unitEntity });
+  r.entity(propertyEntity);
+  r.entity(unitEntity);
   r.requires({ features: ["custom-fields"] });
   wireCustomFieldsFor(r, "property", propertyTable);
   wireCustomFieldsFor(r, "unit", unitTable);
 
-  const { executor: propertyExecutor } = createEntityExecutor("property", propertyEntity);
-  const { executor: unitExecutor } = createEntityExecutor("unit", unitEntity);
+  const { executor: propertyExecutor } = createEntityExecutor(propertyEntity);
+  const { executor: unitExecutor } = createEntityExecutor(unitEntity);
   r.writeHandler({
     name: "property:create",
     schema: z.object({ id: z.string(), name: z.string() }),

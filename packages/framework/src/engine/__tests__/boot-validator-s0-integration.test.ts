@@ -100,8 +100,8 @@ describe("S0 Integration — full surface stack", () => {
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
 
-      r.useExtension(EXT_USER_DATA, "user", { export: async () => null });
-      r.useExtension(EXT_USER_DATA, "comment", { export: async () => null });
+      r.applyExtension({ name: EXT_USER_DATA, entity: "user", export: async () => null });
+      r.applyExtension({ name: EXT_USER_DATA, entity: "comment", export: async () => null });
 
       r.writeHandler({
         name: "user:rename",

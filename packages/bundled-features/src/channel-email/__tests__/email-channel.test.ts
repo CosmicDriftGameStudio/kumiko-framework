@@ -243,10 +243,8 @@ describe("email channel List-Unsubscribe headers", () => {
 
 describe("email channel template notifications", () => {
   const templated = defineFeature("tpl", (r) => {
-    r.notification("welcome", {
-      template: { en: { body: "<p>Hi</p>" } },
-      meta: { en: { subject: "Hi" } },
-    });
+    r.notification({ name: "welcome", template: { en: { body: "<p>Hi</p>" } },
+      meta: { en: { subject: "Hi" } } });
   });
   const message: ChannelMessage = {
     notificationType: "tpl:notify:welcome",
@@ -408,7 +406,7 @@ describe("email channel attachments", () => {
 describe("email channel notifications without a template", () => {
   test("fail with an error naming the notification type", async () => {
     const withoutTemplate = defineFeature("plain", (r) => {
-      r.notification("hello", {});
+      r.notification({ name: "hello" });
     });
     const message: ChannelMessage = {
       notificationType: "plain:notify:hello",
@@ -430,11 +428,9 @@ describe("email channel notifications without a template", () => {
 describe("email channel transport per notification", () => {
   const routingRegistry = createRegistry([
     defineFeature("app", (r) => {
-      r.notification("status-update", {
-        tenantTransport: true,
-        renamedFrom: ["app:notify:incident"],
-      });
-      r.notification("password-reset", {});
+      r.notification({ name: "status-update", tenantTransport: true,
+        renamedFrom: ["app:notify:incident"] });
+      r.notification({ name: "password-reset" });
     }),
   ]);
   const routingCtx = { registry: routingRegistry } as unknown as ChannelContext; // @cast-boundary send() with a rendered message only reads ctx.registry

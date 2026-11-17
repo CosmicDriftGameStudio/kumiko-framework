@@ -75,7 +75,7 @@ export function createRegenerateRecoveryHandler() {
       );
       if (!result.isSuccess) return result;
 
-      await revokeAllUserCredentials(ctx.registry, ctx.db.unsafeRaw(), event.user.id, {
+      await revokeAllUserCredentials(ctx.registry, ctx.db.unsafeRawAllTenants(), event.user.id, {
         keepSessionId: event.user.sid,
       });
 

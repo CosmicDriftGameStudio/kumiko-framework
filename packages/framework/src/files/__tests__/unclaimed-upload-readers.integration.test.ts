@@ -32,6 +32,7 @@ import { fileRefsTable } from "../file-ref-table.ts";
 import { createLocalProvider } from "../local-provider.ts";
 
 const noteEntity = createEntity({
+  name: "note",
   table: "unclaimed_notes",
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -40,7 +41,7 @@ const noteEntity = createEntity({
 });
 
 const noteFeature = defineFeature("unclaimed-notes", (r) => {
-  r.entity({ name: "note", ...noteEntity });
+  r.entity(noteEntity);
   // Clerk may create notes but not read other people's: the record rule must not leak files.
   r.writeHandler(
     defineEntityCreateHandler("note", noteEntity, {

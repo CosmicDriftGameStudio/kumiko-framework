@@ -55,14 +55,13 @@ import { seedPdfDocuments } from "./seed-documents";
 // Event-store executors mirror the real handlers (createEntityExecutor pairs the
 // projection table + executor), so seeded rows are proper event streams, not
 // projection-wiped direct writes. entityName must match the handlers' QNs.
-const { executor: tagExecutor } = createEntityExecutor("tag", tagEntity);
+const { executor: tagExecutor } = createEntityExecutor(tagEntity);
 const { executor: tagAssignmentExecutor } = createEntityExecutor(
   "tag-assignment",
   tagAssignmentEntity,
 );
-const { executor: noteExecutor } = createEntityExecutor("note", noteEntity);
+const { executor: noteExecutor } = createEntityExecutor(noteEntity);
 const { executor: tierAssignmentExecutor } = createEntityExecutor(
-  "tier-assignment",
   tierAssignmentEntity,
 );
 

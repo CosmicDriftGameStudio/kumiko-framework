@@ -30,11 +30,12 @@ const TABLE = "read_backfill_boot_contacts";
 const BIDX_KEY = Buffer.alloc(32, 7).toString("base64");
 
 const contactEntity = createEntity({
+  name: "contact",
   table: TABLE,
   fields: { email: createTextField({ required: true, personal: "self", find: "exact" }) },
 });
 const crmFeature = defineFeature("crm", (r) => {
-  r.entity({ name: "contact", ...contactEntity });
+  r.entity(contactEntity);
   r.writeHandler(
     defineEntityCreateHandler("contact", contactEntity, { access: { roles: ["Admin"] } }),
   );

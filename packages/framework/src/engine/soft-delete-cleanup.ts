@@ -226,7 +226,7 @@ export const softDeleteCleanupSystemJob: JobHandlerFn = async (_payload, ctx) =>
       where,
       cutoff,
       ctx,
-      isGlobalTenancyTable(proj.table) ? db.unsafeRaw() : db,
+      isGlobalTenancyTable(proj.table) ? db.unsafeRawAllTenants() : db,
     );
   }
 };

@@ -17,16 +17,19 @@ const nameField = createTextField({ required: true, personal: false, reason: "te
 
 // Staff may read teams, only Admin may read vault teams.
 const teamEntity = createEntity({
+  name: "team",
   table: "metrics_labels_teams",
   access: { read: { Staff: "all", TenantAdmin: "all" } },
   fields: { name: nameField },
 });
 const vaultTeamEntity = createEntity({
+  name: "vaultTeam",
   table: "metrics_labels_vault_teams",
   access: { read: { Admin: "all" } },
   fields: { name: nameField },
 });
 const ticketEntity = createEntity({
+  name: "ticket",
   table: "metrics_labels_tickets",
   fields: {
     teamId: { type: "reference", entity: "metricslabelsteams:team", labelField: "name" } as const,
@@ -37,17 +40,17 @@ const ticketEntity = createEntity({
     } as const,
   },
 });
-const teamTable = buildEntityTable("team", teamEntity);
-const vaultTeamTable = buildEntityTable("vaultTeam", vaultTeamEntity);
-const ticketTable = buildEntityTable("ticket", ticketEntity);
+const teamTable = buildEntityTable(teamEntity);
+const vaultTeamTable = buildEntityTable(vaultTeamEntity);
+const ticketTable = buildEntityTable(ticketEntity);
 
 const teamsFeature = defineFeature("metricslabelsteams", (r) => {
-  r.entity({ name: "team", ...teamEntity });
-  r.entity({ name: "vaultTeam", ...vaultTeamEntity });
+  r.entity(teamEntity);
+  r.entity(vaultTeamEntity);
 });
 const ticketsFeature = defineFeature("metricslabelstickets", (r) => {
   r.requires({ features: ["metricslabelsteams"] });
-  r.entity({ name: "ticket", ...ticketEntity });
+  r.entity(ticketEntity);
 });
 
 const TEAM_A_SUPPORT = "aaaaaaaa-0000-4000-8000-000000000001";

@@ -31,14 +31,12 @@ const sentTo: string[] = [];
 
 const sealedProbeFeature = defineFeature("sealed-probe", (r) => {
   r.requires({ features: ["delivery"] });
-  r.useExtension(DELIVERY_CHANNEL_EXTENSION, CHANNEL, {
-    mode: "queued",
+  r.applyExtension({ name: DELIVERY_CHANNEL_EXTENSION, entity: CHANNEL, mode: "queued",
     render: async () => ({ html: "<p>x</p>", subject: "x" }),
     send: async (address: string) => {
       sentTo.push(address);
       return { status: "sent" };
-    },
-  });
+    } });
 });
 
 type Dispatched = { name: string; payload: Record<string, unknown> };

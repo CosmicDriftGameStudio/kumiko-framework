@@ -61,6 +61,7 @@ const PNG_BYTES = new Uint8Array([
 const REFUSED_TITLE = "refused by hook";
 
 const manualEntity = createEntity({
+  name: "manual",
   table: "seed_binding_manuals",
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -69,7 +70,7 @@ const manualEntity = createEntity({
 });
 
 const manualFeature = defineFeature("seed-binding", (r) => {
-  r.entity({ name: "manual", ...manualEntity });
+  r.entity(manualEntity);
   r.writeHandler(
     defineEntityCreateHandler("manual", manualEntity, {
       access: { roles: ["SystemAdmin", "User"] },

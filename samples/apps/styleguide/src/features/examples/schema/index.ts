@@ -12,6 +12,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 
 export const shippingEntity = createEntity({
+  name: "shipping",
   table: "read_examples_shipping",
   fields: {
     street: createTextField({ personal: { of: "id" }, find: "none", required: true }),
@@ -32,6 +33,7 @@ export const shippingEntity = createEntity({
 // Profile — testet das Avatar-Image-Upload-Feld (createImageField) in der
 // Auto-Form: rechteckige Preview + "Change"-Button, Upload an /api/files.
 export const profileEntity = createEntity({
+  name: "profile",
   table: "read_examples_profile",
   fields: {
     avatar: createImageField({ maxSize: "5mb", accept: ["jpg", "jpeg", "png"] }),
@@ -53,6 +55,7 @@ export const profileEntity = createEntity({
 // zeigt. `pickup` rendert als kombinierter Date-Time + Zone-Picker, die andern
 // drei Zeit-Feldtypen als ihre jeweilige Auto-UI-Kontrolle.
 export const deliveryEntity = createEntity({
+  name: "delivery",
   table: "read_examples_delivery",
   fields: {
     label: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -69,6 +72,7 @@ const isMeasurement = { field: "kind", eq: "measurement" } as const;
 const isNotOk = { field: "result", eq: "not_ok" } as const;
 
 export const inspectionEntity = createEntity({
+  name: "inspection",
   table: "read_examples_inspection",
   fields: {
     measuringDevice: createTextField({ personal: false, reason: "is_business_data" }),

@@ -34,6 +34,7 @@ import { createTenantDb, type TenantDb } from "../tenant-db.ts";
 import { type BunTestDb, createTestDb } from "./query/bun-test-db.ts";
 
 const userEntity = createEntity({
+  name: "user",
   table: "read_implicit_users",
   fields: {
     email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -44,10 +45,10 @@ const userEntity = createEntity({
 });
 
 const userFeature = defineFeature("implicittest", (r) => {
-  r.entity({ name: "user", ...userEntity });
+  r.entity(userEntity);
 });
 
-const userTable = buildEntityTable("user", userEntity);
+const userTable = buildEntityTable(userEntity);
 
 let testDb: BunTestDb;
 let tdb: TenantDb;
@@ -214,13 +215,14 @@ describe("implicit-projection / Live==Rebuild equivalence", () => {
 
   test("without softDelete → no restore-apply-key is registered", () => {
     const hardDeleteEntity = createEntity({
+      name: "widget",
       table: "read_implicit_hard",
       fields: {
         name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
       },
     });
     const hardFeature = defineFeature("implicithard", (r) => {
-      r.entity({ name: "widget", ...hardDeleteEntity });
+      r.entity(hardDeleteEntity);
     });
     const registry = createRegistry([hardFeature]);
     const projection = registry.getAllProjections().get("implicithard:projection:widget-entity");
@@ -260,6 +262,7 @@ const SENSITIVE_BIDX_KEY_B64 = Buffer.alloc(32, 9).toString("base64");
 const SENSITIVE_BIDX_KEY = decodeBlindIndexKey(SENSITIVE_BIDX_KEY_B64);
 
 const sensitiveEntity = createEntity({
+  name: "sensitive-user",
   table: sensitiveTable,
   fields: {
     email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -268,10 +271,10 @@ const sensitiveEntity = createEntity({
 });
 
 const sensitiveFeature = defineFeature("implicitsensitive", (r) => {
-  r.entity({ name: "sensitive-user", ...sensitiveEntity });
+  r.entity(sensitiveEntity);
 });
 
-const sensitiveEntityTable = buildEntityTable("sensitive-user", sensitiveEntity);
+const sensitiveEntityTable = buildEntityTable(sensitiveEntity);
 const sensitiveProjection = "implicitsensitive:projection:sensitive-user-entity";
 
 describe("implicit-projection / sensitive rebuild parity", () => {

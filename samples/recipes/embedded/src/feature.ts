@@ -44,14 +44,14 @@ const openRead = {
 } as const;
 
 export const embeddedFeature = defineFeature("contacts", (r) => {
-  r.entity({ name: "contact", ...contactEntity });
+  r.entity(contactEntity);
 
   r.writeHandler(contactCreate);
   r.queryHandler(contactDetail);
   r.writeHandler(invoiceReceive);
 
-  r.crud("product", productEntity, { write: adminWrite, read: openRead });
-  r.crud("invoice", invoiceEntity, { write: adminWrite, read: openRead });
+  r.crud(productEntity, { write: adminWrite, read: openRead });
+  r.crud(invoiceEntity, { write: adminWrite, read: openRead });
 
   r.screen({
     id: "invoice-edit",

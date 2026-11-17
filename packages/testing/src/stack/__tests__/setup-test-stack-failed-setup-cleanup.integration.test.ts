@@ -47,9 +47,9 @@ describe("setupTestStack failed setup", () => {
       },
     };
     const failingGateFeature = defineFeature("failinggate", (r) => {
-      r.job("gate", { trigger: { manual: true }, bootGate: true }, async () => {
+      r.job({ name: "gate", trigger: { manual: true }, bootGate: true, handler: async () => {
         throw new Error("boot gate refused");
-      });
+      } });
     });
 
     await expect(

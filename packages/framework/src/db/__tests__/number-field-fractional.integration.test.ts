@@ -18,13 +18,14 @@ import { buildEntityTable } from "../../db/table-builder.ts";
 import { createEntity, createNumberField } from "../../engine/index.ts";
 
 const statsEntity = createEntity({
+  name: "nff-stats",
   table: "nff_stats",
   fields: {
     expectedValue: createNumberField({ sortable: true }),
     wholeCount: createNumberField({ integer: true }),
   },
 });
-const statsTable = buildEntityTable("nff-stats", statsEntity);
+const statsTable = buildEntityTable(statsEntity);
 
 let stack: TestStack;
 

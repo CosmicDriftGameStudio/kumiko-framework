@@ -29,17 +29,18 @@ const secondReader = createTestUser({ id: 77, tenantId: admin.tenantId, roles: [
 const JPEG_BYTES = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, ...Array(10).fill(0)]);
 
 const albumEntity = createEntity({
+  name: "album",
   table: "pii_plural_file_albums",
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
     photos: createImagesField({ personal: "tenant" }),
   },
 });
-const albumTable = buildEntityTable("album", albumEntity);
+const albumTable = buildEntityTable(albumEntity);
 
 const feature = defineFeature("pluralfilepii", (r) => {
-  r.entity({ name: "album", ...albumEntity });
-  r.crud("album", albumEntity, {
+  r.entity(albumEntity);
+  r.crud(albumEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: { roles: ["Admin", "Reader"] } },
   });

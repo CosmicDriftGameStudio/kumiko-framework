@@ -21,15 +21,11 @@ const SYSTEM_ONLY_SLUG = "account-so:notify:deletion-verification";
 const EDITABLE_SLUG = "account-so:notify:welcome";
 
 const account = defineFeature("account-so", (r) => {
-  r.notification("deletion-verification", {
-    systemOnly: true,
+  r.notification({ name: "deletion-verification", systemOnly: true,
     template: { de: { body: "<p>Löschung bestätigen</p>" } },
-    meta: { de: { subject: "Löschung" } },
-  });
-  r.notification("welcome", {
-    template: { de: { body: "<p>Willkommen</p>" } },
-    meta: { de: { subject: "Willkommen" } },
-  });
+    meta: { de: { subject: "Löschung" } } });
+  r.notification({ name: "welcome", template: { de: { body: "<p>Willkommen</p>" } },
+    meta: { de: { subject: "Willkommen" } } });
 });
 
 const systemAdmin = TestUsers.systemAdmin;

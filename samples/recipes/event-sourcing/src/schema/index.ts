@@ -52,6 +52,7 @@ export function reduceInvoice(state: InvoiceState, evt: { type: string; payload:
 // --- Aggregate entity: invoice, stored as events only ---
 
 export const invoiceEntity = createEntity({
+  name: "showcase-invoice",
   table: "read_showcase_invoices",
   fields: {
     customer: createTextField({ personal: { of: "id" }, find: "none", required: true }),
@@ -59,7 +60,7 @@ export const invoiceEntity = createEntity({
   },
 });
 
-export const invoiceTable = buildEntityTable("showcase-invoice", invoiceEntity);
+export const invoiceTable = buildEntityTable(invoiceEntity);
 
 // --- Projection 1: per-invoice detail (single-stream, inline) ---
 

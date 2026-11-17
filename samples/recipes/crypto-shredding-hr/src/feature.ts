@@ -3,6 +3,7 @@ import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumik
 import * as z from "zod";
 
 export const employeeEntity = createEntity({
+  name: "employee",
   table: "read_hr_employees",
   fields: {
     displayName: createTextField({ required: true, personal: "self", find: "none" }),
@@ -13,6 +14,7 @@ export const employeeEntity = createEntity({
 });
 
 export const hrCommentEntity = createEntity({
+  name: "hr-comment",
   table: "read_hr_comments",
   fields: {
     employeeId: createTextField({ personal: "ref", required: true }),
@@ -22,7 +24,7 @@ export const hrCommentEntity = createEntity({
   softDelete: true,
 });
 
-const hrCommentTable = buildEntityTable("hr-comment", hrCommentEntity);
+const hrCommentTable = buildEntityTable(hrCommentEntity);
 const hrCommentExecutor = createEventStoreExecutor(hrCommentTable, hrCommentEntity, {
   entityName: "hr-comment",
 });
@@ -33,13 +35,13 @@ const hrWrite = { access: { roles: ["Admin"] } } as const;
 const hrRead = { access: { roles: ["Admin"] } } as const;
 
 export const hrFeature = defineFeature("hr", (r) => {
-  r.crud("employee", employeeEntity, {
+  r.crud(employeeEntity, {
     write: hrWrite,
     read: hrRead,
     verbs: { update: false, delete: false, restore: false },
   });
 
-  r.crud("hr-comment", hrCommentEntity, {
+  r.crud(hrCommentEntity, {
     write: hrWrite,
     read: hrRead,
     verbs: { update: false, delete: false, restore: false, list: false },
@@ -47,19 +49,13 @@ export const hrFeature = defineFeature("hr", (r) => {
 
   // A job runs without a write-handler entry, so the irreversible-operation gate refuses
   // `forget` here unless the job declares why it may. Remove the declaration and the run fails.
-  r.job(
-    "purge-archived-comments",
-    {
-      trigger: { manual: true },
+  r.job({ name: "purge-archived-comments", trigger: { manual: true },
       runIn: "worker",
-      irreversibleWithoutEntryHandler: "high-risk-or-cron-pipeline",
-    },
-    async (payload, ctx) => {
+      irreversibleWithoutEntryHandler: "high-risk-or-cron-pipeline", handler: async (payload, ctx) => {
       const { commentIds } = purgeArchivedCommentsPayload.parse(payload);
       for (const id of commentIds) {
         const result = await hrCommentExecutor.forget({ id }, ctx.systemUser, ctx.db);
         if (!result.isSuccess) throw new Error(`purge of hr-comment ${id} failed`);
       }
-    },
-  );
+    } });
 });

@@ -22,13 +22,13 @@ export function registerInboundMailRetentionJob(r: FeatureRegistrar<"inbound-mai
     // The purge erases each expired mail's record key.
     irreversibleWithoutEntryHandler: "high-risk-or-cron-pipeline",
     concurrency: "skip",
-    escapeHatch: { reason: INBOUND_MAIL_RETENTION_REASON },
+    escapeHatch: { reason: INBOUND_MAIL_RETENTION_REASON, grants: ["unsafeRaw"] },
     handler: async (_payload, ctx) => {
       if (!ctx.registry) {
         throw new Error("inbound-mail-retention: ctx.registry required (JobContext incomplete)");
       }
       const tenantId = ctx.systemUser.tenantId;
-      const retentionDb = ctx.db.unsafeRaw();
+      const retentionDb = ctx.db.unsafeRawAllTenants();
 
       // Original (.eml/.html) objects live in file-foundation; the provider is lazy and
       // memoized so a tenant without purgeable mails never builds it.

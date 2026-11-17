@@ -8,19 +8,20 @@ import { seedRowsViaEventStore, seedRowViaEventStore } from "../event-store-writ
 import { deleteRows, seedRow, seedRows, updateRows } from "../seed.ts";
 
 const gadgetEntity = createEntity({
+  name: "seed-gadget",
   table: "read_seed_via_es_gadgets",
   fields: {
     label: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
-const gadgetTable = buildEntityTable("seed-gadget", gadgetEntity);
+const gadgetTable = buildEntityTable(gadgetEntity);
 const plainTable = table("store_seed_via_es_plain", {
   id: uuid("id").primaryKey(),
   label: text("label"),
 });
 
 const feature = defineFeature("seedviaes", (r) => {
-  r.entity({ name: "seed-gadget", ...gadgetEntity });
+  r.entity(gadgetEntity);
 });
 
 const TENANT_ID = "00000000-0000-4000-8000-00000000a001";

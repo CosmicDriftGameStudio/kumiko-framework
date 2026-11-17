@@ -23,6 +23,7 @@ import { CONTENT_FORMATS, TEMPLATE_KINDS } from "./web/constants.ts";
 // Not part of `resolveTemplate`'s 4-level fallback: these entries are listed and
 // edited by their owner, never resolved as a tenant/system template override.
 export const userContentEntryEntity = createEntity({
+  name: "user-content-entry",
   table: "read_user_content_entries",
   fields: {
     ownerId: createTextField({ required: true, personal: "ref" }),
@@ -49,7 +50,6 @@ export const userContentEntryEntity = createEntity({
 });
 
 export const userContentEntriesTable = buildEntityTable(
-  "user-content-entry",
   userContentEntryEntity,
 );
 

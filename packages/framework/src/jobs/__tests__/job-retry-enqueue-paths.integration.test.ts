@@ -50,10 +50,10 @@ describe("job retries on every enqueue path", () => {
     let callCount = 0;
     const starts: Array<{ jobId: string; attempt: number | undefined }> = [];
     const cronFeature = defineFeature("retrycron", (r) => {
-      r.job("flaky", { trigger: { cron: "* * * * * *" }, retries: 1 }, async () => {
+      r.job({ name: "flaky", trigger: { cron: "* * * * * *" }, retries: 1, handler: async () => {
         callCount += 1;
         if (callCount === 1) throw new Error("fails on first cron tick");
-      });
+      } });
     });
 
     const registry = createRegistry([cronFeature]);
@@ -92,10 +92,10 @@ describe("job retries on every enqueue path", () => {
     const starts: Array<{ jobId: string; attempt: number | undefined }> = [];
     let callCount = 0;
     const bootFeature = defineFeature("retryboot", (r) => {
-      r.job("flaky", { trigger: { manual: true }, runOnBoot: true, retries: 1 }, async () => {
+      r.job({ name: "flaky", trigger: { manual: true }, runOnBoot: true, retries: 1, handler: async () => {
         callCount += 1;
         if (callCount === 1) throw new Error("fails on first boot run");
-      });
+      } });
     });
 
     const registry = createRegistry([bootFeature]);
@@ -130,16 +130,12 @@ describe("job retries on every enqueue path", () => {
     const callCountByTenant = new Map<string, number>();
     const tenants = ["retry-child-a", "retry-child-b"] as TenantId[];
     const perTenantFeature = defineFeature("retrychild", (r) => {
-      r.job(
-        "flaky",
-        { trigger: { manual: true }, perTenant: true, retries: 1 },
-        async (_payload, ctx) => {
+      r.job({ name: "flaky", trigger: { manual: true }, perTenant: true, retries: 1, handler: async (_payload, ctx) => {
           const tenantId = String(ctx.systemUser.tenantId);
           const count = (callCountByTenant.get(tenantId) ?? 0) + 1;
           callCountByTenant.set(tenantId, count);
           if (count === 1) throw new Error(`fails on first attempt for ${tenantId}`);
-        },
-      );
+        } });
     });
 
     const registry = createRegistry([perTenantFeature]);
@@ -180,14 +176,10 @@ describe("job retries on every enqueue path", () => {
     const handlerCalls = new Map<string, number>();
     let getActiveTenantIdsCalls = 0;
     const wrapperFeature = defineFeature("retrywrapper", (r) => {
-      r.job(
-        "fanout",
-        { trigger: { manual: true }, perTenant: true, retries: 1 },
-        async (_payload, ctx) => {
+      r.job({ name: "fanout", trigger: { manual: true }, perTenant: true, retries: 1, handler: async (_payload, ctx) => {
           const tenantId = String(ctx.systemUser.tenantId);
           handlerCalls.set(tenantId, (handlerCalls.get(tenantId) ?? 0) + 1);
-        },
-      );
+        } });
     });
 
     const registry = createRegistry([wrapperFeature]);
@@ -238,10 +230,7 @@ describe("job retries on every enqueue path", () => {
       releaseGate = resolve;
     });
     const sequentialFeature = defineFeature("retryseq", (r) => {
-      r.job(
-        "flaky",
-        { trigger: { manual: true }, concurrency: "sequential", retries: 1 },
-        async () => {
+      r.job({ name: "flaky", trigger: { manual: true }, concurrency: "sequential", retries: 1, handler: async () => {
           callCount += 1;
           const attemptNumber = callCount;
           if (attemptNumber === 1) {
@@ -249,8 +238,7 @@ describe("job retries on every enqueue path", () => {
             return;
           }
           if (attemptNumber === 2) throw new Error("fails on second call (first retry slot)");
-        },
-      );
+        } });
     });
 
     const registry = createRegistry([sequentialFeature]);

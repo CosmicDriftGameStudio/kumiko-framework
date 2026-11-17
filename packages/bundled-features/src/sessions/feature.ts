@@ -115,7 +115,7 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
       // buildServer({ auth: { ... } }) wiring above; removes that manual
       // wiring once the middleware resolves generically
       // via resolveSessionStore().
-      r.useExtension(EXT_SESSION_STORE, "default", {
+      r.applyExtension({ name: EXT_SESSION_STORE, entity: "default", ...{
         build: (deps): SessionStore => {
           const callbacks = createSessionCallbacks({
             db: deps.db,
@@ -128,9 +128,9 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
             checker: callbacks.sessionChecker,
           };
         },
-      } satisfies SessionStoreProvider);
+      } satisfies SessionStoreProvider });
 
-      r.useExtension(EXT_CREDENTIAL_REVOKER, "sessions", {
+      r.applyExtension({ name: EXT_CREDENTIAL_REVOKER, entity: "sessions", ...{
         revokeAllForUser: async (runner, userId, { keepSessionId }) =>
           (
             await revokeSessionsAndAnnounce(runner, {
@@ -139,7 +139,7 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
               ...(keepSessionId !== undefined && { keptSessionId: keepSessionId }),
             })
           ).length,
-      } satisfies CredentialRevoker);
+      } satisfies CredentialRevoker });
 
       // Custom domain-event for cross-instance access-invalidation.
       // r.defineEvent registers the schema so ctx.events.unsafeAppend (revoke,
@@ -176,7 +176,7 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
           cleanupJob(
             payload,
             ctx,
-            ctx.db.unsafeRaw(),
+            ctx.db.unsafeRawAllTenants(),
           ),
       });
 

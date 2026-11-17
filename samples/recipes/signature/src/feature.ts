@@ -2,6 +2,7 @@ import { createSignatureFeature } from "@cosmicdrift/kumiko-bundled-features/sig
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
 export const leaseEntity = createEntity({
+  name: "lease",
   table: "recipe_signature_leases",
   fields: {
     name: createTextField({
@@ -15,7 +16,7 @@ export const leaseEntity = createEntity({
 
 // In an app the host is the record the document belongs to; a user sees its requests while they can read it.
 export const leaseFeature = defineFeature("signature-recipe-lease", (r) => {
-  r.entity({ name: "lease", ...leaseEntity });
+  r.entity(leaseEntity);
 });
 
 // In an app `deliverLink` sends a mail to the signer. The recipe keeps the links in a map so the

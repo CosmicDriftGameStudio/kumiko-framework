@@ -190,7 +190,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
 
     function secretScreenFeature(scope: "tenant" | "system" | "user") {
       return defineFeature("shop", (r) => {
-        r.secret("smtp-password", { label: { en: "SMTP password" }, scope: "tenant" });
+        r.secret({ name: "smtp-password", label: { en: "SMTP password" }, scope: "tenant" });
         r.screen({
           id: "settings",
           type: "configEdit",

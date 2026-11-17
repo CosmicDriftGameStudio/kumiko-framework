@@ -34,12 +34,12 @@ export function createUserFeature(): FeatureDefinition {
       recommended: true,
     });
     r.systemScope();
-    r.entity({ name: "user", ...userEntity });
+    r.entity(userEntity);
 
     // Self-extension: `user` declares AND fulfils principalStatus (precedent:
     // tier-engine/feature.ts) — wires the blocked-principal check into every stack that mounts `user`.
     r.extendsRegistrar(EXT_PRINCIPAL_STATUS, {});
-    r.useExtension(EXT_PRINCIPAL_STATUS, "user", principalStatusPlugin);
+    r.applyExtension({ name: EXT_PRINCIPAL_STATUS, entity: "user", ...principalStatusPlugin });
 
     r.hook({
       type: "postSave",

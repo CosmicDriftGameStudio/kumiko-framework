@@ -39,6 +39,7 @@ const foldersFeature = createFoldersFeature({ parents: ["credit"] });
 
 const CREDIT_TABLE = "folders_test_credits";
 const creditEntity = createEntity({
+  name: "credit",
   table: CREDIT_TABLE,
   fields: {
     name: createTextField({
@@ -50,7 +51,7 @@ const creditEntity = createEntity({
   },
 });
 const hostFixturesFeature = defineFeature("folders-test-host-fixtures", (r) => {
-  r.entity({ name: "credit", ...creditEntity });
+  r.entity(creditEntity);
 });
 
 // The parent entity's ids are uuid-shaped, but the readable labels below carry

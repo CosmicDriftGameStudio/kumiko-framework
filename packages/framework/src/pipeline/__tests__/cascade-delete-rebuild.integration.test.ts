@@ -17,10 +17,12 @@ import { TestUsers } from "../../seeding/seed-users.ts";
 import { rebuildProjection } from "../index.ts";
 
 const parentEntity = createEntity({
+  name: "rb-parent",
   table: "read_cascade_rb_parents",
   fields: { name: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
 const cascadeChildEntity = createEntity({
+  name: "rb-cascade-child",
   table: "read_cascade_rb_cascade_children",
   fields: {
     name: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -28,33 +30,30 @@ const cascadeChildEntity = createEntity({
   },
 });
 const setNullChildEntity = createEntity({
+  name: "rb-setnull-child",
   table: "read_cascade_rb_setnull_children",
   fields: {
     name: createTextField({ personal: false, reason: "test_fixture", required: true }),
     parentId: createTextField({ personal: false, reason: "test_fixture" }),
   },
 });
-const parentTable = buildEntityTable("rb-parent", parentEntity);
-const cascadeChildTable = buildEntityTable("rb-cascade-child", cascadeChildEntity);
-const setNullChildTable = buildEntityTable("rb-setnull-child", setNullChildEntity);
+const parentTable = buildEntityTable(parentEntity);
+const cascadeChildTable = buildEntityTable(cascadeChildEntity);
+const setNullChildTable = buildEntityTable(setNullChildEntity);
 
 const feature = defineFeature("cascaderb", (r) => {
-  r.entity({ name: "rb-parent", ...parentEntity });
-  r.entity({ name: "rb-cascade-child", ...cascadeChildEntity });
-  r.entity({ name: "rb-setnull-child", ...setNullChildEntity });
+  r.entity(parentEntity);
+  r.entity(cascadeChildEntity);
+  r.entity(setNullChildEntity);
 
-  r.relation("rb-parent", "cascadeChildren", {
-    type: "hasMany",
+  r.relation({ entity: "rb-parent", name: "cascadeChildren", type: "hasMany",
     target: "rb-cascade-child",
     foreignKey: "parentId",
-    onDelete: "cascade",
-  });
-  r.relation("rb-parent", "setNullChildren", {
-    type: "hasMany",
+    onDelete: "cascade" });
+  r.relation({ entity: "rb-parent", name: "setNullChildren", type: "hasMany",
     target: "rb-setnull-child",
     foreignKey: "parentId",
-    onDelete: "setNull",
-  });
+    onDelete: "setNull" });
 
   const parentExecutor = createEventStoreExecutor(parentTable, parentEntity, {
     entityName: "rb-parent",

@@ -24,23 +24,26 @@ import { createEntity, createFileField, createTextField } from "../factories.ts"
 const text = () => createTextField({ personal: false, reason: "test_fixture" });
 
 const readableOwnerEntity = createEntity({
+  name: "readable-owner",
   table: "rm_gate_owners",
   fields: { title: text(), scan: createFileField() },
   access: { read: { RoleA: "all", RoleD: "all" } },
 });
 const ruleLessOwnerEntity = createEntity({
+  name: "rule-less-owner",
   table: "rm_gate_rule_less_owners",
   fields: { title: text(), scan: createFileField() },
 });
 const documentEntity = createEntity({
+  name: "document",
   table: "rm_gate_documents",
   fields: { title: text(), file: createFileField() },
   readGate: { fileOwner: { field: "file" } },
 });
 
-const readableOwnerTable = buildEntityTable("readable-owner", readableOwnerEntity);
-const ruleLessOwnerTable = buildEntityTable("rule-less-owner", ruleLessOwnerEntity);
-const documentTable = buildEntityTable("document", documentEntity);
+const readableOwnerTable = buildEntityTable(readableOwnerEntity);
+const ruleLessOwnerTable = buildEntityTable(ruleLessOwnerEntity);
+const documentTable = buildEntityTable(documentEntity);
 
 const feature = defineFeature("rmgate", (r) => {
   r.defineEvent("owner-seen", z.object({}), { piiFields: "none" });
@@ -66,7 +69,7 @@ const feature = defineFeature("rmgate", (r) => {
       handler: async () => null,
     });
   }
-  r.crud("document", documentEntity, {
+  r.crud(documentEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: { roles: ["RoleA", "RoleB", "RoleC", "RoleD"] } },
   });

@@ -31,6 +31,7 @@ import { fileRefsTable } from "../file-ref-table.ts";
 import { createLocalProvider } from "../local-provider.ts";
 
 const folderEntity = createEntity({
+  name: "folder",
   table: "cross_record_folders",
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -43,7 +44,7 @@ const folderEntity = createEntity({
 const ROLES = { access: { roles: ["Admin"] } } as const;
 
 const folderFeature = defineFeature("cross-record", (r) => {
-  r.entity({ name: "folder", ...folderEntity });
+  r.entity(folderEntity);
   r.writeHandler(defineEntityCreateHandler("folder", folderEntity, ROLES));
   r.writeHandler(defineEntityUpdateHandler("folder", folderEntity, ROLES));
 });

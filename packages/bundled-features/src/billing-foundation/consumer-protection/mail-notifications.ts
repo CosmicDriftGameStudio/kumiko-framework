@@ -112,16 +112,10 @@ export function contractConfirmationTemplate(): NotificationLocalizedTemplate {
 
 // The registered notification names are the tail of the QN types in constants.ts.
 export function registerConsumerProtectionMails(r: FeatureRegistrar): void {
-  r.notification("contract-confirmation", {
-    variables: CONTRACT_CONFIRMATION_VARIABLES,
-    localizedTemplate: contractConfirmationTemplate,
-  });
-  r.notification("contract-termination-receipt", {
-    variables: TERMINATION_RECEIPT_VARIABLES,
-    localizedTemplate: terminationReceiptTemplate,
-  });
-  r.notification("contract-termination-operator-notice", {
-    variables: OPERATOR_NOTICE_VARIABLES,
-    localizedTemplate: operatorNoticeTemplate,
-  });
+  r.notification({ name: "contract-confirmation", variables: CONTRACT_CONFIRMATION_VARIABLES,
+    localizedTemplate: contractConfirmationTemplate });
+  r.notification({ name: "contract-termination-receipt", variables: TERMINATION_RECEIPT_VARIABLES,
+    localizedTemplate: terminationReceiptTemplate });
+  r.notification({ name: "contract-termination-operator-notice", variables: OPERATOR_NOTICE_VARIABLES,
+    localizedTemplate: operatorNoticeTemplate });
 }

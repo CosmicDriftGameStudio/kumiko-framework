@@ -32,7 +32,7 @@ function resolverProvider(
     build: () => async () => "00000000-0000-4000-8000-000000000001",
   };
   return defineFeature(`mock-resolver-${entityName}`, (r) => {
-    r.useExtension(EXT_TENANT_RESOLVER, entityName, plugin);
+    r.applyExtension({ name: EXT_TENANT_RESOLVER, entity: entityName, ...plugin });
   });
 }
 
@@ -41,7 +41,7 @@ function existenceProvider(entityName: string): ReturnType<typeof defineFeature>
     build: () => async () => true,
   };
   return defineFeature(`mock-existence-${entityName}`, (r) => {
-    r.useExtension(EXT_TENANT_EXISTENCE, entityName, plugin);
+    r.applyExtension({ name: EXT_TENANT_EXISTENCE, entity: entityName, ...plugin });
   });
 }
 
@@ -97,7 +97,7 @@ describe("validateTenantResolverMultiplicity", () => {
   test("malformed (no trust) → throws", () => {
     const broken = defineFeature("mock-broken-resolver", (r) => {
       // @ts-expect-error malformed plugin (no trust) — proves the runtime guard rejects it too.
-      r.useExtension(EXT_TENANT_RESOLVER, "broken", { build: () => () => null });
+      r.applyExtension({ name: EXT_TENANT_RESOLVER, entity: "broken", build: () => () => null });
     });
     const registry = createRegistry([createAuthFoundationFeature(), broken]);
     expect(() => validateTenantResolverMultiplicity([...registry.features.values()])).toThrow(

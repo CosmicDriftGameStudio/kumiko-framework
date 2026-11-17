@@ -2,7 +2,7 @@ import { createEntityExecutor, type EntityDefinition } from "@cosmicdrift/kumiko
 import { createFolderAssignmentEntity, folderEntity } from "./entity.ts";
 
 // createEntityExecutor is side-effect-free; the table+executor pair for the folder catalog lives here.
-export const { executor: folderExecutor } = createEntityExecutor("folder", folderEntity);
+export const { executor: folderExecutor } = createEntityExecutor(folderEntity);
 
 // Carries the mount's parentRef so executor reads apply the same host gate as the registered entity.
 // Carries only `ownership.write`: the executor enforces entity.access.write on create/restore/delete,

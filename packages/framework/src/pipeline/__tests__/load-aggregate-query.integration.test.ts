@@ -27,18 +27,19 @@ import { TestUsers } from "../../seeding/seed-users.ts";
 // --- Fixture entity ---
 
 const invoiceEntity = createEntity({
+  name: "asof-invoice",
   table: "read_asof_invoices",
   fields: {
     customer: createTextField({ personal: false, reason: "test_fixture", required: true }),
     status: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
-const invoiceTable = buildEntityTable("asof-invoice", invoiceEntity);
+const invoiceTable = buildEntityTable(invoiceEntity);
 
 // --- Feature ---
 
 const asOfFeature = defineFeature("asoftest", (r) => {
-  r.entity({ name: "asof-invoice", ...invoiceEntity });
+  r.entity(invoiceEntity);
 
   // Two domain events at different versions. v1→v2 migration bumps the
   // "amount" field from string to integer cents, following the same pattern.

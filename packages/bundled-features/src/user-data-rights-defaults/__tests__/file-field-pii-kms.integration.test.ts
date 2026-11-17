@@ -31,6 +31,7 @@ import { fileRefDeleteHook } from "../index.ts";
 const admin = TestUsers.admin;
 
 const documentEntity = createEntity({
+  name: "document",
   table: "file_field_kms_documents",
   fields: {
     authorId: createTextField({ personal: false, reason: "author_id_test_fixture" }),
@@ -41,8 +42,8 @@ const documentEntity = createEntity({
 });
 
 const documentFeature = defineFeature("filepii", (r) => {
-  r.entity({ name: "document", ...documentEntity });
-  r.crud("document", documentEntity, {
+  r.entity(documentEntity);
+  r.crud(documentEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: { roles: ["Admin"] } },
   });

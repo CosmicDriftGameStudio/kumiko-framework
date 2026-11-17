@@ -86,7 +86,7 @@ export const downloadByJobQuery = defineQueryHandler({
     // requestIdMiddleware; these are server-trusted rather than client-supplied.
     const auditIp = requestContext.get()?.ip ?? null;
     const auditUa = requestContext.get()?.userAgent ?? null;
-    const runner = ctx.db.unsafeRaw();
+    const runner = ctx.db.unsafeRawAllTenants();
 
     // Step 1-2: job-lookup + cross-user-isolation
     const jobRow = await fetchOne<JobRow>(runner, exportJobsTable, { id: jobId });

@@ -131,7 +131,7 @@ const mockProviderFeature = defineFeature("test-mock-termination-provider", (r) 
       });
     },
   };
-  r.useExtension("subscriptionProvider", PROVIDER, plugin);
+  r.applyExtension({ name: "subscriptionProvider", entity: PROVIDER, ...plugin });
 });
 
 let stack: TestStack;

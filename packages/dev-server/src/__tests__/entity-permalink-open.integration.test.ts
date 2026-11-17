@@ -17,6 +17,7 @@ import { pushEntityProjectionTables } from "@cosmicdrift/kumiko-testing/stack";
 import { setupTestStackFromFeatures } from "../setup-test-stack-from-features.ts";
 
 const noteEntity = createEntity({
+  name: "note",
   table: "read_permalink_notes",
   fields: {
     title: createTextField({
@@ -29,7 +30,7 @@ const noteEntity = createEntity({
 });
 
 const permalinkFeature = defineFeature("permalink-fixture", (r) => {
-  r.entity({ name: "note", ...noteEntity });
+  r.entity(noteEntity);
   const access = { roles: ["TenantAdmin"] } as const;
   r.writeHandler(defineEntityCreateHandler("note", noteEntity, { access }));
   r.queryHandler(defineEntityDetailHandler("note", noteEntity, { access }));

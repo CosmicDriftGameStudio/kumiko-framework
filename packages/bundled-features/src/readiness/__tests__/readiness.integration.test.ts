@@ -69,20 +69,14 @@ const probeFeature = defineFeature("readiness-probe", (r) => {
     },
   });
 
-  r.secret("probe.apiToken", {
-    label: { de: "API-Token", en: "API token" },
+  r.secret({ name: "probe.apiToken", label: { de: "API-Token", en: "API token" },
     scope: "tenant",
-    required: true,
-  });
-  r.secret("probe.optionalToken", {
-    label: { de: "Optionales Token", en: "Optional token" },
+    required: true });
+  r.secret({ name: "probe.optionalToken", label: { de: "Optionales Token", en: "Optional token" },
+    scope: "tenant" });
+  r.secret({ name: "probe.authPassword", label: { de: "Auth-Passwort", en: "Auth password" },
     scope: "tenant",
-  });
-  r.secret("probe.authPassword", {
-    label: { de: "Auth-Passwort", en: "Auth password" },
-    scope: "tenant",
-    requiredWhenConfigSet: AUTH_USER_CONFIG_KEY,
-  });
+    requiredWhenConfigSet: AUTH_USER_CONFIG_KEY });
 });
 
 // Provider-gating fixture: foundation declares the selector, two providers
@@ -106,7 +100,7 @@ const probeMailFoundation = defineFeature("probe-mail-foundation", (r) => {
 const probeSmtpProvider = defineFeature("probe-smtp", (r) => {
   r.requires({ features: ["config"] });
   r.requires({ features: ["secrets"] });
-  r.useExtension("probeMailTransport", "smtp");
+  r.applyExtension({ name: "probeMailTransport", entity: "smtp" });
   r.config({
     keys: {
       host: createTenantConfig("text", {
@@ -117,15 +111,13 @@ const probeSmtpProvider = defineFeature("probe-smtp", (r) => {
       }),
     },
   });
-  r.secret("smtp.password", {
-    label: { de: "SMTP-Passwort", en: "SMTP password" },
+  r.secret({ name: "smtp.password", label: { de: "SMTP-Passwort", en: "SMTP password" },
     scope: "tenant",
-    required: true,
-  });
+    required: true });
 });
 
 const probeInMemoryProvider = defineFeature("probe-inmemory", (r) => {
-  r.useExtension("probeMailTransport", "inmemory");
+  r.applyExtension({ name: "probeMailTransport", entity: "inmemory" });
 });
 
 const REQUIRED_CONFIG_KEY = "readiness-probe:config:api-url";

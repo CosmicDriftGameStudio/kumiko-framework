@@ -24,8 +24,9 @@ function memoFields() {
   };
 }
 
-const memoEntity = createEntity({ table: "read_update_relevance_memos", fields: memoFields() });
+const memoEntity = createEntity({ name: "memo", table: "read_update_relevance_memos", fields: memoFields() });
 const memoExtEntity = createEntity({
+  name: "memoExt",
   table: "read_update_relevance_memo_exts",
   fields: memoFields(),
 });
@@ -34,16 +35,16 @@ const writeAccess = { access: { roles: ["Admin"] } } as const;
 const readAccess = { access: { roles: ["Admin"] } } as const;
 
 const relevanceFeature = defineFeature("update-relevance", (r) => {
-  r.entity({ name: "memo", ...memoEntity });
-  const memoExt = r.entity({ name: "memoExt", ...memoExtEntity });
+  r.entity(memoEntity);
+  const memoExt = r.entity(memoExtEntity);
   r.searchPayloadExtension(memoExt, ({ state }) => ({ extIndexed: state["label"] }));
-  r.crud("memo", memoEntity, {
+  r.crud(memoEntity, {
     write: writeAccess,
     read: readAccess,
     verbs: { restore: false },
     registerEntity: false,
   });
-  r.crud("memoExt", memoExtEntity, {
+  r.crud(memoExtEntity, {
     write: writeAccess,
     read: readAccess,
     verbs: { restore: false },

@@ -13,7 +13,7 @@ describe("tenant boot rules", () => {
   test("an assignable role missing from the screens violates assignable-role-missing-from-screens", () => {
     const app = defineFeature("assignable-rule-app", (r) => {
       r.requires({ features: ["tenant"] });
-      r.useExtension(EXT_ASSIGNABLE_ROLE, "PropertyManager");
+      r.applyExtension({ name: EXT_ASSIGNABLE_ROLE, entity: "PropertyManager" });
     });
     const error = (() => {
       try {

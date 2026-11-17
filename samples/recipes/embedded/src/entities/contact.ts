@@ -11,6 +11,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 
 export const contactEntity = createEntity({
+  name: "contact",
   table: "read_sample_contacts",
   fields: {
     name: createTextField({ required: true, personal: "self", find: "fuzzy" }),
@@ -43,4 +44,4 @@ export const contactEntity = createEntity({
   },
 });
 
-export const contactTable = buildEntityTable("contact", contactEntity);
+export const contactTable = buildEntityTable(contactEntity);

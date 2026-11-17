@@ -53,8 +53,7 @@ const DESTROY_PROVIDER = "mock-destroy-provider";
 
 const mockProviderFeature = defineFeature("test-mock-destroy-provider", (r) => {
   r.requires({ features: ["billing-foundation"] });
-  r.useExtension("subscriptionProvider", DESTROY_PROVIDER, {
-    verifyAndParseWebhook: async () => null,
+  r.applyExtension({ name: "subscriptionProvider", entity: DESTROY_PROVIDER, verifyAndParseWebhook: async () => null,
     oneOffPriceIds: ["price_topup"],
     priceToTier: { price_pro: "pro" },
     retrievePrices: async () => [
@@ -71,8 +70,7 @@ const mockProviderFeature = defineFeature("test-mock-destroy-provider", (r) => {
     createCheckoutSession: async () => ({
       url: "https://mock.example/checkout",
       providerCheckoutId: "cs_destroy",
-    }),
-  });
+    }) });
 });
 
 let stack: TestStack;

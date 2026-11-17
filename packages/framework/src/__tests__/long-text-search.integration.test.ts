@@ -38,6 +38,7 @@ import { createTestUser, TestUsers, testTenantId } from "../seeding/seed-users.t
 const tenant = testTenantId(1);
 
 const memoEntity = createEntity({
+  name: "memo",
   table: "longtext_search_memos",
   softDelete: true,
   fields: {
@@ -50,11 +51,11 @@ const memoEntity = createEntity({
   },
 });
 
-const memoTable = buildEntityTable("memo", memoEntity);
+const memoTable = buildEntityTable(memoEntity);
 
 const roles = ["Admin", "Member"] as const;
 const feature = defineFeature("ltsearch", (r) => {
-  r.entity({ name: "memo", ...memoEntity });
+  r.entity(memoEntity);
   for (const verb of ["create", "delete", "restore"] as const) {
     r.writeHandler(
       defineEntityWriteHandler(`memo:${verb}`, memoEntity, { access: { roles: [...roles] } }),

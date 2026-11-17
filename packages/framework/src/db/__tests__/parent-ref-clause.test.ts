@@ -30,6 +30,7 @@ const textField = () =>
   });
 
 const joinEntity = createEntity({
+  name: "test-join",
   table: "read_test_joins",
   fields: { entityType: textField(), entityId: textField() },
   parentRef: {
@@ -52,7 +53,7 @@ function hostEntity(opts?: {
   });
 }
 
-const joinTable = buildEntityTable("test-join", joinEntity);
+const joinTable = buildEntityTable(joinEntity);
 
 function build(
   entities: ReadonlyMap<string, EntityDefinition> | undefined,
@@ -74,10 +75,10 @@ function build(
 
 describe("buildParentRefClause", () => {
   test("an entity without parentRef is not gated", () => {
-    const plain = createEntity({ table: "read_plain", fields: { a: textField() } });
+    const plain = createEntity({ name: "plain", table: "read_plain", fields: { a: textField() } });
     const clause = buildParentRefClause(
       plain,
-      buildEntityTable("plain", plain),
+      buildEntityTable(plain),
       "read_plain",
       user,
       tenantDb,
@@ -232,6 +233,7 @@ describe("combineClauses", () => {
 
 describe("buildParentRefClause on a global host", () => {
   const globalHost = createEntity({
+    name: "reference-host",
     table: "read_test_global_hosts",
     tenancy: "global",
     fields: { ownerId: textField() },
@@ -292,7 +294,7 @@ describe("buildParentRefClause on a global host", () => {
   });
 
   test("a global host classified only on its registry table (reference data) keeps its EXISTS arm", () => {
-    const registryTable = buildEntityTable("reference-host", globalHost);
+    const registryTable = buildEntityTable(globalHost);
     declareSystemRowsReadable(registryTable);
     const clause = buildParentRefClause(
       joinEntity,

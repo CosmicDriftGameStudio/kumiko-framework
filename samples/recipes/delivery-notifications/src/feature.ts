@@ -21,6 +21,7 @@ import { z } from "zod";
 // --- Entity ---
 
 export const ticketEntity = createEntity({
+  name: "ticket",
   table: "read_sample_delivery_tickets",
   fields: {
     title: createTextField({
@@ -36,7 +37,7 @@ export const ticketEntity = createEntity({
   },
 });
 
-export const ticketTable = buildEntityTable("ticket", ticketEntity);
+export const ticketTable = buildEntityTable(ticketEntity);
 
 function ticketExecutor() {
   return createEventStoreExecutor(ticketTable, ticketEntity, { entityName: "ticket" });
@@ -49,10 +50,9 @@ export const TICKET_ASSIGNED = qn("support", QnTypes.notify, "ticket-assigned");
 export const supportFeature = defineFeature("support", (r) => {
   r.requires({ features: ["delivery"] });
 
-  r.entity({ name: "ticket", ...ticketEntity });
+  r.entity(ticketEntity);
 
-  r.notification("ticket-assigned", {
-    variables: {
+  r.notification({ name: "ticket-assigned", variables: {
       ticketId: templateVariable.text({ required: true }),
       title: templateVariable.text({ required: true }),
       description: templateVariable.text({ required: true }),
@@ -72,8 +72,7 @@ export const supportFeature = defineFeature("support", (r) => {
         title: `New ticket: ${data["title"]}`,
         body: (data["description"] as string) || "A ticket was assigned to you.",
       }),
-    },
-  });
+    } });
 
   r.writeHandler({
     name: "ticket:create",

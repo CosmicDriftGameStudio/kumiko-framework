@@ -11,8 +11,7 @@ export function createPlainFallbackEmailFeature(options: EmailChannelOptions): F
   const channel = createEmailChannel(options);
   return defineFeature("channel-email", (r) => {
     r.requires({ features: ["delivery"] });
-    r.useExtension(DELIVERY_CHANNEL_EXTENSION, "email", {
-      mode: channel.mode,
+    r.applyExtension({ name: DELIVERY_CHANNEL_EXTENSION, entity: "email", mode: channel.mode,
       resolve: channel.resolve,
       async render(message, ctx) {
         const declared = ctx.registry.getAllNotifications().get(message.notificationType);
@@ -27,7 +26,6 @@ export function createPlainFallbackEmailFeature(options: EmailChannelOptions): F
           text: `${message.title}\n\n${body}`,
         };
       },
-      send: channel.send,
-    });
+      send: channel.send });
   });
 }

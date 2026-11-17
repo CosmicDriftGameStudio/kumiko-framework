@@ -29,7 +29,7 @@ import {
 const SYSTEM_ADMIN_ROLES = ["SystemAdmin"] as const;
 
 const noopJobFeature = defineFeature("jobs-sec-app", (r) => {
-  r.job("ping", { trigger: { manual: true } }, async () => {});
+  r.job({ name: "ping", trigger: { manual: true }, handler: async () => {} });
 });
 
 let stack: TestStack;

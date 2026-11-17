@@ -59,18 +59,17 @@ const observedHandler = defineWriteHandler({
 });
 
 const obsEntity = createEntity({
+  name: "obs-thing",
   table: "obs_smoke_things",
   fields: { label: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
 
 const obsFeature = defineFeature("obstest", (r) => {
-  r.entity({ name: "obs-thing", ...obsEntity });
+  r.entity(obsEntity);
   // Pre-register the counter the step body emits — feature-scoped
   // metric names get a `kumiko_<feature>_` prefix at boot.
-  r.metric("test_step_counter_total", {
-    type: "counter",
-    labels: ["step_name"],
-  });
+  r.metric({ name: "test_step_counter_total", type: "counter",
+    labels: ["step_name"] });
   r.writeHandler(observedHandler);
 });
 

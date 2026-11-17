@@ -13,6 +13,7 @@ import { assertPersonalDataWrite, createTenantDb, type PersonalDataGate } from "
 import { runInOwnTransaction } from "../tenant-db-scoped-rebind.ts";
 
 const entity = createEntity({
+  name: "runInOwnTxItem",
   table: "run_in_own_tx_items",
   fields: {
     name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -21,7 +22,7 @@ const entity = createEntity({
   softDelete: true,
 });
 
-const table = deriveEntityTableMeta("runInOwnTxItem", entity, { source: "unmanaged" });
+const table = deriveEntityTableMeta(entity, { source: "unmanaged" });
 
 let testDb: TestDb;
 const tenant1 = TestUsers.admin; // tenantId: 1
@@ -141,7 +142,7 @@ describe("runInOwnTransaction", () => {
     });
     // Mirrors createTenantDb(ctx.db.unsafeRaw(), ...): the gate now lives on the
     // runner, not in this new TenantDb's own (unset) grants.
-    const gatedRunner = tdb.unsafeRaw();
+    const gatedRunner = tdb.unsafeRawAllTenants();
     const runnerBoundTdb = createTenantDb({ db: gatedRunner, tenantId: tenant1.tenantId });
 
     expect(() =>

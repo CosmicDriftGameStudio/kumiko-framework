@@ -31,7 +31,7 @@ export function createSetHandler(access: AccessRule = DEFAULT_SECRETS_ACCESS) {
       const secrets = requireSecretsContext(
         { secrets: ctx.services.secrets, user: ctx.user },
         SecretsHandlers.set,
-      ).withRunner(ctx.db.unsafeRaw());
+      ).withRunner(ctx.db.unsafeRawAllTenants());
       const { key, value, redactedPreview, hint, scope } = event.payload;
       const target = resolveSecretTarget(event.user, scope);
       if (!target.ok) return writeFailure(target.error);

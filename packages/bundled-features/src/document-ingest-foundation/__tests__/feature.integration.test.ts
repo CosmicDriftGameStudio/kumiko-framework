@@ -93,14 +93,9 @@ const providerBProcessed: Array<{ readonly fileRefId: string }> = [];
 
 const testProviderAFeature = defineFeature("test-document-ingest-provider-a", (r) => {
   r.requires({ features: ["document-ingest-foundation"] });
-  r.useExtension(EXT_DOCUMENT_INGEST_PROVIDER, PROVIDER_A_NAME, {
-    mimeTypes: ["application/pdf", "image/png"],
-    maxFileBytes: PROVIDER_A_MAX_BYTES,
-  });
-  r.job(
-    "test-provider-a-worker",
-    { trigger: documentIngestProviderTrigger(PROVIDER_A_NAME), runIn: "worker" },
-    async (rawPayload, ctx) => {
+  r.applyExtension({ name: EXT_DOCUMENT_INGEST_PROVIDER, entity: PROVIDER_A_NAME, mimeTypes: ["application/pdf", "image/png"],
+    maxFileBytes: PROVIDER_A_MAX_BYTES });
+  r.job({ name: "test-provider-a-worker", trigger: documentIngestProviderTrigger(PROVIDER_A_NAME), runIn: "worker", handler: async (rawPayload, ctx) => {
       const payload = documentIngestRequestedPayloadSchema.parse(rawPayload);
       // No own existence check on purpose: idempotency under redelivery and the
       // delete→restore race is the helper's job.
@@ -119,41 +114,29 @@ const testProviderAFeature = defineFeature("test-document-ingest-provider-a", (r
         },
       });
       providerAProcessed.push({ fileRefId: payload.fileRefId });
-    },
-  );
+    } });
 });
 
 const testProviderBFeature = defineFeature("test-document-ingest-provider-b", (r) => {
   r.requires({ features: ["document-ingest-foundation"] });
-  r.useExtension(EXT_DOCUMENT_INGEST_PROVIDER, PROVIDER_B_NAME, {
-    mimeTypes: [DOCX_MIME_TYPE],
-    maxFileBytes: PROVIDER_B_MAX_BYTES,
-  });
-  r.job(
-    "test-provider-b-worker",
-    { trigger: documentIngestProviderTrigger(PROVIDER_B_NAME), runIn: "worker" },
-    async (payload) => {
+  r.applyExtension({ name: EXT_DOCUMENT_INGEST_PROVIDER, entity: PROVIDER_B_NAME, mimeTypes: [DOCX_MIME_TYPE],
+    maxFileBytes: PROVIDER_B_MAX_BYTES });
+  r.job({ name: "test-provider-b-worker", trigger: documentIngestProviderTrigger(PROVIDER_B_NAME), runIn: "worker", handler: async (payload) => {
       providerBProcessed.push({ fileRefId: payload["fileRefId"] as string });
-    },
-  );
+    } });
 });
 
 const PROVIDER_XML_NAME = "test-provider-xml";
 
 const testProviderXmlFeature = defineFeature("test-document-ingest-provider-xml", (r) => {
   r.requires({ features: ["document-ingest-foundation"] });
-  r.useExtension(EXT_DOCUMENT_INGEST_PROVIDER, PROVIDER_XML_NAME, {
-    mimeTypes: ["application/xml", "text/xml"],
-    maxFileBytes: PROVIDER_B_MAX_BYTES,
-  });
-  r.job(
-    "test-provider-xml-worker",
-    { trigger: documentIngestProviderTrigger(PROVIDER_XML_NAME), runIn: "worker" },
-    async () => {},
-  );
+  r.applyExtension({ name: EXT_DOCUMENT_INGEST_PROVIDER, entity: PROVIDER_XML_NAME, mimeTypes: ["application/xml", "text/xml"],
+    maxFileBytes: PROVIDER_B_MAX_BYTES });
+  r.job({ name: "test-provider-xml-worker", trigger: documentIngestProviderTrigger(PROVIDER_XML_NAME), runIn: "worker", handler: async () => {} });
 });
 
 const attachmentNoteEntity = createEntity({
+  name: "note",
   table: "ingest_attachment_notes",
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -162,7 +145,7 @@ const attachmentNoteEntity = createEntity({
 });
 
 const attachmentNoteFeature = defineFeature("ingest-attachment-notes", (r) => {
-  r.entity({ name: "note", ...attachmentNoteEntity });
+  r.entity(attachmentNoteEntity);
   r.writeHandler(
     defineEntityCreateHandler("note", attachmentNoteEntity, {
       access: { roles: ["Admin", "User", "SystemAdmin"] },

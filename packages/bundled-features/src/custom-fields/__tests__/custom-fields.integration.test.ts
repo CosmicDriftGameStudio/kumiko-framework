@@ -42,21 +42,22 @@ import { customFieldsField, wireCustomFieldsFor } from "../wire-for-entity.ts";
 // --- Probe-Feature: a tenant-owned "property" entity with customFields ---
 
 const propertyEntity = createEntity({
+  name: "property",
   table: "read_t1_properties",
   fields: {
     name: createTextField({ required: true, personal: false, reason: "technical_reference" }),
     customFields: customFieldsField(),
   },
 });
-const propertyTable = buildEntityTable("property", propertyEntity);
+const propertyTable = buildEntityTable(propertyEntity);
 
 const propertyFeature = defineFeature("property-test", (r) => {
-  r.entity({ name: "property", ...propertyEntity });
+  r.entity(propertyEntity);
   r.requires({ features: ["custom-fields"] });
   wireCustomFieldsFor(r, "property", propertyTable);
 
   // Standard CRUD: create + list via entity-handlers. Pure test-probe.
-  const { executor: propertyExecutor } = createEntityExecutor("property", propertyEntity);
+  const { executor: propertyExecutor } = createEntityExecutor(propertyEntity);
   r.writeHandler({
     name: "property:create",
     schema: z.object({ id: z.string(), name: z.string() }),

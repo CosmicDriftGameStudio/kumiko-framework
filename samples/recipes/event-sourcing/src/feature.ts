@@ -58,6 +58,7 @@ import {
 // --- Receipt entity: one row per paid invoice, written by the invoice-paid event ---
 
 export const receiptEntity = createEntity({
+  name: "showcase-receipt",
   table: "read_showcase_receipts",
   fields: {
     invoiceId: createTextField({ personal: false, reason: "is_business_data" }),
@@ -65,7 +66,7 @@ export const receiptEntity = createEntity({
   },
 });
 
-export const receiptTable = buildEntityTable("showcase-receipt", receiptEntity);
+export const receiptTable = buildEntityTable(receiptEntity);
 
 // One receipt per invoice: the entity id column is a uuid, so derive it from tenant and aggregate.
 // The rebuild guard only knows these two, which is why the id is declared as rowIdOf below.
@@ -76,8 +77,8 @@ function receiptIdOf(source: { readonly tenantId: string; readonly aggregateId: 
 // --- Feature ---
 
 export const invoiceFeature = defineFeature("showcase", (r) => {
-  r.entity({ name: "showcase-invoice", ...invoiceEntity });
-  r.entity({ name: "showcase-receipt", ...receiptEntity });
+  r.entity(invoiceEntity);
+  r.entity(receiptEntity);
 
   // Two domain events. "approved" is versioned — v1 stored `amount` as
   // string, v2 uses `amountCents` integer. The DECLARATIVE migration form

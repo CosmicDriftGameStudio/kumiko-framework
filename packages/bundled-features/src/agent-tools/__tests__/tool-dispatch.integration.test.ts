@@ -30,6 +30,7 @@ import { buildToolCatalog, toolNameForQn } from "../tool-catalog.ts";
 import { dispatchToolCall } from "../tool-dispatch.ts";
 
 const vendorEntity = createEntity({
+  name: "vendor",
   table: "agent_tools_test_vendors",
   fields: {
     name: createTextField({
@@ -49,7 +50,7 @@ const vendorEntity = createEntity({
 });
 
 const vendorFeature = defineFeature("agent-tools-test-vendor", (r) => {
-  r.crud("vendor", vendorEntity, {
+  r.crud(vendorEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: { roles: ["Reader"] } },
   });
@@ -60,19 +61,20 @@ const VENDOR_CREATE_QN = "agent-tools-test-vendor:write:vendor:create";
 // No softDelete — forget-gizmo-high performs a hard, irreversible purge and
 // therefore must resolve agent.risk "high" to pass the executor gate.
 const gizmoEntity = createEntity({
+  name: "gizmo",
   table: "agent_tools_test_gizmos",
   fields: {
     label: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
-const { executor: gizmoExecutor } = createEntityExecutor("gizmo", gizmoEntity);
+const { executor: gizmoExecutor } = createEntityExecutor(gizmoEntity);
 
 const GIZMO_CREATE_QN = "agent-tools-test-gizmo:write:gizmo:create";
 const GIZMO_FORGET_HIGH_QN = "agent-tools-test-gizmo:write:forget-gizmo-high";
 const GIZMO_DELEGATE_FORGET_MID_QN = "agent-tools-test-gizmo:write:delegate-forget-gizmo-mid";
 
 const gizmoFeature = defineFeature("agent-tools-test-gizmo", (r) => {
-  r.entity({ name: "gizmo", ...gizmoEntity });
+  r.entity(gizmoEntity);
 
   r.writeHandler({
     name: "gizmo:create",
@@ -148,6 +150,7 @@ const gizmoFeature = defineFeature("agent-tools-test-gizmo", (r) => {
 // writing it requires agent.risk "high" on the directly-dispatched entry
 // handler, regardless of hard-vs-soft-delete.
 const scribeEntity = createEntity({
+  name: "scribe",
   table: "agent_tools_test_scribes",
   fields: {
     label: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -158,12 +161,12 @@ const scribeEntity = createEntity({
     }),
   },
 });
-const { executor: scribeExecutor } = createEntityExecutor("scribe", scribeEntity);
+const { executor: scribeExecutor } = createEntityExecutor(scribeEntity);
 
 const SCRIBE_WRITE_NOTE_MID_QN = "agent-tools-test-scribe:write:write-note-mid";
 
 const scribeFeature = defineFeature("agent-tools-test-scribe", (r) => {
-  r.entity({ name: "scribe", ...scribeEntity });
+  r.entity(scribeEntity);
 
   r.writeHandler({
     name: "write-note-mid",

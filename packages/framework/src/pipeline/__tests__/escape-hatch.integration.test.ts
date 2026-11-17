@@ -33,7 +33,7 @@ const escapeHatchFeature = defineFeature("escape-hatch-probe", (r) => {
     name: "write-with-hatch",
     schema: z.object({ note: z.string() }),
     access: { roles: ["User"] },
-    escapeHatch: { reason: "fw#2855 integration test — declared cross-tenant write" },
+    escapeHatch: { reason: "fw#2855 integration test — declared cross-tenant write", grants: ["globalWrites"] },
     handler: async (event, ctx) => {
       const row = await ctx.db.global(globalStoreTable).insertOne<{ id: string }>({
         note: event.payload.note,

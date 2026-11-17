@@ -26,16 +26,17 @@ import { createCustomFieldsFeature } from "../feature.ts";
 import { customFieldsField, wireCustomFieldsFor } from "../wire-for-entity.ts";
 
 const customerEntity = createEntity({
+  name: "customer",
   table: "read_cf_role_config_customers",
   fields: {
     name: createTextField({ required: true, personal: false, reason: "technical_reference" }),
     customFields: customFieldsField(),
   },
 });
-const customerTable = buildEntityTable("customer", customerEntity);
+const customerTable = buildEntityTable(customerEntity);
 
 const customerHostFeature = defineFeature("customer-host", (r) => {
-  r.entity({ name: "customer", ...customerEntity });
+  r.entity(customerEntity);
   r.requires({ features: ["custom-fields"] });
   wireCustomFieldsFor(r, "customer", customerTable);
 });

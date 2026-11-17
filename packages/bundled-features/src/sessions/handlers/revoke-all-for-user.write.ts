@@ -52,7 +52,7 @@ export const revokeAllForUserWrite = defineWriteHandler({
       );
     }
     // SYSTEM stream: the caller's tenant has no relationship to the target user's session tenants.
-    const runner = ctx.db.unsafeRaw();
+    const runner = ctx.db.unsafeRawAllTenants();
     const reqCtx = requestContext.get();
     const revokedIds = await revokeSessionsAndAnnounce(runner, {
       where: {

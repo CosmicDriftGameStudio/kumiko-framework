@@ -29,7 +29,7 @@ export const PAYMENT_TENANT_DESTROY_ARCHIVE_REASON =
 export async function subscriptionTenantDestroyHook(ctx: TenantDataHookCtx): Promise<void> {
   declareEscapeHatch({ reason: SUBSCRIPTION_TENANT_DESTROY_ARCHIVE_REASON });
   const { profile } = await resolveProfileForTenant({
-    db: ctx.db.unsafeRaw(),
+    db: ctx.db.unsafeRawAllTenants(),
     tenantId: ctx.tenantId,
   });
   const aggregateId = subscriptionAggregateId(ctx.tenantId);
@@ -42,7 +42,7 @@ export async function subscriptionTenantDestroyHook(ctx: TenantDataHookCtx): Pro
   } else {
     await ctx.db.deleteMany(subscriptionsProjectionMeta, { id: aggregateId });
   }
-  await archiveStream(ctx.db.unsafeRaw(), {
+  await archiveStream(ctx.db.unsafeRawAllTenants(), {
     tenantId: ctx.tenantId,
     aggregateId,
     aggregateType: SUBSCRIPTION_AGGREGATE_TYPE,
@@ -59,7 +59,7 @@ export async function subscriptionTenantDestroyHook(ctx: TenantDataHookCtx): Pro
 export async function paymentTenantDestroyHook(ctx: TenantDataHookCtx): Promise<void> {
   declareEscapeHatch({ reason: PAYMENT_TENANT_DESTROY_ARCHIVE_REASON });
   const { profile } = await resolveProfileForTenant({
-    db: ctx.db.unsafeRaw(),
+    db: ctx.db.unsafeRawAllTenants(),
     tenantId: ctx.tenantId,
   });
   const aggregateId = paymentAggregateId(ctx.tenantId);
@@ -74,7 +74,7 @@ export async function paymentTenantDestroyHook(ctx: TenantDataHookCtx): Promise<
       tenantId: ctx.tenantId,
     });
   }
-  await archiveStream(ctx.db.unsafeRaw(), {
+  await archiveStream(ctx.db.unsafeRawAllTenants(), {
     tenantId: ctx.tenantId,
     aggregateId,
     aggregateType: PAYMENT_AGGREGATE_TYPE,

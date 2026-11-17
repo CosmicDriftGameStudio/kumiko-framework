@@ -21,6 +21,7 @@ import {
 } from "../index.ts";
 
 const noteEntity = createEntity({
+  name: "list-note",
   table: "read_list_fields_notes",
   fields: {
     title: createTextField({
@@ -34,11 +35,11 @@ const noteEntity = createEntity({
   },
 });
 
-const noteTable = buildEntityTable("list-note", noteEntity);
+const noteTable = buildEntityTable(noteEntity);
 const LIST = "listfields:query:list-note:list";
 
 const listFieldsFeature = defineFeature("listfields", (r) => {
-  r.entity({ name: "list-note", ...noteEntity });
+  r.entity(noteEntity);
 
   const noteExecutor = createEventStoreExecutor(noteTable, noteEntity, {
     entityName: "list-note",

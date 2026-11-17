@@ -15,6 +15,7 @@ import { extractTableInfo } from "../table-info.ts";
 // breaks arithmetic.
 
 const entity = createEntity({
+  name: "decimalProbe",
   table: "read_decimal_probe",
   fields: {
     sum: createDecimalField({ precision: 14, scale: 2, required: true }),
@@ -26,7 +27,7 @@ const entity = createEntity({
 describe("decimal field — column + DDL", () => {
   test("maps to numeric(precision,scale) with required→NOT NULL", () => {
     const cols = new Map(
-      deriveEntityTableMeta("decimalProbe", entity).columns.map((c) => [c.name, c]),
+      deriveEntityTableMeta(entity).columns.map((c) => [c.name, c]),
     );
     expect(cols.get("sum")?.pgType).toBe("numeric(14,2)");
     expect(cols.get("interest")?.pgType).toBe("numeric(6,4)");
@@ -36,14 +37,14 @@ describe("decimal field — column + DDL", () => {
   });
 
   test("renders real numeric(p,s) DDL", () => {
-    const ddl = renderTableDdl(deriveEntityTableMeta("decimalProbe", entity)).join("\n");
+    const ddl = renderTableDdl(deriveEntityTableMeta(entity)).join("\n");
     expect(ddl).toContain('"interest" numeric(6,4) NOT NULL');
     expect(ddl).toContain('"rate" numeric(12,2)');
   });
 });
 
 describe("decimal field — read codec (pg numeric string → JS number)", () => {
-  const info = extractTableInfo(buildEntityTable("decimalProbe", entity));
+  const info = extractTableInfo(buildEntityTable(entity));
 
   test("parses numeric strings to exact numbers", () => {
     // Record<string, unknown> so coerceRow's pass-through return type doesn't
@@ -98,10 +99,11 @@ describe("decimal field — factory", () => {
 describe("known limitation: precision past 2^53 (same trade-off as bigInt number-mode)", () => {
   test("a numeric string beyond Number.MAX_SAFE_INTEGER loses precision on read", () => {
     const e = createEntity({
+      name: "decimalBig",
       table: "read_decimal_big",
       fields: { big: createDecimalField({ precision: 20, scale: 0 }) },
     });
-    const info = extractTableInfo(buildEntityTable("decimalBig", e));
+    const info = extractTableInfo(buildEntityTable(e));
     // 2^53 + 1 → surfaced as JS number rounds to 2^53. Documented, not a bug:
     // keep precision − scale ≤ 15 to stay exact (see DecimalFieldDef doc).
     const input: Record<string, unknown> = { big: "9007199254740993" };

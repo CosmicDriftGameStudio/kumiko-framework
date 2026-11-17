@@ -73,8 +73,7 @@ const testEncryptionKey = randomBytes(32).toString("base64");
 // rather than a generic 404.
 const noSignedUrlProviderFeature = defineFeature("test-no-signed-url-provider", (r) => {
   r.requires({ features: ["file-foundation"] });
-  r.useExtension("fileProvider", "no-signed-url", {
-    build: async () => ({
+  r.applyExtension({ name: "fileProvider", entity: "no-signed-url", build: async () => ({
       async write() {
         // no-op for this test setup
       },
@@ -101,8 +100,7 @@ const noSignedUrlProviderFeature = defineFeature("test-no-signed-url-provider", 
         return [];
       },
       // **no** getSignedUrl — exercises the 422 path
-    }),
-  });
+    }) });
 });
 
 beforeAll(async () => {

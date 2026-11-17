@@ -34,6 +34,7 @@ const LOCK_NOT_AVAILABLE = "55P03";
 const PROBE_TABLE = "read_rebuild_app_scope_probe";
 
 const itemEntity = createEntity({
+  name: "rebuild-app-item",
   table: "read_rebuild_app_items",
   fields: {
     groupId: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -41,7 +42,7 @@ const itemEntity = createEntity({
   },
   softDelete: true,
 });
-const itemTable = buildEntityTable("rebuild-app-item", itemEntity);
+const itemTable = buildEntityTable(itemEntity);
 const perGroupTable = pgTable(LIVE_TABLE, {
   groupId: uuid("group_id").primaryKey(),
   tenantId: uuid("tenant_id").notNull(),
@@ -84,7 +85,7 @@ const projection: ProjectionDefinition = {
   },
 };
 const feature = defineFeature("rebuildapp", (r) => {
-  r.entity({ name: "rebuild-app-item", ...itemEntity });
+  r.entity(itemEntity);
   r.projection(projection);
   r.projection(scopeProbeProjection);
 });

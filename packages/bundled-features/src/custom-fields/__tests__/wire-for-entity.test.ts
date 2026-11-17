@@ -9,6 +9,7 @@ import { customFieldsField, wireCustomFieldsFor } from "../wire-for-entity.ts";
 // custom-fields feature owns the one values projection). Tests pin the surface.
 
 const propertyEntity = createEntity({
+  name: "property",
   table: "read_test_properties",
   fields: {
     name: createTextField({ required: true, personal: false, reason: "technical_reference" }),
@@ -16,12 +17,12 @@ const propertyEntity = createEntity({
   },
 });
 
-const propertyTable = buildEntityTable("property", propertyEntity);
+const propertyTable = buildEntityTable(propertyEntity);
 
 describe("wireCustomFieldsFor", () => {
   test("registers useExtension + rebuild extension + postQuery-entity-hook + search-payload-extension", () => {
     const feature = defineFeature("test-property", (r) => {
-      r.entity({ name: "property", ...propertyEntity });
+      r.entity(propertyEntity);
       wireCustomFieldsFor(r, "property", propertyTable);
     });
 

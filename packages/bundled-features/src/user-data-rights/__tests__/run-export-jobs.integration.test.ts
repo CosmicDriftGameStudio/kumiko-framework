@@ -1063,8 +1063,7 @@ describe("runExportJobs :: Atom 3c file-binaries", () => {
   beforeAll(async () => {
     const { defineFeature, EXT_USER_DATA } = await import("@cosmicdrift/kumiko-framework/engine");
     const testFileExporter = defineFeature("test-file-exporter", (r) => {
-      r.useExtension(EXT_USER_DATA, "test-file", {
-        export: async (ctx: { tenantId: string; userId: string }) => ({
+      r.applyExtension({ name: EXT_USER_DATA, entity: "test-file", export: async (ctx: { tenantId: string; userId: string }) => ({
           entity: "test-file",
           rows: [{ id: "f1", name: currentTestFileName }],
           fileRefs: [
@@ -1078,8 +1077,7 @@ describe("runExportJobs :: Atom 3c file-binaries", () => {
         // no-op: this fixture exercises only the export/file path; the erase
         // side is covered by forget-*.integration.test.ts. Required so the
         // V2 boot gate (export-without-erase) does not reject the stack.
-        delete: async () => {},
-      });
+        delete: async () => {} });
     });
 
     localStack = await setupTestStack({

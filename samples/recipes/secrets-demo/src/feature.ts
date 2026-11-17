@@ -94,8 +94,7 @@ export function createBillingFeature(): FeatureDefinition {
     // list known secrets (label + hint) so tenant-admin doesn't have to
     // guess the key name; rotation / audit work by qualified name. The
     // handle's .name is the QN the registrar built for us.
-    STRIPE_API_KEY = r.secret("stripe.apiKey", {
-      label: { de: "Stripe API-Schlüssel", en: "Stripe API Key" },
+    STRIPE_API_KEY = r.secret({ name: "stripe.apiKey", label: { de: "Stripe API-Schlüssel", en: "Stripe API Key" },
       hint: {
         de: "Aus dem Stripe-Dashboard unter Developers → API Keys.",
         en: "From the Stripe dashboard under Developers → API Keys.",
@@ -106,12 +105,9 @@ export function createBillingFeature(): FeatureDefinition {
         if (plaintext.length < 10) return "•".repeat(plaintext.length);
         return `${plaintext.slice(0, 7)}...${plaintext.slice(-4)}`;
       },
-      scope: "tenant",
-    });
-    WEBHOOK_SIGNING_KEY = r.secret("webhook.signingKey", {
-      label: { de: "Webhook-Signaturschlüssel", en: "Webhook signing key" },
-      scope: "tenant",
-    });
+      scope: "tenant" });
+    WEBHOOK_SIGNING_KEY = r.secret({ name: "webhook.signingKey", label: { de: "Webhook-Signaturschlüssel", en: "Webhook signing key" },
+      scope: "tenant" });
     r.writeHandler(chargeWrite);
     r.writeHandler(webhookSendTestWrite);
     r.screen({

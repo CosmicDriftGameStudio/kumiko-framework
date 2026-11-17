@@ -179,7 +179,7 @@ describe("crypto-shredding-hr", () => {
 });
 
 describe("crypto-shredding-hr — blind-index lookups", () => {
-  const employeeTable = buildEntityTable("employee", employeeEntity);
+  const employeeTable = buildEntityTable(employeeEntity);
 
   test("equality lookup by email works on the encrypted column — until the key is erased", async () => {
     const employeeId = await createEmployee();

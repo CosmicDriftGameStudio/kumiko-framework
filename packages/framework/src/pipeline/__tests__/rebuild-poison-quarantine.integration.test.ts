@@ -47,13 +47,14 @@ const POISON_JS = "poison-js";
 const POISON_SQL = "poison-sql";
 
 const itemEntity = createEntity({
+  name: "poison-item",
   table: "read_poison_items",
   fields: {
     groupId: createTextField({ personal: false, reason: "test_fixture", required: true }),
     name: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
-const itemTable = buildEntityTable("poison-item", itemEntity);
+const itemTable = buildEntityTable(itemEntity);
 
 const counterTable = pgTable("read_poison_counter", {
   groupId: pgUuid("group_id").primaryKey(),
@@ -109,7 +110,7 @@ const poisonProjection: ProjectionDefinition = {
 const MSP_EVENT_SHORT = "poison-noted";
 
 const feature = defineFeature("poisontest", (r) => {
-  r.entity({ name: "poison-item", ...itemEntity });
+  r.entity(itemEntity);
   r.projection(poisonProjection);
   const noted = r.defineEvent(MSP_EVENT_SHORT, z.object({ groupId: z.uuid(), name: z.string() }), {
     piiFields: "none",

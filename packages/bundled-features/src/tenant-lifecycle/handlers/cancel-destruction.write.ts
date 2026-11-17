@@ -34,7 +34,7 @@ export const cancelDestructionWrite = defineWriteHandler({
   },
   handler: async (event, ctx) => {
     const tenantId = event.user.tenantId;
-    const runner = ctx.db.unsafeRaw();
+    const runner = ctx.db.unsafeRawAllTenants();
     const row = await fetchOne<TenantLifecycleRow>(runner, tenantTable, {
       id: tenantId,
     });

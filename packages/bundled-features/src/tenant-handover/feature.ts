@@ -41,6 +41,6 @@ export function createTenantHandoverFeature(
     // shared/signup-handover.ts for why this indirection exists instead of
     // auth-email-password importing tenant-handover directly.
     r.extendsRegistrar(EXT_SIGNUP_HANDOVER, {});
-    r.useExtension(EXT_SIGNUP_HANDOVER, "tenant-handover", createSignupHandoverProvider(opts));
+    r.applyExtension({ name: EXT_SIGNUP_HANDOVER, entity: "tenant-handover", ...createSignupHandoverProvider(opts) });
   });
 }

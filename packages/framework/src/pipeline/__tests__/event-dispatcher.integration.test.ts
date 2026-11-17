@@ -53,7 +53,7 @@ let captureB: CapturedCall[] = [];
 let throwOnEventId: string | null = null;
 
 const testFeature: FeatureDefinition = defineFeature("dispatchertest", (r) => {
-  r.entity({ name: "widget", ...sharedWidgetEntity });
+  r.entity(sharedWidgetEntity);
 
   // MSP A: happy-path observer.
   r.multiStreamProjection({

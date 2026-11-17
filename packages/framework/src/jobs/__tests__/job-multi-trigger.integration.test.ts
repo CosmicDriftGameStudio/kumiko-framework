@@ -51,27 +51,17 @@ const orderFeature = defineFeature("multi", (r) => {
     },
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
-  r.job(
-    "fanout",
-    {
-      trigger: {
+  r.job({ name: "fanout", trigger: {
         on: ["multi:event:order-opened", "multi:event:order-cancelled"],
-      },
-    },
-    async (payload, ctx) => {
+      }, handler: async (payload, ctx) => {
       // ctx.triggerName is the idiomatic API: for multi-trigger jobs,
       // this field tells the handler which of the N triggers fired.
       jobExecutions.push({ trigger: ctx.triggerName ?? "<missing>", payload });
-    },
-  );
-  r.job(
-    "typed-fanout",
-    { trigger: { on: [orderOpened.name, orderCancelled.name] } },
-    async (payload, ctx) => {
+    } });
+  r.job({ name: "typed-fanout", trigger: { on: [orderOpened.name, orderCancelled.name] }, handler: async (payload, ctx) => {
       const event = await triggeredEventOf([orderOpened, orderCancelled], payload, ctx);
       typedExecutions.push({ type: event.type, id: event.payload.id });
-    },
-  );
+    } });
 });
 
 let stack: TestStack;

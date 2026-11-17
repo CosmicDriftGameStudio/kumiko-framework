@@ -55,12 +55,13 @@ describe("createBigIntField factory", () => {
 describe("buildEntityTable — bigInt-Mapping", () => {
   test("bigInt column is DISTINCT from number column (number=integer/32-bit, bigInt=bigint/64-bit)", () => {
     const entity = createEntity({
+      name: "counters",
       fields: {
         smallCount: createNumberField({}),
         bigCount: createBigIntField({}),
       },
     });
-    const table = buildEntityTable("counters", entity);
+    const table = buildEntityTable(entity);
 
     const small = colByName(table, "small_count");
     const big = colByName(table, "big_count");
@@ -73,12 +74,13 @@ describe("buildEntityTable — bigInt-Mapping", () => {
 
   test("required bigInt becomes NOT NULL", () => {
     const entity = createEntity({
+      name: "t",
       fields: {
         requiredBig: createBigIntField({ required: true }),
         optionalBig: createBigIntField({}),
       },
     });
-    const table = buildEntityTable("t", entity);
+    const table = buildEntityTable(entity);
     expect(colByName(table, "required_big").notNull).toBe(true);
     expect(colByName(table, "optional_big").notNull).toBe(false);
   });

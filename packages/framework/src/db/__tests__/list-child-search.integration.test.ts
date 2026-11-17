@@ -23,6 +23,7 @@ import type { SessionUser } from "../../engine/types/index.ts";
 import { createTestUser, TestUsers, testTenantId } from "../../seeding/seed-users.ts";
 
 const ticketEntity = createEntity({
+  name: "ticket",
   table: "read_helpdesk_tickets",
   fields: {
     subject: createTextField({
@@ -35,6 +36,7 @@ const ticketEntity = createEntity({
 });
 
 const replyEntity = createEntity({
+  name: "reply",
   table: "read_helpdesk_replies",
   fields: {
     ticketId: createReferenceField({ entity: "ticket", personal: false, reason: "test_fixture" }),
@@ -53,6 +55,7 @@ const replyEntity = createEntity({
 });
 
 const secretReplyEntity = createEntity({
+  name: "secretReply",
   table: "read_helpdesk_secret_replies",
   fields: {
     ticketId: createReferenceField({ entity: "ticket", personal: false, reason: "test_fixture" }),
@@ -67,6 +70,7 @@ const secretReplyEntity = createEntity({
 });
 
 const internalNoteEntity = createEntity({
+  name: "internalNote",
   table: "read_helpdesk_internal_notes",
   fields: {
     ticketId: createReferenceField({ entity: "ticket", personal: false, reason: "test_fixture" }),
@@ -80,6 +84,7 @@ const internalNoteEntity = createEntity({
 });
 
 const draftNoteEntity = createEntity({
+  name: "draftNote",
   table: "read_helpdesk_draft_notes",
   fields: {
     ticketId: createReferenceField({ entity: "ticket", personal: false, reason: "test_fixture" }),
@@ -95,35 +100,27 @@ const draftNoteEntity = createEntity({
 const roles = ["Admin", "Agent"] as const;
 
 const helpdeskFeature = defineFeature("helpdesk", (r) => {
-  const ticket = r.entity({ name: "ticket", ...ticketEntity });
-  r.entity({ name: "reply", ...replyEntity });
-  r.entity({ name: "secretReply", ...secretReplyEntity });
-  r.relation(ticket, "replies", {
-    type: "hasMany",
+  const ticket = r.entity(ticketEntity);
+  r.entity(replyEntity);
+  r.entity(secretReplyEntity);
+  r.relation({ entity: ticket, name: "replies", type: "hasMany",
     target: "reply",
     foreignKey: "ticketId",
-    searchable: true,
-  });
-  r.relation(ticket, "secretReplies", {
-    type: "hasMany",
+    searchable: true });
+  r.relation({ entity: ticket, name: "secretReplies", type: "hasMany",
     target: "secretReply",
     foreignKey: "ticketId",
-    searchable: true,
-  });
-  r.entity({ name: "internalNote", ...internalNoteEntity });
-  r.relation(ticket, "internalNotes", {
-    type: "hasMany",
+    searchable: true });
+  r.entity(internalNoteEntity);
+  r.relation({ entity: ticket, name: "internalNotes", type: "hasMany",
     target: "internalNote",
     foreignKey: "ticketId",
-    searchable: true,
-  });
-  r.entity({ name: "draftNote", ...draftNoteEntity });
-  r.relation(ticket, "draftNotes", {
-    type: "hasMany",
+    searchable: true });
+  r.entity(draftNoteEntity);
+  r.relation({ entity: ticket, name: "draftNotes", type: "hasMany",
     target: "draftNote",
     foreignKey: "ticketId",
-    searchable: true,
-  });
+    searchable: true });
   const access = { access: { roles: [...roles] } };
   const writeAccess = { access: { roles: ["Admin"] } };
   r.writeHandler(defineEntityWriteHandler("ticket:create", ticketEntity, writeAccess));

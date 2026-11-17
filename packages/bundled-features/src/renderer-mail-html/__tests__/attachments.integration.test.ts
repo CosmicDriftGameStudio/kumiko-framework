@@ -101,17 +101,15 @@ function mailNotification(subject: string) {
 
 const invoiceFeature = defineFeature(FEATURE, (r) => {
   r.requires({ features: ["delivery"] });
-  r.notification("invoice", mailNotification("Invoice"));
-  r.notification("inherit", mailNotification("Inherited"));
-  r.notification("immediate", mailNotification("Immediate"));
-  r.notification("branded", mailNotification("Branded"));
-  r.notification("system-file", mailNotification("System file"));
-  r.notification("plain", {
-    variables: {},
+  r.notification({ name: "invoice", ...mailNotification("Invoice") });
+  r.notification({ name: "inherit", ...mailNotification("Inherited") });
+  r.notification({ name: "immediate", ...mailNotification("Immediate") });
+  r.notification({ name: "branded", ...mailNotification("Branded") });
+  r.notification({ name: "system-file", ...mailNotification("System file") });
+  r.notification({ name: "plain", variables: {},
     localizedTemplate: () => ({
       en: { body: "<p>Plain</p>", meta: { subject: "Plain", category: "transactional" as const } },
-    }),
-  });
+    }) });
   r.writeHandler(
     defineWriteHandler({
       name: "send",
@@ -144,8 +142,7 @@ const renderedPdfRequests: { slug: string; locale: string; variables: unknown }[
 // Stands in for renderer-puppeteer-client: records what the mail asked to print.
 const fakePdfRenderer = defineFeature("fake-pdf-renderer", (r) => {
   r.requires({ features: ["renderer-foundation"] });
-  r.useExtension("renderer", "fake-pdf", {
-    kinds: ["document-pdf"] as const,
+  r.applyExtension({ name: "renderer", entity: "fake-pdf", kinds: ["document-pdf"] as const,
     render: async (req) => {
       if (req.kind !== "document-pdf") throw new Error(`unexpected kind ${req.kind}`);
       const { slug, locale, variables } = req.payload;
@@ -157,8 +154,7 @@ const fakePdfRenderer = defineFeature("fake-pdf-renderer", (r) => {
         sizeBytes: FAKE_PDF_BYTES.length,
         fileName: `${slug}.pdf`,
       };
-    },
-  });
+    } });
 });
 
 const tenantAdmin = (id: number) =>

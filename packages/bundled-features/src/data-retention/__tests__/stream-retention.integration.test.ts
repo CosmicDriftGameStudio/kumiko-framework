@@ -20,6 +20,7 @@ const CREATE_KEPT = "sr-fixtures:write:sr-kept:create";
 const THIRTY_ONE_DAYS_HOURS = 31 * 24;
 
 const previewEntity = createEntity({
+  name: "sr-preview",
   table: "read_sr_preview",
   fields: {
     title: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -27,6 +28,7 @@ const previewEntity = createEntity({
   streamRetention: { keepFor: "30d" },
 });
 const keptEntity = createEntity({
+  name: "sr-kept",
   table: "read_sr_kept",
   fields: {
     title: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -34,16 +36,16 @@ const keptEntity = createEntity({
 });
 
 const srFeature = defineFeature("sr-fixtures", (r) => {
-  r.entity({ name: "sr-preview", ...previewEntity });
-  r.entity({ name: "sr-kept", ...keptEntity });
+  r.entity(previewEntity);
+  r.entity(keptEntity);
   r.writeHandler(
     defineEntityCreateHandler("sr-preview", previewEntity, { access: { roles: ["Admin"] } }),
   );
   r.writeHandler(defineEntityCreateHandler("sr-kept", keptEntity, { access: { roles: ["Admin"] } }));
 });
 
-const previewTable = buildEntityTable("sr-preview", previewEntity);
-const keptTable = buildEntityTable("sr-kept", keptEntity);
+const previewTable = buildEntityTable(previewEntity);
+const keptTable = buildEntityTable(keptEntity);
 const admin = TestUsers.admin;
 
 let stack: TestStack;

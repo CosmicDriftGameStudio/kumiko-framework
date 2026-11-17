@@ -45,7 +45,7 @@ const unsafeRawProbeCap: CapSpec = {
   limit: () => 10,
   usage: async (db) => {
     try {
-      db.unsafeRaw();
+      db.unsafeRawAllTenants();
       return 1;
     } catch (error) {
       return error instanceof AccessDeniedError ? 0 : 2;

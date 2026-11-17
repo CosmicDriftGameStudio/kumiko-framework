@@ -30,7 +30,7 @@ const REQUIRED_I18N: Record<string, { de: TranslationValue; en: TranslationValue
 export const assetsFeature = defineFeature("assets", (r) => {
   r.translations({ keys: REQUIRED_I18N });
 
-  r.crud("asset", assetEntity, { write: openWrite, read: openRead });
+  r.crud(assetEntity, { write: openWrite, read: openRead });
 
   r.screen(assetEditScreen);
   r.screen(assetListScreen);

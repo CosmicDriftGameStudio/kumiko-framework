@@ -37,14 +37,10 @@ describe("ctx.defer", () => {
     const attemptsSeen: Array<number | undefined> = [];
     const events: string[] = [];
     const feature = defineFeature("deferok", (r) => {
-      r.job(
-        "busy",
-        { trigger: { manual: true }, runOnBoot: true, retries: 1, concurrency: "sequential" },
-        async (_payload, ctx) => {
+      r.job({ name: "busy", trigger: { manual: true }, runOnBoot: true, retries: 1, concurrency: "sequential", handler: async (_payload, ctx) => {
           runs += 1;
           if (runs <= 2) return ctx.defer(50);
-        },
-      );
+        } });
     });
     const queueNamePrefix = uniquePrefix("ok");
     const runner = createJobRunner({
@@ -91,11 +87,7 @@ describe("ctx.defer", () => {
     const failures: string[] = [];
     let deferred = 0;
     const feature = defineFeature("defercap", (r) => {
-      r.job(
-        "forever",
-        { trigger: { manual: true }, runOnBoot: true, maxDefers: 2, retries: 2 },
-        async (_payload, ctx) => ctx.defer(30),
-      );
+      r.job({ name: "forever", trigger: { manual: true }, runOnBoot: true, maxDefers: 2, retries: 2, handler: async (_payload, ctx) => ctx.defer(30) });
     });
     const queueNamePrefix = uniquePrefix("cap");
     const runner = createJobRunner({
@@ -135,14 +127,10 @@ describe("ctx.defer", () => {
     const failures: string[] = [];
     let completed = 0;
     const feature = defineFeature("defercan", (r) => {
-      r.job(
-        "budgeted",
-        { trigger: { manual: true }, runOnBoot: true, maxDefers: 2, retries: 0 },
-        async (_payload, ctx) => {
+      r.job({ name: "budgeted", trigger: { manual: true }, runOnBoot: true, maxDefers: 2, retries: 0, handler: async (_payload, ctx) => {
           canDeferSeen.push(ctx.canDefer);
           if (ctx.canDefer) return ctx.defer(30);
-        },
-      );
+        } });
     });
     const queueNamePrefix = uniquePrefix("can");
     const runner = createJobRunner({
@@ -172,9 +160,9 @@ describe("ctx.defer", () => {
   test("an inline boot gate run sees canDefer false", async () => {
     const canDeferSeen: boolean[] = [];
     const feature = defineFeature("defercaninline", (r) => {
-      r.job("gate", { trigger: { manual: true }, bootGate: true }, async (_payload, ctx) => {
+      r.job({ name: "gate", trigger: { manual: true }, bootGate: true, handler: async (_payload, ctx) => {
         canDeferSeen.push(ctx.canDefer);
-      });
+      } });
     });
     const queueNamePrefix = uniquePrefix("caninline");
     const runner = createJobRunner({
@@ -197,10 +185,10 @@ describe("ctx.defer", () => {
     let runs = 0;
     let failed = 0;
     const feature = defineFeature("deferhook", (r) => {
-      r.job("busy", { trigger: { manual: true }, runOnBoot: true }, async (_payload, ctx) => {
+      r.job({ name: "busy", trigger: { manual: true }, runOnBoot: true, handler: async (_payload, ctx) => {
         runs += 1;
         if (runs === 1) return ctx.defer(30);
-      });
+      } });
     });
     const queueNamePrefix = uniquePrefix("hook");
     let completed = 0;
@@ -233,9 +221,8 @@ describe("ctx.defer", () => {
 
   test("an inline boot gate cannot defer", async () => {
     const feature = defineFeature("deferinline", (r) => {
-      r.job("gate", { trigger: { manual: true }, bootGate: true }, async (_payload, ctx) =>
-        ctx.defer(10),
-      );
+      r.job({ name: "gate", trigger: { manual: true }, bootGate: true, handler: async (_payload, ctx) =>
+        ctx.defer(10) });
     });
     const queueNamePrefix = uniquePrefix("inline");
     const runner = createJobRunner({
@@ -256,9 +243,8 @@ describe("ctx.defer", () => {
   test("a non-positive defer delay fails the run", async () => {
     const failures: string[] = [];
     const feature = defineFeature("deferzero", (r) => {
-      r.job("zero", { trigger: { manual: true }, runOnBoot: true }, async (_payload, ctx) =>
-        ctx.defer(0),
-      );
+      r.job({ name: "zero", trigger: { manual: true }, runOnBoot: true, handler: async (_payload, ctx) =>
+        ctx.defer(0) });
     });
     const queueNamePrefix = uniquePrefix("zero");
     const runner = createJobRunner({

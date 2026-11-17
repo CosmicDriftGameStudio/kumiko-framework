@@ -7,6 +7,7 @@ import type { ParentRefDef } from "@cosmicdrift/kumiko-types/fields";
 
 // folder — per-tenant hierarchical catalog, event-sourced; `parentId` null marks a root folder.
 export const folderEntity = createEntity({
+  name: "folder",
   table: "read_folders",
   description:
     "One folder of a tenant's hierarchical catalog: a name plus an optional parentId pointing at another folder, so the rows together form a tree whose roots have no parent.",

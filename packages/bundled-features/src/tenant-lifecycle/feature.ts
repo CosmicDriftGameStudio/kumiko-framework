@@ -73,7 +73,7 @@ export function createTenantLifecycleFeature(): FeatureDefinition {
       recommended: false,
     });
     r.requires({ features: ["tenant", "compliance-profiles"] });
-    r.optionalRequires("sessions", "data-retention");
+    r.optionalRequires({ features: ["sessions", "data-retention"] });
     r.usesApi("compliance.forTenant");
 
     r.extendsRegistrar(EXT_TENANT_DATA, {});
@@ -84,25 +84,21 @@ export function createTenantLifecycleFeature(): FeatureDefinition {
 
     // Self-extension: data-retention hands a parked tenant back through this, see shared/tenant-destruction-hold.ts.
     r.extendsRegistrar(EXT_TENANT_DESTRUCTION_HOLD, {});
-    r.useExtension(EXT_TENANT_DESTRUCTION_HOLD, "tenant-lifecycle", tenantDestructionHoldProvider);
+    r.applyExtension({ name: EXT_TENANT_DESTRUCTION_HOLD, entity: "tenant-lifecycle", ...tenantDestructionHoldProvider });
 
     // Registered here because the hosts of these entities cannot require tenant-lifecycle (cycle,
     // resp. standalone use); the override hook no-ops without data-retention, the access-log hook
     // without audit.
-    r.useExtension(EXT_TENANT_DATA, COMPLIANCE_PROFILE_ENTITY_NAME, {
-      destroy: complianceProfileTenantDestroyHook,
-      phase: "tenant-row",
-    });
-    r.useExtension(EXT_TENANT_DATA, RETENTION_OVERRIDE_ENTITY_NAME, {
-      destroy: retentionOverrideTenantDestroyHook,
-      phase: "tenant-row",
-    });
-    r.useExtension(EXT_TENANT_DATA, "access-log", { destroy: accessLogTenantDestroyHook });
+    r.applyExtension({ name: EXT_TENANT_DATA, entity: COMPLIANCE_PROFILE_ENTITY_NAME, destroy: complianceProfileTenantDestroyHook,
+      phase: "tenant-row" });
+    r.applyExtension({ name: EXT_TENANT_DATA, entity: RETENTION_OVERRIDE_ENTITY_NAME, destroy: retentionOverrideTenantDestroyHook,
+      phase: "tenant-row" });
+    r.applyExtension({ name: EXT_TENANT_DATA, entity: "access-log", destroy: accessLogTenantDestroyHook });
 
     // Self-extension, same pattern as `user`/EXT_PRINCIPAL_STATUS — declares
     // AND fulfils tenantLifecycleStatus so teardown state is visible with no per-app wiring.
     r.extendsRegistrar(EXT_TENANT_LIFECYCLE_STATUS, {});
-    r.useExtension(EXT_TENANT_LIFECYCLE_STATUS, "tenant-lifecycle", tenantLifecycleStatusPlugin);
+    r.applyExtension({ name: EXT_TENANT_LIFECYCLE_STATUS, entity: "tenant-lifecycle", ...tenantLifecycleStatusPlugin });
 
     // GDPR-storage guard V4 — moved off the framework-internal
     // boot-validator onto this feature's own r.bootCheck(), since it owns
@@ -162,7 +158,7 @@ export function createTenantLifecycleFeature(): FeatureDefinition {
       trigger: { cron: "0 * * * * *", wakesSleepingApp: false },
       irreversibleWithoutEntryHandler: "high-risk-or-cron-pipeline",
       concurrency: "skip",
-      escapeHatch: { reason: RUN_TENANT_DESTRUCTION_REASON },
+      escapeHatch: { reason: RUN_TENANT_DESTRUCTION_REASON, grants: ["unsafeRaw", "crossTenantReads"] },
       handler: async (_payload, ctx) => {
         if (!ctx.registry) {
           throw new Error("run-tenant-destruction: ctx.registry required (JobContext incomplete)");
@@ -174,7 +170,7 @@ export function createTenantLifecycleFeature(): FeatureDefinition {
           return;
         }
         await runTenantDestructionSweep({
-          db: ctx.db.unsafeRaw(),
+          db: ctx.db.unsafeRawAllTenants(),
           registry: ctx.registry,
           now,
           log: (message) => ctx.obs.log?.warn(message),

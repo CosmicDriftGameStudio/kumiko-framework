@@ -71,6 +71,7 @@ const guardedProjectEntity = createProjectEntity(projectOwnership);
 // allowlist below — proves the allowlist rejects a real, registered entity
 // too, not just made-up names.
 const contactEntity = createEntity({
+  name: "contact",
   table: "notes_pv_test_contacts",
   fields: {
     name: createTextField({
@@ -85,6 +86,7 @@ const contactEntity = createEntity({
 // Host with a query handler restricted to TenantAdmin: its row rules admit every
 // member, so only the handler roles keep TenantMember away from its join rows.
 const budgetEntity = createEntity({
+  name: "budget",
   table: "notes_pv_test_budgets",
   fields: {
     name: createTextField({
@@ -99,6 +101,7 @@ const budgetEntity = createEntity({
 // Integer-id host: exercises the `idType: "serial"` branch of the id-shape gate
 // (rejects before any query, so no table is needed).
 const ticketEntity = createEntity({
+  name: "ticket",
   table: "notes_pv_test_tickets",
   idType: "serial",
   fields: {
@@ -113,9 +116,9 @@ const ticketEntity = createEntity({
 
 const fixturesFeature = defineFeature("notes-pv-test-fixtures", (r) => {
   r.entity({ name: "project", ...guardedProjectEntity });
-  r.entity({ name: "contact", ...contactEntity });
-  r.entity({ name: "ticket", ...ticketEntity });
-  r.entity({ name: "budget", ...budgetEntity });
+  r.entity(contactEntity);
+  r.entity(ticketEntity);
+  r.entity(budgetEntity);
   r.queryHandler({
     name: "budget:list",
     schema: z.object({}),
@@ -192,7 +195,7 @@ beforeAll(async () => {
     [PROJECT_OPEN, userA.tenantId],
   );
   await unsafeCreateEntityTable(openStack.db, budgetEntity);
-  await seedRowViaEventStore(openStack.db, buildEntityTable("budget", budgetEntity), {
+  await seedRowViaEventStore(openStack.db, buildEntityTable(budgetEntity), {
     id: BUDGET_ID,
     tenantId: userA.tenantId,
     name: "Budget",

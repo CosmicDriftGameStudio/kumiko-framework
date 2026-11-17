@@ -28,7 +28,7 @@ const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity,
 });
 
 const feature = defineFeature("perconsumerturns", (r) => {
-  r.entity({ name: "widget", ...sharedWidgetEntity });
+  r.entity(sharedWidgetEntity);
 });
 
 const admin = TestUsers.admin;

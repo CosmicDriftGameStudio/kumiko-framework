@@ -51,37 +51,22 @@ const testFeature = defineFeature("test", (r) => {
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
 
-  r.streamHandler(
-    "item:tail",
-    z.object({ count: z.number().int().min(0) }),
-    async function* (query) {
+  r.streamHandler({ name: "item:tail", schema: z.object({ count: z.number().int().min(0) }), handler: async function* (query) {
       for (let i = 0; i < query.payload.count; i++) {
         yield { i };
       }
-    },
-    { access: { roles: ["Admin"] } },
-  );
+    }, access: { roles: ["Admin"] } });
 
-  r.streamHandler(
-    "item:tail-fail-mid",
-    z.object({}),
-    async function* () {
+  r.streamHandler({ name: "item:tail-fail-mid", schema: z.object({}), handler: async function* () {
       yield { i: 0 };
       yield { i: 1 };
       throw new Error("boom");
-    },
-    { access: { roles: ["Admin"] } },
-  );
+    }, access: { roles: ["Admin"] } });
 
-  r.streamHandler(
-    "item:tail-fail-first",
-    z.object({}),
-    // biome-ignore lint/correctness/useYield: deliberately throws before any yield — tests the pre-pull failure path
+  r.streamHandler({ name: "item:tail-fail-first", schema: z.object({}), handler: // biome-ignore lint/correctness/useYield: deliberately throws before any yield — tests the pre-pull failure path
     async function* () {
       throw new Error("boom");
-    },
-    { access: { roles: ["Admin"] } },
-  );
+    }, access: { roles: ["Admin"] } });
 });
 
 const registry = createRegistry([testFeature]);

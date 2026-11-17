@@ -63,7 +63,7 @@ export function createDisableHandler() {
       // legitimate account owner (attacker with a stolen-but-not-yet-
       // MFA-locked session, or a recovery code obtained via social
       // engineering).
-      await revokeAllUserCredentials(ctx.registry, ctx.db.unsafeRaw(), event.user.id, {
+      await revokeAllUserCredentials(ctx.registry, ctx.db.unsafeRawAllTenants(), event.user.id, {
         keepSessionId: event.user.sid,
       });
 

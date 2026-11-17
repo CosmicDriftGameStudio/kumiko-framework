@@ -45,7 +45,7 @@ const providerFeature = defineFeature("test-prefill-provider", (r) => {
       };
     },
   };
-  r.useExtension("subscriptionProvider", "mock", plugin);
+  r.applyExtension({ name: "subscriptionProvider", entity: "mock", ...plugin });
 });
 
 let stack: TestStack;

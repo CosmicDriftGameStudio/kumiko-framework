@@ -51,20 +51,22 @@ import { REBUILD_BATCH_SIZE } from "../projection-rebuild.ts";
 // --- Fixtures: two aggregates feeding one MSP + two cornered MSPs ---
 
 const invoiceEntity = createEntity({
+  name: "msp-reb-invoice",
   table: "read_mspreb_invoices",
   fields: {
     customer: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
-const invoiceTable = buildEntityTable("msp-reb-invoice", invoiceEntity);
+const invoiceTable = buildEntityTable(invoiceEntity);
 
 const paymentEntity = createEntity({
+  name: "msp-reb-payment",
   table: "read_mspreb_payments",
   fields: {
     customer: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
-const paymentTable = buildEntityTable("msp-reb-payment", paymentEntity);
+const paymentTable = buildEntityTable(paymentEntity);
 
 // Main read-model: running balance per customer.
 const balanceTable = pgTable("read_mspreb_balance", {
@@ -99,8 +101,8 @@ const sagaStateTable = pgTable("read_mspreb_saga_state", {
 let invoiceBilledEventName = "";
 
 const feature = defineFeature("mspreb", (r) => {
-  r.entity({ name: "msp-reb-invoice", ...invoiceEntity });
-  r.entity({ name: "msp-reb-payment", ...paymentEntity });
+  r.entity(invoiceEntity);
+  r.entity(paymentEntity);
 
   const invoiceBilled = r.defineEvent(
     "invoice-billed",

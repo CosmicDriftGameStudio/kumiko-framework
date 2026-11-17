@@ -33,6 +33,7 @@ import { buildEntityTable, type EntityRow } from "../table-builder.ts";
 
 describe("EntityTable<E> — Property-Names existieren", () => {
   const sampleEntity = createEntity({
+    name: "sample",
     table: "x",
     fields: {
       title: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -40,7 +41,7 @@ describe("EntityTable<E> — Property-Names existieren", () => {
       priority: createSelectField({ options: ["low", "high"] as const }),
     },
   });
-  const t = buildEntityTable("sample", sampleEntity);
+  const t = buildEntityTable(sampleEntity);
 
   test("base columns are typed", () => {
     expectTypeOf(t.id).not.toBeNever();
@@ -70,13 +71,14 @@ describe("EntityTable<E> — Property-Names existieren", () => {
 
 describe("EntityTable<E> — Money produces two columns", () => {
   const ent = createEntity({
+    name: "invoice",
     table: "invoice",
     fields: {
       amount: createMoneyField({ required: true }),
       shipping: createMoneyField(),
     },
   });
-  const t = buildEntityTable("invoice", ent);
+  const t = buildEntityTable(ent);
 
   test("money-amount column existiert", () => {
     expectTypeOf(t.amount).not.toBeNever();
@@ -91,12 +93,13 @@ describe("EntityTable<E> — Money produces two columns", () => {
 
 describe("EntityTable<E> — locatedTimestamp produces Utc + Tz", () => {
   const ent = createEntity({
+    name: "delivery",
     table: "delivery",
     fields: {
       pickup: createLocatedTimestampField({ required: true }),
     },
   });
-  const t = buildEntityTable("delivery", ent);
+  const t = buildEntityTable(ent);
 
   test("Utc and Tz columns exist", () => {
     expectTypeOf(t.pickupUtc).not.toBeNever();
@@ -113,13 +116,14 @@ describe("EntityTable<E> — locatedTimestamp produces Utc + Tz", () => {
 
 describe("EntityTable<E> — files/images produce one jsonb column each", () => {
   const ent = createEntity({
+    name: "album",
     table: "album",
     fields: {
       photos: createImagesField(),
       docs: createFilesField(),
     },
   });
-  const t = buildEntityTable("album", ent);
+  const t = buildEntityTable(ent);
 
   test("columns exist with the UUID-array row type", () => {
     expectTypeOf(t.photos).not.toBeNever();
@@ -131,6 +135,7 @@ describe("EntityTable<E> — files/images produce one jsonb column each", () => 
 
 describe("EntityTable<E> — verschiedene Feld-Typen existieren", () => {
   const ent = createEntity({
+    name: "many",
     table: "many",
     fields: {
       txt: createTextField({ personal: false, reason: "test_fixture" }),
@@ -141,7 +146,7 @@ describe("EntityTable<E> — verschiedene Feld-Typen existieren", () => {
       tags: createMultiSelectField({ options: ["a", "b"] as const }),
     },
   });
-  const t = buildEntityTable("many", ent);
+  const t = buildEntityTable(ent);
 
   test("all fields are visible as columns", () => {
     expectTypeOf(t.txt).not.toBeNever();
@@ -155,17 +160,19 @@ describe("EntityTable<E> — verschiedene Feld-Typen existieren", () => {
 
 describe("EntityTable<E> — idType wirkt", () => {
   const uuidEnt = createEntity({
+    name: "uuid_ent",
     table: "uuid_ent",
     fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
     // default: idType: "uuid"
   });
   const serialEnt = createEntity({
+    name: "serial_ent",
     table: "serial_ent",
     fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
     idType: "serial",
   });
-  const tu = buildEntityTable("uuid_ent", uuidEnt);
-  const ts = buildEntityTable("serial_ent", serialEnt);
+  const tu = buildEntityTable(uuidEnt);
+  const ts = buildEntityTable(serialEnt);
 
   test("uuid-Entity exposed id existiert", () => {
     expectTypeOf(tu.id).not.toBeNever();
@@ -177,6 +184,7 @@ describe("EntityTable<E> — idType wirkt", () => {
 
 describe("createEntity — inline field literals without `as const`", () => {
   const inlineEntity = createEntity({
+    name: "inline_ent",
     table: "inline_ent",
     fields: {
       owner: { type: "reference", entity: "user", required: true },
@@ -184,7 +192,7 @@ describe("createEntity — inline field literals without `as const`", () => {
       title: createTextField({ required: true, personal: false, reason: "test_fixture" }),
     },
   });
-  const t = buildEntityTable("inline_ent", inlineEntity);
+  const t = buildEntityTable(inlineEntity);
 
   test("the result is an EntityDefinition, not never", () => {
     expectTypeOf(inlineEntity).not.toBeNever();
@@ -207,6 +215,7 @@ describe("createEntity — inline field literals without `as const`", () => {
 
 describe("createEntityExecutor — executor rows are typed from the entity", () => {
   const noteEntity = createEntity({
+    name: "note",
     table: "typed_notes",
     fields: {
       title: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -214,7 +223,7 @@ describe("createEntityExecutor — executor rows are typed from the entity", () 
       price: createMoneyField({ required: true }),
     },
   });
-  const { executor } = createEntityExecutor("note", noteEntity);
+  const { executor } = createEntityExecutor(noteEntity);
   type NoteRow = EntityRow<typeof noteEntity>;
 
   test("detail() resolves to the concrete row", () => {

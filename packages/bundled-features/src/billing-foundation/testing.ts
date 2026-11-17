@@ -124,7 +124,7 @@ export function createStubSubscriptionProvider(options: StubSubscriptionProvider
 
   const feature = defineFeature(featureName, (r) => {
     r.requires({ features: ["billing-foundation"] });
-    r.useExtension("subscriptionProvider", providerName, plugin);
+    r.applyExtension({ name: "subscriptionProvider", entity: providerName, ...plugin });
   });
 
   function resetCalls(): void {

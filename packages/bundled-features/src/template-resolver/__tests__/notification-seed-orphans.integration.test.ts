@@ -44,14 +44,12 @@ const mailerFeature = defineFeature("mailer", (r) => {
     access: { roles: ["TenantAdmin"] },
     handler: async () => ({ isSuccess: true as const, data: {} }),
   });
-  r.notification("kept", {
-    trigger: { on: "create" },
+  r.notification({ name: "kept", trigger: { on: "create" },
     recipient: () => null,
     data: () => ({}),
     renamedFrom: [RENAMED_AWAY],
     template: { en: { body: "<p>Hello</p>" } },
-    meta: { en: { subject: "Hello" } },
-  });
+    meta: { en: { subject: "Hello" } } });
 });
 
 function row(tenantId: string, slug: string) {

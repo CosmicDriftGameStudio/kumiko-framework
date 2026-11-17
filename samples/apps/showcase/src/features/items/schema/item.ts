@@ -14,6 +14,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 
 export const itemEntity = createEntity({
+  name: "item",
   description:
     "A showcase task item carrying a title, free-text notes, a numeric priority, a done flag, a due date and a draft/active/blocked/done status, plus an optional parent item and a list of related items.",
   fields: {

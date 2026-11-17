@@ -12,6 +12,7 @@ export type QuarantineReasonCode = (typeof QUARANTINE_REASON_CODES)[number];
 /** A provider message the ingest cannot take. No subject or sender, so nothing here is personal data;
  *  the UID is enough for the operator to find the mail in the mailbox. */
 export const quarantineEntity = createEntity({
+  name: "mail-quarantine",
   table: "store_mail_quarantine",
   softDelete: false,
   indexes: [{ unique: true, columns: ["tenantId", "accountId", "providerMessageId"] }],
@@ -51,6 +52,6 @@ export const quarantineEntity = createEntity({
   },
 });
 
-export const quarantineTable = deriveEntityTableMeta("mail-quarantine", quarantineEntity, {
+export const quarantineTable = deriveEntityTableMeta(quarantineEntity, {
   source: "unmanaged",
 });

@@ -21,24 +21,26 @@ import { TestUsers } from "../seeding/seed-users.ts";
 const TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
 
 const ledgerEntity = createEntity({
+  name: "ledger",
   table: "sigframes_ledgers",
   fields: {
     email: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
-const ledgerTable = buildEntityTable("ledger", ledgerEntity);
+const ledgerTable = buildEntityTable(ledgerEntity);
 
 const bannerEntity = createEntity({
+  name: "banner",
   table: "sigframes_banners",
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
-const bannerTable = buildEntityTable("banner", bannerEntity);
+const bannerTable = buildEntityTable(bannerEntity);
 
 const signalFeature = defineFeature("sigframes", (r) => {
-  r.entity({ name: "ledger", ...ledgerEntity });
-  r.entity({ name: "banner", ...bannerEntity });
+  r.entity(ledgerEntity);
+  r.entity(bannerEntity);
 
   r.writeHandler({
     name: "ledger:create",

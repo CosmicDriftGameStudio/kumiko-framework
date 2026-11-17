@@ -84,7 +84,7 @@ const facilitiesFeature = defineFeature("facilities", (r) => {
 });
 
 const teamsFeature = defineFeature("teams", (r) => {
-  r.claimKey("teamId", { type: "string" });
+  r.claimKey({ name: "teamId", type: "string" });
 });
 
 const tenant = testTenantId(1);

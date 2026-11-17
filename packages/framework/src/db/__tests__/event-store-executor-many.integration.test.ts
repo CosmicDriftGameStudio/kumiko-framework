@@ -20,13 +20,14 @@ import { buildEntityTable } from "../table-builder.ts";
 import { createTenantDb, type TenantDb } from "../tenant-db.ts";
 
 const entity = createEntity({
+  name: "esManyItem",
   table: "read_es_many_items",
   fields: {
     title: createTextField({ required: true, personal: false, reason: "test_fixture" }),
     body: createTextField({ personal: false, reason: "test_fixture" }),
   },
 });
-const table = buildEntityTable("esManyItem", entity);
+const table = buildEntityTable(entity);
 
 let testDb: TestDb;
 let tdb: TenantDb;

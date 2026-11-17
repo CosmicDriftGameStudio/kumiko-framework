@@ -29,6 +29,7 @@ const propertyAccess: NonNullable<EntityDefinition["access"]> = {
 };
 
 const propertyEntity = createEntity({
+  name: "property",
   table: "elref_properties",
   fields: {
     name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -43,6 +44,7 @@ const propertyEntity = createEntity({
 });
 
 const leaseEntity = createEntity({
+  name: "lease",
   table: "elref_leases",
   fields: {
     label: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -55,10 +57,10 @@ const leaseEntity = createEntity({
 const openRead = { access: { openToAll: { reason: "test handler callable by any test user" } } };
 
 const feature = defineFeature("elref", (r) => {
-  r.entity({ name: "property", ...propertyEntity });
-  r.entity({ name: "lease", ...leaseEntity });
-  r.crud("property", propertyEntity, { write: { access: { roles: ["Admin"] } }, read: openRead });
-  r.crud("lease", leaseEntity, { write: { access: { roles: ["Admin"] } }, read: openRead });
+  r.entity(propertyEntity);
+  r.entity(leaseEntity);
+  r.crud(propertyEntity, { write: { access: { roles: ["Admin"] } }, read: openRead });
+  r.crud(leaseEntity, { write: { access: { roles: ["Admin"] } }, read: openRead });
 });
 
 const admin = TestUsers.admin;

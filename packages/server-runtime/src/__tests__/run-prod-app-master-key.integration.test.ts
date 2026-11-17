@@ -55,6 +55,7 @@ const TEST_DB_URL = ADMIN_URL.replace(/\/[^/]+$/, `/${TEST_DB}`);
 const NOTE_PLAINTEXT = "plain-note-body";
 
 const vaultNoteEntity = createEntity({
+  name: "note",
   fields: {
     body: createTextField({ personal: false, reason: "test_fixture", encrypted: true }),
   },
@@ -62,7 +63,7 @@ const vaultNoteEntity = createEntity({
 });
 
 const vaultFeature = defineFeature("vault", (r) => {
-  r.entity({ name: "note", ...vaultNoteEntity });
+  r.entity(vaultNoteEntity);
   r.writeHandler(
     defineEntityCreateHandler("note", vaultNoteEntity, { access: { roles: ["User"] } }),
   );
@@ -210,7 +211,7 @@ describe("runProdApp with masterKey and no env KEK", () => {
     try {
       const rows = await selectMany<Record<string, unknown>>(
         db,
-        buildEntityTable("note", vaultNoteEntity),
+        buildEntityTable(vaultNoteEntity),
         {},
       );
       expect(rows.length).toBeGreaterThan(0);

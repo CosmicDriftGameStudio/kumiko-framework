@@ -16,14 +16,15 @@ import { createEventStoreExecutor } from "../event-store-executor.ts";
 import { buildEntityTable } from "../table-builder.ts";
 
 const ledgerEntity = createEntity({
+  name: "ledger-entry",
   table: "read_restore_money_entries",
   fields: { grossTotal: createMoneyField() },
   softDelete: true,
 });
-const ledgerTable = buildEntityTable("ledger-entry", ledgerEntity);
+const ledgerTable = buildEntityTable(ledgerEntity);
 
 const ledgerFeature = defineFeature("restoremoney", (r) => {
-  r.entity({ name: "ledger-entry", ...ledgerEntity });
+  r.entity(ledgerEntity);
   const executor = createEventStoreExecutor(ledgerTable, ledgerEntity, {
     entityName: "ledger-entry",
   });

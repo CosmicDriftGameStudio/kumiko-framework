@@ -28,6 +28,7 @@ const POISON_NAME = "poison";
 const MAX_PASSES_TO_DEAD = 12;
 
 const noteEntity = createEntity({
+  name: "note",
   table: "read_consumerdrill_notes",
   fields: {
     name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -38,7 +39,7 @@ let poisonArmed = true;
 const observed: string[] = [];
 
 const drillFeature = defineFeature("consumerdrill", (r) => {
-  r.entity({ name: "note", ...noteEntity });
+  r.entity(noteEntity);
   r.writeHandler(defineEntityCreateHandler("note", noteEntity, { access: { roles: ["Admin"] } }));
   r.multiStreamProjection({
     name: "observer",

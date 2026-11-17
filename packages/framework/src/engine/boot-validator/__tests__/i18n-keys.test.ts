@@ -362,7 +362,7 @@ describe("validateI18nSurfaceKeys — extension-selector settings dashboard", ()
         "smtp.host": { en: "Host" },
       },
     });
-    r.useExtension("mailTransport", "smtp");
+    r.applyExtension({ name: "mailTransport", entity: "smtp" });
     r.config({
       keys: {
         host: createTenantConfig("text", {
@@ -372,7 +372,7 @@ describe("validateI18nSurfaceKeys — extension-selector settings dashboard", ()
         }),
       },
     });
-    r.secret("password", { label: { en: "SMTP password" }, scope: "tenant" });
+    r.secret({ name: "password", label: { en: "SMTP password" }, scope: "tenant" });
   });
 
   test("an app declaring only today's keys boots with the selector dashboard", () => {

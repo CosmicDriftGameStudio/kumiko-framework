@@ -31,13 +31,11 @@ let sendCount = 0;
 
 const countingChannelFeature = defineFeature("counting-inline", (r) => {
   r.requires({ features: ["delivery"] });
-  r.useExtension(DELIVERY_CHANNEL_EXTENSION, "counting-inline", {
-    mode: "inline",
+  r.applyExtension({ name: DELIVERY_CHANNEL_EXTENSION, entity: "counting-inline", mode: "inline",
     send: async () => {
       sendCount += 1;
       return { status: "sent" as const };
-    },
-  });
+    } });
 });
 
 const probeFeature = defineFeature("boot-idempotency-probe", (r) => {

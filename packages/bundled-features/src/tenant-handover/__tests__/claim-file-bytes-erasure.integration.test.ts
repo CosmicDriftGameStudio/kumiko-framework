@@ -44,6 +44,7 @@ const SOURCE_TENANT = testTenantId(5);
 const DEST_TENANT = testTenantId(6);
 
 const carEntity: EntityDefinition = createEntity({
+  name: "car",
   table: "handover_erasure_car",
   idType: "uuid",
   transferable: true,
@@ -55,10 +56,10 @@ const carEntity: EntityDefinition = createEntity({
 });
 
 const fixturesFeature = defineFeature("handover-erasure-fixtures", (r) => {
-  r.entity({ name: "car", ...carEntity });
+  r.entity(carEntity);
 });
 
-const carCrud = createEventStoreExecutor(buildEntityTable("car", carEntity), carEntity, {
+const carCrud = createEventStoreExecutor(buildEntityTable(carEntity), carEntity, {
   entityName: "car",
 });
 const fileRefCrud = createEventStoreExecutor(fileRefsTable, fileRefEntity, {

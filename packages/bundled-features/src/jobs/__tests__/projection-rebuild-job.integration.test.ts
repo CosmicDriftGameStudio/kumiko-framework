@@ -52,13 +52,14 @@ import { createJobRunLogger } from "../job-run-logger.ts";
 import { jobRunLogsTable, jobRunsTable } from "../job-run-table.ts";
 
 const itemEntity = createEntity({
+  name: "rebuild-item",
   table: "read_rebuild_items",
   fields: {
     groupId: createTextField({ required: true, personal: false, reason: "technical_reference" }),
     name: createTextField({ required: true, personal: false, reason: "technical_reference" }),
   },
 });
-const itemTable = buildEntityTable("rebuild-item", itemEntity);
+const itemTable = buildEntityTable(itemEntity);
 const executor = createEventStoreExecutor(itemTable, itemEntity, { entityName: "rebuild-item" });
 
 const countsTable = pgTable("read_rebuild_counts", {
@@ -96,7 +97,7 @@ const MSP_PROJECTION = "rebuildtest:projection:rebuild-item-names";
 const GROUP = "00000000-0000-4000-8000-000000000001";
 
 const appFeature = defineFeature("rebuildtest", (r) => {
-  r.entity({ name: "rebuild-item", ...itemEntity });
+  r.entity(itemEntity);
   r.projection(countsProjection);
   r.multiStreamProjection({
     name: "rebuild-item-names",

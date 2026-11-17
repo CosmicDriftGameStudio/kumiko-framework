@@ -170,10 +170,11 @@ const logHandler = defineWriteHandler({
 // table belongs to an aggregate stream (boot-validator would reject any
 // unsafeProjection.* that targets it).
 const widgetEntity = createEntity({
+  name: "widget",
   table: "pipeline_widget",
   fields: { label: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
-const widgetTable = buildEntityTable("widget", widgetEntity);
+const widgetTable = buildEntityTable(widgetEntity);
 const widgetExecutor = createEventStoreExecutor(widgetTable, widgetEntity, {
   entityName: "widget",
 });
@@ -455,7 +456,7 @@ const bulkLogHandler = defineWriteHandler({
 
 const demoPipelineFeature = defineFeature("demoPipeline", (r) => {
   r.requires.projection("pipeline_demo_log");
-  r.entity({ name: "widget", ...widgetEntity });
+  r.entity(widgetEntity);
   r.defineEvent("annotated", z.object({ note: z.string() }), { piiFields: "none" });
   r.writeHandler(echoHandler);
   r.writeHandler(explodeHandler);

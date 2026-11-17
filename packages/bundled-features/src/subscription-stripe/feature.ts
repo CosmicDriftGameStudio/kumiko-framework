@@ -267,7 +267,7 @@ export function createSubscriptionStripeFeature(
         portalConfigurationCache,
       ),
     };
-    r.useExtension("subscriptionProvider", STRIPE_PROVIDER_NAME, plugin);
+    r.applyExtension({ name: "subscriptionProvider", entity: STRIPE_PROVIDER_NAME, ...plugin });
 
     return { configKeys };
   });

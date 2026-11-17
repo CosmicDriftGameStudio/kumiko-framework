@@ -25,6 +25,7 @@ import { createTestUser, TestUsers, testTenantId } from "../seeding/seed-users.t
 // - `teamId` + `assigneeId` columns drive both claim-rules and user-rules
 
 const contractEntity = createEntity({
+  name: "contract",
   table: "h2_contracts",
   softDelete: true,
   fields: {
@@ -68,7 +69,7 @@ const contractEntity = createEntity({
 const allRoles = ["Admin", "Manager", "TeamMember", "Driver", "Guest"] as const;
 
 const contractsFeature = defineFeature("h2contracts", (r) => {
-  r.entity({ name: "contract", ...contractEntity });
+  r.entity(contractEntity);
   for (const verb of ["create", "update", "delete", "restore"] as const) {
     r.writeHandler(
       defineEntityWriteHandler(`contract:${verb}`, contractEntity, {
@@ -86,7 +87,7 @@ const contractsFeature = defineFeature("h2contracts", (r) => {
 });
 
 const teamsFeature = defineFeature("teams", (r) => {
-  r.claimKey("teamId", { type: "string" });
+  r.claimKey({ name: "teamId", type: "string" });
 });
 
 // ── Shared users ───────────────────────────────────────────────────────────

@@ -52,7 +52,7 @@ export function createRunForgetCleanupHandler(opts: RunForgetCleanupOptions = {}
       }
 
       const T = getTemporal();
-      const runner = ctx.db.unsafeRaw();
+      const runner = ctx.db.unsafeRawAllTenants();
       // Operator-triggered forget must also erase binaries, not just rows —
       // it flips users to Deleted, after which the cron never re-processes
       // them, so a row-only delete here would permanently leak the binaries.

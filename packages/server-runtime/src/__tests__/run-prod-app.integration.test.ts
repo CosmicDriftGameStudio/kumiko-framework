@@ -87,6 +87,7 @@ async function createTempStaticDir(files: Record<string, string>): Promise<strin
 }
 
 const widgetEntity = createEntity({
+  name: "widget",
   fields: {
     name: createTextField({ personal: false, reason: "test_fixture", required: true }),
     active: createBooleanField({ default: true }),
@@ -95,7 +96,7 @@ const widgetEntity = createEntity({
 });
 
 const widgetFeature = defineFeature("prod-probe", (r) => {
-  r.entity({ name: "widget", ...widgetEntity });
+  r.entity(widgetEntity);
   // Anonymous query — covers the "anonymousAccess flows from runProdApp
   // through createApiEntrypoint to the auth-middleware" wiring that
   // earlier silently dropped the option in the entrypoint layer.
@@ -181,7 +182,7 @@ const widgetFeature = defineFeature("prod-probe", (r) => {
 // runProdApp must schedule it (single-instance runs both lanes); on the old
 // createApiEntrypoint path it was silently never registered → exports hung.
 const cronProbeFeature = defineFeature("cron-probe", (r) => {
-  r.job("worker-lane-cron", { trigger: { cron: "0 0 1 1 *" }, runIn: "worker" }, async () => {});
+  r.job({ name: "worker-lane-cron", trigger: { cron: "0 0 1 1 *" }, runIn: "worker", handler: async () => {} });
 });
 
 async function workerLaneSchedulers(prefix: string): Promise<{ name?: string; key?: string }[]> {

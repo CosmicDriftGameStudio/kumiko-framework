@@ -12,6 +12,7 @@ import { CODEMOD_PLACEHOLDER_REASON_MARKER } from "../escape-hatch-reason.ts";
 import { createEntity, createTextField } from "../factories.ts";
 
 const thingEntity = createEntity({
+  name: "thing",
   table: "escape_hatch_things",
   fields: {
     label: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -150,7 +151,7 @@ describe("entity convention query handlers: escapeHatch added by a spread", () =
     });
     expect(() =>
       defineFeature("spread-hatch", (r) => {
-        r.entity({ name: "thing", ...thingEntity });
+        r.entity(thingEntity);
         r.queryHandler({ ...generated, escapeHatch: { reason: "tier lookup on the list" } });
       }),
     ).toThrow(/escapeHatch reaches across every tenant, so its access must be SystemAdmin-only/);
@@ -160,7 +161,7 @@ describe("entity convention query handlers: escapeHatch added by a spread", () =
     const generated = defineEntityListHandler("thing", thingEntity, sysadminAccess);
     expect(() =>
       defineFeature("spread-hatch-admin", (r) => {
-        r.entity({ name: "thing", ...thingEntity });
+        r.entity(thingEntity);
         r.queryHandler({ ...generated, escapeHatch: { reason: "operator cross-tenant list" } });
       }),
     ).not.toThrow();

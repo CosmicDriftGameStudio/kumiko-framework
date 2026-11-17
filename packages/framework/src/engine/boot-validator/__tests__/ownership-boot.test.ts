@@ -14,7 +14,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("passes for entity.access.read with claim-rule whose QN exists", () => {
       const features = [
         defineFeature("teams", (r) => {
-          r.claimKey("teamId", { type: "string" });
+          r.claimKey({ name: "teamId", type: "string" });
         }),
         defineFeature("orders", (r) => {
           r.entity({
@@ -68,7 +68,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("detects column name that doesn't exist on the entity", () => {
       const features = [
         defineFeature("teams", (r) => {
-          r.claimKey("teamId", { type: "string" });
+          r.claimKey({ name: "teamId", type: "string" });
         }),
         defineFeature("orders", (r) => {
           r.entity({
@@ -100,7 +100,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("passes for field-level ownership rule with existing claim + column", () => {
       const features = [
         defineFeature("teams", (r) => {
-          r.claimKey("teamId", { type: "string" });
+          r.claimKey({ name: "teamId", type: "string" });
         }),
         defineFeature("contracts", (r) => {
           r.entity({
@@ -269,7 +269,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     test("framework columns (id, tenantId, version, ...) are acceptable targets", () => {
       const features = [
         defineFeature("teams", (r) => {
-          r.claimKey("teamId", { type: "string" });
+          r.claimKey({ name: "teamId", type: "string" });
         }),
         defineFeature("orders", (r) => {
           r.entity({

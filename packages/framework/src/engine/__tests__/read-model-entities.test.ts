@@ -13,6 +13,7 @@ const readTable = table("test_read_model", {
 }) as unknown as SchemaTable;
 
 const mailEntity = createEntity({
+  name: "task",
   table: "test_read_model",
   fields: {
     subject: createTextField({ personal: false, reason: "test_fixture" }),
@@ -48,7 +49,7 @@ describe("read-model entities", () => {
   test("an r.entity is never listed as a read model", () => {
     const registry = createRegistry([
       defineFeature("tasks", (r) => {
-        r.entity({ name: "task", ...mailEntity });
+        r.entity(mailEntity);
       }),
     ]);
 

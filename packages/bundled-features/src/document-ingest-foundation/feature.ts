@@ -146,10 +146,8 @@ export function createDocumentIngestFoundationFeature() {
       // tenant-lifecycle hosts EXT_TENANT_DATA — the destroy hook below forgets every extract and erases its record key.
       r.requires({ features: ["config", "tenant-lifecycle"] });
 
-      r.entity({ name: "documentExtract", ...documentExtractEntity });
-      r.useExtension(EXT_TENANT_DATA, "documentExtract", {
-        destroy: documentExtractTenantDestroyHook,
-      });
+      r.entity(documentExtractEntity);
+      r.applyExtension({ name: EXT_TENANT_DATA, entity: "documentExtract", destroy: documentExtractTenantDestroyHook });
       // The implicit projection listens for "documentExtract.*"; stored events are
       // "document-extract.*", so a rebuild would otherwise drop every extract row.
       r.extendEntityProjection("documentExtract", {
@@ -168,9 +166,7 @@ export function createDocumentIngestFoundationFeature() {
       r.extendsRegistrar(EXT_DOCUMENT_INGEST_PROVIDER, {});
       r.bootCheck(({ features }) => validateDocumentIngestProviderWiring(features));
 
-      const ocrLanguageConfigKey = r.config(
-        "ocrLanguage",
-        createTenantConfig("text", {
+      const ocrLanguageConfigKey = r.config({ keys: { ocrLanguage: createTenantConfig("text", {
           default: "deu+eng",
           // Tesseract -l argument syntax: one or more 3-letter language codes
           // joined by "+" (e.g. "deu+eng"). Unconstrained free text here would
@@ -178,11 +174,8 @@ export function createDocumentIngestFoundationFeature() {
           pattern: { regex: "^[a-z]{3}(\\+[a-z]{3})*$" },
           write: access.roles("TenantAdmin", "SystemAdmin"),
           read: access.roles("TenantAdmin", "SystemAdmin", "User"),
-        }),
-      );
-      const maxPagesPerFileConfigKey = r.config(
-        "maxPagesPerFile",
-        createTenantConfig("number", {
+        }) } }).ocrLanguage;
+      const maxPagesPerFileConfigKey = r.config({ keys: { maxPagesPerFile: createTenantConfig("number", {
           default: 50,
           // Without a bound a tenant could set 0 (silently kills ingest) or an
           // unbounded value (OCR worker runs per-file for as long as the PDF
@@ -190,8 +183,7 @@ export function createDocumentIngestFoundationFeature() {
           bounds: { min: 1, max: 500 },
           write: access.roles("TenantAdmin", "SystemAdmin"),
           read: access.roles("TenantAdmin", "SystemAdmin", "User"),
-        }),
-      );
+        }) } }).maxPagesPerFile;
 
       // "fileName" can carry a real person's name, but it reaches both events already as the
       // fileRef's own self-subject ciphertext (copied from fileRef.created/restored), which

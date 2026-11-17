@@ -21,6 +21,7 @@ import { createTenantDb, createUncheckedSystemDb } from "../tenant-db.ts";
 // --- Entity table (has tenantId via buildBaseColumns) ---
 
 const entity = createEntity({
+  name: "tenantDbItem",
   table: "tenant_db_items",
   fields: {
     name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -30,7 +31,7 @@ const entity = createEntity({
   softDelete: true,
 });
 
-const table = deriveEntityTableMeta("tenantDbItem", entity, { source: "unmanaged" });
+const table = deriveEntityTableMeta(entity, { source: "unmanaged" });
 
 // --- System table (no tenantId — like job_runs) ---
 

@@ -13,7 +13,7 @@ describe("r.claimKey() — registration", () => {
 
   test("single claimKey is stored with qualified name '<feature>:<shortName>' (no kebab conversion)", () => {
     const feature = defineFeature("drivers", (r) => {
-      r.claimKey("teamId", { type: "string" });
+      r.claimKey({ name: "teamId", type: "string" });
     });
     expect(feature.claimKeys["teamId"]).toBeDefined();
     // Claim keys are NOT QNs — they keep the raw camelCase shortName so the
@@ -25,7 +25,7 @@ describe("r.claimKey() — registration", () => {
   test("returns a typed ClaimKeyHandle whose `name` is the qualified key", () => {
     let handle: ClaimKeyHandle | undefined;
     defineFeature("drivers", (r) => {
-      handle = r.claimKey("teamId", { type: "string" });
+      handle = r.claimKey({ name: "teamId", type: "string" });
     });
     expect(handle?.name).toBe("drivers:teamId");
     expect(handle?.type).toBe("string");
@@ -34,15 +34,15 @@ describe("r.claimKey() — registration", () => {
   test("duplicate short-name within one feature throws", () => {
     expect(() =>
       defineFeature("drivers", (r) => {
-        r.claimKey("teamId", { type: "string" });
-        r.claimKey("teamId", { type: "number" });
+        r.claimKey({ name: "teamId", type: "string" });
+        r.claimKey({ name: "teamId", type: "number" });
       }),
     ).toThrow(/Claim key "teamId" already declared/);
   });
 
   test("camelCase feature + shortName are preserved as-is", () => {
     const feature = defineFeature("driverOrders", (r) => {
-      r.claimKey("regionId", { type: "string" });
+      r.claimKey({ name: "regionId", type: "string" });
     });
     expect(feature.claimKeys["regionId"]?.qualifiedName).toBe("driverOrders:regionId");
   });
@@ -53,11 +53,11 @@ describe("r.claimKey() — registration", () => {
 describe("Registry.getAllClaimKeys / getClaimKey", () => {
   test("aggregates keys from all features", () => {
     const drivers = defineFeature("drivers", (r) => {
-      r.claimKey("teamId", { type: "string" });
-      r.claimKey("regionId", { type: "number" });
+      r.claimKey({ name: "teamId", type: "string" });
+      r.claimKey({ name: "regionId", type: "number" });
     });
     const billing = defineFeature("billing", (r) => {
-      r.claimKey("plan", { type: "string" });
+      r.claimKey({ name: "plan", type: "string" });
     });
     const reg = createRegistry([drivers, billing]);
 
@@ -70,7 +70,7 @@ describe("Registry.getAllClaimKeys / getClaimKey", () => {
 
   test("getClaimKey returns the definition by qualified name", () => {
     const drivers = defineFeature("drivers", (r) => {
-      r.claimKey("teamId", { type: "string" });
+      r.claimKey({ name: "teamId", type: "string" });
     });
     const reg = createRegistry([drivers]);
 
@@ -100,7 +100,7 @@ describe("readClaim() — type-narrowed claim access", () => {
 
   test("returns the value cast to the handle's JS type — string", () => {
     const drivers = defineFeature("drivers", (r) => {
-      r.claimKey("teamId", { type: "string" });
+      r.claimKey({ name: "teamId", type: "string" });
     });
     const handle = drivers.claimKeys["teamId"];
     if (!handle) throw new Error("handle missing");
@@ -205,7 +205,7 @@ describe("round-trip: claimKey ↔ authClaims return ↔ readClaim", () => {
     driverData.set("user-1", "team-alpha");
 
     const feature = defineFeature("drivers", (r) => {
-      const teamId = r.claimKey("teamId", { type: "string" });
+      const teamId = r.claimKey({ name: "teamId", type: "string" });
       r.authClaims(async (user) => {
         const team = driverData.get(user.id);
         return team ? { teamId: team } : {};
@@ -244,7 +244,7 @@ describe("round-trip: claimKey ↔ authClaims return ↔ readClaim", () => {
     // early impl kebab'd the handle name but the resolver merged with the
     // raw camelCase key, so readClaim missed. Lock the camelCase path in.
     const feature = defineFeature("driverOrders", (r) => {
-      const regionId = r.claimKey("regionId", { type: "number" });
+      const regionId = r.claimKey({ name: "regionId", type: "number" });
       r.authClaims(async () => ({ regionId: 42 }));
       return { Claims: { regionId } as const };
     });

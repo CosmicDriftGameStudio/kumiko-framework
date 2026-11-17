@@ -38,6 +38,7 @@ import { reindexEntityJob } from "../handlers/reindex-entity.job.ts";
 const REINDEX_ENTITY_JOB = "jobs:job:reindex-entity";
 
 const widgetEntity = createEntity({
+  name: "widget",
   table: "read_reindex_job_widgets",
   fields: {
     name: createTextField({
@@ -49,9 +50,10 @@ const widgetEntity = createEntity({
   },
 });
 
-const widgetTable = buildEntityTable("widget", widgetEntity);
+const widgetTable = buildEntityTable(widgetEntity);
 
 const slowWidgetEntity = createEntity({
+  name: "slow-widget",
   table: "read_reindex_job_slow_widgets",
   fields: {
     name: createTextField({
@@ -63,11 +65,11 @@ const slowWidgetEntity = createEntity({
   },
 });
 
-const slowWidgetTable = buildEntityTable("slow-widget", slowWidgetEntity);
+const slowWidgetTable = buildEntityTable(slowWidgetEntity);
 
 const widgetFeature = defineFeature("reindex-job-test", (r) => {
-  r.entity({ name: "slow-widget", ...slowWidgetEntity });
-  r.entity({ name: "widget", ...widgetEntity });
+  r.entity(slowWidgetEntity);
+  r.entity(widgetEntity);
 });
 
 let stack: TestStack;

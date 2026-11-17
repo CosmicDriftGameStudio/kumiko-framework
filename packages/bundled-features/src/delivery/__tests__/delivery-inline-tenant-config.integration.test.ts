@@ -36,11 +36,9 @@ const transport = createInMemoryTransport();
 
 const probe = defineFeature("inline-config-probe", (r) => {
   r.requires({ features: ["delivery"] });
-  r.notification("hello", {
-    variables: { name: templateVariable.text({ required: true }) },
+  r.notification({ name: "hello", variables: { name: templateVariable.text({ required: true }) },
     template: { en: { body: '<p>Hello <span data-variable="name"></span></p>' } },
-    meta: { en: { subject: "Hello" } },
-  });
+    meta: { en: { subject: "Hello" } } });
 });
 
 const NOTIFICATION_TYPE = "inline-config-probe:notify:hello";

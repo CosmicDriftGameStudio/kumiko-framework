@@ -35,13 +35,14 @@ import { createEsOperationsTable, esOperationsTable } from "../operations-schema
 import { runPendingSeedMigrations } from "../runner.ts";
 
 const membershipEntity = createEntity({
+  name: "tenant-membership",
   table: "read_tenant_memberships",
   fields: {
     userId: createTextField({ required: true, personal: false, reason: "pseudonymous_fk" }),
     roles: createTextField({ required: true, personal: false, reason: "technical_reference" }),
   },
 });
-const membershipsTable = buildEntityTable("tenant-membership", membershipEntity);
+const membershipsTable = buildEntityTable(membershipEntity);
 
 async function seedMembershipRow(args: {
   readonly id: string;

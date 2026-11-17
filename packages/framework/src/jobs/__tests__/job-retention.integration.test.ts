@@ -70,11 +70,11 @@ describe("bounded job retention", () => {
 
     const feature = defineFeature("retention", (r) => {
       const someEvent = r.defineEvent("some-event", z.object({}), { piiFields: "none" });
-      r.job("tick", { trigger: { manual: true } }, async () => {});
-      r.job("onEvent", { trigger: { on: someEvent.name } }, async () => {});
-      r.job("fanout", { trigger: { manual: true }, perTenant: true }, async () => {});
-      r.job("cronJob", { trigger: { cron: "* * * * * *" } }, async () => {});
-      r.job("sweeper", { trigger: { manual: true } }, async () => {});
+      r.job({ name: "tick", trigger: { manual: true }, handler: async () => {} });
+      r.job({ name: "onEvent", trigger: { on: someEvent.name }, handler: async () => {} });
+      r.job({ name: "fanout", trigger: { manual: true }, perTenant: true, handler: async () => {} });
+      r.job({ name: "cronJob", trigger: { cron: "* * * * * *" }, handler: async () => {} });
+      r.job({ name: "sweeper", trigger: { manual: true }, handler: async () => {} });
     });
 
     const registry = createRegistry([feature]);
@@ -139,9 +139,9 @@ describe("bounded job retention", () => {
     const failed: Array<{ name: string; jobId: string }> = [];
 
     const feature = defineFeature("retentionfail", (r) => {
-      r.job("boom", { trigger: { manual: true } }, async () => {
+      r.job({ name: "boom", trigger: { manual: true }, handler: async () => {
         throw new Error("always fails");
-      });
+      } });
     });
 
     const registry = createRegistry([feature]);
@@ -189,12 +189,12 @@ describe("bounded job retention", () => {
     let tickRuns = 0;
 
     const feature = defineFeature("retentionboot", (r) => {
-      r.job("boot", { trigger: { manual: true }, runOnBoot: true }, async () => {
+      r.job({ name: "boot", trigger: { manual: true }, runOnBoot: true, handler: async () => {
         bootRuns += 1;
-      });
-      r.job("tick", { trigger: { manual: true } }, async () => {
+      } });
+      r.job({ name: "tick", trigger: { manual: true }, handler: async () => {
         tickRuns += 1;
-      });
+      } });
     });
 
     const registry1 = createRegistry([feature]);
@@ -260,16 +260,10 @@ describe("bounded job retention", () => {
 
   test("createJobRunner throws for a perTenant job whose retry window reaches the completed retention", () => {
     const feature = defineFeature("retentioninvariant", (r) => {
-      r.job(
-        "risky",
-        {
-          trigger: { manual: true },
+      r.job({ name: "risky", trigger: { manual: true },
           perTenant: true,
           retries: 2,
-          backoff: { type: "fixed", delayMs: 1000 },
-        },
-        async () => {},
-      );
+          backoff: { type: "fixed", delayMs: 1000 }, handler: async () => {} });
     });
     const registry = createRegistry([feature]);
     expect(() =>
@@ -286,11 +280,7 @@ describe("bounded job retention", () => {
 
   test("createJobRunner does not throw for a non-perTenant job with the same retry config", async () => {
     const feature = defineFeature("retentionnonpertenant", (r) => {
-      r.job(
-        "risky",
-        { trigger: { manual: true }, retries: 2, backoff: { type: "fixed", delayMs: 1000 } },
-        async () => {},
-      );
+      r.job({ name: "risky", trigger: { manual: true }, retries: 2, backoff: { type: "fixed", delayMs: 1000 }, handler: async () => {} });
     });
     const registry = createRegistry([feature]);
     const queueNamePrefix = uniquePrefix("nonpertenant");
@@ -327,7 +317,7 @@ describe("bounded job retention", () => {
     ["failedAgeSec", Number.NaN],
   ] as const)("createJobRunner throws for jobRetention.%s = %p", (field, value) => {
     const feature = defineFeature("retentionbadvalue", (r) => {
-      r.job("noop", { trigger: { manual: true } }, async () => {});
+      r.job({ name: "noop", trigger: { manual: true }, handler: async () => {} });
     });
     const registry = createRegistry([feature]);
     expect(() =>

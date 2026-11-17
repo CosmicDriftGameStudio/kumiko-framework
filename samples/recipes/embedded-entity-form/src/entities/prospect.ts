@@ -8,6 +8,7 @@ import {
 // create, so `source`/`acceptedBy`/`acceptedAt` are never on the edit form
 // and a client can't set them itself.
 export const prospectEntity = createEntity({
+  name: "prospect",
   table: "read_sample_prospects",
   fields: {
     name: createTextField({ required: true, personal: "self", find: "fuzzy" }),

@@ -28,6 +28,7 @@ import {
 } from "./screens";
 
 export const taskEntity = createEntity({
+  name: "task",
   table: "read_list_table_tasks",
   fields: {
     title: createTextField({
@@ -112,7 +113,7 @@ export function createTaskBoardFeature(
   },
 ): FeatureDefinition {
   return defineFeature("task-board", (r) => {
-    r.crud("task", taskEntity, { write: openAccess, read: openAccess });
+    r.crud(taskEntity, { write: openAccess, read: openAccess });
 
     r.screen(createTaskListScreen(taskTable));
 
@@ -145,7 +146,7 @@ export function createTaskBoardFeature(
     // A hand-written list query keeps grouping and totals when it accepts
     // `aggregate` (entityListSchema carries it) and answers it on the server.
     const taskExecutor = createEventStoreExecutor(
-      buildEntityTable("task", taskEntity),
+      buildEntityTable(taskEntity),
       taskEntity,
       {
         entityName: "task",

@@ -32,7 +32,7 @@ const REQUIRED_I18N: Record<string, { de: TranslationValue; en: TranslationValue
 export const ticketingFeature = defineFeature("ticketing", (r) => {
   r.translations({ keys: REQUIRED_I18N });
 
-  r.crud("ticket", ticketEntity, { write: openWrite, read: openRead });
+  r.crud(ticketEntity, { write: openWrite, read: openRead });
 
   r.screen(ticketEditScreen);
   r.screen(ticketListScreen);

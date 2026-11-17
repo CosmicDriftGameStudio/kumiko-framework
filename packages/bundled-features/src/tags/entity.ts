@@ -9,6 +9,7 @@ import type { ParentRefDef } from "@cosmicdrift/kumiko-types/fields";
 // the standard executor); the framework projects `read_tags` from its own CRUD
 // events. tenantId is a base column set by the framework → tenant-scoped.
 export const tagEntity = createEntity({
+  name: "tag",
   table: "read_tags",
   description:
     "One entry of a tenant's tag catalog: a name plus an optional colour hint for rendering and an optional entityType scope that limits which entities a picker offers the tag on. Names are not unique, and a tag carries no link to the entities it is attached to.",

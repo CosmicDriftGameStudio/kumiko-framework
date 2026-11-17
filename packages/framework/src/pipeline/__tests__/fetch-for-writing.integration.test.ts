@@ -28,16 +28,17 @@ import { TestUsers } from "../../seeding/seed-users.ts";
 let betweenFetchAndAppend: (() => Promise<void>) | undefined;
 
 const cartEntity = createEntity({
+  name: "f4wCart",
   table: "read_f4w_carts",
   fields: {
     customer: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
 
-const cartTable = buildEntityTable("f4wCart", cartEntity);
+const cartTable = buildEntityTable(cartEntity);
 
 const cartFeature = defineFeature("f4w", (r) => {
-  r.entity({ name: "f4wCart", ...cartEntity });
+  r.entity(cartEntity);
 
   const itemAdded = r.defineEvent("itemAdded", z.object({ sku: z.string(), qty: z.number() }), {
     piiFields: "none",

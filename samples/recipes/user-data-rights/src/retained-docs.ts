@@ -12,6 +12,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 
 export const retainedDocEntity = createEntity({
+  name: "retained-doc",
   table: "store_retained_docs",
   fields: {
     title: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -21,7 +22,7 @@ export const retainedDocEntity = createEntity({
 });
 
 export const retainedDocsFeature = defineFeature("retained-docs", (r) => {
-  r.entity({ name: "retained-doc", ...retainedDocEntity });
+  r.entity(retainedDocEntity);
   r.writeHandler(
     defineEntityCreateHandler("retained-doc", retainedDocEntity, {
       access: { roles: ["Admin"] },

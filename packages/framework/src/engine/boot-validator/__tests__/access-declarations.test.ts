@@ -12,6 +12,7 @@ import { buildInsertSchema, buildUpdateSchema } from "../../schema-builder.ts";
 import { validateAccessDeclarations } from "../access-declarations.ts";
 
 const noteEntity = createEntity({
+  name: "note",
   table: "fw2855_guard_notes",
   fields: {
     email: createTextField({ personal: "self", find: "none" }),
@@ -23,7 +24,7 @@ describe("validateAccessDeclarations", () => {
   // 1. openToAll reason must be non-empty.
   test("openToAll with an empty reason throws, naming the handler", () => {
     const feature = defineFeature("notes", (r) => {
-      r.entity({ name: "note", ...noteEntity });
+      r.entity(noteEntity);
       r.writeHandler({
         name: "note:create",
         schema: z.object({ title: z.string() }),
@@ -40,7 +41,7 @@ describe("validateAccessDeclarations", () => {
 
   test("openToAll with a placeholder reason throws, naming the handler", () => {
     const feature = defineFeature("notes", (r) => {
-      r.entity({ name: "note", ...noteEntity });
+      r.entity(noteEntity);
       r.writeHandler({
         name: "note:create",
         schema: z.object({ title: z.string() }),
@@ -56,7 +57,7 @@ describe("validateAccessDeclarations", () => {
 
   test("openToAll with a non-empty reason boots fine", () => {
     const feature = defineFeature("notes", (r) => {
-      r.entity({ name: "note", ...noteEntity });
+      r.entity(noteEntity);
       r.writeHandler({
         name: "note:create",
         schema: z.object({ title: z.string() }),
@@ -76,7 +77,7 @@ describe("validateAccessDeclarations", () => {
     "malformed openToAll %p throws, naming the handler",
     (access) => {
       const feature = defineFeature("notes", (r) => {
-        r.entity({ name: "note", ...noteEntity });
+        r.entity(noteEntity);
         r.writeHandler({
           name: "note:create",
           schema: z.object({ title: z.string() }),
@@ -95,7 +96,7 @@ describe("validateAccessDeclarations", () => {
   // 2. escapeHatch reason must be non-empty.
   test("escapeHatch with an empty reason throws, naming the handler", () => {
     const feature = defineFeature("notes", (r) => {
-      r.entity({ name: "note", ...noteEntity });
+      r.entity(noteEntity);
       r.writeHandler({
         name: "note:create",
         schema: z.object({ title: z.string() }),
@@ -113,7 +114,7 @@ describe("validateAccessDeclarations", () => {
 
   test("escapeHatch with a placeholder reason throws, naming the handler", () => {
     const feature = defineFeature("notes", (r) => {
-      r.entity({ name: "note", ...noteEntity });
+      r.entity(noteEntity);
       r.writeHandler({
         name: "note:create",
         schema: z.object({ title: z.string() }),
@@ -130,7 +131,7 @@ describe("validateAccessDeclarations", () => {
 
   test("escapeHatch with a non-empty reason boots fine", () => {
     const feature = defineFeature("notes", (r) => {
-      r.entity({ name: "note", ...noteEntity });
+      r.entity(noteEntity);
       r.writeHandler({
         name: "note:create",
         schema: z.object({ title: z.string() }),
@@ -147,7 +148,7 @@ describe("validateAccessDeclarations", () => {
 
   test("escapeHatch with an empty grants list throws, naming the handler", () => {
     const feature = defineFeature("notes", (r) => {
-      r.entity({ name: "note", ...noteEntity });
+      r.entity(noteEntity);
       r.queryHandler({
         name: "note:list",
         schema: z.object({}),
@@ -161,7 +162,7 @@ describe("validateAccessDeclarations", () => {
 
   test("escapeHatch with an unknown grant throws, naming the handler", () => {
     const feature = defineFeature("notes", (r) => {
-      r.entity({ name: "note", ...noteEntity });
+      r.entity(noteEntity);
       r.queryHandler({
         name: "note:list",
         schema: z.object({}),
@@ -176,7 +177,7 @@ describe("validateAccessDeclarations", () => {
 
   test("escapeHatch with a valid grants subset boots fine", () => {
     const feature = defineFeature("notes", (r) => {
-      r.entity({ name: "note", ...noteEntity });
+      r.entity(noteEntity);
       r.queryHandler({
         name: "note:list",
         schema: z.object({}),
@@ -193,7 +194,7 @@ describe("validateAccessDeclarations", () => {
   // escapeHatch to switch identity to SYSTEM via ctx.dispatch.queryAs).
   test("query handler escapeHatch with an empty reason throws, naming the handler", () => {
     const feature = defineFeature("notes", (r) => {
-      r.entity({ name: "note", ...noteEntity });
+      r.entity(noteEntity);
       r.queryHandler({
         name: "note:list",
         schema: z.object({}),
@@ -208,7 +209,7 @@ describe("validateAccessDeclarations", () => {
 
   test("query handler escapeHatch with the unedited codemod placeholder throws", () => {
     const feature = defineFeature("notes", (r) => {
-      r.entity({ name: "note", ...noteEntity });
+      r.entity(noteEntity);
       r.queryHandler({
         name: "note:list",
         schema: z.object({}),
@@ -224,7 +225,7 @@ describe("validateAccessDeclarations", () => {
 
   test("query handler escapeHatch with a non-empty reason boots fine", () => {
     const feature = defineFeature("notes", (r) => {
-      r.entity({ name: "note", ...noteEntity });
+      r.entity(noteEntity);
       r.queryHandler({
         name: "note:list",
         schema: z.object({}),
@@ -241,15 +242,10 @@ describe("validateAccessDeclarations", () => {
   // still declare escapeHatch to switch identity to SYSTEM via ctx.dispatch.queryAs.
   test("stream handler escapeHatch with an empty reason throws, naming the handler", () => {
     const feature = defineFeature("notes", (r) => {
-      r.entity({ name: "note", ...noteEntity });
-      r.streamHandler(
-        "note:tail",
-        z.object({}),
-        async function* () {
+      r.entity(noteEntity);
+      r.streamHandler({ name: "note:tail", schema: z.object({}), handler: async function* () {
           yield {};
-        },
-        { access: { roles: ["Admin"] }, escapeHatch: { reason: "" } },
-      );
+        }, access: { roles: ["Admin"] }, escapeHatch: { reason: "" } });
     });
     expect(() => validateAccessDeclarations(feature)).toThrow(/Feature notes/);
     expect(() => validateAccessDeclarations(feature)).toThrow(/"note:tail"/);
@@ -257,18 +253,11 @@ describe("validateAccessDeclarations", () => {
 
   test("stream handler escapeHatch with a non-empty reason boots fine", () => {
     const feature = defineFeature("notes", (r) => {
-      r.entity({ name: "note", ...noteEntity });
-      r.streamHandler(
-        "note:tail",
-        z.object({}),
-        async function* () {
+      r.entity(noteEntity);
+      r.streamHandler({ name: "note:tail", schema: z.object({}), handler: async function* () {
           yield {};
-        },
-        {
-          access: { roles: ["Admin"] },
-          escapeHatch: { reason: "cross-tenant note tail for auth" },
-        },
-      );
+        }, access: { roles: ["Admin"] },
+          escapeHatch: { reason: "cross-tenant note tail for auth" } });
     });
     expect(() => validateAccessDeclarations(feature)).not.toThrow();
   });
@@ -276,7 +265,7 @@ describe("validateAccessDeclarations", () => {
   // 3. openToAll write handler accepting an unbound personal-data field needs personalData.
   test("openToAll write handler accepting a personal-data field without personalData throws", () => {
     const feature = defineFeature("notes", (r) => {
-      r.entity({ name: "note", ...noteEntity });
+      r.entity(noteEntity);
       r.writeHandler({
         name: "note:create",
         schema: z.object({ email: z.string() }),
@@ -295,7 +284,7 @@ describe("validateAccessDeclarations", () => {
 
   test('openToAll write handler accepting a personal-data field WITH personalData: "tenant-members" boots fine', () => {
     const feature = defineFeature("notes", (r) => {
-      r.entity({ name: "note", ...noteEntity });
+      r.entity(noteEntity);
       r.writeHandler({
         name: "note:create",
         schema: z.object({ email: z.string() }),
@@ -313,7 +302,7 @@ describe("validateAccessDeclarations", () => {
 
   test("an unknown personalData value from an untyped source throws", () => {
     const feature = defineFeature("notes", (r) => {
-      r.entity({ name: "note", ...noteEntity });
+      r.entity(noteEntity);
       r.writeHandler({
         name: "note:create",
         schema: z.object({ title: z.string() }),
@@ -333,7 +322,7 @@ describe("validateAccessDeclarations", () => {
       publicIntake: true,
     };
     const feature = defineFeature("notes", (r) => {
-      r.entity({ name: "note", ...noteEntity });
+      r.entity(noteEntity);
       r.writeHandler({
         name: "note:create",
         schema: z.object({ email: z.string() }),
@@ -353,7 +342,7 @@ describe("validateAccessDeclarations", () => {
   // 4. openToAll.personalData is only meaningful on a write handler.
   test("openToAll personalData on a query handler throws", () => {
     const feature = defineFeature("notes", (r) => {
-      r.entity({ name: "note", ...noteEntity });
+      r.entity(noteEntity);
       r.queryHandler({
         name: "note:list",
         schema: z.object({}),
@@ -368,7 +357,7 @@ describe("validateAccessDeclarations", () => {
 
   test("query handler without personalData boots fine", () => {
     const feature = defineFeature("notes", (r) => {
-      r.entity({ name: "note", ...noteEntity });
+      r.entity(noteEntity);
       r.queryHandler({
         name: "note:list",
         schema: z.object({}),
@@ -381,10 +370,8 @@ describe("validateAccessDeclarations", () => {
 
   test("personalData on a stream handler throws", () => {
     const feature = defineFeature("notes", (r) => {
-      r.entity({ name: "note", ...noteEntity });
-      r.streamHandler("note:watch", z.object({}), async function* () {}, {
-        access: { openToAll: { reason: "member stream", personalData: "tenant-members" } },
-      });
+      r.entity(noteEntity);
+      r.streamHandler({ name: "note:watch", schema: z.object({}), handler: async function* () {}, access: { openToAll: { reason: "member stream", personalData: "tenant-members" } } });
     });
     expect(() => validateAccessDeclarations(feature)).toThrow(/Feature notes/);
     expect(() => validateAccessDeclarations(feature)).toThrow(/"note:watch"/);
@@ -392,28 +379,24 @@ describe("validateAccessDeclarations", () => {
 
   test('personalData: "public-intake" on the roles form of a stream handler throws', () => {
     const feature = defineFeature("notes", (r) => {
-      r.entity({ name: "note", ...noteEntity });
-      r.streamHandler("note:watch", z.object({}), async function* () {}, {
-        access: { roles: ["anonymous"], personalData: "public-intake" },
-        rateLimit: { per: "ip", limit: 5, windowSeconds: 60 },
-      });
+      r.entity(noteEntity);
+      r.streamHandler({ name: "note:watch", schema: z.object({}), handler: async function* () {}, access: { roles: ["anonymous"], personalData: "public-intake" },
+        rateLimit: { per: "ip", limit: 5, windowSeconds: 60 } });
     });
     expect(() => validateAccessDeclarations(feature)).toThrow(/stream handler "note:watch"/);
   });
 
   test("stream handler without personalData boots fine", () => {
     const feature = defineFeature("notes", (r) => {
-      r.entity({ name: "note", ...noteEntity });
-      r.streamHandler("note:watch", z.object({}), async function* () {}, {
-        access: { openToAll: { reason: "member stream" } },
-      });
+      r.entity(noteEntity);
+      r.streamHandler({ name: "note:watch", schema: z.object({}), handler: async function* () {}, access: { openToAll: { reason: "member stream" } } });
     });
     expect(() => validateAccessDeclarations(feature)).not.toThrow();
   });
 
   function featureWithQueryAccess(access: AccessRule) {
     return defineFeature("notes", (r) => {
-      r.entity({ name: "note", ...noteEntity });
+      r.entity(noteEntity);
       r.queryHandler({
         name: "note:public",
         schema: z.object({}),
@@ -643,7 +626,7 @@ describe("validateAccessDeclarations — owner-bound personal-data fields", () =
   test("a handler not mapped to a single entity is not exempted (fail-closed)", () => {
     const feature = defineFeature("notes", (r) => {
       r.entity({ name: "note", ...ownedNoteEntity(ownerBound) });
-      r.entity({ name: "memo", ...noteEntity });
+      r.entity({ ...noteEntity, name: "memo" });
       r.writeHandler({
         name: "submit",
         schema: createSchema,
@@ -728,7 +711,7 @@ describe("validateAccessDeclarations — self-bound personal-data fields", () =>
 describe("validateAccessDeclarations — anonymous (roles-form) personal-data intake", () => {
   test("an anonymous write handler accepting a personal-data field without personalData throws", () => {
     const feature = defineFeature("notes", (r) => {
-      r.entity({ name: "note", ...noteEntity });
+      r.entity(noteEntity);
       r.writeHandler({
         name: "note:signup",
         schema: z.object({ email: z.string() }),
@@ -744,7 +727,7 @@ describe("validateAccessDeclarations — anonymous (roles-form) personal-data in
 
   test('the same handler WITH personalData: "public-intake" boots fine', () => {
     const feature = defineFeature("notes", (r) => {
-      r.entity({ name: "note", ...noteEntity });
+      r.entity(noteEntity);
       r.writeHandler({
         name: "note:signup",
         schema: z.object({ email: z.string() }),
@@ -757,7 +740,7 @@ describe("validateAccessDeclarations — anonymous (roles-form) personal-data in
 
   test('personalData: "public-intake" with rateLimit { disabled: true } throws', () => {
     const feature = defineFeature("notes", (r) => {
-      r.entity({ name: "note", ...noteEntity });
+      r.entity(noteEntity);
       r.writeHandler({
         name: "note:signup",
         schema: z.object({ email: z.string() }),
@@ -771,7 +754,7 @@ describe("validateAccessDeclarations — anonymous (roles-form) personal-data in
 
   test('personalData: "public-intake" with an active ip rateLimit boots fine', () => {
     const feature = defineFeature("notes", (r) => {
-      r.entity({ name: "note", ...noteEntity });
+      r.entity(noteEntity);
       r.writeHandler({
         name: "note:signup",
         schema: z.object({ email: z.string() }),
@@ -786,6 +769,7 @@ describe("validateAccessDeclarations — anonymous (roles-form) personal-data in
   test('an owner-bound personal-data field is not exempted for an anonymous handler — anonymous callers share one user.id, so from("user:id", ...) binds no one', () => {
     const ownedByCaller: OwnershipMap = { Member: from("user:id", "ownerUserId") };
     const entity = createEntity({
+      name: "note",
       table: "fw2885_guard_anon_owned",
       fields: {
         name: createTextField({ personal: { of: "ownerUserId" }, find: "none" }),
@@ -795,7 +779,7 @@ describe("validateAccessDeclarations — anonymous (roles-form) personal-data in
     });
     const schema = z.object({ name: z.string() });
     const anonymousFeature = defineFeature("notes", (r) => {
-      r.entity({ name: "note", ...entity });
+      r.entity(entity);
       r.writeHandler({
         name: "note:signup",
         schema,
@@ -808,7 +792,7 @@ describe("validateAccessDeclarations — anonymous (roles-form) personal-data in
 
     // Control: the same owner-bound entity/schema via openToAll IS exempted, so the throw above is override-specific.
     const openToAllFeature = defineFeature("notes", (r) => {
-      r.entity({ name: "note", ...entity });
+      r.entity(entity);
       r.writeHandler({
         name: "note:signup",
         schema,
@@ -821,7 +805,7 @@ describe("validateAccessDeclarations — anonymous (roles-form) personal-data in
 
   test('personalData: "public-intake" on roles without "anonymous" throws', () => {
     const feature = defineFeature("notes", (r) => {
-      r.entity({ name: "note", ...noteEntity });
+      r.entity(noteEntity);
       r.writeHandler({
         name: "note:create",
         schema: z.object({ title: z.string() }),
@@ -835,7 +819,7 @@ describe("validateAccessDeclarations — anonymous (roles-form) personal-data in
 
   test('personalData: "tenant-members" on the roles form throws', () => {
     const feature = defineFeature("notes", (r) => {
-      r.entity({ name: "note", ...noteEntity });
+      r.entity(noteEntity);
       r.writeHandler({
         name: "note:create",
         schema: z.object({ title: z.string() }),
@@ -851,7 +835,7 @@ describe("validateAccessDeclarations — anonymous (roles-form) personal-data in
 
     test('personalData: "public-intake" with anonymous roles and an active rateLimit boots fine', () => {
       const feature = defineFeature("notes", (r) => {
-        r.entity({ name: "note", ...noteEntity });
+        r.entity(noteEntity);
         r.queryHandler({
           name: "note:probe",
           schema: z.object({}),
@@ -865,7 +849,7 @@ describe("validateAccessDeclarations — anonymous (roles-form) personal-data in
 
     test('personalData: "public-intake" without the anonymous role throws', () => {
       const feature = defineFeature("notes", (r) => {
-        r.entity({ name: "note", ...noteEntity });
+        r.entity(noteEntity);
         r.queryHandler({
           name: "note:probe",
           schema: z.object({}),
@@ -881,7 +865,7 @@ describe("validateAccessDeclarations — anonymous (roles-form) personal-data in
 
     test('personalData: "public-intake" with rateLimit { disabled: true } throws', () => {
       const feature = defineFeature("notes", (r) => {
-        r.entity({ name: "note", ...noteEntity });
+        r.entity(noteEntity);
         r.queryHandler({
           name: "note:probe",
           schema: z.object({}),
@@ -898,7 +882,7 @@ describe("validateAccessDeclarations — anonymous (roles-form) personal-data in
 
   test("a non-anonymous roles handler accepting a personal-data field does not throw", () => {
     const feature = defineFeature("notes", (r) => {
-      r.entity({ name: "note", ...noteEntity });
+      r.entity(noteEntity);
       r.writeHandler({
         name: "note:create",
         schema: z.object({ email: z.string() }),

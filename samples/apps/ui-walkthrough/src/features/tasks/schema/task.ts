@@ -29,6 +29,7 @@ const TASK_AREAS = [
 ] as const;
 
 export const taskEntity = createEntity({
+  name: "task",
   table: "read_ui_walkthrough_tasks",
   fields: {
     title: createTextField({

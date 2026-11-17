@@ -30,6 +30,7 @@ import * as z from "zod";
 export const INSPECTION_RESULTS = ["ok", "defect"] as const;
 
 export const inspectionEntity = createEntity({
+  name: "inspection",
   table: "read_sample_inspections",
   fields: {
     assetName: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -60,8 +61,8 @@ const AUDIT_ROW_LIMIT = MAX_LIST_LIMIT - 1;
 const access = { access: { roles: ["Admin", "User"] } } as const;
 
 export const pdfAuditExportFeature = defineFeature("pdf-audit-export", (r) => {
-  r.entity({ name: "inspection", ...inspectionEntity });
-  const { executor: inspectionExecutor } = createEntityExecutor("inspection", inspectionEntity);
+  r.entity(inspectionEntity);
+  const { executor: inspectionExecutor } = createEntityExecutor(inspectionEntity);
 
   type AuditPayload = { assetName: string; from: string; to: string };
   type ExecutorUser = Parameters<typeof inspectionExecutor.list>[1];

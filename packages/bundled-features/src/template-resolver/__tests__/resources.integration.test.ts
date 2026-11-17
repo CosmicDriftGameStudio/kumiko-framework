@@ -59,6 +59,7 @@ const TENANT_EDITABLE = tenantEditableTemplates(
 );
 
 const noteEntity = createEntity({
+  name: "note",
   table: "resource_test_notes",
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -67,7 +68,7 @@ const noteEntity = createEntity({
 });
 
 const noteFeature = defineFeature("resource-test-notes", (r) => {
-  r.entity({ name: "note", ...noteEntity });
+  r.entity(noteEntity);
   r.writeHandler(
     defineEntityCreateHandler("note", noteEntity, {
       access: { roles: ["TenantAdmin", "SystemAdmin"] },

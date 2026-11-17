@@ -60,9 +60,9 @@ function registerLedger(
 
   if (toggleable !== undefined) r.toggleable(toggleable);
 
-  r.entity({ name: "account", ...accountEntity });
-  r.entity({ name: "transaction", ...transactionEntity });
-  r.entity({ name: "schedule", ...scheduleEntity });
+  r.entity(accountEntity);
+  r.entity(transactionEntity);
+  r.entity(scheduleEntity);
 
   // Chart of accounts — plain CRUD, no custom logic. No delete in v1: removing an
   // account that has postings would orphan them; a posting-aware guard lands with

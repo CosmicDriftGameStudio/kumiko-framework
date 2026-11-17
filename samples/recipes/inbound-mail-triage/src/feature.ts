@@ -45,13 +45,8 @@ export function createMailTriageFeature(): FeatureDefinition {
 
     // from and subject are PII ciphertext in the event payload. Plaintext is read through
     // InboundMailFoundationQueries.listMessages / messageContent, so the triage item keeps ids only.
-    r.job(
-      "triage-inbound",
-      {
-        trigger: { on: INBOUND_MESSAGE_RECEIVED_EVENT_QN },
-        runIn: "worker",
-      },
-      async (rawPayload, context) => {
+    r.job({ name: "triage-inbound", trigger: { on: INBOUND_MESSAGE_RECEIVED_EVENT_QN },
+        runIn: "worker", handler: async (rawPayload, context) => {
         const messageId = context.triggerEvent?.aggregateId;
         if (messageId === undefined) {
           throw new Error("triage-inbound: job context has no triggerEvent.aggregateId");
@@ -63,7 +58,6 @@ export function createMailTriageFeature(): FeatureDefinition {
           scope: payload.scope,
           threadHint: payload.messageIdHeader,
         });
-      },
-    );
+      } });
   });
 }

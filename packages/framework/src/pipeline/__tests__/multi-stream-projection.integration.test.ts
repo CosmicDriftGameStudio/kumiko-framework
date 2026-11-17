@@ -24,20 +24,22 @@ import { createTestUser, TestUsers } from "../../seeding/seed-users.ts";
 // --- Two aggregate types that feed one MSP ---
 
 const shipmentEntity = createEntity({
+  name: "msp-shipment",
   table: "read_msp_shipments",
   fields: {
     customer: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
-const shipmentTable = buildEntityTable("msp-shipment", shipmentEntity);
+const shipmentTable = buildEntityTable(shipmentEntity);
 
 const refundEntity = createEntity({
+  name: "msp-refund",
   table: "read_msp_refunds",
   fields: {
     customer: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
-const refundTable = buildEntityTable("msp-refund", refundEntity);
+const refundTable = buildEntityTable(refundEntity);
 
 // Cross-cutting MSP: one row per customer, sums shipments − refunds. Key
 // differences from a single-stream projection:
@@ -53,8 +55,8 @@ const customerBalanceTable = pgTable("read_msp_customer_balance", {
 });
 
 const mspFeature = defineFeature("msptest", (r) => {
-  r.entity({ name: "msp-shipment", ...shipmentEntity });
-  r.entity({ name: "msp-refund", ...refundEntity });
+  r.entity(shipmentEntity);
+  r.entity(refundEntity);
 
   const shipmentBilled = r.defineEvent(
     "shipment-billed",
@@ -283,7 +285,7 @@ describe("r.multiStreamProjection — registrar validation", () => {
   test("empty apply map is rejected", () => {
     expect(() =>
       defineFeature("mspbad", (r) => {
-        r.entity({ name: "msp-shipment", ...shipmentEntity });
+        r.entity(shipmentEntity);
         r.multiStreamProjection({
           name: "empty",
           table: customerBalanceTable,
@@ -296,7 +298,7 @@ describe("r.multiStreamProjection — registrar validation", () => {
   test("name collision with single-stream projection is rejected", () => {
     expect(() =>
       defineFeature("mspcollision", (r) => {
-        r.entity({ name: "msp-shipment", ...shipmentEntity });
+        r.entity(shipmentEntity);
         r.projection({
           name: "shared",
           source: "msp-shipment",

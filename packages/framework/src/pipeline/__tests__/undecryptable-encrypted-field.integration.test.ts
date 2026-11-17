@@ -17,6 +17,7 @@ import { TestUsers } from "../../seeding/seed-users.ts";
 const admin = TestUsers.admin;
 
 const noteEntity = createEntity({
+  name: "note",
   table: "uef_notes",
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -31,8 +32,8 @@ const noteEntity = createEntity({
 });
 
 const feature = defineFeature("uef", (r) => {
-  r.entity({ name: "note", ...noteEntity });
-  r.crud("note", noteEntity, {
+  r.entity(noteEntity);
+  r.crud(noteEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: { roles: ["Admin"] } },
   });

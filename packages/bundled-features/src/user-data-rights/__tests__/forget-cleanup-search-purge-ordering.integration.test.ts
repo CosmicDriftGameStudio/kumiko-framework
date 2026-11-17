@@ -43,6 +43,7 @@ const NOTE_ID = "bbbbbbbb-bbbb-4bbb-8bbb-0000000000f1";
 // userOwned + searchable makes `body` a subject field purge-subject.ts
 // looks for.
 const noteEntity = createEntity({
+  name: "note",
   table: "read_forget_purge_notes",
   fields: {
     authorId: createTextField({ required: true, personal: false, reason: "pseudonymous_fk" }),
@@ -53,7 +54,7 @@ const noteEntity = createEntity({
     }),
   },
 });
-const noteTable = buildEntityTable("note", noteEntity);
+const noteTable = buildEntityTable(noteEntity);
 
 // "note" is a managed r.entity table (not Writable), so
 // TenantDb's typed write methods reject it; this delete is raw SQL, still
@@ -63,19 +64,17 @@ const HARD_DELETE_NOTE_REASON =
 
 const hardDeleteNoteHook: UserDataDeleteHook = async (ctx, strategy) => {
   if (strategy !== "delete") return;
-  await asRawClient(ctx.db.unsafeRaw()).unsafe(
+  await asRawClient(ctx.db.unsafeRawAllTenants()).unsafe(
     `DELETE FROM read_forget_purge_notes WHERE author_id = $1 AND tenant_id = $2`,
     [ctx.userId, ctx.tenantId],
   );
 };
 
 const noteFeature = defineFeature("forget-purge-notes", (r) => {
-  r.entity({ name: "note", ...noteEntity });
-  r.useExtension(EXT_USER_DATA, "note", {
-    export: async () => null,
+  r.entity(noteEntity);
+  r.applyExtension({ name: EXT_USER_DATA, entity: "note", export: async () => null,
     delete: hardDeleteNoteHook,
-    escapeHatch: { reason: HARD_DELETE_NOTE_REASON },
-  });
+    escapeHatch: { reason: HARD_DELETE_NOTE_REASON } });
 });
 
 let stack: TestStack;

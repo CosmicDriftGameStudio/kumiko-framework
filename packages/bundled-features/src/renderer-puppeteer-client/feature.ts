@@ -29,11 +29,9 @@ export function createRendererPuppeteerClientFeature(): FeatureDefinition {
     );
     r.requires({ features: ["renderer-foundation"] });
 
-    r.useExtension("renderer", "puppeteer", {
-      kinds: ["document-pdf", "image-snapshot"] as const,
+    r.applyExtension({ name: "renderer", entity: "puppeteer", kinds: ["document-pdf", "image-snapshot"] as const,
       render: puppeteerRender,
-      previewDocument: buildDocumentPreview,
-    });
+      previewDocument: buildDocumentPreview });
 
     r.entity({ name: RENDERED_PDF_ENTITY_NAME, ...renderedPdfEntity });
     r.queryHandler(puppeteerStatusQuery);

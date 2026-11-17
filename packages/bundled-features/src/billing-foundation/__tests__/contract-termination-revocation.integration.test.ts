@@ -129,8 +129,8 @@ function mockPlugin(withResume: boolean): SubscriptionProviderPlugin {
 
 const mockProviderFeature = defineFeature("test-mock-revocation-provider", (r) => {
   r.requires({ features: ["billing-foundation"] });
-  r.useExtension("subscriptionProvider", PROVIDER, mockPlugin(true));
-  r.useExtension("subscriptionProvider", PROVIDER_WITHOUT_RESUME, mockPlugin(false));
+  r.applyExtension({ name: "subscriptionProvider", entity: PROVIDER, ...mockPlugin(true) });
+  r.applyExtension({ name: "subscriptionProvider", entity: PROVIDER_WITHOUT_RESUME, ...mockPlugin(false) });
 });
 
 let stack: TestStack;

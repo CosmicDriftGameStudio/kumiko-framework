@@ -123,13 +123,14 @@ describe("runSchemaApply", () => {
     let failApply = true;
 
     const failItemEntity = createEntity({
+      name: "apply-fail-item",
       table: "read_apply_fail_items",
       fields: {
         groupId: createTextField({ personal: false, reason: "test_fixture", required: true }),
         name: createTextField({ personal: false, reason: "test_fixture", required: true }),
       },
     });
-    const failItemTable = buildEntityTable("apply-fail-item", failItemEntity);
+    const failItemTable = buildEntityTable(failItemEntity);
     const failCountsTable = pgTable("read_apply_fail_counts", {
       groupId: uuid("group_id").primaryKey(),
       tenantId: uuid("tenant_id").notNull(),
@@ -151,7 +152,7 @@ describe("runSchemaApply", () => {
       },
     };
     const feature = defineFeature("applyfailtest", (r) => {
-      r.entity({ name: "apply-fail-item", ...failItemEntity });
+      r.entity(failItemEntity);
       r.projection(failCountsProjection);
     });
 

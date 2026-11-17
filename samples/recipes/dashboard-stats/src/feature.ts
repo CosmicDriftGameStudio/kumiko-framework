@@ -23,7 +23,7 @@ export const TICKET_CAPABILITIES_QUERY = "tickets:query:ticket:capabilities";
 export const TICKET_LIST_QUERY = "tickets:query:ticket:list";
 
 export const ticketFeature = defineFeature("tickets", (r) => {
-  r.crud("ticket", ticketEntity, {
+  r.crud(ticketEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: readerRoles },
   });

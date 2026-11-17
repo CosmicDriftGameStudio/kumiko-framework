@@ -74,6 +74,7 @@ import { AuthHandlers } from "../web/constants.ts";
 // ── Test fixture: an owner-scoped entity + probe handlers/hooks/job ────────
 
 const noteEntity = createEntity({
+  name: "note",
   table: "qam_notes",
   fields: {
     ownerId: createTextField({ personal: false, reason: "test_fixture" }),
@@ -88,13 +89,14 @@ const noteEntity = createEntity({
 // Unmanaged store: the runtime ES-write lock would deny a direct write on the
 // event-fed note table before the DB-level READ ONLY guard under test is reached.
 const guardNoteEntity = createEntity({
+  name: "guardNote",
   table: "store_qam_guard_notes",
   fields: {
     body: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
   access: { read: { Admin: "all" }, write: { Admin: "all" } },
 });
-const guardNoteTable = deriveEntityTableMeta("guardNote", guardNoteEntity, {
+const guardNoteTable = deriveEntityTableMeta(guardNoteEntity, {
   source: "unmanaged",
 });
 
@@ -102,10 +104,12 @@ const guardNoteTable = deriveEntityTableMeta("guardNote", guardNoteEntity, {
 let noteTable: SchemaTable;
 
 const hookNoteAEntity = createEntity({
+  name: "hookNoteA",
   table: "qam_hook_note_a",
   fields: { label: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
 const hookNoteBEntity = createEntity({
+  name: "hookNoteB",
   table: "qam_hook_note_b",
   fields: { label: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
@@ -145,9 +149,9 @@ const READ_AS_MEMBER_QUERY_QN = "queryasmemberprobe:query:read-as-member-query";
 const SYSTEM_SCOPE_READ_AS_MEMBER_QN = "queryasmembersystemscope:write:read-as-member";
 
 const probeFeature = defineFeature("queryasmemberprobe", (r) => {
-  r.entity({ name: "note", ...noteEntity });
-  r.entity({ name: "hookNoteA", ...hookNoteAEntity });
-  r.entity({ name: "hookNoteB", ...hookNoteBEntity });
+  r.entity(noteEntity);
+  r.entity(hookNoteAEntity);
+  r.entity(hookNoteBEntity);
 
   r.writeHandler(
     defineEntityCreateHandler("note", noteEntity, { access: { roles: ["Admin"] } }),
@@ -267,23 +271,23 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
     name: "tries-unsafe-raw-write",
     schema: z.object({}),
     handler: async (_query, ctx) => {
-      await asRawClient(ctx.db.unsafeRaw()).unsafe("UPDATE qam_notes SET body = 'tampered'");
+      await asRawClient(ctx.db.unsafeRawAllTenants()).unsafe("UPDATE qam_notes SET body = 'tampered'");
       return { ok: true };
     },
     access: { roles: ["Admin", "User"] },
-    escapeHatch: { reason: "test: raw write probe" },
+    escapeHatch: { reason: "test: raw write probe", grants: ["unsafeRaw"] },
   });
   r.queryHandler({
     name: "tries-read-write-reset",
     schema: z.object({}),
     handler: async (_query, ctx) => {
-      const raw = asRawClient(ctx.db.unsafeRaw());
+      const raw = asRawClient(ctx.db.unsafeRawAllTenants());
       await raw.unsafe("SET TRANSACTION READ WRITE");
       await raw.unsafe("UPDATE qam_notes SET body = 'tampered'");
       return { ok: true };
     },
     access: { roles: ["Admin", "User"] },
-    escapeHatch: { reason: "test: raw write probe" },
+    escapeHatch: { reason: "test: raw write probe", grants: ["unsafeRaw"] },
   });
   r.queryHandler({
     name: "nested-db-write",
@@ -295,13 +299,13 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
     name: "tries-select-for-update",
     schema: z.object({}),
     handler: async (_query, ctx) => {
-      const rows = await asRawClient(ctx.db.unsafeRaw()).unsafe(
+      const rows = await asRawClient(ctx.db.unsafeRawAllTenants()).unsafe(
         "SELECT id FROM qam_notes FOR UPDATE",
       );
       return { ok: true, count: Array.isArray(rows) ? rows.length : 0 };
     },
     access: { roles: ["Admin", "User"] },
-    escapeHatch: { reason: "test: select-for-update probe" },
+    escapeHatch: { reason: "test: select-for-update probe", grants: ["unsafeRaw"] },
   });
   // Transaction control, not a write: COMMIT ends the read-only scope, the
   // UPDATE afterwards runs in a fresh, writable implicit transaction.
@@ -309,23 +313,23 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
     name: "tries-commit-then-write",
     schema: z.object({}),
     handler: async (_query, ctx) => {
-      const raw = asRawClient(ctx.db.unsafeRaw());
+      const raw = asRawClient(ctx.db.unsafeRawAllTenants());
       await raw.unsafe("COMMIT");
       await raw.unsafe("UPDATE qam_notes SET body = 'tampered'");
       return { ok: true };
     },
     access: { roles: ["Admin", "User"] },
-    escapeHatch: { reason: "test: commit-then-write probe" },
+    escapeHatch: { reason: "test: commit-then-write probe", grants: ["unsafeRaw"] },
   });
   r.queryHandler({
     name: "tries-raw-select",
     schema: z.object({}),
     handler: async (_query, ctx) => {
-      const rows = await asRawClient(ctx.db.unsafeRaw()).unsafe("SELECT 1 AS one");
+      const rows = await asRawClient(ctx.db.unsafeRawAllTenants()).unsafe("SELECT 1 AS one");
       return { ok: true, count: Array.isArray(rows) ? rows.length : 0 };
     },
     access: { roles: ["Admin", "User"] },
-    escapeHatch: { reason: "test: raw select probe" },
+    escapeHatch: { reason: "test: raw select probe", grants: ["unsafeRaw"] },
   });
   r.queryHandler({
     name: "nested-raw-select",
@@ -339,7 +343,7 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
     handler: async (query, ctx) =>
       ctx.dispatch.queryAs({ ...query.user, origin: undefined }, WHOAMI_QN, {}),
     access: { roles: ["Admin", "User"] },
-    escapeHatch: { reason: "test: query-as identity switch probe" },
+    escapeHatch: { reason: "test: query-as identity switch probe", grants: ["systemIdentity"] },
   });
   r.queryHandler({
     name: "read-as-member-query",
@@ -482,11 +486,11 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
   });
 
   // Jobs stay ungated.
-  r.job("noop", { trigger: { manual: true }, retries: 0 }, async () => {});
-  r.job("query-as-member-job", { trigger: { manual: true }, retries: 0 }, async (payload, ctx) => {
+  r.job({ name: "noop", trigger: { manual: true }, retries: 0, handler: async () => {} });
+  r.job({ name: "query-as-member-job", trigger: { manual: true }, retries: 0, handler: async (payload, ctx) => {
     const result = await ctx.dispatch.queryAsMember(payload["userId"] as string, WHOAMI_QN, {}); // @cast-boundary dynamic-key
     jobQueryAsMemberResults.push(result);
-  });
+  } });
 });
 
 // A whole-feature r.systemScope() grants queryAsMember without an

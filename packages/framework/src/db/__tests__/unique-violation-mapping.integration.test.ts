@@ -24,6 +24,7 @@ import { createTenantDb, type TenantDb } from "../tenant-db.ts";
 import { type BunTestDb, createTestDb } from "./query/bun-test-db.ts";
 
 const userEntity = createEntity({
+  name: "unique-user",
   table: "read_unique_users",
   fields: {
     email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -39,7 +40,7 @@ const userEntity = createEntity({
     { columns: ["tenantId", "email"], unique: true, name: "read_unique_users_tenant_email_uniq" },
   ],
 });
-const table = buildEntityTable("unique-user", userEntity);
+const table = buildEntityTable(userEntity);
 const exec = createEventStoreExecutor(table, userEntity, { entityName: "unique-user" });
 
 let testDb: BunTestDb;

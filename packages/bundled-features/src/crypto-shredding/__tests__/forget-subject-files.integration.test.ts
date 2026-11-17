@@ -63,6 +63,7 @@ const ROLES = { access: { roles: ["Admin", "DataProtectionOfficer"] } } as const
 
 // passport/scans hang off the row's own subject (recordOwned); cover is deliberately not personal.
 const dossierEntity = createEntity({
+  name: "dossier",
   table: "read_ff_dossier",
   fields: {
     label: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -74,6 +75,7 @@ const dossierEntity = createEntity({
 
 // contract belongs to the user named by ownerId (userOwned); files may come from other uploaders.
 const ownedDocEntity = createEntity({
+  name: "owned-doc",
   table: "read_ff_owned_doc",
   fields: {
     ownerId: createTextField({ required: true, personal: false, reason: "pseudonymous_fk" }),
@@ -82,8 +84,8 @@ const ownedDocEntity = createEntity({
 });
 
 const probeFeature = defineFeature("ff-probe", (r) => {
-  r.entity({ name: "dossier", ...dossierEntity });
-  r.entity({ name: "owned-doc", ...ownedDocEntity });
+  r.entity(dossierEntity);
+  r.entity(ownedDocEntity);
   r.writeHandler(defineEntityCreateHandler("dossier", dossierEntity, ROLES));
   r.writeHandler(defineEntityUpdateHandler("dossier", dossierEntity, ROLES));
   r.queryHandler(defineEntityDetailHandler("dossier", dossierEntity, ROLES));

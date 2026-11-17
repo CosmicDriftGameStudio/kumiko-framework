@@ -171,7 +171,7 @@ const mockProviderFeature = defineFeature("test-mock-confirm-provider", (r) => {
     }),
     applyPlanSwitch: async () => {},
   };
-  r.useExtension("subscriptionProvider", PROVIDER, plugin);
+  r.applyExtension({ name: "subscriptionProvider", entity: PROVIDER, ...plugin });
 });
 
 let stack: TestStack;

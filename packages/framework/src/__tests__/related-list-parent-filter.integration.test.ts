@@ -23,6 +23,7 @@ import {
 import { TestUsers } from "../seeding/seed-users.ts";
 
 const itemEntity = createEntity({
+  name: "item",
   table: "akte_items",
   fields: {
     name: createTextField({
@@ -36,7 +37,7 @@ const itemEntity = createEntity({
 });
 
 const ordersFeature = defineFeature("akteorders", (r) => {
-  r.entity({ name: "item", ...itemEntity });
+  r.entity(itemEntity);
   r.writeHandler(defineEntityCreateHandler("item", itemEntity, { access: { roles: ["Admin"] } }));
   r.queryHandler(defineEntityListHandler("item", itemEntity, { access: { roles: ["Admin"] } }));
 });

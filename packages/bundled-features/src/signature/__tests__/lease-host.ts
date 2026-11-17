@@ -13,6 +13,7 @@ import {
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 
 export const leaseHostEntity = createEntity({
+  name: "lease",
   table: "signature_test_leases",
   fields: {
     name: createTextField({
@@ -25,11 +26,11 @@ export const leaseHostEntity = createEntity({
 });
 
 export const leaseHostFeature = defineFeature("signature-test-lease-host", (r) => {
-  r.entity({ name: "lease", ...leaseHostEntity });
+  r.entity(leaseHostEntity);
 });
 
 const leaseExecutor = createEventStoreExecutor(
-  buildEntityTable("lease", leaseHostEntity),
+  buildEntityTable(leaseHostEntity),
   leaseHostEntity,
   { entityName: "lease" },
 );

@@ -37,32 +37,27 @@ const FILE_PROVIDER_KEY = "file-foundation:config:provider";
 
 const failingMail = defineFeature("probe-failing-mail", (r) => {
   r.requires({ features: ["mail-foundation"] });
-  r.useExtension(MAIL_TRANSPORT_EXTENSION, "failing", {
-    selectableInSettings: false,
+  r.applyExtension({ name: MAIL_TRANSPORT_EXTENSION, entity: "failing", selectableInSettings: false,
     build: async () => ({
       send: async () => {
         throw new Error("smtp relay down");
       },
-    }),
-  });
+    }) });
 });
 
 const unresolvableMail = defineFeature("probe-unresolvable-mail", (r) => {
   r.requires({ features: ["mail-foundation"] });
-  r.useExtension(MAIL_TRANSPORT_EXTENSION, "unresolvable", {
-    selectableInSettings: false,
+  r.applyExtension({ name: MAIL_TRANSPORT_EXTENSION, entity: "unresolvable", selectableInSettings: false,
     build: async () => {
       throw new HostResolutionError("smtp.invalid does not resolve");
-    },
-  });
+    } });
 });
 
 let failingFilesDeleteCalls = 0;
 
 const failingFiles = defineFeature("probe-failing-files", (r) => {
   r.requires({ features: ["file-foundation"] });
-  r.useExtension(EXT_FILE_PROVIDER, "failing", {
-    build: async () => ({
+  r.applyExtension({ name: EXT_FILE_PROVIDER, entity: "failing", build: async () => ({
       ...createInMemoryFileProvider(),
       write: async () => {
         throw new Error("disk full");
@@ -71,8 +66,7 @@ const failingFiles = defineFeature("probe-failing-files", (r) => {
         failingFilesDeleteCalls += 1;
         throw new Error("ENOENT");
       },
-    }),
-  });
+    }) });
 });
 
 type Row = {

@@ -46,6 +46,7 @@ export type StoredMetadata = {
 // plaintext without the master key — so shipping it into the events-table
 // doesn't weaken the threat model vs. the pre-ES tenant_secrets column.
 export const tenantSecretEntity = createEntity({
+  name: "tenant-secret",
   table: "read_tenant_secrets",
   description:
     "One encrypted secret per tenant and key, holding the sealed envelope, the key-encryption-key version it was sealed under and its last rotation time; plaintext values are never stored or returned.",

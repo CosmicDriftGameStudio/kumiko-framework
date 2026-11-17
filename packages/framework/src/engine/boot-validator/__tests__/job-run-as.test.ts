@@ -46,7 +46,7 @@ const roleSource = defineFeature("runAsRoles", (r) => {
 function featureWithJob(options: JobOptions, systemScope = false): FeatureDefinition {
   return defineFeature("runAsJobs", (r) => {
     if (systemScope) r.systemScope();
-    r.job("probe", { trigger: { manual: true }, ...options }, async () => {});
+    r.job({ name: "probe", trigger: { manual: true }, ...options, handler: async () => {} });
   });
 }
 

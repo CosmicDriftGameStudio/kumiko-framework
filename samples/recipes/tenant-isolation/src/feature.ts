@@ -3,6 +3,7 @@ import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumik
 import * as z from "zod";
 
 export const noteEntity = createEntity({
+  name: "note",
   table: "read_sample_notes",
   fields: {
     title: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -43,7 +44,7 @@ const openRead = {
 } as const;
 
 export const noteFeature = defineFeature("notes", (r) => {
-  r.crud("note", noteEntity, {
+  r.crud(noteEntity, {
     write: adminWrite,
     read: openRead,
     verbs: { update: false, delete: false, restore: false },

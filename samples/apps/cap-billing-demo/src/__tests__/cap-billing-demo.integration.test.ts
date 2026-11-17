@@ -75,8 +75,8 @@ function webhookProvidersFeature() {
       },
       priceToTier: { [PRO_PRICE_ID]: "pro" },
     };
-    r.useExtension("subscriptionProvider", "stripe", plugin);
-    r.useExtension("subscriptionProvider", "mollie", plugin);
+    r.applyExtension({ name: "subscriptionProvider", entity: "stripe", ...plugin });
+    r.applyExtension({ name: "subscriptionProvider", entity: "mollie", ...plugin });
   });
 }
 

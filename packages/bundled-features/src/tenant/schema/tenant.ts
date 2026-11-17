@@ -19,6 +19,7 @@ export const TENANT_LIFECYCLE_STATUSES = [
 export type TenantLifecycleStatus = (typeof TENANT_LIFECYCLE_STATUSES)[number];
 
 export const tenantEntity = createEntity({
+  name: "tenant",
   description:
     "A tenant, the isolated workspace every other record belongs to, holding its key and display name, whether it is enabled, and its destruction-lifecycle state.",
   table: "read_tenants",
@@ -70,4 +71,4 @@ export const tenantEntity = createEntity({
   indexes: [{ unique: true, columns: ["key"] }],
 });
 
-export const tenantTable = buildEntityTable("tenant", tenantEntity);
+export const tenantTable = buildEntityTable(tenantEntity);

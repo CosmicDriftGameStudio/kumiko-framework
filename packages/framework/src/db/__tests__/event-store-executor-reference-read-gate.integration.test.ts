@@ -23,11 +23,13 @@ const linkEntity = createEntity({
   fields: { customerId: text() },
 });
 const gatedCustomerEntity = createEntity({
+  name: "refGateCustomer",
   table: "read_ref_gate_customers",
   fields: { name: text() },
   readGate: { anyLink: { entity: "refGateLink", field: "customerId" } },
 });
 const plainCustomerEntity = createEntity({
+  name: "refGatePlainCustomer",
   table: "read_ref_gate_plain_customers",
   fields: { name: text() },
 });
@@ -60,8 +62,8 @@ const referenceFor = (target: string) => ({
 });
 
 const admin = TestUsers.admin;
-const gatedCustomerTable = buildEntityTable("refGateCustomer", gatedCustomerEntity);
-const plainCustomerTable = buildEntityTable("refGatePlainCustomer", plainCustomerEntity);
+const gatedCustomerTable = buildEntityTable(gatedCustomerEntity);
+const plainCustomerTable = buildEntityTable(plainCustomerEntity);
 const gatedOrderTable = buildEntityTable("refGateOrder", gatedOrderEntity);
 const plainOrderTable = buildEntityTable("refGatePlainOrder", plainOrderEntity);
 const gatedOrders = createEventStoreExecutor(gatedOrderTable, gatedOrderEntity, {

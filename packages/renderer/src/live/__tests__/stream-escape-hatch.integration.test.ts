@@ -43,88 +43,54 @@ const streamProbeFeature = defineFeature("stream-idswitch-probe", (r) => {
 
   // --- ctx.dispatch.queryAs(SYSTEM, ...) from a stream handler: gated by the
   // stream handler's own escapeHatch, same contract as write/query. ---
-  r.streamHandler(
-    "query-as-system-no-hatch",
-    z.object({}),
-    async function* (query, ctx) {
+  r.streamHandler({ name: "query-as-system-no-hatch", schema: z.object({}), handler: async function* (query, ctx) {
       const result = await ctx.dispatch.queryAs(
         createSystemUser(query.user.tenantId),
         "stream-idswitch-probe:query:whoami",
         {},
       );
       yield result;
-    },
-    { access: { roles: ["User"] } },
-  );
+    }, access: { roles: ["User"] } });
 
-  r.streamHandler(
-    "query-as-system-with-hatch",
-    z.object({}),
-    async function* (query, ctx) {
+  r.streamHandler({ name: "query-as-system-with-hatch", schema: z.object({}), handler: async function* (query, ctx) {
       const result = await ctx.dispatch.queryAs(
         createSystemUser(query.user.tenantId),
         "stream-idswitch-probe:query:whoami",
         {},
       );
       yield result;
-    },
-    {
-      access: { roles: ["User"] },
-      escapeHatch: { reason: "test: stream needs SYSTEM to look itself up" },
-    },
-  );
+    }, access: { roles: ["User"] },
+      escapeHatch: { reason: "test: stream needs SYSTEM to look itself up", grants: ["systemIdentity"] } });
 
-  r.streamHandler(
-    "unsafe-raw-no-hatch",
-    z.object({}),
-    async function* (_query, ctx) {
-      const runner = ctx.db.unsafeRaw();
+  r.streamHandler({ name: "unsafe-raw-no-hatch", schema: z.object({}), handler: async function* (_query, ctx) {
+      const runner = ctx.db.unsafeRawAllTenants();
       yield await executeRawQuery<{ one: number }>(runner, "SELECT 1 AS one");
-    },
-    { access: { roles: ["User"] } },
-  );
+    }, access: { roles: ["User"] } });
 
-  r.streamHandler(
-    "unsafe-raw-with-hatch",
-    z.object({}),
-    async function* (_query, ctx) {
-      const runner = ctx.db.unsafeRaw();
+  r.streamHandler({ name: "unsafe-raw-with-hatch", schema: z.object({}), handler: async function* (_query, ctx) {
+      const runner = ctx.db.unsafeRawAllTenants();
       yield await executeRawQuery<{ one: number }>(runner, "SELECT 1 AS one");
-    },
-    { access: { roles: ["User"] }, escapeHatch: { reason: UNSAFE_RAW_REASON } },
-  );
+    }, access: { roles: ["User"] }, escapeHatch: { reason: UNSAFE_RAW_REASON, grants: ["unsafeRaw"] } });
 
   // --- ctx.dispatch.queryAs(nonSystemUser, ...) from a stream handler: a foreign
   // user needs the stream handler's escapeHatch; the target's own access rule still applies. ---
-  r.streamHandler(
-    "query-as-normal-user-no-hatch",
-    z.object({}),
-    async function* (_query, ctx) {
+  r.streamHandler({ name: "query-as-normal-user-no-hatch", schema: z.object({}), handler: async function* (_query, ctx) {
       yield await ctx.dispatch.queryAs(
         otherUserWithAdminRole,
         "stream-idswitch-probe:query:admin-only",
         {},
       );
-    },
-    { access: { roles: ["User"] } },
-  );
+    }, access: { roles: ["User"] } });
 
-  r.streamHandler(
-    "query-as-normal-user",
-    z.object({ granted: z.boolean() }),
-    async function* (query, ctx) {
+  r.streamHandler({ name: "query-as-normal-user", schema: z.object({ granted: z.boolean() }), handler: async function* (query, ctx) {
       const result = await ctx.dispatch.queryAs(
         query.payload.granted ? otherUserWithAdminRole : otherUserNoRole,
         "stream-idswitch-probe:query:admin-only",
         {},
       );
       yield result;
-    },
-    {
-      access: { roles: ["User"] },
-      escapeHatch: { reason: "test: stream reads admin-only data as a named colleague" },
-    },
-  );
+    }, access: { roles: ["User"] },
+      escapeHatch: { reason: "test: stream reads admin-only data as a named colleague", grants: ["systemIdentity"] } });
 });
 
 let stack: TestStack;

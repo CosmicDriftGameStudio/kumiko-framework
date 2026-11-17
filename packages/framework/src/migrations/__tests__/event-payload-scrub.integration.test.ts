@@ -31,6 +31,7 @@ import { TestUsers } from "../../seeding/seed-users.ts";
 import { scrubEventPayloadFields } from "../event-payload-scrub.ts";
 
 const contactEntity = createEntity({
+  name: "contact",
   table: "scrub_contacts",
   fields: {
     name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -43,6 +44,7 @@ const contactEntity = createEntity({
 });
 
 const appointmentEntity = createEntity({
+  name: "appointment",
   table: "scrub_appointments",
   fields: { day: createDateField({ required: true, personal: false, reason: "test_fixture" }) },
 });
@@ -65,11 +67,11 @@ const contactFeature = defineFeature("scrub", (r) => {
       },
     },
   });
-  r.crud("appointment", appointmentEntity, {
+  r.crud(appointmentEntity, {
     write: { access: { roles: ["User"] } },
     read: { access: { roles: ["User"] } },
   });
-  r.crud("contact", contactEntity, {
+  r.crud(contactEntity, {
     write: { access: { roles: ["User"] } },
     read: { access: { roles: ["User"] } },
   });

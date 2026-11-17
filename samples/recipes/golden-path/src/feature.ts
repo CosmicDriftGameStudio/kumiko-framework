@@ -11,6 +11,7 @@ import { failNotFound, failUnprocessable } from "@cosmicdrift/kumiko-framework/e
 import { z } from "zod";
 
 export const ticketEntity = createEntity({
+  name: "ticket",
   table: "read_golden_path_tickets",
   fields: {
     title: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -20,11 +21,10 @@ export const ticketEntity = createEntity({
 
 export const ticketingFeature = defineFeature("ticketing", (r) => {
   const { table: ticketTable, executor: ticketExecutor } = createEntityExecutor(
-    "ticket",
     ticketEntity,
   );
 
-  r.crud("ticket", ticketEntity, {
+  r.crud(ticketEntity, {
     write: { access: { roles: ["Admin", "User"] } },
     read: { access: { roles: ["Admin", "User"] } },
     verbs: { update: false, delete: false },

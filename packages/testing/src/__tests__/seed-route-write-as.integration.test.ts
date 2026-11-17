@@ -33,16 +33,17 @@ const ENV_KEYS = [
 const SEED_TOKEN = "write-as-test-seed-token";
 
 const ledgerNoteEntity = createEntity({
+  name: "ledger-note",
   table: "read_testing_ledger_notes",
   fields: {
     title: createTextField({ required: true, personal: false, reason: "test_fixture" }),
   },
 });
-const ledgerNoteTable = buildEntityTable("ledger-note", ledgerNoteEntity);
+const ledgerNoteTable = buildEntityTable(ledgerNoteEntity);
 const LEDGER_NOTE_CREATE = "testing-ledger:write:ledger-note:create";
 
 const ledgerFeature = defineFeature("testing-ledger", (r) => {
-  r.entity({ name: "ledger-note", ...ledgerNoteEntity });
+  r.entity(ledgerNoteEntity);
   r.writeHandler(
     defineEntityCreateHandler("ledger-note", ledgerNoteEntity, {
       access: { roles: ["TenantAdmin"] },

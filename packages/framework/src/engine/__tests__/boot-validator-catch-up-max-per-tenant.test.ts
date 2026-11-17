@@ -7,11 +7,7 @@ function registryWith(maxPerTenant: JobDefinition["maxPerTenant"]) {
   return createRegistry([
     defineFeature("replay-cap", (r) => {
       const ping = r.defineEvent("ping", z.object({}), { piiFields: "none" });
-      r.job(
-        "on-ping",
-        { trigger: { on: ping.name, catchUp: true }, runIn: "worker", maxPerTenant },
-        async () => {},
-      );
+      r.job({ name: "on-ping", trigger: { on: ping.name, catchUp: true }, runIn: "worker", maxPerTenant, handler: async () => {} });
     }),
   ]);
 }

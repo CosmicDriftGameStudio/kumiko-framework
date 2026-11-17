@@ -12,6 +12,7 @@ import { isValidIanaTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import { z } from "zod";
 
 export const deliveryEntity = createEntity({
+  name: "delivery",
   table: "read_sample_deliveries",
   fields: {
     label: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -36,7 +37,7 @@ const openRead = {
 } as const;
 
 export const timezonesFeature = defineFeature("timezones", (r) => {
-  r.crud("delivery", deliveryEntity, {
+  r.crud(deliveryEntity, {
     write,
     read: openRead,
     verbs: { delete: false, restore: false },

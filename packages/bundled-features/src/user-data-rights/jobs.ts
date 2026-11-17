@@ -45,25 +45,21 @@ export function registerUserDataRightsJobs(
 ): void {
   // Gauges keep their last value, so a dead cleanup cron does not clear the backlog gauge;
   // the last-run timestamp gauge is the liveness signal.
-  r.metric(EXPORT_CLEANUP_BACKLOG_AGE_METRIC, {
-    type: "gauge",
+  r.metric({ name: EXPORT_CLEANUP_BACKLOG_AGE_METRIC, type: "gauge",
     unit: "seconds",
     description:
-      "Age in seconds of the oldest export bundle (done: expiresAt+grace passed; failed: orphaned ZIP since completedAt or startedAt) whose downloadStorageKey is still set. 0 when the storage-cleanup pass has no backlog.",
-  });
-  r.metric(EXPORT_CLEANUP_LAST_RUN_TIMESTAMP_METRIC, {
-    type: "gauge",
+      "Age in seconds of the oldest export bundle (done: expiresAt+grace passed; failed: orphaned ZIP since completedAt or startedAt) whose downloadStorageKey is still set. 0 when the storage-cleanup pass has no backlog." });
+  r.metric({ name: EXPORT_CLEANUP_LAST_RUN_TIMESTAMP_METRIC, type: "gauge",
     unit: "seconds",
     description:
-      "Unix timestamp of the last export storage-cleanup pass that completed. Alert on time() minus this value exceeding one day plus a buffer; the backlog-age gauge alone stays at its last value when the cron stops.",
-  });
+      "Unix timestamp of the last export storage-cleanup pass that completed. Alert on time() minus this value exceeding one day plus a buffer; the backlog-age gauge alone stays at its last value when the cron stops." });
 
   const runExport: JobHandlerFn = async (_payload, ctx) => {
     if (!ctx.registry) {
       throw new Error("run-export-jobs: ctx.registry required (JobContext incomplete)");
     }
     const exportUserId = SYSTEM_USER_ID;
-    const exportDb = ctx.db.unsafeRaw();
+    const exportDb = ctx.db.unsafeRawAllTenants();
     const exportRegistry = ctx.registry;
     // JobContext has the raw meter only; the safe handle is a no-op when metrics are off.
     const exportMetrics = ctx.obs.meter
@@ -152,13 +148,13 @@ export function registerUserDataRightsJobs(
     trigger: { maintenance: true },
     irreversibleWithoutEntryHandler: "high-risk-or-cron-pipeline",
     concurrency: "skip",
-    escapeHatch: { reason: RUN_FORGET_CLEANUP_REASON },
+    escapeHatch: { reason: RUN_FORGET_CLEANUP_REASON, grants: ["unsafeRaw"] },
     handler: async (_payload, ctx) => {
       if (!ctx.registry) {
         throw new Error("run-forget-cleanup: ctx.registry required (JobContext incomplete)");
       }
       const forgetUserId = SYSTEM_USER_ID;
-      const forgetDb = ctx.db.unsafeRaw();
+      const forgetDb = ctx.db.unsafeRawAllTenants();
       const forgetRegistry = ctx.registry;
       const tenantModel = await resolveAppTenantModel({
         registry: forgetRegistry,

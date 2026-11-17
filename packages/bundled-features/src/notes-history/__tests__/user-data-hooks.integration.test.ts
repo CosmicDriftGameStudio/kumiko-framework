@@ -30,6 +30,7 @@ const other = createTestUser({ id: 2, roles: ["TenantMember"] });
 // so it never gates on its own, keeping this file focused on author filtering.
 const CONTACT_TABLE = "notes_user_data_test_contacts";
 const contactEntity = createEntity({
+  name: "contact",
   table: CONTACT_TABLE,
   fields: {
     name: createTextField({
@@ -41,7 +42,7 @@ const contactEntity = createEntity({
   },
 });
 const contactFixtureFeature = defineFeature("notes-user-data-test-contact-fixture", (r) => {
-  r.entity({ name: "contact", ...contactEntity });
+  r.entity(contactEntity);
 });
 
 // author and other share the same tenantId (both from TestUsers.admin), so

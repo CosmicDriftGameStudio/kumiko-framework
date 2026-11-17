@@ -26,6 +26,7 @@ const { url: MEILI_URL, masterKey: MEILI_KEY } = liveMeiliConnection();
 const MEILI_UP = await meiliAvailable();
 
 const noteEntity = createEntity({
+  name: "note",
   table: "read_search_isolation_notes",
   fields: {
     title: createTextField({
@@ -37,9 +38,9 @@ const noteEntity = createEntity({
     }),
   },
 });
-const noteTable = buildEntityTable("note", noteEntity);
+const noteTable = buildEntityTable(noteEntity);
 const noteFeature = defineFeature("search-isolation", (r) => {
-  r.entity({ name: "note", ...noteEntity });
+  r.entity(noteEntity);
 });
 const executor = createEventStoreExecutor(noteTable, noteEntity, { entityName: "note" });
 

@@ -95,7 +95,7 @@ export const downloadByTokenQuery = defineQueryHandler({
   handler: async (query, ctx) => {
     const T = getTemporal();
     const now = T.Now.instant();
-    const runner = ctx.db.unsafeRaw();
+    const runner = ctx.db.unsafeRawAllTenants();
 
     // Step 1: hash + lookup
     const hash = await hashDownloadToken(query.payload.token);

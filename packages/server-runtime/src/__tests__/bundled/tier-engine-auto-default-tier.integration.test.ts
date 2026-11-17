@@ -36,7 +36,7 @@ const TEST_TIER_MAP: TierMap<{ readonly maxItems: number }> = {
   free: { features: [], caps: { maxItems: 1 } },
 };
 
-const tierAssignmentTable = buildEntityTable("tier-assignment", tierAssignmentEntity);
+const tierAssignmentTable = buildEntityTable(tierAssignmentEntity);
 
 const features = composeFeatures(
   [createTierEngineFeature({ defaultTier: "free", tierMap: TEST_TIER_MAP })],

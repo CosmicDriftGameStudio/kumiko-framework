@@ -42,18 +42,12 @@ const backoffFixtureFeature = defineFeature("backofffixture", (r) => {
   });
   // AC: retries: 3, backoff: "exponential" — fails once, succeeds on retry 2.
   // Default base delay is 1000ms, so the single retry gap must be >= 1000ms.
-  r.job(
-    "exponential-default",
-    {
-      trigger: { on: "backofffixture:event:trigger-exponential-default" },
+  r.job({ name: "exponential-default", trigger: { on: "backofffixture:event:trigger-exponential-default" },
       retries: 3,
-      backoff: "exponential",
-    },
-    async () => {
+      backoff: "exponential", handler: async () => {
       exponentialDefaultStarts.push(Date.now());
       if (exponentialDefaultStarts.length === 1) throw new Error("fails on attempt 1");
-    },
-  );
+    } });
 
   r.defineEvent("trigger-exponential-custom", z.object({}), { piiFields: "none" });
   r.writeHandler({
@@ -72,19 +66,13 @@ const backoffFixtureFeature = defineFeature("backofffixture", (r) => {
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
   // Per-job configurable + growing: delayMs 50 → gaps 50, 100, 200ms.
-  r.job(
-    "exponential-custom",
-    {
-      trigger: { on: "backofffixture:event:trigger-exponential-custom" },
+  r.job({ name: "exponential-custom", trigger: { on: "backofffixture:event:trigger-exponential-custom" },
       retries: 3,
-      backoff: { type: "exponential", delayMs: 50 },
-    },
-    async () => {
+      backoff: { type: "exponential", delayMs: 50 }, handler: async () => {
       exponentialCustomStarts.push(Date.now());
       if (exponentialCustomStarts.length < 4)
         throw new Error(`fails on attempt ${exponentialCustomStarts.length}`);
-    },
-  );
+    } });
 
   r.defineEvent("trigger-fixed-custom", z.object({}), { piiFields: "none" });
   r.writeHandler({
@@ -102,18 +90,12 @@ const backoffFixtureFeature = defineFeature("backofffixture", (r) => {
     },
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
-  r.job(
-    "fixed-custom",
-    {
-      trigger: { on: "backofffixture:event:trigger-fixed-custom" },
+  r.job({ name: "fixed-custom", trigger: { on: "backofffixture:event:trigger-fixed-custom" },
       retries: 1,
-      backoff: { type: "fixed", delayMs: 300 },
-    },
-    async () => {
+      backoff: { type: "fixed", delayMs: 300 }, handler: async () => {
       fixedCustomStarts.push(Date.now());
       if (fixedCustomStarts.length === 1) throw new Error("fails on attempt 1");
-    },
-  );
+    } });
 });
 
 let stack: TestStack;

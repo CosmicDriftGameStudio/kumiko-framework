@@ -85,7 +85,7 @@ async function seedLease(): Promise<string> {
     reason: "recipe seeds the host row the request belongs to",
   });
   const created = await createEventStoreExecutor(
-    buildEntityTable("lease", leaseEntity),
+    buildEntityTable(leaseEntity),
     leaseEntity,
     { entityName: "lease" },
   ).create({ name: "Lease 1" }, admin, db);

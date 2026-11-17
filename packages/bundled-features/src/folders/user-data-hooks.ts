@@ -12,7 +12,6 @@ import {
 import { folderAssignmentEntity, folderEntity } from "./entity.ts";
 
 const { table: folderTable, executor: folderExecutor } = createEntityExecutor(
-  "folder",
   folderEntity,
 );
 const { table: folderAssignmentTable, executor: folderAssignmentExecutor } = createEntityExecutor(

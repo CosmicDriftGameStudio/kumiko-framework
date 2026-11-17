@@ -258,14 +258,10 @@ export function createInboundMailFoundationFeature(options: InboundMailRoleOptio
 
       // Entity-specific GDPR destroy hooks — the gdpr-storage boot validator
       // checks the EXT_TENANT_DATA registration for each tenant-subject entity.
-      r.useExtension(EXT_TENANT_DATA, "mail-account", {
-        destroy: mailAccountTenantDestroyHook,
-        escapeHatch: { reason: INBOUND_MAIL_TENANT_DESTROY_ARCHIVE_REASON },
-      });
-      r.useExtension(EXT_TENANT_DATA, "inbound-message", {
-        destroy: inboundMessageTenantDestroyHook,
-        escapeHatch: { reason: INBOUND_MAIL_TENANT_DESTROY_ARCHIVE_REASON },
-      });
+      r.applyExtension({ name: EXT_TENANT_DATA, entity: "mail-account", destroy: mailAccountTenantDestroyHook,
+        escapeHatch: { reason: INBOUND_MAIL_TENANT_DESTROY_ARCHIVE_REASON } });
+      r.applyExtension({ name: EXT_TENANT_DATA, entity: "inbound-message", destroy: inboundMessageTenantDestroyHook,
+        escapeHatch: { reason: INBOUND_MAIL_TENANT_DESTROY_ARCHIVE_REASON } });
 
       registerInboundMailRetentionJob(r);
       return { roles };

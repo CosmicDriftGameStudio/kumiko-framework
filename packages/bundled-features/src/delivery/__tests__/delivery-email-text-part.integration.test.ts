@@ -24,22 +24,16 @@ const NOTIFICATION_TYPE = "email-text-probe:notify:text-part";
 
 const emailTextProbeFeature = defineFeature("email-text-probe", (r) => {
   r.requires({ features: ["delivery"] });
-  r.notification("text-part", {
-    variables: { actionUrl: templateVariable.link({ required: true }) },
+  r.notification({ name: "text-part", variables: { actionUrl: templateVariable.link({ required: true }) },
     template: {
       en: { body: '<p>Welcome</p><p><a data-button href="{{actionUrl}}">Sign in</a></p>' },
     },
-    meta: { en: { subject: "Welcome" } },
-  });
-  r.notification("sender-defaults", {
-    template: { en: { body: "<p>Hello</p>" } },
-    meta: { en: { subject: "Hello" } },
-  });
-  r.useExtension(DELIVERY_CHANNEL_EXTENSION, "email-text-probe", {
-    mode: emailChannel.mode,
+    meta: { en: { subject: "Welcome" } } });
+  r.notification({ name: "sender-defaults", template: { en: { body: "<p>Hello</p>" } },
+    meta: { en: { subject: "Hello" } } });
+  r.applyExtension({ name: DELIVERY_CHANNEL_EXTENSION, entity: "email-text-probe", mode: emailChannel.mode,
     render: emailChannel.render,
-    send: emailChannel.send,
-  });
+    send: emailChannel.send });
 });
 
 let harness: ChatHarness;

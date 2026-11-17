@@ -24,6 +24,7 @@ import { TagsHandlers } from "../web/constants.ts";
 const PROJECT_TABLE = "tags_ow_test_projects";
 
 const projectEntity = createEntity({
+  name: "project",
   table: PROJECT_TABLE,
   fields: {
     name: createTextField({
@@ -36,7 +37,7 @@ const projectEntity = createEntity({
 });
 
 const hostFixturesFeature = defineFeature("tags-ow-test-fixtures", (r) => {
-  r.entity({ name: "project", ...projectEntity });
+  r.entity(projectEntity);
 });
 
 const owner = createTestUser({ id: 80, roles: ["TenantMember"] });

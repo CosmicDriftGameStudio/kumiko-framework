@@ -13,6 +13,7 @@ export type OutboundSendStatus = (typeof OUTBOUND_SEND_STATUSES)[number];
 /** One row per keyed send from a mailbox, so a retry with the same key does not send a second copy.
  *  No recipients and no subject: the row holds ids and the Message-ID only, nothing personal. */
 export const outboundMailSendEntity = createEntity({
+  name: "mail-outbound-send",
   table: "store_mail_outbound_sends",
   softDelete: false,
   indexes: [{ unique: true, columns: ["tenantId", "userId", "accountId", "idempotencyKey"] }],
@@ -69,7 +70,6 @@ export const outboundMailSendEntity = createEntity({
 });
 
 export const outboundMailSendsTable = deriveEntityTableMeta(
-  "mail-outbound-send",
   outboundMailSendEntity,
   { source: "unmanaged" },
 );

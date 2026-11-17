@@ -22,25 +22,27 @@ import { rebuildProjection } from "../index.ts";
 // Every write opens savepoints on it; they must not release or roll back each other's.
 
 const contactEntity = createEntity({
+  name: "contact",
   table: "pew_contacts",
   fields: {
     label: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
   indexes: [{ columns: ["tenantId", "label"], unique: true, name: "pew_contacts_label_uniq" }],
 });
-const contactTable = buildEntityTable("contact", contactEntity);
+const contactTable = buildEntityTable(contactEntity);
 const contactCrud = createEventStoreExecutor(contactTable, contactEntity, {
   entityName: "contact",
 });
 
 const appointmentEntity = createEntity({
+  name: "appointment",
   table: "pew_appointments",
   fields: {
     label: createTextField({ personal: false, reason: "test_fixture", required: true }),
     day: createDateField({ required: true }),
   },
 });
-const appointmentTable = buildEntityTable("appointment", appointmentEntity);
+const appointmentTable = buildEntityTable(appointmentEntity);
 const appointmentCrud = createEventStoreExecutor(appointmentTable, appointmentEntity, {
   entityName: "appointment",
 });
@@ -50,8 +52,8 @@ let stack: TestStack;
 let lastParallelResults: ReadonlyArray<{ readonly isSuccess: boolean }> = [];
 
 const parallelFeature = defineFeature("pew", (r) => {
-  r.entity({ name: "contact", ...contactEntity });
-  r.entity({ name: "appointment", ...appointmentEntity });
+  r.entity(contactEntity);
+  r.entity(appointmentEntity);
 
   r.writeHandler({
     name: "contact:create-all",

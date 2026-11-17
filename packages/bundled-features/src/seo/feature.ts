@@ -184,7 +184,7 @@ export function createSeoFeature(opts: SeoOptions): FeatureDefinition {
     // function (same hard dependency managed-pages has) — only legal-pages/
     // managed-pages are genuinely optional (merged only when opted in).
     r.requires({ features: ["config"] });
-    r.optionalRequires("legal-pages", "managed-pages");
+    r.optionalRequires({ features: ["legal-pages", "managed-pages"] });
 
     r.config({ keys: SEO_CONFIG_KEYS });
     r.queryHandler(seoConfigQuery);
@@ -284,17 +284,13 @@ export function createSeoFeature(opts: SeoOptions): FeatureDefinition {
     // Boot-check body extracted as a named function—directly unit-testable,
     // following the same "thin job-shell calls testable function" pattern as
     // legal-pages' runLegalPagesBootCheck.
-    r.job(
-      "seo-boot-check",
-      { trigger: { manual: true }, runOnBoot: true, runIn: "api" },
-      async (_payload, ctx) =>
+    r.job({ name: "seo-boot-check", trigger: { manual: true }, runOnBoot: true, runIn: "api", handler: async (_payload, ctx) =>
         runSeoBootCheck({
           sitemapEntries: opts.sitemapEntries,
           includeLegalPages: opts.includeLegalPages ?? false,
           hasManagedPages: opts.managedPages !== undefined,
           log: ctx.obs.log,
-        }),
-    );
+        }) });
 
     return {};
   });

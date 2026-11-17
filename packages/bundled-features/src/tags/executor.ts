@@ -2,7 +2,7 @@ import { createEntityExecutor, type EntityDefinition } from "@cosmicdrift/kumiko
 import { createTagAssignmentEntity, tagEntity } from "./entity.ts";
 
 // createEntityExecutor is side-effect-free; the table+executor pair for the tag catalog lives here.
-export const { executor: tagExecutor } = createEntityExecutor("tag", tagEntity);
+export const { executor: tagExecutor } = createEntityExecutor(tagEntity);
 
 // Carries only `ownership.write`: the executor enforces entity.access.write on
 // create/restore/delete, while a read rule would hide rows from the handlers'

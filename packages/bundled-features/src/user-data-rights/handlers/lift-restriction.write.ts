@@ -41,7 +41,7 @@ export const liftRestrictionWrite = defineWriteHandler({
     const targetUserId = event.payload.userId;
 
     const outside = await denyIfTargetBeyondAdminReach(
-      ctx.db.unsafeRaw(),
+      ctx.db.unsafeRawAllTenants(),
       event.user,
       targetUserId,
     );
@@ -68,7 +68,7 @@ export const liftRestrictionWrite = defineWriteHandler({
       );
     }
 
-    await updateUserLifecycle(ctx.db.unsafeRaw(), targetUserId, {
+    await updateUserLifecycle(ctx.db.unsafeRawAllTenants(), targetUserId, {
       status: USER_STATUS.Active,
     });
 

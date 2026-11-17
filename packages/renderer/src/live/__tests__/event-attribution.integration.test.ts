@@ -38,13 +38,14 @@ import * as z from "zod";
 import { createLiveDispatcher } from "../index.ts";
 
 const orderEntity = createEntity({
+  name: "attr-order",
   table: "read_attribution_orders",
   fields: {
     item: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
 
-const orderTable = buildEntityTable("attr-order", orderEntity);
+const orderTable = buildEntityTable(orderEntity);
 
 const PLACED = "attribution:event:placed";
 const CONFIRMED = "attribution:event:confirmed";
@@ -59,7 +60,7 @@ const CONFIRMER_MSP = "attribution:projection:confirmer";
 const TENANT_ID = "00000000-0000-4000-8000-000000000002" as TenantId;
 
 const attributionFeature = defineFeature("attribution", (r) => {
-  r.entity({ name: "attr-order", ...orderEntity });
+  r.entity(orderEntity);
 
   const placed = r.defineEvent("placed", z.object({ orderId: z.uuid() }), { piiFields: "none" });
   const confirmed = r.defineEvent("confirmed", z.object({ orderId: z.uuid() }), {
@@ -132,25 +133,20 @@ const attributionFeature = defineFeature("attribution", (r) => {
 
   // The write happens after the first yield, i.e. in a later it.next() pull; a stream holds no
   // transaction, so ctx.dispatch.write runs it as its own command.
-  r.streamHandler(
-    "order:emit-after-yield",
-    z.object({}),
-    async function* (_query, ctx) {
+  r.streamHandler({ name: "order:emit-after-yield", schema: z.object({}), handler: async function* (_query, ctx) {
       yield "first";
       await ctx.dispatch.write(EMIT_STREAMED_HANDLER, {});
       yield "second";
-    },
-    { access: { roles: ["Admin"] } },
-  );
+    }, access: { roles: ["Admin"] } });
 
-  r.job("order-seed", { trigger: { manual: true }, retries: 0 }, async (payload, ctx) => {
+  r.job({ name: "order-seed", trigger: { manual: true }, retries: 0, handler: async (payload, ctx) => {
     const created = await orderExecutor.create(
       { item: String(payload["item"]) },
       ctx.systemUser,
       ctx.db,
     );
     if (!created.isSuccess) throw new Error(created.error.message);
-  });
+  } });
 
   r.multiStreamProjection({
     name: "confirmer",

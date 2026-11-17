@@ -68,6 +68,7 @@ const TABLE = "read_dsgvo_tenant_scoped";
 // Tenant-scoped contributor with NO per-user column — deletes by tenant only,
 // and ONLY when this tenant is effectively single-user (mirrors credit).
 const scopedEntity = createEntity({
+  name: "tenant-scoped",
   table: TABLE,
   fields: {
     name: createTextField({ required: true, personal: false, reason: "technical_reference" }),
@@ -82,18 +83,16 @@ const TENANT_SCOPED_DELETE_REASON =
 
 const tenantScopedDeleteHook: UserDataDeleteHook = async (ctx) => {
   if (ctx.tenantModel !== "single-user") return; // shared tenant: erasing would hit co-members
-  await asRawClient(ctx.db.unsafeRaw()).unsafe(`DELETE FROM ${TABLE} WHERE tenant_id = $1`, [
+  await asRawClient(ctx.db.unsafeRawAllTenants()).unsafe(`DELETE FROM ${TABLE} WHERE tenant_id = $1`, [
     ctx.tenantId,
   ]);
 };
 
 const contributorFeature = defineFeature("dsgvo-tenant-scoped", (r) => {
-  r.entity({ name: "tenant-scoped", ...scopedEntity });
-  r.useExtension(EXT_USER_DATA, "tenant-scoped", {
-    export: async () => null,
+  r.entity(scopedEntity);
+  r.applyExtension({ name: EXT_USER_DATA, entity: "tenant-scoped", export: async () => null,
     delete: tenantScopedDeleteHook,
-    escapeHatch: { reason: TENANT_SCOPED_DELETE_REASON },
-  });
+    escapeHatch: { reason: TENANT_SCOPED_DELETE_REASON } });
 });
 
 const membershipExecutor = createEventStoreExecutor(

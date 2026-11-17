@@ -116,7 +116,7 @@ export function createReactivateAccountHandler({
       const secrets = requireSecretsContext(
         { secrets: ctx.services.secrets, user: ctx.user },
         "reactivate-account",
-      ).withRunner(ctx.db.unsafeRaw());
+      ).withRunner(ctx.db.unsafeRawAllTenants());
       const hasCredential = await secrets.has(
         event.user.tenantId,
         inboundCredentialSecretKey(payload.accountId),

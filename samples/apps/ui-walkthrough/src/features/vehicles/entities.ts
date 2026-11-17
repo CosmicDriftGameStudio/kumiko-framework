@@ -25,6 +25,7 @@ export const POST_CHANNELS = ["Instagram", "Facebook", "mobile.de"] as const;
 export const POST_STATUSES = ["geplant", "gepostet"] as const;
 
 export const vehicleEntity = createEntity({
+  name: "vehicle",
   table: "read_ui_walkthrough_vehicles",
   fields: {
     fin: createTextField({ ...DEMO_DATA, maxLength: 17 }),
@@ -55,6 +56,7 @@ export const vehicleEntity = createEntity({
 });
 
 export const campaignEntity = createEntity({
+  name: "campaign",
   table: "read_ui_walkthrough_campaigns",
   fields: {
     name: createTextField({ ...DEMO_DATA, required: true, searchable: true, sortable: true }),
@@ -73,6 +75,7 @@ export const campaignEntity = createEntity({
 });
 
 export const campaignPostEntity = createEntity({
+  name: "campaignPost",
   table: "read_ui_walkthrough_campaign_posts",
   fields: {
     campaign: { type: "reference", entity: "campaign", required: true, filterable: true },

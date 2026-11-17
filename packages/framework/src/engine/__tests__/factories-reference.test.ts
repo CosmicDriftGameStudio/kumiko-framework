@@ -50,18 +50,19 @@ describe("createReferenceField", () => {
 
 describe("validateBoot — plaintext user reference", () => {
   const named = createEntity({
+    name: "user",
     fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
   });
   const access = { roles: ["Admin"] };
 
   const targets = defineFeature("user", (r) => {
-    r.crud("user", named, { write: { access }, read: { access } });
+    r.crud(named, { write: { access }, read: { access } });
   });
 
   function featureWith(field: ReturnType<typeof createReferenceField>) {
     return defineFeature("test", (r) => {
       r.requires({ features: ["user"] });
-      r.crud("team", named, { write: { access }, read: { access } });
+      r.crud({ ...named, name: "team" }, { write: { access }, read: { access } });
       r.entity({ name: "note", ...createEntity({ fields: { approvedBy: field } }) });
     });
   }

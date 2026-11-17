@@ -25,6 +25,7 @@ import { buildMinimalCtx } from "./_pipeline-test-utils.ts";
 const VALID_UUID = "00000000-0000-4000-8000-000000000001";
 
 const noteEntity = createEntity({
+  name: "note",
   table: "notes",
   fields: {
     title: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -33,6 +34,7 @@ const noteEntity = createEntity({
 });
 
 const noteEntitySoftDelete = createEntity({
+  name: "note",
   table: "notes_soft",
   fields: {
     title: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -257,7 +259,7 @@ describe("defineEntityQueryHandler", () => {
 
 describe("createEntityExecutor", () => {
   test("returns a drizzle table plus an executor bound to it", () => {
-    const { table, executor } = createEntityExecutor("note", noteEntity);
+    const { table, executor } = createEntityExecutor(noteEntity);
     // Table: drizzle-built — has the id column the event-store executor keys on.
     expect(table).toBeDefined();
     expect(table!["id"]).toBeDefined();
@@ -270,7 +272,7 @@ describe("createEntityExecutor", () => {
   });
 
   test("accepts softDelete entities (executor.restore exists)", () => {
-    const { executor } = createEntityExecutor("note", noteEntitySoftDelete);
+    const { executor } = createEntityExecutor(noteEntitySoftDelete);
     expect(typeof executor.restore).toBe("function");
   });
 });
@@ -371,7 +373,7 @@ describe("defineProjectionQueryHandler", () => {
       {
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         unsafeAllTenants: true,
-        escapeHatch: { reason: "fw#2913 test — cross-tenant revenue analytics" },
+        escapeHatch: { reason: "fw#2913 test — cross-tenant revenue analytics", grants: ["systemIdentity"] },
       },
     );
     expect(def.escapeHatch).toEqual({ reason: "fw#2913 test — cross-tenant revenue analytics" });
@@ -520,7 +522,7 @@ describe("registerCrudHandlers", () => {
 
   test("registerEntity: false skips r.entity when already registered", () => {
     const { r, entities, writes } = createCrudRegistrarMock();
-    r.entity({ name: "note", ...noteEntity });
+    r.entity(noteEntity);
     registerCrudHandlers(r, "note", noteEntity, {
       write: adminAccess,
       registerEntity: false,

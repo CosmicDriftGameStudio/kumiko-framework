@@ -168,7 +168,7 @@ export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDef
       recommended: false,
     });
     r.requires({ features: ["config", "branding"] });
-    r.entity({ name: "page", ...pageEntity });
+    r.entity(pageEntity);
 
     const handlers = { set: r.writeHandler(setWrite) };
     const queries = {

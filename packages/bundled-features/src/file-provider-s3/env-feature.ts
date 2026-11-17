@@ -38,7 +38,7 @@ export function defineS3EnvProviderFeature<TShape extends z.ZodRawShape>(spec: {
         build: async (_ctx: FileProviderContext, _tenantId: string): Promise<FileStorageProvider> =>
           createS3ProviderFromEnv(spec.envPrefix),
       };
-      r.useExtension("fileProvider", spec.providerKey, plugin);
+      r.applyExtension({ name: "fileProvider", entity: spec.providerKey, ...plugin });
     },
     { dedupeOptions: spec.dedupeOptions },
   );

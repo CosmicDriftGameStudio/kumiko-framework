@@ -137,9 +137,7 @@ export const gdprMailLocalizedTemplate = mailLocaleTemplates.localizedTemplate;
 
 export function registerGdprMails(r: FeatureRegistrar): void {
   for (const kind of ALL_GDPR_MAIL_KINDS) {
-    r.notification(GDPR_MAIL_KINDS[kind].name, {
-      variables: GDPR_MAIL_VARIABLES[kind],
-      localizedTemplate: gdprMailLocalizedTemplate(kind),
-    });
+    r.notification({ name: GDPR_MAIL_KINDS[kind].name, variables: GDPR_MAIL_VARIABLES[kind],
+      localizedTemplate: gdprMailLocalizedTemplate(kind) });
   }
 }

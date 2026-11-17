@@ -40,13 +40,14 @@ function getTableConfig(table: any): {
 describe("buildEntityTable — entity.indexes", () => {
   test("composite unique index is recorded as unique=true in Drizzle table config", () => {
     const entity = createEntity({
+      name: "config-value",
       fields: {
         key: createTextField({ required: true, personal: false, reason: "test_fixture" }),
         userId: createTextField({ personal: false, reason: "test_fixture" }),
       },
       indexes: [{ unique: true, columns: ["key", "tenantId", "userId"] }],
     });
-    const tbl = buildEntityTable("config-value", entity);
+    const tbl = buildEntityTable(entity);
     const { indexes } = getTableConfig(tbl);
     const composite = indexes.find(
       (i) => i.config.name === "read_config_values_key_tenant_id_user_id_unique",
@@ -62,13 +63,14 @@ describe("buildEntityTable — entity.indexes", () => {
 
   test("composite non-unique index is recorded as unique=false in Drizzle table config", () => {
     const entity = createEntity({
+      name: "session",
       fields: {
         startedAt: createTextField({ personal: false, reason: "test_fixture" }),
         endedAt: createTextField({ personal: false, reason: "test_fixture" }),
       },
       indexes: [{ columns: ["startedAt", "endedAt"] }],
     });
-    const tbl = buildEntityTable("session", entity);
+    const tbl = buildEntityTable(entity);
     const { indexes } = getTableConfig(tbl);
     const composite = indexes.find(
       (i) => i.config.name === "read_sessions_started_at_ended_at_idx",
@@ -79,12 +81,13 @@ describe("buildEntityTable — entity.indexes", () => {
 
   test("custom name override is respected", () => {
     const entity = createEntity({
+      name: "page",
       fields: {
         slug: createTextField({ required: true, personal: false, reason: "test_fixture" }),
       },
       indexes: [{ unique: true, columns: ["slug"], name: "my_custom_idx" }],
     });
-    const tbl = buildEntityTable("page", entity);
+    const tbl = buildEntityTable(entity);
     const { indexes } = getTableConfig(tbl);
     const idx = indexes.find((i) => i.config.name === "my_custom_idx");
     expect(idx).toBeDefined();
@@ -93,37 +96,40 @@ describe("buildEntityTable — entity.indexes", () => {
 
   test("an index where that is not a sql expression throws instead of building a full index", () => {
     const entity = createEntity({
+      name: "page",
       softDelete: true,
       fields: {
         slug: createTextField({ required: true, personal: false, reason: "test_fixture" }),
       },
       indexes: [{ unique: true, columns: ["slug"], where: "slug IS NOT NULL" }],
     });
-    expect(() => buildEntityTable("page", entity)).toThrow(/index "[^"]+": where must be a sql/);
+    expect(() => buildEntityTable(entity)).toThrow(/index "[^"]+": where must be a sql/);
   });
 
   test("without indexes — no additional indexes, no error", () => {
     const entity = createEntity({
+      name: "widget",
       fields: {
         title: createTextField({ personal: false, reason: "test_fixture" }),
       },
     });
-    expect(() => buildEntityTable("widget", entity)).not.toThrow();
+    expect(() => buildEntityTable(entity)).not.toThrow();
   });
 
   test("Columns that do not have a DB column (multi-files) are caught by the boot validator", () => {
     // buildEntityTable silently skips missing columns; the boot validator throws.
     const entity = createEntity({
+      name: "widget",
       fields: {
         attachments: { type: "files" } as never,
       },
       indexes: [{ columns: ["attachments"] }],
     });
     // No throw at build time.
-    expect(() => buildEntityTable("widget", entity)).not.toThrow();
+    expect(() => buildEntityTable(entity)).not.toThrow();
     // But validateBoot does.
     const feature = defineFeature("widgetFeature", (r) => {
-      r.entity({ name: "widget", ...entity });
+      r.entity(entity);
     });
     expect(() => validateBoot([feature])).toThrow(/multi-value field/);
   });
@@ -132,12 +138,13 @@ describe("buildEntityTable — entity.indexes", () => {
 describe("buildEntityTable — base column indexes", () => {
   test("a base time column maps to its snake_case column", () => {
     const entity = createEntity({
+      name: "timelineCase",
       fields: {
         status: createTextField({ personal: false, reason: "test_fixture" }),
       },
       indexes: [{ columns: ["tenantId", "status", "insertedAt"] }],
     });
-    const table = buildEntityTable("timelineCase", entity);
+    const table = buildEntityTable(entity);
     const index = getTableConfig(table).indexes.find(
       (i) => i.config.columns.map((c) => c.name).join(",") === "tenant_id,status,inserted_at",
     );
@@ -251,6 +258,7 @@ describe("validateBoot — entity.indexes", () => {
 
 describe("buildEntityTable — reference field indexes", () => {
   const entity = createEntity({
+    name: "lease",
     fields: {
       propertyId: createReferenceField({ entity: "property" }),
       tagIds: createReferenceField({ entity: "tag", multiple: true }),
@@ -259,7 +267,7 @@ describe("buildEntityTable — reference field indexes", () => {
     },
     indexes: [{ columns: ["ownerId", "title"] }],
   });
-  const { indexes } = getTableConfig(buildEntityTable("lease", entity));
+  const { indexes } = getTableConfig(buildEntityTable(entity));
 
   test("a single-value reference field gets its own index", () => {
     const index = indexes.find((i) => i.config.name === "read_leases_property_id_idx");

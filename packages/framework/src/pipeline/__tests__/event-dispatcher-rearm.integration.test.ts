@@ -42,7 +42,7 @@ let poisonNames = new Set<string>();
 let observed: Array<{ name: string }> = [];
 
 const rearmFeature = defineFeature("rearmtest", (r) => {
-  r.entity({ name: "widget", ...sharedWidgetEntity });
+  r.entity(sharedWidgetEntity);
 
   r.multiStreamProjection({
     name: "observer",

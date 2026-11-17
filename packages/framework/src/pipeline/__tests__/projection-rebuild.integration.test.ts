@@ -46,6 +46,7 @@ import { TestUsers } from "../../seeding/seed-users.ts";
 // --- Test fixtures ---
 
 const itemEntity = createEntity({
+  name: "rebuild-item",
   table: "read_rebuild_items",
   fields: {
     groupId: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -53,7 +54,7 @@ const itemEntity = createEntity({
   },
   softDelete: true,
 });
-const itemTable = buildEntityTable("rebuild-item", itemEntity);
+const itemTable = buildEntityTable(itemEntity);
 
 const itemsPerGroupTable = pgTable("read_rebuild_items_per_group", {
   groupId: uuid("group_id").primaryKey(),
@@ -115,7 +116,7 @@ const doubleWriterProjection: ProjectionDefinition = {
 };
 
 const feature = defineFeature("rebuildtest", (r) => {
-  r.entity({ name: "rebuild-item", ...itemEntity });
+  r.entity(itemEntity);
   r.projection(itemsPerGroupProjection);
 });
 
@@ -342,7 +343,7 @@ describe("rebuildProjection — error path", () => {
 
     // Construct a broken registry where apply("rebuild-item.created") throws.
     const brokenFeature = defineFeature("brokentest", (r) => {
-      r.entity({ name: "rebuild-item", ...itemEntity });
+      r.entity(itemEntity);
       r.projection({
         ...itemsPerGroupProjection,
         name: "items-per-group",
@@ -384,7 +385,7 @@ describe("rebuildProjection — error path", () => {
 
     // Now attempt a rebuild with a broken apply under the SAME projection name.
     const brokenFeature = defineFeature("rebuildtest", (r) => {
-      r.entity({ name: "rebuild-item", ...itemEntity });
+      r.entity(itemEntity);
       r.projection({
         ...itemsPerGroupProjection,
         apply: {
@@ -520,7 +521,7 @@ describe("rebuildProjection — meter emission", () => {
     await appendCreatedEvent(group, "a");
 
     const brokenFeature = defineFeature("failmeter", (r) => {
-      r.entity({ name: "rebuild-item", ...itemEntity });
+      r.entity(itemEntity);
       r.projection({
         ...itemsPerGroupProjection,
         apply: {
@@ -613,10 +614,11 @@ describe("rebuildProjection — online shadow-swap mechanics", () => {
   // Self-contained fixtures: a separate projection so the count-sensitive
   // list/progress tests above keep seeing exactly one registered projection.
   const swapEntity = createEntity({
+    name: "swap-indexed",
     table: "read_swap_indexed",
     fields: { label: createTextField({ personal: false, reason: "test_fixture", required: true }) },
   });
-  const swapTable = buildEntityTable("swap-indexed", swapEntity);
+  const swapTable = buildEntityTable(swapEntity);
   // Empty apply: a 0-event rebuild still builds the shadow + swaps it in, so
   // this exercises the table-recreation + swap path without wiring events.
   const swapProjection: ProjectionDefinition = {
@@ -626,7 +628,7 @@ describe("rebuildProjection — online shadow-swap mechanics", () => {
     apply: {},
   };
   const swapFeature = defineFeature("swaptest", (r) => {
-    r.entity({ name: "swap-indexed", ...swapEntity });
+    r.entity(swapEntity);
     r.projection(swapProjection);
   });
   const swapRegistry = createRegistry([swapFeature]);
@@ -686,7 +688,7 @@ describe("rebuildProjection — online shadow-swap mechanics", () => {
     // live table unlocked, so it returns the pre-swap rows promptly.
     let liveDuringReplay: number | undefined = -1;
     const probeFeature = defineFeature("probetest", (r) => {
-      r.entity({ name: "rebuild-item", ...itemEntity });
+      r.entity(itemEntity);
       r.projection({
         ...itemsPerGroupProjection,
         apply: {

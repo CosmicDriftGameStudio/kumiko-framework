@@ -110,7 +110,7 @@ export function createTierEngineFeature<
       r.requires({ features: ["config"] });
       r.requires({ features: ["tenant"] });
 
-      r.entity({ name: "tier-assignment", ...tierAssignmentEntity });
+      r.entity(tierAssignmentEntity);
 
       const validTierNames = opts.tierMap ? new Set(Object.keys(opts.tierMap)) : undefined;
 
@@ -269,8 +269,7 @@ export function createTierEngineFeature<
       // register there later (e.g. a future toggle-only resolver), but only one
       // plugin wins — see the "single-plugin" comment on findTierResolverUsage.
       r.extendsRegistrar(TENANT_TIER_RESOLVER_EXT, {});
-      // biome-ignore lint/correctness/useHookAtTopLevel: r.useExtension is a framework registrar method, not a React hook.
-      r.useExtension(TENANT_TIER_RESOLVER_EXT, TIER_ENGINE_FEATURE, tierCache.plugin);
+      r.applyExtension({ name: TENANT_TIER_RESOLVER_EXT, entity: TIER_ENGINE_FEATURE, ...tierCache.plugin });
     },
     Object.keys(opts).length === 0 ? { dedupeOptions: {} } : undefined,
   );

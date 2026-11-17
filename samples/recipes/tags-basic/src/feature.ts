@@ -26,6 +26,7 @@ import { z } from "zod";
 // feature's promise: any entity is taggable as-is.
 
 export const noteEntity = createEntity({
+  name: "note",
   table: "read_sample_tags_notes",
   fields: {
     title: createTextField({
@@ -37,7 +38,7 @@ export const noteEntity = createEntity({
   },
 });
 
-const noteTable = buildEntityTable("note", noteEntity);
+const noteTable = buildEntityTable(noteEntity);
 
 const noteExecutor = createEventStoreExecutor(noteTable, noteEntity, { entityName: "note" });
 
@@ -49,7 +50,7 @@ export const noteFeature = defineFeature("note-management", (r) => {
   // dependency so the bundle is mounted.
   r.requires({ features: ["tags"] });
 
-  r.entity({ name: "note", ...noteEntity });
+  r.entity(noteEntity);
 
   r.writeHandler({
     name: "note:create",

@@ -264,13 +264,11 @@ const lockedUse = defineFeature("locked-use", (r) => {
     access: { roles: ["TenantAdmin"] },
     handler: async () => ({ isSuccess: true as const, data: {} }),
   });
-  r.notification("welcome", {
-    trigger: { on: "welcome" },
+  r.notification({ name: "welcome", trigger: { on: "welcome" },
     recipient: () => null,
     data: () => ({}),
     template: { de: { body: "<p>Willkommen</p>" } },
-    meta: { de: { subject: "Willkommen" } },
-  });
+    meta: { de: { subject: "Willkommen" } } });
 });
 
 describe("locked template overrides :: side channels stay closed", () => {

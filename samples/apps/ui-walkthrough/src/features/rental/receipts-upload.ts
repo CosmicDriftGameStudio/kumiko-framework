@@ -12,7 +12,7 @@ import { receiptEntity } from "./entities";
 const UPLOAD_SCREEN_QN = "rental:screen:upload-standard-layout";
 const UPLOAD_FIELD = "belege";
 
-const { executor: receiptExecutor } = createEntityExecutor("receipt", receiptEntity);
+const { executor: receiptExecutor } = createEntityExecutor(receiptEntity);
 const { executor: fileRefExecutor } = createEntityExecutor(FILE_REF_ENTITY_NAME, fileRefEntity);
 
 export const receiptsUploadPayloadSchema = z.object({

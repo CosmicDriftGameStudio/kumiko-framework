@@ -14,6 +14,7 @@ import { buildEntityTable } from "../../table-builder.ts";
 import type { TenantDb } from "../../tenant-db.ts";
 
 const sampleEntity = createEntity({
+  name: "sample",
   table: "column_row_sample",
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -22,7 +23,7 @@ const sampleEntity = createEntity({
     payload: createJsonbField({ personal: false, reason: "test_fixture" }),
   },
 });
-const table = buildEntityTable("sample", sampleEntity);
+const table = buildEntityTable(sampleEntity);
 
 const unmanagedTable = defineUnmanagedTable({
   tableName: "column_row_unmanaged",

@@ -45,7 +45,7 @@ export function createConfigFeature(): FeatureDefinition {
     // projection write in one TX. Subscribers that need config-change
     // semantics listen to those auto-events via r.multiStreamProjection
     // (see docs/plans/architecture/event-sourcing-pivot.md §4.7).
-    r.entity({ name: "config-value", ...configValueEntity });
+    r.entity(configValueEntity);
 
     const handlers = {
       set: r.writeHandler(setWrite),
@@ -62,7 +62,7 @@ export function createConfigFeature(): FeatureDefinition {
 
     // KEK-rotation for encrypted values. Manual trigger — ops runs it once
     // after adding a new master key version.
-    r.job("reencrypt", { trigger: { manual: true } }, reencryptJob);
+    r.job({ name: "reencrypt", trigger: { manual: true }, handler: reencryptJob });
 
     r.translations({ keys: CONFIG_FEATURE_I18N });
 

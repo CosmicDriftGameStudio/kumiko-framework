@@ -167,7 +167,7 @@ describe("api and extension rules", () => {
   test("an unknown extension usage is classified", () => {
     const feature = defineFeature("demo", (r) => {
       r.entity({ name: "item", ...createEntity({ table: "Items", fields: { name: text() } }) });
-      r.useExtension("ghost-extension", "item", {});
+      r.applyExtension({ name: "ghost-extension", entity: "item" });
     });
     expect(ruleIdsOf(() => validateBoot([feature]))).toContain("extension/unknown-extension");
   });

@@ -20,27 +20,28 @@ const admin = TestUsers.admin;
 const other = TestUsers.otherTenant;
 
 const noteEntity = createEntity({
+  name: "wp-note",
   table: "read_wp_notes",
   fields: { label: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
-const { table: noteTable, executor: noteExecutor } = createEntityExecutor("wp-note", noteEntity);
+const { table: noteTable, executor: noteExecutor } = createEntityExecutor(noteEntity);
 
 const globalEntity = createEntity({
+  name: "wp-global",
   table: "read_wp_globals",
   tenancy: "global",
   systemStream: true,
   fields: { label: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
 const { table: globalTable, executor: globalExecutor } = createEntityExecutor(
-  "wp-global",
   globalEntity,
 );
 
 const crossTenantSchema = z.object({ label: z.string(), tenantId: z.uuid() });
 
 const feature = defineFeature("wp", (r) => {
-  r.entity({ name: "wp-note", ...noteEntity });
-  r.entity({ name: "wp-global", ...globalEntity });
+  r.entity(noteEntity);
+  r.entity(globalEntity);
   r.writeHandler(
     defineWriteHandler({
       name: "create-global",

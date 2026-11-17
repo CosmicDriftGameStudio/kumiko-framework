@@ -32,18 +32,20 @@ function unreachableRunner(): DbRunner {
 }
 
 const tenantEntity = createEntity({
+  name: "globalGuardTenantItem",
   table: "fw2855_global_tenant_items",
   fields: { name: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
-const tenantEntityTable = buildEntityTable("globalGuardTenantItem", tenantEntity);
-const tenantMeta = deriveEntityTableMeta("globalGuardTenantMeta", tenantEntity);
+const tenantEntityTable = buildEntityTable(tenantEntity);
+const tenantMeta = deriveEntityTableMeta({ ...tenantEntity, name: "globalGuardTenantMeta" });
 
 const globalManagedEntity = createEntity({
+  name: "globalGuardManagedItem",
   table: "fw2855_global_managed_items",
   tenancy: "global",
   fields: { name: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
-const globalManagedTable = buildEntityTable("globalGuardManagedItem", globalManagedEntity);
+const globalManagedTable = buildEntityTable(globalManagedEntity);
 
 const globalUnmanagedTable = defineUnmanagedTable({
   tableName: "store_fw2855_global_items",
@@ -278,7 +280,7 @@ describe("TenantDb.global()", () => {
 describe("TenantDb.unsafeRaw()", () => {
   test("without a grant throws AccessDeniedError without touching the runner", () => {
     const tdb = createTenantDb({ db: unreachableRunner(), tenantId: own });
-    expect(() => tdb.unsafeRaw()).toThrow(AccessDeniedError);
+    expect(() => tdb.unsafeRawAllTenants()).toThrow(AccessDeniedError);
   });
 
   test("with a valid grant returns the underlying DbRunner", () => {
@@ -291,7 +293,7 @@ describe("TenantDb.unsafeRaw()", () => {
         unsafeRaw: { reason: "granted" },
       },
     });
-    expect(unscopedRunner(tdb.unsafeRaw())).toBe(rawDb);
+    expect(unscopedRunner(tdb.unsafeRawAllTenants())).toBe(rawDb);
   });
 
   test("with a valid grant reports unsafe-raw once with the declared reason", () => {
@@ -305,7 +307,7 @@ describe("TenantDb.unsafeRaw()", () => {
         report,
       },
     });
-    tdb.unsafeRaw();
+    tdb.unsafeRawAllTenants();
     expect(calls).toEqual([{ kind: "unsafe-raw", reason: "granted", target: undefined }]);
   });
 
@@ -319,7 +321,7 @@ describe("TenantDb.unsafeRaw()", () => {
         report,
       },
     });
-    expect(() => tdb.unsafeRaw()).toThrow(AccessDeniedError);
+    expect(() => tdb.unsafeRawAllTenants()).toThrow(AccessDeniedError);
     expect(calls).toEqual([]);
   });
 });
@@ -328,10 +330,10 @@ describe("withUnsafeRawGrant", () => {
   test("rebinding to a grant makes unsafeRaw work", () => {
     const rawDb = unreachableRunner();
     const tdb = createTenantDb({ db: rawDb, tenantId: own });
-    expect(() => tdb.unsafeRaw()).toThrow(AccessDeniedError);
+    expect(() => tdb.unsafeRawAllTenants()).toThrow(AccessDeniedError);
 
     const rebound = withUnsafeRawGrant(tdb, { reason: "narrower hook grant" });
-    expect(unscopedRunner(rebound.unsafeRaw())).toBe(rawDb);
+    expect(unscopedRunner(rebound.unsafeRawAllTenants())).toBe(rawDb);
   });
 
   test("rebinding to undefined makes unsafeRaw throw, even if the original had a grant", () => {
@@ -344,10 +346,10 @@ describe("withUnsafeRawGrant", () => {
         unsafeRaw: { reason: "handler grant" },
       },
     });
-    expect(unscopedRunner(tdb.unsafeRaw())).toBe(rawDb);
+    expect(unscopedRunner(tdb.unsafeRawAllTenants())).toBe(rawDb);
 
     const rebound = withUnsafeRawGrant(tdb, undefined);
-    expect(() => rebound.unsafeRaw()).toThrow(AccessDeniedError);
+    expect(() => rebound.unsafeRawAllTenants()).toThrow(AccessDeniedError);
   });
 
   test("passes an object not built by createTenantDb through unchanged", () => {
@@ -411,7 +413,7 @@ describe("unsafeRaw gate inheritance", () => {
         personalDataGate: denyingGate,
       },
     });
-    const derived = await derive(tdb.unsafeRaw());
+    const derived = await derive(tdb.unsafeRawAllTenants());
     return createTenantDb({
       db: derived,
       tenantId: own,

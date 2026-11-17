@@ -24,7 +24,7 @@ export const tenantOverrideCountsQuery = defineQueryHandler({
         ? { ne: SYSTEM_TENANT_ID }
         : { in: [...enabledTenantIds].filter((id) => id !== SYSTEM_TENANT_ID) };
     const groups = await aggregateWhere(
-      ctx.db.unsafeRaw(),
+      ctx.db.unsafeRawAllTenants(),
       templateResourcesTable,
       {
         measure: { fn: "countDistinct", field: "tenantId" },

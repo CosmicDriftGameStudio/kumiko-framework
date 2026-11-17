@@ -100,60 +100,42 @@ const cascadeFeature = defineFeature("cascade", (r) => {
     r.entity({ name, ...entity });
   }
 
-  r.relation("department", "users", {
-    type: "hasMany",
+  r.relation({ entity: "department", name: "users", type: "hasMany",
     target: "user",
     foreignKey: "departmentId",
-    onDelete: "restrict",
-  });
-  r.relation("user", "sessions", {
-    type: "hasMany",
+    onDelete: "restrict" });
+  r.relation({ entity: "user", name: "sessions", type: "hasMany",
     target: "session",
     foreignKey: "userId",
-    onDelete: "cascade",
-  });
-  r.relation("user", "groupsRestrict", {
-    type: "manyToMany",
+    onDelete: "cascade" });
+  r.relation({ entity: "user", name: "groupsRestrict", type: "manyToMany",
     target: "group",
     through: { table: "user-group-restrict", sourceKey: "userId", targetKey: "groupId" },
-    onDelete: "restrict",
-  });
-  r.relation("user", "groupsCascade", {
-    type: "manyToMany",
+    onDelete: "restrict" });
+  r.relation({ entity: "user", name: "groupsCascade", type: "manyToMany",
     target: "group",
     through: { table: "user-group-cascade", sourceKey: "userId", targetKey: "groupId" },
-    onDelete: "cascade",
-  });
-  r.relation("team", "members", {
-    type: "hasMany",
+    onDelete: "cascade" });
+  r.relation({ entity: "team", name: "members", type: "hasMany",
     target: "member",
     foreignKey: "teamId",
-    onDelete: "setNull",
-  });
-  r.relation("squad", "recruits", {
-    type: "hasMany",
+    onDelete: "setNull" });
+  r.relation({ entity: "squad", name: "recruits", type: "hasMany",
     target: "recruit",
     foreignKey: "squadId",
-    onDelete: "cascade",
-  });
-  r.relation("recruit", "badges", {
-    type: "hasMany",
+    onDelete: "cascade" });
+  r.relation({ entity: "recruit", name: "badges", type: "hasMany",
     target: "badge",
     foreignKey: "recruitId",
-    onDelete: "cascade",
-  });
-  r.relation("fort", "bunkers", {
-    type: "hasMany",
+    onDelete: "cascade" });
+  r.relation({ entity: "fort", name: "bunkers", type: "hasMany",
     target: "bunker",
     foreignKey: "fortId",
-    onDelete: "cascade",
-  });
-  r.relation("bunker", "crates", {
-    type: "hasMany",
+    onDelete: "cascade" });
+  r.relation({ entity: "bunker", name: "crates", type: "hasMany",
     target: "crate",
     foreignKey: "bunkerId",
-    onDelete: "restrict",
-  });
+    onDelete: "restrict" });
 
   r.hook({
     type: "preDelete",

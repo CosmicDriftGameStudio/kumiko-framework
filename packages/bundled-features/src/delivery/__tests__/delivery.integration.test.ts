@@ -153,8 +153,7 @@ const appFeature = defineFeature("app", (r) => {
   r.requires({ features: ["delivery"] });
 
   // Declared with a stored template so the async render job does a real mail render.
-  r.notification("async-e2e", {
-    variables: {
+  r.notification({ name: "async-e2e", variables: {
       title: templateVariable.text({ required: true }),
       body: templateVariable.text({ required: true }),
       subject: templateVariable.text({ required: true }),
@@ -164,8 +163,7 @@ const appFeature = defineFeature("app", (r) => {
         body: '<h1><span data-variable="title"></span></h1><p><span data-variable="body"></span></p>',
       },
     },
-    meta: { en: { subject: "{{subject}}" } },
-  });
+    meta: { en: { subject: "{{subject}}" } } });
 
   r.writeHandler(
     defineWriteHandler({
@@ -266,13 +264,14 @@ const appFeature = defineFeature("app", (r) => {
 
 // Feature with CRUD entity + declarative r.notification()
 const ticketEntity = createEntity({
+  name: "ticket",
   fields: {
     title: createTextField({ required: true, personal: false, reason: "technical_reference" }),
     assigneeId: createTextField({ personal: false, reason: "pseudonymous_fk" }),
     status: createTextField({ required: true, personal: false, reason: "technical_reference" }),
   },
 });
-const ticketTable = buildEntityTable("ticket", ticketEntity);
+const ticketTable = buildEntityTable(ticketEntity);
 
 function ticketExecutor() {
   return createEventStoreExecutor(ticketTable, ticketEntity, { entityName: "ticket" });
@@ -281,7 +280,7 @@ function ticketExecutor() {
 const ticketFeature = defineFeature("tickets", (r) => {
   r.requires({ features: ["delivery"] });
 
-  r.entity({ name: "ticket", ...ticketEntity });
+  r.entity(ticketEntity);
 
   // Real CRUD handler with CrudExecutor (not stub)
   const createHandler = r.writeHandler({
@@ -297,8 +296,7 @@ const ticketFeature = defineFeature("tickets", (r) => {
 
   // Declarative: notify assignee when ticket is created with assigneeId
   // Uses handler ref + per-channel templates
-  r.notification("ticket-assigned", {
-    trigger: { on: createHandler },
+  r.notification({ name: "ticket-assigned", trigger: { on: createHandler },
     recipient: (result) => {
       const assigneeId = result.data["assigneeId"] as string | undefined;
       return assigneeId ?? null;
@@ -330,19 +328,16 @@ const ticketFeature = defineFeature("tickets", (r) => {
         title: data["header"],
         body: data["text"],
       }),
-    },
-  });
+    } });
 
   // Second notification on same trigger — tests multiple notifications per handler
-  r.notification("ticketCreatedAdmin", {
-    trigger: { on: createHandler },
+  r.notification({ name: "ticketCreatedAdmin", trigger: { on: createHandler },
     recipient: () => admin.id, // always notify admin
     data: (result) => ({
       title: "Ticket erstellt",
       body: `Neues Ticket: ${result.data["title"]}`,
       ticketId: result.id,
-    }),
-  });
+    }) });
 });
 
 // A tenantUserIdsQuery handler NOT declared r.systemScope() must get the same
@@ -387,7 +382,7 @@ const systemBroadcastFeature = defineFeature("test-system-broadcast", (r) => {
     handler: async (_query, ctx) => {
       let dbUnsafeRawThrew = false;
       try {
-        ctx.db.unsafeRaw();
+        ctx.db.unsafeRawAllTenants();
       } catch {
         dbUnsafeRawThrew = true;
       }
@@ -426,8 +421,7 @@ const channelEmailFeature = createPlainFallbackEmailFeature({
 const channelPushFeature = defineFeature("test-push-channel", (r) => {
   r.requires({ features: ["delivery"] });
   r.translations({ keys: { "delivery.channel.push": { en: "Push" } } });
-  r.useExtension(DELIVERY_CHANNEL_EXTENSION, "push", {
-    mode: "queued",
+  r.applyExtension({ name: DELIVERY_CHANNEL_EXTENSION, entity: "push", mode: "queued",
     resolve: async (userId) => {
       pushTokenResolveCalls.push(userId);
       return testPushToken(userId);
@@ -440,8 +434,7 @@ const channelPushFeature = defineFeature("test-push-channel", (r) => {
         data: message.data,
       });
       return { status: "sent", address };
-    },
-  });
+    } });
 });
 const features = [
   configFeature,

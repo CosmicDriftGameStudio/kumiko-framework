@@ -22,16 +22,18 @@ import {
 import { SOFT_DELETE_CLEANUP_JOB, SOFT_DELETE_CLEANUP_SYSTEM_JOB } from "../soft-delete-cleanup.ts";
 
 const itemEntity = createEntity({
+  name: "item",
   table: "fw2914_sdc_items",
   softDelete: true,
   fields: {
     label: createTextField({ required: true, personal: false, reason: "test_fixture" }),
   },
 });
-const itemTable = buildEntityTable("item", itemEntity);
+const itemTable = buildEntityTable(itemEntity);
 
 // Mirrors the bundled `user` entity: global tenancy, yet the table still carries a tenant_id column.
 const globalItemEntity = createEntity({
+  name: "globalItem",
   table: "fw3529_sdc_global_items",
   tenancy: "global",
   systemStream: true,
@@ -41,11 +43,11 @@ const globalItemEntity = createEntity({
   },
   access: { write: { Admin: "all" } },
 });
-const globalItemTable = buildEntityTable("globalItem", globalItemEntity);
+const globalItemTable = buildEntityTable(globalItemEntity);
 
 const feature = defineFeature("sdcjob", (r) => {
-  r.entity({ name: "item", ...itemEntity });
-  r.entity({ name: "globalItem", ...globalItemEntity });
+  r.entity(itemEntity);
+  r.entity(globalItemEntity);
   r.writeHandler(
     defineEntityCreateHandler("globalItem", globalItemEntity, { access: { roles: ["Admin"] } }),
   );

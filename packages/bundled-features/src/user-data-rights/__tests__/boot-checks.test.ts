@@ -102,7 +102,7 @@ describe("GDPR-storage boot guards V2-V4 (via r.bootCheck)", () => {
   test("V2: export hook without delete hook → Art.17 throw", () => {
     const bad = defineFeature("bad-export", (r) => {
       r.requires({ features: ["user-data-rights"] });
-      r.useExtension(EXT_USER_DATA, "badEntity", { export: async () => null });
+      r.applyExtension({ name: EXT_USER_DATA, entity: "badEntity", export: async () => null });
     });
     expect(() => validateBoot([...baseFeatures(), bad])).toThrow(/Art\.17/);
   });
@@ -111,7 +111,7 @@ describe("GDPR-storage boot guards V2-V4 (via r.bootCheck)", () => {
     const untypedName: string = EXT_USER_DATA;
     const bad = defineFeature("bad-empty", (r) => {
       r.requires({ features: ["user-data-rights"] });
-      r.useExtension(untypedName, "badEntity", {});
+      r.applyExtension({ name: untypedName, entity: "badEntity" });
     });
     expect(() => validateBoot([...baseFeatures(), bad])).toThrow(/neither an export nor a delete/);
   });
@@ -184,7 +184,7 @@ describe("GDPR-storage boot guards V2-V4 (via r.bootCheck)", () => {
           },
         }),
       });
-      r.useExtension(EXT_USER_DATA, "task", { export: async () => null, delete: async () => {} });
+      r.applyExtension({ name: EXT_USER_DATA, entity: "task", export: async () => null, delete: async () => {} });
     });
     expect(() => validateBoot([...baseFeatures(), hooked])).not.toThrow();
   });
@@ -210,10 +210,8 @@ describe("GDPR-storage boot guards V2-V4 (via r.bootCheck)", () => {
           },
         }),
       });
-      r.useExtension(EXT_USER_DATA, "contact-summary", {
-        export: async () => null,
-        delete: async () => {},
-      });
+      r.applyExtension({ name: EXT_USER_DATA, entity: "contact-summary", export: async () => null,
+        delete: async () => {} });
     });
     expect(() => validateBoot([...baseFeatures(), hooked])).not.toThrow();
   });
@@ -260,7 +258,7 @@ describe("GDPR-storage boot guards V2-V4 (via r.bootCheck)", () => {
     const bad = defineFeature("bad-storage", (r) => {
       r.requires({ features: ["tenant-lifecycle"] });
       // @ts-expect-error destroyTenant is required — simulates a JS plugin or cast slipping past the type check
-      r.useExtension(EXT_STORAGE_PROVIDER, "bad-entity", {});
+      r.applyExtension({ name: EXT_STORAGE_PROVIDER, entity: "bad-entity" });
     });
     expect(() => validateBoot([...minimalTenantLifecycleFeatures(), bad])).toThrow(
       /storageProvider registration for "bad-entity".*no destroyTenant function/,
@@ -298,7 +296,7 @@ describe("GDPR-storage boot guards V2-V4 (via r.bootCheck)", () => {
           },
         }),
       });
-      r.useExtension(EXT_TENANT_DATA, "subscription", { destroy: async () => {} });
+      r.applyExtension({ name: EXT_TENANT_DATA, entity: "subscription", destroy: async () => {} });
     });
     expect(() => validateBoot([...minimalTenantLifecycleFeatures(), hooked])).not.toThrow();
   });

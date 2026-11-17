@@ -28,6 +28,7 @@ import {
 } from "./screens";
 
 export const connectionEntity = createEntity({
+  name: "connection",
   table: "read_styleguide_ai_connections",
   fields: {
     name: createTextField({
@@ -46,7 +47,7 @@ const noPayload = z.object({});
 const connectionIdPayload = z.object({ connectionId: z.string().optional() });
 const idPayload = z.object({ id: z.string() });
 
-const { executor } = createEntityExecutor("connection", connectionEntity);
+const { executor } = createEntityExecutor(connectionEntity);
 
 function isProvider(value: unknown): value is Provider {
   return PROVIDERS.some((provider) => provider === value);
@@ -56,7 +57,7 @@ export const aiSettingsFeature = defineFeature("ai-settings", (r) => {
   r.requires({ features: ["config"] });
   r.translations({ keys: AI_SETTINGS_I18N });
 
-  r.crud("connection", connectionEntity, { write: open, read: openRead });
+  r.crud(connectionEntity, { write: open, read: openRead });
   r.queryHandler({
     name: "connection-options",
     unfilteredResult: { reason: "returns select options, never connection rows" },

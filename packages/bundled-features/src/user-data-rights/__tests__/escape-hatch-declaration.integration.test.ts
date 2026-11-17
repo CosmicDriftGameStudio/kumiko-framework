@@ -71,15 +71,13 @@ describe("escape-hatch declaration :: declared hook gets a real unfiltered DbRun
 
   const declaredLeakHook: UserDataDeleteHook = async (ctx) => {
     // No WHERE clause at all — only possible with a genuinely unfiltered runner.
-    await asRawClient(ctx.db.unsafeRaw()).unsafe(`DELETE FROM test_leaky_declared`);
+    await asRawClient(ctx.db.unsafeRawAllTenants()).unsafe(`DELETE FROM test_leaky_declared`);
   };
 
   const declaredFeature = defineFeature("test-leaky-declared", (r) => {
-    r.useExtension(EXT_USER_DATA, "leaky-declared", {
-      export: async () => null,
+    r.applyExtension({ name: EXT_USER_DATA, entity: "leaky-declared", export: async () => null,
       delete: declaredLeakHook,
-      escapeHatch: { reason: DECLARED_REASON },
-    });
+      escapeHatch: { reason: DECLARED_REASON } });
   });
 
   let stack: TestStack;
@@ -128,15 +126,14 @@ describe("escape-hatch declaration :: declared hook gets a real unfiltered DbRun
 
 describe("escape-hatch declaration :: undeclared hook is denied, not silently unfiltered", () => {
   const undeclaredLeakHook: UserDataDeleteHook = async (ctx) => {
-    await asRawClient(ctx.db.unsafeRaw()).unsafe(`DELETE FROM test_leaky_undeclared`);
+    await asRawClient(ctx.db.unsafeRawAllTenants()).unsafe(`DELETE FROM test_leaky_undeclared`);
   };
 
   const undeclaredFeature = defineFeature("test-leaky-undeclared", (r) => {
-    r.useExtension(EXT_USER_DATA, "leaky-undeclared", {
-      export: async () => null,
+    r.applyExtension({ name: EXT_USER_DATA, entity: "leaky-undeclared", export: async () => null,
       delete: undeclaredLeakHook,
       // Deliberately NOT declared: this is the case under test.
-    });
+});
   });
 
   let stack: TestStack;

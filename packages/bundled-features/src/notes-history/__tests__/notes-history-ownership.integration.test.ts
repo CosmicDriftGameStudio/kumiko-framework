@@ -69,6 +69,7 @@ const teamOwnership: NonNullable<EntityDefinition["access"]> = {
 // entirely on the note-entry side (teamOwnership above).
 const PROJECT_TABLE = "notes_ownership_test_projects";
 const projectEntity: EntityDefinition = createEntity({
+  name: "project",
   table: PROJECT_TABLE,
   fields: {
     name: createTextField({
@@ -80,7 +81,7 @@ const projectEntity: EntityDefinition = createEntity({
   },
 });
 const projectFixtureFeature = defineFeature("notes-ownership-test-project-fixture", (r) => {
-  r.entity({ name: "project", ...projectEntity });
+  r.entity(projectEntity);
 });
 
 const PROJ_1 = "20000000-0000-4000-8000-000000000001";

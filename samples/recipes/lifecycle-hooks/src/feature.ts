@@ -22,6 +22,7 @@ import {
 import * as z from "zod";
 
 export const articleEntity = createEntity({
+  name: "article",
   table: "read_sample_articles",
   fields: {
     // maxLength high so zod lets long titles through — the validation hook
@@ -47,7 +48,7 @@ export const reservedSlots = new Set<string>();
 const editorWrite = { access: { roles: ["Admin", "Editor"] } } as const;
 
 export const articlesFeature = defineFeature("blog", (r) => {
-  const article = r.entity({ name: "article", ...articleEntity });
+  const article = r.entity(articleEntity);
 
   const articleCreate = r.writeHandler(
     defineEntityCreateHandler("article", articleEntity, editorWrite),

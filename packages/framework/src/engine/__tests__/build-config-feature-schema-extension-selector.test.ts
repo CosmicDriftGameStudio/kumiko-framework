@@ -52,7 +52,7 @@ function mailFoundation(extra?: (r: Parameters<Parameters<typeof defineFeature>[
 
 const smtp = defineFeature("mail-smtp", (r) => {
   r.requires({ features: ["mail-foundation"] });
-  r.useExtension("mailTransport", "smtp");
+  r.applyExtension({ name: "mailTransport", entity: "smtp" });
   r.config({
     keys: {
       host: createTenantConfig("text", {
@@ -67,12 +67,12 @@ const smtp = defineFeature("mail-smtp", (r) => {
       }),
     },
   });
-  r.secret("password", { label: { en: "SMTP password" }, scope: "tenant", required: true });
+  r.secret({ name: "password", label: { en: "SMTP password" }, scope: "tenant", required: true });
 });
 
 const inmemory = defineFeature("mail-inmemory", (r) => {
   r.requires({ features: ["mail-foundation"] });
-  r.useExtension("mailTransport", "inmemory");
+  r.applyExtension({ name: "mailTransport", entity: "inmemory" });
   r.config({
     keys: {
       capture: createTenantConfig("boolean", {
@@ -84,7 +84,7 @@ const inmemory = defineFeature("mail-inmemory", (r) => {
 });
 
 const stripe = defineFeature("stripe", (r) => {
-  r.secret("apiKey", { label: { en: "Stripe key" }, scope: "tenant" });
+  r.secret({ name: "apiKey", label: { en: "Stripe key" }, scope: "tenant" });
 });
 
 function build(features: FeatureDefinition[]) {
@@ -175,9 +175,9 @@ describe("buildConfigFeatureSchema — extension selector", () => {
   test("a plugin that names its secrets section gets it as an own section", () => {
     const titledSmtp = defineFeature("mail-smtp", (r) => {
       r.requires({ features: ["mail-foundation"] });
-      r.useExtension("mailTransport", "smtp");
+      r.applyExtension({ name: "mailTransport", entity: "smtp" });
       r.translations({ keys: { "mail-smtp.settings.secrets": { en: "SMTP sign-in" } } });
-      r.secret("password", { label: { en: "SMTP password" }, scope: "tenant" });
+      r.secret({ name: "password", label: { en: "SMTP password" }, scope: "tenant" });
     });
     const schema = build([secretsFeature(), mailFoundation(), titledSmtp]);
     const form = screenOf(schema, "mail-foundation-tenant", "configEdit");
@@ -193,7 +193,7 @@ describe("buildConfigFeatureSchema — extension selector", () => {
   test("a secret with its own write roles stays on the secrets screen", () => {
     const gatedSecret = defineFeature("mail-smtp", (r) => {
       r.requires({ features: ["mail-foundation"] });
-      r.useExtension("mailTransport", "smtp");
+      r.applyExtension({ name: "mailTransport", entity: "smtp" });
       r.config({
         keys: {
           host: createTenantConfig("text", {
@@ -203,11 +203,9 @@ describe("buildConfigFeatureSchema — extension selector", () => {
           }),
         },
       });
-      r.secret("password", {
-        label: { en: "SMTP password" },
+      r.secret({ name: "password", label: { en: "SMTP password" },
         scope: "tenant",
-        writeRoles: ["SystemAdmin"],
-      });
+        writeRoles: ["SystemAdmin"] });
     });
     const schema = build([secretsFeature(), mailFoundation(), gatedSecret]);
     const form = screenOf(schema, "mail-foundation-tenant", "configEdit");
@@ -221,7 +219,7 @@ describe("buildConfigFeatureSchema — extension selector", () => {
   test("a plugin registered as not selectable in settings is no option, but the server still accepts it", () => {
     const testInbox = defineFeature("mail-test-inbox", (r) => {
       r.requires({ features: ["mail-foundation"] });
-      r.useExtension("mailTransport", "test-inbox", { selectableInSettings: false });
+      r.applyExtension({ name: "mailTransport", entity: "test-inbox", selectableInSettings: false });
     });
     const registry = createRegistry([secretsFeature(), mailFoundation(), smtp, testInbox]);
     const form = screenOf(
@@ -321,7 +319,7 @@ describe("buildConfigFeatureSchema — extension selector", () => {
     });
     const s3 = defineFeature("file-s3", (r) => {
       r.requires({ features: ["file-foundation"] });
-      r.useExtension("storageProbe", "s3");
+      r.applyExtension({ name: "storageProbe", entity: "s3" });
       r.config({
         keys: {
           bucket: createTenantConfig("text", {
@@ -355,8 +353,8 @@ describe("buildConfigFeatureSchema — extension selector", () => {
 
   test("plugin feature registered under two ids keeps today's behaviour", () => {
     const twice = defineFeature("mail-smtp", (r) => {
-      r.useExtension("mailTransport", "smtp");
-      r.useExtension("mailTransport", "smtps");
+      r.applyExtension({ name: "mailTransport", entity: "smtp" });
+      r.applyExtension({ name: "mailTransport", entity: "smtps" });
       r.config({
         keys: {
           host: createTenantConfig("text", {
@@ -366,7 +364,7 @@ describe("buildConfigFeatureSchema — extension selector", () => {
           }),
         },
       });
-      r.secret("password", { label: { en: "SMTP password" }, scope: "tenant" });
+      r.secret({ name: "password", label: { en: "SMTP password" }, scope: "tenant" });
     });
     const schema = build([secretsFeature(), mailFoundation(), twice, inmemory]);
     expect(schema.navs.map((n) => n.id)).toContain("mail-smtp-tenant");
@@ -396,8 +394,8 @@ describe("buildConfigFeatureSchema — extension selector", () => {
       r.extensionSelector("smsTransport", keys.provider);
     });
     const both = defineFeature("mail-smtp", (r) => {
-      r.useExtension("mailTransport", "smtp");
-      r.useExtension("smsTransport", "gateway");
+      r.applyExtension({ name: "mailTransport", entity: "smtp" });
+      r.applyExtension({ name: "smsTransport", entity: "gateway" });
       r.config({
         keys: {
           host: createTenantConfig("text", {

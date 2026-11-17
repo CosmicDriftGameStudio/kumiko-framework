@@ -30,10 +30,8 @@ export function createRendererMailHtmlFeature(
     r.requires({ features: ["renderer-foundation"] });
     r.requires({ features: ["template-resolver"] });
 
-    r.useExtension("renderer", "mail-html", {
-      kinds: ["mail"] as const,
+    r.applyExtension({ name: "renderer", entity: "mail-html", kinds: ["mail"] as const,
       render: (req, ctx) => mailHtmlRender(req, ctx, options),
-      readMailChrome: (req, ctx) => readMailChrome(req, ctx, options),
-    });
+      readMailChrome: (req, ctx) => readMailChrome(req, ctx, options) });
   });
 }

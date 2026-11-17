@@ -53,12 +53,12 @@ const probeFeature = defineFeature("escape-hatch-audit-probe", (r) => {
     name: "unsafe-raw-write",
     schema: z.object({}),
     handler: async (_event, ctx) => {
-      const runner = ctx.db.unsafeRaw();
+      const runner = ctx.db.unsafeRawAllTenants();
       const rows = await executeRawQuery<{ one: number }>(runner, "SELECT 1 AS one");
       return { isSuccess: true as const, data: { one: rows[0]?.one } };
     },
     access: { roles: ["User"] },
-    escapeHatch: { reason: UNSAFE_RAW_REASON },
+    escapeHatch: { reason: UNSAFE_RAW_REASON, grants: ["unsafeRaw"] },
   });
 
   r.writeHandler({
@@ -71,7 +71,7 @@ const probeFeature = defineFeature("escape-hatch-audit-probe", (r) => {
       return { isSuccess: true as const, data: row };
     },
     access: { roles: ["User"] },
-    escapeHatch: { reason: GLOBAL_WRITE_REASON },
+    escapeHatch: { reason: GLOBAL_WRITE_REASON, grants: ["globalWrites"] },
   });
 
   r.writeHandler({
@@ -82,7 +82,7 @@ const probeFeature = defineFeature("escape-hatch-audit-probe", (r) => {
         .queryAs(createSystemUser(event.user.tenantId), "escape-hatch-audit-probe:query:whoami", {})
         .then((data) => ({ isSuccess: true as const, data })),
     access: { roles: ["User"] },
-    escapeHatch: { reason: IDENTITY_SWITCH_REASON },
+    escapeHatch: { reason: IDENTITY_SWITCH_REASON, grants: ["systemIdentity"] },
   });
 
   r.writeHandler({
@@ -93,7 +93,7 @@ const probeFeature = defineFeature("escape-hatch-audit-probe", (r) => {
         .queryAs(event.user, "escape-hatch-audit-probe:query:whoami", {})
         .then((data) => ({ isSuccess: true as const, data })),
     access: { roles: ["User"] },
-    escapeHatch: { reason: IDENTITY_SWITCH_REASON },
+    escapeHatch: { reason: IDENTITY_SWITCH_REASON, grants: ["systemIdentity"] },
   });
 });
 

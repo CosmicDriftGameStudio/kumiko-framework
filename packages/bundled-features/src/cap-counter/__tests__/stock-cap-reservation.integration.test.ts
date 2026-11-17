@@ -25,6 +25,7 @@ import { createStockCapGuard } from "../stock-cap-guard.ts";
 
 // Any entity table serves as the counted stock; the cap-counter feature no longer owns an entity.
 const stockProbeEntity = createEntity({
+  name: "stock-probe",
   table: "read_stock_cap_probe",
   description: "Probe rows counted by the stock-cap guard tests.",
   fields: {
@@ -39,7 +40,7 @@ const stockProbeEntity = createEntity({
   },
 });
 
-const { executor, table: stockProbeTable } = createEntityExecutor("stock-probe", stockProbeEntity);
+const { executor, table: stockProbeTable } = createEntityExecutor(stockProbeEntity);
 
 const CAP_CODE = "stock_reservation_exceeded";
 const CAP_NAME = "reservation-item";

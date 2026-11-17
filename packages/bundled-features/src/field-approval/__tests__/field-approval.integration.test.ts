@@ -27,6 +27,7 @@ const readRoles = [...roles, "Viewer"] as const;
 const crudAccess = { access: { roles } } as const;
 
 const contactEntity = createEntity({
+  name: "contact",
   table: "read_fa_test_contacts",
   fields: {
     name: createTextField({
@@ -55,7 +56,7 @@ const contactEntity = createEntity({
 });
 
 const contactFixtureFeature = defineFeature("fa-fixture", (r) => {
-  r.crud("contact", contactEntity, {
+  r.crud(contactEntity, {
     write: crudAccess,
     read: { access: { roles: readRoles } },
     verbs: { delete: false, list: false, restore: false },

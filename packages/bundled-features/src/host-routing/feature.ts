@@ -204,8 +204,7 @@ export function createHostRoutingFeature(options: HostRoutingOptions): FeatureDe
 
     const resolver = tenantResolverFor(options);
     if (resolver !== undefined) {
-      // biome-ignore lint/correctness/useHookAtTopLevel: r.useExtension is a registrar method, not a React hook; path mode without an apex tenant must leave the resolver slot free.
-      r.useExtension(EXT_TENANT_RESOLVER, "host", resolver);
+      r.applyExtension({ name: EXT_TENANT_RESOLVER, entity: "host", ...resolver });
     }
 
     const existence: TenantExistenceProvider = {
@@ -214,6 +213,6 @@ export function createHostRoutingFeature(options: HostRoutingOptions): FeatureDe
         (tenantId: string) =>
           isSystemTenant(tenantId) ? true : isTenantServing(db, tenantId),
     };
-    r.useExtension(EXT_TENANT_EXISTENCE, "active-tenant", existence);
+    r.applyExtension({ name: EXT_TENANT_EXISTENCE, entity: "active-tenant", ...existence });
   });
 }

@@ -89,7 +89,7 @@ export const tenantOverridesQuery = defineQueryHandler({
   escapeHatch: { grants: ["unsafeRaw"], reason: TENANT_OVERRIDES_REASON },
   handler: async (query, ctx) => {
     const { slug, kind, locale, diffTenantId } = query.payload;
-    const raw = ctx.db.unsafeRaw();
+    const raw = ctx.db.unsafeRawAllTenants();
     const found = await selectMany<TemplateResourceRow>(raw, templateResourcesTable, {
       slug,
       kind,

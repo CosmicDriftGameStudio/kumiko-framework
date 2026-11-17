@@ -675,16 +675,16 @@ describe("jobs:write:retry decrypts payload before dispatch", () => {
 
   const retryAppFeature = defineFeature("retryapp", (r) => {
     r.defineEvent("pinged", z.object({}), { piiFields: "none" });
-    r.job("captureImport", { trigger: { manual: true } }, async (payload, ctx) => {
+    r.job({ name: "captureImport", trigger: { manual: true }, handler: async (payload, ctx) => {
       capturedPayloads.push(payload);
       capturedTriggeredBy.push(ctx.triggeredBy?.id ?? null);
-    });
-    r.job("fanOut", { trigger: { manual: true }, perTenant: true }, async (payload) => {
+    } });
+    r.job({ name: "fanOut", trigger: { manual: true }, perTenant: true, handler: async (payload) => {
       fanOutRuns.push(payload);
-    });
-    r.job("onPing", { trigger: { on: "pinged" } }, async (payload) => {
+    } });
+    r.job({ name: "onPing", trigger: { on: "pinged" }, handler: async (payload) => {
       eventRuns.push(payload);
-    });
+    } });
   });
 
   beforeAll(async () => {

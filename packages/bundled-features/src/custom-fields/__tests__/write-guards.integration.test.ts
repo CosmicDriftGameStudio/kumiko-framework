@@ -25,15 +25,17 @@ import { createCustomFieldsFeature } from "../feature.ts";
 import { customFieldsField, wireCustomFieldsFor } from "../wire-for-entity.ts";
 
 const propertyEntity = createEntity({
+  name: "property",
   table: "read_cf_write_guard_properties",
   fields: {
     name: createTextField({ required: true, personal: false, reason: "technical_reference" }),
     customFields: customFieldsField(),
   },
 });
-const propertyTable = buildEntityTable("property", propertyEntity);
+const propertyTable = buildEntityTable(propertyEntity);
 
 const plainNoteEntity = createEntity({
+  name: "plain-note",
   table: "read_cf_write_guard_notes",
   fields: {
     name: createTextField({ required: true, personal: false, reason: "technical_reference" }),
@@ -41,12 +43,12 @@ const plainNoteEntity = createEntity({
 });
 
 const propertyFeature = defineFeature("property-write-guards", (r) => {
-  r.entity({ name: "property", ...propertyEntity });
-  r.entity({ name: "plain-note", ...plainNoteEntity });
+  r.entity(propertyEntity);
+  r.entity(plainNoteEntity);
   r.requires({ features: ["custom-fields"] });
   wireCustomFieldsFor(r, "property", propertyTable);
 
-  const { executor: propertyExecutor } = createEntityExecutor("property", propertyEntity);
+  const { executor: propertyExecutor } = createEntityExecutor(propertyEntity);
   r.writeHandler({
     name: "property:create",
     schema: z.object({ id: z.string(), name: z.string() }),

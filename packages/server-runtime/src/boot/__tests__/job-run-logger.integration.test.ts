@@ -47,9 +47,9 @@ const jobRuns: Array<{ readonly note: string }> = [];
 
 // No `runIn` — the exact case the lane-default regression hits.
 const probeFeature = defineFeature("probe", (r) => {
-  r.job("noteIt", { trigger: { manual: true } }, async (payload) => {
+  r.job({ name: "noteIt", trigger: { manual: true }, handler: async (payload) => {
     jobRuns.push({ note: (payload as { note: string }).note });
-  });
+  } });
 });
 
 beforeAll(async () => {
@@ -105,12 +105,13 @@ describe("startDevJobRunners", () => {
 // startDevJobRunners as the lane consumer) and drives a job that calls both
 // ctx.dispatch.write and ctx.dispatch.queryAs end-to-end.
 const attachNoteEntity = createEntity({
+  name: "note",
   table: "job_attach_notes",
   // The job's dispatch.write lands on the system tenant; the tenant session must read it back.
   systemRowsReadable: true,
   fields: { text: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
-const attachNoteTable = buildEntityTable("note", attachNoteEntity);
+const attachNoteTable = buildEntityTable(attachNoteEntity);
 
 const attachJobPayload = z.object({ text: z.string() });
 const attachListRows = z.array(z.object({ text: z.string() }));
@@ -119,7 +120,7 @@ const attachResults: Array<{ writeOk: boolean; rowCount: number }> = [];
 const attachFailures: string[] = [];
 
 const attachDispatcherFeature = defineFeature("jobattach", (r) => {
-  r.entity({ name: "note", ...attachNoteEntity });
+  r.entity(attachNoteEntity);
 
   r.writeHandler({
     name: "create",
@@ -140,14 +141,9 @@ const attachDispatcherFeature = defineFeature("jobattach", (r) => {
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
 
-  r.job(
-    "record",
-    {
-      trigger: { manual: true },
+  r.job({ name: "record", trigger: { manual: true },
       retries: 0,
-      escapeHatch: { reason: "test job reads the note list as a signed-in user" },
-    },
-    async (payload, ctx) => {
+      escapeHatch: { reason: "test job reads the note list as a signed-in user", grants: ["systemIdentity"] }, handler: async (payload, ctx) => {
       try {
         const { text } = attachJobPayload.parse(payload);
         const writeResult = await ctx.dispatch.write("jobattach:write:create", { text });
@@ -160,8 +156,7 @@ const attachDispatcherFeature = defineFeature("jobattach", (r) => {
         attachFailures.push(error instanceof Error ? error.message : String(error));
         throw error;
       }
-    },
-  );
+    } });
 });
 
 describe("startDevJobRunners attaches the dispatcher", () => {
@@ -226,14 +221,14 @@ describe("startDevJobRunners isolates queues by queueNamePrefix", () => {
     const runsB: string[] = [];
 
     const isoFeatureA = defineFeature("iso", (r) => {
-      r.job("mark", { trigger: { manual: true } }, async (payload) => {
+      r.job({ name: "mark", trigger: { manual: true }, handler: async (payload) => {
         runsA.push((payload as { note: string }).note);
-      });
+      } });
     });
     const isoFeatureB = defineFeature("iso", (r) => {
-      r.job("mark", { trigger: { manual: true } }, async (payload) => {
+      r.job({ name: "mark", trigger: { manual: true }, handler: async (payload) => {
         runsB.push((payload as { note: string }).note);
-      });
+      } });
     });
 
     const registryA = createRegistry([isoFeatureA, createJobsFeature()]);

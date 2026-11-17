@@ -92,7 +92,7 @@ const listEscapedHandler = defineWriteHandler({
   name: "list-escaped",
   schema: listEscapedSchema,
   access: { roles: ["Admin"] },
-  escapeHatch: { reason: ESCAPED_REASON },
+  escapeHatch: { reason: ESCAPED_REASON, grants: ["systemIdentity"] },
   perform: stepsPipeline<z.infer<typeof listEscapedSchema>, { count: number; ids: string[] }>(
     ({ r }) => [
       r.step.read.findMany("items", {
@@ -115,7 +115,7 @@ const getEscapedHandler = defineWriteHandler({
   name: "get-escaped",
   schema: getEscapedSchema,
   access: { roles: ["Admin"] },
-  escapeHatch: { reason: ESCAPED_REASON },
+  escapeHatch: { reason: ESCAPED_REASON, grants: ["systemIdentity"] },
   perform: stepsPipeline<
     z.infer<typeof getEscapedSchema>,
     { found: boolean; label: string | null }

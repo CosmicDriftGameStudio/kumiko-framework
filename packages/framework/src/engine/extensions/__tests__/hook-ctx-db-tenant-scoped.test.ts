@@ -75,7 +75,7 @@ describe("TenantDataHookCtx.db / UserDataHookCtx.db are TenantDb, not DbRunner",
       tenantId,
     };
 
-    const raw: DbRunner = tenantCtx.db.unsafeRaw();
+    const raw: DbRunner = tenantCtx.db.unsafeRawAllTenants();
     expect(unscopedRunner(raw)).toBe(runner);
   });
 });

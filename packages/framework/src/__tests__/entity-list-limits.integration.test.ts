@@ -23,12 +23,13 @@ import {
 import { TestUsers } from "../seeding/seed-users.ts";
 
 const widgetEntity = createEntity({
+  name: "widget",
   table: "limit_widgets",
   fields: { name: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
 
 const widgetFeature = defineFeature("limitwidgets", (r) => {
-  r.entity({ name: "widget", ...widgetEntity });
+  r.entity(widgetEntity);
   r.writeHandler(
     defineEntityCreateHandler("widget", widgetEntity, { access: { roles: ["Admin"] } }),
   );

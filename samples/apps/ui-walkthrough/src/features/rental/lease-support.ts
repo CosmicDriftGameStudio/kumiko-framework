@@ -9,15 +9,13 @@ import {
   managementProfileEntity,
 } from "./entities";
 
-export const { executor: leaseExecutor } = createEntityExecutor("lease", leaseEntity);
+export const { executor: leaseExecutor } = createEntityExecutor(leaseEntity);
 export const { executor: positionExecutor } = createEntityExecutor(
-  "leasePosition",
   leasePositionEntity,
 );
-export const { executor: partyExecutor } = createEntityExecutor("leaseParty", leasePartyEntity);
+export const { executor: partyExecutor } = createEntityExecutor(leasePartyEntity);
 
 export const { executor: managementProfileExecutor } = createEntityExecutor(
-  "managementProfile",
   managementProfileEntity,
 );
 

@@ -10,6 +10,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 
 export const orderEntity = createEntity({
+  name: "order",
   table: "read_ws_orders",
   fields: {
     label: createTextField({

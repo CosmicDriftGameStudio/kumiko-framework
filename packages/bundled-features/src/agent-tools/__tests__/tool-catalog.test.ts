@@ -16,6 +16,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 const widgetEntity = createEntity({
+  name: "widget",
   fields: {
     name: createTextField({
       searchable: true,
@@ -29,6 +30,7 @@ const widgetEntity = createEntity({
 });
 
 const orphanEntity = createEntity({
+  name: "orphan",
   fields: { label: createTextField({ personal: false, reason: "technical_reference" }) },
 });
 
@@ -39,7 +41,7 @@ function buildCatalogTestFeature() {
     // (resolveAgentExposure needs description or agent.expose) — registered
     // explicitly below instead, so open_form's entityEdit-mapping has something
     // to find in manifest.handlers.
-    r.crud("widget", widgetEntity, {
+    r.crud(widgetEntity, {
       write: { access: { roles: ["Admin"] } },
       read: { access: { roles: ["Admin", "Reader"] } },
       verbs: { create: false, update: false },
@@ -64,7 +66,7 @@ function buildCatalogTestFeature() {
     });
 
     // Entity with no mounted handlers — the "skip when nothing callable" case.
-    r.entity({ name: "orphan", ...orphanEntity });
+    r.entity(orphanEntity);
 
     r.writeHandler({
       name: "widget:approve",
@@ -424,7 +426,7 @@ describe("buildToolCatalog — client tools", () => {
 
   test("open_form drops the handler->screen mapping of an opted-out screen but keeps the handler tool", () => {
     const optOutFeature = defineFeature("optout-form-test", (r) => {
-      r.entity({ name: "gadget", ...widgetEntity });
+      r.entity({ ...widgetEntity, name: "gadget" });
       r.writeHandler({
         name: "gadget:create",
         schema: z.object({ name: z.string() }),

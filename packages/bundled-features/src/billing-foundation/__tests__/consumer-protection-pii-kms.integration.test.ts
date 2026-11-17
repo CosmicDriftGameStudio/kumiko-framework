@@ -122,7 +122,7 @@ const mockProviderFeature = defineFeature("test-mock-pii-kms-provider", (r) => {
     },
     cancelSubscription: async () => {},
   };
-  r.useExtension("subscriptionProvider", PROVIDER, plugin);
+  r.applyExtension({ name: "subscriptionProvider", entity: PROVIDER, ...plugin });
 });
 
 let stack: TestStack;

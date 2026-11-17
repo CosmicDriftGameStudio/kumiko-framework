@@ -46,6 +46,7 @@ import { createLocalProvider } from "../local-provider.ts";
 // the entity column; plural (files/images) a jsonb array of UUIDs in order.
 // Both shapes must validate + round-trip through the CRUD pipeline.
 const documentEntity = createEntity({
+  name: "document",
   table: "pipeline_documents",
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -60,7 +61,7 @@ const documentEntity = createEntity({
 const ROLES = { access: { roles: ["Admin", "User"] } } as const;
 
 const documentFeature = defineFeature("pipeline-documents", (r) => {
-  r.entity({ name: "document", ...documentEntity });
+  r.entity(documentEntity);
   r.writeHandler(defineEntityCreateHandler("document", documentEntity, ROLES));
   r.writeHandler(defineEntityUpdateHandler("document", documentEntity, ROLES));
   r.queryHandler(defineEntityDetailHandler("document", documentEntity, ROLES));

@@ -30,13 +30,14 @@ import { createLiveDispatcher } from "../index.ts";
 // land as 403. The test proves that wiring end-to-end.
 
 const itemEntity = createEntity({
+  name: "item",
   table: "dispatcher_live_items",
   fields: { name: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
-const itemTable = buildEntityTable("item", itemEntity);
+const itemTable = buildEntityTable(itemEntity);
 
 const itemFeature = defineFeature("dlive", (r) => {
-  r.entity({ name: "item", ...itemEntity });
+  r.entity(itemEntity);
 
   r.writeHandler({
     name: "item:create",
@@ -57,16 +58,11 @@ const itemFeature = defineFeature("dlive", (r) => {
     access: { roles: ["Admin"] },
   });
 
-  r.streamHandler(
-    "item:tail",
-    z.object({ count: z.number().int().min(0) }),
-    async function* (query) {
+  r.streamHandler({ name: "item:tail", schema: z.object({ count: z.number().int().min(0) }), handler: async function* (query) {
       for (let i = 0; i < query.payload.count; i++) {
         yield { i, name: `n-${i}` };
       }
-    },
-    { access: { roles: ["Admin"] } },
-  );
+    }, access: { roles: ["Admin"] } });
 });
 
 let stack: TestStack;

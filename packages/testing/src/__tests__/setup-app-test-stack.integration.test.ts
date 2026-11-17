@@ -85,11 +85,12 @@ describe("setupAppTestStack", () => {
 
   test("drops the ephemeral database when the registry push fails after the stack started", async () => {
     const brokenEntity = createEntity({
+      name: "thing",
       table: "",
       fields: { a: createTextField({ personal: false, reason: "test_fixture" }) },
     });
     const brokenFeature = defineFeature("testing-broken", (r) => {
-      r.entity({ name: "thing", ...brokenEntity });
+      r.entity(brokenEntity);
     });
     const dbName = `kumiko_test_${randomUUID().replaceAll("-", "").slice(0, 12)}`;
 

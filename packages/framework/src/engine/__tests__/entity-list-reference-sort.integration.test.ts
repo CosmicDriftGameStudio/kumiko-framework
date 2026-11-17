@@ -19,12 +19,14 @@ import { createEntity, createTextField } from "../factories.ts";
 const admin = TestUsers.admin;
 
 const personEntity = createEntity({
+  name: "person",
   table: "list_ref_sort_people",
   fields: { name: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
-const personTable = buildEntityTable("person", personEntity);
+const personTable = buildEntityTable(personEntity);
 
 const ticketEntity = createEntity({
+  name: "ticket",
   table: "list_ref_sort_tickets",
   fields: {
     note: createTextField({ personal: false, reason: "test_fixture" }),
@@ -41,15 +43,15 @@ const ticketEntity = createEntity({
     } as const,
   },
 });
-const ticketTable = buildEntityTable("ticket", ticketEntity);
+const ticketTable = buildEntityTable(ticketEntity);
 
 const peopleFeature = defineFeature("listrefsortpeople", (r) => {
-  r.entity({ name: "person", ...personEntity });
+  r.entity(personEntity);
 });
 
 const ticketFeature = defineFeature("listrefsort", (r) => {
   r.requires({ features: ["listrefsortpeople"] });
-  r.entity({ name: "ticket", ...ticketEntity });
+  r.entity(ticketEntity);
   r.queryHandler(defineEntityListHandler("ticket", ticketEntity, { access: { roles: ["Admin"] } }));
 });
 

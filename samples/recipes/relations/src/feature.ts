@@ -6,6 +6,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 
 export const teamEntity = createEntity({
+  name: "team",
   table: "read_sample_teams",
   fields: {
     name: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -13,6 +14,7 @@ export const teamEntity = createEntity({
 });
 
 export const memberEntity = createEntity({
+  name: "member",
   table: "read_sample_members",
   fields: {
     name: createTextField({ personal: { of: "id" }, find: "none", required: true }),
@@ -27,6 +29,7 @@ export const memberEntity = createEntity({
 });
 
 export const taskEntity = createEntity({
+  name: "task",
   table: "read_sample_member_tasks",
   fields: {
     title: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -53,36 +56,32 @@ const createOnly = {
 const createAndDelete = { ...createOnly, delete: true } as const;
 
 export const relationsFeature = defineFeature("org", (r) => {
-  const team = r.entity({ name: "team", ...teamEntity });
-  const member = r.entity({ name: "member", ...memberEntity });
+  const team = r.entity(teamEntity);
+  const member = r.entity(memberEntity);
 
-  r.relation(team, "members", {
-    type: "hasMany",
+  r.relation({ entity: team, name: "members", type: "hasMany",
     target: "member",
     foreignKey: "teamId",
-    onDelete: "restrict",
-  });
+    onDelete: "restrict" });
 
-  r.relation(member, "tasks", {
-    type: "hasMany",
+  r.relation({ entity: member, name: "tasks", type: "hasMany",
     target: "task",
     foreignKey: "memberId",
-    onDelete: "cascade",
-  });
+    onDelete: "cascade" });
 
   // onDelete runs automatically in the delete lifecycle: deleting a team is refused while
   // members exist, deleting a member removes its tasks.
-  r.crud("team", teamEntity, {
+  r.crud(teamEntity, {
     write: adminWrite,
     verbs: createAndDelete,
     registerEntity: false,
   });
-  r.crud("member", memberEntity, {
+  r.crud(memberEntity, {
     write: adminWrite,
     verbs: createAndDelete,
     registerEntity: false,
   });
-  r.crud("task", taskEntity, {
+  r.crud(taskEntity, {
     write: adminWrite,
     read: openRead,
     verbs: { ...createOnly, detail: true },

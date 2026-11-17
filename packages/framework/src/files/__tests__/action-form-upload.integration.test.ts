@@ -31,6 +31,7 @@ const STAFF_FORM = "formprobe:screen:staff-form";
 const PLAIN_SCREEN = "formprobe:screen:plain";
 
 const pdfOnlyEntity = createEntity({
+  name: "doc",
   table: "form_probe_docs",
   fields: { copy: createFileField({ accept: ["pdf"] }) },
 });
@@ -38,7 +39,7 @@ const pdfOnlyEntity = createEntity({
 const bindPayload = z.object({ fileRefId: z.string(), entityId: z.string() });
 
 const probeFeature = defineFeature("formprobe", (r) => {
-  r.entity({ name: "doc", ...pdfOnlyEntity });
+  r.entity(pdfOnlyEntity);
   r.writeHandler({
     name: "submit",
     schema: z.object({}),

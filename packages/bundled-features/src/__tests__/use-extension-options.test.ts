@@ -23,20 +23,16 @@ import {
 
 test("useExtension accepts a well-typed tenantData destroy hook", () => {
   defineFeature("probe-tenant-data-ok", (r) => {
-    r.useExtension(EXT_TENANT_DATA, "x", {
-      destroy: async (ctx: TenantDataHookCtx) => {
+    r.applyExtension({ name: EXT_TENANT_DATA, entity: "x", destroy: async (ctx: TenantDataHookCtx) => {
         expectTypeOf(ctx.db).not.toBeAny();
-      },
-    });
+      } });
   });
 });
 
 test("useExtension rejects a tenantData destroy hook with the wrong ctx shape", () => {
   defineFeature("probe-tenant-data-wrong-ctx", (r) => {
-    r.useExtension(EXT_TENANT_DATA, "x", {
-      // @ts-expect-error destroy ctx must be TenantDataHookCtx, not a hand-rolled { db: DbRunner; tenantId } — TenantDb is not a DbRunner.
-      destroy: async (_ctx: { readonly db: DbRunner; readonly tenantId: TenantId }) => {},
-    });
+    r.applyExtension({ name: EXT_TENANT_DATA, entity: "x", // @ts-expect-error destroy ctx must be TenantDataHookCtx, not a hand-rolled { db: DbRunner; tenantId } — TenantDb is not a DbRunner.
+      destroy: async (_ctx: { readonly db: DbRunner; readonly tenantId: TenantId }) => {} });
   });
   expectTypeOf<
     (ctx: { readonly db: DbRunner; readonly tenantId: TenantId }) => Promise<void>
@@ -46,24 +42,22 @@ test("useExtension rejects a tenantData destroy hook with the wrong ctx shape", 
 test("useExtension requires options for a known extension name — omitting them is a type error", () => {
   defineFeature("probe-tenant-data-missing-options", (r) => {
     // @ts-expect-error tenantData's options are mandatory — a bare (name, entity) call registered no hook, silently.
-    r.useExtension(EXT_TENANT_DATA, "x");
+    r.applyExtension({ name: EXT_TENANT_DATA, entity: "x" });
   });
   expectTypeOf<[]>().not.toExtend<ExtensionOptionsArgs<typeof EXT_TENANT_DATA>>();
 });
 
 test("useExtension infers the destroy hook's ctx type from context (positional form, no annotation)", () => {
   defineFeature("probe-tenant-data-contextual", (r) => {
-    r.useExtension(EXT_TENANT_DATA, "x", {
-      destroy: async (ctx) => {
+    r.applyExtension({ name: EXT_TENANT_DATA, entity: "x", destroy: async (ctx) => {
         expectTypeOf(ctx).toEqualTypeOf<TenantDataHookCtx>();
-      },
-    });
+      } });
   });
 });
 
 test("useExtension's object form accepts a well-typed tenantData destroy hook", () => {
   defineFeature("probe-tenant-data-object-form-ok", (r) => {
-    r.useExtension({
+    r.applyExtension({
       name: EXT_TENANT_DATA,
       entity: "x",
       destroy: async (ctx: TenantDataHookCtx) => {
@@ -75,7 +69,7 @@ test("useExtension's object form accepts a well-typed tenantData destroy hook", 
 
 test("useExtension's object form rejects the wrong ctx shape", () => {
   defineFeature("probe-tenant-data-object-form-wrong-ctx", (r) => {
-    r.useExtension({
+    r.applyExtension({
       name: EXT_TENANT_DATA,
       entity: "x",
       // @ts-expect-error same mismatch as the positional form above.
@@ -89,7 +83,7 @@ test("useExtension's object form rejects the wrong ctx shape", () => {
 
 test("useExtension's object form infers the destroy hook's ctx type from context (no annotation)", () => {
   defineFeature("probe-tenant-data-object-form-contextual", (r) => {
-    r.useExtension({
+    r.applyExtension({
       name: EXT_TENANT_DATA,
       entity: "x",
       destroy: async (ctx) => {
@@ -101,10 +95,8 @@ test("useExtension's object form infers the destroy hook's ctx type from context
 
 test("useExtension accepts a tenantData registration with escapeHatch", () => {
   const feature = defineFeature("probe-tenant-data-escape-hatch", (r) => {
-    r.useExtension(EXT_TENANT_DATA, "x", {
-      destroy: async (_ctx: TenantDataHookCtx) => {},
-      escapeHatch: { reason: "needs raw SQL for a batch delete" },
-    });
+    r.applyExtension({ name: EXT_TENANT_DATA, entity: "x", destroy: async (_ctx: TenantDataHookCtx) => {},
+      escapeHatch: { reason: "needs raw SQL for a batch delete" } });
   });
   expect(feature.extensionUsages).toContainEqual(
     expect.objectContaining({
@@ -120,7 +112,7 @@ test("useExtension accepts a tenantData registration with escapeHatch", () => {
 test("useExtension accepts export-only userData registration", () => {
   const exportHook: UserDataExportHook = async (_ctx) => null;
   const feature = defineFeature("probe-user-data-export-only", (r) => {
-    r.useExtension(EXT_USER_DATA, "x", { export: exportHook });
+    r.applyExtension({ name: EXT_USER_DATA, entity: "x", export: exportHook });
   });
   expect(feature.extensionUsages).toContainEqual(
     expect.objectContaining({
@@ -133,10 +125,8 @@ test("useExtension accepts export-only userData registration", () => {
 
 test("useExtension rejects a userData export hook with the wrong ctx shape", () => {
   defineFeature("probe-user-data-wrong-ctx", (r) => {
-    r.useExtension(EXT_USER_DATA, "x", {
-      // @ts-expect-error export ctx must be UserDataHookCtx (ctx.db: TenantDb), not a hand-rolled { db: DbRunner; userId }.
-      export: async (_ctx: { readonly db: DbRunner; readonly userId: string }) => null,
-    });
+    r.applyExtension({ name: EXT_USER_DATA, entity: "x", // @ts-expect-error export ctx must be UserDataHookCtx (ctx.db: TenantDb), not a hand-rolled { db: DbRunner; userId }.
+      export: async (_ctx: { readonly db: DbRunner; readonly userId: string }) => null });
   });
   expectTypeOf<
     (ctx: { readonly db: DbRunner; readonly userId: string }) => Promise<null>
@@ -146,7 +136,7 @@ test("useExtension rejects a userData export hook with the wrong ctx shape", () 
 test("useExtension accepts delete-only userData registration with order", () => {
   const deleteHook: UserDataDeleteHook = async (_ctx, _strategy) => undefined;
   const feature = defineFeature("probe-user-data-delete-only", (r) => {
-    r.useExtension(EXT_USER_DATA, "x", { delete: deleteHook, order: 1 });
+    r.applyExtension({ name: EXT_USER_DATA, entity: "x", delete: deleteHook, order: 1 });
   });
   expect(feature.extensionUsages).toContainEqual(
     expect.objectContaining({
@@ -159,20 +149,18 @@ test("useExtension accepts delete-only userData registration with order", () => 
 
 test("useExtension infers the delete hook's ctx/strategy types from context (no annotation)", () => {
   defineFeature("probe-user-data-delete-contextual", (r) => {
-    r.useExtension(EXT_USER_DATA, "x", {
-      delete: async (ctx, strategy) => {
+    r.applyExtension({ name: EXT_USER_DATA, entity: "x", delete: async (ctx, strategy) => {
         expectTypeOf(ctx).toEqualTypeOf<UserDataHookCtx>();
         expectTypeOf(strategy).toEqualTypeOf<UserDataDeleteStrategy>();
         return undefined;
-      },
-    });
+      } });
   });
 });
 
 test("useExtension rejects an empty userData registration", () => {
   defineFeature("probe-user-data-empty", (r) => {
     // @ts-expect-error userData needs at least one of export/delete — an empty bag silently registered neither hook.
-    r.useExtension(EXT_USER_DATA, "x", {});
+    r.applyExtension({ name: EXT_USER_DATA, entity: "x" });
   });
   expectTypeOf<Record<string, never>>().not.toExtend<ExtensionOptionsFor<typeof EXT_USER_DATA>>();
 });
@@ -180,7 +168,7 @@ test("useExtension rejects an empty userData registration", () => {
 test("useExtension rejects a userData registration with only order", () => {
   defineFeature("probe-user-data-only-order", (r) => {
     // @ts-expect-error same as the empty-bag case above: order alone registers no hook.
-    r.useExtension(EXT_USER_DATA, "x", { order: 1 });
+    r.applyExtension({ name: EXT_USER_DATA, entity: "x", order: 1 });
   });
   expectTypeOf<{ readonly order: number }>().not.toExtend<
     ExtensionOptionsFor<typeof EXT_USER_DATA>
@@ -189,7 +177,7 @@ test("useExtension rejects a userData registration with only order", () => {
 
 test("useExtension accepts an unknown extension name with an arbitrary options bag", () => {
   const feature = defineFeature("probe-unknown-name", (r) => {
-    r.useExtension("someAppPoint", "x", { anything: 42, goes: "here" });
+    r.applyExtension({ name: "someAppPoint", entity: "x", anything: 42, goes: "here" });
   });
   expect(feature.extensionUsages).toContainEqual(
     expect.objectContaining({
@@ -202,7 +190,7 @@ test("useExtension accepts an unknown extension name with an arbitrary options b
 
 test("useExtension accepts an unknown extension name with no options at all", () => {
   const feature = defineFeature("probe-unknown-name-no-options", (r) => {
-    r.useExtension("someOtherAppPoint", "x");
+    r.applyExtension({ name: "someOtherAppPoint", entity: "x" });
   });
   expect(feature.extensionUsages).toContainEqual(
     expect.objectContaining({ extensionName: "someOtherAppPoint", entityName: "x" }),
@@ -212,7 +200,7 @@ test("useExtension accepts an unknown extension name with no options at all", ()
 test("useExtension accepts a string-typed extension name with an arbitrary options bag", () => {
   const name: string = "someAppPoint";
   const feature = defineFeature("probe-string-typed-name", (r) => {
-    r.useExtension(name, "x", { anything: 42 });
+    r.applyExtension({ name, entity: "x", anything: 42 });
   });
   expect(feature.extensionUsages).toContainEqual(
     expect.objectContaining({
@@ -225,32 +213,26 @@ test("useExtension accepts a string-typed extension name with an arbitrary optio
 
 test("useExtension accepts a well-typed storageProvider destroyTenant hook", () => {
   defineFeature("probe-storage-provider-ok", (r) => {
-    r.useExtension(EXT_STORAGE_PROVIDER, "x", {
-      destroyTenant: async (tenantId: TenantId, ctx: TenantResourceHookCtx) => {
+    r.applyExtension({ name: EXT_STORAGE_PROVIDER, entity: "x", destroyTenant: async (tenantId: TenantId, ctx: TenantResourceHookCtx) => {
         expectTypeOf(tenantId).toBeString();
         expectTypeOf(ctx.db).not.toBeAny();
-      },
-    });
+      } });
   });
 });
 
 test("useExtension infers the storageProvider destroyTenant hook's arg types from context", () => {
   defineFeature("probe-storage-provider-contextual", (r) => {
-    r.useExtension(EXT_STORAGE_PROVIDER, "x", {
-      destroyTenant: async (tenantId, ctx) => {
+    r.applyExtension({ name: EXT_STORAGE_PROVIDER, entity: "x", destroyTenant: async (tenantId, ctx) => {
         expectTypeOf(tenantId).toEqualTypeOf<TenantId>();
         expectTypeOf(ctx).toEqualTypeOf<TenantResourceHookCtx>();
-      },
-    });
+      } });
   });
 });
 
 test("useExtension rejects a storageProvider destroyTenant hook shaped like the tenantData (ctx)-only hook", () => {
   defineFeature("probe-storage-provider-wrong-shape", (r) => {
-    r.useExtension(EXT_STORAGE_PROVIDER, "x", {
-      // @ts-expect-error storageProvider's destroyTenant takes (tenantId, ctx) — a tenantData-style (ctx)-only hook is missing the tenantId arg.
-      destroyTenant: async (_ctx: TenantDataHookCtx) => {},
-    });
+    r.applyExtension({ name: EXT_STORAGE_PROVIDER, entity: "x", // @ts-expect-error storageProvider's destroyTenant takes (tenantId, ctx) — a tenantData-style (ctx)-only hook is missing the tenantId arg.
+      destroyTenant: async (_ctx: TenantDataHookCtx) => {} });
   });
   expectTypeOf<
     (ctx: TenantDataHookCtx) => Promise<void>
@@ -260,7 +242,7 @@ test("useExtension rejects a storageProvider destroyTenant hook shaped like the 
 test("useExtension rejects a storageProvider registration without destroyTenant", () => {
   defineFeature("probe-storage-provider-missing-hook", (r) => {
     // @ts-expect-error storageProvider requires destroyTenant — an empty bag silently registered no cleanup hook.
-    r.useExtension(EXT_STORAGE_PROVIDER, "x", {});
+    r.applyExtension({ name: EXT_STORAGE_PROVIDER, entity: "x" });
   });
   expectTypeOf<Record<string, never>>().not.toExtend<
     ExtensionOptionsFor<typeof EXT_STORAGE_PROVIDER>
@@ -270,7 +252,7 @@ test("useExtension rejects a storageProvider registration without destroyTenant"
 test("useExtension rejects a mailTransport registration without build", () => {
   defineFeature("probe-mail-transport-missing-build", (r) => {
     // @ts-expect-error mailTransport requires build — an empty bag silently registered no transport factory.
-    r.useExtension(MAIL_TRANSPORT_EXTENSION, "x", {});
+    r.applyExtension({ name: MAIL_TRANSPORT_EXTENSION, entity: "x" });
   });
   expectTypeOf<Record<string, never>>().not.toExtend<
     ExtensionOptionsFor<typeof MAIL_TRANSPORT_EXTENSION>

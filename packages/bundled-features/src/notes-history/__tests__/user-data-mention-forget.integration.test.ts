@@ -69,6 +69,7 @@ function pastInstant(): Instant {
 
 const CONTACT_TABLE = "notes_mention_forget_test_contacts";
 const contactEntity = createEntity({
+  name: "contact",
   table: CONTACT_TABLE,
   fields: {
     name: createTextField({
@@ -80,13 +81,14 @@ const contactEntity = createEntity({
   },
 });
 const contactFixtureFeature = defineFeature("notes-mention-forget-test-contact-fixture", (r) => {
-  r.entity({ name: "contact", ...contactEntity });
+  r.entity(contactEntity);
 });
 
 // No own `retention` default: only a tenant compliance profile's preset
 // (RETENTION_PRESETS["dsgvo-hgb"].invoice = blockDelete) can protect it.
 const INVOICE_TABLE = "notes_mention_forget_test_invoices";
 const invoiceEntity = createEntity({
+  name: "invoice",
   table: INVOICE_TABLE,
   fields: {
     amount: createTextField({
@@ -98,7 +100,7 @@ const invoiceEntity = createEntity({
   },
 });
 const invoiceFixtureFeature = defineFeature("notes-mention-forget-test-invoice-fixture", (r) => {
-  r.entity({ name: "invoice", ...invoiceEntity });
+  r.entity(invoiceEntity);
 });
 
 const author = createTestUser({ id: 1, roles: ["TenantMember"] });

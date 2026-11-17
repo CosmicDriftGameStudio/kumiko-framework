@@ -56,7 +56,7 @@ const mockHeldProviderFeature = defineFeature("test-mock-held-provider", (r) => 
       };
     },
   };
-  r.useExtension("subscriptionProvider", PROVIDER_NAME, plugin);
+  r.applyExtension({ name: "subscriptionProvider", entity: PROVIDER_NAME, ...plugin });
 });
 
 let stack: TestStack;

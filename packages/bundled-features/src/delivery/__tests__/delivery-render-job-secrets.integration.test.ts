@@ -13,14 +13,12 @@ let secretsSeenByRender: SecretsContext | undefined;
 
 const renderProbeFeature = defineFeature("render-probe", (r) => {
   r.requires({ features: ["delivery"] });
-  r.useExtension(DELIVERY_CHANNEL_EXTENSION, "render-probe", {
-    mode: "queued",
+  r.applyExtension({ name: DELIVERY_CHANNEL_EXTENSION, entity: "render-probe", mode: "queued",
     render: async (_message, ctx) => {
       secretsSeenByRender = ctx.secrets;
       return { html: "<p>x</p>", subject: "x" };
     },
-    send: async () => ({ status: "sent" }),
-  });
+    send: async () => ({ status: "sent" }) });
 });
 
 beforeAll(async () => {

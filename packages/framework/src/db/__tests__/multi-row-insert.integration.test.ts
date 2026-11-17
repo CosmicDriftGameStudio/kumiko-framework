@@ -20,13 +20,14 @@ import { buildEntityTable } from "../../db/table-builder.ts";
 import { createEntity, createTextField } from "../../engine/index.ts";
 
 const linkEntity = createEntity({
+  name: "link",
   table: "mri_links",
   fields: {
     leftId: createTextField({ required: true, personal: false, reason: "test_fixture" }),
     rightId: createTextField({ required: true, personal: false, reason: "test_fixture" }),
   },
 });
-const linkTable = buildEntityTable("link", linkEntity);
+const linkTable = buildEntityTable(linkEntity);
 
 let stack: TestStack;
 
@@ -45,10 +46,11 @@ describe("instant() customType is forgiving with ISO strings", () => {
   // makes ISO-strings work without ceremony.
 
   const tsEntity = createEntity({
+    name: "ts-row",
     table: "mri_ts",
     fields: { name: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
   });
-  const tsTable = buildEntityTable("ts-row", tsEntity);
+  const tsTable = buildEntityTable(tsEntity);
 
   test("INSERT accepts an ISO string for an instant column (forgiving path)", async () => {
     await unsafeCreateEntityTable(stack.db, tsEntity, "ts-row");

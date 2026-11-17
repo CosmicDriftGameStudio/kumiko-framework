@@ -56,6 +56,7 @@ export const restrictAccountWrite = defineWriteHandler({
       "privileged roles the acting caller doesn't necessarily have. It also checks the target " +
       "user's memberships and roles against the admin's reach and appends the user lifecycle status change on " +
       "the SYSTEM_TENANT_ID user stream, both via DbRunner helpers.",
+    grants: ["systemIdentity", "globalWrites", "unsafeRaw"],
   },
   description:
     "Freezes an account under GDPR Art. 18 by flipping it to restricted and revoking all of its live sessions, locking the user out until an admin calls lift-restriction; targets the caller by default, an admin may name another userId.",
@@ -71,7 +72,7 @@ export const restrictAccountWrite = defineWriteHandler({
         );
       }
       const outside = await denyIfTargetBeyondAdminReach(
-        ctx.db.unsafeRaw(),
+        ctx.db.unsafeRawAllTenants(),
         event.user,
         targetUserId,
       );
@@ -106,7 +107,7 @@ export const restrictAccountWrite = defineWriteHandler({
       );
     }
 
-    await updateUserLifecycle(ctx.db.unsafeRaw(), targetUserId, { status: USER_STATUS.Restricted });
+    await updateUserLifecycle(ctx.db.unsafeRawAllTenants(), targetUserId, { status: USER_STATUS.Restricted });
 
     // Cross-feature: all live sessions are revoked; otherwise the user could
     // continue writing with an existing JWT until token expiry.

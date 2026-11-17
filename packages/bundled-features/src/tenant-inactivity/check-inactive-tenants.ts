@@ -121,7 +121,7 @@ function mailLocaleFor(userLocale: string | null): string {
 }
 
 async function readTenantName(ctx: JobContext, tenantId: TenantId): Promise<string> {
-  const row = await fetchOne<{ name?: unknown }>(ctx.db.unsafeRaw(), tenantTable, {
+  const row = await fetchOne<{ name?: unknown }>(ctx.db.unsafeRawAllTenants(), tenantTable, {
     id: tenantId,
   });
   const [named] = await decryptTenantNames(row ? [row] : [], tenantId);
@@ -195,7 +195,7 @@ async function requestDestructionUnlessKept(
   now: Temporal.Instant,
 ): Promise<boolean> {
   return runInOwnTransaction(ctx.db, async (txDb) => {
-    const runner = txDb.unsafeRaw();
+    const runner = txDb.unsafeRawAllTenants();
     await lockInactivityCycle(runner, tenantId);
     if (stored !== null && !(await isInactivityCycleCurrent(txDb, stored.cycleId))) return false;
     const result = await requestTenantDestruction({
@@ -268,7 +268,7 @@ export async function checkTenantInactivity(
   const tenantId = ctx.systemUser.tenantId;
   const now = ctx.tz.now();
   const tenant = await fetchOne<{ status: TenantLifecycleStatus }>(
-    ctx.db.unsafeRaw(),
+    ctx.db.unsafeRawAllTenants(),
     tenantTable,
     { id: tenantId },
   );

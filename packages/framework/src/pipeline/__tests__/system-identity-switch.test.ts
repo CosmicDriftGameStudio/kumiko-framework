@@ -534,12 +534,12 @@ describe("withHookEscapeHatchGrant", () => {
     const hookCtxWithoutEscapeHatch = withHookEscapeHatchGrant(handlerCtx, "hook", undefined) as {
       db: TenantDb;
     };
-    expect(() => hookCtxWithoutEscapeHatch.db.unsafeRaw()).toThrow(AccessDeniedError);
+    expect(() => hookCtxWithoutEscapeHatch.db.unsafeRawAllTenants()).toThrow(AccessDeniedError);
 
     const hookCtxWithEscapeHatch = withHookEscapeHatchGrant(handlerCtx, "hook", {
       reason: "hook's own grant",
     }) as { db: TenantDb };
-    expect(unscopedRunner(hookCtxWithEscapeHatch.db.unsafeRaw())).toBe(rawDb);
+    expect(unscopedRunner(hookCtxWithEscapeHatch.db.unsafeRawAllTenants())).toBe(rawDb);
   });
 
   test("hook re-gates ctx.db.outsideTransaction.unsafeRaw() together with ctx.db", () => {
@@ -557,10 +557,10 @@ describe("withHookEscapeHatchGrant", () => {
     const handlerCtx = { db: handlerDb };
 
     const withoutHatch = withHookEscapeHatchGrant(handlerCtx, "hook", undefined);
-    expect(() => withoutHatch.db.outsideTransaction.unsafeRaw()).toThrow(AccessDeniedError);
+    expect(() => withoutHatch.db.outsideTransaction.unsafeRawAllTenants()).toThrow(AccessDeniedError);
 
     const withHatch = withHookEscapeHatchGrant(handlerCtx, "hook", { reason: "hook's own grant" });
-    expect(unscopedRunner(withHatch.db.outsideTransaction.unsafeRaw())).toBe(rawDb);
+    expect(unscopedRunner(withHatch.db.outsideTransaction.unsafeRawAllTenants())).toBe(rawDb);
   });
 
   test("handler-granted queryProjection reader: hook without escapeHatch loses the grant for unsafeAllTenants", async () => {

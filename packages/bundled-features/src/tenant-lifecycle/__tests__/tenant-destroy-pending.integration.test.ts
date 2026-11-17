@@ -53,12 +53,10 @@ let answerHook: (call: number) => TenantDestroyHookResult = () => ({ done: true 
 
 const externalTeardownFeature = defineFeature("test-pending-external-teardown", (r) => {
   r.requires({ features: ["tenant-lifecycle"] });
-  r.useExtension(EXT_EXTERNAL_RESOURCE, "remote-teardown", {
-    destroyTenant: async () => {
+  r.applyExtension({ name: EXT_EXTERNAL_RESOURCE, entity: "remote-teardown", destroyTenant: async () => {
       hookCalls++;
       return answerHook(hookCalls);
-    },
-  });
+    } });
 });
 
 beforeAll(async () => {

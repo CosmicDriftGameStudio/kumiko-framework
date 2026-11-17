@@ -23,6 +23,7 @@ import { createTestUser, TestUsers } from "../seeding/seed-users.ts";
 // --- Entity with field-level access ---
 
 const employeeEntity = createEntity({
+  name: "employee",
   table: "fa_employees",
   fields: {
     email: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -36,7 +37,7 @@ const employeeEntity = createEntity({
   },
 });
 
-const employeeTable = buildEntityTable("employee", employeeEntity);
+const employeeTable = buildEntityTable(employeeEntity);
 
 // --- Test infra ---
 
@@ -58,7 +59,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(testDb.db, employeeEntity);
 
   const feature = defineFeature("employees", (r) => {
-    r.entity({ name: "employee", ...employeeEntity });
+    r.entity(employeeEntity);
 
     r.writeHandler({
       name: "employee:create",

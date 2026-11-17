@@ -41,7 +41,7 @@ const neighborFeature = defineFeature("neighbor", (r) => {
 });
 
 const emitterFeature = defineFeature("emitter", (r) => {
-  r.entity({ name: "widget", ...sharedWidgetEntity });
+  r.entity(sharedWidgetEntity);
 
   const welcome = r.defineEvent("user.welcomed", z.object({ userId: z.uuid(), email: z.email() }), {
     piiFields: "none",

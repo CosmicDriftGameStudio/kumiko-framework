@@ -47,6 +47,7 @@ const PLAINTEXT_API_KEY = "sk-live-export-secret-0001";
 const cipher = createTestEnvelopeCipher();
 
 const vaultNoteEntity = createEntity({
+  name: "vault-note",
   table: "read_vault_notes",
   fields: {
     ownerId: createTextField({ required: true, personal: false, reason: "pseudonymous_fk" }),
@@ -55,7 +56,7 @@ const vaultNoteEntity = createEntity({
   },
 });
 
-const vaultNotesTableRef = buildEntityTable("vault-note", vaultNoteEntity);
+const vaultNotesTableRef = buildEntityTable(vaultNoteEntity);
 
 // Export hook mirrors real hooks (folders user-data-hooks pattern): raw select,
 // no decrypt of its own.
@@ -68,11 +69,9 @@ const vaultExportHook: UserDataExportHook = async (ctx) => {
 };
 
 const vaultFeature = defineFeature("vault", (r) => {
-  const entity = r.entity({ name: "vault-note", ...vaultNoteEntity });
-  r.useExtension(EXT_USER_DATA, entity, {
-    export: vaultExportHook,
-    delete: async () => undefined,
-  });
+  const entity = r.entity(vaultNoteEntity);
+  r.applyExtension({ name: EXT_USER_DATA, entity, export: vaultExportHook,
+    delete: async () => undefined });
 });
 
 let stack: TestStack;

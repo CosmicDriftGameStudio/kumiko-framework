@@ -53,6 +53,7 @@ export const INVITATION_STATUSES = [
 ] as const;
 
 export const tenantInvitationEntity = createEntity({
+  name: "tenant-invitation",
   table: "read_tenant_invitations",
   fields: {
     // The invited email is normalized case-insensitively on insert.
@@ -104,4 +105,4 @@ export const tenantInvitationEntity = createEntity({
   ],
 });
 
-export const tenantInvitationsTable = buildEntityTable("tenant-invitation", tenantInvitationEntity);
+export const tenantInvitationsTable = buildEntityTable(tenantInvitationEntity);

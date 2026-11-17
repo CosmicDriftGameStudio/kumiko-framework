@@ -68,6 +68,7 @@ const tenantAdmin = TestUsers.admin;
 const tenantId = tenantAdmin.tenantId;
 
 const ledgerEntity = createEntity({
+  name: "ledger",
   table: "read_hold_files_ledger",
   fields: {
     amount: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -77,13 +78,14 @@ const ledgerEntity = createEntity({
 });
 // No entity-level retention: it is held only through a per-tenant override.
 const contractEntity = createEntity({
+  name: "contract",
   table: "read_hold_files_contract",
   fields: {
     title: createTextField({ personal: false, reason: "is_business_data", required: true }),
   },
 });
-const ledgerTable = buildEntityTable("ledger", ledgerEntity);
-const contractTable = buildEntityTable("contract", contractEntity);
+const ledgerTable = buildEntityTable(ledgerEntity);
+const contractTable = buildEntityTable(contractEntity);
 const ledgerCrud = createEventStoreExecutor(ledgerTable, ledgerEntity, { entityName: "ledger" });
 const contractCrud = createEventStoreExecutor(contractTable, contractEntity, {
   entityName: "contract",
@@ -99,8 +101,8 @@ const overrideCrud = createEventStoreExecutor(
 
 const holdFixturesFeature = defineFeature("hold-files-fixtures", (r) => {
   r.requires({ features: ["tenant-lifecycle"] });
-  r.entity({ name: "ledger", ...ledgerEntity });
-  r.entity({ name: "contract", ...contractEntity });
+  r.entity(ledgerEntity);
+  r.entity(contractEntity);
   r.writeHandler({
     name: "ledger-create",
     schema: z.object({ amount: z.string(), receipt: z.string() }),

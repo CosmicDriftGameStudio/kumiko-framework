@@ -30,18 +30,14 @@ describe("getIncomingRelations", () => {
       }),
     });
 
-    r.relation("department", "users", {
-      type: "hasMany",
+    r.relation({ entity: "department", name: "users", type: "hasMany",
       target: "user",
       foreignKey: "departmentId",
-      onDelete: "restrict",
-    });
-    r.relation("user", "sessions", {
-      type: "hasMany",
+      onDelete: "restrict" });
+    r.relation({ entity: "user", name: "sessions", type: "hasMany",
       target: "session",
       foreignKey: "userId",
-      onDelete: "cascade",
-    });
+      onDelete: "cascade" });
   });
 
   const registry = createRegistry([feature]);

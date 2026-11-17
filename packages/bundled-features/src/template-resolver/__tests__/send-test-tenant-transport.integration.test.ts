@@ -51,8 +51,8 @@ const addressOf = (userId: string): string => `${userId}@send-test.test`;
 const statusMailer = defineFeature("status-mailer", (r) => {
   const template = { en: { body: "<p>Something happened.</p>" } };
   const meta = { en: { subject: "Status update" } };
-  r.notification("incident", { tenantTransport: true, template, meta });
-  r.notification("account-notice", { template, meta });
+  r.notification({ name: "incident", tenantTransport: true, template, meta });
+  r.notification({ name: "account-notice", template, meta });
 });
 
 const tenantWithProvider = testTenantId(701);

@@ -5,4 +5,4 @@ import { fieldDefinitionEntity } from "./entity.ts";
 // createEntityExecutor is side-effect-free; instantiating it once keeps the
 // table+executor pair in one place instead of rebuilding it per handler module.
 export const { executor: fieldDefinitionExecutor, table: fieldDefinitionTable } =
-  createEntityExecutor("field-definition", fieldDefinitionEntity);
+  createEntityExecutor(fieldDefinitionEntity);

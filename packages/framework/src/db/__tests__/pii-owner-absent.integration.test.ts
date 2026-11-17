@@ -22,6 +22,7 @@ const admin = TestUsers.admin;
 const OWNER = generateId();
 
 const itemEntity = createEntity({
+  name: "item",
   table: "pii_owner_absent_items",
   fields: {
     ownerId: createTextField({ personal: "ref" }),
@@ -30,8 +31,8 @@ const itemEntity = createEntity({
 });
 
 const feature = defineFeature("ownerabsent", (r) => {
-  r.entity({ name: "item", ...itemEntity });
-  r.crud("item", itemEntity, {
+  r.entity(itemEntity);
+  r.crud(itemEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: { roles: ["Admin"] } },
   });

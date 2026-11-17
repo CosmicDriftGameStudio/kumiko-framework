@@ -21,6 +21,7 @@ import { eventsTable } from "../../event-store/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 
 const filterNoteEntity = createEntity({
+  name: "note",
   table: "fa_filter_notes",
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -44,7 +45,7 @@ const filterNoteEntity = createEntity({
 const LIST_QN = "filternotes:query:note:list";
 
 const filterNotesFeature = defineFeature("filternotes", (r) => {
-  r.crud("note", filterNoteEntity, {
+  r.crud(filterNoteEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   });

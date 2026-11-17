@@ -11,13 +11,14 @@ import { deriveEntityTableMeta } from "../entity-table-meta.ts";
 import { createTenantDb } from "../tenant-db.ts";
 
 const entity = createEntity({
+  name: "tenantDbCountItem",
   table: "tenant_db_count_items",
   fields: {
     name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
   },
 });
 
-const table = deriveEntityTableMeta("tenantDbCountItem", entity, { source: "unmanaged" });
+const table = deriveEntityTableMeta(entity, { source: "unmanaged" });
 
 let testDb: TestDb;
 const tenantA = TestUsers.admin; // tenantId: 1

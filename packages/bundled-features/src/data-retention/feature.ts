@@ -63,7 +63,7 @@ export function createDataRetentionFeature(): FeatureDefinition {
       category: "compliance",
       recommended: false,
     });
-    r.entity({ name: "tenant-retention-override", ...tenantRetentionOverrideEntity });
+    r.entity({ ...tenantRetentionOverrideEntity, name: "tenant-retention-override" });
 
     // Cross-feature API for the forget flow and cleanup job
     r.exposesApi("retention.policyFor");
@@ -84,13 +84,14 @@ export function createDataRetentionFeature(): FeatureDefinition {
       escapeHatch: {
         reason:
           "retention cleanup runs raw deletes and preset lookups; every statement filters by this run's tenantId",
+        grants: ["unsafeRaw"],
       },
       handler: async (_payload, ctx) => {
         if (!ctx.registry) {
           throw new Error("retention-cleanup: ctx.registry required (JobContext incomplete)");
         }
         const tenantId = ctx.systemUser.tenantId;
-        const cleanupDb = ctx.db.unsafeRaw();
+        const cleanupDb = ctx.db.unsafeRawAllTenants();
         const tenantPreset = await resolveTenantRetentionPreset({
           db: cleanupDb,
           registry: ctx.registry,
@@ -136,6 +137,7 @@ export function createDataRetentionFeature(): FeatureDefinition {
       escapeHatch: {
         reason:
           "prunes event streams and their entity rows of every tenant for entities that declare streamRetention",
+        grants: ["unsafeRaw"],
       },
       handler: async (_payload, ctx) => {
         if (!ctx.registry) {

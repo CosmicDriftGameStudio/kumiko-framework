@@ -19,10 +19,11 @@ import { eventsTable } from "../../event-store/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 
 const noteEntity = createEntity({
+  name: "note",
   table: "ctx_ns_deny_notes",
   fields: { title: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
-const noteTable = buildEntityTable("note", noteEntity);
+const noteTable = buildEntityTable(noteEntity);
 const noteExecutor = createEventStoreExecutor(noteTable, noteEntity, { entityName: "note" });
 
 const FEATURE = "ctxnsdeny";
@@ -66,7 +67,7 @@ async function callWritingMember(
 }
 
 const denyFeature = defineFeature(FEATURE, (r) => {
-  r.entity({ name: "note", ...noteEntity });
+  r.entity(noteEntity);
 
   r.writeHandler({
     name: "reserve-denied",

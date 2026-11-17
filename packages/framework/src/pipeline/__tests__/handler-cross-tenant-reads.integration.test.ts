@@ -35,25 +35,28 @@ import {
 import { createTestUser, testTenantId } from "../../seeding/seed-users.ts";
 
 const noteEntity = createEntity({
+  name: "note",
   table: "handler_xtr_notes",
   fields: { title: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
-const noteTable = buildEntityTable("note", noteEntity);
+const noteTable = buildEntityTable(noteEntity);
 const noteExecutor = createEventStoreExecutor(noteTable, noteEntity, { entityName: "note" });
 
 const catalogEntity = createEntity({
+  name: "catalog",
   table: "handler_xtr_catalog",
   tenancy: "global",
   systemStream: true,
   fields: { label: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
-const catalogTable = buildEntityTable("catalog", catalogEntity);
+const catalogTable = buildEntityTable(catalogEntity);
 
 const ledgerEntity = createEntity({
+  name: "ledger",
   table: "handler_xtr_ledger",
   fields: { label: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
-const ledgerTable = buildEntityTable("ledger", ledgerEntity);
+const ledgerTable = buildEntityTable(ledgerEntity);
 
 const GRANT_REASON = "cross-tenant overview probe — reads notes of every tenant";
 const FEATURE = "handler-xtr";
@@ -85,7 +88,7 @@ async function readAcrossTenants(
   });
   let unsafeRawCode: string | undefined;
   try {
-    ctx.db.unsafeRaw();
+    ctx.db.unsafeRawAllTenants();
   } catch (err) {
     unsafeRawCode = err instanceof Error && "code" in err ? String(err.code) : "unknown";
   }
@@ -113,8 +116,8 @@ const systemProbeFeature = defineFeature("handler-xtr-system", (r) => {
 const GLOBAL_FEATURE = "handler-xtr-global";
 const globalCatalogFeature = defineFeature(GLOBAL_FEATURE, (r) => {
   r.systemScope();
-  r.entity({ name: "catalog", ...catalogEntity });
-  r.entity({ name: "ledger", ...ledgerEntity });
+  r.entity(catalogEntity);
+  r.entity(ledgerEntity);
   r.writeHandler(
     defineEntityCreateHandler("catalog", catalogEntity, { access: { roles: ["Admin"] } }),
   );
@@ -141,7 +144,7 @@ const globalCatalogFeature = defineFeature(GLOBAL_FEATURE, (r) => {
 });
 
 const probeFeature = defineFeature(FEATURE, (r) => {
-  r.entity({ name: "note", ...noteEntity });
+  r.entity(noteEntity);
 
   r.writeHandler({
     name: "add-note",
@@ -185,7 +188,7 @@ const probeFeature = defineFeature(FEATURE, (r) => {
     access: { roles: ["Admin"] },
     escapeHatch: { reason: GRANT_REASON, grants: ["unsafeRaw"] },
     handler: async (_query, ctx) => {
-      ctx.db.unsafeRaw();
+      ctx.db.unsafeRawAllTenants();
       return { reachedRaw: true };
     },
   });

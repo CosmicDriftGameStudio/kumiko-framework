@@ -17,11 +17,9 @@ const udr = () => defineFeature("user-data-rights", () => {});
 const fileProvider = (name: string) =>
   defineFeature(`file-provider-${name}`, (r) => {
     // build is never invoked here — the boot check only cares that a provider is mounted.
-    r.useExtension("fileProvider", name, {
-      build: async () => {
+    r.applyExtension({ name: "fileProvider", entity: name, build: async () => {
         throw new Error("test stub — never invoked");
-      },
-    });
+      } });
   });
 
 const S3_ENV = ["S3_BUCKET", "S3_REGION", "S3_ACCESS_KEY", "S3_SECRET_KEY"] as const;

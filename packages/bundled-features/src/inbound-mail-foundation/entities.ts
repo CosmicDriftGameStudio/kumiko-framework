@@ -48,6 +48,7 @@ import {
 /** A connected mailbox. One row per account, with PK = aggregateId
  *  (= accountId, random uuid on connect). */
 export const mailAccountEntity = createEntity({
+  name: "mail-account",
   table: "read_mail_accounts",
   fields: {
     provider: createTextField({
@@ -261,6 +262,7 @@ export const INBOUND_MESSAGE_PII_FIELDS = collectPiiSubjectFields(inboundMessage
  *  Write-locked to privileged — only Foundation handlers/supervisors
  *  write it; tenant requests cannot. */
 export const syncCursorEntity = createEntity({
+  name: "mail-sync-cursor",
   table: "store_mail_sync_cursors",
   softDelete: false,
   fields: {
@@ -297,6 +299,7 @@ export const syncCursorEntity = createEntity({
  *  The ingest handler checks here first (cheap); the stream scan remains
  *  defense-in-depth. */
 export const seenMessageEntity = createEntity({
+  name: "mail-seen-message",
   table: "store_mail_seen_messages",
   softDelete: false,
   indexes: [{ unique: true, columns: ["accountId", "providerMessageId"] }],
@@ -325,9 +328,9 @@ export const seenMessageEntity = createEntity({
 // Plain EntityTableMeta (not a branded EntityTable) — unmanaged direct-
 // write stores; handlers write via ctx.db (see user-session.ts-
 // rationale).
-export const syncCursorTable = deriveEntityTableMeta("mail-sync-cursor", syncCursorEntity, {
+export const syncCursorTable = deriveEntityTableMeta(syncCursorEntity, {
   source: "unmanaged",
 });
-export const seenMessageTable = deriveEntityTableMeta("mail-seen-message", seenMessageEntity, {
+export const seenMessageTable = deriveEntityTableMeta(seenMessageEntity, {
   source: "unmanaged",
 });

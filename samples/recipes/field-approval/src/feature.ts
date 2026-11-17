@@ -2,6 +2,7 @@ import { createFieldApprovalFeature } from "@cosmicdrift/kumiko-bundled-features
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
 export const contactEntity = createEntity({
+  name: "contact",
   table: "read_sample_fa_contacts",
   fields: {
     name: createTextField({
@@ -24,7 +25,7 @@ const roles = ["PropertyManager", "Accountant"] as const;
 const crudAccess = { access: { roles } } as const;
 
 export const contactFeature = defineFeature("contacts", (r) => {
-  r.crud("contact", contactEntity, {
+  r.crud(contactEntity, {
     write: crudAccess,
     read: crudAccess,
     verbs: { delete: false, list: false, restore: false },

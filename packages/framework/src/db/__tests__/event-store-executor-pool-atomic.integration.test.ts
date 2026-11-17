@@ -22,10 +22,11 @@ import { buildEntityTable } from "../table-builder.ts";
 import { createProjectingTenantDb } from "../tenant-db.ts";
 
 const ledgerEntity = createEntity({
+  name: "ledger",
   table: "read_poolatomic_ledgers",
   fields: { title: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
-const ledgerTable = buildEntityTable("ledger", ledgerEntity);
+const ledgerTable = buildEntityTable(ledgerEntity);
 const ledgerExecutor = createEventStoreExecutor(ledgerTable, ledgerEntity, {
   entityName: "ledger",
 });
@@ -58,7 +59,7 @@ async function projectLedgerEvent(
 }
 
 const poolAtomicFeature = defineFeature("poolatomic", (r) => {
-  r.entity({ name: "ledger", ...ledgerEntity });
+  r.entity(ledgerEntity);
   r.projection({
     name: "ledger-log",
     source: "ledger",

@@ -5,14 +5,11 @@ import { accountEntity, scheduleEntity, transactionEntity } from "./entity.ts";
 // (side-effect-free). The tables back the report query-handlers (selectMany over
 // the entity projections — see handlers/reports.query.ts).
 export const { table: accountTable, executor: accountExecutor } = createEntityExecutor(
-  "account",
   accountEntity,
 );
 export const { table: transactionTable, executor: transactionExecutor } = createEntityExecutor(
-  "transaction",
   transactionEntity,
 );
 export const { table: scheduleTable, executor: scheduleExecutor } = createEntityExecutor(
-  "schedule",
   scheduleEntity,
 );

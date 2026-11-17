@@ -13,6 +13,7 @@ import {
 const ID = "0b9c6c3a-5c1e-4a6e-9a39-2f1d6c1f7a10";
 
 const carEntity = createEntity({
+  name: "car",
   table: "webhook_cars",
   webhookEvents: true,
   fields: {
@@ -24,8 +25,8 @@ const carEntity = createEntity({
 });
 
 const garage = defineFeature("garage", (r) => {
-  r.entity({ name: "car", ...carEntity });
-  r.crud("car", carEntity, {
+  r.entity(carEntity);
+  r.crud(carEntity, {
     write: { access: { roles: ["User"] } },
     read: { access: { roles: ["User"] } },
     excludeFields: { create: ["internalNote"] },

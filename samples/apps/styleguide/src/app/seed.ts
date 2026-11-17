@@ -23,7 +23,7 @@ export const FIRST_STYLEGUIDE_ITEM_ID = "00000000-0000-4000-8000-0000000000f1";
 
 export const FIRST_STYLEGUIDE_INSPECTION_ID = "00000000-0000-4000-8000-0000000000f2";
 
-const demoItemTable = buildEntityTable("item", demoEntity);
+const demoItemTable = buildEntityTable(demoEntity);
 
 export const seedStyleguideItems: SeedFn = async (stack) => {
   // The first row has a fixed id, so its presence means a persistent dev DB was seeded already.
@@ -34,7 +34,7 @@ export const seedStyleguideItems: SeedFn = async (stack) => {
   // explicit id would be silently stripped before reaching the executor.
   // Calling the executor directly is the framework's documented "seed
   // pattern" for a caller-chosen aggregate id (event-store-executor-write.ts).
-  const { executor } = createEntityExecutor("item", demoEntity);
+  const { executor } = createEntityExecutor(demoEntity);
   const tenantDb = createTenantDb({ db: stack.db, tenantId: TestUsers.admin.tenantId });
 
   for (let i = 0; i < 8; i++) {
@@ -66,7 +66,7 @@ export const seedStyleguideItems: SeedFn = async (stack) => {
   }
 };
 
-const inspectionTable = buildEntityTable("inspection", inspectionEntity);
+const inspectionTable = buildEntityTable(inspectionEntity);
 
 // 1x1 PNG, enough for the thumbnail chain; the bytes only need to be a valid image.
 const SEED_PHOTO_PNG = Uint8Array.from(
@@ -115,7 +115,7 @@ export const seedStyleguideInspection: SeedFn = async (stack) => {
     photoIds.push(photo.data.id);
   }
 
-  const { executor } = createEntityExecutor("inspection", inspectionEntity);
+  const { executor } = createEntityExecutor(inspectionEntity);
   const res = await executor.create(
     {
       id: FIRST_STYLEGUIDE_INSPECTION_ID,

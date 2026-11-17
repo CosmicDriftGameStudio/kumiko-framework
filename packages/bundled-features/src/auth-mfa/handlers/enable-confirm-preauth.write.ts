@@ -132,7 +132,7 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
       // "system" mode: no session exists yet, tenantId comes from the
       // verified token, mirroring enable-start-preauth.write.ts.
       const scopedDb = createTenantDb({
-        db: ctx.db.unsafeRaw(),
+        db: ctx.db.unsafeRawAllTenants(),
         tenantId,
         mode: "system",
         reason: "pre-auth MFA setup has no session, the tenant comes from the verified setup token",
@@ -212,7 +212,7 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
       // means a rejected confirm never touches the user's other sessions.
       // No currentSid to exclude — this is the first session for this
       // login, not a follow-up on an already-running one.
-      await revokeAllUserCredentials(ctx.registry, ctx.db.unsafeRaw(), userId, {});
+      await revokeAllUserCredentials(ctx.registry, ctx.db.unsafeRawAllTenants(), userId, {});
 
       return { isSuccess: true, data: { kind: "mfa-preauth-confirm-success", session } };
     },

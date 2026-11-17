@@ -32,6 +32,7 @@ import {
 import { z } from "zod";
 
 export const productEntity = createEntity({
+  name: "product",
   table: "shop_products",
   fields: {
     name: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -40,6 +41,7 @@ export const productEntity = createEntity({
 });
 
 export const guestOrderEntity = createEntity({
+  name: "guest-order",
   table: "shop_guest_orders",
   fields: {
     productId: createTextField({ personal: false, reason: "is_system_identifier", required: true }),
@@ -48,12 +50,12 @@ export const guestOrderEntity = createEntity({
   },
 });
 
-export const productTable = buildEntityTable("product", productEntity);
-export const guestOrderTable = buildEntityTable("guest-order", guestOrderEntity);
+export const productTable = buildEntityTable(productEntity);
+export const guestOrderTable = buildEntityTable(guestOrderEntity);
 
 export const anonymousAccessFeature = defineFeature("shop", (r) => {
-  r.entity({ name: "product", ...productEntity });
-  r.entity({ name: "guest-order", ...guestOrderEntity });
+  r.entity(productEntity);
+  r.entity(guestOrderEntity);
 
   // Public listing: anonymous + authenticated customers see it. Combining
   // the roles in one handler is preferred over duplicating the read path —

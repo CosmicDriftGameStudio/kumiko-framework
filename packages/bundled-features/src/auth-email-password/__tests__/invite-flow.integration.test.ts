@@ -78,8 +78,8 @@ const emailTransport = createInMemoryTransport();
 // Declares one role Admin may grant (default) and one only TenantAdmin may grant.
 const assignableRolesAppFeature = defineFeature("invite-assignable-roles-app", (r) => {
   r.requires({ features: ["tenant"] });
-  r.useExtension(EXT_ASSIGNABLE_ROLE, "PropertyManager");
-  r.useExtension(EXT_ASSIGNABLE_ROLE, "Auditor", { assignableFrom: "TenantAdmin" });
+  r.applyExtension({ name: EXT_ASSIGNABLE_ROLE, entity: "PropertyManager" });
+  r.applyExtension({ name: EXT_ASSIGNABLE_ROLE, entity: "Auditor", assignableFrom: "TenantAdmin" });
 });
 
 let stack: TestStack;

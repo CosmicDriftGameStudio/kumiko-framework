@@ -19,6 +19,7 @@ import { createEntity, createTextField } from "../factories.ts";
 import { from } from "../ownership.ts";
 
 const contactEntity = createEntity({
+  name: "contact",
   table: "presave_wiring_contacts",
   fields: {
     firstName: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -65,6 +66,7 @@ const throwOnPreSave: import("@cosmicdrift/kumiko-types/hooks").PreSaveHookFn = 
 };
 
 const codeEntity = createEntity({
+  name: "code",
   table: "presave_wiring_codes",
   fields: {
     code: createTextField({
@@ -96,7 +98,7 @@ const codeReserved = () =>
   });
 
 const codeFeature = defineFeature("presave-wiring-code", (r) => {
-  r.crud("code", codeEntity, {
+  r.crud(codeEntity, {
     write: { access: { roles: ["User"] } },
     read: { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   });
@@ -107,7 +109,7 @@ const codeFeature = defineFeature("presave-wiring-code", (r) => {
 });
 
 const contactFeature = defineFeature("presave-wiring", (r) => {
-  r.crud("contact", contactEntity, {
+  r.crud(contactEntity, {
     write: { access: { roles: ["User"] } },
     read: { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   });
@@ -122,12 +124,13 @@ const contactFeature = defineFeature("presave-wiring", (r) => {
 });
 
 const throwingEntity = createEntity({
+  name: "thing",
   table: "presave_wiring_throwing",
   fields: { name: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
 
 const throwingFeature = defineFeature("presave-wiring-throw", (r) => {
-  r.crud("thing", throwingEntity, {
+  r.crud(throwingEntity, {
     write: { access: { roles: ["User"] } },
     read: { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   });

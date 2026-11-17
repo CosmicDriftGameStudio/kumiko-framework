@@ -63,13 +63,14 @@ const NOW = (): Instant => getTemporal().Now.instant();
 const PAST = (): Instant => getTemporal().Now.instant().subtract({ minutes: 1 });
 
 const propertyEntity = createEntity({
+  name: "property",
   table: "read_t15c_properties",
   fields: {
     name: createTextField({ required: true, personal: false, reason: "technical_reference" }),
     customFields: customFieldsField(),
   },
 });
-const propertyTable = buildEntityTable("property", propertyEntity);
+const propertyTable = buildEntityTable(propertyEntity);
 
 // Host entity gets its own EXT_USER_DATA-registration too — that's the
 // canonical setup. The host's anonymize hook NULLS inserted_by_id; the
@@ -81,7 +82,7 @@ const HOST_HOOK_REASON =
   "fw#2914 test fixture: host export/delete against a managed entity table needs raw SQL (TenantDb's typed write API rejects non-Writable tables); filtered by inserted_by_id + tenant_id";
 
 const hostExportHook: UserDataExportHook = async (ctx) => {
-  const rows = await asRawClient(ctx.db.unsafeRaw()).unsafe(
+  const rows = await asRawClient(ctx.db.unsafeRawAllTenants()).unsafe(
     `SELECT id, name FROM read_t15c_properties WHERE inserted_by_id = $1 AND tenant_id = $2`,
     [ctx.userId, ctx.tenantId],
   );
@@ -95,13 +96,13 @@ const hostExportHook: UserDataExportHook = async (ctx) => {
 
 const hostDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
   if (strategy === "delete") {
-    await asRawClient(ctx.db.unsafeRaw()).unsafe(
+    await asRawClient(ctx.db.unsafeRawAllTenants()).unsafe(
       `DELETE FROM read_t15c_properties WHERE inserted_by_id = $1 AND tenant_id = $2`,
       [ctx.userId, ctx.tenantId],
     );
   } else {
     // anonymize: clear owner, keep row + customFields.
-    await asRawClient(ctx.db.unsafeRaw()).unsafe(
+    await asRawClient(ctx.db.unsafeRawAllTenants()).unsafe(
       `UPDATE read_t15c_properties SET inserted_by_id = NULL WHERE inserted_by_id = $1 AND tenant_id = $2`,
       [ctx.userId, ctx.tenantId],
     );
@@ -109,7 +110,7 @@ const hostDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
 };
 
 const propertyFeature = defineFeature("property-t15c", (r) => {
-  r.entity({ name: "property", ...propertyEntity });
+  r.entity(propertyEntity);
   r.requires({ features: ["custom-fields"] });
   wireCustomFieldsFor(r, "property", propertyTable);
   wireCustomFieldsUserDataRightsFor(r, {
@@ -117,13 +118,11 @@ const propertyFeature = defineFeature("property-t15c", (r) => {
     entityTable: propertyTable,
     userIdColumn: "inserted_by_id",
   });
-  r.useExtension(EXT_USER_DATA, "property", {
-    export: hostExportHook,
+  r.applyExtension({ name: EXT_USER_DATA, entity: "property", export: hostExportHook,
     delete: hostDeleteHook,
-    escapeHatch: { reason: HOST_HOOK_REASON },
-  });
+    escapeHatch: { reason: HOST_HOOK_REASON } });
 
-  const { executor } = createEntityExecutor("property", propertyEntity);
+  const { executor } = createEntityExecutor(propertyEntity);
   r.writeHandler({
     name: "property:create",
     schema: z.object({ id: z.string(), name: z.string() }),

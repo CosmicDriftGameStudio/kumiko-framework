@@ -59,15 +59,10 @@ const billingFeature = defineFeature("billing", (r) => {
   // resolver.set escape hatch is gone. checkWriteAccess grants a
   // SYSTEM_ROLE caller the right to write system-only keys that Admin
   // cannot touch, so the security invariant (see Admin test below) holds.
-  r.job(
-    "calculateTotal",
-    {
-      trigger: { manual: true },
-      escapeHatch: { reason: "test job builds a system-mode handler context for config:write:set" },
-    },
-    async (_payload, ctx) => {
+  r.job({ name: "calculateTotal", trigger: { manual: true },
+      escapeHatch: { reason: "test job builds a system-mode handler context for config:write:set", grants: ["unsafeRaw"] }, handler: async (_payload, ctx) => {
       const systemUser = ctx["systemUser"] as SessionUser;
-      const jobDb = ctx.db.unsafeRaw() as DbConnection;
+      const jobDb = ctx.db.unsafeRawAllTenants() as DbConnection;
       const reg = ctx["registry"] as Registry;
 
       ctx.obs.log?.info("Calculating monthly total...");
@@ -97,8 +92,7 @@ const billingFeature = defineFeature("billing", (r) => {
       }
 
       ctx.obs.log?.info(`Set monthlyTotal to ${total}`);
-    },
-  );
+    } });
 });
 
 const configFeature = createConfigFeature();

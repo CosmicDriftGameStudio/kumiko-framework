@@ -70,6 +70,7 @@ const JWT_SECRET = "files-test-secret-at-least-32-characters!!";
 
 // A tenant feature with a logo field
 const testTenantEntity = createEntity({
+  name: "tenant",
   table: "test_tenants",
   fields: {
     name: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -87,7 +88,7 @@ const RECORD_EDITOR_ROLE = "RecordEditor";
 function tenantFeatureFor(roles: readonly string[]) {
   const access = { access: { roles } };
   return defineFeature("tenant", (r) => {
-    r.entity({ name: "tenant", ...testTenantEntity });
+    r.entity(testTenantEntity);
     r.writeHandler(defineEntityCreateHandler("tenant", testTenantEntity, access));
     r.writeHandler(defineEntityUpdateHandler("tenant", testTenantEntity, access));
     r.queryHandler(defineEntityDetailHandler("tenant", testTenantEntity, access));

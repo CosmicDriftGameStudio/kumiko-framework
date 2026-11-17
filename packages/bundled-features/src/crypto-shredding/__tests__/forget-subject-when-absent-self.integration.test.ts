@@ -38,6 +38,7 @@ const REASON = "authority request #3811 (Art. 17 ownerless row)";
 const OWNER = "dddddddd-dddd-4ddd-8ddd-000000000001";
 
 const slipEntity = createEntity({
+  name: "slip",
   table: "read_forget_self_probe_slips",
   fields: {
     ownerId: createTextField({ personal: "ref" }),
@@ -48,8 +49,8 @@ const slipEntity = createEntity({
 });
 
 const probeFeature = defineFeature("forget-self-probe", (r) => {
-  r.entity({ name: "slip", ...slipEntity });
-  r.crud("slip", slipEntity, {
+  r.entity(slipEntity);
+  r.crud(slipEntity, {
     write: { access: { roles: ["DataProtectionOfficer"] } },
     read: { access: { roles: ["DataProtectionOfficer"] } },
   });

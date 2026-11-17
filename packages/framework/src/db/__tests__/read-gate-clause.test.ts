@@ -41,6 +41,7 @@ const hostEntity = createEntity({
   access: { read: { Reader: "all" } },
 });
 const gatedEntity = createEntity({
+  name: "document",
   table: "read_gate_docs",
   fields: { title: text(), file: createFileField() },
   readGate: {
@@ -56,7 +57,7 @@ const entities = new Map<string, EntityDefinition>([
   ["host", hostEntity],
   ["fileRef", fileRefEntity],
 ]);
-const gatedTable = buildEntityTable("document", gatedEntity);
+const gatedTable = buildEntityTable(gatedEntity);
 
 function build(who: SessionUser, canReadEntity: (name: string) => boolean = () => true) {
   return buildReadGateClause(gatedEntity, gatedTable, "docs_alias", who, tenantDb, {

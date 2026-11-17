@@ -124,7 +124,7 @@ const gapPlugin: InboundMailProviderPlugin = {
 
 const gapProviderFeature = defineFeature("inbound-provider-imap-watch-gap", (r) => {
   r.requires({ features: ["inbound-mail-foundation"] });
-  r.useExtension(INBOUND_MAIL_PROVIDER_EXTENSION, GAP_PROVIDER_KEY, gapPlugin);
+  r.applyExtension({ name: INBOUND_MAIL_PROVIDER_EXTENSION, entity: GAP_PROVIDER_KEY, ...gapPlugin });
 });
 
 let stack: TestStack;

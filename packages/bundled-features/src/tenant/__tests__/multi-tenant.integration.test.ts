@@ -41,10 +41,10 @@ const jobExecutions: Array<{ name: string; tenantId: TenantId }> = [];
 // --- Feature with perTenant job ---
 
 const billingFeature = defineFeature("billing", (r) => {
-  r.job("monthlyReport", { trigger: { manual: true }, perTenant: true }, async (_payload, ctx) => {
+  r.job({ name: "monthlyReport", trigger: { manual: true }, perTenant: true, handler: async (_payload, ctx) => {
     const systemUser = ctx["systemUser"] as SessionUser;
     jobExecutions.push({ name: "billing:job:monthly-report", tenantId: systemUser.tenantId });
-  });
+  } });
 });
 
 // --- Setup ---

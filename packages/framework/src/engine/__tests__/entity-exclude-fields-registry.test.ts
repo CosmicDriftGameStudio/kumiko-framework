@@ -6,6 +6,7 @@ import { createEntity, createTextField } from "../factories.ts";
 import { createRegistry } from "../registry.ts";
 
 const carEntity = createEntity({
+  name: "car",
   table: "exclude_registry_cars",
   fields: {
     vin: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -15,17 +16,18 @@ const carEntity = createEntity({
 });
 
 const plainEntity = createEntity({
+  name: "plain",
   table: "exclude_registry_plain",
   fields: { label: createTextField({ personal: false, reason: "test_fixture" }) },
 });
 
 const feature = defineFeature("exclude-registry", (r) => {
-  r.crud("car", carEntity, {
+  r.crud(carEntity, {
     write: { access: { roles: ["User"] } },
     read: { access: { roles: ["User"] } },
     excludeFields: { create: ["internalNote"], update: ["vin"] },
   });
-  r.crud("plain", plainEntity, {
+  r.crud(plainEntity, {
     write: { access: { roles: ["User"] } },
     read: { access: { roles: ["User"] } },
   });

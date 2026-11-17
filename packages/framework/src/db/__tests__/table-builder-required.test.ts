@@ -42,48 +42,52 @@ function colByName(table: unknown, dbName: string) {
 describe("buildEntityTable — required: true → NOT NULL", () => {
   test("text field — required true makes column NOT NULL", () => {
     const entity = createEntity({
+      name: "widget",
       fields: {
         title: createTextField({ required: true, personal: false, reason: "test_fixture" }),
         subtitle: createTextField({ personal: false, reason: "test_fixture" }),
       },
     });
-    const tbl = buildEntityTable("widget", entity);
+    const tbl = buildEntityTable(entity);
     expect(colByName(tbl, "title").notNull).toBe(true);
     expect(colByName(tbl, "subtitle").notNull).toBe(false);
   });
 
   test("select field — required true makes column NOT NULL", () => {
     const entity = createEntity({
+      name: "widget",
       fields: {
         status: createSelectField({ options: ["a", "b"] as const, required: true }),
         tag: createSelectField({ options: ["x"] as const }),
       },
     });
-    const tbl = buildEntityTable("widget", entity);
+    const tbl = buildEntityTable(entity);
     expect(colByName(tbl, "status").notNull).toBe(true);
     expect(colByName(tbl, "tag").notNull).toBe(false);
   });
 
   test("number field — required true makes column NOT NULL", () => {
     const entity = createEntity({
+      name: "widget",
       fields: {
         count: createNumberField({ required: true }),
         optional: createNumberField({}),
       },
     });
-    const tbl = buildEntityTable("widget", entity);
+    const tbl = buildEntityTable(entity);
     expect(colByName(tbl, "count").notNull).toBe(true);
     expect(colByName(tbl, "optional").notNull).toBe(false);
   });
 
   test("boolean field — required true makes column NOT NULL even without default", () => {
     const entity = createEntity({
+      name: "widget",
       fields: {
         active: createBooleanField({ required: true }),
         archived: createBooleanField({}),
       },
     });
-    const tbl = buildEntityTable("widget", entity);
+    const tbl = buildEntityTable(entity);
     expect(colByName(tbl, "active").notNull).toBe(true);
     // A default without `required` still yields notNull: the default makes the
     // column never-null.
@@ -92,18 +96,20 @@ describe("buildEntityTable — required: true → NOT NULL", () => {
 
   test("reference single — required true makes column NOT NULL", () => {
     const entity = createEntity({
+      name: "task",
       fields: {
         owner: refField({ entity: "user", required: true }),
         assignee: refField({ entity: "user" }),
       },
     });
-    const tbl = buildEntityTable("task", entity);
+    const tbl = buildEntityTable(entity);
     expect(colByName(tbl, "owner").notNull).toBe(true);
     expect(colByName(tbl, "assignee").notNull).toBe(false);
   });
 
   test("date / timestamp / tz — required true makes column NOT NULL", () => {
     const entity = createEntity({
+      name: "event",
       fields: {
         bornOn: createDateField({ required: true }),
         bornOnOpt: createDateField({}),
@@ -113,7 +119,7 @@ describe("buildEntityTable — required: true → NOT NULL", () => {
         zoneOpt: createTzField({}),
       },
     });
-    const tbl = buildEntityTable("event", entity);
+    const tbl = buildEntityTable(entity);
     expect(colByName(tbl, "born_on").notNull).toBe(true);
     expect(colByName(tbl, "born_on_opt").notNull).toBe(false);
     expect(colByName(tbl, "observed_at").notNull).toBe(true);
@@ -124,12 +130,13 @@ describe("buildEntityTable — required: true → NOT NULL", () => {
 
   test("locatedTimestamp — required true → BOTH columns NOT NULL", () => {
     const entity = createEntity({
+      name: "transport",
       fields: {
         pickup: createLocatedTimestampField({ required: true }),
         dropoff: createLocatedTimestampField({}),
       },
     });
-    const tbl = buildEntityTable("transport", entity);
+    const tbl = buildEntityTable(entity);
     expect(colByName(tbl, "pickup_utc").notNull).toBe(true);
     expect(colByName(tbl, "pickup_tz").notNull).toBe(true);
     expect(colByName(tbl, "dropoff_utc").notNull).toBe(false);
@@ -141,6 +148,7 @@ describe("buildEntityTable — required: true → NOT NULL", () => {
     // never-null. `required:false` would mean "may be absent", which conflicts
     // with the array default; table-builder.ts therefore ignores required.
     const entity = createEntity({
+      name: "acl",
       fields: {
         rolesDefault: createMultiSelectField({ options: ["admin", "user"] as const }),
         rolesOptional: createMultiSelectField({
@@ -153,7 +161,7 @@ describe("buildEntityTable — required: true → NOT NULL", () => {
         }),
       },
     });
-    const tbl = buildEntityTable("acl", entity);
+    const tbl = buildEntityTable(entity);
     expect(colByName(tbl, "roles_default").notNull).toBe(true);
     expect(colByName(tbl, "roles_optional").notNull).toBe(true);
     expect(colByName(tbl, "roles_required").notNull).toBe(true);
@@ -162,12 +170,13 @@ describe("buildEntityTable — required: true → NOT NULL", () => {
   test("embedded — always NOT NULL, required is intentionally ignored", () => {
     // embedded has a default of `{}`, so it follows the same behavior as multiSelect.
     const entity = createEntity({
+      name: "widget",
       fields: {
         meta: createEmbeddedField({ note: { type: "text" } }),
         metaOptional: createEmbeddedField({ note: { type: "text" } }, { required: false }),
       },
     });
-    const tbl = buildEntityTable("widget", entity);
+    const tbl = buildEntityTable(entity);
     expect(colByName(tbl, "meta").notNull).toBe(true);
     expect(colByName(tbl, "meta_optional").notNull).toBe(true);
   });
@@ -176,24 +185,26 @@ describe("buildEntityTable — required: true → NOT NULL", () => {
     // This is a jsonb array of UUIDs with a default of `[]`, so it follows the same logic as
     // multiSelect.
     const entity = createEntity({
+      name: "post",
       fields: {
         tags: refField({ entity: "tag", multiple: true }),
         tagsOptional: refField({ entity: "tag", multiple: true, required: false }),
       },
     });
-    const tbl = buildEntityTable("post", entity);
+    const tbl = buildEntityTable(entity);
     expect(colByName(tbl, "tags").notNull).toBe(true);
     expect(colByName(tbl, "tags_optional").notNull).toBe(true);
   });
 
   test("money — required true → amount NOT NULL, currency always NOT NULL", () => {
     const entity = createEntity({
+      name: "listing",
       fields: {
         price: createMoneyField({ required: true }),
         discount: createMoneyField({}),
       },
     });
-    const tbl = buildEntityTable("listing", entity);
+    const tbl = buildEntityTable(entity);
     expect(colByName(tbl, "price").notNull).toBe(true);
     expect(colByName(tbl, "price_currency").notNull).toBe(true);
     expect(colByName(tbl, "discount").notNull).toBe(false);
@@ -202,12 +213,13 @@ describe("buildEntityTable — required: true → NOT NULL", () => {
 
   test("image (single) — required true → NOT NULL", () => {
     const entity = createEntity({
+      name: "profile",
       fields: {
         avatar: createImageField({ required: true }),
         cover: createImageField({}),
       },
     });
-    const tbl = buildEntityTable("profile", entity);
+    const tbl = buildEntityTable(entity);
     expect(colByName(tbl, "avatar").notNull).toBe(true);
     expect(colByName(tbl, "cover").notNull).toBe(false);
   });

@@ -49,7 +49,7 @@ export function createMfaStatusChecker(opts: {
         "reads the MFA enrollment of the tenant named in the signed login/setup token, not the guest dispatch tenant, on the caller's handler context; the calling handler declares its own escapeHatch",
     });
     const scopedDb = createTenantDb({
-      db: ctx.db.unsafeRaw(),
+      db: ctx.db.unsafeRawAllTenants(),
       tenantId,
       mode: "system",
       reason:

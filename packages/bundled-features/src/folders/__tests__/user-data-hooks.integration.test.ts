@@ -25,6 +25,7 @@ import { folderAssignmentExportHook } from "../user-data-hooks.ts";
 
 const CREDIT_TABLE = "folders_export_test_credits";
 const creditEntity = createEntity({
+  name: "credit",
   table: CREDIT_TABLE,
   fields: {
     name: createTextField({
@@ -36,7 +37,7 @@ const creditEntity = createEntity({
   },
 });
 const hostFixturesFeature = defineFeature("folders-export-test-host-fixtures", (r) => {
-  r.entity({ name: "credit", ...creditEntity });
+  r.entity(creditEntity);
 });
 
 const CREDIT_KEPT = "d0000000-0000-4000-8000-000000000001";

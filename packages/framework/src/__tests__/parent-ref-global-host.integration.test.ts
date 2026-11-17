@@ -41,6 +41,7 @@ const gatedHostAccess: NonNullable<EntityDefinition["access"]> = {
 };
 
 const gatedHostEntity = createEntity({
+  name: "gatedHost",
   table: "pr_global_gated_hosts",
   tenancy: "global",
   softDelete: true,
@@ -49,18 +50,20 @@ const gatedHostEntity = createEntity({
   },
   access: gatedHostAccess,
 });
-const gatedHostTable = buildEntityTable("gatedHost", gatedHostEntity);
+const gatedHostTable = buildEntityTable(gatedHostEntity);
 
 const membershipEntity = createEntity({
+  name: "membership",
   table: "pr_global_memberships",
   fields: {
     teamId: createTextField({ required: true, personal: false, reason: "technical_reference" }),
     userRef: createTextField({ required: true, personal: false, reason: "technical_reference" }),
   },
 });
-const membershipTable = buildEntityTable("membership", membershipEntity);
+const membershipTable = buildEntityTable(membershipEntity);
 
 const globalHostEntity = createEntity({
+  name: "globalHost",
   table: "pr_global_hosts",
   tenancy: "global",
   softDelete: true,
@@ -69,9 +72,10 @@ const globalHostEntity = createEntity({
   },
   access: hostAccess,
 });
-const globalHostTable = buildEntityTable("globalHost", globalHostEntity);
+const globalHostTable = buildEntityTable(globalHostEntity);
 
 const linkEntity = createEntity({
+  name: "link",
   table: "pr_global_links",
   softDelete: true,
   parentRef: {
@@ -86,13 +90,13 @@ const linkEntity = createEntity({
   },
 });
 
-const linkTable = buildEntityTable("link", linkEntity);
+const linkTable = buildEntityTable(linkEntity);
 
 const feature = defineFeature("prglobal", (r) => {
-  r.entity({ name: "globalHost", ...globalHostEntity });
-  r.entity({ name: "link", ...linkEntity });
-  r.entity({ name: "gatedHost", ...gatedHostEntity });
-  r.entity({ name: "membership", ...membershipEntity });
+  r.entity(globalHostEntity);
+  r.entity(linkEntity);
+  r.entity(gatedHostEntity);
+  r.entity(membershipEntity);
   for (const verb of ["create", "update"] as const) {
     r.writeHandler(
       defineEntityWriteHandler(`link:${verb}`, linkEntity, { access: { roles: ["TenantMember"] } }),

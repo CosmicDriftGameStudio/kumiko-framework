@@ -43,11 +43,11 @@ const hostFields = {
     reason: "technical_reference",
   }),
 };
-const creditEntity = createEntity({ table: CREDIT_TABLE, fields: hostFields });
-const noteEntity = createEntity({ table: NOTE_TABLE, fields: hostFields });
+const creditEntity = createEntity({ name: "credit", table: CREDIT_TABLE, fields: hostFields });
+const noteEntity = createEntity({ name: "note", table: NOTE_TABLE, fields: hostFields });
 const hostFixturesFeature = defineFeature("tags-test-host-fixtures", (r) => {
-  r.entity({ name: "credit", ...creditEntity });
-  r.entity({ name: "note", ...noteEntity });
+  r.entity(creditEntity);
+  r.entity(noteEntity);
 });
 
 // The parent entity's ids are uuid-shaped, but the readable labels below carry

@@ -13,11 +13,13 @@ import {
 import { from } from "../../engine/ownership.ts";
 
 export const customerEntity = createEntity({
+  name: "customer",
   table: "agg_customers",
   fields: { name: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
 
 export const orderEntity = createEntity({
+  name: "order",
   table: "agg_orders",
   access: { read: { Admin: "all", User: from("user:id", "ownerId") } },
   fields: {
@@ -49,11 +51,11 @@ export const orderEntity = createEntity({
 });
 
 export const aggFeature = defineFeature("agg", (r) => {
-  r.crud("customer", customerEntity, {
+  r.crud(customerEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   });
-  r.crud("order", orderEntity, {
+  r.crud(orderEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   });

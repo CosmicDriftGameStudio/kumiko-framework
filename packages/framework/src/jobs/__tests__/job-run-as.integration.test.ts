@@ -47,31 +47,23 @@ const runAsProbeFeature = defineFeature("runAsProbe", (r) => {
     access: { roles: [ROLES.TenantAdmin] },
   });
 
-  r.job(
-    "readAsTenantAdmin",
-    { trigger: { manual: true }, retries: 0, runAs: { roles: [ROLES.TenantAdmin] } },
-    async (_payload, ctx) => {
+  r.job({ name: "readAsTenantAdmin", trigger: { manual: true }, retries: 0, runAs: { roles: [ROLES.TenantAdmin] }, handler: async (_payload, ctx) => {
       const result = await ctx.dispatch.query("run-as-probe:query:whoami", {});
       readResults.push(RolesResult.parse(result));
-    },
-  );
+    } });
 
-  r.job(
-    "writeAsTenantAdmin",
-    { trigger: { manual: true }, retries: 0, runAs: { roles: [ROLES.TenantAdmin] } },
-    async (_payload, ctx) => {
+  r.job({ name: "writeAsTenantAdmin", trigger: { manual: true }, retries: 0, runAs: { roles: [ROLES.TenantAdmin] }, handler: async (_payload, ctx) => {
       writeResults.push(await ctx.dispatch.write("run-as-probe:write:stamp", {}));
-    },
-  );
+    } });
 
-  r.job("readPlain", { trigger: { manual: true }, retries: 0 }, async (_payload, ctx) => {
+  r.job({ name: "readPlain", trigger: { manual: true }, retries: 0, handler: async (_payload, ctx) => {
     try {
       await ctx.dispatch.query("run-as-probe:query:whoami", {});
     } catch (error) {
       plainFailures.push(error instanceof Error ? error.message : String(error));
       throw error;
     }
-  });
+  } });
 });
 
 const JWT = "job-run-as-test-secret-must-be-32-chars!!";

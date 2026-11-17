@@ -70,12 +70,13 @@ const INVOICE_TABLE = "read_test_retention_invoices";
 // No own `retention` default -> Layer 1 is empty, so whether forget/policy-for
 // see the preset (Layer 2) is exactly what's under test.
 const invoiceEntity = createEntity({
+  name: "invoice",
   table: INVOICE_TABLE,
   fields: {
     amount: createTextField({ required: true, personal: false, reason: "technical_reference" }),
   },
 });
-const invoiceTable = buildEntityTable("invoice", invoiceEntity);
+const invoiceTable = buildEntityTable(invoiceEntity);
 const invoiceCrud = createEventStoreExecutor(invoiceTable, invoiceEntity, {
   entityName: "invoice",
 });
@@ -106,7 +107,7 @@ const invoiceDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
 };
 
 const testInvoiceFeature: FeatureDefinition = defineFeature("test-invoice", (r) => {
-  r.entity({ name: "invoice", ...invoiceEntity });
+  r.entity(invoiceEntity);
   const handlers = {
     create: r.writeHandler({
       name: "create",
@@ -117,10 +118,8 @@ const testInvoiceFeature: FeatureDefinition = defineFeature("test-invoice", (r) 
         invoiceCrud.create({ amount: event.payload.amount }, event.user, ctx.db),
     }),
   };
-  r.useExtension(EXT_USER_DATA, "invoice", {
-    export: async () => null,
-    delete: invoiceDeleteHook,
-  });
+  r.applyExtension({ name: EXT_USER_DATA, entity: "invoice", export: async () => null,
+    delete: invoiceDeleteHook });
   return { handlers };
 });
 

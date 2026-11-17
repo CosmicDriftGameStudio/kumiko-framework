@@ -28,6 +28,7 @@ import { loadAggregate } from "../../event-store/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 
 const ticketEntity = createEntity({
+  name: "ticket",
   table: "read_lock_tickets",
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -36,14 +37,14 @@ const ticketEntity = createEntity({
   },
   lockedWhen: { field: "isAcknowledged", eq: true },
 });
-const ticketTable = buildEntityTable("ticket", ticketEntity);
+const ticketTable = buildEntityTable(ticketEntity);
 
 const ROLES = { access: { roles: ["Admin"] } } as const;
 // A hard delete or forget from a custom handler is irreversible and needs agent risk "high".
 const IRREVERSIBLE = { ...ROLES, agent: { risk: "high" } } as const;
 
 const lockFeature = defineFeature("lock", (r) => {
-  r.entity({ name: "ticket", ...ticketEntity });
+  r.entity(ticketEntity);
   r.writeHandler(defineEntityCreateHandler("ticket", ticketEntity, ROLES));
   r.writeHandler(defineEntityUpdateHandler("ticket", ticketEntity, ROLES));
   r.writeHandler(defineEntityDeleteHandler("ticket", ticketEntity, ROLES));

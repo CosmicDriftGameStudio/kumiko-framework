@@ -16,6 +16,7 @@ import { loadAggregate } from "../../event-store/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 
 const noteEntity = createEntity({
+  name: "note",
   table: "read_jobappend_notes",
   fields: { text: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
@@ -39,7 +40,7 @@ const otherFeature = defineFeature("jobappendother", (r) => {
 });
 
 const jobAppendFeature = defineFeature("jobappend", (r) => {
-  r.entity({ name: "note", ...noteEntity });
+  r.entity(noteEntity);
   const noted = r.defineEvent("noted", z.object({ text: z.string() }), { piiFields: "none" });
 
   r.projection({
@@ -58,7 +59,7 @@ const jobAppendFeature = defineFeature("jobappend", (r) => {
     },
   });
 
-  r.job("append-own", { trigger: { manual: true }, retries: 0 }, async (payload, ctx) => {
+  r.job({ name: "append-own", trigger: { manual: true }, retries: 0, handler: async (payload, ctx) => {
     await untypedAppend(ctx)({
       aggregateId: String(payload["noteId"]),
       blindAppendReason: "the job appends one independent note; ordering is not under test",
@@ -66,9 +67,9 @@ const jobAppendFeature = defineFeature("jobappend", (r) => {
       type: noted.name,
       payload: { text: String(payload["text"]) },
     });
-  });
+  } });
 
-  r.job("append-foreign", { trigger: { manual: true }, retries: 0 }, async (payload, ctx) => {
+  r.job({ name: "append-foreign", trigger: { manual: true }, retries: 0, handler: async (payload, ctx) => {
     try {
       await untypedAppend(ctx)({
         aggregateId: String(payload["noteId"]),
@@ -80,9 +81,9 @@ const jobAppendFeature = defineFeature("jobappend", (r) => {
     } catch (error) {
       jobFailures.push(error instanceof Error ? error.message : String(error));
     }
-  });
+  } });
 
-  r.job("append-invalid", { trigger: { manual: true }, retries: 0 }, async (payload, ctx) => {
+  r.job({ name: "append-invalid", trigger: { manual: true }, retries: 0, handler: async (payload, ctx) => {
     try {
       await untypedAppend(ctx)({
         aggregateId: String(payload["noteId"]),
@@ -94,7 +95,7 @@ const jobAppendFeature = defineFeature("jobappend", (r) => {
     } catch (error) {
       jobFailures.push(error instanceof Error ? error.message : String(error));
     }
-  });
+  } });
 });
 
 let stack: TestStack;

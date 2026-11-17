@@ -6,6 +6,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 
 export const listingEntity = createEntity({
+  name: "listing",
   table: "read_sample_listings",
   fields: {
     title: createTextField({

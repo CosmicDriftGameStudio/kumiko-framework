@@ -23,17 +23,18 @@ import { selectMany } from "../query.ts";
 import { buildEntityTable } from "../table-builder.ts";
 
 const noteEntity = createEntity({
+  name: "note",
   fields: {
     title: createTextField({ required: true, personal: false, reason: "test_fixture" }),
   },
   table: "where_merge_notes",
 });
-const noteTable = buildEntityTable("note", noteEntity);
+const noteTable = buildEntityTable(noteEntity);
 
 // The handlers pass a CALLER-CONTROLLED where.tenantId into TenantDb —
 // exactly the attack vector that the merge must neutralize.
 const probeFeature = defineFeature("where-merge-probe", (r) => {
-  r.entity({ name: "note", ...noteEntity });
+  r.entity(noteEntity);
   r.writeHandler(defineEntityCreateHandler("note", noteEntity, { access: { roles: ["User"] } }));
 
   r.queryHandler({

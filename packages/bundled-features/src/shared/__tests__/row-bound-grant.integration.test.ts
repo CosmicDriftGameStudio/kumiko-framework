@@ -65,7 +65,7 @@ const grantDemoFeature = defineFeature("grantdemo", (r) => {
     name: "enrich",
     schema: z.object({ token: z.string().min(1), note: z.string().min(1) }),
     handler: async (event, ctx) => {
-      const db = ctx.db.unsafeRaw();
+      const db = ctx.db.unsafeRawAllTenants();
       const redeemed = await redeemRowBoundGrant({
         token: event.payload.token,
         purpose: PURPOSE,
@@ -96,6 +96,7 @@ const grantDemoFeature = defineFeature("grantdemo", (r) => {
       reason:
         "the row is written by an anonymous grant holder through raw SQL, so the write " +
         "cannot go through the entity write map of a tenant-scoped user",
+      grants: ["unsafeRaw"],
     },
   });
 });

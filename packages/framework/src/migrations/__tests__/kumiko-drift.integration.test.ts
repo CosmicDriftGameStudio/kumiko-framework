@@ -198,12 +198,13 @@ describe("kumiko-drift boot-gate", () => {
 describe("kumiko-drift end-to-end (generate → apply → gate)", () => {
   test("generate from entity metas → apply → gate ok (the local-verify proof)", async () => {
     const entity = createEntity({
+      name: "kdriftGen",
       table: "kdrift_gen",
       fields: {
         name: createTextField({ personal: false, reason: "test_fixture", required: true }),
       },
     });
-    const meta = deriveEntityTableMeta("kdriftGen", entity);
+    const meta = deriveEntityTableMeta(entity);
     const result = generateMigration({
       metas: [meta],
       prevSnapshot: null,

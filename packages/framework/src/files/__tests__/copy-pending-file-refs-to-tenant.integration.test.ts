@@ -32,6 +32,7 @@ const TARGET_TENANT_ID = "00000000-0000-4000-8000-0000000000b2";
 const PDF_BYTES = new TextEncoder().encode("%PDF-1.4 copy probe");
 
 const ticketEntity = createEntity({
+  name: "ticket",
   table: "copy_probe_tickets",
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture" }),
@@ -47,7 +48,7 @@ const copyPayload = z.object({
 
 const probeFeature = defineFeature("copyprobe", (r) => {
   r.systemScope();
-  r.entity({ name: "ticket", ...ticketEntity });
+  r.entity(ticketEntity);
   r.writeHandler({
     name: "submit",
     schema: z.object({}),

@@ -40,12 +40,10 @@ function createCountingProvider(name: string): CountingProvider {
   let buildCount = 0;
   const feature = defineFeature(`test-file-provider-${name}`, (r) => {
     r.requires({ features: ["file-foundation"] });
-    r.useExtension("fileProvider", name, {
-      build: async () => {
+    r.applyExtension({ name: "fileProvider", entity: name, build: async () => {
         buildCount += 1;
         return store;
-      },
-    });
+      } });
   });
   return { store, feature, builds: () => buildCount };
 }

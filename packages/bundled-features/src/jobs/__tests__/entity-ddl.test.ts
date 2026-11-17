@@ -9,7 +9,7 @@ function pgTypeOf(table: unknown, dbName: string): string | undefined {
 
 describe("jobRunEntity DDL", () => {
   test("duration column is integer, not double precision", () => {
-    const table = buildEntityTable("read_job_runs", jobRunEntity);
+    const table = buildEntityTable(jobRunEntity);
     expect(pgTypeOf(table, "duration")).toBe("integer");
   });
 });

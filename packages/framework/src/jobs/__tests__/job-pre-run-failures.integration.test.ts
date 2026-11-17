@@ -73,7 +73,7 @@ function openRawQueue(queueNamePrefix: string): Queue {
 describe("pre-run job failures", () => {
   test("a queued job with an unknown name fails once, final, with Unknown job", async () => {
     const feature = defineFeature("prerununknown", (r) => {
-      r.job("known", { trigger: { manual: true } }, async () => {});
+      r.job({ name: "known", trigger: { manual: true }, handler: async () => {} });
     });
     const { context, errors } = captureContext();
     const failures: Failure[] = [];
@@ -110,7 +110,7 @@ describe("pre-run job failures", () => {
 
   test("a perTenant wrapper for an unknown job fails final with Unknown job", async () => {
     const feature = defineFeature("prerunwrap", (r) => {
-      r.job("known", { trigger: { manual: true } }, async () => {});
+      r.job({ name: "known", trigger: { manual: true }, handler: async () => {} });
     });
     const { context, errors } = captureContext();
     const failures: Failure[] = [];
@@ -151,7 +151,7 @@ describe("pre-run job failures", () => {
 
   test("a perTenant job without a tenant resolver fails with the resolver hint", async () => {
     const feature = defineFeature("prerunnoresolver", (r) => {
-      r.job("fanout", { trigger: { manual: true }, perTenant: true }, async () => {});
+      r.job({ name: "fanout", trigger: { manual: true }, perTenant: true, handler: async () => {} });
     });
     const { context } = captureContext();
     const failures: Failure[] = [];
@@ -181,13 +181,9 @@ describe("pre-run job failures", () => {
     let starts = 0;
     let handlerRuns = 0;
     const feature = defineFeature("prerunlock", (r) => {
-      r.job(
-        "seq",
-        { trigger: { manual: true }, runOnBoot: true, retries: 0, concurrency: "sequential" },
-        async () => {
+      r.job({ name: "seq", trigger: { manual: true }, runOnBoot: true, retries: 0, concurrency: "sequential", handler: async () => {
           handlerRuns += 1;
-        },
-      );
+        } });
     });
     const { context, errors } = captureContext();
     const failures: Failure[] = [];
@@ -223,7 +219,7 @@ describe("pre-run job failures", () => {
 
   test("a throwing onJobFailed hook does not replace the original pre-run error", async () => {
     const feature = defineFeature("prerunhook", (r) => {
-      r.job("boot", { trigger: { manual: true }, runOnBoot: true, retries: 0 }, async () => {});
+      r.job({ name: "boot", trigger: { manual: true }, runOnBoot: true, retries: 0, handler: async () => {} });
     });
     const { context, errors } = captureContext();
     const queueNamePrefix = uniquePrefix("hook");
@@ -259,7 +255,7 @@ describe("pre-run job failures", () => {
 
   test("a perTenant wrapper that spent its budget through _priorAttempts is reported as final", async () => {
     const feature = defineFeature("prerunprior", (r) => {
-      r.job("fanout", { trigger: { manual: true }, perTenant: true, retries: 1 }, async () => {});
+      r.job({ name: "fanout", trigger: { manual: true }, perTenant: true, retries: 1, handler: async () => {} });
     });
     const { context, errors } = captureContext();
     const failures: Failure[] = [];

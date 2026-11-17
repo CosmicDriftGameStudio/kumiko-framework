@@ -55,7 +55,7 @@ const mailFoundation = defineFeature("mail-foundation", (r) => {
 });
 
 const smtp = defineFeature("mail-smtp", (r) => {
-  r.useExtension("mailTransport", "smtp");
+  r.applyExtension({ name: "mailTransport", entity: "smtp" });
   r.config({
     keys: {
       host: createTenantConfig("text", {
@@ -65,11 +65,11 @@ const smtp = defineFeature("mail-smtp", (r) => {
       }),
     },
   });
-  r.secret("password", { label: { en: "SMTP password" }, scope: "tenant", required: true });
+  r.secret({ name: "password", label: { en: "SMTP password" }, scope: "tenant", required: true });
 });
 
 const inmemory = defineFeature("mail-inmemory", (r) => {
-  r.useExtension("mailTransport", "inmemory");
+  r.applyExtension({ name: "mailTransport", entity: "inmemory" });
   r.config({
     keys: {
       capture: createTenantConfig("boolean", {

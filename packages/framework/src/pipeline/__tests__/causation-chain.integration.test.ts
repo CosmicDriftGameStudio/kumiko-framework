@@ -34,13 +34,14 @@ import { TestUsers } from "../../seeding/seed-users.ts";
 // --- Feature ---
 
 const orderEntity = createEntity({
+  name: "causation-order",
   table: "read_causation_orders",
   fields: {
     item: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
 
-const orderTable = buildEntityTable("causation-order", orderEntity);
+const orderTable = buildEntityTable(orderEntity);
 
 // MSP-apply observation sink — every apply run pushes its reqCtx snapshot
 // here so the tests can assert what the event-dispatcher wrapped it with.
@@ -52,7 +53,7 @@ type ReqCtxSnapshot = {
 const applyObservations: ReqCtxSnapshot[] = [];
 
 const causationFeature = defineFeature("causation", (r) => {
-  r.entity({ name: "causation-order", ...orderEntity });
+  r.entity(orderEntity);
 
   const placed = r.defineEvent("placed", z.object({ orderId: z.uuid() }), {
     piiFields: "none",

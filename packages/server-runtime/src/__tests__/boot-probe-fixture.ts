@@ -21,6 +21,7 @@ export function makeProbeFeature(opts: {
   readonly extraSetup?: (r: FeatureRegistrar<string>) => void;
 }): FeatureDefinition {
   const probeEntity = createEntity({
+    name: "widget",
     fields: {
       name: createTextField({ personal: false, reason: "test_fixture", required: true }),
       active: createBooleanField({ default: true }),
@@ -28,7 +29,7 @@ export function makeProbeFeature(opts: {
     table: opts.table,
   });
   return defineFeature(opts.name, (r) => {
-    r.entity({ name: "widget", ...probeEntity });
+    r.entity(probeEntity);
     opts.extraSetup?.(r);
     r.queryHandler({
       name: "ping",

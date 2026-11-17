@@ -187,7 +187,7 @@ export function createInboundProviderImapFeature(options: InboundMailRoleOptions
       r.requires({ features: ["secrets"] });
       r.requires({ features: ["user"] });
       r.envSchema(mailAllowedPrivateHostsEnvSchema);
-      r.useExtension(INBOUND_MAIL_PROVIDER_EXTENSION, IMAP_PROVIDER_KEY, imapInboundMailPlugin);
+      r.applyExtension({ name: INBOUND_MAIL_PROVIDER_EXTENSION, entity: IMAP_PROVIDER_KEY, ...imapInboundMailPlugin });
       r.bootCheck(({ features }) => assertRolesMatchFoundation(FEATURE_NAME, roles, features));
       r.writeHandler(createConnectMailboxHandler(roles));
       r.writeHandler(createConnectMyMailboxHandler(roles));

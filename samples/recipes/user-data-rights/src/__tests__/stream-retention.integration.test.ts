@@ -51,7 +51,7 @@ describe("user-data-rights recipe :: stream retention prunes short-lived entitie
     expect(
       await selectMany(
         stack.db,
-        buildEntityTable("preview-snapshot", previewSnapshotEntity),
+        buildEntityTable(previewSnapshotEntity),
         { id },
       ),
     ).toEqual([]);

@@ -70,7 +70,7 @@ export function createSubdomainTenantRoutingFeature(
       build: () => (tenantId) => opts.existsById(tenantId as TenantId),
     };
 
-    r.useExtension(EXT_TENANT_RESOLVER, "subdomain", resolverPlugin);
-    r.useExtension(EXT_TENANT_EXISTENCE, "db", existencePlugin);
+    r.applyExtension({ name: EXT_TENANT_RESOLVER, entity: "subdomain", ...resolverPlugin });
+    r.applyExtension({ name: EXT_TENANT_EXISTENCE, entity: "db", ...existencePlugin });
   });
 }

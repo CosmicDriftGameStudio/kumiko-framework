@@ -26,6 +26,7 @@ import { buildEntityTable } from "../table-builder.ts";
 import { createTenantDb, type TenantDb, withExecutorManagedWrites } from "../tenant-db.ts";
 
 const entity = createEntity({
+  name: "esExecUser",
   table: "read_es_exec_users",
   fields: {
     email: createTextField({
@@ -39,7 +40,7 @@ const entity = createEntity({
   },
   softDelete: true,
 });
-const table = buildEntityTable("esExecUser", entity);
+const table = buildEntityTable(entity);
 
 let testDb: TestDb;
 let tdb: TenantDb;
@@ -142,6 +143,7 @@ describe("event-store-executor", () => {
 // field entirely.
 const SENSITIVE_TEST_KEY = Buffer.from("s3nS!t1vE.kP9xQ2@wN!vL$hR5yT8eU0").toString("base64");
 const sensitiveEntity = createEntity({
+  name: "esExecSensitive",
   table: "read_es_exec_sensitive",
   fields: {
     email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -160,7 +162,7 @@ const sensitiveEntity = createEntity({
   },
   softDelete: true,
 });
-const sensitiveTable = buildEntityTable("esExecSensitive", sensitiveEntity);
+const sensitiveTable = buildEntityTable(sensitiveEntity);
 
 describe("event-store-executor — sensitive fields", () => {
   const crud = createEventStoreExecutor(sensitiveTable, sensitiveEntity, {
@@ -452,15 +454,17 @@ describe("event-store-executor — detail and list read one consistent row", () 
 
 const ENCRYPTION_TEST_KEY = Buffer.from("a]bJm#kP9xQ2@wN!vL$hR5yT8eU0iO3f").toString("base64");
 const encryptedEntity = createEntity({
+  name: "esExecEncrypted",
   table: "read_es_exec_encrypted",
   fields: {
     email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
     secretNote: createTextField({ personal: false, reason: "test_fixture", encrypted: true }),
   },
 });
-const encryptedTable = buildEntityTable("esExecEncrypted", encryptedEntity);
+const encryptedTable = buildEntityTable(encryptedEntity);
 
 const encryptedSoftDeleteEntity = createEntity({
+  name: "esExecEncSoft",
   table: "read_es_exec_enc_soft",
   fields: {
     email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -468,7 +472,7 @@ const encryptedSoftDeleteEntity = createEntity({
   },
   softDelete: true,
 });
-const encryptedSoftDeleteTable = buildEntityTable("esExecEncSoft", encryptedSoftDeleteEntity);
+const encryptedSoftDeleteTable = buildEntityTable(encryptedSoftDeleteEntity);
 
 describe("event-store-executor — encrypted fields", () => {
   const encryption = createTestEnvelopeCipher(ENCRYPTION_TEST_KEY);
@@ -723,6 +727,7 @@ describe("event-store-executor — encrypted fields", () => {
 // subject key renders every value as the [[erased]] sentinel without
 // touching the immutable log.
 const piiEntity = createEntity({
+  name: "esExecPii",
   table: "read_es_exec_pii",
   fields: {
     email: createTextField({ required: true, personal: "self", find: "none" }),
@@ -734,7 +739,7 @@ const piiEntity = createEntity({
     plain: createTextField({ personal: false, reason: "test_fixture" }),
   },
 });
-const piiTable = buildEntityTable("esExecPii", piiEntity);
+const piiTable = buildEntityTable(piiEntity);
 
 describe("event-store-executor — pii subject encryption", () => {
   const kms = new InMemoryKmsAdapter();
@@ -867,6 +872,7 @@ describe("event-store-executor — pii subject encryption", () => {
 });
 
 const piiSoftEntity = createEntity({
+  name: "esExecPiiSoft",
   table: "read_es_exec_pii_soft",
   fields: {
     email: createTextField({ required: true, personal: "self", find: "none" }),
@@ -876,7 +882,7 @@ const piiSoftEntity = createEntity({
   },
   softDelete: true,
 });
-const piiSoftTable = buildEntityTable("esExecPiiSoft", piiSoftEntity);
+const piiSoftTable = buildEntityTable(piiSoftEntity);
 
 type KeyState = "existing-key" | "never-keyed";
 const KEY_STATES: KeyState[] = ["existing-key", "never-keyed"];

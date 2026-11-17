@@ -8,6 +8,7 @@ import type { FeatureDefinition } from "../../types/index.ts";
 import { validateChildSearchRelations } from "../child-search.ts";
 
 const ticketEntity = createEntity({
+  name: "ticket",
   table: "read_tickets",
   fields: { subject: createTextField({ personal: false, reason: "test_fixture" }) },
 });
@@ -28,14 +29,12 @@ function helpdesk(options: {
   searchableBody: boolean;
 }): FeatureDefinition {
   return defineFeature("helpdesk", (r) => {
-    const ticket = r.entity({ name: "ticket", ...ticketEntity });
+    const ticket = r.entity(ticketEntity);
     r.entity({ name: "reply", ...replyEntity(options.searchableBody) });
-    r.relation(ticket, "replies", {
-      type: "hasMany",
+    r.relation({ entity: ticket, name: "replies", type: "hasMany",
       target: options.target,
       foreignKey: options.foreignKey,
-      searchable: true,
-    });
+      searchable: true });
   });
 }
 

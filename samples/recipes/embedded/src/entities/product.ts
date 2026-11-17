@@ -5,10 +5,11 @@ import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import { createEntity, createTextField } from "@cosmicdrift/kumiko-framework/engine";
 
 export const productEntity = createEntity({
+  name: "product",
   table: "read_sample_products",
   fields: {
     name: createTextField({ personal: false, reason: "is_business_data", required: true }),
   },
 });
 
-export const productTable = buildEntityTable("product", productEntity);
+export const productTable = buildEntityTable(productEntity);

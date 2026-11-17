@@ -60,6 +60,7 @@ import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defa
 
 const CONTACT_TABLE = "notes_departed_tenant_test_contacts";
 const contactEntity = createEntity({
+  name: "contact",
   table: CONTACT_TABLE,
   fields: {
     name: createTextField({
@@ -71,17 +72,15 @@ const contactEntity = createEntity({
   },
 });
 const contactFixtureFeature = defineFeature("notes-departed-tenant-test-contact-fixture", (r) => {
-  r.entity({ name: "contact", ...contactEntity });
+  r.entity(contactEntity);
 });
 
 const hookTenantCalls: TenantId[] = [];
 const hookProbeFeature = defineFeature("notes-departed-tenant-test-hook-probe", (r) => {
-  r.useExtension(EXT_USER_DATA, "contact", {
-    export: async () => null,
+  r.applyExtension({ name: EXT_USER_DATA, entity: "contact", export: async () => null,
     delete: async (ctx) => {
       hookTenantCalls.push(ctx.tenantId);
-    },
-  });
+    } });
 });
 
 const TENANT_T = testTenantId(11);

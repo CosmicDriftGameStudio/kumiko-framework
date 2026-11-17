@@ -45,6 +45,7 @@ import { runRetentionCleanup } from "../run-retention-cleanup.ts";
 // hardDelete entity with BOTH a single (image) and a plural (files) field —
 // covers the column-value path AND the file_refs-lookup path in one entity.
 const docEntity = createEntity({
+  name: "c8-doc",
   table: "read_c8_doc",
   fields: {
     label: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -57,6 +58,7 @@ const docEntity = createEntity({
 // softDelete entity with a file field — the strategy's own path (mark
 // is_deleted) must never touch bytes; only hardDelete does.
 const softDocEntity = createEntity({
+  name: "c8-soft-doc",
   table: "read_c8_soft_doc",
   softDelete: true,
   fields: {
@@ -68,6 +70,7 @@ const softDocEntity = createEntity({
 
 // anonymize entity with a file field — same guarantee for the anonymize path.
 const anonDocEntity = createEntity({
+  name: "c8-anon-doc",
   table: "read_c8_anon_doc",
   fields: {
     label: {
@@ -82,6 +85,7 @@ const anonDocEntity = createEntity({
 // No retention policy: only holds an image field, so a fileRef can be shared
 // across entity types.
 const otherDocEntity = createEntity({
+  name: "c8-other-doc",
   table: "read_c8_other_doc",
   fields: {
     label: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -90,10 +94,10 @@ const otherDocEntity = createEntity({
 });
 
 const c8Feature = defineFeature("c8-retention-file-fixtures", (r) => {
-  r.entity({ name: "c8-other-doc", ...otherDocEntity });
-  r.entity({ name: "c8-doc", ...docEntity });
-  r.entity({ name: "c8-soft-doc", ...softDocEntity });
-  r.entity({ name: "c8-anon-doc", ...anonDocEntity });
+  r.entity(otherDocEntity);
+  r.entity(docEntity);
+  r.entity(softDocEntity);
+  r.entity(anonDocEntity);
 });
 
 const noopLogger: JobContext["obs"]["log"] = {

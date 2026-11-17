@@ -35,6 +35,7 @@ import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../fe
 import { runRetentionCleanup } from "../run-retention-cleanup.ts";
 
 const scopedEntity = createEntity({
+  name: "notes-retention-scoped-doc",
   table: "read_notes_retention_scoped_docs",
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -42,6 +43,7 @@ const scopedEntity = createEntity({
   retention: { keepFor: "30d", strategy: "hardDelete" },
 });
 const globalEntity = createEntity({
+  name: "notes-retention-global-doc",
   table: "read_notes_retention_global_docs",
   tenancy: "global",
   systemStream: true,
@@ -51,8 +53,8 @@ const globalEntity = createEntity({
   retention: { keepFor: "30d", strategy: "hardDelete" },
 });
 const fixtureFeature = defineFeature("notes-retention-fixtures", (r) => {
-  r.entity({ name: "notes-retention-scoped-doc", ...scopedEntity });
-  r.entity({ name: "notes-retention-global-doc", ...globalEntity });
+  r.entity(scopedEntity);
+  r.entity(globalEntity);
 });
 
 const writer = createTestUser({ id: 1, roles: ["TenantMember", "SystemAdmin"] });

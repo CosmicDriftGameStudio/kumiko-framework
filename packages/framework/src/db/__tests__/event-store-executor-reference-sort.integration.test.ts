@@ -19,13 +19,15 @@ import { createTenantDb, type TenantDb } from "../tenant-db.ts";
 import { type BunTestDb, createTestDb } from "./query/bun-test-db.ts";
 
 const customerEntity = createEntity({
+  name: "refSortCustomer",
   table: "read_ref_sort_customers",
   softDelete: true,
   fields: { name: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
-const customerTable = buildEntityTable("refSortCustomer", customerEntity);
+const customerTable = buildEntityTable(customerEntity);
 
 const orderEntity = createEntity({
+  name: "refSortOrder",
   table: "read_ref_sort_orders",
   fields: {
     note: createTextField({ personal: false, reason: "test_fixture" }),
@@ -37,9 +39,10 @@ const orderEntity = createEntity({
     },
   },
 });
-const orderTable = buildEntityTable("refSortOrder", orderEntity);
+const orderTable = buildEntityTable(orderEntity);
 
 const nullsFirstOrderEntity = createEntity({
+  name: "refSortNullsFirstOrder",
   table: "read_ref_sort_nulls_first_orders",
   fields: {
     note: createTextField({ personal: false, reason: "test_fixture" }),
@@ -52,12 +55,13 @@ const nullsFirstOrderEntity = createEntity({
     },
   },
 });
-const nullsFirstOrderTable = buildEntityTable("refSortNullsFirstOrder", nullsFirstOrderEntity);
+const nullsFirstOrderTable = buildEntityTable(nullsFirstOrderEntity);
 
 // Same shape, but the reference column is Admin-only: a caller who cannot read
 // the column must not be able to probe its target's label through the ordering
 // (the read path gates sorting like projection).
 const restrictedOrderEntity = createEntity({
+  name: "refSortRestrictedOrder",
   table: "read_ref_sort_restricted_orders",
   fields: {
     note: createTextField({ personal: false, reason: "test_fixture" }),
@@ -70,10 +74,11 @@ const restrictedOrderEntity = createEntity({
     },
   },
 });
-const restrictedOrderTable = buildEntityTable("refSortRestrictedOrder", restrictedOrderEntity);
+const restrictedOrderTable = buildEntityTable(restrictedOrderEntity);
 
 // Targets whose own read access restricts which rows / which label a viewer may see.
 const ownedCustomerEntity = createEntity({
+  name: "refSortOwnedCustomer",
   table: "read_ref_sort_owned_customers",
   fields: {
     ownerId: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -83,9 +88,10 @@ const ownedCustomerEntity = createEntity({
     read: { Admin: "all", User: from("user:id", "ownerId") },
   },
 });
-const ownedCustomerTable = buildEntityTable("refSortOwnedCustomer", ownedCustomerEntity);
+const ownedCustomerTable = buildEntityTable(ownedCustomerEntity);
 
 const labelRestrictedCustomerEntity = createEntity({
+  name: "refSortLabelRestrictedCustomer",
   table: "read_ref_sort_label_restricted_customers",
   fields: {
     name: createTextField({
@@ -100,7 +106,6 @@ const labelRestrictedCustomerEntity = createEntity({
   },
 });
 const labelRestrictedCustomerTable = buildEntityTable(
-  "refSortLabelRestrictedCustomer",
   labelRestrictedCustomerEntity,
 );
 

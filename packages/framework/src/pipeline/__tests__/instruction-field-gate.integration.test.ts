@@ -31,6 +31,7 @@ import { TestUsers } from "../../seeding/seed-users.ts";
 const admin = TestUsers.admin;
 
 const promptEntity = createEntity({
+  name: "prompt",
   table: "gate_instruction_prompts",
   fields: {
     label: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -41,12 +42,13 @@ const promptEntity = createEntity({
     }),
   },
 });
-const promptTable = buildEntityTable("prompt", promptEntity);
+const promptTable = buildEntityTable(promptEntity);
 const promptExecutor = createEventStoreExecutor(promptTable, promptEntity, {
   entityName: "prompt",
 });
 
 const defaultedPromptEntity = createEntity({
+  name: "defaultedprompt",
   table: "gate_instruction_defaulted_prompts",
   fields: {
     label: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -58,7 +60,7 @@ const defaultedPromptEntity = createEntity({
     }),
   },
 });
-const defaultedPromptTable = buildEntityTable("defaultedprompt", defaultedPromptEntity);
+const defaultedPromptTable = buildEntityTable(defaultedPromptEntity);
 const defaultedPromptExecutor = createEventStoreExecutor(
   defaultedPromptTable,
   defaultedPromptEntity,
@@ -68,6 +70,7 @@ const defaultedPromptExecutor = createEventStoreExecutor(
 // body is excluded from the standard update handler, but a preSave hook derives
 // it — the define-time floor cannot see that, the executor gate must.
 const ruleEntity = createEntity({
+  name: "rule",
   table: "gate_instruction_rules",
   fields: {
     label: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -78,13 +81,13 @@ const ruleEntity = createEntity({
     }),
   },
 });
-const ruleTable = buildEntityTable("rule", ruleEntity);
+const ruleTable = buildEntityTable(ruleEntity);
 const ruleExecutor = createEventStoreExecutor(ruleTable, ruleEntity, { entityName: "rule" });
 
 const gateFeature = defineFeature("instructiongate", (r) => {
-  r.entity({ name: "prompt", ...promptEntity });
+  r.entity(promptEntity);
 
-  r.crud("prompt", promptEntity, {
+  r.crud(promptEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: { roles: ["Admin"] } },
   });
@@ -96,7 +99,7 @@ const gateFeature = defineFeature("instructiongate", (r) => {
     access: { roles: ["Admin"] },
   });
 
-  r.entity({ name: "defaultedprompt", ...defaultedPromptEntity });
+  r.entity(defaultedPromptEntity);
   r.writeHandler({
     name: "create-defaulted-prompt-mid",
     schema: z.object({ label: z.string() }),
@@ -111,7 +114,7 @@ const gateFeature = defineFeature("instructiongate", (r) => {
     }),
   );
 
-  r.entity({ name: "rule", ...ruleEntity });
+  r.entity(ruleEntity);
   r.queryHandler(defineEntityDetailHandler("rule", ruleEntity, { access: { roles: ["Admin"] } }));
   r.hook({
     type: "preSave",

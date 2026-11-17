@@ -33,6 +33,7 @@ const renameMailHtmlKind: EntityEventMigration = {
 // (following compliance-profiles because the createEntity DSL has no dedicated
 // jsonbField). The application layer parses the JSON and persists it as a string.
 export const templateResourceEntity = createEntity({
+  name: "template-resource",
   table: "read_template_resources",
   systemRowsReadable: true,
   fields: {
@@ -79,7 +80,7 @@ export const templateResourceEntity = createEntity({
   eventMigrations: [renameMailHtmlKind],
 });
 
-export const templateResourcesTable = buildEntityTable("template-resource", templateResourceEntity);
+export const templateResourcesTable = buildEntityTable(templateResourceEntity);
 
 // Base columns buildEntityTable adds to every entity table. modifiedAt/By stay
 // null until the first update; inserts only set insertedAt/By.

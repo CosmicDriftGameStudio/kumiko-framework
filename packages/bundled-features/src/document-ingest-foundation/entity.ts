@@ -33,6 +33,7 @@ export type DocumentExtractMeta = {
 // fileRefId points at the source file_refs row; storageKey duplicates it for
 // direct provider access without a join.
 export const documentExtractEntity = createEntity({
+  name: "documentExtract",
   table: "read_document_extracts",
   fields: {
     fileRefId: createTextField({ required: true, personal: false, reason: "pseudonymous_fk" }),
@@ -56,4 +57,4 @@ export const documentExtractEntity = createEntity({
   indexes: [{ columns: ["tenantId", "fileRefId"] }],
 });
 
-export const documentExtractsTable = buildEntityTable("documentExtract", documentExtractEntity);
+export const documentExtractsTable = buildEntityTable(documentExtractEntity);

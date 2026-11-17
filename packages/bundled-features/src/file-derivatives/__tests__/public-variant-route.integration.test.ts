@@ -64,6 +64,7 @@ let noPredicateId = "";
 // syntactic pre-check must not narrow it. `plain` has no variants at all,
 // for the "field declares no variants" 404 case.
 const widgetEntity = createEntity({
+  name: "widget",
   table: "public_variant_widgets",
   fields: {
     img: createImageField({
@@ -88,6 +89,7 @@ const widgetEntity = createEntity({
 // isn't registered at all" (which upload now rejects before the file ever
 // reaches file_refs).
 const noPredicateEntity = createEntity({
+  name: "nopredicate",
   table: "public_variant_no_predicate",
   fields: {
     img: createImageField({ variants: { thumb: { maxEdge: 160, format: "webp" } } }),
@@ -96,8 +98,8 @@ const noPredicateEntity = createEntity({
 
 let predicateCalls = 0;
 const widgetPredicateFeature = defineFeature("publicvariantroutetest", (r) => {
-  r.entity({ name: "widget", ...widgetEntity });
-  r.entity({ name: "nopredicate", ...noPredicateEntity });
+  r.entity(widgetEntity);
+  r.entity(noPredicateEntity);
   const adminOnly = { access: { roles: ["Admin"] } } as const;
   for (const [name, entity] of [
     ["widget", widgetEntity],
@@ -107,15 +109,13 @@ const widgetPredicateFeature = defineFeature("publicvariantroutetest", (r) => {
     r.writeHandler(defineEntityUpdateHandler(name, entity, adminOnly));
     r.queryHandler(defineEntityDetailHandler(name, entity, adminOnly));
   }
-  r.useExtension(EXT_DERIVATIVE_PUBLIC_PREDICATE, "widget", {
-    isPublic: (args: DerivativePublicPredicateArgs) => {
+  r.applyExtension({ name: EXT_DERIVATIVE_PUBLIC_PREDICATE, entity: "widget", isPublic: (args: DerivativePublicPredicateArgs) => {
       predicateCalls++;
       return args.entityId === publicWidgetId;
-    },
-  });
+    } });
   // EXT_DERIVATIVE_RENDERER itself is already declared by
   // createFileDerivativesFeature — only register a plugin under it here.
-  r.useExtension(EXT_DERIVATIVE_RENDERER, "image/*", { render: fakeRender });
+  r.applyExtension({ name: EXT_DERIVATIVE_RENDERER, entity: "image/*", render: fakeRender });
 });
 
 const TENANT_A = testTenantId(1);

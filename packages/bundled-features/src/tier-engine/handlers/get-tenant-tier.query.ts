@@ -25,7 +25,7 @@ export const getTenantTierQuery = defineQueryHandler({
   handler: async (query, ctx) => {
     const tenantId = query.payload.tenantId as TenantId; // @cast-boundary engine-bridge
     const tdb = createTenantDb({
-      db: ctx.db.unsafeRaw(),
+      db: ctx.db.unsafeRawAllTenants(),
       tenantId,
       mode: "system",
       reason:

@@ -64,7 +64,7 @@ export function createComplianceProfilesFeature(
     // Standalone unless defaultProfile is set: tenantId comes from the user
     // context, profile selection is a separate entity, and the sub-processor
     // list consists of constants. Only the tenant-created hook needs `tenant`.
-    r.entity({ name: "tenant-compliance-profile", ...tenantComplianceProfileEntity });
+    r.entity({ ...tenantComplianceProfileEntity, name: "tenant-compliance-profile" });
     if (options?.defaultProfile !== undefined) {
       r.requires({ features: ["tenant"] });
       registerDefaultProfileHook(r, options.defaultProfile);

@@ -48,6 +48,7 @@ const TENANT = testTenantId(7);
 let receivedArgs: DerivativePublicPredicateArgs[] = [];
 let spoofedFileRefId: string | null = null;
 const gadgetEntity = createEntity({
+  name: "gadget",
   table: "public_variant_predicate_gadgets",
   fields: {
     img: createImageField({
@@ -60,19 +61,17 @@ const gadgetEntity = createEntity({
 });
 
 const gadgetPredicateFeature = defineFeature("publicvariantpredicateargstest", (r) => {
-  r.entity({ name: "gadget", ...gadgetEntity });
+  r.entity(gadgetEntity);
   const adminOnly = { access: { roles: ["Admin"] } } as const;
   r.writeHandler(defineEntityCreateHandler("gadget", gadgetEntity, adminOnly));
   r.writeHandler(defineEntityUpdateHandler("gadget", gadgetEntity, adminOnly));
   r.queryHandler(defineEntityDetailHandler("gadget", gadgetEntity, adminOnly));
-  r.useExtension(EXT_DERIVATIVE_PUBLIC_PREDICATE, "gadget", {
-    isPublic: (args: DerivativePublicPredicateArgs) => {
+  r.applyExtension({ name: EXT_DERIVATIVE_PUBLIC_PREDICATE, entity: "gadget", isPublic: (args: DerivativePublicPredicateArgs) => {
       receivedArgs.push(args);
       if (args.fileRefId === spoofedFileRefId) return false;
       return args.variant !== "premium";
-    },
-  });
-  r.useExtension(EXT_DERIVATIVE_RENDERER, "image/*", { render: fakeRender });
+    } });
+  r.applyExtension({ name: EXT_DERIVATIVE_RENDERER, entity: "image/*", render: fakeRender });
 });
 
 const user = createTestUser({ id: 1, tenantId: TENANT, roles: ["Admin"] });

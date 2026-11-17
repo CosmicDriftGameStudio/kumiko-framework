@@ -29,10 +29,11 @@ import { createTestUser, testTenantId } from "../../seeding/seed-users.ts";
 import { generateId } from "../../utils/index.ts";
 
 const noteEntity = createEntity({
+  name: "note",
   table: "before_tx_notes",
   fields: { title: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
-const noteTable = buildEntityTable("note", noteEntity);
+const noteTable = buildEntityTable(noteEntity);
 const noteExecutor = createEventStoreExecutor(noteTable, noteEntity, { entityName: "note" });
 
 const FEATURE = "before-tx";
@@ -102,7 +103,7 @@ const titlePayload = z.object({ title: z.string(), failInHandler: z.boolean().op
 const forTenantPayload = z.object({ targetTenant: z.number(), write: z.boolean() });
 
 const beforeTxFeature = defineFeature(FEATURE, (r) => {
-  r.entity({ name: "note", ...noteEntity });
+  r.entity(noteEntity);
 
   r.writeHandler(
     defineWriteHandler({
@@ -368,7 +369,7 @@ const beforeTxFeature = defineFeature(FEATURE, (r) => {
     }),
   );
 
-  r.job("probe", { trigger: { manual: true }, retries: 0 }, async () => {});
+  r.job({ name: "probe", trigger: { manual: true }, retries: 0, handler: async () => {} });
 
   r.writeHandler(
     defineWriteHandler({

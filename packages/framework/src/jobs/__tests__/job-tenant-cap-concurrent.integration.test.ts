@@ -30,9 +30,9 @@ describe("maxPerTenant skip cap under concurrent dispatch", () => {
     const gate = createReleaseGate();
     gate.hold();
     const feature = defineFeature("capburst", (r) => {
-      r.job("limited", { trigger: { manual: true }, maxPerTenant: CAP }, async () => {
+      r.job({ name: "limited", trigger: { manual: true }, maxPerTenant: CAP, handler: async () => {
         await gate.wait();
-      });
+      } });
     });
     const queueNamePrefix = testRunQueueNamePrefix("kumiko-test-capburst");
     const options = {

@@ -46,6 +46,7 @@ const SECRET = "tenant-handover-storage-usage-secret";
 const FILE_REF_PROJECTION = "files:projection:file-ref-entity";
 
 const runEntity: EntityDefinition = createEntity({
+  name: "run",
   table: "handover_storage_run",
   idType: "uuid",
   transferable: true,
@@ -55,10 +56,10 @@ const runEntity: EntityDefinition = createEntity({
 });
 
 const handoverStorageFixturesFeature = defineFeature("handover-storage-fixtures", (r) => {
-  r.entity({ name: "run", ...runEntity });
+  r.entity(runEntity);
 });
 
-const runTable = buildEntityTable("run", runEntity);
+const runTable = buildEntityTable(runEntity);
 const runCrud = createEventStoreExecutor(runTable, runEntity, { entityName: "run" });
 
 const fileRefCrud = createEventStoreExecutor(fileRefsTable, fileRefEntity, {

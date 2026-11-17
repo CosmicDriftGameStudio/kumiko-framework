@@ -37,6 +37,7 @@ const tenantId = testTenantId(1);
 const otherTenantId = testTenantId(2);
 
 const docEntity = createEntity({
+  name: "doc",
   table: "presence_test_docs",
   fields: {
     title: createTextField({
@@ -47,7 +48,7 @@ const docEntity = createEntity({
     }),
   },
 });
-const docTable = buildEntityTable("doc", docEntity);
+const docTable = buildEntityTable(docEntity);
 
 const teamOwnership: NonNullable<EntityDefinition["access"]> = {
   read: {
@@ -61,6 +62,7 @@ const teamOwnership: NonNullable<EntityDefinition["access"]> = {
   },
 };
 const guardedEntity = createEntity({
+  name: "guarded",
   table: "presence_test_guarded",
   fields: {
     title: createTextField({
@@ -72,11 +74,11 @@ const guardedEntity = createEntity({
   },
   access: teamOwnership,
 });
-const guardedTable = buildEntityTable("guarded", guardedEntity);
+const guardedTable = buildEntityTable(guardedEntity);
 
 const fixtures = defineFeature("presence-test-fixtures", (r) => {
-  r.entity({ name: "doc", ...docEntity });
-  r.entity({ name: "guarded", ...guardedEntity });
+  r.entity(docEntity);
+  r.entity(guardedEntity);
 });
 
 const DOC = "50000000-0000-4000-8000-000000000001";

@@ -18,10 +18,11 @@ import { buildEntityTable } from "../table-builder.ts";
 import { createTenantDb } from "../tenant-db.ts";
 
 const orderEntity = createEntity({
+  name: "order",
   table: "ax_orders",
   fields: { name: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
-const orderTable = buildEntityTable("order", orderEntity);
+const orderTable = buildEntityTable(orderEntity);
 
 const tenantA = testTenantId(71);
 const tenantB = testTenantId(72);

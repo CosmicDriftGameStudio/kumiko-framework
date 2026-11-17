@@ -42,10 +42,10 @@ function navById(
 describe("buildConfigFeatureSchema — secrets field-id collisions", () => {
   test("hyphenated feature name + secret key colliding on one field id throws", () => {
     const hyphenated = defineFeature("a-b", (r) => {
-      r.secret("c", { label: { en: "C" }, scope: "tenant" });
+      r.secret({ name: "c", label: { en: "C" }, scope: "tenant" });
     });
     const plain = defineFeature("a", (r) => {
-      r.secret("bC", { label: { en: "B C" }, scope: "tenant" });
+      r.secret({ name: "bC", label: { en: "B C" }, scope: "tenant" });
     });
     expect(() =>
       buildConfigFeatureSchema(createRegistry([secretsFeature(), hyphenated, plain])),
@@ -56,12 +56,10 @@ describe("buildConfigFeatureSchema — secrets field-id collisions", () => {
 describe("buildConfigFeatureSchema — secrets derivation", () => {
   test("mounted secrets feature + declared r.secret() yields exactly one secretsEdit screen", () => {
     const stripe = defineFeature("stripe", (r) => {
-      r.secret("apiKey", { label: { en: "Stripe API Key" }, scope: "tenant", required: true });
-      r.secret("webhookSecret", {
-        label: { en: "Stripe Webhook Secret" },
+      r.secret({ name: "apiKey", label: { en: "Stripe API Key" }, scope: "tenant", required: true });
+      r.secret({ name: "webhookSecret", label: { en: "Stripe Webhook Secret" },
         hint: { en: "Found in the Stripe dashboard" },
-        scope: "tenant",
-      });
+        scope: "tenant" });
     });
     const schema = buildConfigFeatureSchema(createRegistry([secretsFeature(), stripe]));
 
@@ -88,12 +86,10 @@ describe("buildConfigFeatureSchema — secrets derivation", () => {
 
   test("fieldAccess carries writeRoles for exactly the keys that declare them", () => {
     const stripe = defineFeature("stripe", (r) => {
-      r.secret("apiKey", {
-        label: { en: "Stripe API Key" },
+      r.secret({ name: "apiKey", label: { en: "Stripe API Key" },
         scope: "tenant",
-        writeRoles: ["SystemAdmin"],
-      });
-      r.secret("webhookSecret", { label: { en: "Stripe Webhook Secret" }, scope: "tenant" });
+        writeRoles: ["SystemAdmin"] });
+      r.secret({ name: "webhookSecret", label: { en: "Stripe Webhook Secret" }, scope: "tenant" });
     });
     const screen = secretsScreen(
       buildConfigFeatureSchema(createRegistry([secretsFeature(), stripe])),
@@ -104,7 +100,7 @@ describe("buildConfigFeatureSchema — secrets derivation", () => {
 
   test("no key with writeRoles leaves fieldAccess off the screen entirely", () => {
     const stripe = defineFeature("stripe", (r) => {
-      r.secret("apiKey", { label: { en: "Stripe API Key" }, scope: "tenant" });
+      r.secret({ name: "apiKey", label: { en: "Stripe API Key" }, scope: "tenant" });
     });
     const screen = secretsScreen(
       buildConfigFeatureSchema(createRegistry([secretsFeature(), stripe])),
@@ -116,11 +112,11 @@ describe("buildConfigFeatureSchema — secrets derivation", () => {
   test("sections group by declaring feature; title only when '<feature>.settings' is a declared translation", () => {
     const stripe = defineFeature("stripe", (r) => {
       r.translations({ keys: { "stripe.settings": { en: "Stripe" } } });
-      r.secret("apiKey", { label: { en: "Stripe API Key" }, scope: "tenant" });
+      r.secret({ name: "apiKey", label: { en: "Stripe API Key" }, scope: "tenant" });
     });
     const mailer = defineFeature("mailer", (r) => {
       // no r.translations() → no "mailer.settings" key declared anywhere
-      r.secret("smtpPassword", { label: { en: "SMTP Password" }, scope: "tenant" });
+      r.secret({ name: "smtpPassword", label: { en: "SMTP Password" }, scope: "tenant" });
     });
     const schema = buildConfigFeatureSchema(createRegistry([secretsFeature(), stripe, mailer]));
     const screen = secretsScreen(schema);
@@ -134,7 +130,7 @@ describe("buildConfigFeatureSchema — secrets derivation", () => {
 
   test("audience-tenant nav + settings workspace arise from secrets alone (no masked config key)", () => {
     const stripe = defineFeature("stripe", (r) => {
-      r.secret("apiKey", { label: { en: "Stripe API Key" }, scope: "tenant" });
+      r.secret({ name: "apiKey", label: { en: "Stripe API Key" }, scope: "tenant" });
     });
     const schema = buildConfigFeatureSchema(createRegistry([secretsFeature(), stripe]));
 
@@ -147,7 +143,7 @@ describe("buildConfigFeatureSchema — secrets derivation", () => {
 
   test("screen and nav access mirror secrets:write:set's access rule, including custom roles", () => {
     const stripe = defineFeature("stripe", (r) => {
-      r.secret("apiKey", { label: { en: "Stripe API Key" }, scope: "tenant" });
+      r.secret({ name: "apiKey", label: { en: "Stripe API Key" }, scope: "tenant" });
     });
     const customRoles = ["BillingOps"];
     const schema = buildConfigFeatureSchema(createRegistry([secretsFeature(customRoles), stripe]));
@@ -171,7 +167,7 @@ describe("buildConfigFeatureSchema — secrets derivation", () => {
       r.config({
         keys: { apiKey: createTenantConfig("text", { mask: { title: "billing.api-key" } }) },
       });
-      r.secret("apiKey", { label: { en: "Billing API Key" }, scope: "tenant" });
+      r.secret({ name: "apiKey", label: { en: "Billing API Key" }, scope: "tenant" });
     });
     const schema = buildConfigFeatureSchema(createRegistry([secretsOpenToAll, billing]));
 
@@ -193,7 +189,7 @@ describe("buildConfigFeatureSchema — secrets derivation", () => {
       r.config({
         keys: { apiKey: createTenantConfig("text", { mask: { title: "billing.api-key" } }) },
       });
-      r.secret("apiKey", { label: { en: "Billing API Key" }, scope: "tenant" });
+      r.secret({ name: "apiKey", label: { en: "Billing API Key" }, scope: "tenant" });
     });
     const schema = buildConfigFeatureSchema(createRegistry([secretsMalformedOpenToAll, billing]));
 
@@ -204,7 +200,7 @@ describe("buildConfigFeatureSchema — secrets derivation", () => {
 
   test("declared secrets without a mounted secrets feature yield no secretsEdit screen and no secrets nav", () => {
     const stripe = defineFeature("stripe", (r) => {
-      r.secret("apiKey", { label: { en: "Stripe API Key" }, scope: "tenant" });
+      r.secret({ name: "apiKey", label: { en: "Stripe API Key" }, scope: "tenant" });
     });
     const schema = buildConfigFeatureSchema(createRegistry([stripe]));
 
@@ -214,11 +210,9 @@ describe("buildConfigFeatureSchema — secrets derivation", () => {
 
   test("generated screen is JSON-safe (no leaked SecretKeyDefinition.redact function)", () => {
     const stripe = defineFeature("stripe", (r) => {
-      r.secret("apiKey", {
-        label: { en: "Stripe API Key" },
+      r.secret({ name: "apiKey", label: { en: "Stripe API Key" },
         scope: "tenant",
-        redact: (plaintext) => `${plaintext.slice(0, 3)}...`,
-      });
+        redact: (plaintext) => `${plaintext.slice(0, 3)}...` });
     });
     const schema = buildConfigFeatureSchema(createRegistry([secretsFeature(), stripe]));
     const screen = secretsScreen(schema);

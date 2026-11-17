@@ -9,6 +9,7 @@ import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumik
 import { z } from "zod";
 
 export const orderEntity = createEntity({
+  name: "order",
   table: "read_sample_orders",
   fields: {
     customerName: createTextField({ personal: { of: "id" }, find: "none", required: true }),
@@ -17,9 +18,9 @@ export const orderEntity = createEntity({
   },
 });
 
-const orderTable = buildEntityTable("order", orderEntity);
+const orderTable = buildEntityTable(orderEntity);
 export const orderFeature = defineFeature("orders", (r) => {
-  r.entity({ name: "order", ...orderEntity });
+  r.entity(orderEntity);
 
   const orderExecutor = createEventStoreExecutor(orderTable, orderEntity, { entityName: "order" });
 

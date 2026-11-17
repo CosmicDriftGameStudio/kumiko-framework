@@ -36,8 +36,7 @@ function mailerFeature(bodyDe: string) {
       access: { roles: ["TenantAdmin"] },
       handler: async () => ({ isSuccess: true as const, data: {} }),
     });
-    r.notification("welcome-mail", {
-      trigger: { on: "create" },
+    r.notification({ name: "welcome-mail", trigger: { on: "create" },
       recipient: () => null,
       data: () => ({}),
       variables: { name: templateVariable.text({ required: true }) },
@@ -45,8 +44,7 @@ function mailerFeature(bodyDe: string) {
         de: { body: bodyDe },
         en: { body: '<p>Hello <span data-variable="name"></span></p>' },
       },
-      meta: { de: { subject: "Willkommen {{name}}" }, en: { subject: "Welcome {{name}}" } },
-    });
+      meta: { de: { subject: "Willkommen {{name}}" }, en: { subject: "Welcome {{name}}" } } });
   });
 }
 

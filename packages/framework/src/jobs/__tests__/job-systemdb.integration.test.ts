@@ -34,7 +34,7 @@ const foreignTenant = testTenantId(2);
 const systemScopedFeature = defineFeature("jobsystemdb-system", (r) => {
   r.systemScope();
 
-  r.job("check", { trigger: { manual: true } }, async (_payload, ctx) => {
+  r.job({ name: "check", trigger: { manual: true }, handler: async (_payload, ctx) => {
     if (!ctx.systemDb) {
       results.push({
         name: "system",
@@ -58,36 +58,32 @@ const systemScopedFeature = defineFeature("jobsystemdb-system", (r) => {
         unscopedRunnerOf(tenantDbRunner(checked)) === unscopedRunnerOf(tenantDbRunner(ctx.db)),
       foreignTenantThrew,
     });
-  });
+  } });
 
   // perTenant jobs go through a separate dispatch path (_perTenant: wrapper
   // fans out into one child job per tenant, job-runner.ts ~331-352) that
   // re-enqueues under the bare qualified name before handleJob rebuilds the
   // context — proves isJobSystemScoped() sees the same jobName fan-out
   // children get, not the "_perTenant:"-prefixed wrapper name.
-  r.job(
-    "check-per-tenant",
-    { trigger: { manual: true }, perTenant: true },
-    async (_payload, ctx) => {
+  r.job({ name: "check-per-tenant", trigger: { manual: true }, perTenant: true, handler: async (_payload, ctx) => {
       results.push({
         name: "system-per-tenant",
         present: ctx.systemDb !== undefined,
         boundToRawDb: undefined,
         foreignTenantThrew: undefined,
       });
-    },
-  );
+    } });
 });
 
 const tenantScopedFeature = defineFeature("jobsystemdb-tenant", (r) => {
-  r.job("check", { trigger: { manual: true } }, async (_payload, ctx) => {
+  r.job({ name: "check", trigger: { manual: true }, handler: async (_payload, ctx) => {
     results.push({
       name: "tenant",
       present: ctx.systemDb !== undefined,
       boundToRawDb: undefined,
       foreignTenantThrew: undefined,
     });
-  });
+  } });
 });
 
 let testDb: BunTestDb;

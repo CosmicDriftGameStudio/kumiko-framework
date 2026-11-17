@@ -18,7 +18,7 @@ const editFormOnly = {
 
 export const examplesFeature = defineFeature("examples", (r) => {
   r.translations({ keys: EXAMPLES_I18N });
-  r.crud("shipping", shippingEntity, editFormOnly);
+  r.crud(shippingEntity, editFormOnly);
 
   // ONE untitled section: card title + subtitle (from i18n) carry the
   // context, the fields flow directly below. street/apt/saveAsDefault
@@ -47,7 +47,7 @@ export const examplesFeature = defineFeature("examples", (r) => {
     },
   });
 
-  r.crud("profile", profileEntity, {
+  r.crud(profileEntity, {
     ...editFormOnly,
     verbs: { delete: false, restore: false },
   });
@@ -108,7 +108,7 @@ export const examplesFeature = defineFeature("examples", (r) => {
     },
   });
 
-  r.crud("delivery", deliveryEntity, editFormOnly);
+  r.crud(deliveryEntity, editFormOnly);
 
   r.screen({
     id: "delivery-edit",
@@ -131,7 +131,7 @@ export const examplesFeature = defineFeature("examples", (r) => {
     },
   });
 
-  r.crud("inspection", inspectionEntity, editFormOnly);
+  r.crud(inspectionEntity, editFormOnly);
 
   r.screen({
     id: "inspection-edit",

@@ -48,7 +48,7 @@ const writeProbeFeature = defineFeature("writeProbe", (r) => {
     },
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
-  r.job("write-via-job", { trigger: { manual: true }, retries: 0 }, async (payload, ctx) => {
+  r.job({ name: "write-via-job", trigger: { manual: true }, retries: 0, handler: async (payload, ctx) => {
     try {
       const result = await ctx.dispatch.write("write-probe:write:note", {
         note: payload["note"] as string,
@@ -58,7 +58,7 @@ const writeProbeFeature = defineFeature("writeProbe", (r) => {
       writeProbeFailures.push(error instanceof Error ? error.message : String(error));
       throw error;
     }
-  });
+  } });
 });
 
 const JWT = "attach-dispatcher-test-secret-must-be-32-chars!";

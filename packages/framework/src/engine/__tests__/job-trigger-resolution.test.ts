@@ -12,6 +12,7 @@ function triggerOnOf(registry: ReturnType<typeof createRegistry>, jobQn: string)
 }
 
 const orderEntity = createEntity({
+  name: "order",
   table: "read_shop_orders",
   fields: {
     title: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -21,15 +22,11 @@ const orderEntity = createEntity({
 describe("job trigger resolution", () => {
   test("short and qualified event names and entity lifecycle events resolve", () => {
     const feature = defineFeature("shop", (r) => {
-      r.crud("order", orderEntity, { write: { access: signedInAccess }, read: { access: signedInAccess } });
+      r.crud(orderEntity, { write: { access: signedInAccess }, read: { access: signedInAccess } });
       r.defineEvent("order-shipped", z.object({ orderId: z.string() }), { piiFields: "none" });
-      r.job("on-event", { trigger: { on: "order-shipped" } }, async () => {});
-      r.job("on-entity", { trigger: { on: "order.created" } }, async () => {});
-      r.job(
-        "on-many",
-        { trigger: { on: ["order.created", "shop:event:order-shipped"] } },
-        async () => {},
-      );
+      r.job({ name: "on-event", trigger: { on: "order-shipped" }, handler: async () => {} });
+      r.job({ name: "on-entity", trigger: { on: "order.created" }, handler: async () => {} });
+      r.job({ name: "on-many", trigger: { on: ["order.created", "shop:event:order-shipped"] }, handler: async () => {} });
     });
 
     const registry = createRegistry([feature]);
@@ -50,7 +47,7 @@ describe("job trigger resolution", () => {
         handler: async () => ({ isSuccess: true as const, data: null }),
         access: signedInAccess,
       });
-      r.job("on-write", { trigger: { on: "shop:write:place-order" } }, async () => {});
+      r.job({ name: "on-write", trigger: { on: "shop:write:place-order" }, handler: async () => {} });
     });
 
     expect(() => createRegistry([feature])).toThrow("Jobs trigger on events only");
@@ -70,8 +67,8 @@ describe("job trigger resolution", () => {
         handler: async () => [],
         access: signedInAccess,
       });
-      r.job("on-write", { trigger: { on: "place-order" } }, async () => {});
-      r.job("on-query", { trigger: { on: "order-report" } }, async () => {});
+      r.job({ name: "on-write", trigger: { on: "place-order" }, handler: async () => {} });
+      r.job({ name: "on-query", trigger: { on: "order-report" }, handler: async () => {} });
     });
 
     expect(() => createRegistry([feature])).toThrow("Jobs trigger on events only");
@@ -81,8 +78,8 @@ describe("job trigger resolution", () => {
     "an unknown entity event %p fails boot",
     (trigger) => {
       const feature = defineFeature("shop", (r) => {
-        r.crud("order", orderEntity, { write: { access: signedInAccess }, read: { access: signedInAccess } });
-        r.job("on-unknown", { trigger: { on: trigger } }, async () => {});
+        r.crud(orderEntity, { write: { access: signedInAccess }, read: { access: signedInAccess } });
+        r.job({ name: "on-unknown", trigger: { on: trigger }, handler: async () => {} });
       });
 
       expect(() => createRegistry([feature])).toThrow("no event with that name exists");
@@ -91,8 +88,8 @@ describe("job trigger resolution", () => {
 
   test("catchUp on an entity event fails boot", () => {
     const feature = defineFeature("shop", (r) => {
-      r.crud("order", orderEntity, { write: { access: signedInAccess }, read: { access: signedInAccess } });
-      r.job("replay", { trigger: { on: "order.created", catchUp: true } }, async () => {});
+      r.crud(orderEntity, { write: { access: signedInAccess }, read: { access: signedInAccess } });
+      r.job({ name: "replay", trigger: { on: "order.created", catchUp: true }, handler: async () => {} });
     });
 
     expect(() => createRegistry([feature])).toThrow(/catchUp/);
@@ -103,7 +100,7 @@ describe("job trigger resolution", () => {
       r.defineEvent("created", z.object({}), { piiFields: "none" });
     });
     const mailer = defineFeature("mailer", (r) => {
-      r.job("confirm", { trigger: { on: "orders:event:created" } }, async () => {});
+      r.job({ name: "confirm", trigger: { on: "orders:event:created" }, handler: async () => {} });
     });
 
     const registry = createRegistry([orders, mailer]);
@@ -113,7 +110,7 @@ describe("job trigger resolution", () => {
 
   test("an unknown trigger fails boot and lists every name it tried", () => {
     const feature = defineFeature("shop", (r) => {
-      r.job("typo", { trigger: { on: "plase-order" } }, async () => {});
+      r.job({ name: "typo", trigger: { on: "plase-order" }, handler: async () => {} });
     });
 
     expect(() => createRegistry([feature])).toThrow(
@@ -126,7 +123,7 @@ describe("job trigger resolution", () => {
 describe("cron trigger tz", () => {
   function featureWithTz(tz: string) {
     return defineFeature("shop", (r) => {
-      r.job("nightly", { trigger: { cron: "0 9 * * *", tz } }, async () => {});
+      r.job({ name: "nightly", trigger: { cron: "0 9 * * *", tz }, handler: async () => {} });
     });
   }
 
@@ -146,7 +143,7 @@ describe("cron trigger tz", () => {
 describe("maintenance trigger", () => {
   test("is kept on the registered job", () => {
     const feature = defineFeature("shop", (r) => {
-      r.job("tidy", { trigger: { maintenance: true } }, async () => {});
+      r.job({ name: "tidy", trigger: { maintenance: true }, handler: async () => {} });
     });
     expect(createRegistry([feature]).getJob("shop:job:tidy")?.trigger).toEqual({
       maintenance: true,
@@ -156,7 +153,7 @@ describe("maintenance trigger", () => {
   test.each([false, "03:00", 1])("value %p is rejected at declaration", (value) => {
     expect(() =>
       defineFeature("shop", (r) => {
-        r.job("tidy", { trigger: { maintenance: value as never } }, async () => {});
+        r.job({ name: "tidy", trigger: { maintenance: value as never }, handler: async () => {} });
       }),
     ).toThrow(/r\.job\("tidy"\) declares trigger \{ maintenance/);
   });

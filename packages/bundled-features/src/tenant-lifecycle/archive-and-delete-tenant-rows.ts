@@ -15,7 +15,7 @@ export async function archiveAndDeleteTenantRows(
   declareEscapeHatch({ reason: escapeHatchReason });
   const rows = await ctx.db.selectMany<{ id: string }>(table, { tenantId: ctx.tenantId });
   for (const row of rows) {
-    await archiveStream(ctx.db.unsafeRaw(), {
+    await archiveStream(ctx.db.unsafeRawAllTenants(), {
       tenantId: ctx.tenantId,
       aggregateId: row.id,
       aggregateType,

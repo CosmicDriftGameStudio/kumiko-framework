@@ -44,13 +44,14 @@ import {
 } from "../pending-rebuilds.ts";
 
 const itemEntity = createEntity({
+  name: "pending-item",
   table: "read_pending_items",
   fields: {
     groupId: createTextField({ personal: false, reason: "test_fixture", required: true }),
     name: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
-const itemTable = buildEntityTable("pending-item", itemEntity);
+const itemTable = buildEntityTable(itemEntity);
 
 const countsTable = pgTable("read_pending_counts", {
   groupId: uuid("group_id").primaryKey(),
@@ -93,7 +94,7 @@ const countsProjection: ProjectionDefinition = {
 };
 
 const feature = defineFeature("pendingtest", (r) => {
-  r.entity({ name: "pending-item", ...itemEntity });
+  r.entity(itemEntity);
   r.projection(countsProjection);
   r.multiStreamProjection({
     name: "pending-item-names",

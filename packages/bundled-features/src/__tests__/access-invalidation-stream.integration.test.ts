@@ -66,19 +66,14 @@ function createGate(gateId: string): () => void {
 }
 
 const streamProbeFeature = defineFeature("stream-probe", (r) => {
-  r.streamHandler(
-    "probe:tail",
-    z.object({ gateId: z.string().min(1) }),
-    async function* (event) {
+  r.streamHandler({ name: "probe:tail", schema: z.object({ gateId: z.string().min(1) }), handler: async function* (event) {
       yield { phase: "open" as const };
       const gate = chunkGates.get(event.payload.gateId);
       if (!gate) throw new Error(`missing gate ${event.payload.gateId}`);
       await gate.promise;
       // Reached only if mid-stream access check failed to cut the generator.
       yield { phase: "should-not-reach-client" as const };
-    },
-    { access: { roles: ["User"] } },
-  );
+    }, access: { roles: ["User"] } });
 });
 
 function buildLiveFetch(authJwt: string): {

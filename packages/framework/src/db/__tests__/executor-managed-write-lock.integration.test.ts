@@ -33,10 +33,11 @@ import {
 } from "../tenant-db.ts";
 
 const entity = createEntity({
+  name: "managedLockItem",
   table: "read_managed_lock_items",
   fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
 });
-const managedTable = buildEntityTable("managedLockItem", entity);
+const managedTable = buildEntityTable(entity);
 // Deliberate bypass: brandWritable erases the compile-time lock, only the runtime lock is left.
 const erasedManagedTable = brandWritable(managedTable);
 
@@ -148,7 +149,7 @@ describe("executor-managed write lock: TenantDb", () => {
 
   test("unsafeRaw does not unlock a managed table", async () => {
     const tdb = createTenantDb({ db: testDb.db, tenantId, grants: { unsafeRaw: grant } });
-    await expectDenied(async () => insertOne(tdb.unsafeRaw(), erasedManagedTable, { name: "x" }));
+    await expectDenied(async () => insertOne(tdb.unsafeRawAllTenants(), erasedManagedTable, { name: "x" }));
   });
 
   test("unsafeRaw on a TenantDb over a capable runner still does not unlock", async () => {
@@ -157,7 +158,7 @@ describe("executor-managed write lock: TenantDb", () => {
       tenantId,
       grants: { unsafeRaw: grant },
     });
-    await expectDenied(async () => insertOne(tdb.unsafeRaw(), erasedManagedTable, { name: "x" }));
+    await expectDenied(async () => insertOne(tdb.unsafeRawAllTenants(), erasedManagedTable, { name: "x" }));
     // the TenantDb itself still sits on the capable runner
     const row = await tdb.insertOne<{ id: string }>(erasedManagedTable, { name: "cap" });
     expect(row?.id).toBeDefined();
@@ -179,7 +180,7 @@ describe("executor-managed write lock: r.projection tables", () => {
     expect(isExecutorManagedTable(projectionTable)).toBe(false);
     createRegistry([
       defineFeature("managedlock", (r) => {
-        r.entity({ name: "managedLockItem", ...entity });
+        r.entity(entity);
         r.projection({
           name: "item-label",
           source: "managedLockItem",
@@ -275,7 +276,7 @@ describe("createTenantDataDestroyDb", () => {
     expect(remaining.map((row) => row.name)).toEqual(["destroy-foreign"]);
 
     await expectDenied(async () =>
-      insertOne(destroyDb.unsafeRaw(), erasedManagedTable, { name: "x" }),
+      insertOne(destroyDb.unsafeRawAllTenants(), erasedManagedTable, { name: "x" }),
     );
   });
 });

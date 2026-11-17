@@ -28,6 +28,7 @@ import { createTestUser, testTenantId } from "../../seeding/seed-users.ts";
 import { createFilesFeature, createInMemoryFileProvider } from "../index.ts";
 
 const requestEntity = createEntity({
+  name: "request",
   table: "xt_file_read_requests",
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -40,6 +41,7 @@ const requestEntity = createEntity({
 });
 
 const plainEntity = createEntity({
+  name: "plain",
   table: "xt_file_read_plains",
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -48,6 +50,7 @@ const plainEntity = createEntity({
 });
 
 const looseEntity = createEntity({
+  name: "loose",
   table: "xt_file_read_looses",
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -69,9 +72,9 @@ const stubRenderer: DerivativeRendererPlugin = { render: async () => VARIANT_BYT
 const provider = createInMemoryFileProvider();
 
 const xtFeature = defineFeature("xtfiles", (r) => {
-  r.entity({ name: "request", ...requestEntity });
-  r.entity({ name: "plain", ...plainEntity });
-  r.entity({ name: "loose", ...looseEntity });
+  r.entity(requestEntity);
+  r.entity(plainEntity);
+  r.entity(looseEntity);
   r.writeHandler(defineEntityCreateHandler("loose", looseEntity, ADMIN_ONLY));
   r.writeHandler(defineEntityUpdateHandler("loose", looseEntity, ADMIN_ONLY));
   r.queryHandler(defineEntityDetailHandler("loose", looseEntity, ADMIN_ONLY));
@@ -82,7 +85,7 @@ const xtFeature = defineFeature("xtfiles", (r) => {
   r.writeHandler(defineEntityCreateHandler("plain", plainEntity, ADMIN_ONLY));
   r.queryHandler(defineEntityDetailHandler("plain", plainEntity, ADMIN_ONLY));
   r.extendsRegistrar(EXT_DERIVATIVE_RENDERER, {});
-  r.useExtension(EXT_DERIVATIVE_RENDERER, "image/png", stubRenderer);
+  r.applyExtension({ name: EXT_DERIVATIVE_RENDERER, entity: "image/png", ...stubRenderer });
   r.queryHandler({
     name: "request:buyer-view",
     schema: z.object({ id: z.string() }),

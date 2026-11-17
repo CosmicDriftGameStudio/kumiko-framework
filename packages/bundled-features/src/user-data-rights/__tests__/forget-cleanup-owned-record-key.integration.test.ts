@@ -41,6 +41,7 @@ const CREATE = `${FEATURE}:write:slip:create`;
 const UPDATE = `${FEATURE}:write:slip:update`;
 
 const slipEntity = createEntity({
+  name: "slip",
   table: "read_forget_cleanup_record_slips",
   fields: {
     ownerId: createTextField({ personal: "ref" }),
@@ -49,8 +50,8 @@ const slipEntity = createEntity({
 });
 
 const probeFeature = defineFeature(FEATURE, (r) => {
-  r.entity({ name: "slip", ...slipEntity });
-  r.crud("slip", slipEntity, {
+  r.entity(slipEntity);
+  r.crud(slipEntity, {
     write: { access: { roles: ["SystemAdmin"] } },
     read: { access: { roles: ["SystemAdmin"] } },
   });

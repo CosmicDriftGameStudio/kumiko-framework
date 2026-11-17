@@ -25,7 +25,7 @@ const jobResults: Array<{ storageKey: string; mimeType: string; rendered: boolea
 
 const derivativesTestFeature = defineFeature("derivativestest", (r) => {
   r.extendsRegistrar(EXT_DERIVATIVE_RENDERER, { onRegister: () => {} });
-  r.useExtension(EXT_DERIVATIVE_RENDERER, "image/*", { render: fakeRender });
+  r.applyExtension({ name: EXT_DERIVATIVE_RENDERER, entity: "image/*", render: fakeRender });
 
   r.writeHandler({
     name: "make-variant",
@@ -77,14 +77,14 @@ const derivativesTestFeature = defineFeature("derivativestest", (r) => {
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
 
-  r.job("record", { trigger: { manual: true }, runIn: "worker" }, async (payload, ctx) => {
+  r.job({ name: "record", trigger: { manual: true }, runIn: "worker", handler: async (payload, ctx) => {
     const fileRefId = (payload as { fileRefId: string }).fileRefId;
     if (!ctx.services.derivatives) {
       throw new Error("no ctx.derivatives on job ctx");
     }
     const result = await ctx.services.derivatives.variant(fileRefId, { maxEdge: 200 }, "card");
     jobResults.push(result);
-  });
+  } });
 });
 
 let stack: TestStack;

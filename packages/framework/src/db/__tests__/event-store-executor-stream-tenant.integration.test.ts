@@ -16,10 +16,11 @@ import { buildEntityTable } from "../table-builder.ts";
 import { createTenantDb } from "../tenant-db.ts";
 
 const noteEntity = createEntity({
+  name: "streamNote",
   table: "streamtenant_notes",
   fields: { label: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
-const noteTable = buildEntityTable("streamNote", noteEntity);
+const noteTable = buildEntityTable(noteEntity);
 const noteExec = createEventStoreExecutor(noteTable, noteEntity, { entityName: "streamNote" });
 
 const owner = TestUsers.otherTenant;

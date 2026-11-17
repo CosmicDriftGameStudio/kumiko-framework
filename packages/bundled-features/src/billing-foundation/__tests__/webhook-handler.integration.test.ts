@@ -64,9 +64,9 @@ const afterDispatchCalls: string[] = [];
 // behavior without touching the wired extraRoute.
 const mockProviderFeature = defineFeature("test-mock-webhook-provider", (r) => {
   r.requires({ features: ["billing-foundation"] });
-  r.useExtension("subscriptionProvider", "stripe", stripeLikePlugin);
-  r.useExtension("subscriptionProvider", "paypal", paypalLikePlugin);
-  r.useExtension("subscriptionProvider", "redelivering", redeliveringPlugin);
+  r.applyExtension({ name: "subscriptionProvider", entity: "stripe", ...stripeLikePlugin });
+  r.applyExtension({ name: "subscriptionProvider", entity: "paypal", ...paypalLikePlugin });
+  r.applyExtension({ name: "subscriptionProvider", entity: "redelivering", ...redeliveringPlugin });
 });
 
 let stack: TestStack;

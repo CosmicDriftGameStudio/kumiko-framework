@@ -19,12 +19,13 @@ const textField = () =>
 describe("validateGlobalTenancyEntities", () => {
   test("a tenancy: 'global' entity WITHOUT systemStream: true throws", () => {
     const entity = createEntity({
+      name: "fw2858GlobalNoStream",
       table: "read_fw2858_global_no_stream",
       tenancy: "global",
       fields: { name: textField() },
     });
     const feature = defineFeature("fw2858-global-no-stream", (r) => {
-      r.entity({ name: "fw2858GlobalNoStream", ...entity });
+      r.entity(entity);
     });
 
     expect(() => validateGlobalTenancyEntities([feature])).toThrow(/systemStream/);
@@ -32,13 +33,14 @@ describe("validateGlobalTenancyEntities", () => {
 
   test("a tenancy: 'global' entity WITH systemStream: true but WITHOUT r.systemScope() throws", () => {
     const entity = createEntity({
+      name: "fw2860GlobalNoScope",
       table: "read_fw2860_global_no_scope",
       tenancy: "global",
       systemStream: true,
       fields: { name: textField() },
     });
     const feature = defineFeature("fw2860-global-no-scope", (r) => {
-      r.entity({ name: "fw2860GlobalNoScope", ...entity });
+      r.entity(entity);
     });
 
     expect(() => validateGlobalTenancyEntities([feature])).toThrow(/systemScope/);
@@ -46,6 +48,7 @@ describe("validateGlobalTenancyEntities", () => {
 
   test("a tenancy: 'global' entity WITH systemStream: true AND r.systemScope() passes", () => {
     const entity = createEntity({
+      name: "fw2858GlobalWithStream",
       table: "read_fw2858_global_with_stream",
       tenancy: "global",
       systemStream: true,
@@ -53,7 +56,7 @@ describe("validateGlobalTenancyEntities", () => {
     });
     const feature = defineFeature("fw2858-global-with-stream", (r) => {
       r.systemScope();
-      r.entity({ name: "fw2858GlobalWithStream", ...entity });
+      r.entity(entity);
     });
 
     expect(() => validateGlobalTenancyEntities([feature])).not.toThrow();
@@ -61,11 +64,12 @@ describe("validateGlobalTenancyEntities", () => {
 
   test("a tenant-tenancy entity without systemStream is never checked", () => {
     const entity = createEntity({
+      name: "fw2858TenantEntity",
       table: "read_fw2858_tenant_entity",
       fields: { name: textField() },
     });
     const feature = defineFeature("fw2858-tenant-entity", (r) => {
-      r.entity({ name: "fw2858TenantEntity", ...entity });
+      r.entity(entity);
     });
 
     expect(() => validateGlobalTenancyEntities([feature])).not.toThrow();

@@ -122,7 +122,7 @@ describe("createUncheckedSystemDb", () => {
     test("drops the unsafeRaw grant of the source db", () => {
       const scoped = uncheckedWithUnsafeRawGrant().scopedTo(own);
 
-      expect(() => scoped.unsafeRaw()).toThrow(AccessDeniedError);
+      expect(() => scoped.unsafeRawAllTenants()).toThrow(AccessDeniedError);
     });
   });
 

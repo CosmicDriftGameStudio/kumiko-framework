@@ -220,6 +220,7 @@ describe("denyQns removes a tool", () => {
 });
 
 const gadgetEntity = createEntity({
+  name: "gadget",
   fields: {
     name: createTextField({
       searchable: true,
@@ -232,7 +233,7 @@ const gadgetEntity = createEntity({
 
 function buildGadgetCrudFeature() {
   return defineFeature("gadget-crud-test", (r) => {
-    r.crud("gadget", gadgetEntity, {
+    r.crud(gadgetEntity, {
       read: { access: { roles: ["Admin"] } },
       write: { access: { roles: ["Admin"] } },
     });
@@ -272,6 +273,7 @@ describe("denyQns reaches the entity CRUD tools", () => {
 });
 
 const plainItemEntity = createEntity({
+  name: "plain-item",
   fields: {
     label: createTextField({
       searchable: true,
@@ -282,6 +284,7 @@ const plainItemEntity = createEntity({
   },
 });
 const cloakedItemEntity = createEntity({
+  name: "cloaked-item",
   fields: {
     label: createTextField({
       searchable: true,
@@ -297,12 +300,12 @@ const cloakedItemEntity = createEntity({
 // shared registry/catalog build and prove each other's premise.
 function buildExposureTestFeature() {
   return defineFeature("expose-test", (r) => {
-    r.crud("plain-item", plainItemEntity, {
+    r.crud(plainItemEntity, {
       read: { access: { roles: ["Admin"] } },
       write: { access: { roles: ["Admin"] } },
     });
 
-    r.entity({ name: "cloaked-item", ...cloakedItemEntity });
+    r.entity(cloakedItemEntity);
     r.queryHandler(
       defineEntityListHandler("cloaked-item", cloakedItemEntity, {
         access: { roles: ["Admin"] },
@@ -345,6 +348,7 @@ describe("explicit agent.expose:false on an entity handler, both directions", ()
 });
 
 const riskyItemEntity = createEntity({
+  name: "risky-item",
   fields: {
     label: createTextField({
       searchable: true,
@@ -356,6 +360,7 @@ const riskyItemEntity = createEntity({
 });
 
 const salaryItemEntity = createEntity({
+  name: "salary-item",
   fields: {
     label: createTextField({
       filterable: true,
@@ -379,7 +384,7 @@ const salaryItemEntity = createEntity({
 
 function buildRiskAndFieldAccessFeature() {
   return defineFeature("risk-test", (r) => {
-    r.entity({ name: "risky-item", ...riskyItemEntity });
+    r.entity(riskyItemEntity);
     r.queryHandler(
       defineEntityListHandler("risky-item", riskyItemEntity, {
         access: { roles: ["Admin"] },
@@ -393,12 +398,12 @@ function buildRiskAndFieldAccessFeature() {
       }),
     );
 
-    r.crud("plain-item", plainItemEntity, {
+    r.crud(plainItemEntity, {
       read: { access: { roles: ["Admin"] } },
       write: { access: { roles: ["Admin"] } },
     });
 
-    r.crud("salary-item", salaryItemEntity, {
+    r.crud(salaryItemEntity, {
       read: { access: { roles: ["Admin"] } },
       write: { access: { roles: ["Admin"] } },
     });

@@ -57,7 +57,7 @@ describe("list-table-options recipe", () => {
   test("the form bulk action boots and a missing count field is rejected", () => {
     expect(() => validateBoot([createTaskBoardFeature()])).not.toThrow();
     const feature = defineFeature("bulk-form-bad", (r) => {
-      r.crud("task", taskEntity, { write: openAccess, read: openAccess });
+      r.crud(taskEntity, { write: openAccess, read: openAccess });
       r.screen({
         id: "task-list",
         type: "entityList",
@@ -113,7 +113,7 @@ describe("list-table-options recipe", () => {
 
   test("a bulk action that points at a navigate row action is rejected", () => {
     const feature = defineFeature("bulk-on-navigate", (r) => {
-      r.crud("task", taskEntity, { write: openAccess, read: openAccess });
+      r.crud(taskEntity, { write: openAccess, read: openAccess });
       r.screen({
         id: "task-list",
         type: "entityList",
@@ -151,7 +151,7 @@ describe("list-table-options recipe", () => {
   // own hidden estimateHours column does not trip the rule; a plain hidden column does.
   test("a hidden column without a facet needs the column picker", () => {
     const feature = defineFeature("task-board", (r) => {
-      r.crud("task", taskEntity, { write: openAccess, read: openAccess });
+      r.crud(taskEntity, { write: openAccess, read: openAccess });
       r.screen({
         id: "task-list",
         type: "entityList",

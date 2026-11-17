@@ -15,7 +15,7 @@ function tierResolverFeature(name: string) {
   return defineFeature(name, (r) => {
     r.extendsRegistrar(TENANT_TIER_RESOLVER_EXT, { onRegister: () => {} });
     r.entity({ name: "dummy", ...createEntity({ table: "Dummies", fields: {} }) });
-    r.useExtension(TENANT_TIER_RESOLVER_EXT, "dummy", { build: async () => () => new Set() });
+    r.applyExtension({ name: TENANT_TIER_RESOLVER_EXT, entity: "dummy", build: async () => () => new Set() });
   });
 }
 
@@ -44,7 +44,7 @@ describe("findTierResolverUsage", () => {
     const other = defineFeature("other", (r) => {
       r.extendsRegistrar("somethingElse", { onRegister: () => {} });
       r.entity({ name: "d", ...createEntity({ table: "Ds", fields: {} }) });
-      r.useExtension("somethingElse", "d");
+      r.applyExtension({ name: "somethingElse", entity: "d" });
     });
     expect(findTierResolverUsage([other])).toBeUndefined();
   });

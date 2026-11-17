@@ -23,6 +23,7 @@ import { createFoldersFeature } from "../feature.ts";
 import { FoldersHandlers, FoldersQueries } from "../web/constants.ts";
 
 const projectEntity = createEntity({
+  name: "project",
   table: "folders_ow_test_projects",
   fields: {
     name: createTextField({
@@ -34,10 +35,10 @@ const projectEntity = createEntity({
   },
 });
 
-const { executor: projectExecutor } = createEntityExecutor("project", projectEntity);
+const { executor: projectExecutor } = createEntityExecutor(projectEntity);
 
 const hostFixturesFeature = defineFeature("folders-ow-test-fixtures", (r) => {
-  r.entity({ name: "project", ...projectEntity });
+  r.entity(projectEntity);
   r.writeHandler({
     name: "project:seed",
     schema: z.object({ id: z.uuid(), name: z.string() }),

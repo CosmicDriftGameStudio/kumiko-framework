@@ -55,8 +55,8 @@ export { leaseEntity, leasePartyEntity, leasePositionEntity };
 export const rentalFeature = defineFeature("rental", (r) => {
   r.translations({ keys: toKeyFirst(rentalTranslations) });
 
-  r.crud("lease", leaseEntity, { write: open, read: open });
-  r.crud("leasePosition", leasePositionEntity, { write: open, read: open });
+  r.crud(leaseEntity, { write: open, read: open });
+  r.crud(leasePositionEntity, { write: open, read: open });
   // Only the interactive create path is guarded; recordPositions and adjustRent
   // write through the executor and compute their own date ranges.
   r.hook({
@@ -79,7 +79,7 @@ export const rentalFeature = defineFeature("rental", (r) => {
       return null;
     },
   });
-  r.crud("leaseParty", leasePartyEntity, { write: open, read: open });
+  r.crud(leasePartyEntity, { write: open, read: open });
 
   r.queryHandler(leaseUnterlagenQuery);
 
@@ -110,9 +110,9 @@ export const rentalFeature = defineFeature("rental", (r) => {
 
   r.writeHandler(leaseRecordPositionsWrite);
 
-  r.entity({ name: "receipt", ...receiptEntity });
+  r.entity(receiptEntity);
   // One row per tenant: the profile screen loads it without a record id.
-  r.entity({ name: "managementProfile", ...managementProfileEntity });
+  r.entity(managementProfileEntity);
 
   r.queryHandler({
     name: "profile:current",

@@ -43,7 +43,7 @@ const queryUser = createTestUser({ id: 3, roles: ["User"] });
 
 const appFeature = defineFeature("app", (r) => {
   r.requires({ features: ["delivery"] });
-  r.notification("invoice-ready", { renamedFrom: [FORMER_TYPE] });
+  r.notification({ name: "invoice-ready", renamedFrom: [FORMER_TYPE] });
   r.writeHandler(
     defineWriteHandler({
       name: "notifyUser",

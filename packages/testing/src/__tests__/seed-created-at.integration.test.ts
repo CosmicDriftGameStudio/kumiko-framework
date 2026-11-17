@@ -61,18 +61,19 @@ const ADMIN = {
 };
 
 const noteEntity = createEntity({
+  name: "note",
   table: "read_seed_created_at_notes",
   fields: {
     title: createTextField({ required: true, personal: false, reason: "test_fixture" }),
   },
 });
-const noteTable = buildEntityTable("note", noteEntity);
+const noteTable = buildEntityTable(noteEntity);
 const NOTE_CREATE = "seed-created-at-notes:write:note:create";
 const NOTE_UPDATE = "seed-created-at-notes:write:note:update";
 const writeAccess = { roles: ["TenantAdmin", "Member", "SystemAdmin"] };
 
 const noteFeature = defineFeature("seed-created-at-notes", (r) => {
-  r.entity({ name: "note", ...noteEntity });
+  r.entity(noteEntity);
   r.writeHandler(defineEntityCreateHandler("note", noteEntity, { access: writeAccess }));
   r.writeHandler(defineEntityUpdateHandler("note", noteEntity, { access: writeAccess }));
 });

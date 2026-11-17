@@ -149,9 +149,7 @@ export function createMailFoundationFeature() {
       // channel-email uses the app transport, so empty is a valid choice a tenant can
       // return to (reset in the settings mask) and readiness must not flag it.
       // createTransportForTenant still throws on empty.
-      const providerConfigKey = r.config(
-        "provider",
-        createTenantConfig("text", {
+      const providerConfigKey = r.config({ keys: { provider: createTenantConfig("text", {
           default: "",
           // No SystemAdmin: a platform-level provider would be inherited by every tenant,
           // whose own credentials (tenant secrets) are missing, and break all their mail.
@@ -163,8 +161,7 @@ export function createMailFoundationFeature() {
             icon: "mail",
             order: 1,
           },
-        }),
-      );
+        }) } }).provider;
       // Readiness gating: transport-plugins' required keys/secrets count only
       // while their plugin is the one this key selects.
       r.extensionSelector(MAIL_TRANSPORT_EXTENSION, providerConfigKey);

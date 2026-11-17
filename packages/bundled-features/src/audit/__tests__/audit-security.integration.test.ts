@@ -47,6 +47,7 @@ import { createAuditFeature } from "../feature.ts";
 import { AUDIT_LOG_SCREEN_ID, AuditQueries, AuditScopes } from "../web/constants.ts";
 
 const widgetEntity = createEntity({
+  name: "widget",
   table: "audit_sec_widgets",
   fields: {
     name: createTextField({ required: true, personal: false, reason: "technical_reference" }),
@@ -54,7 +55,7 @@ const widgetEntity = createEntity({
 });
 
 const widgetFeature = defineFeature("audit-sec-widgets", (r) => {
-  r.entity({ name: "widget", ...widgetEntity });
+  r.entity(widgetEntity);
   r.writeHandler(
     defineEntityCreateHandler("widget", widgetEntity, {
       access: { roles: ["Admin", "User", "SystemAdmin", "TenantAdmin"] },
@@ -63,6 +64,7 @@ const widgetFeature = defineFeature("audit-sec-widgets", (r) => {
 });
 
 const dossierEntity = createEntity({
+  name: "dossier",
   table: "audit_sec_dossiers",
   fields: {
     name: createTextField({ required: true, personal: false, reason: "technical_reference" }),
@@ -96,8 +98,8 @@ const memoEntity = createEntity({
 const restrictedHandlerAccess = { access: { roles: ["HR", "TenantAdmin"] } };
 
 const restrictedFeature = defineFeature("audit-sec-restricted", (r) => {
-  r.entity({ name: "dossier", ...dossierEntity });
-  r.entity({ name: "memo", ...memoEntity });
+  r.entity(dossierEntity);
+  r.entity(memoEntity);
   r.writeHandler(defineEntityCreateHandler("dossier", dossierEntity, restrictedHandlerAccess));
   r.writeHandler(defineEntityCreateHandler("memo", memoEntity, restrictedHandlerAccess));
   r.writeHandler(defineEntityUpdateHandler("memo", memoEntity, restrictedHandlerAccess));

@@ -35,7 +35,7 @@ let gatedHandlerEntered = false;
 let gate: Promise<void> | undefined;
 
 const listenFeature = defineFeature("listen", (r) => {
-  r.entity({ name: "widget", ...sharedWidgetEntity });
+  r.entity(sharedWidgetEntity);
 
   r.multiStreamProjection({
     name: "latency-probe",

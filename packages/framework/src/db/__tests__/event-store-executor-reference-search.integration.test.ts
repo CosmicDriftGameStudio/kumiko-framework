@@ -22,15 +22,17 @@ import { createTenantDb, type TenantDb } from "../tenant-db.ts";
 import { type BunTestDb, createTestDb } from "./query/bun-test-db.ts";
 
 const customerEntity = createEntity({
+  name: "refSearchCustomer",
   table: "read_ref_search_customers",
   softDelete: true,
   fields: {
     name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
   },
 });
-const customerTable = buildEntityTable("refSearchCustomer", customerEntity);
+const customerTable = buildEntityTable(customerEntity);
 
 const orderEntity = createEntity({
+  name: "refSearchOrder",
   table: "read_ref_search_orders",
   fields: {
     note: createTextField({ searchable: true, personal: false, reason: "test_fixture" }),
@@ -42,12 +44,13 @@ const orderEntity = createEntity({
     },
   },
 });
-const orderTable = buildEntityTable("refSearchOrder", orderEntity);
+const orderTable = buildEntityTable(orderEntity);
 
 // A caller who cannot read `customerId` itself must not be able to infer its
 // value by matching the target's label through the reference clause — the
 // same probe surface applies to filter/sort.
 const restrictedOrderEntity = createEntity({
+  name: "refSearchRestrictedOrder",
   table: "read_ref_search_restricted_orders",
   fields: {
     note: createTextField({ searchable: true, personal: false, reason: "test_fixture" }),
@@ -60,21 +63,23 @@ const restrictedOrderEntity = createEntity({
     },
   },
 });
-const restrictedOrderTable = buildEntityTable("refSearchRestrictedOrder", restrictedOrderEntity);
+const restrictedOrderTable = buildEntityTable(restrictedOrderEntity);
 
 // Minimal stand-in for the real bundled `tenant` entity (table `read_tenants`)
 // — mirrors the pattern in entity-table-from-registry.test.ts. Only `name`
 // matters here: the implicit tenantId->tenant.name row-meta reference
 // (LIST_ROW_META_REFERENCES) is what's under test, not tenant's full schema.
 const tenantMetaEntity = createEntity({
+  name: "tenant",
   table: "read_tenants",
   fields: { name: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
-const tenantMetaTable = buildEntityTable("tenant", tenantMetaEntity);
+const tenantMetaTable = buildEntityTable(tenantMetaEntity);
 
 // PII target with a derived search index — ciphertext at rest, plaintext
 // mirrored into the adapter; `ownerId` + `access.read` gives a real row-owned rule.
 const piiCustomerEntity = createEntity({
+  name: "refSearchPiiCustomer",
   table: "read_ref_search_pii_customers",
   fields: {
     ownerId: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -84,9 +89,10 @@ const piiCustomerEntity = createEntity({
     read: { Admin: "all", User: from("user:id", "ownerId") },
   },
 });
-const piiCustomerTable = buildEntityTable("refSearchPiiCustomer", piiCustomerEntity);
+const piiCustomerTable = buildEntityTable(piiCustomerEntity);
 
 const piiOrderEntity = createEntity({
+  name: "refSearchPiiOrder",
   table: "read_ref_search_pii_orders",
   fields: {
     note: createTextField({ searchable: true, personal: false, reason: "test_fixture" }),
@@ -98,11 +104,12 @@ const piiOrderEntity = createEntity({
     },
   },
 });
-const piiOrderTable = buildEntityTable("refSearchPiiOrder", piiOrderEntity);
+const piiOrderTable = buildEntityTable(piiOrderEntity);
 
 // Plaintext label (ILIKE path) on a target with row-owned read, and on a
 // target whose label field itself has restricted read access.
 const ownedPlainCustomerEntity = createEntity({
+  name: "refSearchOwnedCustomer",
   table: "read_ref_search_owned_customers",
   fields: {
     ownerId: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -113,11 +120,11 @@ const ownedPlainCustomerEntity = createEntity({
   },
 });
 const ownedPlainCustomerTable = buildEntityTable(
-  "refSearchOwnedCustomer",
   ownedPlainCustomerEntity,
 );
 
 const labelRestrictedCustomerEntity = createEntity({
+  name: "refSearchLabelRestrictedCustomer",
   table: "read_ref_search_label_restricted_customers",
   fields: {
     name: createTextField({
@@ -132,7 +139,6 @@ const labelRestrictedCustomerEntity = createEntity({
   },
 });
 const labelRestrictedCustomerTable = buildEntityTable(
-  "refSearchLabelRestrictedCustomer",
   labelRestrictedCustomerEntity,
 );
 

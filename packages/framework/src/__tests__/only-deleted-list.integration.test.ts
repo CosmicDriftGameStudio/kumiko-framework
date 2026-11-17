@@ -16,6 +16,7 @@ import { createTestUser, TestUsers, testTenantId } from "../seeding/seed-users.t
 const tenant = testTenantId(1);
 
 const noteEntity = createEntity({
+  name: "note",
   table: "trash_notes",
   softDelete: true,
   fields: {
@@ -29,6 +30,7 @@ const noteEntity = createEntity({
 });
 
 const plainEntity = createEntity({
+  name: "plain",
   table: "trash_plain",
   fields: { title: createTextField({ personal: false, reason: "test_fixture", required: true }) },
   access: { read: { Admin: "all" }, write: { Admin: "all" } },
@@ -37,8 +39,8 @@ const plainEntity = createEntity({
 const roles = ["Admin", "Member"] as const;
 
 const trashFeature = defineFeature("trashlist", (r) => {
-  r.entity({ name: "note", ...noteEntity });
-  r.entity({ name: "plain", ...plainEntity });
+  r.entity(noteEntity);
+  r.entity(plainEntity);
   for (const verb of ["create", "delete", "restore"] as const) {
     r.writeHandler(
       defineEntityWriteHandler(`note:${verb}`, noteEntity, { access: { roles: [...roles] } }),

@@ -32,20 +32,21 @@ import { createCustomFieldsFeature } from "../feature.ts";
 import { customFieldsField, wireCustomFieldsFor } from "../wire-for-entity.ts";
 
 const propertyEntity = createEntity({
+  name: "property",
   table: "read_t15b_properties",
   fields: {
     name: createTextField({ required: true, personal: false, reason: "technical_reference" }),
     customFields: customFieldsField(),
   },
 });
-const propertyTable = buildEntityTable("property", propertyEntity);
+const propertyTable = buildEntityTable(propertyEntity);
 
 const propertyFeature = defineFeature("property-t15b", (r) => {
-  r.entity({ name: "property", ...propertyEntity });
+  r.entity(propertyEntity);
   r.requires({ features: ["custom-fields"] });
   wireCustomFieldsFor(r, "property", propertyTable);
 
-  const { executor } = createEntityExecutor("property", propertyEntity);
+  const { executor } = createEntityExecutor(propertyEntity);
   r.writeHandler({
     name: "property:create",
     schema: z.object({ id: z.string(), name: z.string() }),

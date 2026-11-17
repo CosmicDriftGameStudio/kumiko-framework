@@ -30,6 +30,7 @@ export const pruneRuns: number[] = [];
 // appends the "order-placed" event the jobs trigger on; in a real app an
 // entityWriteHandler would write to the DB.
 const orderEntity = createEntity({
+  name: "order",
   table: "read_orders",
   fields: {
     customerName: createTextField({ personal: { of: "id" }, find: "none", required: true }),
@@ -39,7 +40,7 @@ const orderEntity = createEntity({
 
 export function createLaneRoutingFeature(): FeatureDefinition {
   return defineFeature("orders", (r) => {
-    r.entity({ name: "order", ...orderEntity });
+    r.entity(orderEntity);
 
     // The event both jobs trigger on. No PII: customerName stays out of it.
     r.defineEvent("order-placed", z.object({ orderId: z.string(), amount: z.number() }), {
@@ -84,50 +85,34 @@ export function createLaneRoutingFeature(): FeatureDefinition {
     // BullMQ consumer on the API process never picks it up — even if the
     // API happens to run runLocalJobs for something else. `runIn` is the
     // Welle-2.6 contract that makes this stable across deploy shapes.
-    r.job(
-      "render-receipt",
-      {
-        trigger: { on: "order-placed" },
-        runIn: "worker",
-      },
-      async (payload) => {
+    r.job({ name: "render-receipt", trigger: { on: "order-placed" },
+        runIn: "worker", handler: async (payload) => {
         renderedReceipts.push({
           orderId: payload["orderId"] as string,
           amount: payload["amount"] as number,
         });
-      },
-    );
+      } });
 
     // Confirmation-mail: external I/O. Also worker-lane. Both jobs fan
     // out from the same event in parallel — BullMQ handles their order
     // independently.
-    r.job(
-      "send-confirmation",
-      {
-        trigger: { on: "order-placed" },
-        runIn: "worker",
-      },
-      async (payload) => {
+    r.job({ name: "send-confirmation", trigger: { on: "order-placed" },
+        runIn: "worker", handler: async (payload) => {
         sentConfirmations.push({
           orderId: payload["orderId"] as string,
           amount: payload["amount"] as number,
         });
-      },
-    );
+      } });
 
     // Housekeeping: `maintenance` runs once a day in the app's maintenance window
     // (KUMIKO_MAINTENANCE_WINDOW, UTC, default 03:00) instead of a cron time of its own, so a
     // sleeping app wakes once a day for all its cleanup jobs.
-    r.job("prune-old-receipts", { trigger: { maintenance: true }, runIn: "worker" }, async () => {
+    r.job({ name: "prune-old-receipts", trigger: { maintenance: true }, runIn: "worker", handler: async () => {
       pruneRuns.push(Date.now());
-    });
+    } });
 
     // Optional upkeep: `wakesSleepingApp: false` keeps a sleeping shared app asleep when a run is
     // due; the run happens on the next wake instead.
-    r.job(
-      "warm-receipt-cache",
-      { trigger: { cron: "*/15 * * * *", wakesSleepingApp: false }, runIn: "worker" },
-      async () => {},
-    );
+    r.job({ name: "warm-receipt-cache", trigger: { cron: "*/15 * * * *", wakesSleepingApp: false }, runIn: "worker", handler: async () => {} });
   });
 }

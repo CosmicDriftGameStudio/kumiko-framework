@@ -45,7 +45,7 @@ const featProFeature = defineFeature("feat-pro", (r) => {
   });
 });
 
-const tierAssignmentTable = buildEntityTable("tier-assignment", tierAssignmentEntity);
+const tierAssignmentTable = buildEntityTable(tierAssignmentEntity);
 const tenant = "00000000-0000-4000-8000-0000000000c1" as TenantId;
 const sysUser = createTestUser({
   id: "sys-x",

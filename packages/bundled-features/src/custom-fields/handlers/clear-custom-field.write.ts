@@ -64,7 +64,7 @@ export function createClearCustomFieldHandler(
       }
 
       const accessCheck = await checkFieldAccessForWrite(
-        ctx.db.unsafeRaw(),
+        ctx.db.unsafeRawAllTenants(),
         event.user.tenantId,
         payload.entityName,
         payload.fieldKey,

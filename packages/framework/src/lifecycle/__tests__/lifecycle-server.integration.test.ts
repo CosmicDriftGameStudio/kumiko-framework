@@ -8,7 +8,7 @@ import { defineFeature } from "../../engine/index.ts";
 import { createLifecycle, type Lifecycle } from "../lifecycle.ts";
 
 const widgetFeature = defineFeature("lifecycle-probe", (r) => {
-  r.entity({ name: "widget", ...sharedWidgetEntity });
+  r.entity(sharedWidgetEntity);
   // One MSP ensures buildServer actually constructs an eventDispatcher —
   // without a consumer, dispatcher stays undefined and we wouldn't prove
   // the shutdown-hook registration at all.

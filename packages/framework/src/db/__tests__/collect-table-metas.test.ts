@@ -170,12 +170,14 @@ describe("collectTableMetas — r.entity backing table", () => {
 
   test("throws when the backing table is missing a field's column (superset violated)", () => {
     const thin = createEntity({
+      name: "widget",
       table: "read_widgets",
       fields: {
         name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
       },
     });
     const rich = createEntity({
+      name: "widget",
       table: "read_widgets",
       fields: {
         name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -183,9 +185,9 @@ describe("collectTableMetas — r.entity backing table", () => {
       },
     });
     // Backing table built from the THIN entity lacks the `extra` column.
-    const backing = buildEntityTable("widget", thin) as unknown as SchemaTable;
+    const backing = buildEntityTable(thin) as unknown as SchemaTable;
     const feature = defineFeature("test", (r) => {
-      r.entity({ name: "widget", ...rich, backingTable: backing });
+      r.entity({ ...rich, backingTable: backing });
     });
     expect(() => collectTableMetas([feature])).toThrow(/missing column "extra"/);
   });
@@ -213,7 +215,7 @@ describe("reference-data entities and systemRowsReadable", () => {
   test("the implicit projection table (push path) and collectTableMetas (boot check) agree without an explicit flag", () => {
     const feature = defineFeature("refdata", (r) => {
       r.entity({ name: "unit", ...exampleEntity() });
-      r.referenceData("unit", [{ name: "seed" }]);
+      r.referenceData({ entity: "unit", data: [{ name: "seed" }] });
     });
     const registry = createRegistry([feature]);
 
@@ -243,6 +245,7 @@ describe("reference-data entities and systemRowsReadable", () => {
 describe("collectTableMetas — entity event version", () => {
   test("entity metas carry the entity's eventVersion, defaulting to 1; store and projection metas do not", () => {
     const versioned = createEntity({
+      name: "versioned",
       table: "read_versioned",
       fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
       eventVersion: 3,
@@ -252,7 +255,7 @@ describe("collectTableMetas — entity event version", () => {
       ],
     });
     const feature = defineFeature("versions", (r) => {
-      r.entity({ name: "versioned", ...versioned });
+      r.entity(versioned);
       r.entity({ name: "plain", ...exampleEntity("read_plain") });
       r.storeTable(
         defineUnmanagedTable({

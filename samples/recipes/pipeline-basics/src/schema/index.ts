@@ -16,6 +16,7 @@ import {
 export const LOW_STOCK_THRESHOLD = 10;
 
 export const productEntity = createEntity({
+  name: "product",
   table: "read_inventory_products",
   fields: {
     sku: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -37,7 +38,7 @@ export const lowStockAlertsTable: EntityTableMeta = table("read_inventory_low_st
 // Module-level drizzle-table + executor — the handler steps capture
 // `productExecutor` from this scope, and the integration test
 // imports `productTable` for raw selects.
-export const productTable = buildEntityTable("product", productEntity);
+export const productTable = buildEntityTable(productEntity);
 export const productExecutor = createEventStoreExecutor(productTable, productEntity, {
   entityName: "product",
 });

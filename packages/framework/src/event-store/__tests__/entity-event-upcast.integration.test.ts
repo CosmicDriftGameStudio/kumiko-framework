@@ -36,10 +36,11 @@ import { loadAggregate } from "../index.ts";
 const textField = createTextField({ personal: false, reason: "test_fixture", required: false });
 
 const legacyEntityV1 = createEntity({
+  name: "legacy-note",
   table: "read_legacy_notes",
   fields: { ref: textField },
 });
-const legacyTable = buildEntityTable("legacy-note", legacyEntityV1);
+const legacyTable = buildEntityTable(legacyEntityV1);
 
 const noteRefsTable = pgTable("read_legacy_note_refs", {
   noteId: pgText("note_id").primaryKey(),
@@ -62,6 +63,7 @@ const legacyRefToUuid: EntityEventMigration = {
 };
 
 const legacyEntityV2 = createEntity({
+  name: "legacy-note",
   table: "read_legacy_notes",
   fields: { refId: textField },
   eventVersion: 2,
@@ -89,13 +91,13 @@ const refProjection = {
 
 const registryWithMigration = createRegistry([
   defineFeature("legacyv2", (r) => {
-    r.entity({ name: "legacy-note", ...legacyEntityV2 });
+    r.entity(legacyEntityV2);
     r.projection(refProjection);
   }),
 ]);
 const registryWithoutMigration = createRegistry([
   defineFeature("legacyv1", (r) => {
-    r.entity({ name: "legacy-note", ...legacyEntityV1 });
+    r.entity(legacyEntityV1);
     r.projection(refProjection);
   }),
 ]);
@@ -167,13 +169,14 @@ describe("entity event versioning", () => {
 // transform that renames a pii field leaves a value that no longer decrypts under the new name.
 describe("eventMigrations renaming a pii field", () => {
   const piiNoteV1 = createEntity({
+    name: "pii-note",
     table: "read_pii_notes",
     fields: {
       ownerId: createTextField({ personal: "ref" }),
       name: createTextField({ personal: { of: "ownerId", whenAbsent: "tenant" }, find: "none" }),
     },
   });
-  const piiNoteTable = buildEntityTable("pii-note", piiNoteV1);
+  const piiNoteTable = buildEntityTable(piiNoteV1);
   const renameNameToFullName: EntityEventMigration = {
     fromVersion: 1,
     toVersion: 2,
@@ -183,6 +186,7 @@ describe("eventMigrations renaming a pii field", () => {
     },
   };
   const piiNoteV2 = createEntity({
+    name: "pii-note",
     table: "read_pii_notes",
     fields: {
       ownerId: createTextField({ personal: "ref" }),
@@ -201,7 +205,7 @@ describe("eventMigrations renaming a pii field", () => {
   });
   const registryRenamed = createRegistry([
     defineFeature("piiv2", (r) => {
-      r.entity({ name: "pii-note", ...piiNoteV2 });
+      r.entity(piiNoteV2);
       r.projection({
         name: "note-names",
         source: "pii-note",

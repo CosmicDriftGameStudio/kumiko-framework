@@ -47,6 +47,7 @@ afterAll(async () => {
 // =============================================================================
 
 const restrictedEntity = createEntity({
+  name: "esWriteRestricted",
   table: "read_es_write_restricted",
   fields: {
     email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -54,7 +55,7 @@ const restrictedEntity = createEntity({
   softDelete: true,
   access: { write: { Admin: "all" } },
 });
-const restrictedTable = buildEntityTable("esWriteRestricted", restrictedEntity);
+const restrictedTable = buildEntityTable(restrictedEntity);
 
 describe("event-store-executor write-verbs — entity-level ownership_denied", () => {
   const crud = createEventStoreExecutor(restrictedTable, restrictedEntity, {
@@ -192,12 +193,13 @@ describe("event-store-executor write-verbs — entity-level ownership_denied", (
 // =============================================================================
 
 const hardDeleteEntity = createEntity({
+  name: "esWriteHard",
   table: "read_es_write_hard",
   fields: {
     email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
   },
 });
-const hardDeleteTable = buildEntityTable("esWriteHard", hardDeleteEntity);
+const hardDeleteTable = buildEntityTable(hardDeleteEntity);
 
 describe("event-store-executor write-verbs — restore without softDelete", () => {
   const crud = createEventStoreExecutor(hardDeleteTable, hardDeleteEntity, {
@@ -242,6 +244,7 @@ describe("event-store-executor write-verbs — restore without softDelete", () =
 // =============================================================================
 
 const teamRowEntity = createEntity({
+  name: "esWriteTeamRow",
   table: "read_es_write_team_row",
   fields: {
     name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -249,7 +252,7 @@ const teamRowEntity = createEntity({
   },
   softDelete: true,
 });
-const teamRowTable = buildEntityTable("esWriteTeamRow", teamRowEntity);
+const teamRowTable = buildEntityTable(teamRowEntity);
 
 describe("event-store-executor write-verbs — update on soft-deleted rows", () => {
   const crud = createEventStoreExecutor(teamRowTable, teamRowEntity, {
@@ -346,6 +349,7 @@ describe("event-store-executor write-verbs — update on soft-deleted rows", () 
 // =============================================================================
 
 const ownedFieldEntity = createEntity({
+  name: "esWriteOwnedField",
   table: "read_es_write_owned_field",
   fields: {
     authorId: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -356,7 +360,7 @@ const ownedFieldEntity = createEntity({
     }),
   },
 });
-const ownedFieldTable = buildEntityTable("esWriteOwnedField", ownedFieldEntity);
+const ownedFieldTable = buildEntityTable(ownedFieldEntity);
 
 describe("event-store-executor write-verbs — field-level ownership_denied", () => {
   const crud = createEventStoreExecutor(ownedFieldTable, ownedFieldEntity, {
@@ -461,12 +465,13 @@ describe("event-store-executor write-verbs — field-level ownership_denied", ()
 // =============================================================================
 
 const versionEntity = createEntity({
+  name: "esWriteVersion",
   table: "read_es_write_version",
   fields: {
     email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
   },
 });
-const versionTable = buildEntityTable("esWriteVersion", versionEntity);
+const versionTable = buildEntityTable(versionEntity);
 
 describe("event-store-executor write-verbs — version_conflict edge cases", () => {
   const crud = createEventStoreExecutor(versionTable, versionEntity, {
@@ -518,6 +523,7 @@ describe("event-store-executor write-verbs — version_conflict edge cases", () 
 // =============================================================================
 
 const expectEntity = createEntity({
+  name: "esWriteExpect",
   table: "read_es_write_expect",
   fields: {
     email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -526,7 +532,7 @@ const expectEntity = createEntity({
     secret: createTextField({ personal: false, reason: "test_fixture", encrypted: true }),
   },
 });
-const expectTable = buildEntityTable("esWriteExpect", expectEntity);
+const expectTable = buildEntityTable(expectEntity);
 
 describe("event-store-executor write-verbs — expect precondition", () => {
   const crud = createEventStoreExecutor(expectTable, expectEntity, {
@@ -726,13 +732,14 @@ describe("event-store-executor write-verbs — expect precondition", () => {
 // =============================================================================
 
 const deletedIdEntity = createEntity({
+  name: "esWriteDeletedId",
   table: "read_es_write_deleted_id",
   fields: {
     email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
   },
   softDelete: true,
 });
-const deletedIdTable = buildEntityTable("esWriteDeletedId", deletedIdEntity);
+const deletedIdTable = buildEntityTable(deletedIdEntity);
 
 describe("event-store-executor write-verbs — explicit-id tenant isolation + soft-delete", () => {
   const crud = createEventStoreExecutor(deletedIdTable, deletedIdEntity, {
@@ -803,13 +810,14 @@ describe("event-store-executor write-verbs — explicit-id tenant isolation + so
 // =============================================================================
 
 const raceEntity = createEntity({
+  name: "esWriteRace",
   table: "read_es_write_race",
   fields: {
     email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
   },
   softDelete: true,
 });
-const raceTable = buildEntityTable("esWriteRace", raceEntity);
+const raceTable = buildEntityTable(raceEntity);
 
 describe("event-store-executor write-verbs — concurrent version race", () => {
   const crud = createEventStoreExecutor(raceTable, raceEntity, {
@@ -902,13 +910,14 @@ describe("event-store-executor write-verbs — concurrent version race", () => {
 // =============================================================================
 
 const staleVersionEntity = createEntity({
+  name: "esWriteStaleVersion",
   table: "read_es_write_stale_version",
   fields: {
     secret: createTextField({ personal: false, reason: "test_fixture", encrypted: true }),
   },
   softDelete: true,
 });
-const staleVersionTable = buildEntityTable("esWriteStaleVersion", staleVersionEntity);
+const staleVersionTable = buildEntityTable(staleVersionEntity);
 
 describe("event-store-executor write-verbs — version_conflict reports the real stream version", () => {
   const crud = createEventStoreExecutor(staleVersionTable, staleVersionEntity, {

@@ -59,7 +59,7 @@ const features = composeFeatures([createTierEngineFeature(), resolverProbeFeatur
 
 // Same underlying table createTierResolver builds internally — pushed here
 // so the schema exists before the write-handler + resolver read it.
-const tierAssignmentTable = buildEntityTable("tier-assignment", tierAssignmentEntity);
+const tierAssignmentTable = buildEntityTable(tierAssignmentEntity);
 
 let stack: TestStack;
 const tenantA = "00000000-0000-4000-8000-0000000000c1" as TenantId;

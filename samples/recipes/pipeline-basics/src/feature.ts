@@ -32,7 +32,7 @@ import { createReportArchiveLowStockProductsWrite } from "./handlers/report-arch
 import { lowStockAlertsTable, productEntity, productTable } from "./schema";
 
 export const inventoryFeature = defineFeature("inventory", (r) => {
-  r.entity({ name: "product", ...productEntity });
+  r.entity(productEntity);
   r.requires.projection("read_inventory_low_stock_alerts");
 
   // Domain-events on the product stream (alongside the auto-CRUD

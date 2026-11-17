@@ -83,14 +83,12 @@ const probeDeleteHook: UserDataDeleteHook = async (ctx) => {
 
 const probeFeature = defineFeature("erasure-probe-host", (r) => {
   r.entity({ name: PROBE_ENTITY, ...probeEntity });
-  r.useExtension(EXT_USER_DATA, PROBE_ENTITY, {
-    export: async () => null,
+  r.applyExtension({ name: EXT_USER_DATA, entity: PROBE_ENTITY, export: async () => null,
     delete: probeDeleteHook,
     escapeHatch: {
       reason:
         "test fixture: probes the erasure-failure contract with a hook that forgets through the executor",
-    },
-  });
+    } });
 });
 
 let stack: TestStack;

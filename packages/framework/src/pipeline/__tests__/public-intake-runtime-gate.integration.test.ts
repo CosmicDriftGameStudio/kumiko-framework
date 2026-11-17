@@ -33,37 +33,40 @@ const RATE_LIMIT = { per: "ip", limit: 1000, windowSeconds: 60 } as const;
 // --- Feature B: owns the PII-carrying entity ---
 
 const contactEntity = createEntity({
+  name: "contact",
   table: "intake_contacts",
   fields: {
     email: createTextField({ personal: "self", find: "none", default: "" }),
     note: createTextField({ personal: false, reason: "test_fixture", default: "" }),
   },
 });
-const contactTable = buildEntityTable("contact", contactEntity);
-const contactDirectTable = deriveEntityTableMeta("contact", contactEntity, { source: "unmanaged" });
+const contactTable = buildEntityTable(contactEntity);
+const contactDirectTable = deriveEntityTableMeta(contactEntity, { source: "unmanaged" });
 
 // No `table:` override: the gate must resolve the default, entity-name-derived table.
 const leadEntity = createEntity({
+  name: "intakeLead",
   fields: {
     phone: createTextField({ personal: "self", find: "none", default: "" }),
   },
 });
-const leadTable = buildEntityTable("intakeLead", leadEntity);
+const leadTable = buildEntityTable(leadEntity);
 
 // tenancy "global": rows carry SYSTEM_TENANT_ID and are written through db.global().
 const globalContactEntity = createEntity({
+  name: "globalContact",
   table: "intake_global_contacts",
   tenancy: "global",
   fields: {
     email: createTextField({ personal: "self", find: "none", default: "" }),
   },
 });
-const globalContactTable = buildEntityTable("globalContact", globalContactEntity);
+const globalContactTable = buildEntityTable(globalContactEntity);
 
 const featureB = defineFeature("intakeb", (r) => {
-  r.entity({ name: "contact", ...contactEntity });
-  r.entity({ name: "globalContact", ...globalContactEntity });
-  r.entity({ name: "intakeLead", ...leadEntity });
+  r.entity(contactEntity);
+  r.entity(globalContactEntity);
+  r.entity(leadEntity);
 
   r.writeHandler({
     name: "create-lead",
@@ -93,15 +96,16 @@ const featureB = defineFeature("intakeb", (r) => {
 // --- Feature A: anonymous entry points that try to leak B's PII by every route ---
 
 const probeEntity = createEntity({
+  name: "probe",
   table: "intake_probes",
   fields: {
     note: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
-const probeTable = buildEntityTable("probe", probeEntity);
+const probeTable = buildEntityTable(probeEntity);
 
 const featureA = defineFeature("intakea", (r) => {
-  r.entity({ name: "probe", ...probeEntity });
+  r.entity(probeEntity);
 
   r.writeHandler({
     name: "direct-insert-no-declare",
@@ -143,7 +147,7 @@ const featureA = defineFeature("intakea", (r) => {
       }),
     access: { roles: ["anonymous"] },
     rateLimit: RATE_LIMIT,
-    escapeHatch: { reason: "test: cross-identity detour to prove the gate survives writeAs" },
+    escapeHatch: { reason: "test: cross-identity detour to prove the gate survives writeAs", grants: ["systemIdentity"] },
   });
 
   r.writeHandler({
@@ -156,7 +160,7 @@ const featureA = defineFeature("intakea", (r) => {
       }),
     access: { roles: ["anonymous"], personalData: "public-intake" },
     rateLimit: RATE_LIMIT,
-    escapeHatch: { reason: "test: cross-identity detour to prove the gate survives writeAs" },
+    escapeHatch: { reason: "test: cross-identity detour to prove the gate survives writeAs", grants: ["systemIdentity"] },
   });
 
   // The postSave hook only fires for handlers whose result is a genuine
@@ -233,6 +237,7 @@ const featureA = defineFeature("intakea", (r) => {
     rateLimit: RATE_LIMIT,
     escapeHatch: {
       reason: "test: queryAs detour to prove the gate survives nested query->write",
+      grants: ["systemIdentity"],
     },
   });
   r.writeHandler({
@@ -246,6 +251,7 @@ const featureA = defineFeature("intakea", (r) => {
     rateLimit: RATE_LIMIT,
     escapeHatch: {
       reason: "test: queryAs detour to prove the gate survives nested query->write",
+      grants: ["systemIdentity"],
     },
   });
 
@@ -269,7 +275,7 @@ const featureA = defineFeature("intakea", (r) => {
       }),
     access: { roles: ["anonymous"] },
     rateLimit: RATE_LIMIT,
-    escapeHatch: { reason: "test: cross-identity detour to prove the gate survives writeAs" },
+    escapeHatch: { reason: "test: cross-identity detour to prove the gate survives writeAs", grants: ["systemIdentity"] },
   });
 
   for (const declared of [false, true]) {
@@ -331,7 +337,7 @@ const featureA = defineFeature("intakea", (r) => {
       },
       access,
       rateLimit: RATE_LIMIT,
-      escapeHatch: { reason: GLOBAL_WRITE_REASON },
+      escapeHatch: { reason: GLOBAL_WRITE_REASON, grants: ["globalWrites"] },
     });
 
     r.writeHandler({
@@ -345,16 +351,13 @@ const featureA = defineFeature("intakea", (r) => {
       },
       access,
       rateLimit: RATE_LIMIT,
-      escapeHatch: { reason: GLOBAL_WRITE_REASON },
+      escapeHatch: { reason: GLOBAL_WRITE_REASON, grants: ["globalWrites"] },
     });
   }
 
   // A stream can never declare public-intake (only write and query handlers can), so an
   // anonymous stream root is always gated.
-  r.streamHandler(
-    "writeas-detour",
-    z.object({ note: z.string() }),
-    async function* (query, ctx) {
+  r.streamHandler({ name: "writeas-detour", schema: z.object({ note: z.string() }), handler: async function* (query, ctx) {
       const result = await ctx.dispatch.writeAs(
         createSystemUser(query.user.tenantId),
         "intakeb:write:create",
@@ -364,13 +367,9 @@ const featureA = defineFeature("intakea", (r) => {
         },
       );
       yield result.isSuccess ? "written" : (result.error.details as { reason?: string })?.reason;
-    },
-    {
-      access: { roles: ["anonymous", "Admin"] },
+    }, access: { roles: ["anonymous", "Admin"] },
       rateLimit: RATE_LIMIT,
-      escapeHatch: { reason: "test: stream detour to prove the gate applies to stream roots" },
-    },
-  );
+      escapeHatch: { reason: "test: stream detour to prove the gate applies to stream roots", grants: ["systemIdentity"] } });
 
   for (const declared of [false, true]) {
     const suffix = declared ? "declare" : "no-declare";
@@ -388,7 +387,7 @@ const featureA = defineFeature("intakea", (r) => {
         }),
       access,
       rateLimit: RATE_LIMIT,
-      escapeHatch: { reason: "test: anonymous query root writing through a SYSTEM detour" },
+      escapeHatch: { reason: "test: anonymous query root writing through a SYSTEM detour", grants: ["systemIdentity"] },
     });
   }
 
@@ -429,7 +428,7 @@ const featureA = defineFeature("intakea", (r) => {
     name: "unsafe-raw-tenant-db-no-declare",
     schema: z.object({ note: z.string() }),
     handler: async (event, ctx) => {
-      const raw = ctx.db.unsafeRaw();
+      const raw = ctx.db.unsafeRawAllTenants();
       await createTenantDb({
         db: raw,
         tenantId: event.user.tenantId,
@@ -443,14 +442,14 @@ const featureA = defineFeature("intakea", (r) => {
     },
     access: { roles: ["anonymous"] },
     rateLimit: RATE_LIMIT,
-    escapeHatch: { reason: UNSAFE_RAW_REASON },
+    escapeHatch: { reason: UNSAFE_RAW_REASON, grants: ["unsafeRaw"] },
   });
 
   r.writeHandler({
     name: "unsafe-raw-tenant-db-declare",
     schema: z.object({ note: z.string() }),
     handler: async (event, ctx) => {
-      const raw = ctx.db.unsafeRaw();
+      const raw = ctx.db.unsafeRawAllTenants();
       await createTenantDb({
         db: raw,
         tenantId: event.user.tenantId,
@@ -464,7 +463,7 @@ const featureA = defineFeature("intakea", (r) => {
     },
     access: { roles: ["anonymous"], personalData: "public-intake" },
     rateLimit: RATE_LIMIT,
-    escapeHatch: { reason: UNSAFE_RAW_REASON },
+    escapeHatch: { reason: UNSAFE_RAW_REASON, grants: ["unsafeRaw"] },
   });
 
   // Nested tx: the handler already runs inside the request's own transaction, so its
@@ -475,7 +474,7 @@ const featureA = defineFeature("intakea", (r) => {
     name: "unsafe-raw-savepoint-tenant-db-no-declare",
     schema: z.object({ note: z.string() }),
     handler: async (event, ctx) => {
-      const raw = ctx.db.unsafeRaw();
+      const raw = ctx.db.unsafeRawAllTenants();
       await runInSavepoint(raw, async (sp) => {
         await createTenantDb({
           db: sp,
@@ -491,14 +490,14 @@ const featureA = defineFeature("intakea", (r) => {
     },
     access: { roles: ["anonymous"] },
     rateLimit: RATE_LIMIT,
-    escapeHatch: { reason: UNSAFE_RAW_REASON },
+    escapeHatch: { reason: UNSAFE_RAW_REASON, grants: ["unsafeRaw"] },
   });
 
   r.writeHandler({
     name: "unsafe-raw-savepoint-tenant-db-declare",
     schema: z.object({ note: z.string() }),
     handler: async (event, ctx) => {
-      const raw = ctx.db.unsafeRaw();
+      const raw = ctx.db.unsafeRawAllTenants();
       await runInSavepoint(raw, async (sp) => {
         await createTenantDb({
           db: sp,
@@ -514,7 +513,7 @@ const featureA = defineFeature("intakea", (r) => {
     },
     access: { roles: ["anonymous"], personalData: "public-intake" },
     rateLimit: RATE_LIMIT,
-    escapeHatch: { reason: UNSAFE_RAW_REASON },
+    escapeHatch: { reason: UNSAFE_RAW_REASON, grants: ["unsafeRaw"] },
   });
 
   // Raw SQL through the gated proxy itself must stay ungated (decision: unsafeRaw's raw SQL
@@ -524,7 +523,7 @@ const featureA = defineFeature("intakea", (r) => {
     name: "unsafe-raw-tagged-query-declare",
     schema: z.object({ note: z.string() }),
     handler: async (event, ctx) => {
-      const raw = ctx.db.unsafeRaw();
+      const raw = ctx.db.unsafeRawAllTenants();
       // @cast-boundary test-fixture — DbRunner's RawClient arm has no tagged-template call
       // signature; the underlying driver instance (postgres-js/Bun.SQL) does.
       const tagged = raw as unknown as (
@@ -546,7 +545,7 @@ const featureA = defineFeature("intakea", (r) => {
     },
     access: { roles: ["anonymous"], personalData: "public-intake" },
     rateLimit: RATE_LIMIT,
-    escapeHatch: { reason: UNSAFE_RAW_REASON },
+    escapeHatch: { reason: UNSAFE_RAW_REASON, grants: ["unsafeRaw"] },
   });
 
   // Authenticated session: same ctx.db.unsafeRaw() -> createTenantDb() path, but the root
@@ -555,7 +554,7 @@ const featureA = defineFeature("intakea", (r) => {
     name: "unsafe-raw-tenant-db-authenticated",
     schema: z.object({ note: z.string() }),
     handler: async (event, ctx) => {
-      const raw = ctx.db.unsafeRaw();
+      const raw = ctx.db.unsafeRawAllTenants();
       await createTenantDb({
         db: raw,
         tenantId: event.user.tenantId,
@@ -568,7 +567,7 @@ const featureA = defineFeature("intakea", (r) => {
       return { isSuccess: true as const, data: { ok: true as const } };
     },
     access: { roles: ["Admin"] },
-    escapeHatch: { reason: UNSAFE_RAW_REASON },
+    escapeHatch: { reason: UNSAFE_RAW_REASON, grants: ["unsafeRaw"] },
   });
 
   // The CRUD executor writes through tenantDbRunner + assertPersonalDataWrite, not
@@ -579,7 +578,7 @@ const featureA = defineFeature("intakea", (r) => {
     schema: z.object({ note: z.string() }),
     handler: async (event, ctx) => {
       const scopedDb = createTenantDb({
-        db: ctx.db.unsafeRaw(),
+        db: ctx.db.unsafeRawAllTenants(),
         tenantId: event.user.tenantId,
         mode: "system",
         reason: "test builds system-mode handles to seed and inspect public-intake rows",
@@ -593,7 +592,7 @@ const featureA = defineFeature("intakea", (r) => {
     },
     access: { roles: ["anonymous"] },
     rateLimit: RATE_LIMIT,
-    escapeHatch: { reason: UNSAFE_RAW_REASON },
+    escapeHatch: { reason: UNSAFE_RAW_REASON, grants: ["unsafeRaw"] },
   });
 
   // Same inherited-gate TenantDb, but only a non-PII field — proves the proxy/executor
@@ -604,7 +603,7 @@ const featureA = defineFeature("intakea", (r) => {
     schema: z.object({ note: z.string() }),
     handler: async (event, ctx) => {
       const scopedDb = createTenantDb({
-        db: ctx.db.unsafeRaw(),
+        db: ctx.db.unsafeRawAllTenants(),
         tenantId: event.user.tenantId,
         mode: "system",
         reason: "test builds system-mode handles to seed and inspect public-intake rows",
@@ -614,7 +613,7 @@ const featureA = defineFeature("intakea", (r) => {
     },
     access: { roles: ["anonymous"] },
     rateLimit: RATE_LIMIT,
-    escapeHatch: { reason: UNSAFE_RAW_REASON },
+    escapeHatch: { reason: UNSAFE_RAW_REASON, grants: ["unsafeRaw"] },
   });
 });
 

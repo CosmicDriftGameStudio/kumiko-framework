@@ -58,7 +58,7 @@ export function createRequestDeletionHandler(opts: RequestDeletionOptions = {}) 
       "Starts the GDPR Art. 17 deletion of the calling user's own account by arming the grace period from the tenant compliance profile and mailing a confirmation, after which only cancel-deletion can stop the erasure.",
     agent: { risk: "high" },
     handler: async (event, ctx) => {
-      const runner = ctx.db.unsafeRaw();
+      const runner = ctx.db.unsafeRawAllTenants();
       const res = await startDeletionGracePeriod(
         ctx,
         event.user.id,

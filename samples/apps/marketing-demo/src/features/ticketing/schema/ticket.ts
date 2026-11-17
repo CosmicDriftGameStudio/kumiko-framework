@@ -41,6 +41,7 @@ export const TICKET_DEPARTMENTS = [
 export type TicketDepartment = (typeof TICKET_DEPARTMENTS)[number];
 
 export const ticketEntity = createEntity({
+  name: "ticket",
   fields: {
     title: createTextField({
       personal: false,

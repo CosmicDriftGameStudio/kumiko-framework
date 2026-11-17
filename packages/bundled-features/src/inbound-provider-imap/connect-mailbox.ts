@@ -193,7 +193,7 @@ export async function connectPasswordMailbox(
   const secrets = requireSecretsContext(
     { secrets: ctx.services.secrets, user: ctx.user },
     handlerName,
-  ).withRunner(ctx.db.unsafeRaw());
+  ).withRunner(ctx.db.unsafeRawAllTenants());
   await secrets.set(
     event.user.tenantId,
     inboundCredentialSecretKey(accountId),

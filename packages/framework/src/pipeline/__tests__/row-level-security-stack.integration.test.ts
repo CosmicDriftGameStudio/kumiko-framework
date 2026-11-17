@@ -56,7 +56,7 @@ const tenantFeature = defineFeature("rlsstack", (r) => {
       name: "list-all-tenants",
       schema: listAllSchema,
       access: { roles: ["Admin"] },
-      escapeHatch: { reason: CROSS_TENANT_REASON },
+      escapeHatch: { reason: CROSS_TENANT_REASON, grants: ["systemIdentity"] },
       perform: stepsPipeline<z.infer<typeof listAllSchema>, { labels: string[] }>(({ r: step }) => [
         step.step.read.findMany("items", {
           table: itemsTable,
@@ -70,10 +70,10 @@ const tenantFeature = defineFeature("rlsstack", (r) => {
     }),
   );
 
-  r.job("copy-count", { trigger: { manual: true } }, async (_payload, ctx) => {
+  r.job({ name: "copy-count", trigger: { manual: true }, handler: async (_payload, ctx) => {
     const seen = await selectMany<{ label: string }>(ctx.db, itemsTable);
     await ctx.db.insertOne(itemsTable, { label: `job-saw-${seen.length}` });
-  });
+  } });
 });
 
 const systemFeature = defineFeature("rlssystem", (r) => {

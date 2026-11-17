@@ -36,6 +36,7 @@ const teamOwnership: NonNullable<EntityDefinition["access"]> = {
 };
 
 const docEntity = createEntity({
+  name: "doc",
   table: DOC_TABLE,
   softDelete: true,
   fields: {
@@ -50,7 +51,7 @@ const docEntity = createEntity({
 });
 
 const hostFixturesFeature = defineFeature("folders-orphan-test-fixtures", (r) => {
-  r.entity({ name: "doc", ...docEntity });
+  r.entity(docEntity);
 });
 
 const userA = createTestUser({ id: 80, roles: ["TenantMember"], claims: { team: "team-a" } });

@@ -932,7 +932,7 @@ describe("createKumikoServer — tryHonoFirst 404-vs-router-miss", () => {
 });
 
 const probeJobFeature = defineFeature("dev-server-probe-job", (r) => {
-  r.job("probe-job", { trigger: { manual: true }, runIn: "worker" }, async () => {});
+  r.job({ name: "probe-job", trigger: { manual: true }, runIn: "worker", handler: async () => {} });
 });
 
 // Scoped to one boot's prefix: parallel test files boot their own dev servers

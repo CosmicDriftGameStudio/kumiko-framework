@@ -154,7 +154,7 @@ export function createSignupRequestHandler(opts: SignupRequestOptions) {
             } else {
               try {
                 const verified = await provider.verifyGrant({
-                  db: ctx.db.unsafeRaw(),
+                  db: ctx.db.unsafeRawAllTenants(),
                   registry: ctx.registry,
                   entityType,
                   token: grantToken,

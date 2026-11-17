@@ -15,7 +15,7 @@ import {
 import { orderEntity, ordersLiteFailures, ordersLiteFeature } from "../feature";
 
 let stack: TestStack;
-const orderTable = buildEntityTable("order", orderEntity);
+const orderTable = buildEntityTable(orderEntity);
 
 const admin = TestUsers.admin;
 const alice = createTestUser({ id: 10, roles: ["User"] });

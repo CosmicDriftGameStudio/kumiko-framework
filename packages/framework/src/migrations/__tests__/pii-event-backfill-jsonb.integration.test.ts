@@ -31,6 +31,7 @@ const OWNER_ID = "11111111-1111-4111-8111-111111111111";
 const BLOB = { values: { name: "Zebulon Quaxford" }, stepIndex: 2 };
 
 const draftEntity = createEntity({
+  name: "draft",
   table: TABLE,
   fields: {
     ownerId: createTextField({ personal: "ref", required: true }),
@@ -38,12 +39,12 @@ const draftEntity = createEntity({
   },
 });
 
-const draftTable = buildEntityTable("draft", draftEntity);
+const draftTable = buildEntityTable(draftEntity);
 const draftExecutor = createEventStoreExecutor(draftTable, draftEntity, { entityName: "draft" });
 
 const feature = defineFeature("jbf", (r) => {
-  r.entity({ name: "draft", ...draftEntity });
-  r.crud("draft", draftEntity, {
+  r.entity(draftEntity);
+  r.crud(draftEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: { roles: ["Admin"] } },
   });

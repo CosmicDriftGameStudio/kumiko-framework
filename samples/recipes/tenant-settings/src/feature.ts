@@ -13,6 +13,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 
 export const invoiceEntity = createEntity({
+  name: "invoice",
   table: "read_invoices",
   fields: {
     title: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -24,7 +25,7 @@ export const invoiceEntity = createEntity({
 const ACCESS = { roles: ["Admin"] } as const;
 
 export const invoiceFeature = defineFeature("invoice", (r) => {
-  r.entity({ name: "invoice", ...invoiceEntity });
+  r.entity(invoiceEntity);
   r.writeHandler(
     defineCreateWithTenantDefaults("invoice", invoiceEntity, {
       access: ACCESS,

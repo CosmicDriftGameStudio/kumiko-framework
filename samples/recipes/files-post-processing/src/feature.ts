@@ -36,6 +36,7 @@ import { z } from "zod";
 // share the name `thumb` but are a completely separate spec — same label,
 // different whitelist, different actual pixels.
 export const photoEntity = createEntity({
+  name: "photo",
   table: "files_post_processing_photos",
   fields: {
     original: createImageField({
@@ -60,7 +61,7 @@ export const coverOrder: string[] = [];
 
 export const filesPostProcessingFeature = defineFeature("files-post-processing", (r) => {
   r.requires({ features: ["file-derivatives"] });
-  r.entity({ name: "photo", ...photoEntity });
+  r.entity(photoEntity);
 
   // Uploading a file to a photo's field needs the same rights as saving the
   // photo, so the photo must exist and the uploader needs update access.
@@ -139,8 +140,6 @@ export const filesPostProcessingFeature = defineFeature("files-post-processing",
   // Entry point 3 — default-deny. No registration here means every entityId
   // 404s; a registration that returns false does the same. Only an explicit
   // `true` serves bytes.
-  r.useExtension(EXT_DERIVATIVE_PUBLIC_PREDICATE, "photo", {
-    isPublic: ({ entityId, tenantId }: DerivativePublicPredicateArgs) =>
-      publishedPhotoIds.has(`${tenantId}:${entityId}`),
-  });
+  r.applyExtension({ name: EXT_DERIVATIVE_PUBLIC_PREDICATE, entity: "photo", isPublic: ({ entityId, tenantId }: DerivativePublicPredicateArgs) =>
+      publishedPhotoIds.has(`${tenantId}:${entityId}`) });
 });

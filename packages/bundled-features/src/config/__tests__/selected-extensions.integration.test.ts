@@ -68,17 +68,17 @@ const platformFoundation = defineFeature("probe-platform-transport", (r) => {
 });
 
 const platformPlugin = defineFeature("probe-platform-plugin", (r) => {
-  r.useExtension("probePlatformTransport", "platform-smtp");
+  r.applyExtension({ name: "probePlatformTransport", entity: "platform-smtp" });
 });
 
 const pluginX = defineFeature("probe-plugin-x", (r) => {
-  r.useExtension("probeTransport", "x");
+  r.applyExtension({ name: "probeTransport", entity: "x" });
 });
 const pluginY = defineFeature("probe-plugin-y", (r) => {
-  r.useExtension("probeTransport", "y");
+  r.applyExtension({ name: "probeTransport", entity: "y" });
 });
 const openPlugin = defineFeature("probe-open-plugin", (r) => {
-  r.useExtension("probeOpenTransport", "open");
+  r.applyExtension({ name: "probeOpenTransport", entity: "open" });
 });
 
 let stack: TestStack;

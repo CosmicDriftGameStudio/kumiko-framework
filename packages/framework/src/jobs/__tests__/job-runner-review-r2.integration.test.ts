@@ -51,10 +51,10 @@ describe("job runner without a db connection", () => {
     let handlerRan = false;
     const failures: string[] = [];
     const feature = defineFeature("nodbjob", (r) => {
-      r.job("needsDb", { trigger: { manual: true } }, async (_payload, ctx) => {
+      r.job({ name: "needsDb", trigger: { manual: true }, handler: async (_payload, ctx) => {
         handlerRan = true;
         void ctx.db.unsafeRaw;
-      });
+      } });
     });
     const queueNamePrefix = uniquePrefix("nodb");
     const runner = createJobRunner({
@@ -93,7 +93,7 @@ describe("perTenant job on a runner without a db connection", () => {
       });
     });
     const fanOutFeature = defineFeature("nodbfanout", (r) => {
-      r.job("fanOut", { trigger: { manual: true }, perTenant: true, retries: 0 }, async () => {});
+      r.job({ name: "fanOut", trigger: { manual: true }, perTenant: true, retries: 0, handler: async () => {} });
     });
     const queueNamePrefix = uniquePrefix("nodbtenant");
     const runner = createJobRunner({
@@ -123,7 +123,7 @@ describe("job-last-success metric", () => {
   test("a meter nobody registered standard metrics on does not turn a success into a failure", async () => {
     const failures: string[] = [];
     const feature = defineFeature("unregmeter", (r) => {
-      r.job("ok", { trigger: { manual: true } }, async () => {});
+      r.job({ name: "ok", trigger: { manual: true }, handler: async () => {} });
     });
     const meter = createPrometheusMeter();
     const queueNamePrefix = uniquePrefix("meter");
@@ -160,17 +160,11 @@ describe("tenantVisibleFailure subject config error", () => {
     const started: string[] = [];
     const failed: Array<{ error: string; outcome: JobOutcomeMeta | undefined }> = [];
     const feature = defineFeature("subjectcfg", (r) => {
-      r.job(
-        "tracked",
-        {
-          trigger: { manual: true },
+      r.job({ name: "tracked", trigger: { manual: true },
           retries: 2,
-          tenantVisibleFailure: { messageKey: "app:errors.failed", subjectFields: ["docId"] },
-        },
-        async () => {
+          tenantVisibleFailure: { messageKey: "app:errors.failed", subjectFields: ["docId"] }, handler: async () => {
           handlerCalls += 1;
-        },
-      );
+        } });
     });
     const queueNamePrefix = uniquePrefix("subject");
     const runner = createJobRunner({
@@ -207,9 +201,9 @@ describe("event attribution of job runs", () => {
   test("a job stamps the feature's raw name, same as write-handlers do", async () => {
     const seen: Array<string | undefined> = [];
     const feature = defineFeature("pubSubOrders", (r) => {
-      r.job("stamp", { trigger: { manual: true } }, async () => {
+      r.job({ name: "stamp", trigger: { manual: true }, handler: async () => {
         seen.push(requestContext.get()?.feature);
-      });
+      } });
     });
     const registry = createRegistry([feature]);
     const queueNamePrefix = uniquePrefix("stamp");
@@ -239,19 +233,13 @@ describe("sequential lock conflict on a retry attempt", () => {
     let handlerCalls = 0;
     const finalFlags: Array<boolean | undefined> = [];
     const feature = defineFeature("priorattempts", (r) => {
-      r.job(
-        "flaky",
-        {
-          trigger: { manual: true },
+      r.job({ name: "flaky", trigger: { manual: true },
           concurrency: "sequential",
           retries: 1,
-          backoff: { type: "fixed", delayMs: 800 },
-        },
-        async () => {
+          backoff: { type: "fixed", delayMs: 800 }, handler: async () => {
           handlerCalls += 1;
           throw new Error("always fails");
-        },
-      );
+        } });
     });
     const queueNamePrefix = uniquePrefix("prior");
     const runner = createJobRunner({

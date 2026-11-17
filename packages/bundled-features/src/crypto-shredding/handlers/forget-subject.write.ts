@@ -346,13 +346,13 @@ async function forgetSubjectRows(ctx: HandlerContext, subject: SubjectId): Promi
     const rowId = ownRowIdOfSubject(subject, entityName, entity);
     if (rowId === undefined) continue;
     const rowTenantId = parseTenantId(
-      await recordRowOwningTenantId(ctx.db.unsafeRaw(), features, entityName, rowId),
+      await recordRowOwningTenantId(ctx.db.unsafeRawAllTenants(), features, entityName, rowId),
     );
     // skip: no live row (never existed, already forgotten, or hard-deleted by the calling handler)
     if (!rowTenantId) continue;
     if (features.has("data-retention")) {
       const effective = await resolveRetentionPolicyForTenant({
-        db: ctx.db.unsafeRaw(),
+        db: ctx.db.unsafeRawAllTenants(),
         registry: ctx.registry,
         tenantId: rowTenantId,
         entityName,
@@ -413,7 +413,7 @@ export const forgetSubjectWrite = defineWriteHandler({
     const subjectKey = subjectIdToKey(subject);
 
     const tenantScopeDenial = await resolveTenantScopeDenial(
-      ctx.db.unsafeRaw(),
+      ctx.db.unsafeRawAllTenants(),
       ctx.registry.features,
       event.user,
       raw,
@@ -425,7 +425,7 @@ export const forgetSubjectWrite = defineWriteHandler({
         subjectKey,
         raw.kind,
         denialReasonOf(tenantScopeDenial),
-        ctx.db.outsideTransaction?.unsafeRaw(),
+        ctx.db.outsideTransaction?.unsafeRawAllTenants(),
       );
       return auditFailure ?? tenantScopeDenial;
     }
@@ -433,7 +433,7 @@ export const forgetSubjectWrite = defineWriteHandler({
     // Runs after the tenant gate but before any key is touched: a retention
     // check ahead of the tenant gate would leak a foreign entity's retention
     // posture to a cross-tenant prober.
-    const retentionDenial = await resolveRetentionDenial(ctx, raw, () => ctx.db.unsafeRaw());
+    const retentionDenial = await resolveRetentionDenial(ctx, raw, () => ctx.db.unsafeRawAllTenants());
     if (retentionDenial) {
       const auditFailure = await appendDenialAuditEvent(
         ctx,
@@ -441,7 +441,7 @@ export const forgetSubjectWrite = defineWriteHandler({
         subjectKey,
         raw.kind,
         TARGET_RECORD_RETENTION_BLOCK_DELETE,
-        ctx.db.outsideTransaction?.unsafeRaw(),
+        ctx.db.outsideTransaction?.unsafeRawAllTenants(),
       );
       return auditFailure ?? retentionDenial;
     }
@@ -449,7 +449,7 @@ export const forgetSubjectWrite = defineWriteHandler({
     const requestId = requestContext.get()?.requestId ?? "crypto-shredding:forget-subject";
     // Everything below runs in the handler transaction: a failure rolls the whole forget back and
     // a retry redoes it. The key is erased only after commit, by the subject-key-eraser consumer.
-    const crossTenantRunner = ctx.db.unsafeRaw();
+    const crossTenantRunner = ctx.db.unsafeRawAllTenants();
     // DEK erase makes passwordHash unreadable, but status and PATs are separate credentials: the PAT
     // resolver only checks revokedAt/expiresAt. Sessions re-check the user row on every request.
     if (raw.kind === "user" && ctx.registry.features.has("user")) {

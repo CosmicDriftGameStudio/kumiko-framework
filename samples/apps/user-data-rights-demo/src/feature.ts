@@ -48,6 +48,7 @@ import { z } from "zod";
 const FEATURE_NAME = "todos";
 
 export const todoEntity = createEntity({
+  name: "todo",
   table: "store_todos",
   idType: "uuid",
   fields: {
@@ -74,7 +75,7 @@ export const todoEntity = createEntity({
 // Plain EntityTableMeta, NOT a branded EntityTable: store_todos is a deliberate
 // unmanaged direct-write store (r.storeTable below), so the create handler +
 // forget hook write it directly — the meta carries no executor-only brand.
-export const todosTable = deriveEntityTableMeta("todo", todoEntity, { source: "unmanaged" });
+export const todosTable = deriveEntityTableMeta(todoEntity, { source: "unmanaged" });
 
 const createSchema = z.object({
   title: z.string().min(1).max(200),
@@ -170,10 +171,8 @@ export const todosFeature = defineFeature(FEATURE_NAME, (r) => {
     }
   };
 
-  r.useExtension(EXT_USER_DATA, "todo", {
-    export: exportTodos,
-    delete: deleteTodos,
-  });
+  r.applyExtension({ name: EXT_USER_DATA, entity: "todo", export: exportTodos,
+    delete: deleteTodos });
 
   // Wire-proof for the read-only GDPR inspector screens: an app opts in by
   // navigating the (otherwise inert) bundled screens. SystemAdmin-gated, so

@@ -31,6 +31,7 @@ import { createTenantDb, type TenantDb } from "../tenant-db.ts";
 import { type BunTestDb, createTestDb } from "./query/bun-test-db.ts";
 
 const userEntity = createEntity({
+  name: "user",
   table: "read_unreachable_users",
   fields: {
     email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -41,10 +42,10 @@ const userEntity = createEntity({
 });
 
 const userFeature = defineFeature("unreachabletest", (r) => {
-  r.entity({ name: "user", ...userEntity });
+  r.entity(userEntity);
 });
 
-const userTable = buildEntityTable("user", userEntity);
+const userTable = buildEntityTable(userEntity);
 const projectionName = "unreachabletest:projection:user-entity";
 const registry = createRegistry([userFeature]);
 

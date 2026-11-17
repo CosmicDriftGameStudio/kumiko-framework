@@ -22,6 +22,7 @@ const { url: MEILI_URL, masterKey: MEILI_KEY } = liveMeiliConnection();
 const MEILI_UP = await meiliAvailable();
 
 const docEntity = createEntity({
+  name: "doc",
   table: "read_batch_search_docs",
   fields: {
     label: createTextField({
@@ -35,7 +36,7 @@ const docEntity = createEntity({
 });
 
 const batchSearchFeature = defineFeature("batch-search", (r) => {
-  r.entity({ name: "doc", ...docEntity });
+  r.entity(docEntity);
   r.defineEvent("noop", z.object({}), { piiFields: "none" });
 });
 

@@ -13,6 +13,7 @@ const member = TestUsers.user;
 const SECRET = "tok-live-0001";
 
 const noteEntity = createEntity({
+  name: "note",
   table: "qre_notes",
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -24,10 +25,10 @@ const noteEntity = createEntity({
     token: createTextField({ personal: "tenant", find: "secret", writeOnly: true }),
   },
 });
-const noteTable = buildEntityTable("note", noteEntity);
+const noteTable = buildEntityTable(noteEntity);
 
 const feature = defineFeature("qre", (r) => {
-  r.crud("note", noteEntity, {
+  r.crud(noteEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: { roles: ["Admin", "User"] } },
   });

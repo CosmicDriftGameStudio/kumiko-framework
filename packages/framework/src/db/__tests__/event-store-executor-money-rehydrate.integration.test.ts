@@ -32,6 +32,7 @@ const cipher = createTestEnvelopeCipher(TEST_KEY);
 // ownership.kind==="sql" branch (decryptForRead used to run against a still
 // snake_case row and silently skip the field, leaking ciphertext).
 const entity = createEntity({
+  name: "moneyOrder",
   table: "read_money_orders",
   fields: {
     ownerId: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -49,7 +50,7 @@ const entity = createEntity({
   // camelCase and would pass this test even with the bug present.
   access: { read: { Admin: from("user:id", "ownerId") } },
 });
-const table = buildEntityTable("moneyOrder", entity);
+const table = buildEntityTable(entity);
 
 let testDb: BunTestDb;
 let tdb: TenantDb;

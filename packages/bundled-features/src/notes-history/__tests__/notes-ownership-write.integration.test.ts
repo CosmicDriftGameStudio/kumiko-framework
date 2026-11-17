@@ -23,6 +23,7 @@ import { NotesHistoryHandlers } from "../web/constants.ts";
 const CONTACT_TABLE = "notes_ow_test_contacts";
 
 const contactEntity = createEntity({
+  name: "contact",
   table: CONTACT_TABLE,
   fields: {
     name: createTextField({
@@ -35,7 +36,7 @@ const contactEntity = createEntity({
 });
 
 const contactFixtureFeature = defineFeature("notes-ow-test-contact-fixture", (r) => {
-  r.entity({ name: "contact", ...contactEntity });
+  r.entity(contactEntity);
 });
 
 const owner = createTestUser({ id: 90, roles: ["TenantMember"] });

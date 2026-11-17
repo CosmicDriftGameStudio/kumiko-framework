@@ -13,10 +13,11 @@ import { createTenantDb } from "../tenant-db.ts";
 // Postgres needed because the bug lives entirely in the WHERE-object merge.
 
 const entity = createEntity({
+  name: "mergeItem",
   table: "merge_items",
   fields: { name: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
-const table = deriveEntityTableMeta("mergeItem", entity, { source: "unmanaged" });
+const table = deriveEntityTableMeta(entity, { source: "unmanaged" });
 
 const own = testTenantId(1);
 const foreign = testTenantId(2);
@@ -190,13 +191,14 @@ describe("tenant-db WHERE merge — narrowing within the enforced scope", () => 
 // them as tenant-less and skipped the WHERE-scope entirely.
 describe("tenant-db WHERE merge — unmanaged EntityTableMeta tables (deriveEntityTableMeta)", () => {
   const unmanagedEntity = createEntity({
+    name: "merge-meta-item",
     table: "merge_meta_items",
     fields: {
       tenantId: createTextField({ required: true, personal: false, reason: "test_fixture" }),
       name: createTextField({ personal: false, reason: "test_fixture" }),
     },
   });
-  const unmanagedTable = brandWritable(deriveEntityTableMeta("merge-meta-item", unmanagedEntity));
+  const unmanagedTable = brandWritable(deriveEntityTableMeta(unmanagedEntity));
 
   test("selectMany still applies the tenant scope (pre-fix: no WHERE at all)", async () => {
     const captured: Captured[] = [];

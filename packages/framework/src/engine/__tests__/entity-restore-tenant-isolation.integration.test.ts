@@ -29,6 +29,7 @@ import {
 } from "../index.ts";
 
 const thingEntity = createEntity({
+  name: "thing",
   table: "ctrestore_things",
   softDelete: true,
   fields: {
@@ -36,13 +37,13 @@ const thingEntity = createEntity({
   },
   access: { write: { Admin: "all", SystemAdmin: from("user:tenantId", "tenantId") } },
 });
-const thingTable = buildEntityTable("thing", thingEntity);
+const thingTable = buildEntityTable(thingEntity);
 
 const ESCAPE_HATCH_REASON = "fw#2915 integration test — operator restores a foreign tenant's row";
 
 function buildFeature(escapeHatch: boolean) {
   return defineFeature("ctrestore", (r) => {
-    r.entity({ name: "thing", ...thingEntity });
+    r.entity(thingEntity);
     r.writeHandler(
       defineEntityCreateHandler("thing", thingEntity, {
         access: { roles: ["Admin", "SystemAdmin"] },

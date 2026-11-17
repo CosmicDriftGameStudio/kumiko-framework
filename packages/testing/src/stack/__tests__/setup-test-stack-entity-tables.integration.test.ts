@@ -8,6 +8,7 @@ import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumik
 import { setupTestStack, type TestStack } from "../test-stack.ts";
 
 const widgetEntity = createEntity({
+  name: "widget",
   table: "widgets",
   fields: {
     name: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -15,6 +16,7 @@ const widgetEntity = createEntity({
 });
 
 const gadgetEntity = createEntity({
+  name: "gadget",
   table: "gadgets",
   fields: {
     label: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -22,12 +24,12 @@ const gadgetEntity = createEntity({
 });
 
 const widgetFeature = defineFeature("widget", (r) => {
-  r.entity({ name: "widget", ...widgetEntity });
+  r.entity(widgetEntity);
 });
 
 const twoEntityFeature = defineFeature("gadgetbox", (r) => {
-  r.entity({ name: "widget", ...widgetEntity });
-  r.entity({ name: "gadget", ...gadgetEntity });
+  r.entity(widgetEntity);
+  r.entity(gadgetEntity);
 });
 
 async function tableExistsInInformationSchema(

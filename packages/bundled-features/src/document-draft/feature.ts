@@ -49,9 +49,7 @@ export function createDocumentDraftFeature(
 
     // A draft belongs to the object it was made for, not to the acting user: the app erases it
     // with forgetDocumentDraftsOfSubject when that object is erased, so the user pipeline has nothing to do.
-    r.useExtension(EXT_USER_DATA, DOCUMENT_DRAFT_ENTITY, {
-      export: async () => null,
-      delete: async () => {},
-    });
+    r.applyExtension({ name: EXT_USER_DATA, entity: DOCUMENT_DRAFT_ENTITY, export: async () => null,
+      delete: async () => {} });
   });
 }

@@ -156,15 +156,13 @@ const ITEMS = [
 
 const invoiceFeature = defineFeature(FEATURE, (r) => {
   r.requires({ features: ["delivery"] });
-  r.notification("invoice", {
-    variables: {},
+  r.notification({ name: "invoice", variables: {},
     localizedTemplate: () => ({
       de: {
         body: "<p>Rechnung</p>",
         meta: { subject: "Rechnung", category: "transactional" as const },
       },
-    }),
-  });
+    }) });
   r.writeHandler(
     defineWriteHandler({
       name: "generate",

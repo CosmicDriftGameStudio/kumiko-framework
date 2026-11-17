@@ -108,7 +108,7 @@ export function createEnableConfirmHandler(opts: EnableConfirmOptions) {
       // Confirming enable proves possession of a second factor — every
       // other session (a stolen-cookie attacker included) gets logged out.
       // The session that just did this confirm keeps running.
-      await revokeAllUserCredentials(ctx.registry, ctx.db.unsafeRaw(), event.user.id, {
+      await revokeAllUserCredentials(ctx.registry, ctx.db.unsafeRawAllTenants(), event.user.id, {
         keepSessionId: event.user.sid,
       });
 

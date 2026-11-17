@@ -23,10 +23,10 @@ export function createFilesTenantDataFeature(): FeatureDefinition {
       recommended: false,
     });
     r.requires({ features: ["tenant-lifecycle"] });
-    r.optionalRequires("files");
+    r.optionalRequires({ features: ["files"] });
 
-    r.useExtension(EXT_TENANT_DATA, "fileRef", { destroy: fileRefTenantDestroyHook });
-    r.useExtension(EXT_STORAGE_PROVIDER, "fileRef", { destroyTenant: fileRefStorageDestroyHook });
+    r.applyExtension({ name: EXT_TENANT_DATA, entity: "fileRef", destroy: fileRefTenantDestroyHook });
+    r.applyExtension({ name: EXT_STORAGE_PROVIDER, entity: "fileRef", destroyTenant: fileRefStorageDestroyHook });
   });
 }
 

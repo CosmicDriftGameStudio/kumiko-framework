@@ -60,13 +60,13 @@ const REDACT_REASON =
 function makeHostDeleteHook(tableName: string): UserDataDeleteHook {
   return async (ctx, strategy) => {
     if (strategy === "delete") {
-      await asRawClient(ctx.db.unsafeRaw()).unsafe(
+      await asRawClient(ctx.db.unsafeRawAllTenants()).unsafe(
         `DELETE FROM ${tableName} WHERE inserted_by_id = $1 AND tenant_id = $2`,
         [ctx.userId, ctx.tenantId],
       );
       return;
     }
-    await asRawClient(ctx.db.unsafeRaw()).unsafe(
+    await asRawClient(ctx.db.unsafeRawAllTenants()).unsafe(
       `UPDATE ${tableName} SET inserted_by_id = NULL WHERE inserted_by_id = $1 AND tenant_id = $2`,
       [ctx.userId, ctx.tenantId],
     );
@@ -79,7 +79,7 @@ function makeRedactHook(tableName: string): UserDataDeleteHook {
   return async (ctx, strategy) => {
     // skip: delete strategy removes rows wholesale — redaction N/A.
     if (strategy === "delete") return;
-    await asRawClient(ctx.db.unsafeRaw()).unsafe(
+    await asRawClient(ctx.db.unsafeRawAllTenants()).unsafe(
       `UPDATE ${tableName} SET custom_fields = custom_fields - 'ssn'
        WHERE inserted_by_id = $1 AND tenant_id = $2`,
       [ctx.userId, ctx.tenantId],
@@ -122,32 +122,24 @@ const hostFirstEntity = makeEntity(HOST_FIRST.tableName);
 // (the order that exposed the bug). The order-sentinel must make both correct.
 const cfFirstFeature = defineFeature(CF_FIRST.featureName, (r) => {
   r.entity({ name: CF_FIRST.entityName, ...cfFirstEntity });
-  r.useExtension(EXT_USER_DATA, CF_FIRST.entityName, {
-    export: async () => null,
+  r.applyExtension({ name: EXT_USER_DATA, entity: CF_FIRST.entityName, export: async () => null,
     delete: makeRedactHook(CF_FIRST.tableName),
     order: EXT_USER_DATA_ORDER.REDACT_BEFORE_OWNER,
-    escapeHatch: { reason: REDACT_REASON },
-  });
-  r.useExtension(EXT_USER_DATA, CF_FIRST.entityName, {
-    export: async () => null,
+    escapeHatch: { reason: REDACT_REASON } });
+  r.applyExtension({ name: EXT_USER_DATA, entity: CF_FIRST.entityName, export: async () => null,
     delete: makeHostDeleteHook(CF_FIRST.tableName),
-    escapeHatch: { reason: HOST_DELETE_REASON },
-  });
+    escapeHatch: { reason: HOST_DELETE_REASON } });
 });
 
 const hostFirstFeature = defineFeature(HOST_FIRST.featureName, (r) => {
   r.entity({ name: HOST_FIRST.entityName, ...hostFirstEntity });
-  r.useExtension(EXT_USER_DATA, HOST_FIRST.entityName, {
-    export: async () => null,
+  r.applyExtension({ name: EXT_USER_DATA, entity: HOST_FIRST.entityName, export: async () => null,
     delete: makeHostDeleteHook(HOST_FIRST.tableName),
-    escapeHatch: { reason: HOST_DELETE_REASON },
-  });
-  r.useExtension(EXT_USER_DATA, HOST_FIRST.entityName, {
-    export: async () => null,
+    escapeHatch: { reason: HOST_DELETE_REASON } });
+  r.applyExtension({ name: EXT_USER_DATA, entity: HOST_FIRST.entityName, export: async () => null,
     delete: makeRedactHook(HOST_FIRST.tableName),
     order: EXT_USER_DATA_ORDER.REDACT_BEFORE_OWNER,
-    escapeHatch: { reason: REDACT_REASON },
-  });
+    escapeHatch: { reason: REDACT_REASON } });
 });
 
 const FORGET_USER = "cccccccc-cccc-4ccc-8ccc-0000000000a1";

@@ -54,13 +54,11 @@ describe("files :: cross-feature behavior (F1, S1.7)", () => {
     // EXT_USER_DATA is framework-owned, so the consumer needs no provider feature.
     const consumer = defineFeature("test-files-consumer", (r) => {
       r.requires({ features: ["files"] });
-      r.useExtension(EXT_USER_DATA, "fileRef", {
-        // Stub hooks: these will carry the actual forget/export logic later. For this
+      r.applyExtension({ name: EXT_USER_DATA, entity: "fileRef", // Stub hooks: these will carry the actual forget/export logic later. For this
         // test, it is enough that useExtension finds the fileRef entity in the
         // registry without a boot error.
         export: async () => null,
-        delete: async () => undefined,
-      });
+        delete: async () => undefined });
     });
 
     // Use a separate test stack so this sub-test runs in isolation from the outer
@@ -75,7 +73,7 @@ describe("files :: cross-feature behavior (F1, S1.7)", () => {
   test("useExtension on non-existent Entity throws during boot", async () => {
     const consumer = defineFeature("test-broken-consumer", (r) => {
       // GHOSTLY: no entity named "ghostEntity" exists.
-      r.useExtension(EXT_USER_DATA, "ghostEntity", { export: async () => null });
+      r.applyExtension({ name: EXT_USER_DATA, entity: "ghostEntity", export: async () => null });
     });
 
     // Boot should succeed: the boot validator is not responsible for checking

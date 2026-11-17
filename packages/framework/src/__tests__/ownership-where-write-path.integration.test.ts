@@ -37,6 +37,7 @@ const ownerWhereRule: WhereRule = {
 const memoWriteAccess: Record<string, OwnershipRule> = { Admin: "all", Member: "all" };
 
 const memoEntity = createEntity({
+  name: "memo",
   table: "fw2626_memos",
   softDelete: true,
   fields: {
@@ -50,7 +51,7 @@ const memoEntity = createEntity({
 });
 
 const memosFeature = defineFeature("fw2626memos", (r) => {
-  r.entity({ name: "memo", ...memoEntity });
+  r.entity(memoEntity);
   for (const verb of ["create", "update", "delete"] as const) {
     r.writeHandler(
       defineEntityWriteHandler(`memo:${verb}`, memoEntity, {

@@ -73,7 +73,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     });
     const consumer = defineFeature("fleet", (r) => {
       r.entity({ name: "vehicle", ...createEntity({ table: "Vehicles", fields: {} }) });
-      r.useExtension("tags", "vehicle");
+      r.applyExtension({ name: "tags", entity: "vehicle" });
       // Missing: r.requires({ features: ["tags"] })
     });
 
@@ -87,7 +87,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     const consumer = defineFeature("fleet", (r) => {
       r.requires({ features: ["tags"] });
       r.entity({ name: "vehicle", ...createEntity({ table: "Vehicles", fields: {} }) });
-      r.useExtension("tags", "vehicle");
+      r.applyExtension({ name: "tags", entity: "vehicle" });
     });
 
     expect(() => validateBoot([ext, consumer])).not.toThrow();
@@ -98,9 +98,9 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
       r.extendsRegistrar("tags", { onRegister: () => {} });
     });
     const consumer = defineFeature("fleet", (r) => {
-      r.optionalRequires("tags");
+      r.optionalRequires({ features: ["tags"] });
       r.entity({ name: "vehicle", ...createEntity({ table: "Vehicles", fields: {} }) });
-      r.useExtension("tags", "vehicle");
+      r.applyExtension({ name: "tags", entity: "vehicle" });
     });
 
     expect(() => validateBoot([ext, consumer])).not.toThrow();
@@ -115,7 +115,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     const self = defineFeature("tier-stub", (r) => {
       r.extendsRegistrar("tenantTierResolver", { onRegister: () => {} });
       r.entity({ name: "dummy", ...createEntity({ table: "Dummies", fields: {} }) });
-      r.useExtension("tenantTierResolver", "dummy", { build: async () => () => new Set() });
+      r.applyExtension({ name: "tenantTierResolver", entity: "dummy", build: async () => () => new Set() });
     });
     expect(() => validateBoot([self])).not.toThrow();
   });
@@ -146,7 +146,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
         }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
-      r.useExtension("credit-cap", "credit");
+      r.applyExtension({ name: "credit-cap", entity: "credit" });
     });
     expect(() => validateBoot([ext, consumer])).toThrow(
       /no write handler is entity-mapped to "credit"/i,

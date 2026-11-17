@@ -12,6 +12,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 
 export const taskEntity = createEntity({
+  name: "task",
   table: "read_sample_tasks",
   fields: {
     title: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -35,7 +36,7 @@ const openRead = {
 } as const;
 
 export const taskFeature = defineFeature("tasks", (r) => {
-  r.crud("task", taskEntity, {
+  r.crud(taskEntity, {
     write: editorWrite,
     read: openRead,
     verbs: { delete: false, restore: false },

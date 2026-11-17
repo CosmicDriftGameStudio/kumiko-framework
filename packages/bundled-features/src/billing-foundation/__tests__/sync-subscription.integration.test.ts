@@ -64,7 +64,7 @@ const mockSyncProviderFeature = defineFeature("test-mock-sync-provider", (r) => 
       return retrieveSnapshotsById.get(providerSubscriptionId) ?? retrieveSnapshot;
     },
   };
-  r.useExtension("subscriptionProvider", "mock-sync-provider", plugin);
+  r.applyExtension({ name: "subscriptionProvider", entity: "mock-sync-provider", ...plugin });
 });
 
 // No `retrieveSubscription` — exercises the "provider_cannot_retrieve" branch.
@@ -74,7 +74,7 @@ const mockNoRetrieveProviderFeature = defineFeature("test-mock-no-retrieve-provi
     verifyAndParseWebhook: async () => null,
     priceToTier: PRICE_TO_TIER,
   };
-  r.useExtension("subscriptionProvider", "mock-no-retrieve-provider", plugin);
+  r.applyExtension({ name: "subscriptionProvider", entity: "mock-no-retrieve-provider", ...plugin });
 });
 
 let stack: TestStack;

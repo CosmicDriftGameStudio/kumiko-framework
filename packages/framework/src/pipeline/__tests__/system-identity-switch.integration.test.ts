@@ -51,12 +51,13 @@ function errorReason(details: unknown): string | undefined {
 }
 
 const hookThingEntity = createEntity({
+  name: "hookThing",
   table: "idswitch_hook_things",
   fields: {
     label: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
-const hookThingTable = buildEntityTable("hookThing", hookThingEntity);
+const hookThingTable = buildEntityTable(hookThingEntity);
 const hookThingExecutor = createEventStoreExecutor(hookThingTable, hookThingEntity, {
   entityName: "hookThing",
 });
@@ -72,7 +73,7 @@ type AuthClaimsSwitchOutcome = {
 const authClaimsSwitchOutcomes: AuthClaimsSwitchOutcome[] = [];
 
 const probeFeature = defineFeature("idswitch-probe", (r) => {
-  r.entity({ name: "hookThing", ...hookThingEntity });
+  r.entity(hookThingEntity);
   r.requires.step("callFeature");
 
   // --- r.authClaims hook: queryAs reaches only the claims user itself ---
@@ -241,7 +242,7 @@ const probeFeature = defineFeature("idswitch-probe", (r) => {
         {},
       ),
     access: { roles: ["User"] },
-    escapeHatch: { reason: "test: needs SYSTEM to look itself up" },
+    escapeHatch: { reason: "test: needs SYSTEM to look itself up", grants: ["systemIdentity"] },
   });
 
   r.queryHandler({
@@ -266,7 +267,7 @@ const probeFeature = defineFeature("idswitch-probe", (r) => {
         {},
       ),
     access: { roles: ["User"] },
-    escapeHatch: { reason: "test: needs SYSTEM to look itself up" },
+    escapeHatch: { reason: "test: needs SYSTEM to look itself up", grants: ["systemIdentity"] },
   });
 
   // --- Non-SYSTEM switch: only the caller itself (or a role subset) is free ---
@@ -300,7 +301,7 @@ const probeFeature = defineFeature("idswitch-probe", (r) => {
         {},
       ),
     access: { roles: ["User"] },
-    escapeHatch: { reason: "test: reads admin-only data as a named colleague" },
+    escapeHatch: { reason: "test: reads admin-only data as a named colleague", grants: ["systemIdentity"] },
   });
 
   r.writeHandler({
@@ -317,7 +318,7 @@ const probeFeature = defineFeature("idswitch-probe", (r) => {
     handler: async (event, ctx) =>
       ctx.dispatch.writeAs(foreignTenantTwin(event.user), "idswitch-probe:write:whoami-write", {}),
     access: { roles: ["User"] },
-    escapeHatch: { reason: "test: acts for the same user inside a second tenant" },
+    escapeHatch: { reason: "test: acts for the same user inside a second tenant", grants: ["systemIdentity"] },
   });
 
   // Reached through outer-with-hatch as a colleague — must not inherit the outer grant.
@@ -335,7 +336,7 @@ const probeFeature = defineFeature("idswitch-probe", (r) => {
     handler: async (_event, ctx) =>
       ctx.dispatch.writeAs(otherUserNoRole, "idswitch-probe:write:inner-foreign-no-hatch", {}),
     access: { roles: ["User"] },
-    escapeHatch: { reason: "test: outer acts as a colleague" },
+    escapeHatch: { reason: "test: outer acts as a colleague", grants: ["systemIdentity"] },
   });
 
   // --- Nested: no transitive grant ---
@@ -361,7 +362,7 @@ const probeFeature = defineFeature("idswitch-probe", (r) => {
         {},
       ),
     access: { roles: ["system"] },
-    escapeHatch: { reason: "test: inner needs SYSTEM" },
+    escapeHatch: { reason: "test: inner needs SYSTEM", grants: ["systemIdentity"] },
   });
 
   r.writeHandler({
@@ -376,7 +377,7 @@ const probeFeature = defineFeature("idswitch-probe", (r) => {
         {},
       ),
     access: { roles: ["User"] },
-    escapeHatch: { reason: "test: outer needs SYSTEM" },
+    escapeHatch: { reason: "test: outer needs SYSTEM", grants: ["systemIdentity"] },
   });
 
   // --- Hooks: gated independently of the handler they fire on ---
@@ -432,7 +433,7 @@ const probeFeature = defineFeature("idswitch-probe", (r) => {
       hookWithEscapeHatchOutcomes.push({ ok: res.isSuccess });
     },
     phase: HookPhases.inTransaction,
-    escapeHatch: { reason: "test: hook needs SYSTEM" },
+    escapeHatch: { reason: "test: hook needs SYSTEM", grants: ["systemIdentity"] },
   });
 
   r.writeHandler({

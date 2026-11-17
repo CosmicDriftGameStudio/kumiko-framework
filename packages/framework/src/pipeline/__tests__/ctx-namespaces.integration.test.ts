@@ -19,17 +19,18 @@ import { eventsTable, loadAggregate } from "../../event-store/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 
 const noteEntity = createEntity({
+  name: "note",
   table: "ctx_ns_notes",
   fields: { title: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
-const noteTable = buildEntityTable("note", noteEntity);
+const noteTable = buildEntityTable(noteEntity);
 const noteExecutor = createEventStoreExecutor(noteTable, noteEntity, { entityName: "note" });
 
 const FEATURE = "ctxns";
 const hookLogShapes: { readonly isLogger: boolean }[] = [];
 
 const nsFeature = defineFeature(FEATURE, (r) => {
-  const note = r.entity({ name: "note", ...noteEntity });
+  const note = r.entity(noteEntity);
   const pinged = r.defineEvent("pinged", z.object({ n: z.number() }), { piiFields: "none" });
 
   r.writeHandler({

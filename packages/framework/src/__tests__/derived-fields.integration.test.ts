@@ -28,6 +28,7 @@ import { TestUsers } from "../seeding/seed-users.ts";
 // `priceCents` + `name` are stored; the three derived fields are computed from
 // them (and the clock) at read-time only.
 const gadgetEntity = createEntity({
+  name: "gadget",
   table: "derived_gadgets",
   fields: {
     name: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -62,10 +63,10 @@ const gadgetEntity = createEntity({
     }),
   },
 });
-const gadgetTable = buildEntityTable("gadget", gadgetEntity);
+const gadgetTable = buildEntityTable(gadgetEntity);
 
 const shopFeature = defineFeature("gadgetshop", (r) => {
-  r.entity({ name: "gadget", ...gadgetEntity });
+  r.entity(gadgetEntity);
   r.writeHandler(
     defineEntityCreateHandler("gadget", gadgetEntity, { access: { roles: ["Admin"] } }),
   );

@@ -9,6 +9,7 @@ import { InternalError, UnprocessableError } from "../../errors/index.ts";
 import { assertRowFitsBindTarget } from "../bind-pending-file-refs.ts";
 
 const docEntity = createEntity({
+  name: "doc",
   table: "bind_target_docs",
   fields: {
     copy: createFileField({
@@ -21,7 +22,7 @@ const docEntity = createEntity({
 });
 const registry = createRegistry([
   defineFeature("bind-target", (r) => {
-    r.entity({ name: "doc", ...docEntity });
+    r.entity(docEntity);
   }),
 ]);
 const bindTo = { entityName: "doc", fieldName: "copy" } as const;

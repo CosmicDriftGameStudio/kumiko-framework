@@ -27,15 +27,17 @@ const hostAccess: NonNullable<EntityDefinition["access"]> = {
 };
 
 const hostEntity = createEntity({
+  name: "host",
   table: "pr_write_hosts",
   fields: {
     teamId: createTextField({ required: true, personal: false, reason: "technical_reference" }),
   },
   access: hostAccess,
 });
-const hostTable = buildEntityTable("host", hostEntity);
+const hostTable = buildEntityTable(hostEntity);
 
 const linkEntity = createEntity({
+  name: "link",
   table: "pr_write_links",
   softDelete: true,
   parentRef: {
@@ -51,8 +53,8 @@ const linkEntity = createEntity({
 });
 
 const feature = defineFeature("prwrite", (r) => {
-  r.entity({ name: "host", ...hostEntity });
-  r.entity({ name: "link", ...linkEntity });
+  r.entity(hostEntity);
+  r.entity(linkEntity);
   for (const verb of ["create", "update", "delete", "restore"] as const) {
     r.writeHandler(
       defineEntityWriteHandler(`link:${verb}`, linkEntity, { access: { roles: ["TenantMember"] } }),

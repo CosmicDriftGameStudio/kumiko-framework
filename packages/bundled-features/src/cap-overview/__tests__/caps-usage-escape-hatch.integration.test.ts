@@ -41,7 +41,7 @@ const rawSqlSumCap: CapSpec = {
   usage: async (db, tenantId) => {
     // @cast-boundary db-operator — unsafeRaw's DbRunner narrows to
     // DbConnection|DbTx; this call site only ever runs outside a tx.
-    const raw = asRawClient(db.unsafeRaw() as DbConnection);
+    const raw = asRawClient(db.unsafeRawAllTenants() as DbConnection);
     const rows = await raw.unsafe<{ total: number }>(
       "SELECT COALESCE(SUM(amount), 0)::int AS total FROM cap_overview_raw_usage_probe WHERE tenant_id = $1",
       [tenantId],
@@ -57,7 +57,7 @@ const rawSqlSumBatchCap: CapSpec = {
   limit: () => 1000,
   usage: async () => 0,
   usageBatch: async (db, tenantIds) => {
-    const raw = asRawClient(db.unsafeRaw() as DbConnection);
+    const raw = asRawClient(db.unsafeRawAllTenants() as DbConnection);
     const rows = await raw.unsafe<{ tenant_id: string; total: number }>(
       "SELECT tenant_id, COALESCE(SUM(amount), 0)::int AS total FROM cap_overview_raw_usage_probe WHERE tenant_id = ANY($1::text[]) GROUP BY tenant_id",
       [toPostgresArrayLiteral(tenantIds)],

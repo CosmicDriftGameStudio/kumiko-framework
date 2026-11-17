@@ -31,6 +31,7 @@ import { asRawClient } from "../query.ts";
 const admin = TestUsers.admin;
 
 const itemEntity = createEntity({
+  name: "item",
   table: "pii_owner_transition_items",
   fields: {
     ownerId: createTextField({ personal: "ref" }),
@@ -40,6 +41,7 @@ const itemEntity = createEntity({
 });
 
 const secretEntity = createEntity({
+  name: "secretitem",
   table: "pii_owner_transition_secrets",
   fields: {
     ownerId: createTextField({ personal: "ref" }),
@@ -52,13 +54,13 @@ const secretEntity = createEntity({
 });
 
 const feature = defineFeature("ownertransition", (r) => {
-  r.entity({ name: "item", ...itemEntity });
-  r.crud("item", itemEntity, {
+  r.entity(itemEntity);
+  r.crud(itemEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: { roles: ["Admin"] } },
   });
-  r.entity({ name: "secretitem", ...secretEntity });
-  r.crud("secretitem", secretEntity, {
+  r.entity(secretEntity);
+  r.crud(secretEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: { roles: ["Admin"] } },
   });

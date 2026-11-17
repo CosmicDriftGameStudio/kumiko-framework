@@ -285,14 +285,10 @@ export function createBillingFoundationFeature<TTier extends string = string>(
         },
       });
       registerScrubRawPayloadHeadersJob(r);
-      r.useExtension(EXT_TENANT_DATA, "subscription", {
-        destroy: subscriptionTenantDestroyHook,
-        escapeHatch: { reason: SUBSCRIPTION_TENANT_DESTROY_ARCHIVE_REASON },
-      });
-      r.useExtension(EXT_TENANT_DATA, "payment", {
-        destroy: paymentTenantDestroyHook,
-        escapeHatch: { reason: PAYMENT_TENANT_DESTROY_ARCHIVE_REASON },
-      });
+      r.applyExtension({ name: EXT_TENANT_DATA, entity: "subscription", destroy: subscriptionTenantDestroyHook,
+        escapeHatch: { reason: SUBSCRIPTION_TENANT_DESTROY_ARCHIVE_REASON } });
+      r.applyExtension({ name: EXT_TENANT_DATA, entity: "payment", destroy: paymentTenantDestroyHook,
+        escapeHatch: { reason: PAYMENT_TENANT_DESTROY_ARCHIVE_REASON } });
     },
     Object.keys(options).length === 0 ? { dedupeOptions: {} } : undefined,
   );

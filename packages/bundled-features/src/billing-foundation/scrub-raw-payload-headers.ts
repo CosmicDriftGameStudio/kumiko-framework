@@ -39,9 +39,9 @@ export function registerScrubRawPayloadHeadersJob(r: FeatureRegistrar): void {
     name: "scrub-raw-payload-headers",
     trigger: { manual: true },
     runOnBoot: true,
-    escapeHatch: { reason: SCRUB_RAW_PAYLOAD_HEADERS_ESCAPE_HATCH_REASON },
+    escapeHatch: { reason: SCRUB_RAW_PAYLOAD_HEADERS_ESCAPE_HATCH_REASON, grants: ["unsafeRaw"] },
     handler: async (_payload, ctx) => {
-      const removedKeys = await scrubLegacyRawPayloadHeaders(ctx.db.unsafeRaw());
+      const removedKeys = await scrubLegacyRawPayloadHeaders(ctx.db.unsafeRawAllTenants());
       ctx.obs.log.info(
         `[billing-foundation:scrub-raw-payload-headers] removed ${removedKeys} legacy rawPayload headers`,
       );

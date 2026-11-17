@@ -49,7 +49,7 @@ const cronProbeFeature = defineFeature("cron-probe", (r) => {
     concurrency: "skip",
     escapeHatch: { reason: "cron probe reads raw", grants: ["unsafeRaw"] },
     handler: async (_payload, ctx) => {
-      ctx.db.unsafeRaw();
+      ctx.db.unsafeRawAllTenants();
     },
   });
 });

@@ -15,9 +15,9 @@ const unsafeRawFeature = defineFeature("unsafe-raw-probe", (r) => {
     name: "write-with-hatch",
     schema: z.object({}),
     access: { roles: ["User"] },
-    escapeHatch: { reason: "fw#2858 integration test — declared unsafeRaw write" },
+    escapeHatch: { reason: "fw#2858 integration test — declared unsafeRaw write", grants: ["unsafeRaw"] },
     handler: async (_event, ctx) => {
-      const runner = ctx.db.unsafeRaw();
+      const runner = ctx.db.unsafeRawAllTenants();
       const rows = await executeRawQuery<{ one: number }>(runner, "SELECT 1 AS one");
       return { isSuccess: true as const, data: { one: rows[0]?.one } };
     },
@@ -28,7 +28,7 @@ const unsafeRawFeature = defineFeature("unsafe-raw-probe", (r) => {
     schema: z.object({}),
     access: { roles: ["User"] },
     handler: async (_event, ctx) => {
-      const runner = ctx.db.unsafeRaw();
+      const runner = ctx.db.unsafeRawAllTenants();
       const rows = await executeRawQuery<{ one: number }>(runner, "SELECT 1 AS one");
       return { isSuccess: true as const, data: { one: rows[0]?.one } };
     },
@@ -38,9 +38,9 @@ const unsafeRawFeature = defineFeature("unsafe-raw-probe", (r) => {
     name: "query-with-hatch",
     schema: z.object({}),
     access: { roles: ["User"] },
-    escapeHatch: { reason: "fw#2858 integration test — declared unsafeRaw query" },
+    escapeHatch: { reason: "fw#2858 integration test — declared unsafeRaw query", grants: ["unsafeRaw"] },
     handler: async (_query, ctx) => {
-      const runner = ctx.db.unsafeRaw();
+      const runner = ctx.db.unsafeRawAllTenants();
       const rows = await executeRawQuery<{ one: number }>(runner, "SELECT 1 AS one");
       return { one: rows[0]?.one };
     },
@@ -51,7 +51,7 @@ const unsafeRawFeature = defineFeature("unsafe-raw-probe", (r) => {
     schema: z.object({}),
     access: { roles: ["User"] },
     handler: async (_query, ctx) => {
-      const runner = ctx.db.unsafeRaw();
+      const runner = ctx.db.unsafeRawAllTenants();
       const rows = await executeRawQuery<{ one: number }>(runner, "SELECT 1 AS one");
       return { one: rows[0]?.one };
     },

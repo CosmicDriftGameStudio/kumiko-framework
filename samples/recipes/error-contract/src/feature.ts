@@ -56,6 +56,7 @@ const ORDER_TRANSITIONS = defineTransitions({
 });
 
 export const orderEntity = createEntity({
+  name: "order",
   table: "read_errctr_orders",
   fields: {
     ownerId: createTextField({ personal: "ref", required: true }),
@@ -72,10 +73,10 @@ export const orderEntity = createEntity({
   },
 });
 
-const orderTable = buildEntityTable("order", orderEntity);
+const orderTable = buildEntityTable(orderEntity);
 
 export const ordersLiteFeature = defineFeature("orders-lite", (r) => {
-  r.entity({ name: "order", ...orderEntity });
+  r.entity(orderEntity);
   r.translations({ keys: ordersLiteFailures.translationKeys });
 
   // 1) Create — standard path. Zod schema rejects an empty cart; the

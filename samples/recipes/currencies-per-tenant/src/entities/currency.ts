@@ -9,6 +9,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 
 export const currencyEntity = createEntity({
+  name: "currency",
   table: "read_sample_mt_currencies",
   fields: {
     code: createTextField({ personal: false, reason: "is_reference_data", required: true }),
@@ -17,4 +18,4 @@ export const currencyEntity = createEntity({
   },
 });
 
-export const currencyTable = buildEntityTable("currency", currencyEntity);
+export const currencyTable = buildEntityTable(currencyEntity);

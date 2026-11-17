@@ -25,11 +25,13 @@ import {
 import { TestUsers } from "../../seeding/seed-users.ts";
 
 const projectEntity = createEntity({
+  name: "project",
   table: "lock_cascade_projects",
   fields: { name: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
 
 const taskEntity = createEntity({
+  name: "task",
   table: "lock_cascade_tasks",
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -40,6 +42,7 @@ const taskEntity = createEntity({
 });
 
 const noteEntity = createEntity({
+  name: "note",
   table: "lock_cascade_notes",
   fields: {
     text: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -50,6 +53,7 @@ const noteEntity = createEntity({
 });
 
 const choreEntity = createEntity({
+  name: "chore",
   table: "lock_cascade_chores",
   softDelete: true,
   fields: {
@@ -61,6 +65,7 @@ const choreEntity = createEntity({
 });
 
 const subtaskEntity = createEntity({
+  name: "subtask",
   table: "lock_cascade_subtasks",
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -71,6 +76,7 @@ const subtaskEntity = createEntity({
 });
 
 const pinEntity = createEntity({
+  name: "pin",
   table: "lock_cascade_pins",
   fields: {
     projectId: createTextField({ personal: false, reason: "test_fixture" }),
@@ -80,49 +86,39 @@ const pinEntity = createEntity({
   lockedWhen: { field: "isPinned", eq: true },
 });
 
-const projectTable = buildEntityTable("project", projectEntity);
+const projectTable = buildEntityTable(projectEntity);
 
 const ROLES = { access: { roles: ["Admin"] } } as const;
 // A hard delete from a custom handler is irreversible and needs agent risk "high".
 const IRREVERSIBLE = { ...ROLES, agent: { risk: "high" } } as const;
 
 const cascadeFeature = defineFeature("lockcascade", (r) => {
-  r.entity({ name: "project", ...projectEntity });
-  r.entity({ name: "task", ...taskEntity });
-  r.entity({ name: "note", ...noteEntity });
-  r.entity({ name: "chore", ...choreEntity });
-  r.entity({ name: "subtask", ...subtaskEntity });
-  r.entity({ name: "pin", ...pinEntity });
-  r.relation("task", "subtasks", {
-    type: "hasMany",
+  r.entity(projectEntity);
+  r.entity(taskEntity);
+  r.entity(noteEntity);
+  r.entity(choreEntity);
+  r.entity(subtaskEntity);
+  r.entity(pinEntity);
+  r.relation({ entity: "task", name: "subtasks", type: "hasMany",
     target: "subtask",
     foreignKey: "taskId",
-    onDelete: "cascade",
-  });
-  r.relation("project", "pins", {
-    type: "manyToMany",
+    onDelete: "cascade" });
+  r.relation({ entity: "project", name: "pins", type: "manyToMany",
     target: "note",
     through: { table: "pin", sourceKey: "projectId", targetKey: "noteId" },
-    onDelete: "cascade",
-  });
-  r.relation("project", "tasks", {
-    type: "hasMany",
+    onDelete: "cascade" });
+  r.relation({ entity: "project", name: "tasks", type: "hasMany",
     target: "task",
     foreignKey: "projectId",
-    onDelete: "cascade",
-  });
-  r.relation("project", "notes", {
-    type: "hasMany",
+    onDelete: "cascade" });
+  r.relation({ entity: "project", name: "notes", type: "hasMany",
     target: "note",
     foreignKey: "projectId",
-    onDelete: "setNull",
-  });
-  r.relation("project", "chores", {
-    type: "hasMany",
+    onDelete: "setNull" });
+  r.relation({ entity: "project", name: "chores", type: "hasMany",
     target: "chore",
     foreignKey: "projectId",
-    onDelete: "cascade",
-  });
+    onDelete: "cascade" });
 
   const projectExecutor = createEventStoreExecutor(projectTable, projectEntity, {
     entityName: "project",
@@ -150,7 +146,7 @@ const cascadeFeature = defineFeature("lockcascade", (r) => {
   });
 
   const choreExecutor = createEventStoreExecutor(
-    buildEntityTable("chore", choreEntity),
+    buildEntityTable(choreEntity),
     choreEntity,
     { entityName: "chore" },
   );

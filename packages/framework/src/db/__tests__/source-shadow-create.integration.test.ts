@@ -24,13 +24,14 @@ import { buildEntityTable } from "../../db/table-builder.ts";
 import { createEntity, createTextField } from "../../engine/index.ts";
 
 const sourceEntity = createEntity({
+  name: "source-row",
   table: "ssc_source",
   fields: {
     // `source` collides with the EntityTableMeta discriminator key.
     source: createTextField({ required: true, personal: false, reason: "test_fixture" }),
   },
 });
-const sourceTable = buildEntityTable("source-row", sourceEntity);
+const sourceTable = buildEntityTable(sourceEntity);
 
 let stack: TestStack;
 

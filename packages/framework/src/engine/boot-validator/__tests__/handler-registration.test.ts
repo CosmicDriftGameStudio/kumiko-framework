@@ -80,6 +80,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
 
   test("r.crud without access options fails registration (no implicit openToAll)", () => {
     const widgetEntity = createEntity({
+      name: "widget",
       table: "phase0_widgets",
       fields: {
         name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -89,7 +90,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     // registration time (was: caught at boot-validator level).
     expect(() =>
       defineFeature("phase0", (r) => {
-        r.crud("widget", widgetEntity);
+        r.crud(widgetEntity);
       }),
     ).toThrow(/no access rule resolved/i);
   });
@@ -178,7 +179,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
     expect(() =>
       defineFeature("a", (r) => {
         // @ts-expect-error options.access is required.
-        r.streamHandler("chat:complete", z.object({}), async function* () {});
+        r.streamHandler({ name: "chat:complete", schema: z.object({}), handler: async function* () {} });
       }),
     ).toThrow(/requires schema \+ handler \+ options\.access/);
   });
@@ -200,9 +201,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   test("accepts openToAll access rule on a stream handler", () => {
     const features = [
       defineFeature("a", (r) => {
-        r.streamHandler("chat:complete", z.object({}), async function* () {}, {
-          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
-        });
+        r.streamHandler({ name: "chat:complete", schema: z.object({}), handler: async function* () {}, access: { openToAll: { reason: "test handler callable by any signed-in test user" } } });
       }),
     ];
     expect(() => validateBoot(features)).not.toThrow();
@@ -211,10 +210,8 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   test("throws when an anonymous stream handler uses a user-bucketed rate limit", () => {
     const features = [
       defineFeature("a", (r) => {
-        r.streamHandler("chat:complete", z.object({}), async function* () {}, {
-          access: { roles: ["anonymous"] },
-          rateLimit: { per: "user", limit: 10, windowSeconds: 60 },
-        });
+        r.streamHandler({ name: "chat:complete", schema: z.object({}), handler: async function* () {}, access: { roles: ["anonymous"] },
+          rateLimit: { per: "user", limit: 10, windowSeconds: 60 } });
       }),
     ];
     expect(() => validateBoot(features)).toThrow(
@@ -225,10 +222,8 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   test("accepts an anonymous stream handler with an ip-bucketed rate limit", () => {
     const features = [
       defineFeature("a", (r) => {
-        r.streamHandler("chat:complete", z.object({}), async function* () {}, {
-          access: { roles: ["anonymous"] },
-          rateLimit: { per: "ip", limit: 10, windowSeconds: 60 },
-        });
+        r.streamHandler({ name: "chat:complete", schema: z.object({}), handler: async function* () {}, access: { roles: ["anonymous"] },
+          rateLimit: { per: "ip", limit: 10, windowSeconds: 60 } });
       }),
     ];
     expect(() => validateBoot(features)).not.toThrow();

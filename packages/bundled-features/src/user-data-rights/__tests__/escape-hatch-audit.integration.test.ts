@@ -45,18 +45,16 @@ const AUDITED_REASON =
   "fw#2914 test: declared escapeHatch on the real run-forget-cleanup job path — must be audited, not <unattributed>";
 
 const auditedHook: UserDataDeleteHook = async (ctx) => {
-  await asRawClient(ctx.db.unsafeRaw()).unsafe(
+  await asRawClient(ctx.db.unsafeRawAllTenants()).unsafe(
     `DELETE FROM test_audited_entity WHERE tenant_id = $1`,
     [ctx.tenantId],
   );
 };
 
 const auditedFeature = defineFeature("test-audited-entity", (r) => {
-  r.useExtension(EXT_USER_DATA, "audited-entity", {
-    export: async () => null,
+  r.applyExtension({ name: EXT_USER_DATA, entity: "audited-entity", export: async () => null,
     delete: auditedHook,
-    escapeHatch: { reason: AUDITED_REASON },
-  });
+    escapeHatch: { reason: AUDITED_REASON } });
 });
 
 const seed = (db: unknown) =>

@@ -29,6 +29,7 @@ export const fileEntity = createEntity({
   fields: { name: createTextField(requiredText) },
 });
 export const keptEntity = createEntity({
+  name: "mixed-a",
   table: "read_evprune_kept",
   fields: { name: createTextField(requiredText) },
 });
@@ -49,7 +50,7 @@ export const mixedFeature = defineFeature("evprunemixed", (r) => {
   r.projection({
     name: "mixed-both",
     source: ["mixed-a", "mixed-b"],
-    table: buildEntityTable("mixed-a", keptEntity),
+    table: buildEntityTable(keptEntity),
     apply: {},
   });
 });
@@ -61,7 +62,7 @@ export const camelCaseMixedFeature = defineFeature("evprunecamel", (r) => {
   r.projection({
     name: "camel-both",
     source: ["camelA", "camelB"],
-    table: buildEntityTable("camelA", keptEntity),
+    table: buildEntityTable({ ...keptEntity, name: "camelA" }),
     apply: {},
   });
 });
@@ -71,7 +72,7 @@ export const mixedStreamFeature = defineFeature("evprunemsp", (r) => {
   r.entity({ name: "msp-a", ...keptEntity, table: "read_evprune_msp_a" });
   r.multiStreamProjection({
     name: "msp-both",
-    table: buildEntityTable("msp-a", keptEntity),
+    table: buildEntityTable({ ...keptEntity, name: "msp-a" }),
     apply: { "msp-a.created": async () => {}, "evprunemsp:event:other": async () => {} },
   });
 });

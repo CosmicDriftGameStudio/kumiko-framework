@@ -35,20 +35,16 @@ const ordersFeature = defineFeature("orders", (r) => {
   });
 
   // Short trigger name, qualified at boot against the job's own feature.
-  r.job("auditOrder", { trigger: { on: "order-placed" } }, async (payload) => {
+  r.job({ name: "auditOrder", trigger: { on: "order-placed" }, handler: async (payload) => {
     jobExecutions.push({ name: "orders:job:audit-order", payload });
-  });
+  } });
 });
 
 // Feature B: has a job that triggers on the qualified "orders:event:order-placed"
 const notificationsFeature = defineFeature("notifications", (r) => {
-  r.job(
-    "sendOrderConfirmation",
-    { trigger: { on: "orders:event:order-placed" } },
-    async (payload) => {
+  r.job({ name: "sendOrderConfirmation", trigger: { on: "orders:event:order-placed" }, handler: async (payload) => {
       jobExecutions.push({ name: "notifications:job:send-order-confirmation", payload });
-    },
-  );
+    } });
 });
 
 // Feature C: has ANOTHER job on the same event — both should fire
@@ -56,14 +52,14 @@ const analyticsFeature = defineFeature("analytics", (r) => {
   // Event nobody appends in these tests, so the trackUser job has a valid target
   r.defineEvent("user-created", z.object({}), { piiFields: "none" });
 
-  r.job("trackOrder", { trigger: { on: "orders:event:order-placed" } }, async (payload) => {
+  r.job({ name: "trackOrder", trigger: { on: "orders:event:order-placed" }, handler: async (payload) => {
     jobExecutions.push({ name: "analytics:job:track-order", payload });
-  });
+  } });
 
   // Job on a different event — should NOT fire on order-placed
-  r.job("trackUser", { trigger: { on: "analytics:event:user-created" } }, async (payload) => {
+  r.job({ name: "trackUser", trigger: { on: "analytics:event:user-created" }, handler: async (payload) => {
     jobExecutions.push({ name: "analytics:job:track-user", payload });
-  });
+  } });
 });
 
 // --- Setup ---

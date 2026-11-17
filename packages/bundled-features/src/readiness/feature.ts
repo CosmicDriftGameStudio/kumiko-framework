@@ -60,10 +60,10 @@ export function createReadinessFeature(options: ReadinessFeatureOptions = {}) {
       });
       r.requires({ features: ["config"] });
       r.requires({ features: ["secrets"] });
-      r.optionalRequires("user");
+      r.optionalRequires({ features: ["user"] });
 
       r.translations({ keys: READINESS_I18N });
-      r.entity({ name: "probe-run", ...probeRunEntity });
+      r.entity({ ...probeRunEntity, name: "probe-run" });
       r.writeHandler(runProbesWrite);
       r.job({
         name: "run-probes",

@@ -36,14 +36,10 @@ const attemptFixtureFeature = defineFeature("attemptfixture", (r) => {
     },
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
-  r.job(
-    "retry",
-    { trigger: { on: "attemptfixture:event:trigger-retry" }, retries: 2 },
-    async (_payload, ctx) => {
+  r.job({ name: "retry", trigger: { on: "attemptfixture:event:trigger-retry" }, retries: 2, handler: async (_payload, ctx) => {
       retryRuns.push([ctx.attempt, ctx.finalAttempt]);
       if (ctx.attempt < 3) throw new Error(`fails on attempt ${ctx.attempt}`);
-    },
-  );
+    } });
 
   r.defineEvent("trigger-single", z.object({}), { piiFields: "none" });
   r.writeHandler({
@@ -61,13 +57,9 @@ const attemptFixtureFeature = defineFeature("attemptfixture", (r) => {
     },
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
-  r.job(
-    "single",
-    { trigger: { on: "attemptfixture:event:trigger-single" } },
-    async (_payload, ctx) => {
+  r.job({ name: "single", trigger: { on: "attemptfixture:event:trigger-single" }, handler: async (_payload, ctx) => {
       singleRuns.push([ctx.attempt, ctx.finalAttempt]);
-    },
-  );
+    } });
 });
 
 let stack: TestStack;
@@ -133,19 +125,13 @@ describe("JobContext.attempt / finalAttempt through the runner's other entry poi
   test("a sequential retry that hits a busy lock keeps counting instead of restarting at 1", async () => {
     const runs: [number, boolean][] = [];
     const feature = defineFeature("attemptseq", (r) => {
-      r.job(
-        "flaky",
-        {
-          trigger: { manual: true },
+      r.job({ name: "flaky", trigger: { manual: true },
           concurrency: "sequential",
           retries: 1,
-          backoff: { type: "fixed", delayMs: 800 },
-        },
-        async (_payload, ctx) => {
+          backoff: { type: "fixed", delayMs: 800 }, handler: async (_payload, ctx) => {
           runs.push([ctx.attempt, ctx.finalAttempt]);
           throw new Error("always fails");
-        },
-      );
+        } });
     });
     const jobName = "attemptseq:job:flaky";
     const queueNamePrefix = uniquePrefix("seq");
@@ -202,13 +188,9 @@ describe("JobContext.attempt / finalAttempt through the runner's other entry poi
   test("a boot gate runs inline as attempt 1 and is already final", async () => {
     const runs: [number, boolean][] = [];
     const feature = defineFeature("attemptgate", (r) => {
-      r.job(
-        "check",
-        { trigger: { manual: true }, bootGate: true, retries: 2 },
-        async (_payload, ctx) => {
+      r.job({ name: "check", trigger: { manual: true }, bootGate: true, retries: 2, handler: async (_payload, ctx) => {
           runs.push([ctx.attempt, ctx.finalAttempt]);
-        },
-      );
+        } });
     });
     const queueNamePrefix = uniquePrefix("gate");
     const runner = createJobRunner({

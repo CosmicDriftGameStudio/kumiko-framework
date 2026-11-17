@@ -30,6 +30,7 @@ const COLUMNS: readonly ListColumnSpec[] = [
 ];
 
 const orderEntity = createEntity({
+  name: "order",
   fields: {
     name: createTextField({ personal: false, reason: "test_fixture" }),
     status: createSelectField({ options: ["open", "paid"] as const }),
@@ -54,7 +55,7 @@ type ScreenOptions = {
 function featureWith(kind: ScreenKind, options: ScreenOptions) {
   const { table, query = LIST_QUERY, groupBy, facets } = options;
   return defineFeature("shop", (r) => {
-    r.crud("order", orderEntity, {
+    r.crud(orderEntity, {
       write: { access: { roles: ["Admin"] } },
       read: { access: OPEN_TO_ALL },
     });

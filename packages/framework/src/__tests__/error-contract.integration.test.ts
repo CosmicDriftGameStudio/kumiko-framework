@@ -33,16 +33,17 @@ import { createTestUser, TestUsers } from "../seeding/seed-users.ts";
 // --- Entity + handlers that deliberately raise each Kumiko error class ---
 
 const itemEntity = createEntity({
+  name: "item",
   table: "errctr_items",
   fields: {
     name: createTextField({ personal: false, reason: "test_fixture", required: true }),
     stock: createNumberField({ default: 0 }),
   },
 });
-const itemTable = buildEntityTable("item", itemEntity);
+const itemTable = buildEntityTable(itemEntity);
 
 const errorFeature = defineFeature("errctr", (r) => {
-  r.entity({ name: "item", ...itemEntity });
+  r.entity(itemEntity);
 
   // CRUD create to prep update/delete scenarios (NotFound, VersionConflict).
   r.writeHandler({

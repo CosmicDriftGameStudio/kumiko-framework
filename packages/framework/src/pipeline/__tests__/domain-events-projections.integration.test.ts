@@ -34,6 +34,7 @@ import { rebuildProjection } from "../projection-rebuild.ts";
 // --- Entity ---
 
 const shipmentEntity = createEntity({
+  name: "domain-shipment",
   table: "read_domain_shipments",
   fields: {
     cargo: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -41,7 +42,7 @@ const shipmentEntity = createEntity({
   },
 });
 
-const shipmentTable = buildEntityTable("domain-shipment", shipmentEntity);
+const shipmentTable = buildEntityTable(shipmentEntity);
 
 // --- Read-model table (fed by the projection below) ---
 
@@ -56,7 +57,7 @@ const billingTable = pgTable("read_domain_shipment_billing", {
 // --- Feature ---
 
 const shippingFeature = defineFeature("shipping", (r) => {
-  r.entity({ name: "domain-shipment", ...shipmentEntity });
+  r.entity(shipmentEntity);
 
   // Domain event. Qualified name is "shipping:event:billed".
   const shipmentBilled = r.defineEvent("billed", z.object({ cost: z.number() }), {

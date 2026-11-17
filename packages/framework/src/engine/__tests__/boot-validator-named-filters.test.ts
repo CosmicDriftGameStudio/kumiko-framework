@@ -12,6 +12,7 @@ import type { DashboardStatPanel } from "../types/screen.ts";
 import { registerStubQueryHandler } from "./stub-query-handler.ts";
 
 const ticketEntity = createEntity({
+  name: "ticket",
   fields: {
     status: createTextField({
       personal: false,
@@ -31,7 +32,7 @@ function shopFeature(options: {
   readonly listFilter?: { field: string; op: "eq"; value: string };
 }) {
   return defineFeature("shop", (r) => {
-    r.crud("ticket", ticketEntity, {
+    r.crud(ticketEntity, {
       write: { access: { roles: ["Admin"] } },
       read: {
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
@@ -276,7 +277,7 @@ describe("validateBoot — named list filters", () => {
     test("rejects a button column without a link option on a dashboard list panel", () => {
       const dashboardWith = (column: ListColumnSpec) =>
         defineFeature("shop", (r) => {
-          r.crud("ticket", ticketEntity, {
+          r.crud(ticketEntity, {
             write: { access: { roles: ["Admin"] } },
             read: {
               access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
@@ -316,7 +317,7 @@ describe("validateBoot — named list filters", () => {
 
   test("entityList rejects a filter sort on a column that is not listed", () => {
     const feature = defineFeature("shop", (r) => {
-      r.crud("ticket", ticketEntity, {
+      r.crud(ticketEntity, {
         write: { access: { roles: ["Admin"] } },
         read: {
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
@@ -350,6 +351,7 @@ describe("validateBoot — named list filters", () => {
 
   test("entityList rejects a filter sort on a column that is listed but not sortable", () => {
     const unsortable = createEntity({
+      name: "ticket",
       fields: {
         status: createTextField({ personal: false, reason: "test_fixture", sortable: true }),
         note: createTextField({ personal: false, reason: "test_fixture" }),
@@ -357,7 +359,7 @@ describe("validateBoot — named list filters", () => {
       namedFilters: { open: { filters: () => [{ field: "status", op: "eq", value: "open" }] } },
     });
     const feature = defineFeature("shop", (r) => {
-      r.crud("ticket", unsortable, {
+      r.crud(unsortable, {
         write: { access: { roles: ["Admin"] } },
         read: {
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },

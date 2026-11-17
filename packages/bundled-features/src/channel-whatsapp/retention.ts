@@ -171,9 +171,7 @@ export function registerWhatsappRetention(
   r.storeTable(whatsappRetentionCursorTable, {
     reason: "read_side.whatsapp_retention_cursors_direct_write",
   });
-  r.useExtension(EXT_TENANT_DATA, WHATSAPP_RETENTION_CURSOR_ENTITY, {
-    destroy: whatsappTenantDestroyHook,
-  });
+  r.applyExtension({ name: EXT_TENANT_DATA, entity: WHATSAPP_RETENTION_CURSOR_ENTITY, destroy: whatsappTenantDestroyHook });
   r.job({
     name: "whatsapp-event-retention",
     trigger: { maintenance: true },

@@ -90,7 +90,7 @@ const mockProviderFeature = defineFeature("test-mock-recipient-limit-provider", 
     priceToTier: { price_starter: "starter", price_pro: "pro" },
     cancelSubscription: async () => {},
   };
-  r.useExtension("subscriptionProvider", PROVIDER, plugin);
+  r.applyExtension({ name: "subscriptionProvider", entity: PROVIDER, ...plugin });
 });
 
 let stack: TestStack;

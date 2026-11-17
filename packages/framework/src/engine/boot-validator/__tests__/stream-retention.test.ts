@@ -65,16 +65,17 @@ describe("validateStreamRetention", () => {
   test("a foreign r.projection over the entity's events fails, naming it", () => {
     const feature = previewFeature();
     const readerEntity = createEntity({
+      name: "preview-count",
       table: "read_sr_guard_counts",
       fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
     });
     const reader = defineFeature("readers", (r) => {
-      r.entity({ name: "preview-count", ...readerEntity });
+      r.entity(readerEntity);
       const touched = r.defineEvent("preview-touched", z.object({}), { piiFields: "none" });
       r.projection({
         name: "preview-count",
         source: "preview",
-        table: buildEntityTable("preview-count", readerEntity),
+        table: buildEntityTable(readerEntity),
         apply: { [touched.name]: async () => {} },
       });
     });

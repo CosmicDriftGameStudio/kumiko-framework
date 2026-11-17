@@ -188,16 +188,14 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
       },
     });
     r.translations({ keys: TEMPLATE_RESOLVER_I18N });
-    r.entity({ name: "template-resource", ...templateResourceEntity });
+    r.entity(templateResourceEntity);
     // Only when the app actually mounts a user-owned collection: `content` is `userOwned`, which makes it
     // subject data, so the entity carries its own EXT_USER_DATA hooks. Registering it unconditionally
     // would impose subject data on every app.
     if (hasUserOwned) {
-      r.entity({ name: "user-content-entry", ...userContentEntryEntity });
-      r.useExtension(EXT_USER_DATA, "user-content-entry", {
-        export: userContentExportHook,
-        delete: userContentDeleteHook,
-      });
+      r.entity(userContentEntryEntity);
+      r.applyExtension({ name: EXT_USER_DATA, entity: "user-content-entry", export: userContentExportHook,
+        delete: userContentDeleteHook });
     }
 
     const handlers = {

@@ -60,14 +60,10 @@ function registerNotesHistory(
   // just building it inline in the handler) is what makes it visible to the
   // registry-wide GDPR boot guards and to executor.ts's table/projection setup.
   r.entity({ name: "note-mention", ...noteMentionEntity });
-  r.useExtension(EXT_USER_DATA, "note-entry", {
-    export: noteEntryExportHook,
-    delete: noteEntryDeleteHook,
-  });
-  r.useExtension(EXT_USER_DATA, "note-mention", {
-    export: noteMentionExportHook,
-    delete: noteMentionDeleteHook,
-  });
+  r.applyExtension({ name: EXT_USER_DATA, entity: "note-entry", export: noteEntryExportHook,
+    delete: noteEntryDeleteHook });
+  r.applyExtension({ name: EXT_USER_DATA, entity: "note-mention", export: noteMentionExportHook,
+    delete: noteMentionDeleteHook });
 
   r.writeHandler(createAddNoteHandler(access, createNoteEntryExecutor(ownership, parents)));
   r.queryHandler(

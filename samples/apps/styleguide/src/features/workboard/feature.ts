@@ -10,6 +10,7 @@ import {
 import { WORKBOARD_I18N } from "./i18n";
 
 export const taskEntity = createEntity({
+  name: "task",
   table: "read_workboard_tasks",
   fields: {
     title: createTextField({
@@ -49,7 +50,7 @@ const open = {
 // button, the column picker (estimateHours starts hidden) and the density choice.
 export const workboardFeature = defineFeature("workboard", (r) => {
   r.translations({ keys: WORKBOARD_I18N });
-  r.crud("task", taskEntity, { write: open, read: open });
+  r.crud(taskEntity, { write: open, read: open });
 
   r.screen({
     id: "task-list",

@@ -25,7 +25,7 @@ export function createTestFileProviderFeature(
 ): FeatureDefinition {
   return defineFeature(`test-file-provider-${name}`, (r) => {
     r.requires({ features: ["file-foundation"] });
-    r.useExtension("fileProvider", name, { build: async () => provider });
+    r.applyExtension({ name: "fileProvider", entity: name, build: async () => provider });
   });
 }
 

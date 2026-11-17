@@ -38,6 +38,7 @@ const projectOwnership: NonNullable<EntityDefinition["access"]> = {
 };
 
 const projectEntity = createEntity({
+  name: "project",
   table: PROJECT_TABLE,
   fields: {
     teamId: createTextField({
@@ -57,7 +58,7 @@ const projectEntity = createEntity({
 });
 
 const hostFixturesFeature = defineFeature("tags-rg-test-fixtures", (r) => {
-  r.entity({ name: "project", ...projectEntity });
+  r.entity(projectEntity);
 });
 
 type TestUser = ReturnType<typeof createTestUser>;
@@ -261,6 +262,7 @@ describe("tags read-gate — tagId scatter query stays paginated honestly", () =
 describe("tags read-gate — ownership narrows further, it does not replace the gate", () => {
   const OWNED_TABLE = "tags_rg_owned_projects";
   const ownedEntity = createEntity({
+    name: "project",
     table: OWNED_TABLE,
     fields: {
       teamId: createTextField({
@@ -283,7 +285,7 @@ describe("tags read-gate — ownership narrows further, it does not replace the 
     },
   });
   const ownedFixtures = defineFeature("tags-rg-owned-fixtures", (r) => {
-    r.entity({ name: "project", ...ownedEntity });
+    r.entity(ownedEntity);
   });
   const HOST = "c0000000-0000-4000-8000-00000000002a";
   // Same team (so the host gate passes for both), but only `tagger` carries

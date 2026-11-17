@@ -26,6 +26,7 @@ import { defineFeature } from "../define-feature.ts";
 import { createEntity, createTextField } from "../factories.ts";
 
 const memberEntity = createEntity({
+  name: "member",
   table: "pl_filter_members",
   fields: {
     name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -41,7 +42,7 @@ const memberEntity = createEntity({
 const LIST_QN = "roster:query:member:list";
 
 const rosterFeature = defineFeature("roster", (r) => {
-  r.crud("member", memberEntity, {
+  r.crud(memberEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   });

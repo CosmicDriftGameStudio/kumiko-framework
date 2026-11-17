@@ -67,9 +67,9 @@ function failedLines(errors: readonly LogEntry[]): LogEntry[] {
 describe("failed job attempts are logged", () => {
   test("a throwing handler logs one line per attempt, final only on the last, without payload", async () => {
     const failFeature = defineFeature("failedlog", (r) => {
-      r.job("always-fails", { trigger: { manual: true }, retries: 2 }, async () => {
+      r.job({ name: "always-fails", trigger: { manual: true }, retries: 2, handler: async () => {
         throw new Error("boom");
-      });
+      } });
     });
     const { context, errors, components } = captureContext();
     const queueNamePrefix = uniquePrefix("handler");
@@ -110,7 +110,7 @@ describe("failed job attempts are logged", () => {
 
   test("a perTenant fan-out failure logs every attempt, final only on the last", async () => {
     const wrapperFeature = defineFeature("failedlogwrap", (r) => {
-      r.job("fanout", { trigger: { manual: true }, perTenant: true, retries: 1 }, async () => {});
+      r.job({ name: "fanout", trigger: { manual: true }, perTenant: true, retries: 1, handler: async () => {} });
     });
     const { context, errors } = captureContext();
     const queueNamePrefix = uniquePrefix("wrapper");

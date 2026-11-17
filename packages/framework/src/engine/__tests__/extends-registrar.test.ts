@@ -42,8 +42,8 @@ describe("extendsRegistrar", () => {
   test("r.useExtension records usage with name, entity, and options", () => {
     const consumer = defineFeature("fleet", (r) => {
       r.entity({ name: "vehicle", ...createEntity({ table: "Vehicles", fields: {} }) });
-      r.useExtension("tags", "vehicle");
-      r.useExtension("customFields", "vehicle", { allowTypes: ["text", "number"] });
+      r.applyExtension({ name: "tags", entity: "vehicle" });
+      r.applyExtension({ name: "customFields", entity: "vehicle", allowTypes: ["text", "number"] });
     });
 
     expect(consumer.extensionUsages).toHaveLength(2);
@@ -68,7 +68,7 @@ describe("extendsRegistrar", () => {
 
     const consumer = defineFeature("fleet", (r) => {
       r.entity({ name: "vehicle", ...createEntity({ table: "Vehicles", fields: {} }) });
-      r.useExtension("tags", "vehicle");
+      r.applyExtension({ name: "tags", entity: "vehicle" });
     });
 
     createRegistry([ext, consumer]);
@@ -97,9 +97,9 @@ describe("extendsRegistrar", () => {
     });
     const consumer = defineFeature("fleet", (r) => {
       r.entity({ name: "vehicle", ...createEntity({ table: "Vehicles", fields: {} }) });
-      r.useExtension("tags", "vehicle");
-      r.useExtension("commentable", "vehicle");
-      r.useExtension("tags", "driver");
+      r.applyExtension({ name: "tags", entity: "vehicle" });
+      r.applyExtension({ name: "commentable", entity: "vehicle" });
+      r.applyExtension({ name: "tags", entity: "driver" });
     });
 
     const registry = createRegistry([ext1, ext2, consumer]);
@@ -127,7 +127,7 @@ describe("extendsRegistrar", () => {
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
       });
-      r.useExtension("customFields", "vehicle");
+      r.applyExtension({ name: "customFields", entity: "vehicle" });
     });
 
     const registry = createRegistry([ext, consumer]);
@@ -163,7 +163,7 @@ describe("extendsRegistrar", () => {
         }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
-      r.useExtension("audited", "credit");
+      r.applyExtension({ name: "audited", entity: "credit" });
     });
 
     const registry = createRegistry([ext, consumer]);
@@ -211,7 +211,7 @@ describe("extendsRegistrar", () => {
         }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
-      r.useExtension("audited", "vehicle");
+      r.applyExtension({ name: "audited", entity: "vehicle" });
     });
 
     const registry = createRegistry([ext, consumer]);
@@ -238,7 +238,7 @@ describe("extendsRegistrar", () => {
     });
     const consumer = defineFeature("fleet", (r) => {
       r.entity({ name: "vehicle", ...createEntity({ table: "Vehicles", fields: {} }) });
-      r.useExtension("audited", "vehicle");
+      r.applyExtension({ name: "audited", entity: "vehicle" });
     });
 
     const registry = createRegistry([ext, consumer]);
@@ -282,7 +282,7 @@ describe("extendsRegistrar", () => {
     });
     const consumer = defineFeature("fleet", (r) => {
       r.entity({ name: "vehicle", ...createEntity({ table: "Vehicles", fields: {} }) });
-      r.useExtension("audited", "vehicle");
+      r.applyExtension({ name: "audited", entity: "vehicle" });
     });
 
     const registry = createRegistry([ext, consumer]);
@@ -300,7 +300,7 @@ describe("framework-owned EXT_USER_DATA", () => {
   test("a feature registers hooks without requiring a provider feature", () => {
     const owner = defineFeature("owner", (r) => {
       r.entity({ name: "item", ...createEntity({ table: "Items", fields: {} }) });
-      r.useExtension(EXT_USER_DATA, "item", { export: async () => null, delete: async () => {} });
+      r.applyExtension({ name: EXT_USER_DATA, entity: "item", export: async () => null, delete: async () => {} });
     });
 
     expect(() => validateBoot([owner])).not.toThrow();

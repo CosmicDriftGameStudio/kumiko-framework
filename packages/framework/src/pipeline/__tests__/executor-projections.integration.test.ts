@@ -28,18 +28,21 @@ import { createSystemUser } from "../../engine/system-user.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 
 const orderEntity = createEntity({
+  name: "order",
   table: "read_exproj_orders",
   fields: { title: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
 const memoEntity = createEntity({
+  name: "memo",
   table: "read_exproj_memos",
   fields: { text: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
 const auditEntity = createEntity({
+  name: "audit",
   table: "read_exproj_audits",
   fields: { label: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
-const auditTable = buildEntityTable("audit", auditEntity);
+const auditTable = buildEntityTable(auditEntity);
 
 const auditExecutor = createEventStoreExecutor(auditTable, auditEntity, { entityName: "audit" });
 
@@ -63,9 +66,9 @@ const FAILING_LABEL = "projection-explodes";
 const projectionCalls: string[] = [];
 
 const exprojFeature = defineFeature("exproj", (r) => {
-  r.entity({ name: "order", ...orderEntity });
-  r.entity({ name: "audit", ...auditEntity });
-  r.entity({ name: "memo", ...memoEntity });
+  r.entity(orderEntity);
+  r.entity(auditEntity);
+  r.entity(memoEntity);
 
   r.projection({
     name: "audit-log",
@@ -150,7 +153,7 @@ const exprojFeature = defineFeature("exproj", (r) => {
     target: { allOf: "memo" },
     handler: async (result, ctx) => {
       if (!isTenantDb(ctx.db)) throw new Error("hook ctx.db is not a TenantDb");
-      const ownTenantDb = createTenantDb({ db: ctx.db.unsafeRaw(), tenantId: admin.tenantId });
+      const ownTenantDb = createTenantDb({ db: ctx.db.unsafeRawAllTenants(), tenantId: admin.tenantId });
       const outcome = await auditExecutor.create(
         { label: String(result.data["text"]) },
         createSystemUser(admin.tenantId),
@@ -159,36 +162,30 @@ const exprojFeature = defineFeature("exproj", (r) => {
       if (!outcome.isSuccess) throw new Error("hook audit write via unsafeRaw failed");
     },
     phase: HookPhases.inTransaction,
-    escapeHatch: { reason: "test: TenantDb rebuilt from unsafeRaw" },
+    escapeHatch: { reason: "test: TenantDb rebuilt from unsafeRaw", grants: ["systemIdentity", "unsafeRaw"] },
   });
 
   // A job dispatched without a write origin builds its TenantDb without a personal-data gate;
   // a TenantDb rebuilt from its unsafeRaw() grant must still run the custom projections.
-  r.job(
-    "make-audit-via-unsafe-raw",
-    {
-      trigger: { manual: true },
+  r.job({ name: "make-audit-via-unsafe-raw", trigger: { manual: true },
       retries: 0,
-      escapeHatch: { reason: "test: TenantDb rebuilt from unsafeRaw inside a job" },
-    },
-    async (payload, ctx) => {
+      escapeHatch: { reason: "test: TenantDb rebuilt from unsafeRaw inside a job", grants: ["unsafeRaw"] }, handler: async (payload, ctx) => {
       const label = payload["label"];
       if (typeof label !== "string") throw new Error("make-audit-via-unsafe-raw needs a label");
       const ownTenantDb = createTenantDb({
-        db: ctx.db.unsafeRaw(),
+        db: ctx.db.unsafeRawAllTenants(),
         tenantId: ctx.systemUser.tenantId,
       });
       const outcome = await auditExecutor.create({ label }, ctx.systemUser, ownTenantDb);
       if (!outcome.isSuccess) throw new Error("job audit write via unsafeRaw failed");
-    },
-  );
+    } });
 
-  r.job("make-audit", { trigger: { manual: true }, retries: 0 }, async (payload, ctx) => {
+  r.job({ name: "make-audit", trigger: { manual: true }, retries: 0, handler: async (payload, ctx) => {
     const label = payload["label"];
     if (typeof label !== "string") throw new Error("make-audit needs a label");
     const outcome = await auditExecutor.create({ label }, ctx.systemUser, ctx.db);
     if (!outcome.isSuccess) throw new Error("job audit write failed");
-  });
+  } });
 });
 
 let stack: TestStack;
@@ -273,7 +270,7 @@ describe("executor writes run custom projections", () => {
     );
     expect(res.status).toBeGreaterThanOrEqual(400);
 
-    expect(await selectMany(stack.db, buildEntityTable("order", orderEntity))).toHaveLength(0);
+    expect(await selectMany(stack.db, buildEntityTable(orderEntity))).toHaveLength(0);
     expect(await selectMany(stack.db, auditTable)).toHaveLength(0);
     expect(await logRows()).toHaveLength(0);
   });

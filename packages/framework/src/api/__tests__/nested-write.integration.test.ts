@@ -18,30 +18,30 @@ import { TestUsers } from "../../seeding/seed-users.ts";
 // `{ tasks: [...] }` inside a project:create payload into a child-write
 // per entry — all in the same TX as the parent.
 const projectEntity = createEntity({
+  name: "project",
   table: "nested_projects",
   fields: { name: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
-const projectTable = buildEntityTable("project", projectEntity);
+const projectTable = buildEntityTable(projectEntity);
 
 const taskEntity = createEntity({
+  name: "task",
   table: "nested_tasks",
   fields: {
     projectId: createTextField({ personal: false, reason: "test_fixture", required: true }),
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
-const taskTable = buildEntityTable("task", taskEntity);
+const taskTable = buildEntityTable(taskEntity);
 
 const nestedFeature = defineFeature("nested", (r) => {
-  r.entity({ name: "project", ...projectEntity });
-  r.entity({ name: "task", ...taskEntity });
+  r.entity(projectEntity);
+  r.entity(taskEntity);
 
-  r.relation("project", "tasks", {
-    type: "hasMany",
+  r.relation({ entity: "project", name: "tasks", type: "hasMany",
     target: "task",
     foreignKey: "projectId",
-    nestedWrite: true,
-  });
+    nestedWrite: true });
 
   r.writeHandler({
     name: "project:create",

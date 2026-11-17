@@ -17,6 +17,7 @@ const text = () =>
   });
 
 const linkEntity = createEntity({
+  name: "link",
   table: "read_gate_boot_links",
   fields: { documentId: text(), entityType: text(), entityId: text() },
   parentRef: {
@@ -43,7 +44,7 @@ const validGate = {
 function check(docEntity: EntityDefinition, withFiles = true, handwrittenList = false): void {
   const docs = defineFeature("docs", (r) => {
     r.entity({ name: "doc", ...docEntity });
-    r.entity({ name: "link", ...linkEntity });
+    r.entity(linkEntity);
     if (handwrittenList) {
       r.queryHandler({
         name: "doc:list",
@@ -108,7 +109,7 @@ describe("validateReadGates", () => {
     const docEntity = gated(validGate);
     const docs = defineFeature("docs", (r) => {
       r.entity({ name: "doc", ...docEntity });
-      r.entity({ name: "link", ...linkEntity });
+      r.entity(linkEntity);
       r.queryHandler(
         defineEntityListHandler("doc", docEntity, {
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },

@@ -71,73 +71,43 @@ export function createUserDataRightsDefaultsFeature(): FeatureDefinition {
     // no-ops at runtime when its source feature isn't mounted (see
     // hooks/feature-mounted.ts) — the export runner has no per-hook
     // try/catch, so a query against a missing table would kill the job.
-    r.optionalRequires(
-      "sessions",
-      "personal-access-tokens",
-      "channel-in-app",
-      "tenant",
-      "delivery",
-      "config",
-      "jobs",
-    );
+    r.optionalRequires({ features: ["sessions", "personal-access-tokens", "channel-in-app", "tenant", "delivery", "config", "jobs"] });
 
-    r.useExtension(EXT_USER_DATA, "user", {
-      export: userExportHook,
-      delete: userDeleteHook,
-    });
+    r.applyExtension({ name: EXT_USER_DATA, entity: "user", export: userExportHook,
+      delete: userDeleteHook });
 
-    r.useExtension(EXT_USER_DATA, "fileRef", {
-      export: fileRefExportHook,
-      delete: fileRefDeleteHook,
-    });
+    r.applyExtension({ name: EXT_USER_DATA, entity: "fileRef", export: fileRefExportHook,
+      delete: fileRefDeleteHook });
 
-    r.useExtension(EXT_USER_DATA, "user-session", {
-      export: userSessionExportHook,
-      delete: userSessionDeleteHook,
-    });
+    r.applyExtension({ name: EXT_USER_DATA, entity: "user-session", export: userSessionExportHook,
+      delete: userSessionDeleteHook });
 
-    r.useExtension(EXT_USER_DATA, "api-token", {
-      export: apiTokenExportHook,
-      delete: apiTokenDeleteHook,
-    });
+    r.applyExtension({ name: EXT_USER_DATA, entity: "api-token", export: apiTokenExportHook,
+      delete: apiTokenDeleteHook });
 
-    r.useExtension(EXT_USER_DATA, "in-app-message", {
-      export: inAppMessageExportHook,
-      delete: inAppMessageDeleteHook,
-    });
+    r.applyExtension({ name: EXT_USER_DATA, entity: "in-app-message", export: inAppMessageExportHook,
+      delete: inAppMessageDeleteHook });
 
-    r.useExtension(EXT_USER_DATA, "tenant-invitation", {
-      export: tenantInvitationExportHook,
-      delete: tenantInvitationDeleteHook,
-    });
+    r.applyExtension({ name: EXT_USER_DATA, entity: "tenant-invitation", export: tenantInvitationExportHook,
+      delete: tenantInvitationDeleteHook });
 
-    r.useExtension(EXT_USER_DATA, "notification-preference", {
-      export: notificationPreferenceExportHook,
-      delete: notificationPreferenceDeleteHook,
-    });
+    r.applyExtension({ name: EXT_USER_DATA, entity: "notification-preference", export: notificationPreferenceExportHook,
+      delete: notificationPreferenceDeleteHook });
 
-    r.useExtension(EXT_USER_DATA, "config-value", {
-      export: configValueExportHook,
-      delete: configValueDeleteHook,
-    });
+    r.applyExtension({ name: EXT_USER_DATA, entity: "config-value", export: configValueExportHook,
+      delete: configValueDeleteHook });
 
     // Events-only aggregates: export reads the projected rows, the
     // delete hooks are deliberate no-ops — erasure happens via crypto-
     // shredding (forget erases the user's DEK; recipientAddress / job
     // payload become unreadable in events AND rows).
-    r.useExtension(EXT_USER_DATA, "delivery-attempt", {
-      export: deliveryAttemptExportHook,
-      delete: deliveryAttemptDeleteHook,
-    });
+    r.applyExtension({ name: EXT_USER_DATA, entity: "delivery-attempt", export: deliveryAttemptExportHook,
+      delete: deliveryAttemptDeleteHook });
 
-    r.useExtension(EXT_USER_DATA, "download-attempt", {
-      export: downloadAttemptExportHook,
-      delete: downloadAttemptDeleteHook,
-    });
+    r.applyExtension({ name: EXT_USER_DATA, entity: "download-attempt", export: downloadAttemptExportHook,
+      delete: downloadAttemptDeleteHook });
 
-    r.useExtension(EXT_USER_DATA, "job-run", {
-      export: jobRunExportHook,
-      delete: jobRunDeleteHook,
-    });
+    r.applyExtension({ name: EXT_USER_DATA, entity: "job-run", export: jobRunExportHook,
+      delete: jobRunDeleteHook });
   });
 }

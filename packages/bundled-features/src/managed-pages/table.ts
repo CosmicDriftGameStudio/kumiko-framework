@@ -15,6 +15,7 @@ import { BODY_FORMATS, type BodyFormat, DEFAULT_BODY_FORMAT } from "./constants.
 // app-wide pages; otherwise the page belongs to the tenant resolved from the
 // host via resolveApexTenant during rendering.
 export const pageEntity = createEntity({
+  name: "page",
   table: "read_pages",
   systemRowsReadable: true,
   description:
@@ -62,7 +63,7 @@ export const pageEntity = createEntity({
   indexes: [{ unique: true, columns: ["tenantId", "slug", "lang"], name: "read_pages_unique" }],
 });
 
-export const pagesTable = buildEntityTable("page", pageEntity);
+export const pagesTable = buildEntityTable(pageEntity);
 
 // Concrete row type — the single source of truth for named values instead
 // of `row["x"] as Y` casts in handlers. Includes entity.fields and standard

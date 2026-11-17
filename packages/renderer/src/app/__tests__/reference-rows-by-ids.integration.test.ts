@@ -23,6 +23,7 @@ type LabelRows = { readonly rows: ReadonlyArray<Record<string, unknown>> };
 
 // Members read only the properties they manage, so a by-id lookup must not reveal a foreign one.
 const propertyEntity = createEntity({
+  name: "property",
   table: "read_ref_lookup_properties",
   fields: {
     name: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -36,7 +37,7 @@ const propertyEntity = createEntity({
 
 const propertyFeature = defineFeature("ref-lookup", (r) => {
   const propertyAccess = { access: { roles: ["Admin", "Member"] } } as const;
-  r.crud("property", propertyEntity, { write: propertyAccess, read: propertyAccess });
+  r.crud(propertyEntity, { write: propertyAccess, read: propertyAccess });
 });
 
 const member = createTestUser({

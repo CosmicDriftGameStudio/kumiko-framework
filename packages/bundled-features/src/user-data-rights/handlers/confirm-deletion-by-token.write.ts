@@ -87,7 +87,7 @@ export function createConfirmDeletionByTokenHandler(opts: ConfirmDeletionByToken
         secret: opts.deletionTokenSecret,
         loadPendingRequestId: (userId) => readPendingDeletionRequestId(ctx, userId),
         commitDeletion: async (userId, requestId) => {
-          const runner = ctx.db.unsafeRaw();
+          const runner = ctx.db.unsafeRawAllTenants();
           const res = await startDeletionGracePeriod(
             ctx,
             userId,

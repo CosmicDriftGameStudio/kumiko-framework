@@ -74,6 +74,7 @@ export const deliveryAttemptsTableMeta: EntityTableMeta = requireEntityTableMeta
 // event-store executor. The unique index on (tenant, user, type, channel)
 // is the effective natural key; the uuid PK is the aggregate id.
 export const notificationPreferenceEntity = createEntity({
+  name: "notification-preference",
   table: "read_notification_preferences",
   fields: {
     userId: createTextField({ required: true, personal: false, reason: "pseudonymous_fk" }),
@@ -116,6 +117,7 @@ export const notificationPreferencesTable = pgTable(
 // picks the next id generation (see addressOptOutAggregateId) since the
 // deleted stream can't be revived.
 export const notificationAddressOptOutEntity = createEntity({
+  name: "notification-address-opt-out",
   table: "read_notification_address_opt_outs",
   fields: {
     addressHash: createTextField({ required: true, personal: false, reason: "keyed_hash" }),

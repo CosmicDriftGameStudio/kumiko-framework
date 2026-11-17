@@ -71,7 +71,7 @@ export function createAddNoteHandler(
         // Postgres aborts the whole tx after any error inside it, even one that's
         // caught — so the lookup runs in a savepoint where available, otherwise directly
         // (pool statements are their own units).
-        authorName = await runInSavepointIfSupported(ctx.db.unsafeRaw(), async (sp) => {
+        authorName = await runInSavepointIfSupported(ctx.db.unsafeRawAllTenants(), async (sp) => {
           const userRow = await fetchOne<{ displayName: string | null }>(sp, userTable, {
             id: event.user.id,
           });

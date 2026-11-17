@@ -40,7 +40,7 @@ const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity,
 });
 
 const retentionFeature = defineFeature("retention", (r) => {
-  r.entity({ name: "widget", ...sharedWidgetEntity });
+  r.entity(sharedWidgetEntity);
   // A single MSP so the events-table writes but no consumer has advanced
   // cursor by default (we drive cursor via runOnce in tests that care about
   // the lag guard).

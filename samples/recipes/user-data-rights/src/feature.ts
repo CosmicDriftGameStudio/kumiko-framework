@@ -36,6 +36,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 
 export const noteEntity = createEntity({
+  name: "note",
   table: "store_notes",
   idType: "uuid",
   fields: {
@@ -60,9 +61,10 @@ export const noteEntity = createEntity({
 // Plain EntityTableMeta, NOT a branded EntityTable: store_notes is a deliberate
 // unmanaged direct-write store (r.storeTable below), so the forget hook may
 // updateMany/deleteMany it directly — the meta carries no executor-only brand.
-export const notesTable = deriveEntityTableMeta("note", noteEntity, { source: "unmanaged" });
+export const notesTable = deriveEntityTableMeta(noteEntity, { source: "unmanaged" });
 
 export const muteEntity = createEntity({
+  name: "mute",
   table: "read_udr_recipe_mutes",
   idType: "uuid",
   softDelete: true,
@@ -73,7 +75,6 @@ export const muteEntity = createEntity({
 });
 
 export const { table: mutesTable, executor: muteExecutor } = createEntityExecutor(
-  "mute",
   muteEntity,
 );
 
@@ -121,11 +122,9 @@ export const notesFeature = defineFeature("notes", (r) => {
     }
   };
 
-  r.useExtension(EXT_USER_DATA, "note", {
-    export: exportNotes,
-    delete: deleteNotes,
-  });
+  r.applyExtension({ name: EXT_USER_DATA, entity: "note", export: exportNotes,
+    delete: deleteNotes });
 
-  r.entity({ name: "mute", ...muteEntity });
-  r.useExtension(EXT_USER_DATA, "mute", { delete: forgetMutes });
+  r.entity(muteEntity);
+  r.applyExtension({ name: EXT_USER_DATA, entity: "mute", delete: forgetMutes });
 });

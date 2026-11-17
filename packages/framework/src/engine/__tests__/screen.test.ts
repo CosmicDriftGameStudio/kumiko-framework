@@ -711,12 +711,13 @@ describe("r.screen() — registration", () => {
 
     test("rejects parentFilter.field that is not a declared field on the entity behind the query", () => {
       const orderEntity = createEntity({
+        name: "order",
         table: "orders",
         fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
       });
       const features = [
         defineFeature("app", (r) => {
-          r.entity({ name: "order", ...orderEntity });
+          r.entity(orderEntity);
           r.queryHandler(
             defineEntityListHandler("order", orderEntity, {
               access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
@@ -753,6 +754,7 @@ describe("r.screen() — registration", () => {
 
     test("accepts a valid parentFilter whose field is a real entity field and the query accepts filter", () => {
       const orderEntity = createEntity({
+        name: "order",
         table: "orders",
         fields: {
           name: createTextField({ personal: false, reason: "test_fixture" }),
@@ -761,7 +763,7 @@ describe("r.screen() — registration", () => {
       });
       const features = [
         defineFeature("app", (r) => {
-          r.entity({ name: "order", ...orderEntity });
+          r.entity(orderEntity);
           r.queryHandler(
             defineEntityListHandler("order", orderEntity, {
               access: { openToAll: { reason: "test handler callable by any signed-in test user" } },

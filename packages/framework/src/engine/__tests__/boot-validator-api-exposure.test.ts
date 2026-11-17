@@ -40,7 +40,7 @@ describe("validateBoot — r.exposesApi / r.usesApi", () => {
       r.exposesApi("compliance.forTenant");
     });
     const consumer = defineFeature("user-data-rights", (r) => {
-      r.optionalRequires("compliance-profiles");
+      r.optionalRequires({ features: ["compliance-profiles"] });
       r.usesApi("compliance.forTenant");
     });
     expect(() => validateBoot([provider, consumer])).not.toThrow();

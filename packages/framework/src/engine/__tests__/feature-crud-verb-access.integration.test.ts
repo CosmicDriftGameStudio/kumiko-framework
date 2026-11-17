@@ -11,13 +11,14 @@ import { defineFeature } from "../define-feature.ts";
 import { createEntity, createTextField } from "../factories.ts";
 
 const propertyEntity = createEntity({
+  name: "property",
   table: "crud_verb_access_properties",
   fields: { title: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
   softDelete: true,
 });
 
 const propertyFeature = defineFeature("crud-verb-access", (r) => {
-  r.crud("property", propertyEntity, {
+  r.crud(propertyEntity, {
     write: { access: { roles: ["User"] } },
     read: { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
     verbAccess: {

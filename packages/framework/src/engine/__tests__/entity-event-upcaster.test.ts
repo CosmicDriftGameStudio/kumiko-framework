@@ -19,8 +19,8 @@ function registryWith(def: {
   eventVersion?: number;
   eventMigrations?: readonly EntityEventMigration[];
 }) {
-  const entity = createEntity({ table: "read_ev_things", fields: { name: textField }, ...def });
-  return createRegistry([defineFeature("evtest", (r) => r.entity({ name: "thing", ...entity }))]);
+  const entity = createEntity({ name: "thing", table: "read_ev_things", fields: { name: textField }, ...def });
+  return createRegistry([defineFeature("evtest", (r) => r.entity(entity))]);
 }
 
 describe("entity event upcaster registration", () => {

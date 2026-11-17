@@ -24,19 +24,21 @@ import { selectMany } from "../query.ts";
 import { buildEntityTable } from "../table-builder.ts";
 
 const orderEntity = createEntity({
+  name: "pe-order",
   table: "read_pe_orders",
   fields: {
     customer: createTextField({ personal: false, reason: "is_business_data", required: true }),
   },
 });
 const receiptEntity = createEntity({
+  name: "pe-receipt",
   table: "read_pe_receipts",
   fields: {
     orderId: createTextField({ personal: false, reason: "is_business_data" }),
     note: createTextField({ personal: false, reason: "is_business_data" }),
   },
 });
-const receiptTable = buildEntityTable("pe-receipt", receiptEntity);
+const receiptTable = buildEntityTable(receiptEntity);
 const receipts = { entityName: "pe-receipt", entity: receiptEntity, table: receiptTable };
 
 const admin = TestUsers.admin;
@@ -48,8 +50,8 @@ function receiptIdOf(source: { readonly tenantId: string; readonly aggregateId: 
 }
 
 const peFeature = defineFeature("pe", (r) => {
-  r.entity({ name: "pe-order", ...orderEntity });
-  r.entity({ name: "pe-receipt", ...receiptEntity });
+  r.entity(orderEntity);
+  r.entity(receiptEntity);
 
   const eventShape = z.object({ note: z.string() });
   const paid = r.defineEvent("order-paid", eventShape, { piiFields: "none" });

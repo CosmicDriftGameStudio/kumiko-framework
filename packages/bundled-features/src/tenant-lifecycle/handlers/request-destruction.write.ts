@@ -23,7 +23,7 @@ export const requestDestructionWrite = defineWriteHandler({
       actor: event.user,
       now: ctx.tz.now(),
       db: ctx.db,
-      runner: ctx.db.unsafeRaw(),
+      runner: ctx.db.unsafeRawAllTenants(),
       registry: ctx.registry,
       revokeSessions: await ctx.hasFeature("sessions"),
     }),

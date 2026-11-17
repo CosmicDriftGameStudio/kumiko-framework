@@ -59,7 +59,7 @@ import { createAuthEmailPasswordFeature } from "../feature.ts";
 import { AuthErrors, AuthHandlers } from "../web/constants.ts";
 import { authMailRendererFeatures, seedAuthMailTemplates } from "./auth-mail-stack.ts";
 
-const tierAssignmentTable = buildEntityTable("tier-assignment", tierAssignmentEntity);
+const tierAssignmentTable = buildEntityTable(tierAssignmentEntity);
 
 // Regression-proof: provisionSignupAccount only threaded `hooks`
 // into seedTenant, leaving seedUserWithPassword's `user`-entity and

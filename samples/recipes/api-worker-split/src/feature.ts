@@ -37,6 +37,7 @@ const openAccess = {
 // always sees them, split or not.
 
 export const orderEntity = createEntity({
+  name: "order",
   table: "read_orders",
   fields: {
     customerName: createTextField({ personal: { of: "id" }, find: "none", required: true }),
@@ -46,6 +47,7 @@ export const orderEntity = createEntity({
 });
 
 export const fulfillmentEntity = createEntity({
+  name: "fulfillment",
   table: "read_fulfillments",
   fields: {
     orderKey: createTextField({ personal: false, reason: "is_system_identifier", required: true }),
@@ -92,18 +94,13 @@ export function setCarrierRetryAfter(fn: () => number): void {
 
 export function createApiWorkerSplitFeature() {
   return defineFeature("orders", (r) => {
-    r.crud("order", orderEntity, { write: openAccess, read: openAccess });
-    r.crud("fulfillment", fulfillmentEntity, { write: openAccess, read: openAccess });
+    r.crud(orderEntity, { write: openAccess, read: openAccess });
+    r.crud(fulfillmentEntity, { write: openAccess, read: openAccess });
 
     // Heavy follow-up work, pinned to the worker lane: the API process only
     // enqueues (its BullMQ client, no consumer), the worker executes.
-    r.job(
-      "process-order",
-      {
-        trigger: { on: "order.created" },
-        runIn: "worker",
-      },
-      async (_payload, context) => {
+    r.job({ name: "process-order", trigger: { on: "order.created" },
+        runIn: "worker", handler: async (_payload, context) => {
         if (fulfillWrite === undefined) {
           throw new Error(
             "process-order: no fulfill-write bridge wired — bin/worker.ts must call setOrderFulfillWrite at boot",
@@ -145,8 +142,7 @@ export function createApiWorkerSplitFeature() {
             `process-order: fulfillment create failed for order "${orderId}": ${result.error?.code ?? "unknown"}`,
           );
         }
-      },
-    );
+      } });
 
     // Async read model, applied by the WORKER's event-dispatcher. The job and
     // the projection both route on the stored entity event "order.created"; the

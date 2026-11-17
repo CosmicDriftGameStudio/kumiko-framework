@@ -108,45 +108,27 @@ const appFeature = defineFeature("app", (r) => {
   r.writeHandler(generateWrite);
   r.writeHandler(plainWrite);
 
-  r.job(
-    "generateTexts",
-    {
-      trigger: { on: "generation-requested" },
-      tenantVisibleRun: { subjectFields: ["campaignId"] },
-    },
-    async (payload) => {
+  r.job({ name: "generateTexts", trigger: { on: "generation-requested" },
+      tenantVisibleRun: { subjectFields: ["campaignId"] }, handler: async (payload) => {
       if (payload["mode"] === "fail") throw new Error(PROVIDER_MESSAGE);
       if (payload["mode"] === "hold") {
         handlerStarted.resolve();
         await handlerRelease.promise;
       }
-    },
-  );
+    } });
 
-  r.job("plainJob", { trigger: { on: "plain-requested" } }, async () => {});
+  r.job({ name: "plainJob", trigger: { on: "plain-requested" }, handler: async () => {} });
 
-  r.job(
-    "unrecoverable",
-    {
-      trigger: { manual: true },
+  r.job({ name: "unrecoverable", trigger: { manual: true },
       retries: 2,
       tenantVisibleRun: {},
-      tenantVisibleFailure: { messageKey: "app:errors.unrecoverable" },
-    },
-    async () => {
+      tenantVisibleFailure: { messageKey: "app:errors.unrecoverable" }, handler: async () => {
       throw new UnrecoverableError("no retry");
-    },
-  );
+    } });
 
-  r.job(
-    "replacing",
-    {
-      trigger: { manual: true },
+  r.job({ name: "replacing", trigger: { manual: true },
       concurrency: "replace",
-      tenantVisibleRun: { subjectFields: ["campaignId"] },
-    },
-    async () => {},
-  );
+      tenantVisibleRun: { subjectFields: ["campaignId"] }, handler: async () => {} });
 });
 
 let testDb: TestDb;

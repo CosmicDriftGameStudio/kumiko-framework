@@ -11,7 +11,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   test("throws when readsConfig references non-existent key", () => {
     const features = [
       defineFeature("invoicing", (r) => {
-        r.readsConfig("payments.gateway");
+        r.readsConfig({ keys: ["payments.gateway"] });
       }),
     ];
     expect(() => validateBoot(features)).toThrow(
@@ -35,7 +35,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
       }),
       defineFeature("invoicing", (r) => {
         r.requires({ features: ["payments"] });
-        r.readsConfig("payments.gateway");
+        r.readsConfig({ keys: ["payments.gateway"] });
       }),
     ];
     expect(() => validateBoot(features)).not.toThrow();

@@ -43,16 +43,17 @@ const GUARD_PROBE_TABLE = "kms_slots_guard_probe";
 const KMS_PROBE_TABLE = "kms_slots_kms_probe";
 const BIDX_TABLE = "read_kms_slots_persons";
 const personEntity = createEntity({
+  name: "person",
   table: BIDX_TABLE,
   fields: {
     email: createTextField({ required: true, personal: "self", find: "exact" }),
   },
 });
 const personFeature = defineFeature("kmsslotsbidx", (r) => {
-  r.entity({ name: "person", ...personEntity });
+  r.entity(personEntity);
 });
 const personExecutor = createEventStoreExecutor(
-  buildEntityTable("person", personEntity),
+  buildEntityTable(personEntity),
   personEntity,
   { entityName: "person" },
 );

@@ -16,6 +16,7 @@ import { failNotFound, failUnprocessable } from "@cosmicdrift/kumiko-framework/e
 import { z } from "zod";
 
 export const ticketEntity = createEntity({
+  name: "ticket",
   table: "read_api_docs_tickets",
   webhookEvents: true,
   description: "A support request with a title, a priority and an open or closed status.",
@@ -30,11 +31,10 @@ const ticketAccess = { roles: ["Admin", "User"] } as const;
 
 export const ticketingFeature = defineFeature("ticketing", (r) => {
   const { table: ticketTable, executor: ticketExecutor } = createEntityExecutor(
-    "ticket",
     ticketEntity,
   );
 
-  r.crud("ticket", ticketEntity, {
+  r.crud(ticketEntity, {
     write: { access: ticketAccess },
     read: { access: ticketAccess },
     verbs: { delete: false },

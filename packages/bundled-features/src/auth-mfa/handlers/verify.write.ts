@@ -101,7 +101,7 @@ export function createMfaVerifyHandler(opts: MfaVerifyOptions) {
       // tenantId is meaningless here — the challenge token is the source
       // of truth for which tenant's row to read.
       const scopedDb = createTenantDb({
-        db: ctx.db.unsafeRaw(),
+        db: ctx.db.unsafeRawAllTenants(),
         tenantId,
         mode: "system",
         reason: "MFA challenge has no session, the tenant comes from the verified challenge token",

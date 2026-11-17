@@ -203,7 +203,7 @@ describe("validateTransferGraph: projections fed by a transferable entity", () =
     readonly onEntityTable: boolean;
   }): void {
     const run = entity({ transferable: opts.sourceTransferable });
-    const summary = createEntity({ table: "run_summaries", fields: { label: textField() } });
+    const summary = createEntity({ name: "runSummary", table: "run_summaries", fields: { label: textField() } });
     const feature = defineFeature("graph", (r) => {
       r.entity({ name: "run", ...run });
       r.projection({
@@ -211,7 +211,7 @@ describe("validateTransferGraph: projections fed by a transferable entity", () =
         source: "run",
         table: opts.onEntityTable
           ? buildEntityTable("run", run)
-          : buildEntityTable("runSummary", summary),
+          : buildEntityTable(summary),
         apply: { "run.created": async () => {} },
       });
     });
@@ -241,12 +241,12 @@ describe("validateTransferGraph: multi-stream projections fed by a transferable 
     readonly withTable: boolean;
   }): void {
     const run = entity({ transferable: opts.sourceTransferable });
-    const rollup = createEntity({ table: "run_rollups", fields: { label: textField() } });
+    const rollup = createEntity({ name: "runRollup", table: "run_rollups", fields: { label: textField() } });
     const feature = defineFeature("graph", (r) => {
       r.entity({ name: "run", ...run });
       r.multiStreamProjection({
         name: "run-rollup",
-        ...(opts.withTable && { table: buildEntityTable("runRollup", rollup) }),
+        ...(opts.withTable && { table: buildEntityTable(rollup) }),
         apply: { "run.created": async () => {} },
       });
     });

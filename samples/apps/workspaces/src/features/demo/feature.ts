@@ -38,7 +38,7 @@ const REQUIRED_I18N: Record<string, { de: TranslationValue; en: TranslationValue
 export const demoFeature: FeatureDefinition = defineFeature("demo", (r) => {
   r.translations({ keys: REQUIRED_I18N });
 
-  r.crud("order", orderEntity, { write: open, read: open });
+  r.crud(orderEntity, { write: open, read: open });
   r.screen(orderListScreen);
   r.screen(orderEditScreen);
 

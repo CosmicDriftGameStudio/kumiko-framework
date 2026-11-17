@@ -36,12 +36,10 @@ function registerFormDraft(r: FeatureRegistrar<typeof FORM_DRAFT_FEATURE_NAME>):
   // (see handlers/cleanup.job.ts). A hard r.requires({ features: ["config"] }) would break
   // every app that mounts form-draft without config, which is a breaking
   // change no minor/patch release should introduce silently.
-  r.optionalRequires("config");
-  r.entity({ name: "form-draft", ...formDraftEntity });
-  r.useExtension(EXT_USER_DATA, "form-draft", {
-    export: formDraftExportHook,
-    delete: formDraftDeleteHook,
-  });
+  r.optionalRequires({ features: ["config"] });
+  r.entity(formDraftEntity);
+  r.applyExtension({ name: EXT_USER_DATA, entity: "form-draft", export: formDraftExportHook,
+    delete: formDraftDeleteHook });
 
   r.writeHandler(saveDraftWrite);
   r.writeHandler(discardDraftWrite);
@@ -59,7 +57,7 @@ function registerFormDraft(r: FeatureRegistrar<typeof FORM_DRAFT_FEATURE_NAME>):
       cleanupDraftsJob(
         payload,
         ctx,
-        ctx.db.unsafeRaw(),
+        ctx.db.unsafeRawAllTenants(),
       ),
   });
 }

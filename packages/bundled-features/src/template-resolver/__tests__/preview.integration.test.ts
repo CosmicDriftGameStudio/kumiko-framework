@@ -78,8 +78,7 @@ const invMailer = defineFeature("inv-mailer", (r) => {
     access: { roles: ["TenantAdmin"] },
     handler: async () => ({ isSuccess: true as const, data: {} }),
   });
-  r.notification("invoice", {
-    trigger: { on: "create" },
+  r.notification({ name: "invoice", trigger: { on: "create" },
     recipient: () => null,
     data: () => ({}),
     variables: {
@@ -107,15 +106,12 @@ const invMailer = defineFeature("inv-mailer", (r) => {
         ].join(""),
       },
     },
-    meta: { de: { subject: "Rechnung {{invoiceNumber}}" } },
-  });
-  r.notification("locked", {
-    trigger: { on: "create" },
+    meta: { de: { subject: "Rechnung {{invoiceNumber}}" } } });
+  r.notification({ name: "locked", trigger: { on: "create" },
     recipient: () => null,
     data: () => ({}),
     template: { de: { body: "<p>Gesperrt</p>" } },
-    meta: { de: { subject: "Gesperrt" } },
-  });
+    meta: { de: { subject: "Gesperrt" } } });
   r.translations({
     keys: {
       "inv-mailer:mail.example.headline": { de: "Neue Rechnung", en: "New invoice" },

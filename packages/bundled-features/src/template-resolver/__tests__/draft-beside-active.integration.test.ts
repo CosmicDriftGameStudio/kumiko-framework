@@ -66,18 +66,14 @@ const mailer = defineFeature("dd-mailer", (r) => {
     access: { roles: ["TenantAdmin"] },
     handler: async () => ({ isSuccess: true as const, data: {} }),
   });
-  r.notification("gated", {
-    trigger: { on: "create" },
+  r.notification({ name: "gated", trigger: { on: "create" },
     recipient: () => null,
     data: () => ({}),
-    variables: { name: templateVariable.text({ required: true }) },
-  });
+    variables: { name: templateVariable.text({ required: true }) } });
   for (const name of PLAIN_NAMES) {
-    r.notification(name, {
-      trigger: { on: "create" },
+    r.notification({ name, trigger: { on: "create" },
       recipient: () => null,
-      data: () => ({}),
-    });
+      data: () => ({}) });
   }
 });
 

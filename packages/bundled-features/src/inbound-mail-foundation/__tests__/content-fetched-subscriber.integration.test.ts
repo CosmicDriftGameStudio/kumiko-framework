@@ -33,17 +33,13 @@ type Seen = {
 const seen: Seen[] = [];
 
 const subscriberFeature = defineFeature("content-fetched-subscriber", (r) => {
-  r.job(
-    "on-content-fetched",
-    { trigger: { on: INBOUND_MESSAGE_CONTENT_FETCHED_EVENT_QN }, runIn: "worker" },
-    async (payload, ctx: JobContext) => {
+  r.job({ name: "on-content-fetched", trigger: { on: INBOUND_MESSAGE_CONTENT_FETCHED_EVENT_QN }, runIn: "worker", handler: async (payload, ctx: JobContext) => {
       seen.push({
         payload,
         headers: ctx.triggerEvent?.headers ?? {},
         eventId: ctx.triggerEvent?.id,
       });
-    },
-  );
+    } });
 });
 
 let env: MailTestStack;

@@ -47,6 +47,7 @@ type ThingMode =
   | "no-escapeHatch-ack-crud";
 
 const thingEntity = createEntity({
+  name: "thing",
   table: "hooksys3198_things",
   fields: {
     label: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -59,7 +60,7 @@ const thingEntity = createEntity({
 // mirrors tenant/feature.ts (r.systemScope() + entity + create handler).
 const featureA = defineFeature("hooksys3198-a", (r) => {
   r.systemScope();
-  r.entity({ name: "thing", ...thingEntity });
+  r.entity(thingEntity);
   r.writeHandler(defineEntityCreateHandler("thing", thingEntity, { access: { roles: ["Admin"] } }));
 });
 
@@ -93,7 +94,7 @@ const featureB = defineFeature("hooksys3198-b", (r) => {
       const rawDb =
         mode === "escapeHatch-unsafe-raw"
           ? ctx.systemDb.unsafeRaw(HOOK_ESCAPE_HATCH_REASON)
-          : ctx.systemDb.acknowledgeCrossTenant(HOOK_ESCAPE_HATCH_REASON).unsafeRaw();
+          : ctx.systemDb.acknowledgeCrossTenant(HOOK_ESCAPE_HATCH_REASON).unsafeRawAllTenants();
       const otherTenantDb = createTenantDb({
         db: rawDb,
         tenantId: OTHER_TENANT_ID,
@@ -102,7 +103,7 @@ const featureB = defineFeature("hooksys3198-b", (r) => {
       });
       await otherTenantDb.insertOne(auditTable, { note: `${mode}:${labelOf(result)}` });
     },
-    escapeHatch: { reason: HOOK_ESCAPE_HATCH_REASON },
+    escapeHatch: { reason: HOOK_ESCAPE_HATCH_REASON, grants: ["unsafeRaw"] },
   });
 
   r.hook({
@@ -121,7 +122,7 @@ const featureB = defineFeature("hooksys3198-b", (r) => {
         });
         await otherTenantDb.insertOne(auditTable, { note: `${mode}:${labelOf(result)}` });
       } else if (mode === "no-escapeHatch-ack-unsafe-raw") {
-        const rawDb = ctx.systemDb.acknowledgeCrossTenant(NO_HOOK_ESCAPE_HATCH_REASON).unsafeRaw();
+        const rawDb = ctx.systemDb.acknowledgeCrossTenant(NO_HOOK_ESCAPE_HATCH_REASON).unsafeRawAllTenants();
         const otherTenantDb = createTenantDb({
           db: rawDb,
           tenantId: OTHER_TENANT_ID,

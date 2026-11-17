@@ -45,6 +45,7 @@ const PNG_BYTES = new Uint8Array([
 const PDF_BYTES = new TextEncoder().encode("%PDF-1.4 generated");
 
 const reportEntity = createEntity({
+  name: "report",
   table: "file_ref_from_bytes_reports",
   fields: {
     // accept + maxSize are enforced exactly like on POST /files
@@ -69,7 +70,7 @@ const uploadedPayload = z.object({
 });
 
 const fixtureFeature = defineFeature("file-ref-from-bytes-fixture", (r) => {
-  r.entity({ name: "report", ...reportEntity });
+  r.entity(reportEntity);
 
   r.writeHandler({
     name: "store",
@@ -152,14 +153,14 @@ const fixtureFeature = defineFeature("file-ref-from-bytes-fixture", (r) => {
     );
   }
 
-  r.job("store-from-job", { trigger: { manual: true }, retries: 0 }, async (_payload, ctx) => {
+  r.job({ name: "store-from-job", trigger: { manual: true }, retries: 0, handler: async (_payload, ctx) => {
     const result = await createFileRefFromBytes(
       { ...ctx, user: ctx.systemUser },
       { fileName: "job-report.pdf", mimeType: "application/pdf", data: PDF_BYTES },
     );
     if (result.isSuccess) jobStoredIds.push(result.data.id);
     else jobStoreFailure = result.error.message;
-  });
+  } });
 });
 
 let stack: TestStack;

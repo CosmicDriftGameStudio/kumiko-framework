@@ -28,13 +28,11 @@ const mailer = defineFeature("boot-mailer", (r) => {
     access: { roles: ["TenantAdmin"] },
     handler: async () => ({ isSuccess: true as const, data: {} }),
   });
-  r.notification("hello", {
-    trigger: { on: "create" },
+  r.notification({ name: "hello", trigger: { on: "create" },
     recipient: () => null,
     data: () => ({}),
     template: { de: { body: "<p>Hallo</p>" } },
-    meta: { de: { subject: "Hallo" } },
-  });
+    meta: { de: { subject: "Hallo" } } });
 });
 
 let stack: TestStack;

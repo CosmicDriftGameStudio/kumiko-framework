@@ -18,6 +18,7 @@ import {
 } from "../index.ts";
 
 const thingEntity = createEntity({
+  name: "thing",
   table: "callerid_things",
   fields: {
     label: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -27,7 +28,7 @@ const thingEntity = createEntity({
 const CREATE_QN = "callerid:write:thing:create";
 
 const feature = defineFeature("callerid", (r) => {
-  r.entity({ name: "thing", ...thingEntity });
+  r.entity(thingEntity);
   r.writeHandler(defineEntityCreateHandler("thing", thingEntity, { access: { roles: ["Admin"] } }));
 });
 
