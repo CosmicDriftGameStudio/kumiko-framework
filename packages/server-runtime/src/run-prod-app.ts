@@ -117,6 +117,7 @@ import type { SecurityHeadersOption } from "./security-headers.ts";
 import type { SeedCreateFileRef } from "./seed-dispatcher.ts";
 
 export { parseRunMode } from "./boot/env-gate.ts";
+export { searchAdapterContext } from "./boot-options/search-option.ts";
 export { buildBunServeOptions } from "./bun-serve-options.ts";
 export { requireEnv } from "./require-env.ts";
 export {

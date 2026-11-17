@@ -70,6 +70,7 @@ import {
   buildConfigOverrides,
   type ConfigOverridesInput,
   loggerFromExtraContext,
+  searchAdapterContext,
 } from "@cosmicdrift/kumiko-server-runtime/run-prod-app";
 
 export type RunDevAppAuthOptions = AppRuntimeAuthOptions & {
@@ -258,7 +259,8 @@ function renderDevWelcomeBanner(
 // factory dependencies because createKumikoServer builds the stack. Therefore
 // use a factory: buildBootExtraContext runs with hasAuth:false because
 // configResolver already comes from cfgExtra, and cfgExtra values override
-// the boot defaults.
+// the boot defaults. The search option's adapter sits between the boot defaults
+// and the app values, as in runProdApp, and conflicts with an app-supplied searchAdapter.
 function buildDevExtraContext(
   options: RunDevAppOptions,
   config: DevBootConfig,
@@ -290,11 +292,13 @@ function buildDevExtraContext(
       ...(bootLogger && { log: bootLogger }),
       ...(unsubscribeLinks && { unsubscribeLinks }),
     });
-    return {
+    const devExtraContext: Record<string, unknown> = {
       ...boot,
       ...(options.defaultLocale !== undefined && { defaultLocale: options.defaultLocale }),
+      ...searchAdapterContext(config.wiring.searchAdapter, base, "runDevApp"),
       ...base,
     };
+    return devExtraContext;
   };
 }
 

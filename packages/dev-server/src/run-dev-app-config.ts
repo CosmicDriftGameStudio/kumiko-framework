@@ -97,6 +97,7 @@ function devBootOptionWiringInput(
     features: options.features,
     ...(options.mail && { mail: options.mail }),
     ...(options.fileStorage && { fileStorage: options.fileStorage }),
+    ...(options.search && { search: options.search }),
     ...(options.kmsMode !== undefined && { kmsMode: options.kmsMode }),
     ...(options.billing && { billing: options.billing }),
     ...(options.featureToggles && { featureToggles: true }),
