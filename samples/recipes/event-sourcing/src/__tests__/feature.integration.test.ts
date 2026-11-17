@@ -28,11 +28,8 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import {
-  approverDirectoryTable,
-  invoiceDetailTable,
-  invoiceFeature,
-} from "../feature";
+import { invoiceFeature } from "../feature";
+import { approverDirectoryTable, invoiceDetailTable } from "../schema";
 
 let stack: TestStack;
 const admin = createTestUser({ roles: ["Admin"] });

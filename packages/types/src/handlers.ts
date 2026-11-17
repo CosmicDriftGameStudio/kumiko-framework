@@ -1151,6 +1151,15 @@ export type HandlerRef = {
   readonly name: string;
 };
 
+declare const QUERY_HANDLER_IO: unique symbol;
+
+// Type-only slot: never set at runtime, it carries the handler's payload and result types across
+// feature boundaries so queryByRef can return the result without a cast.
+export type QueryHandlerRef<TPayload = unknown, TResult = unknown> = HandlerRef & {
+  readonly qualifiedName: string;
+  readonly [QUERY_HANDLER_IO]?: { readonly payload: TPayload; readonly result: TResult };
+};
+
 // --- Handler Definitions (stored in feature/registry) ---
 
 // Per-handler rate limit. Bucket key derived from `per`:

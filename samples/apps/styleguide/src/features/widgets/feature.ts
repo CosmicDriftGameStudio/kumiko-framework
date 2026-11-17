@@ -5,90 +5,20 @@
 
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
+import {
+  INBOX_MESSAGES,
+  LOAN_MARKERS,
+  LOAN_MONTHS,
+  LOAN_SERIES,
+  LOAN_START_MS,
+  LOAN_TODAY_MS,
+  loanMonthMs,
+  openAmount,
+  RESPONSE_POINTS,
+} from "./demo-data";
 import { demoMoney, demoMonthYear, demoPercent, demoText } from "./demo-locale";
 import { WIDGETS_I18N } from "./i18n";
-
-// Statische Demo-Zeitreihe (48 Punkte à 30 Minuten) — kein Date-API,
-// das Fenster ist relativ zu 0 definiert.
-const RESPONSE_POINTS = Array.from({ length: 48 }, (_, i) => ({
-  atMs: i * 30 * 60 * 1000,
-  value: i === 20 ? null : 120 + Math.round(80 * Math.abs(Math.sin(i / 5))),
-}));
-
-const LOAN_START_MS = Date.UTC(2020, 0, 1);
-const LOAN_TODAY_MS = Date.UTC(2026, 5, 15);
-const LOAN_MONTHS = 240;
-const LOAN_PRINCIPAL_MINOR = 25_000_000;
-const LOAN_MONTHLY_RATE = 0.035 / 12;
-
-const loanMonthMs = (monthIndex: number): number => Date.UTC(2020, monthIndex, 1);
-
-// Annuity loan over 20 years: remaining principal falls, cumulative interest
-// grows. "Today" is a fixed date, not the clock, so the window and the
-// screenshots stay stable.
-const growth = (1 + LOAN_MONTHLY_RATE) ** LOAN_MONTHS;
-const annuityMinor = (LOAN_PRINCIPAL_MINOR * LOAN_MONTHLY_RATE * growth) / (growth - 1);
-// Month index -> extra repayment, which shortens the term below LOAN_MONTHS.
-const EXTRA_REPAYMENTS_MINOR: ReadonlyMap<number, number> = new Map([
-  [84, 3_000_000],
-  [150, 2_000_000],
-]);
-let balanceMinor: number = LOAN_PRINCIPAL_MINOR;
-let interestPaidMinor = 0;
-let payoffMonth: number | undefined;
-const LOAN_REMAINING_POINTS = [{ atMs: loanMonthMs(0), value: LOAN_PRINCIPAL_MINOR }];
-const LOAN_INTEREST_POINTS = [{ atMs: loanMonthMs(0), value: 0 }];
-for (let i = 1; i <= LOAN_MONTHS; i++) {
-  const interest = balanceMinor * LOAN_MONTHLY_RATE;
-  const extraRepayment = EXTRA_REPAYMENTS_MINOR.get(i) ?? 0;
-  balanceMinor = Math.max(0, balanceMinor - (annuityMinor - interest) - extraRepayment);
-  if (balanceMinor === 0) payoffMonth ??= i;
-  interestPaidMinor += interest;
-  LOAN_REMAINING_POINTS.push({ atMs: loanMonthMs(i), value: Math.round(balanceMinor) });
-  LOAN_INTEREST_POINTS.push({ atMs: loanMonthMs(i), value: Math.round(interestPaidMinor) });
-}
-const LOAN_SERIES = [
-  { key: "remaining", label: "widgets:dashboard:loan-remaining", points: LOAN_REMAINING_POINTS },
-  { key: "interest", label: "widgets:dashboard:loan-interest", points: LOAN_INTEREST_POINTS },
-];
-const LOAN_MARKERS = [
-  ...[...EXTRA_REPAYMENTS_MINOR.keys()].map((monthIndex, i) => ({
-    atMs: loanMonthMs(monthIndex),
-    label: { i18nKey: `widgets:dashboard:marker-extra-${i + 1}` },
-    kind: "extra",
-  })),
-  {
-    atMs: loanMonthMs(payoffMonth ?? LOAN_MONTHS),
-    label: { i18nKey: "widgets:dashboard:marker-payoff" },
-    kind: "payoff",
-  },
-];
-
-const SENDERS = ["William Smith", "Alice Smith", "Bob Johnson", "Emily Davis"] as const;
-const SUBJECTS = ["Meeting Tomorrow", "Re: Project Update", "Weekend Plans", "Re: Budget"] as const;
-
-// Static demo inbox (18 messages) for the InfinityList demo — enough
-// rows to load several pages beyond pageSize=6.
-const INBOX_MESSAGES = Array.from({ length: 18 }, (_, i) => ({
-  id: `m${i + 1}`,
-  // Cast is sound: `i % SENDERS.length` is always in [0, SENDERS.length) —
-  // noUncheckedIndexedAccess can't see that from a computed index, unlike
-  // the removed `as string` this replaces (which had no such guarantee).
-  sender: SENDERS[i % SENDERS.length] as (typeof SENDERS)[number],
-  subject: SUBJECTS[i % SUBJECTS.length] as (typeof SUBJECTS)[number],
-  snippet: "Hi team, just a reminder about our meeting tomorrow at 10 AM.",
-  // % 4 statt % 3: bleibt an der sender/subject-Rotation ausgerichtet, sonst
-  // ist irgendwann jede Kombination mal unread und der Filter zeigt visuell
-  // keinen Unterschied.
-  unread: i % 4 === 0,
-}));
-
-function openAmount(amount: number, locale: string): string {
-  return demoText("widgets:dashboard:demo-amount-open", locale).replace(
-    "{amount}",
-    demoMoney(amount, "EUR", locale),
-  );
-}
+import { widgetsDashboardScreen } from "./screens";
 
 export const widgetsFeature = defineFeature("widgets", (r) => {
   r.screen({ id: "widgets", type: "custom", renderer: { react: { __component: "widgets" } } });
@@ -98,131 +28,7 @@ export const widgetsFeature = defineFeature("widgets", (r) => {
     renderer: { react: { __component: "widgets-forms" } },
   });
 
-  r.screen({
-    id: "widgets-dashboard",
-    type: "dashboard",
-    filter: {
-      id: "region",
-      label: "widgets:dashboard:filter-region",
-      kind: "select",
-      options: [
-        { value: "eu", label: "widgets:dashboard:filter-region-eu" },
-        { value: "us", label: "widgets:dashboard:filter-region-us" },
-      ],
-    },
-    panels: [
-      {
-        kind: "stat",
-        id: "portfolio",
-        label: "widgets:dashboard:portfolio",
-        query: "widgets:query:metrics:portfolio-stat",
-        valueField: "value",
-        subField: "sub",
-        toneField: "tone",
-        deltaField: "delta",
-        deltaDirectionField: "deltaDirection",
-        deltaToneField: "deltaTone",
-        icon: { react: { __component: "widgets-dashboard-kpi-icon" } },
-        accentColor: "var(--color-primary)",
-      },
-      {
-        kind: "stat-group",
-        id: "net-worth",
-        label: "widgets:dashboard:net-worth",
-        stats: [
-          {
-            kind: "stat",
-            id: "net-worth-assets",
-            label: "widgets:dashboard:net-worth-assets",
-            query: "widgets:query:metrics:net-worth-assets",
-            valueField: "value",
-          },
-          {
-            kind: "stat",
-            id: "net-worth-debts",
-            label: "widgets:dashboard:net-worth-debts",
-            query: "widgets:query:metrics:net-worth-debts",
-            valueField: "value",
-          },
-        ],
-      },
-      {
-        kind: "chart",
-        id: "response-times",
-        label: "widgets:dashboard:response-times",
-        chart: "timeseries",
-        query: "widgets:query:metrics:response-times",
-      },
-      {
-        kind: "chart",
-        id: "loan",
-        label: "widgets:dashboard:loan",
-        chart: "stacked-area",
-        query: "widgets:query:metrics:loan",
-        valueFormat: { kind: "currency", currency: "EUR", fractionDigits: 0 },
-        brush: true,
-        legendTotals: false,
-        initialWindow: "from-today",
-        markerLegend: "legend",
-        markerLabels: true,
-        markerKinds: {
-          extra: { tone: "active", label: "widgets:dashboard:kind-extra" },
-          payoff: { tone: "positive", label: "widgets:dashboard:kind-payoff" },
-        },
-        ranges: {
-          default: "max",
-          options: [
-            { value: "y1", label: "widgets:dashboard:range-y1", months: 12 },
-            { value: "y3", label: "widgets:dashboard:range-y3", months: 36 },
-            { value: "y5", label: "widgets:dashboard:range-y5", months: 60 },
-            { value: "max", label: "widgets:dashboard:range-all" },
-          ],
-        },
-      },
-      {
-        kind: "list",
-        id: "latest",
-        label: "widgets:dashboard:latest",
-        query: "widgets:query:metrics:latest-items",
-        columns: [
-          { field: "name", label: "widgets:dashboard:col-name" },
-          { field: "status", label: "widgets:dashboard:col-status" },
-        ],
-      },
-      {
-        kind: "feed",
-        id: "upcoming",
-        label: "widgets:dashboard:upcoming",
-        query: "widgets:query:metrics:upcoming-events",
-      },
-      {
-        kind: "progress-list",
-        id: "goal-progress",
-        label: "widgets:dashboard:goal-progress",
-        query: "widgets:query:metrics:goal-progress",
-      },
-      {
-        kind: "text",
-        id: "dashboard-help",
-        label: "widgets:dashboard:help-title",
-        blocks: [
-          { kind: "heading", text: "widgets:dashboard:help-heading" },
-          { kind: "paragraph", text: "widgets:dashboard:help-body" },
-          {
-            kind: "list",
-            items: ["widgets:dashboard:help-item-1", "widgets:dashboard:help-item-2"],
-          },
-          { kind: "code", code: "kumiko check --explain" },
-          { kind: "hint", text: "widgets:dashboard:help-hint" },
-        ],
-      },
-      {
-        kind: "custom",
-        id: "filter-echo",
-        component: { react: { __component: "widgets-dashboard-filter-echo" } },
-      },
-    ],
-  });
+  r.screen(widgetsDashboardScreen);
 
   r.queryHandler({
     name: "metrics:portfolio-stat",

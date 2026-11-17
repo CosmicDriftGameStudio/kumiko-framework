@@ -8,7 +8,7 @@ import {
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 
 import { demoEntity } from "../features/demo/feature";
-import { inspectionEntity } from "../features/examples/feature";
+import { inspectionEntity } from "../features/examples/schema";
 
 // Gives the list view real rows with status/flag variety. price (money)
 // stays empty — the money input shows in the edit screen, in the seed we leave

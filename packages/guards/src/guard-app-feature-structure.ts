@@ -3,7 +3,8 @@
 // feature.ts = registration only, screens under web/, handlers under handlers/.
 // A feature file's runtime follows from its path (web/** is client, the rest is server or
 // isomorphic), so a runtime-client marker is never needed: outside web/ it hides client code
-// in the server tree, inside web/ it is redundant. This guard flags the four most expensive deviations:
+// in the server tree, inside web/ it is redundant. In the framework repo the sample apps and
+// recipes are checked too (samples/recipes/<r>/src/ = one feature folder). This guard flags the four most expensive deviations:
 //   1. web.tsx/web.ts monolith or JSX screens directly at the feature root
 //   2. feature.ts as a logic dump (> MAX_FEATURE_TS_LINES lines)
 //   3. r.screen({ type: "custom" }) without an allowlist tag — declarative
@@ -24,17 +25,24 @@ const SCAN: ScanSpec = {
   scope: "source",
   extensions: ["ts", "tsx"],
   within: ["features/**"],
-  frameworkWithin: ["packages/bundled-features/src/**"],
+  frameworkWithin: [
+    "packages/bundled-features/src/**",
+    "samples/apps/*/src/features/**",
+    "samples/recipes/*/src/**",
+  ],
 };
 const EXCLUDE = /(__tests__|\.test\.tsx?$|\.integration\.tsx?$|\.d\.ts$)/;
 const IGNORE_TAG = "kumiko-lint-ignore app-feature-structure";
 
 const MAX_FEATURE_TS_LINES = 300;
 
-// src/features/<name>/<file> or packages/bundled-features/src/<name>/<file>
+// src/features/<name>/<file>, packages/bundled-features/src/<name>/<file> or
+// samples/recipes/<recipe>/src/<file> (a recipe's src/ is one feature folder)
 // — exactly one level below the feature folder.
 function isFeatureRootFile(filePath: string): boolean {
-  const m = filePath.match(/(src\/features|packages\/bundled-features\/src)\/[^/]+\/[^/]+$/);
+  const m = filePath.match(
+    /(?:(?:src\/features|packages\/bundled-features\/src)\/[^/]+|samples\/recipes\/[^/]+\/src)\/[^/]+$/,
+  );
   return m !== null;
 }
 
@@ -114,7 +122,8 @@ function checkCustomScreens(sf: SourceFile, violations: GuardViolation[]): void 
 }
 
 const DIRECTIVE_HEAD_CHARS = 600;
-const FEATURE_RELATIVE_PATH = /(?:src\/features|packages\/bundled-features\/src)\/[^/]+\/(.+)$/;
+const FEATURE_RELATIVE_PATH =
+  /(?:(?:src\/features|packages\/bundled-features\/src)\/[^/]+|samples\/recipes\/[^/]+\/src(?!\/features\/))\/(.+)$/;
 
 const PATH_IMPLIED_RUNTIME_DIRS = ["dev/", "scripts/"];
 

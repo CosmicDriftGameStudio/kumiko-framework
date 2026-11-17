@@ -19,108 +19,34 @@
 //   - streamAllEventsByType — memory-bounded iteration for ops/export jobs
 
 import {
-  buildEntityTable,
-  createEventStoreExecutor,
   fetchOne,
   incrementCounter,
   insertOne,
-  integer,
-  table,
-  text,
   updateMany,
-  uuid,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
-  createEntity,
-  createTextField,
   defineFeature,
   defineProjectionQueryHandler,
-  emitEvent,
   typedPayload,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
-
-// --- Reducer: shared by live + snapshot-aware query handlers ---
-
-type InvoiceState = {
-  id: string | null;
-  customer: string | null;
-  status: string;
-  amountCents: number;
-  approvedBy: string | null;
-  paid: boolean;
-};
-
-// Record<string,unknown>-compatible alias — the snapshot reducer generic
-// constrains state to that shape, so we hand it this view instead of the
-// narrower InvoiceState to satisfy the bound without changing semantics.
-type InvoiceStateRecord = Record<string, unknown> & InvoiceState;
-
-const initialInvoiceState: InvoiceState = {
-  id: null,
-  customer: null,
-  status: "missing",
-  amountCents: 0,
-  approvedBy: null,
-  paid: false,
-};
-
-function reduceInvoice(state: InvoiceState, evt: { type: string; payload: unknown }): void {
-  if (evt.type === "showcase-invoice.created") {
-    const p = evt.payload as { id: string; customer: string; status: string };
-    state.id = p.id;
-    state.customer = p.customer;
-    state.status = p.status;
-  } else if (evt.type.endsWith(":event:invoice-approved")) {
-    const p = evt.payload as { amountCents: number; approvedBy: string };
-    state.status = "approved";
-    state.amountCents = p.amountCents;
-    state.approvedBy = p.approvedBy;
-  } else if (evt.type.endsWith(":event:invoice-paid")) {
-    state.status = "paid";
-    state.paid = true;
-  }
-}
-
-// --- Aggregate entity: invoice, stored as events only ---
-
-export const invoiceEntity = createEntity({
-  table: "read_showcase_invoices",
-  fields: {
-    customer: createTextField({ personal: { of: "id" }, find: "none", required: true }),
-    status: createTextField({ personal: false, reason: "is_business_data", required: true }), // "draft" | "approved" | "paid" | "closed"
-  },
-});
-
-const invoiceTable = buildEntityTable("showcase-invoice", invoiceEntity);
-
-// --- Projection 1: per-invoice detail (single-stream, inline) ---
-
-export const invoiceDetailTable = table("read_showcase_invoice_detail", {
-  invoiceId: uuid("invoice_id").primaryKey(),
-  tenantId: uuid("tenant_id").notNull(),
-  customer: text("customer").notNull(),
-  status: text("status").notNull(),
-  amountCents: integer("amount_cents").notNull().default(0),
-});
-
-// --- Projection 2: per-customer revenue (multi-stream, async) ---
-
-export const customerRevenueTable = table("read_showcase_customer_revenue", {
-  customer: text("customer").primaryKey(),
-  tenantId: uuid("tenant_id").notNull(),
-  paidInvoices: integer("paid_invoices").notNull().default(0),
-  totalCents: integer("total_cents").notNull().default(0),
-});
-
-// --- Reference data: approver display-name directory ---
-// The async upcaster (invoice-acknowledged v1 → v2) reads from this table
-// to enrich legacy events with a human-readable name. In production this
-// would be a domain-owned read model; here it's a flat lookup table.
-export const approverDirectoryTable = table("read_showcase_approver_directory", {
-  approverId: text("approver_id").primaryKey(),
-  displayName: text("display_name").notNull(),
-});
+import { createInvoiceAcknowledgeWrite } from "./handlers/invoice-acknowledge.write";
+import { createInvoiceApproveWrite } from "./handlers/invoice-approve.write";
+import { invoiceArchiveWrite } from "./handlers/invoice-archive.write";
+import { invoiceCreateWrite } from "./handlers/invoice-create.write";
+import { invoiceFastStateQuery } from "./handlers/invoice-fast-state.query";
+import { createInvoicePayWrite } from "./handlers/invoice-pay.write";
+import { createInvoicePaymentStatusesQuery } from "./handlers/invoice-payment-statuses.query";
+import { invoiceStateQuery } from "./handlers/invoice-state.query";
+import { invoiceStreamVersionQuery } from "./handlers/invoice-stream-version.query";
+import { invoiceTakeSnapshotWrite } from "./handlers/invoice-take-snapshot.write";
+import { opsSlowExportQuery } from "./handlers/ops-slow-export.query";
+import {
+  approverDirectoryTable,
+  customerRevenueTable,
+  invoiceDetailTable,
+  invoiceEntity,
+} from "./schema";
 
 // --- Feature ---
 
@@ -252,231 +178,17 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
     },
   });
 
-  const invoiceExecutor = createEventStoreExecutor(invoiceTable, invoiceEntity, {
-    entityName: "showcase-invoice",
-  });
+  r.writeHandler(invoiceCreateWrite);
+  r.writeHandler(createInvoiceApproveWrite(approved));
+  r.writeHandler(createInvoiceAcknowledgeWrite(acknowledged));
+  r.writeHandler(createInvoicePayWrite(paid));
+  r.writeHandler(invoiceArchiveWrite);
+  r.writeHandler(invoiceTakeSnapshotWrite);
 
-  // --- Write handlers ---
-
-  r.writeHandler({
-    name: "invoice:create",
-    schema: z.object({ customer: z.string() }),
-    handler: async (event, ctx) =>
-      invoiceExecutor.create(
-        { customer: event.payload.customer, status: "draft" },
-        event.user,
-        ctx.db,
-      ),
-    access: { roles: ["Admin"] },
-  });
-
-  r.writeHandler({
-    name: "invoice:approve",
-    schema: z.object({
-      id: z.uuid(),
-      amountCents: z.number().int(),
-      approvedBy: z.string(),
-      // Optional ops metadata that the caller wants threaded into the
-      // event for later filtering/auditing without bloating the payload.
-      geoRegion: z.string().optional(),
-      abTestBucket: z.string().optional(),
-    }),
-    handler: async (event, ctx) => {
-      const headers: Record<string, string> = {};
-      if (event.payload.geoRegion) headers["geoRegion"] = event.payload.geoRegion;
-      if (event.payload.abTestBucket) headers["abTestBucket"] = event.payload.abTestBucket;
-      await emitEvent(ctx, approved, {
-        aggregateId: event.payload.id,
-        aggregateType: "showcase-invoice",
-        payload: { amountCents: event.payload.amountCents, approvedBy: event.payload.approvedBy },
-        ...(Object.keys(headers).length > 0 ? { headers } : {}),
-      });
-      return { isSuccess: true as const, data: { id: event.payload.id } };
-    },
-    access: { roles: ["Admin"] },
-  });
-
-  r.writeHandler({
-    name: "invoice:acknowledge",
-    schema: z.object({ id: z.uuid(), approverId: z.string() }),
-    handler: async (event, ctx) => {
-      const row = await fetchOne<{ displayName: string }>(ctx.db, approverDirectoryTable, {
-        approverId: event.payload.approverId,
-      });
-      const approverDisplayName: string = row?.displayName ?? `unknown:${event.payload.approverId}`;
-      await emitEvent(ctx, acknowledged, {
-        aggregateId: event.payload.id,
-        aggregateType: "showcase-invoice",
-        payload: { approverId: event.payload.approverId, approverDisplayName },
-      });
-      return { isSuccess: true as const, data: { id: event.payload.id } };
-    },
-    access: { roles: ["Admin"] },
-  });
-
-  r.writeHandler({
-    name: "invoice:pay",
-    schema: z.object({ id: z.uuid(), amountCents: z.number().int() }),
-    handler: async (event, ctx) => {
-      await emitEvent(ctx, paid, {
-        aggregateId: event.payload.id,
-        aggregateType: "showcase-invoice",
-        payload: { amountCents: event.payload.amountCents },
-      });
-      return { isSuccess: true as const, data: { id: event.payload.id } };
-    },
-    access: { roles: ["Admin"] },
-    // Per-user cap: a single admin shouldn't fire more than 5 pay
-    // operations per minute. Real production caps would be per
-    // tenant + handler ("tenant+handler") to keep one admin from
-    // monopolising the tenant's quota — kept simple here for the
-    // sample. Demonstrates the fourth dispatcher gate (rate-limit
-    // → access → validation → handler).
-    rateLimit: { per: "user", limit: 5, windowSeconds: 60 },
-  });
-
-  r.writeHandler({
-    name: "invoice:archive",
-    schema: z.object({ id: z.uuid() }),
-    handler: async (event, ctx) => {
-      await ctx.events.archive(event.payload.id, { aggregateType: "showcase-invoice" });
-      return { isSuccess: true as const, data: { id: event.payload.id } };
-    },
-    access: { roles: ["Admin"] },
-  });
-
-  // Persist a snapshot of the current state. In practice, features schedule
-  // this from a lifecycle hook (every N events, every M minutes) — here it's
-  // an explicit write-handler so the integration test can drive it.
-  r.writeHandler({
-    name: "invoice:take-snapshot",
-    schema: z.object({ id: z.uuid() }),
-    handler: async (event, ctx) => {
-      // Rebuild the state from the current stream so the snapshot reflects
-      // the committed event log, not an in-memory guess. Use the upcaster-
-      // aware ctx.events.load to stay consistent with read-time semantics.
-      const events = await ctx.events.load(event.payload.id);
-      const state: InvoiceState = { ...initialInvoiceState };
-      for (const evt of events) {
-        reduceInvoice(state, evt);
-      }
-      const version = events.length > 0 ? (events[events.length - 1]?.version ?? 0) : 0;
-      await ctx.events.snapshot({
-        aggregateId: event.payload.id,
-        aggregateType: "showcase-invoice",
-        version,
-        state: state as unknown as Record<string, unknown>,
-      });
-      return { isSuccess: true as const, data: { id: event.payload.id, snapshotVersion: version } };
-    },
-    access: { roles: ["Admin"] },
-  });
-
-  // --- Query handlers ---
-
-  // Live aggregation via ctx.events.load — reduces events into a state
-  // snapshot. Supports asOf for point-in-time reads.
-  r.queryHandler({
-    name: "invoice:state",
-    schema: z.object({ id: z.uuid(), asOf: z.iso.datetime().optional() }),
-    handler: async (query, ctx) => {
-      const events = await ctx.events.load(query.payload.id, {
-        ...(query.payload.asOf ? { asOf: Temporal.Instant.from(query.payload.asOf) } : {}),
-      });
-      const state: InvoiceState = { ...initialInvoiceState };
-      for (const evt of events) {
-        reduceInvoice(state, evt);
-      }
-      return state;
-    },
-    access: {
-      openToAll: {
-        reason:
-          "demo recipe: any signed-in user may read the event-sourced invoice state; " +
-          "there is no per-user invoice ownership in this sample",
-      },
-    },
-  });
-
-  // Existence and version probe without loading the stream; counts archived streams too.
-  r.queryHandler({
-    name: "invoice:stream-version",
-    schema: z.object({ id: z.uuid() }),
-    handler: async (query, ctx) => ({ version: await ctx.events.streamVersion(query.payload.id) }),
-    access: {
-      openToAll: {
-        reason:
-          "demo recipe: any signed-in user may read the event-sourced invoice state; " +
-          "there is no per-user invoice ownership in this sample",
-      },
-    },
-  });
-
-  // List page over many invoices: ONE query for just the approved/paid events of the
-  // requested aggregates instead of ctx.events.load per invoice.
-  r.queryHandler({
-    name: "invoice:payment-statuses",
-    schema: z.object({ ids: z.array(z.uuid()).max(200) }),
-    handler: async (query, ctx) => {
-      const events = await ctx.events.loadByTypes({
-        aggregateIds: query.payload.ids,
-        eventTypes: [approved.name, paid.name],
-      });
-      const lastEventByInvoice = new Map<string, string>();
-      for (const evt of events) {
-        lastEventByInvoice.set(evt.aggregateId, evt.type);
-      }
-      return {
-        statuses: [...lastEventByInvoice].map(([id, lastEventType]) => ({
-          id,
-          status: lastEventType === paid.name ? "paid" : "approved",
-        })),
-      };
-    },
-    access: {
-      openToAll: {
-        reason:
-          "demo recipe: any signed-in user may read invoice payment statuses; " +
-          "there is no per-user invoice ownership in this sample",
-      },
-    },
-  });
-
-  // Snapshot-aware fast path. Uses the latest snapshot if available and
-  // only replays delta events past it. Identical state shape to
-  // invoice:state — the two are interchangeable modulo the perf profile.
-  r.queryHandler({
-    name: "invoice:fast-state",
-    schema: z.object({ id: z.uuid() }),
-    handler: async (query, ctx) => {
-      const result = await ctx.events.loadWithSnapshot<InvoiceStateRecord>(
-        query.payload.id,
-        (state, evt) => {
-          const next: InvoiceStateRecord = { ...state };
-          reduceInvoice(next as unknown as InvoiceState, evt);
-          return next;
-        },
-        { ...initialInvoiceState } as InvoiceStateRecord,
-        // Auto-snapshot policy: once 100+ delta events pile up past the last
-        // snapshot, the read path persists a fresh one (best-effort). Bump
-        // snapshotVersion whenever the reducer's state SHAPE changes — a
-        // stale-shape snapshot is then ignored and rebuilt from the log.
-        { snapshotEvery: 100, snapshotVersion: 1 },
-      );
-      return {
-        state: result.state,
-        version: result.version,
-        snapshotHit: result.snapshotHit,
-      };
-    },
-    access: {
-      openToAll: {
-        reason:
-          "demo recipe: any signed-in user may read the snapshot-accelerated invoice " +
-          "state; there is no per-user invoice ownership in this sample",
-      },
-    },
-  });
+  r.queryHandler(invoiceStateQuery);
+  r.queryHandler(invoiceStreamVersionQuery);
+  r.queryHandler(createInvoicePaymentStatusesQuery({ approved: approved.name, paid: paid.name }));
+  r.queryHandler(invoiceFastStateQuery);
 
   // Read-model query via ctx.dispatch.queryProjection — auto-tenant-scoped. The
   // helper collapses the zero-argument "return this projection" pattern
@@ -494,27 +206,5 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
     }),
   );
 
-  // Slow synthetic export — demonstrates ctx.lifecycle.signal honouring inside a
-  // long-running handler loop. Real-world equivalents: PDF batch export,
-  // bulk CSV download, multi-stream audit walk. Mobile clients that
-  // navigate away mid-export should NOT keep the server busy producing
-  // bytes nobody will read. The handler checks ctx.lifecycle.signal at every
-  // iteration; on abort, throws and the dispatcher returns an error to
-  // the (already-disconnected) client.
-  r.queryHandler({
-    name: "ops:slow-export",
-    schema: z.object({ chunks: z.number().int().min(1).max(1000) }),
-    handler: async (query, ctx) => {
-      const accumulated: number[] = [];
-      for (let i = 0; i < query.payload.chunks; i++) {
-        ctx.lifecycle.signal?.throwIfAborted();
-        // Fake "work per chunk". Realistic handler would assemble a row,
-        // hit a remote service, etc.
-        await new Promise((resolve) => setTimeout(resolve, 10));
-        accumulated.push(i);
-      }
-      return { processed: accumulated.length };
-    },
-    access: { roles: ["Admin"] },
-  });
+  r.queryHandler(opsSlowExportQuery);
 });

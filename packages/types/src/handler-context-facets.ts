@@ -127,6 +127,7 @@ export type HandlerEvents<TMap extends object = KumikoEventTypeMap> = {
  * Cross-feature bridge: `query`/`write` run the target handler AS THE CURRENT USER, sharing the
  * active tx + afterCommit queue. `queryAs`/`writeAs` switch identity; any target other than the
  * caller itself (or a subset of its roles) needs r.systemScope(), a job, or an escapeHatch.
+ * A typed result across features: queryByRef(ctx.dispatch, ref, payload) with the ref r.queryHandler returns.
  */
 export type HandlerDispatch = {
   readonly query: (qn: string, payload: unknown) => Promise<unknown>;

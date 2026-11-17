@@ -5,7 +5,8 @@
 // viewport, not derived from source — matches how the bug was first found.
 
 import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
-import { renderLanding, SAMPLE_PLANS } from "../src/feature";
+import { SAMPLE_PLANS } from "../src/constants";
+import { renderLanding } from "../src/feature";
 
 test("header keeps the page's horizontal padding below 1120px", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });

@@ -7,7 +7,8 @@ import {
 import type { ListTableOptions } from "@cosmicdrift/kumiko-framework/ui-types";
 import { withBootValidatorFixture } from "@cosmicdrift/kumiko-testing/helpers";
 import * as z from "zod";
-import { createTaskBoardFeature, openAccess, taskEntity } from "../feature";
+import { openAccess } from "../access";
+import { createTaskBoardFeature, taskEntity } from "../feature";
 
 // The boot validator is the net for blocks the type system never sees (JS, generated features).
 function featureWithBlock(block: object) {

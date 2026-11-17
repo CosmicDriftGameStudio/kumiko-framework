@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { buildLandingPage, renderLanding, SAMPLE_PLANS } from "../feature";
+import { SAMPLE_PLANS } from "../constants";
+import { buildLandingPage, renderLanding } from "../feature";
 
 describe("apex-landing: template-resolver seam", () => {
   test("uses the seeded block body when present", () => {

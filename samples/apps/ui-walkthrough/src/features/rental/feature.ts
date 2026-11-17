@@ -1,12 +1,11 @@
-import type { EventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, defineWriteHandler, i18nKey } from "@cosmicdrift/kumiko-framework/engine";
-import { failNotFound } from "@cosmicdrift/kumiko-framework/errors";
 import {
   renderPdfBeforeTransaction,
   storeRenderedPdf,
 } from "@cosmicdrift/kumiko-renderer-puppeteer-client";
 import { z } from "zod";
-import { openToAllSignedIn, toKeyFirst } from "../translations";
+import { toKeyFirst } from "../translations";
+import { open } from "./access";
 import {
   leaseEntity,
   leasePartyEntity,
@@ -14,27 +13,20 @@ import {
   managementProfileEntity,
   receiptEntity,
 } from "./entities";
+import { leaseAkteQuery } from "./handlers/lease-akte.query";
+import { leaseKennzahlenQuery } from "./handlers/lease-kennzahlen.query";
+import { leasePositionsQuery } from "./handlers/lease-positions.query";
+import { leaseRecordPositionsWrite } from "./handlers/lease-record-positions.write";
+import { leaseUnterlagenQuery } from "./handlers/lease-unterlagen.query";
+import { rentAdjustWrite } from "./handlers/rent-adjust.write";
 import { rentalTranslations } from "./i18n";
 import { receiveInvoicePayloadSchema } from "./invoice-receive";
 import {
-  dayBefore,
-  fileRefIdsPayloadSchema,
-  formatGermanDate,
-  formatGermanMoney,
-  germanStatusLabel,
   idPayloadSchema,
   leaseExecutor,
   managementProfileExecutor,
   noticePeriodEnd,
-  parseLeaseRow,
-  partyExecutor,
-  positionExecutor,
-  positionListRowSchema,
-  positionRowSchema,
   propertyExposePayloadSchema,
-  type RecordedPositionItem,
-  recordPositionsPayloadSchema,
-  rentAdjustPayloadSchema,
   saveManagementProfilePayloadSchema,
 } from "./lease-support";
 import { receiptsUploadPayloadSchema, uploadReceipts } from "./receipts-upload";
@@ -59,30 +51,6 @@ import {
 } from "./screens";
 
 export { leaseEntity, leasePartyEntity, leasePositionEntity };
-
-const open = openToAllSignedIn(
-  "demo app: any signed-in user manages every lease; there is no per-user ownership in this sample",
-);
-
-// measure and vatRate only exist to give the walkthrough form realistic column
-// types; leasePosition has no fields for them.
-function positionFromItem(
-  lease: string,
-  unitLabel: string | null | undefined,
-  item: RecordedPositionItem,
-) {
-  return {
-    lease,
-    art: item.kind,
-    ...(unitLabel && { einheit: unitLabel }),
-    betrag: {
-      amount: Math.round(item.unitPrice.amount * item.quantity),
-      currency: item.unitPrice.currency,
-    },
-    gueltigVon: item.validFrom,
-    ...(item.validTo && { gueltigBis: item.validTo }),
-  };
-}
 
 export const rentalFeature = defineFeature("rental", (r) => {
   r.translations({ keys: toKeyFirst(rentalTranslations) });
@@ -113,95 +81,13 @@ export const rentalFeature = defineFeature("rental", (r) => {
   });
   r.crud("leaseParty", leasePartyEntity, { write: open, read: open });
 
-  r.queryHandler({
-    name: "lease:unterlagen",
-    schema: fileRefIdsPayloadSchema,
-    handler: async (query) => ({
-      id: "unterlagen",
-      titel: "Unterlagen",
-      unterlagen: query.payload.id,
-    }),
-    ...open,
-  });
+  r.queryHandler(leaseUnterlagenQuery);
 
-  r.queryHandler({
-    name: "lease:akte",
-    schema: idPayloadSchema,
-    handler: async (query, ctx) => {
-      const row = await leaseExecutor.detail({ id: query.payload.id }, query.user, ctx.db);
-      if (!row) return failNotFound("lease", query.payload.id);
-      const lease = parseLeaseRow(row);
-      const countChildren = async (executor: EventStoreExecutor): Promise<number> => {
-        const page = await executor.list(
-          { filter: { field: "lease", op: "eq", value: lease.id }, limit: 1, totalCount: true },
-          query.user,
-          ctx.db,
-        );
-        return page.total ?? page.rows.length;
-      };
-      return {
-        id: lease.id,
-        mieter: lease.mieter,
-        status: lease.status,
-        statusLabel: germanStatusLabel(lease.status, lease.ende),
-        grundmiete: formatGermanMoney(lease.grundmiete),
-        beginn: formatGermanDate(lease.beginn),
-        kuendigungsfrist: lease.kuendigungsfrist ?? "",
-        zahltag: lease.zahltag != null ? `Tag ${lease.zahltag}` : "",
-        einheit: lease.einheit ?? "",
-        liegenschaft: lease.liegenschaft ?? "",
-        ende: "",
-        vorgaenger: lease.vorgaenger ?? "",
-        kontostand: "0,00 €",
-        notizen: "",
-        partyCount: await countChildren(partyExecutor),
-        positionCount: await countChildren(positionExecutor),
-      };
-    },
-    ...open,
-  });
+  r.queryHandler(leaseAkteQuery);
 
-  r.queryHandler({
-    name: "lease:positions",
-    schema: idPayloadSchema,
-    handler: async (query, ctx) => {
-      const page = await positionExecutor.list(
-        { filter: { field: "lease", op: "eq", value: query.payload.id }, limit: 100 },
-        query.user,
-        ctx.db,
-      );
-      return {
-        rows: page.rows.map((row) => {
-          const position = positionListRowSchema.parse(row);
-          return {
-            id: position.id,
-            art: position.art,
-            einheit: position.einheit ?? "",
-            betrag: formatGermanMoney(position.betrag),
-            betragWert: position.betrag,
-            gueltigVonIso: position.gueltigVon.toString(),
-            gueltigVon: formatGermanDate(position.gueltigVon),
-            gueltigBis: position.gueltigBis ? formatGermanDate(position.gueltigBis) : "–",
-          };
-        }),
-      };
-    },
-    ...open,
-  });
+  r.queryHandler(leasePositionsQuery);
 
-  r.queryHandler({
-    name: "lease:kennzahlen",
-    schema: z.object({}),
-    handler: async () => ({
-      debt: "123.456 €",
-      debtSub: "nach 10 Jahren",
-      debtDelta: "15 %",
-      debtDeltaDirection: "down",
-      rent: "48.200 €",
-      rentSub: "319 Verträge",
-    }),
-    ...open,
-  });
+  r.queryHandler(leaseKennzahlenQuery);
 
   r.writeHandler({
     name: "lease:terminate",
@@ -222,29 +108,7 @@ export const rentalFeature = defineFeature("rental", (r) => {
     ...open,
   });
 
-  r.writeHandler({
-    name: "lease:record-positions",
-    schema: recordPositionsPayloadSchema,
-    handler: async (event, ctx) => {
-      let created: Awaited<ReturnType<typeof positionExecutor.create>> | undefined;
-      const unitLabels = new Map<string, string | null | undefined>();
-      for (const unitId of new Set(event.payload.items.map((item) => item.unit))) {
-        const unitRow = await leaseExecutor.detail({ id: unitId }, event.user, ctx.db);
-        if (!unitRow) return failNotFound("lease", unitId);
-        unitLabels.set(unitId, parseLeaseRow(unitRow).einheit);
-      }
-      for (const item of event.payload.items) {
-        created = await positionExecutor.create(
-          positionFromItem(event.payload.lease, unitLabels.get(item.unit), item),
-          event.user,
-          ctx.db,
-        );
-        if (!created.isSuccess) return created;
-      }
-      return created ?? failNotFound("leasePosition", event.payload.lease);
-    },
-    ...open,
-  });
+  r.writeHandler(leaseRecordPositionsWrite);
 
   r.entity({ name: "receipt", ...receiptEntity });
   // One row per tenant: the profile screen loads it without a record id.
@@ -308,45 +172,7 @@ export const rentalFeature = defineFeature("rental", (r) => {
     }),
   );
 
-  r.writeHandler({
-    name: "rent:adjust",
-    schema: rentAdjustPayloadSchema,
-    handler: async (event, ctx) => {
-      const { positionId, wirksamAb, neuerBetrag } = event.payload;
-      const current = await positionExecutor.detail({ id: positionId }, event.user, ctx.db);
-      if (!current) return failNotFound("leasePosition", positionId);
-      const position = positionRowSchema.parse(current);
-
-      const endOld = await positionExecutor.update(
-        { id: positionId, changes: { gueltigBis: dayBefore(wirksamAb) } },
-        event.user,
-        ctx.db,
-        { skipOptimisticLock: true },
-      );
-      if (!endOld.isSuccess) return endOld;
-
-      const startNew = await positionExecutor.create(
-        {
-          lease: position.lease,
-          art: position.art,
-          einheit: position.einheit ?? "",
-          betrag: neuerBetrag,
-          gueltigVon: wirksamAb,
-        },
-        event.user,
-        ctx.db,
-      );
-      if (!startNew.isSuccess) return startNew;
-
-      return leaseExecutor.update(
-        { id: position.lease, changes: { grundmiete: neuerBetrag } },
-        event.user,
-        ctx.db,
-        { skipOptimisticLock: true },
-      );
-    },
-    ...open,
-  });
+  r.writeHandler(rentAdjustWrite);
 
   r.screen(leaseListScreen);
   r.screen(leaseListShortScreen);

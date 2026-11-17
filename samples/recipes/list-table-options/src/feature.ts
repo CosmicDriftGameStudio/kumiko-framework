@@ -18,6 +18,14 @@ import {
 import { failNotFound, NotFoundError } from "@cosmicdrift/kumiko-framework/errors";
 import { type ListTableOptions, MAX_BULK_SELECTION } from "@cosmicdrift/kumiko-framework/ui-types";
 import { z } from "zod";
+import { openAccess } from "./access";
+import {
+  createTaskListScreen,
+  taskEditScreen,
+  taskOverdueScreen,
+  taskSetStatusScreen,
+  taskWorkloadScreen,
+} from "./screens";
 
 export const taskEntity = createEntity({
   table: "read_list_table_tasks",
@@ -54,12 +62,6 @@ export const taskEntity = createEntity({
     lastUpdate: createTimestampField({ sortable: true }),
   },
 });
-
-export const openAccess = {
-  access: {
-    openToAll: { reason: "recipe: any signed-in user manages the tasks; no per-user ownership" },
-  },
-} as const;
 
 const setStatusInput = z.object({
   taskIds: z.array(z.uuid()).min(1).max(MAX_BULK_SELECTION),
@@ -112,100 +114,9 @@ export function createTaskBoardFeature(
   return defineFeature("task-board", (r) => {
     r.crud("task", taskEntity, { write: openAccess, read: openAccess });
 
-    r.screen({
-      id: "task-list",
-      type: "entityList",
-      entity: "task",
-      columns: [
-        // Starts pinned left; width and minWidth are start values for resizing.
-        { field: "title", pinned: "left", width: 280, minWidth: 160 },
-        "status",
-        // The phone card shows the priority as its outlined pill instead of the first select column.
-        { field: "priority", cardBadge: true },
-        { field: "dueDate", hideOnNarrow: true },
-        // The team pill sits beside the assignee name; its tone comes from the row.
-        {
-          field: "assignee",
-          hideOnNarrow: true,
-          pillField: "team",
-          pillToneField: "teamTone",
-          emptyPlaceholder: "Unassigned",
-        },
-        // One truncated line in the table; a line break starts a new line on the phone card.
-        {
-          field: "note",
-          ellipsis: true,
-          multiline: true,
-          tone: "muted",
-          cardAbove: true,
-          hideWhenDocked: true,
-          emptyPlaceholder: false,
-        },
-        // Recent edits show date and time, older ones the date only.
-        { field: "lastUpdate", dateOnlyAfterDays: 7, hideOnNarrow: true },
-        // Starts hidden; the user can add it back in the view menu.
-        { field: "estimateHours", hidden: true, hideOnNarrow: true },
-      ],
-      facets: { status: { display: "chips" }, priority: {}, estimateHours: { display: "range" } },
-      defaultSort: { field: "dueDate", dir: "asc" },
-      searchable: true,
-      table: taskTable,
-      mutedRowField: "parked",
-      toolbarSort: true,
-      sortOptions: [
-        { field: "dueDate", dir: "asc", label: "Due date" },
-        { field: "priority", dir: "desc", label: "Priority" },
-      ],
-      rowActions: [
-        // A closed state as muted text instead of a button.
-        {
-          kind: "navigate",
-          id: "closed",
-          label: "Closed",
-          screen: "task-edit",
-          display: "text",
-          visible: { field: "status", eq: "done" },
-        },
-        { kind: "navigate", id: "open", label: "Open", screen: "task-edit", rowClick: true },
-        {
-          kind: "writeHandler",
-          id: "delete",
-          label: "Delete",
-          handler: "task-board:write:task:delete",
-          style: "danger",
-          // Done tasks are skipped by the bulk run and counted as skipped.
-          visible: { field: "status", ne: "done" },
-        },
-      ],
-      // Row checkboxes and a selection bar; delete writes once per row, set-status once for all.
-      bulkActions: [
-        { id: "delete", rowAction: "delete" },
-        {
-          id: "set-status",
-          label: "Set status",
-          icon: "pencil",
-          screen: "task-set-status",
-          idsField: "taskIds",
-        },
-      ],
-      access: openAccess.access,
-    });
+    r.screen(createTaskListScreen(taskTable));
 
-    r.screen({
-      id: "task-edit",
-      type: "entityEdit",
-      entity: "task",
-      dormant: true,
-      listScreenId: "task-list",
-      layout: {
-        sections: [
-          {
-            columns: 2,
-            fields: ["title", "assignee", "status", "priority", "dueDate", "estimateHours"],
-          },
-        ],
-      },
-    });
+    r.screen(taskEditScreen);
 
     // The same block works on a list over any query.
     r.queryHandler({
@@ -229,13 +140,7 @@ export function createTaskBoardFeature(
       }),
     });
 
-    r.screen({
-      id: "task-overdue",
-      type: "projectionList",
-      query: "task-board:query:task:overdue",
-      columns: ["title", "assignee", "daysLate"],
-      table: { rememberState: true, density: { userChoice: true } },
-    });
+    r.screen(taskOverdueScreen);
 
     // A hand-written list query keeps grouping and totals when it accepts
     // `aggregate` (entityListSchema carries it) and answers it on the server.
@@ -271,24 +176,7 @@ export function createTaskBoardFeature(
       access: openAccess.access,
     });
 
-    // A hand-written query column has no field metadata, so optionsOf points it at the
-    // select field for its labels.
-    r.screen({
-      id: "task-workload",
-      type: "projectionList",
-      query: "task-board:query:task:workload",
-      columns: [
-        "title",
-        "assignee",
-        { field: "status", renderer: { format: "enumOption", optionsOf: "task-board:task.status" } },
-        "estimateHours",
-      ],
-      defaultSort: { field: "title", dir: "asc" },
-      table: {
-        grouping: { field: "assignee" },
-        totals: [{ field: "estimateHours", kind: "sum" }],
-      },
-    });
+    r.screen(taskWorkloadScreen);
 
     // One write for the whole selection: the bulk action below opens this form and `taskIds`
     // arrives as a string array. The client cap is no protection, so the schema bounds the list
@@ -359,41 +247,7 @@ export function createTaskBoardFeature(
       },
     });
 
-    r.screen({
-      id: "task-set-status",
-      type: "actionForm",
-      dormant: true,
-      handler: "task-board:write:task:set-status",
-      listScreenId: "task-list",
-      redirect: "task-list",
-      labelEntity: "task",
-      fields: {
-        taskIds: { type: "multiSelect", options: [], display: "count" },
-        status: createSelectField({
-          options: ["open", "inProgress", "blocked", "done"] as const,
-          required: true,
-        }),
-        note: createTextField({ personal: false, reason: "is_business_data" }),
-      },
-      layout: { sections: [{ fields: ["taskIds", "status", "note"] }] },
-      // Which tasks change and from what to what, shown before the user submits.
-      preview: {
-        query: "task-board:query:task:set-status-preview",
-        fields: ["taskIds", "status"],
-        title: "Preview",
-        facts: [{ field: "count", label: "Tasks that change" }],
-        list: {
-          field: "tasks",
-          columns: [
-            { field: "title", label: "Task" },
-            { field: "before", label: "Now" },
-            { field: "after", label: "New" },
-            // A FileRef id (null here) is shown with file name and download link.
-            { field: "attachmentId", label: "Attachment", type: "file" },
-          ],
-        },
-      },
-    });
+    r.screen(taskSetStatusScreen);
 
     r.nav({ id: "tasks", label: "task-board:nav.tasks", icon: "list", order: 10 });
     r.nav({

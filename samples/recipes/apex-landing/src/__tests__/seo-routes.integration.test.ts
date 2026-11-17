@@ -10,7 +10,8 @@ import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config
 import { createSeoFeature } from "@cosmicdrift/kumiko-bundled-features/seo";
 import { defineFeature, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
-import { renderLanding, SAMPLE_PLANS } from "../feature";
+import { SAMPLE_PLANS } from "../constants";
+import { renderLanding } from "../feature";
 
 const LANDING_URL = "https://tasklane.example/";
 

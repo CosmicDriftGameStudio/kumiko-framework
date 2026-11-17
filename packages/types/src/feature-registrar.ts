@@ -55,6 +55,7 @@ import type {
   HandlerRef,
   NameOrRef,
   QualifiedEventName,
+  QueryHandlerRef,
   RateLimitDeclaration,
   StreamHandlerFn,
 } from "./handlers.ts";
@@ -213,9 +214,9 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   /**
    * @example r.queryHandler({ name: "note:list", schema, handler, access: { roles: ["User"] } });
    */
-  queryHandler<TName extends string, TSchema extends ZodType>(
-    def: QueryHandlerDefinition<TName, TSchema>,
-  ): HandlerRef;
+  queryHandler<TName extends string, TSchema extends ZodType, TResult = unknown>(
+    def: QueryHandlerDefinition<TName, TSchema, TResult>,
+  ): QueryHandlerRef<z.input<TSchema>, TResult>;
 
   streamHandler<TName extends string, TSchema extends ZodType>(
     def: StreamHandlerDefinition<TName, TSchema>,

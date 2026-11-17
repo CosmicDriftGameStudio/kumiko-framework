@@ -9,6 +9,7 @@ import type {
   HandlerRef,
   NameOrRef,
   QueryHandlerFn,
+  QueryHandlerRef,
   RateLimitDeclaration,
   StreamHandlerFn,
   WriteHandlerFn,
@@ -43,6 +44,7 @@ import type { FeatureBuilderState } from "./feature-builder-state.ts";
 import { agentSlots, transactionPhaseSlots } from "./handler-definition-slots.ts";
 import { resolveName } from "./handler-helpers.ts";
 import { isObjectArgument, requireArgument, throwObjectArgumentRequired } from "./object-form.ts";
+import { qualifyEntityName } from "./qualified-name.ts";
 
 import type { PipelineDef } from "./types/step.ts";
 
@@ -224,9 +226,9 @@ export function buildEntityHandlerMethods<TName extends string>(
       tryMapEntity(state, name, def.name);
       return { name: def.name };
     },
-    queryHandler<TName extends string, TSchema extends ZodType>(
-      def: QueryHandlerDefinition<TName, TSchema>,
-    ): HandlerRef {
+    queryHandler<TName extends string, TSchema extends ZodType, TResult = unknown>(
+      def: QueryHandlerDefinition<TName, TSchema, TResult>,
+    ): QueryHandlerRef<z.input<TSchema>, TResult> {
       if (!isObjectArgument(def)) throwObjectArgumentRequired(name, "queryHandler");
       assertHandlerHasAccess(name, "queryHandler", def.name, def.access);
       assertHandlerNameFree(state, name, "query", def.name);
@@ -265,7 +267,7 @@ export function buildEntityHandlerMethods<TName extends string>(
         }),
       };
       tryMapEntity(state, name, def.name);
-      return { name: def.name };
+      return { name: def.name, qualifiedName: qualifyEntityName(name, "query", def.name) };
     },
     streamHandler<TName extends string, TSchema extends ZodType>(
       nameOrDef: string | StreamHandlerDefinition<TName, TSchema>,

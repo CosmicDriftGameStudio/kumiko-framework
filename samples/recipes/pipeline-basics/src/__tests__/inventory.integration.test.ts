@@ -14,7 +14,8 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { inventoryFeature, lowStockAlertsTable, productTable } from "../feature";
+import { inventoryFeature } from "../feature";
+import { lowStockAlertsTable, productTable } from "../schema";
 
 let stack: TestStack;
 const admin = createTestUser({ roles: ["Admin"] });
