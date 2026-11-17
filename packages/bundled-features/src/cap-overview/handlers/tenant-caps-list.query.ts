@@ -4,9 +4,11 @@ import {
   definePagedQueryHandler,
   pagedListSchema,
   pageRows,
+  SYSTEM_TENANT_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { ValidationError } from "@cosmicdrift/kumiko-framework/errors";
+import { UnprocessableError, ValidationError } from "@cosmicdrift/kumiko-framework/errors";
+import type { SearchAdapter } from "@cosmicdrift/kumiko-framework/search";
 import * as z from "zod";
 import { requireSystemDb } from "../../shared/index.ts";
 import { subscriptionsProjectionTable } from "../../billing-foundation/index.ts";
@@ -16,7 +18,8 @@ import type { CapSpec, CapSpecLimitContext, CapSpecLimitTenant, CapUsage } from 
 import { capFieldName } from "../web/constants.ts";
 import { computeFraction } from "../web/usage-math.ts";
 
-type TenantRow = { readonly id: string; readonly name?: string };
+type TenantKeyRow = { readonly id: string; readonly key: string };
+type TenantNameRow = { readonly id: string; readonly name?: string };
 type TierAssignmentRow = {
   readonly tenantId: string;
   readonly tier: string;
@@ -30,6 +33,7 @@ type SubscriptionRow = {
 
 type TenantCapsListRow = {
   readonly tenantId: string;
+  readonly key: string;
   readonly name: string;
   readonly tier: string;
   readonly billing: string;
@@ -48,15 +52,21 @@ function billingLabel(
 const FILTER_OP = z.enum(["eq", "ne", "lt", "gt", "in"]);
 type FilterOp = z.infer<typeof FILTER_OP>;
 
-const SORTABLE_FIELDS = ["name", "tier", "billing"] as const;
-const DEFAULT_SORT_FIELD = "name";
+// Tenant names are ciphertext at rest and not sortable, so the list orders by the plaintext tenant key.
+const SORTABLE_FIELDS = ["key", "tier", "billing"] as const;
+const DEFAULT_SORT_FIELD = "key";
+
+const TENANT_ENTITY_NAME = "tenant";
+// Same candidate cap as entity-list searches.
+const TENANT_SEARCH_CANDIDATE_CAP = 1000;
 
 async function withDecryptedPageNames<TRow extends { readonly tenantId: string }>(
   db: Parameters<typeof selectMany>[0],
   pageRows: readonly TRow[],
 ): Promise<(TRow & { readonly name: string })[]> {
+  if (pageRows.length === 0) return [];
   const decrypted = await decryptTenantNames(
-    await selectMany<TenantRow>(
+    await selectMany<TenantNameRow>(
       db,
       tenantTable,
       { id: { in: pageRows.map((row) => row.tenantId) } },
@@ -66,6 +76,29 @@ async function withDecryptedPageNames<TRow extends { readonly tenantId: string }
   );
   const nameById = new Map(decrypted.map((tenant) => [tenant.id, tenant.name ?? ""]));
   return pageRows.map((row) => ({ ...row, name: nameById.get(row.tenantId) ?? "" }));
+}
+
+async function findTenantIdsByName(
+  searchAdapter: SearchAdapter | undefined,
+  searchTerm: string,
+): Promise<{ readonly tenantIds: ReadonlySet<string>; readonly truncated: boolean }> {
+  if (searchAdapter === undefined) {
+    throw new UnprocessableError("search_adapter_not_wired", {
+      details: {
+        entity: TENANT_ENTITY_NAME,
+        hint: "Wire a SearchAdapter to search tenant names; they are ciphertext at rest.",
+      },
+    });
+  }
+  // Tenant docs live on SYSTEM_TENANT_ID like the tenant stream.
+  const results = await searchAdapter.search(SYSTEM_TENANT_ID, searchTerm, {
+    filterType: TENANT_ENTITY_NAME,
+    limit: TENANT_SEARCH_CANDIDATE_CAP,
+  });
+  return {
+    tenantIds: new Set(results.map((result) => String(result.entityId))),
+    truncated: results.length >= TENANT_SEARCH_CANDIDATE_CAP,
+  };
 }
 
 function tenantCapKey(tenantId: string, capId: string): string {
@@ -171,7 +204,7 @@ export function createTenantCapsListQuery(caps: readonly CapSpec[], listCaps: re
   return definePagedQueryHandler({
     name: "tenant-caps:list",
     description:
-      "Lists every tenant on the platform with its tier, billing provider/status and per-cap usage, paged, searchable by name and filterable by tier; use it as the operator-wide capacity overview.",
+      "Lists every tenant on the platform with its key, tier, billing provider/status and per-cap usage, paged and sorted by tenant key unless asked otherwise, searchable by name through the search index and filterable by tier; use it as the operator-wide capacity overview.",
     schema: pagedListSchema(SORTABLE_FIELDS).extend({
       filters: z
         .array(z.object({ field: z.string(), op: FILTER_OP, value: z.unknown() }))
@@ -188,18 +221,20 @@ export function createTenantCapsListQuery(caps: readonly CapSpec[], listCaps: re
         "cap-overview:tenant-caps:list — SystemAdmin platform-wide tenant overview",
       );
 
-      // Names are ciphertext at rest: only a name sort or search has to decrypt every tenant;
-      // otherwise rows stay name-less and just the page is decrypted afterwards.
-      const needsAllNames =
-        (query.payload.sort ?? DEFAULT_SORT_FIELD) === "name" ||
-        (query.payload.search?.trim() ?? "") !== "";
-      const tenants = needsAllNames
-        ? await decryptTenantNames(
-            // Destroyed tenants decrypt to the erased sentinel, which a picker or list would show verbatim.
-            await selectMany<TenantRow>(db, tenantTable, { destroyedAt: null }),
-            "cap-overview:tenant-caps:list",
-          )
-        : await selectMany<TenantRow>(db, tenantTable, { destroyedAt: null }, { fields: ["id"] });
+      const { search, ...pageRequest } = query.payload;
+      const searchTerm = search?.trim() ?? "";
+      const nameMatches =
+        searchTerm === ""
+          ? undefined
+          : await findTenantIdsByName(ctx.services.searchAdapter, searchTerm);
+
+      // Destroyed tenants are left out: their names decrypt to the erased sentinel.
+      const tenants = await selectMany<TenantKeyRow>(
+        db,
+        tenantTable,
+        { destroyedAt: null },
+        { fields: ["id", "key"] },
+      );
       const assignments = await selectMany<TierAssignmentRow>(db, tierAssignmentTable, {});
       const subscriptions = await selectMany<SubscriptionRow>(db, subscriptionsProjectionTable, {});
 
@@ -209,30 +244,26 @@ export function createTenantCapsListQuery(caps: readonly CapSpec[], listCaps: re
       const tierFilter = extractTierFilter(query.payload.filters ?? []);
 
       const merged = tenants
+        .filter((tenant) => nameMatches === undefined || nameMatches.tenantIds.has(tenant.id))
         .map((tenant) => {
           const assignment = assignmentByTenant.get(tenant.id);
           return {
             id: tenant.id,
             tenantId: tenant.id,
-            name: tenant.name ?? "",
+            key: tenant.key,
             tier: assignment?.tier ?? "",
             billing: billingLabel(subscriptionByTenant.get(tenant.id), assignment?.source ?? null),
           };
         })
         .filter((row) => matchesTierFilter(row.tier, tierFilter));
 
-      // Search and paging run in memory because the rows are a JS merge of
-      // three tables (tenant/tier-assignment/subscription), same rationale as
-      // tenant/team-list.query.ts. Holds up to tier-engine's documented
-      // "single-pass scan" scale (a few thousand tenants); past that the fix
-      // is a real combined read-projection.
-      const { rows: pageWithoutNames, total } = pageRows(merged, query.payload, {
-        searchFields: ["name"],
+      // Sort and paging run in memory over plaintext rows of three tables (tenant key, tier
+      // assignment, subscription); names are ciphertext, so only the returned page is decrypted.
+      const { rows: pageWithoutNames, total } = pageRows(merged, pageRequest, {
+        searchFields: [],
         defaultSort: DEFAULT_SORT_FIELD,
       });
-      const page = needsAllNames
-        ? pageWithoutNames
-        : await withDecryptedPageNames(db, pageWithoutNames);
+      const page = await withDecryptedPageNames(db, pageWithoutNames);
 
       // Usage is computed only for this page's tenant ids, never for the
       // full tenant set; caps without usageBatch still cost one query per
@@ -278,6 +309,7 @@ export function createTenantCapsListQuery(caps: readonly CapSpec[], listCaps: re
         }
         return {
           tenantId: row.tenantId,
+          key: row.key,
           name: row.name,
           tier: row.tier,
           billing: row.billing,
@@ -285,7 +317,12 @@ export function createTenantCapsListQuery(caps: readonly CapSpec[], listCaps: re
         };
       });
 
-      return { rows, nextCursor: null, ...(total !== undefined && { total }) };
+      return {
+        rows,
+        nextCursor: null,
+        ...(total !== undefined && { total }),
+        ...(nameMatches?.truncated === true && { searchTruncated: true as const }),
+      };
     },
   });
 }

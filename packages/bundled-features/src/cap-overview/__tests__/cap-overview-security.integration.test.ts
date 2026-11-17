@@ -1,9 +1,16 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
+import {
+  configurePiiSubjectKms,
+  InMemoryKmsAdapter,
+  type SubjectId,
+} from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { SEARCH_CONSUMER_NAME } from "@cosmicdrift/kumiko-framework/pipeline";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import {
+  drainEventConsumers,
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
@@ -33,7 +40,7 @@ import { CapOverviewQueries } from "../web/constants.ts";
 // tenantId, not "whichever row comes back first" or a summed total.
 const TENANT_A = testTenantId(9001);
 const TENANT_B = testTenantId(9002);
-// Distinct tier from A/B — lets sort=tier be told apart from the sort=name default.
+// Distinct tier from A/B — lets sort=tier be told apart from the sort=key default.
 const TENANT_C = testTenantId(9003);
 const USAGE_BY_TENANT: Readonly<Record<string, number>> = {
   [TENANT_A]: 3,
@@ -67,11 +74,29 @@ const batchCap: CapSpec = {
     new Map(tenantIds.map((id) => [id, id === TENANT_B ? null : (USAGE_BY_TENANT[id] ?? 0)])),
 };
 
+class TenantKeyRecordingKms extends InMemoryKmsAdapter {
+  readonly tenantKeyReads: string[] = [];
+
+  override async getKey(subject: SubjectId): ReturnType<InMemoryKmsAdapter["getKey"]> {
+    if (subject.kind === "record" && subject.entity === "tenant") {
+      this.tenantKeyReads.push(subject.id);
+    }
+    return super.getKey(subject);
+  }
+}
+
+const kms = new TenantKeyRecordingKms();
+
 let stack: TestStack;
 let db: DbConnection;
 
 beforeAll(async () => {
   stack = await setupTestStack({
+    searchConfig: {
+      tenantId: SYSTEM_TENANT_ID,
+      searchableFields: ["name"],
+      rankingFields: ["name"],
+    },
     features: [
       createConfigFeature(),
       createTenantFeature(),
@@ -89,7 +114,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(db, tenantEntity);
   await unsafeCreateEntityTable(db, tierAssignmentEntity);
   await unsafeCreateEntityTable(db, tenantComplianceProfileEntity);
-  configurePiiSubjectKms(new InMemoryKmsAdapter());
+  configurePiiSubjectKms(kms);
 
   await seedTenant(db, { id: TENANT_A, key: `cap-overview-a-${TENANT_A}`, name: "Tenant A" });
   await seedTenant(db, { id: TENANT_B, key: `cap-overview-b-${TENANT_B}`, name: "Tenant B" });
@@ -190,12 +215,12 @@ describe("cap-overview tenant isolation", () => {
     };
     const first = await stack.http.queryOk<Page>(
       CapOverviewQueries.tenantCapsList,
-      { sort: "name", limit: 2, offset: 0, totalCount: true },
+      { sort: "key", limit: 2, offset: 0, totalCount: true },
       sysAdmin,
     );
     const second = await stack.http.queryOk<Page>(
       CapOverviewQueries.tenantCapsList,
-      { sort: "name", limit: 2, offset: 2, totalCount: true },
+      { sort: "key", limit: 2, offset: 2, totalCount: true },
       sysAdmin,
     );
     expect(first.rows.map((row) => row.tenantId)).toEqual([TENANT_A, TENANT_B]);
@@ -329,6 +354,16 @@ describe("cap-overview list sort", () => {
     expect(tierOrder).toContain("starter");
   });
 
+  test("sort:name is rejected: tenant names are ciphertext and not sortable", async () => {
+    const sysAdmin = createTestUser({ id: 90022, tenantId: TENANT_A, roles: ["SystemAdmin"] });
+    const res = await stack.http.query(
+      CapOverviewQueries.tenantCapsList,
+      { sort: "name" },
+      sysAdmin,
+    );
+    expect(res.status).toBe(400);
+  });
+
   test("an unsupported sort field is rejected, not silently ignored", async () => {
     const sysAdmin = createTestUser({ id: 90020, tenantId: TENANT_A, roles: ["SystemAdmin"] });
     const res = await stack.http.query(
@@ -354,11 +389,26 @@ describe("cap-overview tenant names under an active PII KMS", () => {
   });
 
   test("tenant-caps-list shows plaintext names and searches on them", async () => {
+    await drainEventConsumers(stack, [SEARCH_CONSUMER_NAME]);
     const result = await stack.http.queryOk<{
       rows: readonly { tenantId: string; name: string }[];
     }>(CapOverviewQueries.tenantCapsList, { search: "tenant b" }, sysAdmin);
 
     expect(result.rows.map((row) => [row.tenantId, row.name])).toEqual([[TENANT_B, "Tenant B"]]);
+  });
+
+  test("tenant-caps-list decrypts only the names of the returned page", async () => {
+    kms.tenantKeyReads.length = 0;
+    const result = await stack.http.queryOk<{
+      rows: readonly { tenantId: string; key: string; name: string }[];
+    }>(CapOverviewQueries.tenantCapsList, { limit: 1, offset: 1 }, sysAdmin);
+
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0]?.tenantId).toBe(TENANT_B);
+    expect(result.rows[0]?.key).toBe(`cap-overview-b-${TENANT_B}`);
+    expect(result.rows[0]?.name).toBe("Tenant B");
+    expect(kms.tenantKeyReads).toContain(TENANT_B);
+    expect(kms.tenantKeyReads).not.toContain(TENANT_C);
   });
 
   test("a destroyed tenant is left out of the picker and the list", async () => {

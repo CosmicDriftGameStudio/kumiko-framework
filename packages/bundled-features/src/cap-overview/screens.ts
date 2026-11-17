@@ -65,7 +65,7 @@ export function createTenantCapListScreen(
         rowClick: true,
       },
     ],
-    defaultSort: { field: "name", dir: "asc" },
+    defaultSort: { field: "key", dir: "asc" },
     access: { roles: ["SystemAdmin"] },
     // No nav wiring yet (see feature.ts header) — no nav area to resolve
     // in isolation.

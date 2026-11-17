@@ -14,8 +14,8 @@ export async function decryptTenantNames<T extends { readonly name?: unknown }>(
   );
 }
 
-// Tenant names are not in the search index (find: "none"), so a name search has to decrypt;
-// stopping at `limit` matches keeps a typed prefix from decrypting the whole scan window.
+// Callers that page tenants by their plaintext key filter names in memory here; stopping at
+// `limit` matches keeps a typed prefix from decrypting the whole scan window.
 export async function takeTenantsMatchingDecryptedName<
   T extends { readonly id: unknown; readonly name?: unknown },
 >(
