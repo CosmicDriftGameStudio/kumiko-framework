@@ -35,6 +35,7 @@ import {
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import { NavProvider, type NavTarget } from "../nav.tsx";
+import { createMockDispatcher } from "../../testing.ts";
 
 const cardOptionsSeen: Array<CardProps["options"]> = [];
 
@@ -169,21 +170,14 @@ function stubDispatcher(writeData: unknown): {
   queryCalls: unknown[];
 } {
   const queryCalls: unknown[] = [];
-  const dispatcher: Dispatcher = {
-    write: (async () => ({ isSuccess: true, data: writeData })) as unknown as Dispatcher["write"],
-    query: (async (type: string, payload: unknown) => {
+  const dispatcher: Dispatcher = createMockDispatcher({
+    write: async () => ({ isSuccess: true, data: writeData }),
+    query: async (type: string, payload: unknown) => {
       queryCalls.push({ type, payload });
       return { isSuccess: true, data: {} };
-    }) as unknown as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+    },
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
   return { dispatcher, queryCalls };
 }
 
@@ -195,21 +189,14 @@ function stubMultiWriteDispatcher(responses: Readonly<Record<string, unknown>>):
   writeCalls: Array<{ readonly command: string; readonly payload: unknown }>;
 } {
   const writeCalls: Array<{ readonly command: string; readonly payload: unknown }> = [];
-  const dispatcher: Dispatcher = {
-    write: (async (command: string, payload: unknown) => {
+  const dispatcher: Dispatcher = createMockDispatcher({
+    write: async (command: string, payload: unknown) => {
       writeCalls.push({ command, payload });
       return { isSuccess: true, data: responses[command] ?? {} };
-    }) as unknown as Dispatcher["write"],
-    query: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+    },
+    query: async () => ({ isSuccess: true, data: {} }),
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
   return { dispatcher, writeCalls };
 }
 
@@ -400,17 +387,16 @@ describe("SecretMintBody tenant-declared money currency", () => {
     const configLanded = new Promise<void>((resolve) => {
       releaseConfig = resolve;
     });
-    const { dispatcher: base } = stubDispatcher({ token: "kpat_secret" });
-    const dispatcher: Dispatcher = {
-      ...base,
-      query: (async () => {
+    const dispatcher = createMockDispatcher({
+      write: async () => ({ isSuccess: true, data: { token: "kpat_secret" } }),
+      query: async () => {
         await configLanded;
         return {
           isSuccess: true,
           data: { [TENANT_CURRENCY_CONFIG_KEY]: { value: "CHF" } },
         };
-      }) as unknown as Dispatcher["query"],
-    };
+      },
+    });
     renderMintScreen(dispatcher, moneyMintScreen);
 
     expect(rtlScreen.queryByTestId("kumiko-screen-loading")).not.toBeNull();

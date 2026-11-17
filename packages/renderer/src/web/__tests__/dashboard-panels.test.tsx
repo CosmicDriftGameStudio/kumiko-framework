@@ -2,7 +2,7 @@ import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import type { DashboardScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
-import { type Dispatcher, EMPTY_VALUE_PLACEHOLDER } from "../../headless/index.ts";
+import { EMPTY_VALUE_PLACEHOLDER } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import {
   AppFeaturesProvider,
@@ -59,13 +59,13 @@ function renderDashboard(
 ): { readonly calls: { readonly type: string; readonly payload: Record<string, unknown> }[] } {
   const calls: { readonly type: string; readonly payload: Record<string, unknown> }[] = [];
   const dispatcher = createMockDispatcher({
-    query: (async (type: string, payload: Record<string, unknown> = {}) => {
+    query: async (type: string, payload: Record<string, unknown> = {}) => {
       calls.push({ type, payload });
       const handler = handlers[type];
       if (handler === undefined) return { isSuccess: true, data: {} };
       const result = await handler(payload);
       return result;
-    }) as unknown as Dispatcher["query"],
+    },
   });
   const schema: FeatureSchema = { featureName: FEATURE, entities: {}, screens: [dashboard] };
   const screenNode = (

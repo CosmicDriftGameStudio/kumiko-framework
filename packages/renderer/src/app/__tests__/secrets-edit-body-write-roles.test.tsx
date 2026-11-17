@@ -12,6 +12,7 @@ import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import { type CorePrimitives, PrimitivesProvider } from "../../primitives.tsx";
 import { SecretsEditBody } from "../secrets-edit-body.tsx";
+import { createMockDispatcher } from "../../testing.ts";
 
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 
@@ -95,21 +96,14 @@ const screenDef: SecretsEditScreenDefinition = {
 };
 
 function recordingDispatcher(batches: unknown[][]): Dispatcher {
-  return {
-    write: (async () => ({ isSuccess: true, data: null })) as unknown as Dispatcher["write"],
-    batch: (async (commands: unknown[]) => {
+  return createMockDispatcher({
+    write: async () => ({ isSuccess: true, data: null }),
+    batch: async (commands: unknown[]) => {
       batches.push(commands);
       return { isSuccess: true, data: [] };
-    }) as unknown as Dispatcher["batch"],
-    query: (async () => ({ isSuccess: true, data: [] })) as unknown as Dispatcher["query"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+    },
+    query: async () => ({ isSuccess: true, data: [] }),
+  });
 }
 
 function renderBody(roles: readonly string[] | undefined, batches: unknown[][] = []): void {

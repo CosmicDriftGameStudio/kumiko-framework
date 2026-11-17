@@ -19,6 +19,7 @@ import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import type { NavApi } from "../nav.tsx";
 import { NavProvider } from "../nav.tsx";
+import { createMockDispatcher } from "../../testing.ts";
 
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
@@ -67,9 +68,9 @@ const testPrimitives: CorePrimitives = {
 
 function failingThenWorkingDispatcher(): Dispatcher {
   let calls = 0;
-  return {
-    write: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"],
-    query: (async () => {
+  return createMockDispatcher({
+    write: async () => ({ isSuccess: true, data: {} }),
+    query: async () => {
       calls += 1;
       if (calls === 1) {
         return {
@@ -78,16 +79,9 @@ function failingThenWorkingDispatcher(): Dispatcher {
         };
       }
       return { isSuccess: true, data: { id: "u1", name: "Ada" } };
-    }) as unknown as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+    },
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
 }
 
 describe("projectionDetail query errors", () => {

@@ -2,10 +2,9 @@
 
 import { describe, expect, test } from "bun:test";
 import type { ProjectionDetailScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema, NavApi } from "../../index.ts";
 import { DispatcherProvider, KumikoScreen, NavProvider } from "../../index.ts";
-import { createMockDispatcher, render, screen, waitFor } from "./test-utils.tsx";
+import { createMockDispatcher, type MockQueryHandler, render, screen, waitFor } from "./test-utils.tsx";
 
 const tabsScreen: ProjectionDetailScreenDefinition = {
   id: "rent-detail",
@@ -32,10 +31,10 @@ const tabsScreen: ProjectionDetailScreenDefinition = {
 const schema: FeatureSchema = { featureName: "rentals", entities: {}, screens: [tabsScreen] };
 
 function renderTab(tab: string): void {
-  const query = (async () => ({
+  const query: MockQueryHandler = async () => ({
     isSuccess: true,
     data: { description: "Loft 4B", notes: "n" },
-  })) as unknown as Dispatcher["query"];
+  });
   const navApi: NavApi = {
     route: undefined,
     navigate: () => {},

@@ -7,7 +7,7 @@ import userEvent from "@testing-library/user-event";
 import type { Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
-import { createMockDispatcher, render, screen, waitFor } from "./test-utils.tsx";
+import { createMockDispatcher, type MockBatchHandler, render, screen, waitFor } from "./test-utils.tsx";
 
 const providerScreen: ConfigEditScreenDefinition = {
   id: "provider",
@@ -30,16 +30,16 @@ const ACCESS_DENIED = {
 
 describe("KumikoScreen / configEdit without secrets access", () => {
   async function renderWithSecretsResult(secretsResult: unknown) {
-    const batchSpy = mock(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
+    const batchSpy = mock<MockBatchHandler>(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
       isSuccess: true as const,
       results: [],
     }));
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async (name: string) =>
+      query: async (name: string) =>
         name === "secrets:query:list"
           ? secretsResult
-          : { isSuccess: true, data: {} }) as unknown as Dispatcher["query"],
-      batch: batchSpy as unknown as Dispatcher["batch"],
+          : { isSuccess: true, data: {} },
+      batch: batchSpy,
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -50,7 +50,7 @@ describe("KumikoScreen / configEdit without secrets access", () => {
   }
 
   test("an access_denied secrets list keeps the form, hides the secret fields and saves the config keys", async () => {
-    const batchSpy = await renderWithSecretsResult(ACCESS_DENIED);
+    const batchSpy: MockBatchHandler = await renderWithSecretsResult(ACCESS_DENIED);
 
     await waitFor(() => screen.getByTestId("render-edit-form"));
     expect(screen.queryByTestId("field-password")).toBeNull();

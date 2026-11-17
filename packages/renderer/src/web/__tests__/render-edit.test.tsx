@@ -6,7 +6,7 @@ import type {
 import { useState } from "react";
 import * as z from "zod";
 import { buildFormSchema } from "../../app/form-schema.ts";
-import type { Dispatcher, SubmitResult } from "../../headless/index.ts";
+import type { SubmitResult } from "../../headless/index.ts";
 import {
   DispatcherProvider,
   ExtensionSectionsProvider,
@@ -23,7 +23,7 @@ import {
   orderEntity,
   type TestValues,
 } from "./_render-edit-helpers.tsx";
-import { act, fireEvent, render, screen, within } from "./test-utils.tsx";
+import { act, fireEvent, type MockWriteHandler, render, screen, within } from "./test-utils.tsx";
 
 const MyCustomFieldsForm = ({
   entityName,
@@ -450,7 +450,7 @@ describe("RenderEdit", () => {
   });
 
   test("a field with submit:false is rendered and validated but not in the written payload", async () => {
-    const write = mock(async () => ({ isSuccess: true, data: { id: "1" } })) as Dispatcher["write"];
+    const write = mock<MockWriteHandler>(async () => ({ isSuccess: true, data: { id: "1" } }));
     const screenDef: EntityEditScreenDefinition = {
       id: "orders:screen:order-edit",
       type: "entityEdit",
@@ -497,10 +497,10 @@ describe("RenderEdit", () => {
     };
 
     async function submitWith(entityId: string | undefined, initial: TestValues) {
-      const write = mock(async () => ({
+      const write = mock<MockWriteHandler>(async () => ({
         isSuccess: true,
         data: { id: "1" },
-      })) as Dispatcher["write"];
+      }));
       render(
         <DispatcherProvider dispatcher={makeDispatcher(write)}>
           <RenderEdit<TestValues>
@@ -558,10 +558,10 @@ describe("RenderEdit", () => {
         layout: { sections: [{ fields: ["title", "slug"] }] },
         writeExcludedFields: { create: ["slug"] },
       };
-      const write = mock(async () => ({
+      const write = mock<MockWriteHandler>(async () => ({
         isSuccess: true,
         data: { id: "1" },
-      })) as Dispatcher["write"];
+      }));
       render(
         <DispatcherProvider dispatcher={makeDispatcher(write)}>
           <RenderEdit<TestValues>
@@ -593,7 +593,7 @@ describe("RenderEdit", () => {
   });
 
   test("a footer action applies its patch to the values, then submits them", async () => {
-    const write = mock(async () => ({ isSuccess: true, data: { id: "1" } })) as Dispatcher["write"];
+    const write = mock<MockWriteHandler>(async () => ({ isSuccess: true, data: { id: "1" } }));
     const screenDef: EntityEditScreenDefinition = {
       id: "orders:screen:order-edit",
       type: "entityEdit",
@@ -1099,7 +1099,7 @@ describe("RenderEdit — composed extension save", () => {
 
   function renderWith(
     submitSpy: (ctx: ExtensionSubmitContext) => void,
-    writeSpy: Dispatcher["write"],
+    writeSpy: MockWriteHandler,
   ): void {
     // biome-ignore lint/correctness/noComponentHookFactories: closes over the submitSpy parameter; defined once per renderWith() call, never during a render
     const ComposedCF = (_: { entityName: string; entityId: string | null }) => {
@@ -1135,10 +1135,10 @@ describe("RenderEdit — composed extension save", () => {
 
   test("Section-dirty enables the main save; CF-only save calls the handler without a main write", async () => {
     const submitSpy = mock();
-    const writeSpy = mock(async () => ({
+    const writeSpy = mock<MockWriteHandler>(async () => ({
       isSuccess: true,
       data: { id: "order-99" },
-    })) as unknown as Dispatcher["write"];
+    }));
     renderWith(submitSpy, writeSpy);
 
     // The main form is unchanged and the section is not dirty, so Save is disabled.

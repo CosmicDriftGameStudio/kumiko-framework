@@ -310,7 +310,7 @@ const UNIT_TEST_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: stri
     if (existsSync(join(absPath, "bunfig.dom.toml"))) {
       steps.push({
         name: `DOM Tests (${root.kind})`,
-        cmd: `cd ${absPath} && bun test --dots --config=bunfig.dom.toml --timeout=15000 .test.tsx`,
+        cmd: `cd ${absPath} && bun test --dots --config=bunfig.dom.toml --timeout=5000 .test.tsx`,
       });
     }
   }

@@ -25,7 +25,7 @@ function schemaWith(screenDefinition: ActionFormScreenDefinition): FeatureSchema
 
 function dispatcherWith(handlerResult: "ok" | "rejected"): Dispatcher {
   return createMockDispatcher({
-    query: (async (type: string) =>
+    query: async (type: string) =>
       type === "tenant:query:tenant-directory"
         ? {
             isSuccess: true,
@@ -40,14 +40,14 @@ function dispatcherWith(handlerResult: "ok" | "rejected"): Dispatcher {
         : {
             isSuccess: true,
             data: { rows: [], nextCursor: null },
-          }) as unknown as Dispatcher["query"],
-    write: (async () =>
+          },
+    write: async () =>
       handlerResult === "ok"
         ? { isSuccess: true, data: {} }
         : {
             isSuccess: false,
             error: { code: "validation", message: "no", details: { fields: [] } },
-          }) as unknown as Dispatcher["write"],
+          },
   });
 }
 
@@ -107,7 +107,7 @@ describe("actionForm successMessage", () => {
 
   test("names a record that lies beyond the lookup cap by asking for exactly that id", async () => {
     const crowdedDirectory = createMockDispatcher({
-      query: (async (type: string, payload?: { ids?: string[] }) => {
+      query: async (type: string, payload?: { ids?: string[] }) => {
         if (type !== "tenant:query:tenant-directory") {
           return { isSuccess: true, data: { rows: [], nextCursor: null } };
         }
@@ -126,8 +126,8 @@ describe("actionForm successMessage", () => {
             nextCursor: null,
           },
         };
-      }) as unknown as Dispatcher["query"],
-      write: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"],
+      },
+      write: async () => ({ isSuccess: true, data: {} }),
     });
     renderScreen(TIER_ACTION_FORM, "ok", crowdedDirectory, { tenantId: "t-250" });
     await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());

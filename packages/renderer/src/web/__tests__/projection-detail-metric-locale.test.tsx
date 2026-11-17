@@ -2,7 +2,6 @@
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { ProjectionDetailScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "../../headless/index.ts";
 import {
   createStaticLocaleResolver,
   DispatcherProvider,
@@ -10,7 +9,7 @@ import {
   kumikoDefaultTranslations,
   LocaleProvider,
 } from "../../index.ts";
-import { createMockDispatcher, render, screen, waitFor } from "./test-utils.tsx";
+import { createMockDispatcher, type MockQueryHandler, render, screen, waitFor } from "./test-utils.tsx";
 
 const NOW = Date.parse("2026-11-07T12:00:00Z");
 
@@ -32,7 +31,7 @@ const detail: ProjectionDetailScreenDefinition = {
 
 function renderDetail(locale: string): void {
   const data = { receivedAt: NOW - 42 * 60_000, receivedShort: NOW - 42 * 60_000 };
-  const query = (async () => ({ isSuccess: true, data })) as unknown as Dispatcher["query"];
+  const query: MockQueryHandler = async () => ({ isSuccess: true, data });
   render(
     <LocaleProvider
       resolver={createStaticLocaleResolver({ locale })}

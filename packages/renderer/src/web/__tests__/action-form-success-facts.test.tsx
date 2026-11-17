@@ -34,7 +34,7 @@ const LABELS: Readonly<Record<string, string>> = {
 
 function dispatcherReturning(data: Record<string, unknown>): Dispatcher {
   return createMockDispatcher({
-    write: (async () => ({ isSuccess: true, data })) as unknown as Dispatcher["write"],
+    write: async () => ({ isSuccess: true, data }),
   });
 }
 

@@ -59,10 +59,10 @@ const schema: FeatureSchema = {
 
 function makeDispatcher(): Dispatcher {
   return createMockDispatcher({
-    query: (async () => ({
+    query: async () => ({
       isSuccess: true,
       data: { rows: [{ id: "r1", title: "Alpha" }], nextCursor: null },
-    })) as unknown as Dispatcher["query"],
+    }),
   });
 }
 

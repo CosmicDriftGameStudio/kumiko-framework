@@ -48,13 +48,13 @@ type WriteResult =
 
 function dispatcherReturning(result: WriteResult): Dispatcher {
   return createMockDispatcher({
-    write: (async () =>
+    write: async () =>
       result.isSuccess
         ? result
         : {
             isSuccess: false,
             error: { code: "handler_failed", message: "Handler said no", details: {} },
-          }) as unknown as Dispatcher["write"],
+          },
   });
 }
 
@@ -278,14 +278,14 @@ describe("actionForm resetOnSuccess with load", () => {
   test("reseeds the form from the record as saved, not from the stale loaded copy", async () => {
     let storedNote = "old";
     const dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { name: "Ada", note: storedNote },
-      })) as unknown as Dispatcher["query"],
-      write: (async () => {
+      }),
+      write: async () => {
         storedNote = "saved";
         return { isSuccess: true, data: {} };
-      }) as unknown as Dispatcher["write"],
+      },
     });
     const loadingReset = {
       ...CREATE_PAIR,

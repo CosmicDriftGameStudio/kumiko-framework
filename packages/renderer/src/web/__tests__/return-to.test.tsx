@@ -195,7 +195,7 @@ const schema: FeatureSchema = {
 
 function makeDispatcher(): Dispatcher {
   return createMockDispatcher({
-    query: (async (type: string) => {
+    query: async (type: string) => {
       if (type === "tokens:query:token:list") {
         return {
           isSuccess: true,
@@ -221,8 +221,8 @@ function makeDispatcher(): Dispatcher {
         };
       }
       return { isSuccess: true, data: {} };
-    }) as unknown as Dispatcher["query"],
-    write: (async (command: string) => {
+    },
+    write: async (command: string) => {
       if (command === "tokens:write:token-secret:mint") {
         return { isSuccess: true, data: { secret: "shh-secret" } };
       }
@@ -233,7 +233,7 @@ function makeDispatcher(): Dispatcher {
         return { isSuccess: true, data: { id: "new-tok" } };
       }
       return { isSuccess: true, data: {} };
-    }) as unknown as Dispatcher["write"],
+    },
   });
 }
 

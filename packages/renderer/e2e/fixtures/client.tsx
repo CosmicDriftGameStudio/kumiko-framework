@@ -20,7 +20,7 @@ import {
 } from "./detail-race-screens";
 import { TestIdentityProvider } from "./identity-provider";
 import { InboxPaneScreen } from "./inbox-pane-screen";
-import { createMockDispatcher } from "./mock-dispatcher";
+import { createInMemoryDispatcher } from "./mock-dispatcher";
 import { MoneyTestPage } from "./money-page";
 import { BOOM_SCREEN_ID, e2eSchema, INBOX_PANE_SCREEN_ID } from "./schema";
 
@@ -92,7 +92,7 @@ async function boot(): Promise<void> {
   }
 
   const controlWindow: WriteControlWindow = window;
-  const dispatcher = createMockDispatcher({
+  const dispatcher = createInMemoryDispatcher({
     ...(controlWindow.__E2E_REJECT_WRITE_IDS__ !== undefined && {
       rejectWriteIds: controlWindow.__E2E_REJECT_WRITE_IDS__,
     }),

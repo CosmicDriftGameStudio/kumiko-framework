@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, jest, test } from "bun:test";
 import { act, renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
-import type { Dispatcher } from "../../headless/index.ts";
 import { LIVE_REFETCH_COALESCE_MS } from "../../hooks/live-refetch-scheduler.ts";
 import type { ListAggregates } from "../../hooks/use-list-aggregates.ts";
 import {
@@ -11,27 +10,13 @@ import {
   LiveEventsProvider,
 } from "../../index.ts";
 import { useScreenListRows } from "../use-screen-list-rows.ts";
+import { createMockDispatcher, type MockQueryHandler } from "../../testing.ts";
 
-type QueryFn = Dispatcher["query"];
+type QueryFn = MockQueryHandler;
 type QueryResult = Awaited<ReturnType<QueryFn>>;
 type JobRow = { readonly id: string; readonly status: string };
 
 const QUERY_TYPE = "jobs:query:job-run:list";
-
-function makeDispatcher(query: QueryFn): Dispatcher {
-  return {
-    write: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"],
-    query,
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
-}
 
 function createLiveFeed(): { subscribe: LiveEventSubscriber; emit: (entity: string) => void } {
   const listeners = new Map<string, Set<() => void>>();
@@ -88,7 +73,7 @@ function setup() {
     failCursor: false,
   };
   const payloads: Record<string, unknown>[] = [];
-  const dispatcher = makeDispatcher((async (_type: string, payload: Record<string, unknown>) => {
+  const dispatcher = createMockDispatcher({ query: (async (_type: string, payload: Record<string, unknown>) => {
     payloads.push(payload);
     if (payload["cursor"] === "c1") {
       if (server.failCursor) {
@@ -97,7 +82,7 @@ function setup() {
       return { isSuccess: true, data: { rows: server.secondPage, nextCursor: null } };
     }
     return { isSuccess: true, data: { rows: server.firstPage, nextCursor: "c1" } };
-  }) as unknown as QueryFn);
+  }) as unknown as QueryFn });
   const feed = createLiveFeed();
   const wrapper = ({ children }: { readonly children: ReactNode }) => (
     <DispatcherProvider dispatcher={dispatcher}>

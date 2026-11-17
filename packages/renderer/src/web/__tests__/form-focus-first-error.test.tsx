@@ -66,7 +66,7 @@ describe("focus the first invalid field after a failed submit", () => {
 
   test("server-side field errors focus the first invalid field again on the next failed submit", async () => {
     const dispatcher = createMockDispatcher({
-      write: (async () => ({
+      write: async () => ({
         isSuccess: false,
         error: {
           code: "validation_failed",
@@ -77,7 +77,7 @@ describe("focus the first invalid field after a failed submit", () => {
             fields: [{ path: "notes", code: "custom", i18nKey: "errors.validation.custom" }],
           },
         },
-      })) as unknown as Dispatcher["write"],
+      }),
     });
     renderForm(dispatcher, { title: "Ok", notes: "x" });
     await submit();

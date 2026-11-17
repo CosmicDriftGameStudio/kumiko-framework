@@ -95,7 +95,7 @@ function typeTitle(value: string): void {
 
 function dispatcherWriting(result: "success" | "invalid"): Dispatcher {
   return createMockDispatcher({
-    write: (async () =>
+    write: async () =>
       result === "success"
         ? { isSuccess: true, data: { id: "1" } }
         : {
@@ -109,7 +109,7 @@ function dispatcherWriting(result: "success" | "invalid"): Dispatcher {
                 fields: [{ path: "title", code: "custom", i18nKey: "errors.validation.custom" }],
               },
             },
-          }) as unknown as Dispatcher["write"],
+          },
   });
 }
 
@@ -527,10 +527,10 @@ describe("leave guard on projectionDetail tabs", () => {
       screens: [detailScreen],
     };
     const dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { userId: "user-42" },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     const setSearchParams = mock(() => {});
     render(

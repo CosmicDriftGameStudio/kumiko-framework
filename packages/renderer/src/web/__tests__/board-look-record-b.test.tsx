@@ -132,7 +132,7 @@ const compactScreen: ConfigEditScreenDefinition = {
 describe("configEdit compact", () => {
   test("caps the column and draws no origin line or accent bar", async () => {
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async (type: string) => ({
+      query: async (type: string) => ({
         isSuccess: true,
         data:
           type === "config:query:cascade"
@@ -142,7 +142,7 @@ describe("configEdit compact", () => {
                 },
               }
             : { "demo:config:site-name": { value: "Acme", scope: "tenant" } },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>

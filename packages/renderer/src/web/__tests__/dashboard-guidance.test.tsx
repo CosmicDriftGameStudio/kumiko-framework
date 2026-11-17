@@ -7,7 +7,6 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
-import type { Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import {
   AppFeaturesProvider,
@@ -50,10 +49,10 @@ function renderDashboard(
   appFeatures: readonly FeatureSchema[] = [],
 ): void {
   const dispatcher = createMockDispatcher({
-    query: (async (type: string, payload: Record<string, unknown> = {}) => {
+    query: async (type: string, payload: Record<string, unknown> = {}) => {
       const handler = handlers[type];
       return handler === undefined ? { isSuccess: true, data: {} } : await handler(payload);
-    }) as unknown as Dispatcher["query"],
+    },
   });
   const schema: FeatureSchema = { featureName: "demo", entities: {}, screens: [dashboard] };
   render(

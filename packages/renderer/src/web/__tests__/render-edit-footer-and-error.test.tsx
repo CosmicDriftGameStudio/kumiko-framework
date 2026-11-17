@@ -5,9 +5,9 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import userEvent from "@testing-library/user-event";
 import { WriteOnlyTextInput } from "../../components/render-field-write-only.tsx";
-import type { Dispatcher, EditFieldViewModel } from "../../headless/index.ts";
+import type { EditFieldViewModel } from "../../headless/index.ts";
 import { DispatcherProvider, RenderEdit } from "../../index.ts";
-import { createMockDispatcher, render, screen, waitFor } from "./test-utils.tsx";
+import { createMockDispatcher, type MockWriteHandler, render, screen, waitFor } from "./test-utils.tsx";
 
 const entity = {
   fields: { note: { type: "text" }, title: { type: "text" } },
@@ -49,10 +49,10 @@ describe("RenderEdit footer actions", () => {
 });
 
 describe("RenderEdit formErrorOnTop", () => {
-  const failingWrite = (async () => ({
+  const failingWrite: MockWriteHandler = async () => ({
     isSuccess: false,
     error: { code: "boom", message: "Could not save", details: {} },
-  })) as unknown as Dispatcher["write"];
+  });
 
   async function submitAndGetFormHtml(formErrorOnTop: boolean): Promise<string> {
     render(

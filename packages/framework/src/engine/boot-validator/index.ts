@@ -1,3 +1,4 @@
+import { createFallbackLogger } from "../../logging/utils.ts";
 import { dedupeFeatures } from "../dedupe-features.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 import { buildBootContext } from "./boot-context.ts";
@@ -5,12 +6,18 @@ import type { ValidateBootOptions } from "./boot-options.ts";
 import { runFeaturePhase, runStructurePhase } from "./boot-phases.ts";
 import { runAppWidePhase, runEnvironmentPhase } from "./boot-phases-app.ts";
 import { createBootReport } from "./boot-report.ts";
+import type { BootValidationResult, BootWarning, BootWarningSink } from "./boot-warning.ts";
 import { emitBootWarnings } from "./boot-warnings.ts";
 import { collectNavQns, validateNavCycles, validateNavs } from "./nav.ts";
 import { collectScreenQns } from "./screens.ts";
 import { collectWorkspaceQns, validateWorkspaces } from "./workspaces.ts";
 
 export type { ValidateBootOptions } from "./boot-options.ts";
+export type {
+  BootValidationResult,
+  BootWarning,
+  BootWarningKind,
+} from "./boot-warning.ts";
 // Re-export: run-dev-app.ts needs this to pass write-handler QNs
 // to codegen. It is not part of validateBoot, but uses the same
 // extraction logic.
@@ -19,6 +26,8 @@ export { validateAppCustomScreenWriteQns } from "./custom-screen-write-qns.ts";
 export { collectWriteHandlerQns } from "./nav.ts";
 export { SECURITY_BASELINE_FEATURE_NAMES } from "./security-baseline.ts";
 export { MAX_TRANSFER_DEPTH } from "./transfer-graph.ts";
+
+const log = createFallbackLogger("kumiko:boot");
 
 // Test stacks mount feature subsets, so a reference into a feature that is not
 // mounted cannot be judged: it counts as present. A reference into a mounted
@@ -81,12 +90,18 @@ export function validateNavBootSubset(rawFeatures: readonly FeatureDefinition[])
  * Collects violations per phase and throws them as one BootValidationError, so a
  * single run reports everything fixable at once. Structural violations (phase 1)
  * abort before the later phases, whose checks would only echo them as follow-ups.
+ * Warnings are logged and returned.
  */
 export function validateBoot(
   rawFeatures: readonly FeatureDefinition[],
   options?: ValidateBootOptions,
-): void {
-  const ctx = buildBootContext(dedupeFeatures(rawFeatures), options);
+): BootValidationResult {
+  const warnings: BootWarning[] = [];
+  const warn: BootWarningSink = (warning) => {
+    warnings.push(warning);
+    log.warn(warning.message);
+  };
+  const ctx = buildBootContext(dedupeFeatures(rawFeatures), options, warn);
   const report = createBootReport();
   const detailForScreens = runStructurePhase(report, ctx);
   const flags = runFeaturePhase(report, ctx, detailForScreens);
@@ -94,4 +109,5 @@ export function validateBoot(
   runEnvironmentPhase(report, ctx, flags);
   report.finish();
   emitBootWarnings(ctx);
+  return { warnings };
 }

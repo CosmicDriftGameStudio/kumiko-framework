@@ -135,10 +135,10 @@ function setup(
     return () => listeners.delete(listener);
   };
   const dispatcher: Dispatcher = createMockDispatcher({
-    write: (async (type: string, payload: unknown) => {
+    write: async (type: string, payload: unknown) => {
       writes.push({ type, payload });
       return answer(type);
-    }) as unknown as Dispatcher["write"],
+    },
   });
   const tree = (ui: ReactElement): ReactElement => (
     <DispatcherProvider dispatcher={dispatcher}>

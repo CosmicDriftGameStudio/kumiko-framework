@@ -3,10 +3,9 @@ import type { ConfigEditScreenDefinition } from "@cosmicdrift/kumiko-framework/u
 import { render, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
-import type { Dispatcher } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { type CorePrimitives, PrimitivesProvider } from "../../primitives.tsx";
-import { createMockDispatcher } from "../../web/__tests__/test-utils.tsx";
+import { createMockDispatcher, type MockQueryHandler } from "../../web/__tests__/test-utils.tsx";
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import { NavProvider } from "../nav.tsx";
@@ -37,7 +36,7 @@ const primitives: CorePrimitives = {
 
 describe("configEdit reads at the scope it edits", () => {
   test("a system-scope screen asks config:query:values for the system level", async () => {
-    const query = mock(async (_name: string, _payload: unknown) => ({ isSuccess: true, data: {} }));
+    const query = mock<MockQueryHandler>(async (_name: string, _payload: unknown) => ({ isSuccess: true, data: {} }));
     const screen: ConfigEditScreenDefinition = {
       id: "settings",
       type: "configEdit",
@@ -54,8 +53,7 @@ describe("configEdit reads at the scope it edits", () => {
       <LocaleProvider resolver={createStaticLocaleResolver({ locale: "de-DE" })}>
         <DispatcherProvider
           dispatcher={createMockDispatcher({
-            // @cast-boundary test-stub: the recorded query ignores the typed handler registry
-            query: query as unknown as Dispatcher["query"],
+            query,
           })}
         >
           <NavProvider

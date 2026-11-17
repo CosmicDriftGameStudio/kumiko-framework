@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
 import { fileURLToPath } from "node:url";
-import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
 import { mockModuleForFile } from "@cosmicdrift/kumiko-testing/helpers/mock-module";
+import { createMockDispatcher } from "@cosmicdrift/kumiko-renderer/testing";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { LoginScreen } from "../login-screen.tsx";
 import type { SessionApi } from "../session.tsx";
@@ -295,9 +295,9 @@ describe("LoginScreen", () => {
   });
 
   function loginOptionsDispatcher(data: { passwordReset: boolean; accountUnlock: boolean }) {
-    return {
+    return createMockDispatcher({
       query: async () => ({ isSuccess: true, data }),
-    } as unknown as Dispatcher;
+    });
   }
 
   test("login-options true → forgot link and, after a lockout, unlock link at the default paths", async () => {

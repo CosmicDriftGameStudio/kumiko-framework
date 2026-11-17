@@ -1,19 +1,11 @@
 // Phone layout of two real-world projectionDetail declarations: header block order and pinned footer.
 import { describe, expect, test } from "bun:test";
 import type { ProjectionDetailScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "../../headless/index.ts";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
-import {
-  createMockDispatcher,
-  render,
-  restoreViewportWidthAfterEach,
-  screen,
-  setViewportWidth,
-  waitFor,
-} from "./test-utils.tsx";
+import { createMockDispatcher, type MockQueryHandler, render, restoreViewportWidthAfterEach, screen, setViewportWidth, waitFor } from "./test-utils.tsx";
 
 function renderScreen(definition: ProjectionDetailScreenDefinition, data: unknown): void {
-  const query = (async () => ({ isSuccess: true, data })) as unknown as Dispatcher["query"];
+  const query: MockQueryHandler = async () => ({ isSuccess: true, data });
   render(
     <DispatcherProvider dispatcher={createMockDispatcher({ query })}>
       <KumikoScreen

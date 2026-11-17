@@ -38,7 +38,7 @@ function overriddenCascade(value: string): unknown {
 describe("configEdit read-only field cascade", () => {
   test("no reset button on a read-only field, the editable one keeps it", async () => {
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async (qn: string) => {
+      query: async (qn: string) => {
         if (qn === "config:query:cascade") {
           return {
             isSuccess: true,
@@ -55,7 +55,7 @@ describe("configEdit read-only field cascade", () => {
             "demo:config:note": { value: "Hi", scope: "tenant", source: "tenant-row" },
           },
         };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>

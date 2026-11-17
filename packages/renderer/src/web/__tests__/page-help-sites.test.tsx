@@ -8,7 +8,6 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
-import type { Dispatcher } from "../../headless/index.ts";
 import {
   AppFeaturesProvider,
   createStaticLocaleResolver,
@@ -73,10 +72,10 @@ function Locale({ children }: { readonly children: ReactNode }): ReactNode {
 }
 
 const detailAndRows = createMockDispatcher({
-  query: (async () => ({
+  query: async () => ({
     isSuccess: true,
     data: { status: "active", rows: [], nextCursor: null },
-  })) as unknown as Dispatcher["query"],
+  }),
 });
 
 describe("page help placement", () => {

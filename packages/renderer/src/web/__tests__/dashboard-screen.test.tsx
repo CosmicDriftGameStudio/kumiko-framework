@@ -48,7 +48,7 @@ const schema: FeatureSchema = {
 
 function makeDispatcher(): Dispatcher {
   return createMockDispatcher({
-    query: (async (type: string) => {
+    query: async (type: string) => {
       if (type === "status:query:monitor:uptime-stat") {
         return {
           isSuccess: true,
@@ -59,7 +59,7 @@ function makeDispatcher(): Dispatcher {
         isSuccess: true,
         data: { rows: [{ id: "i1", name: "API-Ausfall" }], nextCursor: null },
       };
-    }) as unknown as Dispatcher["query"],
+    },
   });
 }
 
@@ -275,12 +275,12 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
 
   test("stat-group rendert Sektions-Titel + genestete Stat-Panels", async () => {
     const dispatcher = createMockDispatcher({
-      query: (async (type: string) => {
+      query: async (type: string) => {
         if (type === "widgets:query:metrics:assets") {
           return { isSuccess: true, data: { value: "120.000 €" } };
         }
         return { isSuccess: true, data: {} };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -295,7 +295,7 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
 
   test("feed-Panel rendert primary/trailing-Zeilen", async () => {
     const dispatcher = createMockDispatcher({
-      query: (async (type: string) => {
+      query: async (type: string) => {
         if (type === "widgets:query:metrics:upcoming") {
           return {
             isSuccess: true,
@@ -303,7 +303,7 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
           };
         }
         return { isSuccess: true, data: {} };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -318,7 +318,7 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
 
   test("progress-list-Panel rendert Label/Wert + Fortschrittsbalken", async () => {
     const dispatcher = createMockDispatcher({
-      query: (async (type: string) => {
+      query: async (type: string) => {
         if (type === "widgets:query:metrics:goal-progress") {
           return {
             isSuccess: true,
@@ -326,7 +326,7 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
           };
         }
         return { isSuccess: true, data: {} };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -403,7 +403,7 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
 
   test("stat panel: Delta chip renders only when value+direction are provided", async () => {
     const dispatcher = createMockDispatcher({
-      query: (async (type: string) => {
+      query: async (type: string) => {
         if (type === "widgets:query:metrics:kpi") {
           return {
             isSuccess: true,
@@ -416,7 +416,7 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
           };
         }
         return { isSuccess: true, data: {} };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -431,12 +431,12 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
 
   test("stat panel: registered icon renders, unregistered icon renders nothing (no crash)", async () => {
     const dispatcher = createMockDispatcher({
-      query: (async (type: string) => {
+      query: async (type: string) => {
         if (type === "widgets:query:metrics:kpi") {
           return { isSuccess: true, data: { value: "92.753 €" } };
         }
         return { isSuccess: true, data: {} };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -452,12 +452,12 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
 
   test("stat panel: unregistered icon renders nothing, does not throw", async () => {
     const dispatcher = createMockDispatcher({
-      query: (async (type: string) => {
+      query: async (type: string) => {
         if (type === "widgets:query:metrics:kpi") {
           return { isSuccess: true, data: { value: "92.753 €" } };
         }
         return { isSuccess: true, data: {} };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -476,12 +476,12 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
 
   test("stat panel: missing deltaDirection suppresses the chip (no crash)", async () => {
     const dispatcher = createMockDispatcher({
-      query: (async (type: string) => {
+      query: async (type: string) => {
         if (type === "widgets:query:metrics:kpi") {
           return { isSuccess: true, data: { value: "92.753 €" } };
         }
         return { isSuccess: true, data: {} };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -499,7 +499,7 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
 
     const calls: { readonly type: string; readonly payload: unknown }[] = [];
     const dispatcher = createMockDispatcher({
-      query: (async (type: string, payload: unknown) => {
+      query: async (type: string, payload: unknown) => {
         calls.push({ type, payload });
         const region = (payload as { readonly region?: string } | undefined)?.region;
         if (type === "widgets:query:metrics:kpi") {
@@ -514,7 +514,7 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
           };
         }
         return { isSuccess: true, data: {} };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     const user = userEvent.setup();
     render(
@@ -542,10 +542,10 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
 
     const calls: { readonly type: string; readonly payload: unknown }[] = [];
     const dispatcher = createMockDispatcher({
-      query: (async (type: string, payload: unknown) => {
+      query: async (type: string, payload: unknown) => {
         calls.push({ type, payload });
         return { isSuccess: true, data: { value: "92.753 €" } };
-      }) as unknown as Dispatcher["query"],
+      },
     });
 
     const deepLinkScreen: DashboardScreenDefinition = {
@@ -592,13 +592,13 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
     window.history.replaceState(null, "", "/overview?tenantId=t-2");
     const calls: { readonly type: string; readonly payload: unknown }[] = [];
     const dispatcher = createMockDispatcher({
-      query: (async (type: string, payload: unknown) => {
+      query: async (type: string, payload: unknown) => {
         calls.push({ type, payload });
         return {
           isSuccess: true,
           data: { rows: [], nextCursor: null, total: 4 },
         };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     const navSchema: FeatureSchema = {
       featureName: "work",
@@ -693,10 +693,10 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
     function renderTile(roles: readonly string[]) {
       const calls: string[] = [];
       const dispatcher = createMockDispatcher({
-        query: (async (type: string) => {
+        query: async (type: string) => {
           calls.push(type);
           return { isSuccess: true, data: { total: 3 } };
-        }) as unknown as Dispatcher["query"],
+        },
       });
       render(
         <AppFeaturesProvider features={[targetFeature, tileSchema]}>
@@ -826,7 +826,7 @@ function renderAccountSecurity(
 ): { readonly queryTypes: string[] } {
   const queryTypes: string[] = [];
   const dispatcher = createMockDispatcher({
-    query: (async (type: string) => {
+    query: async (type: string) => {
       queryTypes.push(type);
       if (type === mfaStatus.query) {
         await options.statusGate;
@@ -848,7 +848,7 @@ function renderAccountSecurity(
         isSuccess: true,
         data: { rows: [{ id: "x", userAgent: "ADMIN ROW" }], nextCursor: null },
       };
-    }) as unknown as Dispatcher["query"],
+    },
   });
   render(
     <DispatcherProvider dispatcher={dispatcher}>

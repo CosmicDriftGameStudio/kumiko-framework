@@ -6,7 +6,6 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { type ReactNode, useState } from "react";
 import { extractIdField } from "../../components/reference-create-dialog.tsx";
-import type { Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema, NavTarget } from "../../index.ts";
 import {
   AppFeaturesProvider,
@@ -50,10 +49,10 @@ describe("KumikoScreen", () => {
   test("actionForm: rendert Form-Felder + Submit triggert dispatcher.write(handler, values)", async () => {
     const writeCalls: { type: string; payload: unknown }[] = [];
     const dispatcher = makeDispatcher({
-      write: (async (type: string, payload: unknown) => {
+      write: async (type: string, payload: unknown) => {
         writeCalls.push({ type, payload });
         return { isSuccess: true, data: { id: "new-id" } };
-      }) as unknown as Dispatcher["write"],
+      },
     });
 
     const actionScreen: ActionFormScreenDefinition = {
@@ -120,10 +119,10 @@ describe("KumikoScreen", () => {
   // actionForm submitStyle reaches the submit button.
   test("actionForm submitStyle='danger': submit button renders destructive variant", async () => {
     const dispatcher = makeDispatcher({
-      write: (async () => ({
+      write: async () => ({
         isSuccess: true,
         data: { id: "new-id" },
-      })) as unknown as Dispatcher["write"],
+      }),
     });
 
     const actionScreen: ActionFormScreenDefinition = {
@@ -151,10 +150,10 @@ describe("KumikoScreen", () => {
 
   test("actionForm without submitStyle: submit button renders default variant", async () => {
     const dispatcher = makeDispatcher({
-      write: (async () => ({
+      write: async () => ({
         isSuccess: true,
         data: { id: "new-id" },
-      })) as unknown as Dispatcher["write"],
+      }),
     });
 
     const actionScreen: ActionFormScreenDefinition = {
@@ -180,10 +179,10 @@ describe("KumikoScreen", () => {
   test("actionForm with redirect to entityList: after success → navigate without entityId", async () => {
     const navigateCalls: NavTarget[] = [];
     const dispatcher = makeDispatcher({
-      write: (async () => ({
+      write: async () => ({
         isSuccess: true,
         data: { id: "x" },
-      })) as unknown as Dispatcher["write"],
+      }),
     });
     const memoryNav = {
       route: { screenId: "quick-add" },
@@ -228,10 +227,10 @@ describe("KumikoScreen", () => {
   test("actionForm with Cross-Feature-QN as redirect to entityList: navigates via Short-Id without entityId", async () => {
     const navigateCalls: NavTarget[] = [];
     const dispatcher = makeDispatcher({
-      write: (async () => ({
+      write: async () => ({
         isSuccess: true,
         data: { id: "x" },
-      })) as unknown as Dispatcher["write"],
+      }),
     });
     const memoryNav = {
       route: { screenId: "quick-add" },
@@ -289,10 +288,10 @@ describe("KumikoScreen", () => {
   test("actionForm with Cross-Feature-QN as redirect to entityEdit: appends entityId", async () => {
     const navigateCalls: NavTarget[] = [];
     const dispatcher = makeDispatcher({
-      write: (async () => ({
+      write: async () => ({
         isSuccess: true,
         data: { id: "x" },
-      })) as unknown as Dispatcher["write"],
+      }),
     });
     const memoryNav = {
       route: { screenId: "vehicle-start" },
@@ -354,10 +353,10 @@ describe("KumikoScreen", () => {
   test("actionForm with Cross-Feature-QN as redirect: resolves the screen from the feature named in the QN, not from the first ID match", async () => {
     const navigateCalls: NavTarget[] = [];
     const dispatcher = makeDispatcher({
-      write: (async () => ({
+      write: async () => ({
         isSuccess: true,
         data: { id: "x" },
-      })) as unknown as Dispatcher["write"],
+      }),
     });
     const memoryNav = {
       route: { screenId: "vehicle-start" },
@@ -432,10 +431,10 @@ describe("KumikoScreen", () => {
   test("actionForm with Cross-Feature-QN: an own screen with the same Short-Id does not shadow the target named in the QN", async () => {
     const navigateCalls: NavTarget[] = [];
     const dispatcher = makeDispatcher({
-      write: (async () => ({
+      write: async () => ({
         isSuccess: true,
         data: { id: "x" },
-      })) as unknown as Dispatcher["write"],
+      }),
     });
     const memoryNav = {
       route: { screenId: "vehicle-start" },
@@ -500,10 +499,10 @@ describe("KumikoScreen", () => {
   test("actionForm with redirect to entityEdit: appends entityId", async () => {
     const navigateCalls: NavTarget[] = [];
     const dispatcher = makeDispatcher({
-      write: (async () => ({
+      write: async () => ({
         isSuccess: true,
         data: { id: "x" },
-      })) as unknown as Dispatcher["write"],
+      }),
     });
     const memoryNav = {
       route: { screenId: "quick-add" },
@@ -556,10 +555,10 @@ describe("KumikoScreen", () => {
   test("actionForm with redirect object + idFrom: navigates with the parent ID instead of data.id", async () => {
     const navigateCalls: NavTarget[] = [];
     const dispatcher = makeDispatcher({
-      write: (async () => ({
+      write: async () => ({
         isSuccess: true,
         data: { id: "child", leaseId: "parent" },
-      })) as unknown as Dispatcher["write"],
+      }),
     });
     const memoryNav = {
       route: { screenId: "quick-add" },
@@ -608,10 +607,10 @@ describe("KumikoScreen", () => {
   test("actionForm with redirect object + idFrom missing from the payload: navigates without entityId, not with data.id", async () => {
     const navigateCalls: NavTarget[] = [];
     const dispatcher = makeDispatcher({
-      write: (async () => ({
+      write: async () => ({
         isSuccess: true,
         data: { id: "child" },
-      })) as unknown as Dispatcher["write"],
+      }),
     });
     const memoryNav = {
       route: { screenId: "quick-add" },
@@ -678,10 +677,10 @@ describe("KumikoScreen", () => {
   test("actionForm with blank string redirect: continues with data.id, not another payload field", async () => {
     const navigateCalls: NavTarget[] = [];
     const dispatcher = makeDispatcher({
-      write: (async () => ({
+      write: async () => ({
         isSuccess: true,
         data: { id: "child", leaseId: "parent" },
-      })) as unknown as Dispatcher["write"],
+      }),
     });
     const memoryNav = {
       route: { screenId: "quick-add" },
@@ -735,10 +734,10 @@ describe("KumikoScreen", () => {
   test("actionForm with redirect: handler result without id → navigate without entityId key (backward compatibility)", async () => {
     const navigateCalls: NavTarget[] = [];
     const dispatcher = makeDispatcher({
-      write: (async () => ({
+      write: async () => ({
         isSuccess: true,
         data: {},
-      })) as unknown as Dispatcher["write"],
+      }),
     });
     const memoryNav = {
       route: { screenId: "quick-add" },
@@ -1099,10 +1098,10 @@ describe("KumikoScreen", () => {
     const navigateCalls: { screenId: string }[] = [];
     const writeCalls: { type: string; payload: unknown }[] = [];
     const dispatcher = makeDispatcher({
-      write: (async (type: string, payload: unknown) => {
+      write: async (type: string, payload: unknown) => {
         writeCalls.push({ type, payload });
         return { isSuccess: true, data: { id: "x" } };
-      }) as unknown as Dispatcher["write"],
+      },
     });
     const memoryNav = {
       route: { screenId: "quick-add" },
@@ -1194,10 +1193,10 @@ describe("KumikoScreen", () => {
       setSearchParams: () => undefined,
     };
     const dispatcher = makeDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { rows: [], nextCursor: null },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
 
     const { NavProvider } = await import("../../index.ts");
@@ -1234,10 +1233,10 @@ describe("KumikoScreen", () => {
       setSearchParams: () => undefined,
     };
     const dispatcher = makeDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { rows: [], nextCursor: null },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
 
     // Hypothetical QN-form edit id; the list stays short, otherwise

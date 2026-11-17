@@ -8,7 +8,7 @@ import userEvent from "@testing-library/user-event";
 import type { Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import { DispatcherProvider, KumikoScreen, NavProvider } from "../../index.ts";
-import { createMockDispatcher, render, screen, waitFor } from "./test-utils.tsx";
+import { createMockDispatcher, type MockQueryHandler, render, screen, waitFor } from "./test-utils.tsx";
 
 const AVAILABILITY_QUERY = "demo:query:role-availability";
 
@@ -44,7 +44,7 @@ function schemaFor(
   return { featureName: "demo", entities: {}, screens: [rolesScreen(display, options)] };
 }
 
-function dispatcherWith(query: Dispatcher["query"]): Dispatcher {
+function dispatcherWith(query: MockQueryHandler): Dispatcher {
   return createMockDispatcher({ query });
 }
 
@@ -63,7 +63,7 @@ describe("multiSelect optionsAvailabilityQuery", () => {
   test("combobox drops the disabled option once the query answered", async () => {
     const user = userEvent.setup();
     const dispatcher = dispatcherWith(
-      (async () => availabilityRows) as unknown as Dispatcher["query"],
+      async () => availabilityRows,
     );
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -80,7 +80,7 @@ describe("multiSelect optionsAvailabilityQuery", () => {
 
   test("checkbox grid drops the disabled option too", async () => {
     const dispatcher = dispatcherWith(
-      (async () => availabilityRows) as unknown as Dispatcher["query"],
+      async () => availabilityRows,
     );
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -94,10 +94,10 @@ describe("multiSelect optionsAvailabilityQuery", () => {
   });
 
   test("a failing query leaves every static option", async () => {
-    const dispatcher = dispatcherWith((async () => ({
+    const dispatcher = dispatcherWith(async () => ({
       isSuccess: false,
       error: { code: "internal", message: "boom" },
-    })) as unknown as Dispatcher["query"]);
+    }));
     render(
       <DispatcherProvider dispatcher={dispatcher}>
         <KumikoScreen schema={schemaFor("checkboxes")} qn="demo:screen:set-roles" />
@@ -110,7 +110,7 @@ describe("multiSelect optionsAvailabilityQuery", () => {
 
   test("a prefilled value on a disabled option stays listed, disabled", async () => {
     const dispatcher = dispatcherWith(
-      (async () => availabilityRows) as unknown as Dispatcher["query"],
+      async () => availabilityRows,
     );
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -140,10 +140,10 @@ describe("multiSelect optionsAvailabilityQuery", () => {
 
   test("a readOnly field never queries availability", async () => {
     const queried: string[] = [];
-    const dispatcher = dispatcherWith((async (type: string) => {
+    const dispatcher = dispatcherWith(async (type: string) => {
       queried.push(type);
       return availabilityRows;
-    }) as unknown as Dispatcher["query"]);
+    });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
         <KumikoScreen

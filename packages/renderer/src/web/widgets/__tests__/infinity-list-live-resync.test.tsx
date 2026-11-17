@@ -100,10 +100,10 @@ describe("InfinityList: live resync on the first stream open", () => {
     let backingSubject = "Mail (ungelesen)";
     let queryCount = 0;
     const dispatcher = createMockDispatcher({
-      query: (async () => {
+      query: async () => {
         queryCount += 1;
         return pageOf(backingSubject);
-      }) as unknown as Dispatcher["query"],
+      },
     });
 
     renderList(dispatcher, createEventSourceLiveEvents());
@@ -127,10 +127,10 @@ describe("InfinityList: live resync on the first stream open", () => {
   test("a refresh that lands during the initial load wins over the older load", async () => {
     const resolvers: Array<(res: unknown) => void> = [];
     const dispatcher = createMockDispatcher({
-      query: (() =>
+      query: () =>
         new Promise((resolve) => {
           resolvers.push(resolve);
-        })) as unknown as Dispatcher["query"],
+        }),
     });
     let emit: ((event: LiveEvent) => void) | undefined;
     const liveEvents: LiveEventSubscriber = (_entity, listener) => {
@@ -168,10 +168,10 @@ describe("InfinityList: live resync on the first stream open", () => {
   test("a failed refresh during the initial load changes nothing, the load still lands", async () => {
     const resolvers: Array<(res: unknown) => void> = [];
     const dispatcher = createMockDispatcher({
-      query: (() =>
+      query: () =>
         new Promise((resolve) => {
           resolvers.push(resolve);
-        })) as unknown as Dispatcher["query"],
+        }),
     });
     let emit: ((event: LiveEvent) => void) | undefined;
     const liveEvents: LiveEventSubscriber = (_entity, listener) => {

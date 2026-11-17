@@ -83,7 +83,7 @@ const APP_CHECKS_AFTER_I18N: readonly AppCheck[] = [
   },
   {
     check: "validateGdprStoragePersistence",
-    run: (c) => validateGdprStoragePersistence(c.features),
+    run: (c) => validateGdprStoragePersistence(c.features, c.warn),
   },
   {
     check: "validateGlobalTenancyEntities",

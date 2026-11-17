@@ -42,13 +42,13 @@ let queryCalls = 0;
 
 function makeDispatcher(): Dispatcher {
   return createMockDispatcher({
-    query: (async () => {
+    query: async () => {
       queryCalls += 1;
       return {
         isSuccess: true,
         data: { rows: [{ id: "u1", email: "ada@example.com" }], nextCursor: null },
       };
-    }) as unknown as Dispatcher["query"],
+    },
   });
 }
 

@@ -7,7 +7,6 @@ import type {
   EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import userEvent from "@testing-library/user-event";
-import type { Dispatcher } from "../../headless/index.ts";
 import type { ExtensionSectionProps, FeatureSchema } from "../../index.ts";
 import {
   DispatcherProvider,
@@ -92,7 +91,7 @@ const existingRecord = {
 
 async function renderEditWizard(record: Record<string, unknown> = existingRecord) {
   const dispatcher = createMockDispatcher({
-    query: (async () => ({ isSuccess: true, data: record })) as unknown as Dispatcher["query"],
+    query: async () => ({ isSuccess: true, data: record }),
   });
   render(
     <DispatcherProvider dispatcher={dispatcher}>

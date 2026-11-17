@@ -65,17 +65,17 @@ type Calls = { queries: string[]; writes: Array<{ type: string; payload: unknown
 
 function makeDispatcher(calls: Calls, unread: { count: number }): Dispatcher {
   return createMockDispatcher({
-    query: (async (type: string) => {
+    query: async (type: string) => {
       calls.queries.push(type);
       if (type === "channel-in-app:query:unread-count") {
         return { isSuccess: true, data: { count: unread.count } };
       }
       return { isSuccess: true, data: inboxRows };
-    }) as unknown as Dispatcher["query"],
-    write: (async (type: string, payload: unknown) => {
+    },
+    write: async (type: string, payload: unknown) => {
       calls.writes.push({ type, payload });
       return { isSuccess: true, data: {} };
-    }) as unknown as Dispatcher["write"],
+    },
   });
 }
 
@@ -247,7 +247,7 @@ describe("NotificationBell", () => {
     let olderRequested = false;
     let resolveOlder: (result: InAppInboxResult) => void = () => {};
     const dispatcher = createMockDispatcher({
-      query: (async (type: string, payload: { cursor?: string }) => {
+      query: async (type: string, payload: { cursor?: string }) => {
         if (type === "channel-in-app:query:unread-count") {
           return { isSuccess: true, data: { count: 1 } };
         }
@@ -259,7 +259,7 @@ describe("NotificationBell", () => {
           return { isSuccess: true, data: older };
         }
         return { isSuccess: true, data: { ...inboxRows, nextCursor: "page-2" } };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     mount("channel-in-app", dispatcher, live.subscriber);
     fireEvent.click(await screen.findByRole("button", { name: "Notifications, 1 unread" }));

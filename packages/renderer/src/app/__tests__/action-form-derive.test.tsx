@@ -18,6 +18,7 @@ import {
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import { NavProvider } from "../nav.tsx";
+import { createMockDispatcher } from "../../testing.ts";
 
 const capturedInputs: Record<string, InputProps | undefined> = {};
 const captureInput: ComponentType<InputProps> = (props) => {
@@ -91,18 +92,11 @@ const screen: ActionFormScreenDefinition = {
   },
 };
 
-const dispatcher = {
-  write: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"],
-  query: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["query"],
-  batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-  statusStore: {
-    getState: () => "online",
-    subscribe: () => () => {},
-  } as unknown as Dispatcher["statusStore"],
-  async *stream() {},
-  pendingWrites: () => [],
-  pendingFiles: () => [],
-} satisfies Dispatcher;
+const dispatcher = createMockDispatcher({
+  write: async () => ({ isSuccess: true, data: {} }),
+  query: async () => ({ isSuccess: true, data: {} }),
+  batch: async () => ({ isSuccess: true, results: [] }),
+}) satisfies Dispatcher;
 
 function mountForm(): void {
   for (const key of Object.keys(capturedInputs)) delete capturedInputs[key];

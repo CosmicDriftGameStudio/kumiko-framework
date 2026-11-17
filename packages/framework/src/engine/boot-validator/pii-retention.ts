@@ -1,10 +1,10 @@
 import { holdsFileRefs } from "../../files/file-field-slots.ts";
-import { createFallbackLogger } from "../../logging/utils.ts";
 import type { EntityDefinition, FieldDefinition, ResolvedPiiFlags } from "../types/fields.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 import { isUserEntityReference } from "../user-entity-reference.ts";
 import { collectBootRuleViolations } from "./boot-report.ts";
 import { bootRuleError } from "./boot-rule.ts";
+import type { BootWarningSink } from "./boot-warning.ts";
 import {
   PII_DIRECT_NAME_HINTS,
   PII_USER_OWNED_NAME_HINTS,
@@ -12,7 +12,6 @@ import {
 } from "./entity-handler.ts";
 import { PII_RULES } from "./pii-retention-rules.ts";
 
-const log = createFallbackLogger("kumiko:boot");
 
 // Framework-managed timestamp fields may be used as retention.reference
 // even when they are not declared in entity.fields.
@@ -160,10 +159,10 @@ function validatePersonalJsonbField(input: FieldRuleInput): void {
 //
 // Encryption and decryption are handled elsewhere; this validation runs early
 // so schema drift is detected during boot.
-export function validatePiiAndRetention(feature: FeatureDefinition): void {
+export function validatePiiAndRetention(feature: FeatureDefinition, warn: BootWarningSink): void {
   collectBootRuleViolations(Object.entries(feature.entities ?? {}), ([entityName, entity]) => {
     const entityChecks = [validateFieldAnnotations, validateEntityRetention];
-    collectBootRuleViolations(entityChecks, (check) => check(feature.name, entityName, entity));
+    collectBootRuleViolations(entityChecks, (check) => check(feature.name, entityName, entity, warn));
   });
 }
 
@@ -179,6 +178,7 @@ type PiiCheckedFieldFlags = ResolvedPiiFlags & {
 };
 
 type FieldRuleInput = {
+  readonly warn: BootWarningSink;
   readonly featureName: string;
   readonly entityName: string;
   readonly entity: EntityDefinition;
@@ -208,11 +208,13 @@ function validateFieldAnnotations(
   featureName: string,
   entityName: string,
   entity: EntityDefinition,
+  warn: BootWarningSink,
 ): void {
   const personalOfOwnerFieldNames = ownerFieldNamesReferencedByPersonalOf(entity.fields);
   collectBootRuleViolations(Object.entries(entity.fields), ([fieldName, field]) => {
     const flags = field as PiiCheckedFieldFlags; // @cast-boundary schema-walk
     const input: FieldRuleInput = {
+      warn,
       featureName,
       entityName,
       entity,
@@ -385,9 +387,12 @@ function warnOnNonUserOwnerReference(
   if (ownerField.type !== "reference") return;
   const refTarget = ownerField.entity;
   if (!isUserEntityReference(refTarget)) {
-    log.warn(
+    input.warn({
+      kind: "pii/owner-not-user-reference",
+      feature: input.featureName,
+      message:
       `[Feature ${input.featureName}] personal.of "${ownerName}" on entity "${input.entityName}" targets reference "${refTarget}" — typically should be a user reference. If intentional (custom subject-entity like employee/patient), ignore.`,
-    );
+    });
   }
 }
 
@@ -432,10 +437,17 @@ function warnOnUnannotatedPersonalName(input: FieldRuleInput): void {
   const warning = UNANNOTATED_NAME_WARNINGS.find((candidate) =>
     candidate.applies(input, lowerName),
   );
-  if (warning) log.warn(warning.message(input));
+  if (warning) {
+    input.warn({
+      kind: "pii/unannotated-personal-name",
+      feature: input.featureName,
+      message: warning.message(input),
+    });
+  }
 }
 
 type RetentionRuleInput = {
+  readonly warn: BootWarningSink;
   readonly featureName: string;
   readonly entityName: string;
   readonly fieldsByName: EntityDefinition["fields"];
@@ -452,11 +464,13 @@ function validateEntityRetention(
   featureName: string,
   entityName: string,
   entity: EntityDefinition,
+  warn: BootWarningSink,
 ): void {
   const { retention } = entity;
   // skip: entities without a retention policy have nothing to validate
   if (!retention) return;
   const input: RetentionRuleInput = {
+    warn,
     featureName,
     entityName,
     fieldsByName: entity.fields,
@@ -465,11 +479,19 @@ function validateEntityRetention(
   collectBootRuleViolations(RETENTION_RULES, (rule) => rule(input));
 }
 
-function warnOnInvalidKeepFor({ featureName, entityName, retention }: RetentionRuleInput): void {
+function warnOnInvalidKeepFor({
+  warn,
+  featureName,
+  entityName,
+  retention,
+}: RetentionRuleInput): void {
   if (!KEEP_FOR_PATTERN.test(retention.keepFor)) {
-    log.warn(
+    warn({
+      kind: "retention/invalid-keep-for",
+      feature: featureName,
+      message:
       `[Feature ${featureName}] Entity "${entityName}" retention.keepFor="${retention.keepFor}" has an invalid format. Expected: <number><h|d|w|m|y> (e.g. "30d", "10y", "6m"). The cleanup job cannot parse anything else; fix keepFor.`,
-    );
+    });
   }
 }
 
@@ -490,7 +512,7 @@ function rejectUnknownRetentionReference(input: RetentionRuleInput): void {
 // blockDelete with no field that can carry `anonymize` is fine;
 // subjectRef-only entities are covered by the V3 EXT_USER_DATA guard instead.
 function warnOnBlockDeleteWithoutAnonymize(input: RetentionRuleInput): void {
-  const { featureName, entityName, fieldsByName } = input;
+  const { warn, featureName, entityName, fieldsByName } = input;
   // skip: only blockDelete relies on anonymize once keepFor expires
   if (input.retention.strategy !== "blockDelete") return;
   const hasAnonymize = Object.values(fieldsByName).some((f) => {
@@ -498,8 +520,11 @@ function warnOnBlockDeleteWithoutAnonymize(input: RetentionRuleInput): void {
     return Boolean(a.anonymize);
   });
   if (entityHasAnonymizableSubjectField(fieldsByName) && !hasAnonymize) {
-    log.warn(
+    warn({
+      kind: "retention/block-delete-without-anonymize",
+      feature: featureName,
+      message:
       `[Feature ${featureName}] Entity "${entityName}" retention.strategy="blockDelete" but no field has an anonymize-function. Once keepFor expires, the data-retention cron anonymizes nothing and the row keeps its PII. Add { anonymize: () => null } or () => "[ANONYMIZED]" to PII fields.`,
-    );
+    });
   }
 }

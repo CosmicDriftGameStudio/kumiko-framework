@@ -4,8 +4,9 @@ import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import type { Dispatcher } from "../../headless/index.ts";
 import type { ListGroupPageResult } from "../../hooks/list-group-pages.ts";
 import { ListGroupPageBridges } from "../list-group-page-bridges.tsx";
+import { createMockDispatcher, type MockQueryHandler } from "../../testing.ts";
 
-type QueryFn = Dispatcher["query"];
+type QueryFn = MockQueryHandler;
 
 function dispatcherAnsweringOnly(answered: string): Dispatcher {
   const query = (async (_type: string, payload: { readonly filter: string }) => {
@@ -15,18 +16,11 @@ function dispatcherAnsweringOnly(answered: string): Dispatcher {
       data: { rows: [{ id: answered }], nextCursor: `cursor-${answered}` },
     };
   }) as unknown as QueryFn;
-  return {
-    write: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"],
+  return createMockDispatcher({
+    write: async () => ({ isSuccess: true, data: {} }),
     query,
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
 }
 
 describe("ListGroupPageBridges", () => {

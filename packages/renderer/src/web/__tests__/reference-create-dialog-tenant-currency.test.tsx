@@ -32,7 +32,7 @@ describe("ReferenceCreateDialog — tenant-declared money currency", () => {
   test("typed tenant-declared field submits with the tenant currency, not EUR", async () => {
     const writeCalls: { type: string; payload: unknown }[] = [];
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async (type: string) =>
+      query: async (type: string) =>
         type === "config:query:values"
           ? {
               isSuccess: true,
@@ -47,11 +47,11 @@ describe("ReferenceCreateDialog — tenant-declared money currency", () => {
           : {
               isSuccess: true,
               data: { rows: [], nextCursor: null },
-            }) as unknown as Dispatcher["query"],
-      write: (async (type: string, payload: unknown) => {
+            },
+      write: async (type: string, payload: unknown) => {
         writeCalls.push({ type, payload });
         return { isSuccess: true, data: { id: "inv-1" } };
-      }) as unknown as Dispatcher["write"],
+      },
     });
 
     render(

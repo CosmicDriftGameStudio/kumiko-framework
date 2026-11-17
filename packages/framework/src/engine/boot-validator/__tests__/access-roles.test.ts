@@ -1,10 +1,7 @@
-import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
-import {
-  consoleCallsFromNamespace,
-  consoleCallsMentioning,
-} from "@cosmicdrift/kumiko-testing/helpers";
+import { beforeEach, describe, expect, test } from "bun:test";
 import type { FeatureDefinition } from "../../types/index.ts";
 import { warnOnUniqueAccessRoles } from "../access-roles.ts";
+import type { BootWarning, BootWarningSink } from "../boot-warning.ts";
 
 function fakeFeature(overrides: Partial<FeatureDefinition> & { name: string }): FeatureDefinition {
   return {
@@ -16,14 +13,13 @@ function fakeFeature(overrides: Partial<FeatureDefinition> & { name: string }): 
 }
 
 describe("warnOnUniqueAccessRoles", () => {
-  let warnSpy: ReturnType<typeof spyOn<Console, "warn">>;
+  let warnings: BootWarning[];
+  const warn: BootWarningSink = (warning) => {
+    warnings.push(warning);
+  };
 
   beforeEach(() => {
-    warnSpy = spyOn(console, "warn").mockImplementation(() => {});
-  });
-
-  afterEach(() => {
-    warnSpy.mockRestore();
+    warnings = [];
   });
 
   test("warns when a role is used by exactly one handler", () => {
@@ -36,11 +32,11 @@ describe("warnOnUniqueAccessRoles", () => {
       }),
     ];
 
-    warnOnUniqueAccessRoles(features);
+    warnOnUniqueAccessRoles(warn, features);
 
-    const warnings = consoleCallsMentioning(warnSpy, "is only used by one handler");
     expect(warnings).toHaveLength(1);
-    const msg = warnings[0]![0] as string;
+    expect(warnings[0]).toMatchObject({ kind: "access/unique-role" });
+    const msg = warnings[0]!.message;
     expect(msg).toContain("Admin");
     expect(msg).toContain("users:write:create-user");
   });
@@ -61,9 +57,9 @@ describe("warnOnUniqueAccessRoles", () => {
       }),
     ];
 
-    warnOnUniqueAccessRoles(features);
+    warnOnUniqueAccessRoles(warn, features);
 
-    expect(consoleCallsFromNamespace(warnSpy, "kumiko:boot")).toHaveLength(0);
+    expect(warnings).toHaveLength(0);
   });
 
   test("does NOT warn for built-in roles 'all' or 'system' even when used by one handler", () => {
@@ -82,8 +78,8 @@ describe("warnOnUniqueAccessRoles", () => {
       }),
     ];
 
-    warnOnUniqueAccessRoles(features);
+    warnOnUniqueAccessRoles(warn, features);
 
-    expect(consoleCallsFromNamespace(warnSpy, "kumiko:boot")).toHaveLength(0);
+    expect(warnings).toHaveLength(0);
   });
 });

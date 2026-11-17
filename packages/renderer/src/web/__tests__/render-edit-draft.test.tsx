@@ -14,16 +14,7 @@ import {
   type RenderEditControls,
 } from "../../index.ts";
 import { makeDispatcher, orderEntity, type TestValues } from "./_render-edit-helpers.tsx";
-import {
-  act,
-  createFakeDraftStorage,
-  createMockDispatcher,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "./test-utils.tsx";
+import { act, createFakeDraftStorage, createMockDispatcher, fireEvent, type MockQueryHandler, type MockWriteHandler, render, screen, waitFor, within } from "./test-utils.tsx";
 
 describe("RenderEdit wizard draft", () => {
   function makeDraftWizardScreen(draft: boolean): EntityEditScreenDefinition {
@@ -64,14 +55,14 @@ describe("RenderEdit wizard draft", () => {
     const store: { current: DraftBlob | null } = { current: null };
     const calls: string[] = [];
     const dispatcher = createMockDispatcher({
-      query: (async (type: string) => {
+      query: async (type: string) => {
         calls.push(type);
         if (type === "form-draft:query:get") {
           return { isSuccess: true, data: { draft: store.current } };
         }
         return { isSuccess: true, data: {} };
-      }) as Dispatcher["query"],
-      write: (async (type: string, payload: unknown) => {
+      },
+      write: async (type: string, payload: unknown) => {
         calls.push(type);
         if (type === "form-draft:write:save" && isDraftSavePayload(payload)) {
           store.current = { values: payload.values, stepIndex: payload.stepIndex };
@@ -79,7 +70,7 @@ describe("RenderEdit wizard draft", () => {
           store.current = null;
         }
         return { isSuccess: true, data: { id: "1" } };
-      }) as Dispatcher["write"],
+      },
     });
     return { dispatcher, store, calls };
   }
@@ -171,13 +162,13 @@ describe("RenderEdit wizard draft", () => {
 
     const savedPayloads: DraftBlob[] = [];
     const dispatcher = createMockDispatcher({
-      query: (async () => ({ isSuccess: true, data: {} })) as Dispatcher["query"],
-      write: (async (type: string, payload: unknown) => {
+      query: async () => ({ isSuccess: true, data: {} }),
+      write: async (type: string, payload: unknown) => {
         if (type === "form-draft:write:save" && isDraftSavePayload(payload)) {
           savedPayloads.push(payload);
         }
         return { isSuccess: true, data: { id: "1" } };
-      }) as Dispatcher["write"],
+      },
     });
 
     render(
@@ -241,13 +232,13 @@ describe("RenderEdit wizard draft", () => {
 
     const savedPayloads: DraftBlob[] = [];
     const dispatcher = createMockDispatcher({
-      query: (async () => ({ isSuccess: true, data: {} })) as Dispatcher["query"],
-      write: (async (type: string, payload: unknown) => {
+      query: async () => ({ isSuccess: true, data: {} }),
+      write: async (type: string, payload: unknown) => {
         if (type === "form-draft:write:save" && isDraftSavePayload(payload)) {
           savedPayloads.push(payload);
         }
         return { isSuccess: true, data: { id: "1" } };
-      }) as Dispatcher["write"],
+      },
     });
 
     render(
@@ -309,13 +300,13 @@ describe("RenderEdit wizard draft", () => {
 
     const savedPayloads: DraftBlob[] = [];
     const dispatcher = createMockDispatcher({
-      query: (async () => ({ isSuccess: true, data: {} })) as Dispatcher["query"],
-      write: (async (type: string, payload: unknown) => {
+      query: async () => ({ isSuccess: true, data: {} }),
+      write: async (type: string, payload: unknown) => {
         if (type === "form-draft:write:save" && isDraftSavePayload(payload)) {
           savedPayloads.push(payload);
         }
         return { isSuccess: true, data: { id: "1" } };
-      }) as Dispatcher["write"],
+      },
     });
 
     render(
@@ -365,13 +356,13 @@ describe("RenderEdit wizard draft", () => {
     try {
       const draftKeys: string[] = [];
       const dispatcher = createMockDispatcher({
-        query: (async () => ({ isSuccess: true, data: {} })) as Dispatcher["query"],
-        write: (async (type: string, payload: unknown) => {
+        query: async () => ({ isSuccess: true, data: {} }),
+        write: async (type: string, payload: unknown) => {
           if (type === "form-draft:write:save") {
             draftKeys.push((payload as { draftKey: string }).draftKey);
           }
           return { isSuccess: true, data: { id: "1" } };
-        }) as Dispatcher["write"],
+        },
       });
 
       render(
@@ -539,11 +530,11 @@ describe("RenderEdit wizard draft", () => {
       resolveRestore = resolve;
     });
     const dispatcher = createMockDispatcher({
-      query: (async (type: string) => {
+      query: async (type: string) => {
         if (type === "form-draft:query:get") return restorePromise;
         return { isSuccess: true, data: {} };
-      }) as Dispatcher["query"],
-      write: (async () => ({ isSuccess: true, data: { id: "1" } })) as Dispatcher["write"],
+      },
+      write: async () => ({ isSuccess: true, data: { id: "1" } }),
     });
 
     render(
@@ -844,11 +835,11 @@ describe("RenderEdit wizard draft", () => {
   // rows are swept later by cleanup.job.ts.
   test("a rejected discard write does not break an otherwise successful submit", async () => {
     const seenResults: SubmitResult<unknown>[] = [];
-    const write = mock(async (type: string) => {
+    const write = mock<MockWriteHandler>(async (type: string) => {
       if (type === "form-draft:write:discard") throw new Error("network error");
       return { isSuccess: true, data: { id: "1" } };
     });
-    const dispatcher = makeDispatcher(write as unknown as Dispatcher["write"]);
+    const dispatcher = makeDispatcher(write);
 
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -896,7 +887,7 @@ describe("RenderEdit wizard draft", () => {
   // write — exactly what `disabled` forbids).
   test("disabled: clicking Next on step 0 navigates without validating or writing a draft", async () => {
     const schema = z.object({ title: z.string().min(1), count: z.number().optional() });
-    const write = mock(async () => ({ isSuccess: true, data: { id: "1" } }) as never);
+    const write = mock<MockWriteHandler>(async () => ({ isSuccess: true, data: { id: "1" } }));
 
     render(
       <DispatcherProvider dispatcher={makeDispatcher(write)}>
@@ -957,7 +948,7 @@ describe("RenderEdit create-mode draftId", () => {
     const drafts = new Map<string, StoredDraft>();
     let seq = 0;
     const dispatcher = createMockDispatcher({
-      query: (async (type: string, payload: unknown) => {
+      query: async (type: string, payload: unknown) => {
         if (type === "form-draft:query:get") {
           const { draftKey } = payload as { draftKey: string };
           return { isSuccess: true, data: { draft: drafts.get(draftKey) ?? null } };
@@ -976,8 +967,8 @@ describe("RenderEdit create-mode draftId", () => {
           return { isSuccess: true, data: { drafts: matches } };
         }
         return { isSuccess: true, data: {} };
-      }) as Dispatcher["query"],
-      write: (async (type: string, payload: unknown) => {
+      },
+      write: async (type: string, payload: unknown) => {
         if (type === "form-draft:write:save") {
           const { draftKey, values, stepIndex } = payload as {
             draftKey: string;
@@ -995,7 +986,7 @@ describe("RenderEdit create-mode draftId", () => {
           drafts.delete(draftKey);
         }
         return { isSuccess: true, data: { id: "1" } };
-      }) as Dispatcher["write"],
+      },
     });
     return { dispatcher, drafts };
   }
@@ -1320,13 +1311,14 @@ describe("RenderEdit create-mode draftId", () => {
     // test (didListRef) gates exactly this call, so this is a more precise
     // signal than any DOM side effect of a (possibly delayed) re-adopt.
     let listCallCount = 0;
-    const dispatcher: Dispatcher = {
-      ...baseDispatcher,
-      query: (async (type: string, payload: unknown) => {
+    const dispatcher = createMockDispatcher({
+      query: async (type, payload, opts) => {
         if (type === "form-draft:query:list") listCallCount += 1;
-        return (baseDispatcher.query as (t: string, p: unknown) => Promise<unknown>)(type, payload);
-      }) as Dispatcher["query"],
-    };
+        return baseDispatcher.query(type, payload, opts);
+      },
+      write: (type, payload, opts) => baseDispatcher.write(type, payload, opts),
+      batch: (commands, opts) => baseDispatcher.batch(commands, opts),
+    });
 
     render(
       <DispatcherProvider dispatcher={dispatcher}>

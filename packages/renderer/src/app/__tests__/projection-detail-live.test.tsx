@@ -3,7 +3,6 @@ import type { ProjectionDetailScreenDefinition } from "@cosmicdrift/kumiko-frame
 import { act, renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
-import type { Dispatcher } from "../../headless/index.ts";
 import { LIVE_REFETCH_COALESCE_MS } from "../../hooks/live-refetch-scheduler.ts";
 import {
   LIVE_RESYNC_EVENT_TYPE,
@@ -12,24 +11,10 @@ import {
 } from "../../index.ts";
 import type { NavApi } from "../nav.tsx";
 import { useProjectionDetailData } from "../use-projection-detail-data.ts";
+import { createMockDispatcher, type MockQueryHandler } from "../../testing.ts";
 
-type QueryFn = Dispatcher["query"];
+type QueryFn = MockQueryHandler;
 type QueryResult = Awaited<ReturnType<QueryFn>>;
-
-function makeDispatcher(query: QueryFn): Dispatcher {
-  return {
-    write: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"],
-    query,
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
-}
 
 function createLiveFeed(): { subscribe: LiveEventSubscriber; emit: (entity: string) => void } {
   const listeners = new Map<string, Set<() => void>>();
@@ -76,10 +61,10 @@ async function advance(ms: number): Promise<void> {
 
 function renderDetail(live: boolean) {
   let calls = 0;
-  const dispatcher = makeDispatcher((async () => {
+  const dispatcher = createMockDispatcher({ query: (async () => {
     calls += 1;
     return { isSuccess: true, data: { id: "r1", okCount: calls } } as unknown as QueryResult;
-  }) as unknown as QueryFn);
+  }) as unknown as QueryFn });
   const feed = createLiveFeed();
   const wrapper = ({ children }: { readonly children: ReactNode }) => (
     <DispatcherProvider dispatcher={dispatcher}>

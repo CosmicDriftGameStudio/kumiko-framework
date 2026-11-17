@@ -7,7 +7,7 @@ import { E2E_TIMEOUT_MS } from "./e2e-timeouts.ts";
 export const TEST_TIMEOUT_MS = {
   unit: 5000,
   integration: 15000,
-  dom: 15000,
+  dom: 5000,
   // Same class budget as Playwright real runs (E2E_TIMEOUT_MS.real) — one
   // constant covers both the bun test:real path and defineAppE2eConfig.
   real: E2E_TIMEOUT_MS.real,

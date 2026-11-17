@@ -5,7 +5,6 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { type ReactNode, useCallback, useState } from "react";
 import * as z from "zod";
-import type { Dispatcher } from "../../headless/index.ts";
 import {
   DispatcherProvider,
   ExtensionSectionsProvider,
@@ -20,7 +19,7 @@ import {
   orderEntity,
   type TestValues,
 } from "./_render-edit-helpers.tsx";
-import { act, fireEvent, render, screen } from "./test-utils.tsx";
+import { act, fireEvent, type MockWriteHandler, render, screen } from "./test-utils.tsx";
 
 // Controlled mode. onChange reports values out, onControlsReady
 // hands the caller patch()/validate()/getValues() bound to this instance —
@@ -284,7 +283,7 @@ describe("RenderEdit — controlled mode", () => {
   });
 
   test("controls.validate() reports field errors on the field, never as a summary banner, and writes nothing", () => {
-    const write = mock(async () => ({ isSuccess: true, data: { id: "1" } }) as never);
+    const write = mock<MockWriteHandler>(async () => ({ isSuccess: true, data: { id: "1" } }));
     const schema = z.object({
       title: z.string().min(1),
       count: z.number().optional(),
@@ -473,7 +472,7 @@ describe("RenderEdit — FieldConditions react to extension patch()", () => {
     };
   }
 
-  function renderVehicleForm(writeFn?: Dispatcher["write"], schema?: z.ZodType): void {
+  function renderVehicleForm(writeFn?: MockWriteHandler, schema?: z.ZodType): void {
     render(
       <DispatcherProvider dispatcher={makeDispatcher(writeFn)}>
         <ExtensionSectionsProvider value={{ VinDecodeSection }}>
@@ -557,7 +556,7 @@ describe("RenderEdit — FieldConditions react to extension patch()", () => {
   // RenderEdit tests in this file — RenderEdit itself takes `schema` as a
   // prop and does not derive one from the layout on its own.
   test("clearing trim after a decode-hit blocks submit — the required condition is enforced, not just displayed", async () => {
-    const write = mock(async () => ({ isSuccess: true, data: { id: "1" } }) as never);
+    const write = mock<MockWriteHandler>(async () => ({ isSuccess: true, data: { id: "1" } }));
     const schema = z
       .object({ title: z.string().min(1) })
       .passthrough()
@@ -567,7 +566,7 @@ describe("RenderEdit — FieldConditions react to extension patch()", () => {
           ctx.addIssue({ code: "custom", path: ["trim"], message: '"trim" is required.' });
         }
       });
-    renderVehicleForm(write as unknown as Dispatcher["write"], schema);
+    renderVehicleForm(write, schema);
 
     act(() => {
       fireEvent.click(screen.getByTestId("decode-hit"));
@@ -660,10 +659,10 @@ describe("RenderEdit wizard mode", () => {
 
   test("a hideActions host steps with controls.next()/back() and controls.submit() saves on an intermediate step", async () => {
     const writes: { type: string; payload: unknown }[] = [];
-    const dispatcher = makeDispatcher((async (type: string, payload: unknown) => {
+    const dispatcher = makeDispatcher(async (type: string, payload: unknown) => {
       writes.push({ type, payload });
       return { isSuccess: true, data: { id: "1" } };
-    }) as Dispatcher["write"]);
+    });
     let controls: RenderEditControls<TestValues> | undefined;
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -920,7 +919,7 @@ describe("RenderEdit wizard mode", () => {
   // (field issues exist) while the field itself was invisible on the
   // current step, silently hiding the error entirely.
   test("a server field error for a step that's not currently shown jumps the wizard there and shows the field error", async () => {
-    const write = mock(
+    const write = mock<MockWriteHandler>(
       async () =>
         ({
           isSuccess: false,
@@ -971,7 +970,7 @@ describe("RenderEdit wizard mode", () => {
   // to — it must NOT be silently suppressed just because `details.fields`
   // is non-empty.
   test("a root-level server error with no matching field is not suppressed — the banner shows", async () => {
-    const write = mock(
+    const write = mock<MockWriteHandler>(
       async () =>
         ({
           isSuccess: false,
@@ -1013,7 +1012,7 @@ describe("RenderEdit wizard mode", () => {
   });
 
   test("a server root issue without a field shows once, in the banner", async () => {
-    const write = mock(
+    const write = mock<MockWriteHandler>(
       async () =>
         ({
           isSuccess: false,

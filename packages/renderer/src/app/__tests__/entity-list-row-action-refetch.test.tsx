@@ -31,6 +31,7 @@ import {
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import { NavProvider } from "../nav.tsx";
+import { createMockDispatcher } from "../../testing.ts";
 
 type StubState = {
   queryCallCount: number;
@@ -84,8 +85,8 @@ function capturingPrimitives(state: StubState): CorePrimitives {
 }
 
 function stubDispatcher(state: StubState): Dispatcher {
-  return {
-    write: (async () => {
+  return createMockDispatcher({
+    write: async () => {
       if (!state.writeIsSuccess) {
         return {
           isSuccess: false,
@@ -98,23 +99,16 @@ function stubDispatcher(state: StubState): Dispatcher {
         };
       }
       return { isSuccess: true, data: {} };
-    }) as unknown as Dispatcher["write"],
-    query: (async () => {
+    },
+    query: async () => {
       state.queryCallCount += 1;
       return {
         isSuccess: true,
         data: { rows: [{ id: "unit-1", status: "active" }], nextCursor: null, total: 1 },
       };
-    }) as unknown as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+    },
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
 }
 
 function buildSchema(): FeatureSchema {

@@ -28,6 +28,7 @@ import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import type { NavApi } from "../nav.tsx";
 import { NavProvider } from "../nav.tsx";
+import { createMockDispatcher } from "../../testing.ts";
 
 afterEach(cleanup);
 
@@ -105,24 +106,17 @@ const testPrimitives: CorePrimitives = {
 type Calls = { writes: number; detailQueries: number };
 
 function stubDispatcher(calls: Calls): Dispatcher {
-  return {
-    write: (async () => {
+  return createMockDispatcher({
+    write: async () => {
       calls.writes += 1;
       return { isSuccess: true, data: {} };
-    }) as unknown as Dispatcher["write"],
-    query: (async () => {
+    },
+    query: async () => {
       calls.detailQueries += 1;
       return { isSuccess: true, data: { id: "rent-1", version: 1, name: "April" } };
-    }) as unknown as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+    },
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
 }
 
 const archiveAction = {

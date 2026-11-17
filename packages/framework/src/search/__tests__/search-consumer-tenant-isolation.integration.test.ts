@@ -2,6 +2,7 @@
 // other tenant: the search consumer runs on one shared, strictly ordered cursor.
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { generateId as uuid } from "@cosmicdrift/kumiko-framework/utils";
+import { liveMeiliConnection, meiliAvailable } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   resetEventStore,
   setupTestStack,
@@ -20,24 +21,9 @@ import { createMeilisearchAdapter } from "../meilisearch-adapter.ts";
 import { meilisearchTenantIndex } from "../meilisearch-adapter-internals.ts";
 import type { SearchAdapter } from "../types.ts";
 
-const MEILI_URL = process.env["MEILI_URL"] ?? "http://localhost:17700";
-const MEILI_KEY = process.env["MEILI_MASTER_KEY"] ?? "kumiko-dev-key";
-
-async function meiliAvailable(): Promise<boolean> {
-  try {
-    const health = await fetch(`${MEILI_URL}/health`, { signal: AbortSignal.timeout(2000) });
-    return health.ok;
-  } catch {
-    return false;
-  }
-}
+const { url: MEILI_URL, masterKey: MEILI_KEY } = liveMeiliConnection();
 
 const MEILI_UP = await meiliAvailable();
-if (!MEILI_UP && process.env["REQUIRE_MEILI"] === "1") {
-  throw new Error(
-    `REQUIRE_MEILI=1 but Meilisearch not reachable at ${MEILI_URL} — integration job misconfigured`,
-  );
-}
 
 const noteEntity = createEntity({
   table: "read_search_isolation_notes",

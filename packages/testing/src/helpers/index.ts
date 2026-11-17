@@ -61,6 +61,11 @@ export {
 } from "./http-cookies.ts";
 export { createLateBoundHolder, type LateBoundHolder } from "./late-bound.ts";
 export { createManualClock, type ManualClock } from "./manual-clock.ts";
+export {
+  type LiveMeiliConnection,
+  liveMeiliConnection,
+  meiliAvailable,
+} from "./meili-availability.ts";
 export { buildMultipartBody, patchFileInstanceofForBunTest } from "./multipart-helper.ts";
 export {
   createMutableMasterKeyProvider,

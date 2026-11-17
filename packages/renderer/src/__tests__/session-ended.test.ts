@@ -5,36 +5,22 @@ import {
   isSessionEndedError,
   withSessionEndedDetection,
 } from "../session/session-ended.tsx";
+import { createMockDispatcher, type MockDispatcherOptions } from "../testing.ts";
 
 function errorOf(httpStatus: number, code: string): DispatcherError {
   return { code, httpStatus, i18nKey: `errors.${code}`, message: code };
 }
 
-type StubDispatcher = {
-  write: () => Promise<unknown>;
-  query: () => Promise<unknown>;
-  batch: () => Promise<unknown>;
-  stream: () => AsyncGenerator<unknown, void, undefined>;
-};
-
-// The real Dispatcher methods are generic over the payload type, which a
-// concrete stub cannot satisfy — one cast at this test boundary instead of
-// per stub.
-function createDispatcher(overrides: Partial<StubDispatcher>): Dispatcher {
-  const stub = {
+function createDispatcher(overrides: MockDispatcherOptions): Dispatcher {
+  return createMockDispatcher({
     write: () => Promise.resolve({ isSuccess: true, data: null }),
     query: () => Promise.resolve({ isSuccess: true, data: null }),
     batch: () => Promise.resolve({ isSuccess: true, results: [] }),
-    async *stream() {},
-    statusStore: { getSnapshot: () => "online", subscribe: () => () => {} },
-    pendingWrites: () => [],
-    pendingFiles: () => [],
     ...overrides,
-  };
-  return stub as unknown as Dispatcher;
+  });
 }
 
-function setup(overrides: Partial<StubDispatcher>) {
+function setup(overrides: MockDispatcherOptions) {
   const signal = createSessionEndedSignal();
   let notifications = 0;
   signal.subscribe(() => {

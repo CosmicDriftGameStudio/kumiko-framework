@@ -10,7 +10,7 @@ import type { Dispatcher } from "../../headless/index.ts";
 import type { NavTarget } from "../../index.ts";
 import { DispatcherProvider, KumikoScreen, NavProvider } from "../../index.ts";
 import { PageHeaderSlotProvider, usePageHeaderSlot } from "../layout/page-header-slot.tsx";
-import { createMockDispatcher, fireEvent, render, screen, waitFor, within } from "./test-utils.tsx";
+import { createMockDispatcher, fireEvent, type MockWriteHandler, render, screen, waitFor, within } from "./test-utils.tsx";
 
 const productEntity: EntityDefinition = {
   fields: {
@@ -70,12 +70,12 @@ const archiveAction: EntityEditAction = {
   confirm: "Really archive?",
 };
 
-function recordDispatcher(write?: Dispatcher["write"]) {
+function recordDispatcher(write?: MockWriteHandler) {
   return createMockDispatcher({
-    query: (async () => ({
+    query: async () => ({
       isSuccess: true,
       data: { id: "42", version: 1, name: "Existing" },
-    })) as unknown as Dispatcher["query"],
+    }),
     ...(write !== undefined && { write }),
   });
 }
@@ -137,10 +137,10 @@ describe("entityEdit actions with placement: menu", () => {
   });
 
   test("a confirm-gated menu action writes only after the dialog is confirmed", async () => {
-    const write = mock(async () => ({ isSuccess: true, data: {} }));
+    const write = mock<MockWriteHandler>(async () => ({ isSuccess: true, data: {} }));
     renderEditScreen([{ ...archiveAction, placement: "menu" }], {
       withHeaderMenu: true,
-      dispatcher: recordDispatcher(write as unknown as Dispatcher["write"]),
+      dispatcher: recordDispatcher(write),
     });
 
     const menu = await openHeaderMenu();

@@ -42,7 +42,7 @@ function renderForm(options: {
 }): Calls {
   const calls: Calls = { queries: [], writes: [] };
   const dispatcher: Dispatcher = createMockDispatcher({
-    query: (async (type: string, payload: unknown) => {
+    query: async (type: string, payload: unknown) => {
       calls.queries.push({ type, payload });
       if (options.outcome.kind === "error") {
         return {
@@ -54,11 +54,11 @@ function renderForm(options: {
         isSuccess: true,
         data: options.outcome.kind === "record" ? options.outcome.record : null,
       };
-    }) as unknown as Dispatcher["query"],
-    write: (async (_type: string, payload: unknown) => {
+    },
+    write: async (_type: string, payload: unknown) => {
       calls.writes.push(payload);
       return { isSuccess: true, data: {} };
-    }) as unknown as Dispatcher["write"],
+    },
   });
   render(
     <DispatcherProvider dispatcher={dispatcher}>

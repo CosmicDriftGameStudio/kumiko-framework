@@ -30,6 +30,7 @@ import {
   resolveE2eWorkers,
 } from "../e2e/define-app-e2e-config";
 import { screenshotSpecsIgnore } from "../e2e/screenshot-dir";
+import { SERVICE_ENV_DEFAULTS } from "../preload/service-env-defaults-values";
 import { E2E_TIMEOUT_MS } from "../e2e-timeouts";
 import { REAL_PROVIDERS_ENV } from "../helpers/real-providers.ts";
 
@@ -44,6 +45,17 @@ const TOUCHED_ENV = [
   "SCREENSHOT_DIR",
   "MEILI_URL",
   "MEILI_MASTER_KEY",
+  "MINIO_ENDPOINT",
+  "MINIO_ACCESS_KEY",
+  "MINIO_SECRET_KEY",
+  "MINIO_BUCKET",
+  "MINIO_REGION",
+  "S3_ENDPOINT",
+  "S3_ACCESS_KEY",
+  "S3_SECRET_KEY",
+  "S3_BUCKET",
+  "S3_REGION",
+  "S3_FORCE_PATH_STYLE",
 ] as const;
 let saved: Record<string, string | undefined> = {};
 
@@ -448,6 +460,56 @@ describe("defineAppE2eConfig defaults", () => {
     }
     expect(ciServer.env?.["MEILI_URL"]).toBe("http://ci-meili:7700");
     expect(ciServer.env?.["MEILI_MASTER_KEY"]).toBe("ci-key");
+  });
+
+  describe("S3 env for the s3-env provider", () => {
+    function webServerEnvIn(appDir: string): Record<string, string> | undefined {
+      const originalCwd = process.cwd();
+      try {
+        process.chdir(appDir);
+        const server = defineAppE2eConfig({ port: 1 }).webServer;
+        if (Array.isArray(server) || server === undefined) {
+          throw new Error("expected one webServer");
+        }
+        return server.env;
+      } finally {
+        process.chdir(originalCwd);
+      }
+    }
+
+    function withAppDir<T>(dotenv: string | undefined, run: (appDir: string) => T): T {
+      const appDir = mkdtempSync(join(tmpdir(), "e2e-config-s3-"));
+      if (dotenv !== undefined) writeFileSync(join(appDir, ".env"), dotenv);
+      try {
+        return run(appDir);
+      } finally {
+        rmSync(appDir, { recursive: true, force: true });
+      }
+    }
+
+    test("defaults to the local MinIO values and path-style addressing", () => {
+      const env = withAppDir(undefined, webServerEnvIn);
+
+      expect(env?.["S3_ENDPOINT"]).toBe(SERVICE_ENV_DEFAULTS.MINIO_ENDPOINT);
+      expect(env?.["S3_ACCESS_KEY"]).toBe(SERVICE_ENV_DEFAULTS.MINIO_ACCESS_KEY);
+      expect(env?.["S3_SECRET_KEY"]).toBe(SERVICE_ENV_DEFAULTS.MINIO_SECRET_KEY);
+      expect(env?.["S3_BUCKET"]).toBe(SERVICE_ENV_DEFAULTS.MINIO_BUCKET);
+      expect(env?.["S3_REGION"]).toBe(SERVICE_ENV_DEFAULTS.MINIO_REGION);
+      expect(env?.["S3_FORCE_PATH_STYLE"]).toBe("true");
+    });
+
+    test("follows a MINIO_BUCKET set in the shell", () => {
+      process.env["MINIO_BUCKET"] = "ci-bucket";
+
+      expect(withAppDir(undefined, webServerEnvIn)?.["S3_BUCKET"]).toBe("ci-bucket");
+    });
+
+    test("leaves S3_BUCKET to the app's .env when it defines it", () => {
+      const env = withAppDir('S3_BUCKET="app-bucket"\n', webServerEnvIn);
+
+      expect(env).not.toHaveProperty("S3_BUCKET");
+      expect(env?.["S3_REGION"]).toBe(SERVICE_ENV_DEFAULTS.MINIO_REGION);
+    });
   });
 
   test("forbidOnly follows CI", () => {

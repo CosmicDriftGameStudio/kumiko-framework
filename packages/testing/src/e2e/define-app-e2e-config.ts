@@ -58,19 +58,42 @@ export function appDotenvValues(): Record<string, string> {
   return values;
 }
 
+// The file provider stays chosen by FILE_STORAGE_PROVIDER; these values only make the
+// s3-env provider usable against the template's local MinIO.
+const S3_ENV_FROM_MINIO = {
+  S3_ENDPOINT: "MINIO_ENDPOINT",
+  S3_ACCESS_KEY: "MINIO_ACCESS_KEY",
+  S3_SECRET_KEY: "MINIO_SECRET_KEY",
+  S3_BUCKET: "MINIO_BUCKET",
+  S3_REGION: "MINIO_REGION",
+} as const satisfies Record<string, keyof typeof SERVICE_ENV_DEFAULTS>;
+
+const S3_FORCE_PATH_STYLE_ENV = "S3_FORCE_PATH_STYLE";
+
 // Precedence per key: shell/CI environment, then the app's `.env`, then the local-dev default.
 function infraEnvDefaults(): Record<string, string> {
-  const definedInAppDotenv = new Set(Object.keys(appDotenvValues()));
-  return Object.fromEntries(
-    Object.entries(SERVICE_ENV_DEFAULTS).flatMap(([key, value]) => {
-      const fromEnvironment = process.env[key];
-      if (OPT_IN_SERVICE_ENV_KEYS.includes(key)) {
-        return fromEnvironment === undefined ? [] : [[key, fromEnvironment]];
-      }
-      if (fromEnvironment === undefined && definedInAppDotenv.has(key)) return [];
-      return [[key, fromEnvironment ?? value]];
+  const dotenv = appDotenvValues();
+  const definedInAppDotenv = new Set(Object.keys(dotenv));
+  const serviceEnv = Object.entries(SERVICE_ENV_DEFAULTS).flatMap<readonly [string, string]>(([key, value]) => {
+    const fromEnvironment = process.env[key];
+    if (OPT_IN_SERVICE_ENV_KEYS.includes(key)) {
+      return fromEnvironment === undefined ? [] : [[key, fromEnvironment]];
+    }
+    if (fromEnvironment === undefined && definedInAppDotenv.has(key)) return [];
+    return [[key, fromEnvironment ?? value]];
+  });
+  const s3Sources: ReadonlyArray<readonly [string, string | undefined, string]> = [
+    ...Object.entries(S3_ENV_FROM_MINIO).map(([s3Key, minioKey]) => {
+      const minioValue = process.env[minioKey] ?? dotenv[minioKey] ?? SERVICE_ENV_DEFAULTS[minioKey];
+      return [s3Key, process.env[s3Key], minioValue] as const;
     }),
-  );
+    [S3_FORCE_PATH_STYLE_ENV, process.env[S3_FORCE_PATH_STYLE_ENV], "true"],
+  ];
+  const s3Env = s3Sources.flatMap<readonly [string, string]>(([s3Key, fromEnvironment, fallback]) => {
+    if (fromEnvironment === undefined && definedInAppDotenv.has(s3Key)) return [];
+    return [[s3Key, fromEnvironment ?? fallback]];
+  });
+  return Object.fromEntries([...serviceEnv, ...s3Env]);
 }
 
 const TEMPLATE_OWNED_PROJECT_KEYS = [

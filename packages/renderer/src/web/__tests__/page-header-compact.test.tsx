@@ -174,10 +174,10 @@ describe("compact shell header with a projection detail", () => {
     screens: [detailScreen],
   };
   const dispatcher: Dispatcher = createMockDispatcher({
-    query: (async () => ({
+    query: async () => ({
       isSuccess: true,
       data: { userId: "user-42" },
-    })) as unknown as Dispatcher["query"],
+    }),
   });
 
   function renderDetail(detailSchema: FeatureSchema = schema): void {
@@ -343,10 +343,10 @@ describe("compact shell header with a projection detail", () => {
     };
     const statusSchema: FeatureSchema = { ...schema, screens: [statusScreen] };
     const statusDispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { userId: "user-42", statusLabel: "Aktiv, Änderungen nicht veröffentlicht" },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
 
     function renderStatusDetail(): void {

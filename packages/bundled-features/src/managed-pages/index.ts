@@ -15,6 +15,7 @@ export {
 // strings, so apps + the per-tenant migration never hardcode them.
 export { BRANDING_QN, MANAGED_PAGES_CSS_FEATURE, readBranding } from "./branding.ts";
 export { MANAGED_PAGES_FEATURE } from "./constants.ts";
+export { PAGE_UPDATE_HANDLER } from "./web/constants.ts";
 export { createManagedPagesCssFeature } from "./css-gate.ts";
 export {
   createManagedPagesFeature,

@@ -3,13 +3,9 @@ import type { ReactNode } from "react";
 import * as z from "zod";
 import type { Dispatcher } from "../../headless/index.ts";
 import { DispatcherProvider, useForm } from "../../index.ts";
-import { act, createMockDispatcher, renderHook } from "./test-utils.tsx";
+import { act, createMockDispatcher, type MockWriteHandler, renderHook } from "./test-utils.tsx";
 
 type Values = { title: string; count?: number };
-
-function makeDispatcher(writeFn?: Dispatcher["write"]): Dispatcher {
-  return createMockDispatcher({ write: writeFn });
-}
 
 function wrap(dispatcher: Dispatcher) {
   return ({ children }: { children: ReactNode }) => (
@@ -19,7 +15,7 @@ function wrap(dispatcher: Dispatcher) {
 
 describe("useForm", () => {
   test("snapshot reflects setField mutations", () => {
-    const dispatcher = makeDispatcher();
+    const dispatcher = createMockDispatcher();
     const { result } = renderHook(
       () =>
         useForm<Values>({
@@ -39,8 +35,8 @@ describe("useForm", () => {
   });
 
   test("submit dispatches to the context dispatcher when no explicit one is passed", async () => {
-    const write = mock(async () => ({ isSuccess: true, data: { id: "123" } }) as never);
-    const dispatcher = makeDispatcher(write);
+    const write = mock<MockWriteHandler>(async () => ({ isSuccess: true, data: { id: "123" } }));
+    const dispatcher = createMockDispatcher({ write: write });
     const { result } = renderHook(
       () =>
         useForm<Values>({
@@ -62,8 +58,8 @@ describe("useForm", () => {
   });
 
   test("zod schema failure blocks submit; no network call fires", async () => {
-    const write = mock();
-    const dispatcher = makeDispatcher(write as unknown as Dispatcher["write"]);
+    const write = mock<MockWriteHandler>();
+    const dispatcher = createMockDispatcher({ write: write });
     const schema = z.object({ title: z.string().min(1), count: z.number().optional() });
     const { result } = renderHook(
       () =>
@@ -88,8 +84,8 @@ describe("useForm", () => {
   test("explicit dispatcher on submit wins over context dispatcher", async () => {
     const contextWrite = mock(async () => ({ isSuccess: true, data: {} }) as never);
     const overrideWrite = mock(async () => ({ isSuccess: true, data: {} }) as never);
-    const contextDispatcher = makeDispatcher(contextWrite);
-    const overrideDispatcher = makeDispatcher(overrideWrite);
+    const contextDispatcher = createMockDispatcher({ write: contextWrite });
+    const overrideDispatcher = createMockDispatcher({ write: overrideWrite });
 
     const { result } = renderHook(
       () =>

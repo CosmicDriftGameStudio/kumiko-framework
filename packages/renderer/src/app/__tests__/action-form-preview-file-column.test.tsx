@@ -4,7 +4,6 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { ActionFormPreview } from "@cosmicdrift/kumiko-framework/ui-types";
 import { waitFor } from "@testing-library/react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
-import type { Dispatcher } from "../../headless/index.ts";
 import { createMockDispatcher, render } from "../../web/__tests__/test-utils.tsx";
 import { ActionFormPreviewPanel } from "../action-form-preview.tsx";
 
@@ -38,10 +37,10 @@ const preview: ActionFormPreview = {
 describe("ActionFormPreviewPanel file column", () => {
   test("a row with a fileRef id shows the file name as a download link", async () => {
     const dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { rows: [{ name: "Row one", document: FILE_ID }] },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     const { findByText, container } = render(
       <DispatcherProvider dispatcher={dispatcher}>

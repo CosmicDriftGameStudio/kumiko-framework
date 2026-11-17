@@ -26,6 +26,7 @@ import { documentDesignerClient } from "../client-plugin.tsx";
 import { TENANT_MAIL_SENDING_SCREEN_ID } from "../constants.ts";
 import { MailEditor } from "../mail-editor.tsx";
 import { PreviewRecordPickerProvider } from "../preview-record-picker.tsx";
+import { createMockDispatcher } from "@cosmicdrift/kumiko-renderer/testing";
 
 const SLUG = "billing:notify:invoice-issued";
 
@@ -177,13 +178,13 @@ function fakeDispatcher(
         return undefined;
     }
   };
-  return {
-    write: (async (type: string, payload: unknown) => {
+  return createMockDispatcher({
+    write: async (type: string, payload: unknown) => {
       calls.push({ type, payload });
       return { isSuccess: true, data: { id: "t-1" } };
-    }) as unknown as Dispatcher["write"],
-    batch: (async () => ({ isSuccess: true, data: [] })) as unknown as Dispatcher["batch"],
-    query: (async (type: string, payload: unknown) => {
+    },
+    batch: async () => ({ isSuccess: true, results: [] }),
+    query: async (type: string, payload: unknown) => {
       calls.push({ type, payload });
       const data = answer(type, payload);
       return data === undefined
@@ -192,21 +193,13 @@ function fakeDispatcher(
             error: { code: "not_found", httpStatus: 404, i18nKey: "x", message: "" },
           }
         : { isSuccess: true, data };
-    }) as unknown as Dispatcher["query"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+    },
+  });
 }
 
 function withTenantTransportUsage(base: Dispatcher): Dispatcher {
-  return {
-    ...base,
-    query: (async (type: string, payload: unknown) =>
+  return createMockDispatcher({
+    query: async (type, payload, opts) =>
       type === "template-resolver:query:usage"
         ? {
             isSuccess: true,
@@ -216,8 +209,10 @@ function withTenantTransportUsage(base: Dispatcher): Dispatcher {
               ],
             },
           }
-        : base.query(type as never, payload as never)) as unknown as Dispatcher["query"],
-  };
+        : base.query(type, payload, opts),
+    write: (type, payload, opts) => base.write(type, payload, opts),
+    batch: (commands, opts) => base.batch(commands, opts),
+  });
 }
 
 // Only the screen list matters to the sender hint's link check.

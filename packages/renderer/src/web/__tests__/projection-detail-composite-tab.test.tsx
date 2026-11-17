@@ -3,10 +3,9 @@
 
 import { describe, expect, test } from "bun:test";
 import type { ProjectionDetailScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema, NavApi } from "../../index.ts";
 import { DispatcherProvider, KumikoScreen, NavProvider } from "../../index.ts";
-import { createMockDispatcher, render, screen, waitFor } from "./test-utils.tsx";
+import { createMockDispatcher, type MockQueryHandler, render, screen, waitFor } from "./test-utils.tsx";
 
 const detail: ProjectionDetailScreenDefinition = {
   id: "request-detail",
@@ -39,7 +38,7 @@ const detail: ProjectionDetailScreenDefinition = {
 const schema: FeatureSchema = { featureName: "swap", entities: {}, screens: [detail] };
 
 function renderRequest(state: string, tab?: string): void {
-  const query = (async (type: string) =>
+  const query: MockQueryHandler = async (type: string) =>
     type === "swap:query:request:detail"
       ? {
           isSuccess: true,
@@ -62,7 +61,7 @@ function renderRequest(state: string, tab?: string): void {
       : {
           isSuccess: true,
           data: { rows: [{ id: "s1", name: "Oak table" }], nextCursor: null },
-        }) as unknown as Dispatcher["query"];
+        };
   const navApi: NavApi = {
     route: undefined,
     navigate: () => {},

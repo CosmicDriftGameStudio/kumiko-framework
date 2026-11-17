@@ -20,14 +20,7 @@ import {
 import { PageHeaderSlotProvider } from "../layout/page-header-slot.tsx";
 import { ShellHeader } from "../layout/shell-header.tsx";
 import { defaultPrimitives } from "../primitives/index.tsx";
-import {
-  createMockDispatcher,
-  render,
-  renderWithPrimitivesOverride,
-  renderWithSidebar,
-  screen,
-  waitFor,
-} from "./test-utils.tsx";
+import { createMockDispatcher, type MockQueryHandler, render, renderWithPrimitivesOverride, renderWithSidebar, screen, waitFor } from "./test-utils.tsx";
 
 const baseScreen: ProjectionDetailScreenDefinition = {
   id: "rent-detail",
@@ -56,11 +49,11 @@ function dispatcherReturning(
   data: Readonly<Record<string, unknown>>,
 ): Dispatcher & { readonly calls: { readonly type: string; readonly payload: unknown }[] } {
   const calls: { type: string; payload: unknown }[] = [];
-  const query = (async (type: string, payload: unknown) => {
+  const query: MockQueryHandler = async (type: string, payload: unknown) => {
     calls.push({ type, payload });
     if (type === "rentals:query:rent:detail") return { isSuccess: true, data };
     return { isSuccess: true, data: { rows: [], nextCursor: null } };
-  }) as unknown as Dispatcher["query"];
+  };
   const dispatcher = createMockDispatcher({ query });
   return Object.assign(dispatcher, { calls });
 }
@@ -1261,13 +1254,13 @@ describe("KumikoScreen / projectionDetail — switching records remounts the bod
       "rent-1": { description: "Loft 4B" },
       "rent-2": { description: "Warehouse 9" },
     };
-    const query = (async (type: string, payload: unknown) => {
+    const query: MockQueryHandler = async (type: string, payload: unknown) => {
       if (type === "rentals:query:rent:detail") {
         const id = (payload as { id?: string }).id ?? "";
         return { isSuccess: true, data: dataById[id] ?? {} };
       }
       return { isSuccess: true, data: { rows: [], nextCursor: null } };
-    }) as unknown as Dispatcher["query"];
+    };
     const dispatcher = createMockDispatcher({ query });
 
     const { rerender } = render(

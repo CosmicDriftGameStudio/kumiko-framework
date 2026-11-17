@@ -2,9 +2,6 @@
 // generator output (buildConfigFeatureSchema) — one form for the provider and every
 // provider's settings and secrets, shown for the provider picked in the form. The
 // chromeless dashboard panel is what an owner with extra panels embeds that form in.
-//
-// `as unknown as Dispatcher[...]`: each mock lambda implements only the overload
-// the test exercises.
 
 import { describe, expect, mock, test } from "bun:test";
 import {
@@ -29,7 +26,7 @@ import {
 } from "../../index.ts";
 import { WebDashboardBody } from "../app/dashboard-body.tsx";
 import { useBrowserNavApi } from "../app/nav.tsx";
-import { createMockDispatcher, render, screen, waitFor } from "./test-utils.tsx";
+import { createMockDispatcher, type MockBatchHandler, type MockQueryHandler, render, screen, waitFor } from "./test-utils.tsx";
 
 const TENANT_ADMIN_WRITE = access.roles("TenantAdmin");
 
@@ -139,8 +136,8 @@ type HubState = { readonly provider?: string; readonly passwordStored?: boolean 
 
 const SMTP_PASSWORD_KEY = "mail-smtp:secret:password";
 
-function hubQuery(state: HubState): Dispatcher["query"] {
-  return (async (type: string) => {
+function hubQuery(state: HubState): MockQueryHandler {
+  return async (type: string) => {
     if (type === "config:query:values") {
       return {
         isSuccess: true,
@@ -163,7 +160,7 @@ function hubQuery(state: HubState): Dispatcher["query"] {
       };
     }
     return { isSuccess: true, data: {} };
-  }) as unknown as Dispatcher["query"];
+  };
 }
 
 function batchSpy() {
@@ -219,11 +216,11 @@ describe("generated extension-selector dashboard", () => {
   });
 
   test("one save writes the provider, its settings and its password", async () => {
-    const batch = batchSpy();
+    const batch: MockBatchHandler = batchSpy();
     renderHub(
       createMockDispatcher({
         query: hubQuery({}),
-        batch: batch as unknown as Dispatcher["batch"],
+        batch: batch,
       }),
     );
     const user = userEvent.setup();
@@ -251,11 +248,11 @@ describe("generated extension-selector dashboard", () => {
   });
 
   test("input for a provider that is no longer picked is not saved", async () => {
-    const batch = batchSpy();
+    const batch: MockBatchHandler = batchSpy();
     renderHub(
       createMockDispatcher({
         query: hubQuery({}),
-        batch: batch as unknown as Dispatcher["batch"],
+        batch: batch,
       }),
     );
     const user = userEvent.setup();
@@ -275,11 +272,11 @@ describe("generated extension-selector dashboard", () => {
   });
 
   test("a stored password shows as set, and Replace then Remove deletes the secret", async () => {
-    const batch = batchSpy();
+    const batch: MockBatchHandler = batchSpy();
     renderHub(
       createMockDispatcher({
         query: hubQuery({ provider: "smtp", passwordStored: true }),
-        batch: batch as unknown as Dispatcher["batch"],
+        batch: batch,
       }),
     );
     await waitFor(() => screen.getByTestId("field-mail-smtp-password"));

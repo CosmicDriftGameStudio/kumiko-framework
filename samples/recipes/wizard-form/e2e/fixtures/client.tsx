@@ -17,7 +17,7 @@ import type { AppSchema } from "@cosmicdrift/kumiko-renderer";
 import { createKumikoApp, DefaultAppShell } from "@cosmicdrift/kumiko-renderer/web";
 import type { ReactNode } from "react";
 import { listingsClient } from "../../src/web";
-import { createMockDispatcher } from "./mock-dispatcher";
+import { createInMemoryDispatcher } from "./mock-dispatcher";
 
 const WIZARD_SCREEN_QN = "listings:screen:listing-wizard";
 const E2E_USER = { id: "e2e-user", roles: ["Admin"] };
@@ -52,7 +52,7 @@ async function boot(): Promise<void> {
 
   createKumikoApp({
     schema,
-    dispatcher: createMockDispatcher(),
+    dispatcher: createInMemoryDispatcher(),
     shell: AppShell,
     screenQn: WIZARD_SCREEN_QN,
     clientFeatures: [listingsClient],

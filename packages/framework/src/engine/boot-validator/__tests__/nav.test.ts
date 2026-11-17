@@ -1,16 +1,12 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
-import {
-  consoleCallsFromNamespace,
-  consoleCallsMentioning,
-  withBootValidatorFixture,
-} from "@cosmicdrift/kumiko-testing/helpers";
+import { withBootValidatorFixture } from "@cosmicdrift/kumiko-testing/helpers";
 import type { NavDefinition } from "@cosmicdrift/kumiko-types/nav";
 import type { WorkspaceDefinition } from "@cosmicdrift/kumiko-types/workspace";
 import * as z from "zod";
 import { validateBoot } from "../../boot-validator.ts";
 import { defineFeature } from "../../define-feature.ts";
 import { createEntity, createTextField } from "../../index.ts";
-
+import type { BootWarning, BootWarningSink } from "../boot-warning.ts";
 import { warnOnNavAccessInversion, warnOnUnreachableNavScreens } from "../nav.ts";
 import { deriveNavAllowlistFromWorkspaces, resolveNavAllowlist } from "../workspaces.ts";
 
@@ -27,14 +23,13 @@ function workspaceMap(
 }
 
 describe("warnOnUnreachableNavScreens", () => {
-  let warnSpy: ReturnType<typeof spyOn<Console, "warn">>;
+  let warnings: BootWarning[];
+  const warn: BootWarningSink = (warning) => {
+    warnings.push(warning);
+  };
 
   beforeEach(() => {
-    warnSpy = spyOn(console, "warn").mockImplementation(() => {});
-  });
-
-  afterEach(() => {
-    warnSpy.mockRestore();
+    warnings = [];
   });
 
   test("does not warn for an unallowlisted nav whose screen is reached by an allowlisted nav", () => {
@@ -59,9 +54,9 @@ describe("warnOnUnreachableNavScreens", () => {
       ],
     ]);
 
-    warnOnUnreachableNavScreens(allNavQns, new Set(["vehicles:nav:a"]));
+    warnOnUnreachableNavScreens(warn, allNavQns, new Set(["vehicles:nav:a"]));
 
-    expect(consoleCallsFromNamespace(warnSpy, "kumiko:boot")).toHaveLength(0);
+    expect(warnings).toHaveLength(0);
   });
 
   test("warns only for the unallowlisted nav whose screen nobody else reaches", () => {
@@ -95,14 +90,18 @@ describe("warnOnUnreachableNavScreens", () => {
       ],
     ]);
 
-    warnOnUnreachableNavScreens(allNavQns, new Set(["vehicles:nav:a"]));
+    warnOnUnreachableNavScreens(warn, allNavQns, new Set(["vehicles:nav:a"]));
 
-    const unreachableWarnings = consoleCallsMentioning(warnSpy, "unreachable via");
+    const unreachableWarnings = warnings;
     expect(unreachableWarnings).toHaveLength(1);
-    const msg = unreachableWarnings[0]![0] as string;
+    const msg = unreachableWarnings[0]!.message;
     expect(msg).toContain("vehicles:nav:c");
     expect(msg).toContain("vehicles");
     expect(msg).toContain("vehicles:screen:title");
+    expect(unreachableWarnings[0]).toMatchObject({
+      kind: "nav/screen-unreachable",
+      feature: "vehicles",
+    });
   });
 
   test("navAllowlistExempt suppresses the warning for an exempted nav", () => {
@@ -127,13 +126,13 @@ describe("warnOnUnreachableNavScreens", () => {
       ],
     ]);
 
-    warnOnUnreachableNavScreens(
+    warnOnUnreachableNavScreens(warn, 
       allNavQns,
       new Set(["vehicles:nav:a"]),
       new Set(["vehicles:nav:c"]),
     );
 
-    expect(consoleCallsFromNamespace(warnSpy, "kumiko:boot")).toHaveLength(0);
+    expect(warnings).toHaveLength(0);
   });
 
   test("never warns for a nav without a screen (pure grouping entry)", () => {
@@ -148,21 +147,20 @@ describe("warnOnUnreachableNavScreens", () => {
       ],
     ]);
 
-    warnOnUnreachableNavScreens(allNavQns, new Set());
+    warnOnUnreachableNavScreens(warn, allNavQns, new Set());
 
-    expect(consoleCallsFromNamespace(warnSpy, "kumiko:boot")).toHaveLength(0);
+    expect(warnings).toHaveLength(0);
   });
 });
 
 describe("warnOnUnreachableNavScreens remedy text", () => {
-  let warnSpy: ReturnType<typeof spyOn<Console, "warn">>;
+  let warnings: BootWarning[];
+  const warn: BootWarningSink = (warning) => {
+    warnings.push(warning);
+  };
 
   beforeEach(() => {
-    warnSpy = spyOn(console, "warn").mockImplementation(() => {});
-  });
-
-  afterEach(() => {
-    warnSpy.mockRestore();
+    warnings = [];
   });
 
   const unreachable = navMap([
@@ -173,30 +171,29 @@ describe("warnOnUnreachableNavScreens remedy text", () => {
   ]);
 
   test("workspace-derived allowlist points at workspace nav assignment", () => {
-    warnOnUnreachableNavScreens(unreachable, new Set(), new Set(), "workspaces");
+    warnOnUnreachableNavScreens(warn, unreachable, new Set(), new Set(), "workspaces");
 
-    const msg = consoleCallsMentioning(warnSpy, "unreachable via")[0]![0] as string;
+    const msg = warnings[0]!.message;
     expect(msg).toContain("add it to a workspace's `nav` array");
     expect(msg).not.toContain("add it to the allowlist");
   });
 
   test("explicit allowlist points at the allowlist", () => {
-    warnOnUnreachableNavScreens(unreachable, new Set());
+    warnOnUnreachableNavScreens(warn, unreachable, new Set());
 
-    const msg = consoleCallsMentioning(warnSpy, "unreachable via")[0]![0] as string;
+    const msg = warnings[0]!.message;
     expect(msg).toContain("add it to the allowlist");
   });
 });
 
 describe("warnOnNavAccessInversion", () => {
-  let warnSpy: ReturnType<typeof spyOn<Console, "warn">>;
+  let warnings: BootWarning[];
+  const warn: BootWarningSink = (warning) => {
+    warnings.push(warning);
+  };
 
   beforeEach(() => {
-    warnSpy = spyOn(console, "warn").mockImplementation(() => {});
-  });
-
-  afterEach(() => {
-    warnSpy.mockRestore();
+    warnings = [];
   });
 
   const parent: [string, NavDefinition & { readonly featureName: string }] = [
@@ -205,7 +202,7 @@ describe("warnOnNavAccessInversion", () => {
   ];
 
   test("warns for a leaf whose roles are disjoint from the parent's", () => {
-    warnOnNavAccessInversion(
+    warnOnNavAccessInversion(warn, 
       navMap([
         parent,
         [
@@ -215,11 +212,12 @@ describe("warnOnNavAccessInversion", () => {
       ]),
     );
 
-    expect(consoleCallsMentioning(warnSpy, "requires roles")).toHaveLength(1);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toMatchObject({ kind: "nav/access-inversion", feature: "f" });
   });
 
   test("does not emit a misleading 'requires roles []' warning for an invalid openToAll leaf", () => {
-    warnOnNavAccessInversion(
+    warnOnNavAccessInversion(warn, 
       navMap([
         parent,
         [
@@ -235,19 +233,18 @@ describe("warnOnNavAccessInversion", () => {
       ]),
     );
 
-    expect(consoleCallsFromNamespace(warnSpy, "kumiko:boot")).toHaveLength(0);
+    expect(warnings).toHaveLength(0);
   });
 });
 
 describe("resolveNavAllowlist (workspace-derived allowlist)", () => {
-  let warnSpy: ReturnType<typeof spyOn<Console, "warn">>;
+  let warnings: BootWarning[];
+  const warn: BootWarningSink = (warning) => {
+    warnings.push(warning);
+  };
 
   beforeEach(() => {
-    warnSpy = spyOn(console, "warn").mockImplementation(() => {});
-  });
-
-  afterEach(() => {
-    warnSpy.mockRestore();
+    warnings = [];
   });
 
   test("does not warn for a nav listed in a workspace's nav array", () => {
@@ -265,9 +262,9 @@ describe("resolveNavAllowlist (workspace-derived allowlist)", () => {
     ]);
 
     const allowlist = resolveNavAllowlist(undefined, allNavQns, allWorkspaceQns);
-    warnOnUnreachableNavScreens(allNavQns, allowlist ?? new Set());
+    warnOnUnreachableNavScreens(warn, allNavQns, allowlist ?? new Set());
 
-    expect(consoleCallsFromNamespace(warnSpy, "kumiko:boot")).toHaveLength(0);
+    expect(warnings).toHaveLength(0);
   });
 
   test("does not warn for a nav that self-assigns via workspaces", () => {
@@ -288,9 +285,9 @@ describe("resolveNavAllowlist (workspace-derived allowlist)", () => {
     ]);
 
     const allowlist = resolveNavAllowlist(undefined, allNavQns, allWorkspaceQns);
-    warnOnUnreachableNavScreens(allNavQns, allowlist ?? new Set());
+    warnOnUnreachableNavScreens(warn, allNavQns, allowlist ?? new Set());
 
-    expect(consoleCallsFromNamespace(warnSpy, "kumiko:boot")).toHaveLength(0);
+    expect(warnings).toHaveLength(0);
   });
 
   test("warns for a nav in no workspace whose screen nobody else reaches", () => {
@@ -312,11 +309,11 @@ describe("resolveNavAllowlist (workspace-derived allowlist)", () => {
     ]);
 
     const allowlist = resolveNavAllowlist(undefined, allNavQns, allWorkspaceQns);
-    warnOnUnreachableNavScreens(allNavQns, allowlist ?? new Set());
+    warnOnUnreachableNavScreens(warn, allNavQns, allowlist ?? new Set());
 
-    const unreachableWarnings = consoleCallsMentioning(warnSpy, "unreachable via");
+    const unreachableWarnings = warnings;
     expect(unreachableWarnings).toHaveLength(1);
-    expect(unreachableWarnings[0]![0] as string).toContain("vehicles:nav:orphan");
+    expect(unreachableWarnings[0]!.message).toContain("vehicles:nav:orphan");
   });
 
   test("does not warn when the app has no workspaces at all", () => {
@@ -348,12 +345,12 @@ describe("resolveNavAllowlist (workspace-derived allowlist)", () => {
     ]);
 
     const allowlist = resolveNavAllowlist(new Set(), allNavQns, allWorkspaceQns);
-    warnOnUnreachableNavScreens(allNavQns, allowlist ?? new Set());
+    warnOnUnreachableNavScreens(warn, allNavQns, allowlist ?? new Set());
 
     expect(allowlist).toEqual(new Set());
-    const unreachableWarnings = consoleCallsMentioning(warnSpy, "unreachable via");
+    const unreachableWarnings = warnings;
     expect(unreachableWarnings).toHaveLength(1);
-    expect(unreachableWarnings[0]![0] as string).toContain("vehicles:nav:a");
+    expect(unreachableWarnings[0]!.message).toContain("vehicles:nav:a");
   });
 });
 

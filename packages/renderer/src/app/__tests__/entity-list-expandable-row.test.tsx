@@ -25,6 +25,7 @@ import {
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import { NavProvider } from "../nav.tsx";
+import { createMockDispatcher } from "../../testing.ts";
 
 const PARENT_QN = "campaigns:query:campaign:list";
 const CHILD_QN = "campaigns:query:campaign-post:list";
@@ -44,8 +45,8 @@ function parentIdOf(payload: Record<string, unknown>): string {
 }
 
 function stubDispatcher(): Dispatcher {
-  return {
-    write: (async () => {
+  return createMockDispatcher({
+    write: async () => {
       if (!writeIsSuccess) {
         return {
           isSuccess: false,
@@ -58,8 +59,8 @@ function stubDispatcher(): Dispatcher {
         };
       }
       return { isSuccess: true, data: {} };
-    }) as unknown as Dispatcher["write"],
-    query: (async (qn: string, payload: Record<string, unknown>) => {
+    },
+    query: async (qn: string, payload: Record<string, unknown>) => {
       queryCalls.push({ qn, payload });
       if (qn === CHILD_QN) {
         const parent = parentIdOf(payload);
@@ -83,16 +84,9 @@ function stubDispatcher(): Dispatcher {
           total: 2,
         },
       };
-    }) as unknown as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+    },
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
 }
 
 // Mirrors the web table's contract: a toggle per row, the expansion rendered

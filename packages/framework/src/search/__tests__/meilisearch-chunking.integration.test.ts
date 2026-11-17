@@ -1,27 +1,15 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { generateId as uuid } from "@cosmicdrift/kumiko-framework/utils";
+import { liveMeiliConnection, meiliAvailable } from "@cosmicdrift/kumiko-testing/helpers";
 import { Meilisearch } from "meilisearch";
 import { createMeilisearchAdapter, listIndexUids } from "../meilisearch-adapter.ts";
 import { meilisearchDocId, meilisearchTenantIndex } from "../meilisearch-adapter-internals.ts";
 import { CHUNK_MAX_CHARS } from "../meilisearch-chunking.ts";
 import type { SearchAdapter } from "../types.ts";
 
-const MEILI_URL = process.env["MEILI_URL"] ?? "http://localhost:17700";
-const MEILI_KEY = process.env["MEILI_MASTER_KEY"] ?? "kumiko-dev-key";
-
-async function meiliAvailable(): Promise<boolean> {
-  try {
-    const health = await fetch(`${MEILI_URL}/health`, { signal: AbortSignal.timeout(2000) });
-    return health.ok;
-  } catch {
-    return false;
-  }
-}
+const { url: MEILI_URL, masterKey: MEILI_KEY } = liveMeiliConnection();
 
 const MEILI_UP = await meiliAvailable();
-if (!MEILI_UP && process.env["REQUIRE_MEILI"] === "1") {
-  throw new Error(`REQUIRE_MEILI=1 but Meilisearch not reachable at ${MEILI_URL}`);
-}
 
 const TENANT = uuid();
 const ENTITY_ID = uuid();

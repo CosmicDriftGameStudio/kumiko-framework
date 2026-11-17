@@ -16,6 +16,7 @@ import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import type { NavApi } from "../nav.tsx";
 import { NavProvider } from "../nav.tsx";
+import { createMockDispatcher } from "../../testing.ts";
 
 let capturedProps: DataTableProps | undefined;
 const captureDataTable: ComponentType<DataTableProps> = (props) => {
@@ -53,21 +54,14 @@ const testPrimitives: CorePrimitives = {
 let queryCalls: Array<{ readonly type: string; readonly payload: unknown }> = [];
 
 function stubDispatcher(): Dispatcher {
-  return {
-    write: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"],
-    query: (async (type: string, payload: unknown) => {
+  return createMockDispatcher({
+    write: async () => ({ isSuccess: true, data: {} }),
+    query: async (type: string, payload: unknown) => {
       queryCalls.push({ type, payload });
       return { isSuccess: true, data: { rows: [], nextCursor: null } };
-    }) as unknown as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+    },
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
 }
 
 // Stateful nav so setSearchParams (called by useListUrlState.setFilter)
@@ -182,15 +176,14 @@ describe("entityList facets config", () => {
   test("showCounts: each chip's count comes from a limit-1 totalCount query with that chip's filter", async () => {
     queryCalls = [];
     capturedProps = undefined;
-    const dispatcher = {
-      ...stubDispatcher(),
-      query: (async (type: string, payload: unknown) => {
+    const dispatcher = createMockDispatcher({
+      query: async (type: string, payload: unknown) => {
         queryCalls.push({ type, payload });
         const filters = filtersOf(payload) as { value: string[] }[] | undefined;
         const total = filters?.[0]?.value[0] === "open" ? 7 : 3;
         return { isSuccess: true, data: { rows: [], nextCursor: null, total } };
-      }) as unknown as Dispatcher["query"],
-    };
+      },
+    });
     renderScreen(
       statusSchema({ facets: { status: { display: "chips", showCounts: true } } }),
       "tasks:screen:task-list",

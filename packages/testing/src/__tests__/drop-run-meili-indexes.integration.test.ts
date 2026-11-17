@@ -3,19 +3,10 @@ import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createMeilisearchAdapter } from "@cosmicdrift/kumiko-framework/search/meilisearch";
 import { MEILI_INDEX_PREFIX_ENV } from "../e2e/constants";
 import dropRunMeiliIndexes from "../e2e/drop-run-meili-indexes";
+import { liveMeiliConnection, meiliAvailable } from "../helpers/meili-availability";
 import { waitFor } from "../helpers/wait-for";
-import { SERVICE_ENV_DEFAULTS } from "../preload/service-env-defaults-values";
 
-const MEILI_URL = process.env["MEILI_URL"] ?? SERVICE_ENV_DEFAULTS.MEILI_URL;
-const MEILI_MASTER_KEY = process.env["MEILI_MASTER_KEY"] ?? SERVICE_ENV_DEFAULTS.MEILI_MASTER_KEY;
-
-async function meiliAvailable(): Promise<boolean> {
-  try {
-    return (await fetch(`${MEILI_URL}/health`, { signal: AbortSignal.timeout(2000) })).ok;
-  } catch {
-    return false;
-  }
-}
+const { url: MEILI_URL, masterKey: MEILI_MASTER_KEY } = liveMeiliConnection();
 
 function adapterWithOneIndex(indexPrefix: string) {
   const adapter = createMeilisearchAdapter({

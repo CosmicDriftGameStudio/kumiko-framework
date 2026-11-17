@@ -2,7 +2,6 @@
 
 import { describe, expect, test } from "bun:test";
 import type { ScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import {
   AppFeaturesProvider,
@@ -44,7 +43,7 @@ type Gate = { readonly httpStatus: number } | { readonly allowed: boolean };
 
 function renderDetail(gate: Gate, onGateRefetch?: () => void) {
   const dispatcher = createMockDispatcher({
-    query: (async (type: string) => {
+    query: async (type: string) => {
       if (type === GATE_QUERY) {
         onGateRefetch?.();
         return "httpStatus" in gate
@@ -66,7 +65,7 @@ function renderDetail(gate: Gate, onGateRefetch?: () => void) {
         };
       }
       return { isSuccess: true, data: { id: "c1", name: "CASE NAME" } };
-    }) as unknown as Dispatcher["query"],
+    },
   });
   render(
     <DispatcherProvider dispatcher={dispatcher}>

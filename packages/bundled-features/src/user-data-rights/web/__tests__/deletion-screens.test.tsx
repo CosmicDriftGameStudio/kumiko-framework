@@ -14,28 +14,29 @@ import { CancelAccountDeletionScreen } from "../cancel-deletion-screen.tsx";
 import { ConfirmAccountDeletionScreen } from "../confirm-deletion-screen.tsx";
 import { defaultTranslations } from "../default-translations.ts";
 import { RequestAccountDeletionScreen } from "../request-deletion-screen.tsx";
+import { createMockDispatcher } from "@cosmicdrift/kumiko-renderer/testing";
 
 const resolver = createStaticLocaleResolver({ locale: "en" });
 
 type WriteCall = { readonly type: string; readonly payload: unknown };
 
 function makeDispatcher(ok: boolean, calls: WriteCall[]): Dispatcher {
-  return {
+  return createMockDispatcher({
     write: async (type: string, payload: unknown) => {
       calls.push({ type, payload });
       return ok
         ? { isSuccess: true, data: {} }
         : { isSuccess: false, error: { reason: "invalid_or_expired_token", message: "nope" } };
     },
-  } as unknown as Dispatcher;
+  });
 }
 
 function makeThrowingDispatcher(): Dispatcher {
-  return {
+  return createMockDispatcher({
     write: async () => {
       throw new Error("network down");
     },
-  } as unknown as Dispatcher;
+  });
 }
 
 function renderWith(ui: ReactElement, dispatcher: Dispatcher): ReturnType<typeof within> {

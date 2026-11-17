@@ -7,7 +7,7 @@ import userEvent from "@testing-library/user-event";
 import type { Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
-import { createMockDispatcher, render, screen, waitFor } from "./test-utils.tsx";
+import { createMockDispatcher, type MockBatchHandler, render, screen, waitFor } from "./test-utils.tsx";
 
 const OPTIONS_QUERY = "catalog:query:model-options";
 
@@ -28,12 +28,12 @@ const schema: FeatureSchema = { featureName: "demo", entities: {}, screens: [scr
 
 describe("optionsQuery default row on a configEdit screen", () => {
   test("a never-set key stays empty and saving another field writes nothing for it", async () => {
-    const batchSpy = mock(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
+    const batchSpy = mock<MockBatchHandler>(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
       isSuccess: true as const,
       results: [],
     }));
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async (qn: string) => {
+      query: async (qn: string) => {
         if (qn === OPTIONS_QUERY) {
           return {
             isSuccess: true,
@@ -49,8 +49,8 @@ describe("optionsQuery default row on a configEdit screen", () => {
           isSuccess: true,
           data: { "demo:config:label": { value: "old", scope: "tenant" } },
         };
-      }) as unknown as Dispatcher["query"],
-      batch: batchSpy as unknown as Dispatcher["batch"],
+      },
+      batch: batchSpy,
     });
     const user = userEvent.setup();
     render(

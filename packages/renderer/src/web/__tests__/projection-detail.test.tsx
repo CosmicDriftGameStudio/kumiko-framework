@@ -28,16 +28,7 @@ import {
 import { PageHeaderSlotProvider } from "../layout/page-header-slot.tsx";
 import { ShellHeader } from "../layout/shell-header.tsx";
 import { BareFormProvider } from "../primitives/index.tsx";
-import {
-  act,
-  createMockDispatcher,
-  fireEvent,
-  render,
-  renderWithSidebar,
-  screen,
-  waitFor,
-  within,
-} from "./test-utils.tsx";
+import { act, createMockDispatcher, fireEvent, type MockQueryHandler, type MockWriteHandler, render, renderWithSidebar, screen, waitFor, within } from "./test-utils.tsx";
 
 const detailScreen: ProjectionDetailScreenDefinition = {
   id: "session-detail",
@@ -61,13 +52,13 @@ const schema: FeatureSchema = {
 
 describe("KumikoScreen / projectionDetail", () => {
   test("fetches the row via idParam and renders its fields read-only, no submit button", async () => {
-    const querySpy = (async (_qn: string, payload: unknown) => {
+    const querySpy: MockQueryHandler = async (_qn: string, payload: unknown) => {
       expect(payload).toEqual({ id: "sess-1" });
       return {
         isSuccess: true,
         data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" },
       };
-    }) as unknown as Dispatcher["query"];
+    };
     const dispatcher: Dispatcher = createMockDispatcher({ query: querySpy });
 
     render(
@@ -111,10 +102,10 @@ describe("KumikoScreen / projectionDetail", () => {
       screens: [timestampScreen],
     };
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
 
     render(
@@ -147,10 +138,10 @@ describe("KumikoScreen / projectionDetail", () => {
       screens: [wideDetailScreen],
     };
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
 
     render(
@@ -166,10 +157,10 @@ describe("KumikoScreen / projectionDetail", () => {
   test("missing entityId shows an error banner instead of crashing", async () => {
     let resolveQuery: (value: unknown) => void = () => {};
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (() =>
+      query: () =>
         new Promise((resolve) => {
           resolveQuery = resolve;
-        })) as unknown as Dispatcher["query"],
+        }),
     });
 
     render(
@@ -191,7 +182,7 @@ describe("KumikoScreen / projectionDetail", () => {
 
   test("record not found shows the not-found empty state", async () => {
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({ isSuccess: true, data: null })) as unknown as Dispatcher["query"],
+      query: async () => ({ isSuccess: true, data: null }),
     });
 
     render(
@@ -205,7 +196,7 @@ describe("KumikoScreen / projectionDetail", () => {
 
   describe("record not found: back button", () => {
     const missingDispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({ isSuccess: true, data: null })) as unknown as Dispatcher["query"],
+      query: async () => ({ isSuccess: true, data: null }),
     });
     const listScreen: ProjectionDetailScreenDefinition = {
       ...detailScreen,
@@ -293,10 +284,10 @@ describe("KumikoScreen / projectionDetail", () => {
       screens: [withListScreen],
     };
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
 
     render(
@@ -335,10 +326,10 @@ describe("KumikoScreen / projectionDetail", () => {
       screens: [withActionsScreen],
     };
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
 
     render(
@@ -366,10 +357,10 @@ describe("KumikoScreen / projectionDetail", () => {
       screens: [formDisplayScreen],
     };
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
 
     render(
@@ -416,7 +407,7 @@ describe("KumikoScreen / projectionDetail relatedList section", () => {
     readonly calls: { readonly type: string; readonly payload: unknown }[];
   } {
     const calls: { type: string; payload: unknown }[] = [];
-    const query = (async (type: string, payload: unknown) => {
+    const query: MockQueryHandler = async (type: string, payload: unknown) => {
       calls.push({ type, payload });
       if (type === "sessions:query:user-session:detail") {
         return {
@@ -425,7 +416,7 @@ describe("KumikoScreen / projectionDetail relatedList section", () => {
         };
       }
       return { isSuccess: true, data: { rows: paymentsRows, nextCursor: null } };
-    }) as unknown as Dispatcher["query"];
+    };
     return { dispatcher: createMockDispatcher({ query }), calls };
   }
 
@@ -609,10 +600,10 @@ describe("KumikoScreen / projectionDetail extension section", () => {
       screens: [extensionScreen],
     };
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
 
     render(
@@ -657,10 +648,10 @@ describe("KumikoScreen / projectionDetail extension section", () => {
       screens: [extensionOnlyScreen],
     };
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
 
     render(
@@ -716,10 +707,10 @@ describe("KumikoScreen / projectionDetail extension section", () => {
       screens: [extensionOnlyScreen],
     };
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
 
     render(
@@ -790,10 +781,10 @@ describe("KumikoScreen / projectionDetail extension section", () => {
         screens: [extensionOnlyScreen],
       };
       const dispatcher: Dispatcher = createMockDispatcher({
-        query: (async () => ({
+        query: async () => ({
           isSuccess: true,
           data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" },
-        })) as unknown as Dispatcher["query"],
+        }),
       });
 
       render(
@@ -869,10 +860,10 @@ describe("KumikoScreen / projectionDetail extension section", () => {
       screens: [tabsExtensionScreen],
     };
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     function navWithTab(tab: string | undefined): NavApi {
       return {
@@ -945,10 +936,10 @@ describe("KumikoScreen / projectionDetail extension section", () => {
       screens: [tabsExtensionScreen],
     };
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     const nav: NavApi = {
       route: undefined,
@@ -1002,10 +993,10 @@ describe("KumikoScreen / projectionDetail extension section", () => {
       screens: [tabsHeaderScreen],
     };
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
 
     const nav: NavApi = {
@@ -1057,7 +1048,7 @@ describe("KumikoScreen / projectionDetail extension section", () => {
       entities: {},
       screens: [tabsRelatedListScreen],
     };
-    const query = (async (type: string) => {
+    const query: MockQueryHandler = async (type: string) => {
       if (type === "sessions:query:user-session:detail") {
         return {
           isSuccess: true,
@@ -1065,7 +1056,7 @@ describe("KumikoScreen / projectionDetail extension section", () => {
         };
       }
       return { isSuccess: true, data: { rows: [{ id: "pay-1", amount: "42" }], nextCursor: null } };
-    }) as unknown as Dispatcher["query"];
+    };
     const dispatcher: Dispatcher = createMockDispatcher({ query });
     const nav: NavApi = {
       route: undefined,
@@ -1116,10 +1107,10 @@ describe("KumikoScreen / projectionDetail extension section", () => {
       screens: [tabsWriteFormScreen],
     };
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     const nav: NavApi = {
       route: undefined,
@@ -1168,10 +1159,10 @@ describe("KumikoScreen / projectionDetail extension section", () => {
       screens: [tabsCountScreen],
     };
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z", openCount: 3 },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     const nav: NavApi = {
       route: undefined,
@@ -1226,13 +1217,13 @@ describe("KumikoScreen / projectionDetail extension section", () => {
     };
     const noteCountPayloads: unknown[] = [];
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async (qn: string, payload: unknown) => {
+      query: async (qn: string, payload: unknown) => {
         if (qn === "sessions:query:note:list") {
           noteCountPayloads.push(payload);
           return { isSuccess: true, data: { rows: [], nextCursor: null, total: 5 } };
         }
         return { isSuccess: true, data: { userId: "user-42" } };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     const nav: NavApi = {
       route: undefined,
@@ -1289,7 +1280,7 @@ describe("KumikoScreen / projectionDetail extension section", () => {
     };
     let resolveSecondRecord: () => void = () => {};
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async (qn: string, payload: { id?: string }) => {
+      query: async (qn: string, payload: { id?: string }) => {
         if (qn === "sessions:query:note:list") {
           if (payload.id === "sess-2") {
             await new Promise<void>((resolve) => {
@@ -1300,7 +1291,7 @@ describe("KumikoScreen / projectionDetail extension section", () => {
           return { isSuccess: true, data: { rows: [], nextCursor: null, total: 5 } };
         }
         return { isSuccess: true, data: { userId: "user-42" } };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     const nav: NavApi = {
       route: undefined,
@@ -1345,10 +1336,10 @@ describe("KumikoScreen / projectionDetail extension section", () => {
       screens: [emptyScreen],
     };
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { userId: "user-42" },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
 
     render(
@@ -1394,18 +1385,18 @@ describe("KumikoScreen / projectionDetail actions drawer-kind", () => {
 
   test("Click opens the Drawer prefilled from the record; submit dispatches, closes without navigating, and reloads the detail", async () => {
     let queryCallCount = 0;
-    const write = (async (_type: string, _payload: unknown) => ({
+    const write: MockWriteHandler = async (_type: string, _payload: unknown) => ({
       isSuccess: true,
       data: {},
-    })) as unknown as Dispatcher["write"];
+    });
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => {
+      query: async () => {
         queryCallCount += 1;
         return {
           isSuccess: true,
           data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" },
         };
-      }) as unknown as Dispatcher["query"],
+      },
       write,
     });
 
@@ -1479,8 +1470,8 @@ describe("KumikoScreen / projectionDetail relatedList rowActions drawer-kind", (
   test("a relatedList row action opens the drawer prefilled from the row; a successful submit closes it and refetches the related list", async () => {
     let paymentsQueryCount = 0;
     const dispatcher: Dispatcher = createMockDispatcher({
-      write: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"],
-      query: (async (type: string) => {
+      write: async () => ({ isSuccess: true, data: {} }),
+      query: async (type: string) => {
         if (type === "sessions:query:user-session:payments") paymentsQueryCount += 1;
         return type === "sessions:query:user-session:detail"
           ? { isSuccess: true, data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" } }
@@ -1488,7 +1479,7 @@ describe("KumikoScreen / projectionDetail relatedList rowActions drawer-kind", (
               isSuccess: true,
               data: { rows: [{ id: "pay-1", amount: "42" }], nextCursor: null },
             };
-      }) as unknown as Dispatcher["query"],
+      },
     });
 
     render(
@@ -1550,13 +1541,13 @@ describe("KumikoScreen / projectionDetail relatedList rowActions drawer-kind", (
       },
     };
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async (type: string) =>
+      query: async (type: string) =>
         type === "sessions:query:user-session:detail"
           ? { isSuccess: true, data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" } }
           : {
               isSuccess: true,
               data: { rows: [{ id: "pay-1", amount: "42" }], nextCursor: null },
-            }) as unknown as Dispatcher["query"],
+            },
     });
 
     render(
@@ -1624,7 +1615,7 @@ function FormExtensionSection({ entityId }: ExtensionSectionProps): ReactNode {
 }
 
 describe("KumikoScreen / projectionDetail extension section with its own <form>", () => {
-  function renderFormExtensionScreen(overrides: { write?: Dispatcher["write"] } = {}) {
+  function renderFormExtensionScreen(overrides: { write?: MockWriteHandler } = {}) {
     const extensionScreen: ProjectionDetailScreenDefinition = {
       ...detailScreen,
       layout: {
@@ -1645,10 +1636,10 @@ describe("KumikoScreen / projectionDetail extension section with its own <form>"
       screens: [extensionScreen],
     };
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" },
-      })) as unknown as Dispatcher["query"],
+      }),
       ...overrides,
     });
 
@@ -1680,10 +1671,10 @@ describe("KumikoScreen / projectionDetail extension section with its own <form>"
   test("clicking the nested section's own submit button dispatches its write, even though FormRoot degraded its <Form> to a <div>", async () => {
     const writes: Array<{ type: string; payload: unknown }> = [];
     renderFormExtensionScreen({
-      write: (async (type: string, payload: unknown) => {
+      write: async (type: string, payload: unknown) => {
         writes.push({ type, payload });
         return { isSuccess: true, data: {} };
-      }) as unknown as Dispatcher["write"],
+      },
     });
 
     await waitFor(() => screen.getByTestId("nested-section-submit"));
@@ -1757,10 +1748,10 @@ describe("KumikoScreen / projectionDetail section actions", () => {
       screens: [sectionActionScreen],
     };
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     let navigated: NavTarget | undefined;
     let searchParams: Record<string, string | null> | undefined;
@@ -1829,10 +1820,10 @@ function StatefulTabNav({ children }: { readonly children: ReactNode }): ReactNo
 
 describe("KumikoScreen / projectionDetail header actions placement", () => {
   const dispatcher: Dispatcher = createMockDispatcher({
-    query: (async () => ({
+    query: async () => ({
       isSuccess: true,
       data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" },
-    })) as unknown as Dispatcher["query"],
+    }),
   });
 
   test("slots.header shares one card with the header actions", async () => {
@@ -2203,14 +2194,14 @@ describe("KumikoScreen / projectionDetail header actions placement", () => {
       screens: [tabsScreen],
     };
     const failingWriteDispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" },
-      })) as unknown as Dispatcher["query"],
-      write: (async () => ({
+      }),
+      write: async () => ({
         isSuccess: false,
         error: { code: "BOOM", httpStatus: 500, i18nKey: "errors.boom", message: "archive failed" },
-      })) as unknown as Dispatcher["write"],
+      }),
     });
     const user = userEvent.setup();
 

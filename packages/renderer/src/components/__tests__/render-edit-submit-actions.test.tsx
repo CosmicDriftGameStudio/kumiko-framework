@@ -432,10 +432,10 @@ describe("RenderEdit — submit path", () => {
       },
     };
     const { dispatcher } = stubDispatcher({
-      write: (async () => ({
+      write: async () => ({
         isSuccess: false,
         error: writeFailure,
-      })) as unknown as Dispatcher["write"],
+      }),
     });
     renderEdit(
       oneFieldScreen,
@@ -538,10 +538,10 @@ describe("RenderEdit — writeCommand path", () => {
       message: "conflict",
     };
     const { dispatcher } = stubDispatcher({
-      write: (async () => ({
+      write: async () => ({
         isSuccess: false,
         error: writeFailure,
-      })) as unknown as Dispatcher["write"],
+      }),
     });
     let submitted: SubmitResult<unknown> | undefined;
     renderEdit(
@@ -573,10 +573,10 @@ describe("RenderEdit — writeCommand path", () => {
       },
     };
     const { dispatcher } = stubDispatcher({
-      write: (async () => ({
+      write: async () => ({
         isSuccess: false,
         error: writeFailure,
-      })) as unknown as Dispatcher["write"],
+      }),
     });
     renderEdit(
       oneFieldScreen,

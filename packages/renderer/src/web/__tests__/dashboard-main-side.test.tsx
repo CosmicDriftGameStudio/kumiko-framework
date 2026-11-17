@@ -2,7 +2,6 @@
 import { describe, expect, test } from "bun:test";
 import type { DashboardScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { ReactNode } from "react";
-import type { Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import {
   AppFeaturesProvider,
@@ -43,10 +42,10 @@ function renderDashboard(
   handlers: Readonly<Record<string, () => unknown>> = {},
 ): void {
   const dispatcher = createMockDispatcher({
-    query: (async (type: string) => {
+    query: async (type: string) => {
       const handler = handlers[type];
       return handler === undefined ? { isSuccess: true, data: {} } : handler();
-    }) as unknown as Dispatcher["query"],
+    },
   });
   const schema: FeatureSchema = { featureName: "demo", entities: {}, screens: [dashboard] };
   render(

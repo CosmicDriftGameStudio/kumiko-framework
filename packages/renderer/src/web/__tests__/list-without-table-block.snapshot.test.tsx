@@ -7,7 +7,7 @@ import type {
   EntityListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { cleanup, render as plainRender, screen } from "@testing-library/react";
-import type { Dispatcher, EditRelatedListSectionViewModel } from "../../headless/index.ts";
+import type { EditRelatedListSectionViewModel } from "../../headless/index.ts";
 import {
   AppFeaturesProvider,
   createStaticLocaleResolver,
@@ -25,7 +25,7 @@ import {
 } from "../../index.ts";
 import { defaultPrimitives } from "../primitives/index.tsx";
 import { defaultTokens } from "../tokens.ts";
-import { atViewportWidth, render } from "./test-utils.tsx";
+import { atViewportWidth, createMockDispatcher, render } from "./test-utils.tsx";
 
 afterEach(cleanup);
 
@@ -101,15 +101,11 @@ const relatedRows = [
   { id: "p2", kanal: "instagram", status: "geplant" },
 ];
 
-const dispatcher = {
+const dispatcher = createMockDispatcher({
   query: async () => ({ isSuccess: true, data: { rows: relatedRows, nextCursor: null } }),
   write: async () => ({ isSuccess: true, data: null }),
   batch: async () => ({ isSuccess: true, results: [] }),
-  statusStore: { getState: () => "online", subscribe: () => () => {} },
-  async *stream() {},
-  pendingWrites: () => [],
-  pendingFiles: () => [],
-} as unknown as Dispatcher;
+});
 
 const nav: NavApi = {
   route: undefined,

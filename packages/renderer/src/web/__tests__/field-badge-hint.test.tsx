@@ -1,9 +1,8 @@
 // EditFieldSpec.badge (fixed label or text from a value field) and hintField on a record page.
 import { describe, expect, test } from "bun:test";
 import type { ProjectionDetailScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "../../headless/index.ts";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
-import { createMockDispatcher, render, screen } from "./test-utils.tsx";
+import { createMockDispatcher, type MockQueryHandler, render, screen } from "./test-utils.tsx";
 
 const record = { id: "r1", mileage: "", mileageBadge: "Field missing", mileageSource: "From chat" };
 
@@ -11,7 +10,7 @@ function renderScreen(
   field: Record<string, unknown>,
   data: Record<string, unknown> = record,
 ): void {
-  const query = (async () => ({ isSuccess: true, data })) as unknown as Dispatcher["query"];
+  const query: MockQueryHandler = async () => ({ isSuccess: true, data });
   const definition = {
     id: "file",
     type: "projectionDetail",

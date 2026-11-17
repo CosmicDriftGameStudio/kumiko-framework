@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-10-24
+verified: 2026-11-17
 ---
 
 # The test standard
@@ -19,6 +19,7 @@ those steps.
 | Class | Files | Command | Budget |
 |---|---|---|---|
 | Unit | `*.test.ts` | `bun run test` | 5 s per test |
+| DOM | `*.test.tsx` | `bun run test:dom` | 5 s per test |
 | Integration | `*.integration.test.ts` | `bun run test:integration` (files run in parallel) | 15 s per test |
 | E2E | `e2e/*.spec.ts` | `bun run e2e` | fixed in `defineAppE2eConfig` |
 | Real provider | `*.real.test.ts`, `*.real.spec.ts` | `bun run test:real`, `bun run e2e:real` | 240 s per test |
@@ -251,7 +252,7 @@ not mounted is skipped, because tests usually mount a subset; a reference into a
 mounted feature that does not resolve throws. Screen and ref-entity checks span
 features and run only with `setupTestStack({ validateBoot: "full" })`. Every app
 should have one boot test that mounts the prod feature composition with
-`validateBoot: "full"`, so a broken screen fails in CI instead of at deploy.
+`validateBoot: "full"`, so a broken screen fails in CI instead of at deploy. `validateBoot` returns the boot warnings it logs (`{ warnings }`, each with `kind`, optional `feature` and `message`); a boot test asserts on that result instead of spying on the console.
 
 ## Timeouts and retries belong to the template
 

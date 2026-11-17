@@ -21,6 +21,7 @@ import {
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import { type NavApi, NavProvider, type NavTarget, useNavigateWithInitialValues } from "../nav.tsx";
+import { createMockDispatcher } from "../../testing.ts";
 
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
@@ -92,24 +93,17 @@ function makeDispatcher(
   respond: () => unknown,
   queries: Write[] = [],
 ): Dispatcher {
-  return {
-    write: (async (type: string, payload: unknown) => {
+  return createMockDispatcher({
+    write: async (type: string, payload: unknown) => {
       writes.push({ type, payload });
       return respond();
-    }) as unknown as Dispatcher["write"],
-    query: (async (type: string, payload: unknown) => {
+    },
+    query: async (type: string, payload: unknown) => {
       queries.push({ type, payload });
       return { isSuccess: true, data: {} };
-    }) as unknown as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  } satisfies Dispatcher;
+    },
+    batch: async () => ({ isSuccess: true, results: [] }),
+  }) satisfies Dispatcher;
 }
 
 type Opener = {

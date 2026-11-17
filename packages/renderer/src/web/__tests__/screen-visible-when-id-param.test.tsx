@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import type { ScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import {
   AppFeaturesProvider,
@@ -29,7 +28,7 @@ type Gate = "allowed" | "error";
 function renderDetail(gate: Gate, entityId: string | undefined) {
   const gatePayloads: unknown[] = [];
   const dispatcher = createMockDispatcher({
-    query: (async (type: string, payload: unknown) => {
+    query: async (type: string, payload: unknown) => {
       if (type === GATE_QUERY) {
         gatePayloads.push(payload);
         return gate === "error"
@@ -40,7 +39,7 @@ function renderDetail(gate: Gate, entityId: string | undefined) {
           : { isSuccess: true, data: { allowed: true } };
       }
       return { isSuccess: true, data: { id: "c1", name: "CASE NAME" } };
-    }) as unknown as Dispatcher["query"],
+    },
   });
   render(
     <DispatcherProvider dispatcher={dispatcher}>

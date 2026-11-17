@@ -107,7 +107,7 @@ export function runStructurePhase(report: BootReport, ctx: BootContext): DetailF
     const apis = built.exposedApis;
     if (apis !== undefined) {
       report.check("validateApiExposureMatching", feature.name, () =>
-        validateApiExposureMatching(feature, apis, featureMap),
+        validateApiExposureMatching(feature, apis, featureMap, ctx.warn),
       );
     }
     runFeatureChecks(report, STRUCTURE_FEATURE_CHECKS, feature, ctx);
@@ -118,7 +118,7 @@ export function runStructurePhase(report: BootReport, ctx: BootContext): DetailF
 
 const FEATURE_CHECKS: readonly FeatureCheck[] = [
   { check: "validateSearchableFieldReadAccess", run: (f) => validateSearchableFieldReadAccess(f) },
-  { check: "validatePiiAndRetention", run: (f) => validatePiiAndRetention(f) },
+  { check: "validatePiiAndRetention", run: (f, c) => validatePiiAndRetention(f, c.warn) },
   { check: "validateRecordOwnedSubjects", run: (f) => validateRecordOwnedSubjects(f) },
   { check: "validateEntitySelectOptionsQuery", run: (f) => validateEntitySelectOptionsQuery(f) },
   {

@@ -25,6 +25,7 @@ import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import type { NavApi } from "../nav.tsx";
 import { NavProvider } from "../nav.tsx";
+import { createMockDispatcher } from "../../testing.ts";
 
 let capturedProps: DataTableProps | undefined;
 const captureDataTable: ComponentType<DataTableProps> = (props) => {
@@ -62,21 +63,14 @@ const testPrimitives: CorePrimitives = {
 let queryCalls: Array<{ readonly type: string; readonly payload: unknown }> = [];
 
 function stubDispatcher(): Dispatcher {
-  return {
-    write: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"],
-    query: (async (type: string, payload: unknown) => {
+  return createMockDispatcher({
+    write: async () => ({ isSuccess: true, data: {} }),
+    query: async (type: string, payload: unknown) => {
       queryCalls.push({ type, payload });
       return { isSuccess: true, data: { rows: [], nextCursor: null } };
-    }) as unknown as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+    },
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
 }
 
 // Stateful nav so setSearchParams (called by useListUrlState.setFilter)
@@ -136,22 +130,15 @@ function renderScreen(
 function stubDispatcherByType(
   responses: Readonly<Record<string, { rows: readonly Record<string, unknown>[] }>>,
 ): Dispatcher {
-  return {
-    write: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"],
-    query: (async (type: string, payload: unknown) => {
+  return createMockDispatcher({
+    write: async () => ({ isSuccess: true, data: {} }),
+    query: async (type: string, payload: unknown) => {
       queryCalls.push({ type, payload });
       const rows = responses[type]?.rows ?? [];
       return { isSuccess: true, data: { rows, nextCursor: null } };
-    }) as unknown as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+    },
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
 }
 
 describe("entityList facets — unchanged after the shared buildFilterFacets/buildFilterPayload extraction", () => {
@@ -485,16 +472,15 @@ describe("projectionList filter + facets", () => {
     }
 
     function tenantDispatcher(): Dispatcher {
-      return {
-        ...stubDispatcher(),
-        query: (async (type: string, payload: unknown) => {
+      return createMockDispatcher({
+        query: async (type: string, payload: unknown) => {
           queryCalls.push({ type, payload });
           return {
             isSuccess: true,
             data: type === "ledger:query:tenant:list" ? answerTenantList(payload) : { rows: [] },
           };
-        }) as unknown as Dispatcher["query"],
-      };
+        },
+      });
     }
 
     test("searching finds a row beyond the first page and selecting it filters the list", async () => {
@@ -553,9 +539,8 @@ describe("projectionList filter + facets", () => {
       { id: "a1", label: "Alpha GmbH" },
       { id: "b2", label: "Beta AG" },
     ];
-    const dispatcher: Dispatcher = {
-      ...stubDispatcher(),
-      query: (async (type: string, payload: unknown) => {
+    const dispatcher = createMockDispatcher({
+      query: async (type: string, payload: unknown) => {
         queryCalls.push({ type, payload });
         if (type !== "ledger:query:tenant-options") {
           return { isSuccess: true, data: { rows: [] } };
@@ -567,8 +552,8 @@ describe("projectionList filter + facets", () => {
             (ids === undefined || ids.includes(row.id)),
         );
         return { isSuccess: true, data: { rows } };
-      }) as unknown as Dispatcher["query"],
-    };
+      },
+    });
     const entity: EntityDefinition = {
       fields: {
         tenantId: {

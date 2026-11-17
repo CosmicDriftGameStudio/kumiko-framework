@@ -119,10 +119,10 @@ describe("InfinityList", () => {
     ];
     let call = 0;
     const dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: pages[call++],
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     const view = (query: string) => (
       <InfinityList<Page, Row>
@@ -151,10 +151,10 @@ describe("InfinityList", () => {
 
   test("rendert die erste Seite", async () => {
     const dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { rows: [{ id: "m1", subject: "Hallo" }], nextCursor: null },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     renderWithDispatcher(list("inbox:query:message:list"), dispatcher);
     await waitFor(() => expect(screen.getByText("Hallo")).toBeTruthy());
@@ -163,7 +163,7 @@ describe("InfinityList", () => {
   test("loads the next page as soon as the sentinel becomes visible", async () => {
     let calls = 0;
     const dispatcher = createMockDispatcher({
-      query: (async () => {
+      query: async () => {
         calls += 1;
         if (calls === 1) {
           return {
@@ -175,7 +175,7 @@ describe("InfinityList", () => {
           isSuccess: true,
           data: { rows: [{ id: "m2", subject: "Zweite" }], nextCursor: null },
         };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     renderWithDispatcher(list("inbox:query:message:list"), dispatcher);
     await waitFor(() => expect(screen.getByText("Erste")).toBeTruthy());
@@ -188,7 +188,7 @@ describe("InfinityList", () => {
   test("deduplicates by rowId when appending — a row that reappears on page 2 is not rendered twice", async () => {
     let calls = 0;
     const dispatcher = createMockDispatcher({
-      query: (async () => {
+      query: async () => {
         calls += 1;
         if (calls === 1) {
           return {
@@ -214,7 +214,7 @@ describe("InfinityList", () => {
             nextCursor: null,
           },
         };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     renderWithDispatcher(list("inbox:query:message:list"), dispatcher);
     await waitFor(() => expect(screen.getByText("Zweite")).toBeTruthy());
@@ -226,7 +226,7 @@ describe("InfinityList", () => {
   test("Error → ErrorState, Retry reloads", async () => {
     let calls = 0;
     const dispatcher = createMockDispatcher({
-      query: (async () => {
+      query: async () => {
         calls += 1;
         if (calls === 1) {
           return {
@@ -238,7 +238,7 @@ describe("InfinityList", () => {
           isSuccess: true,
           data: { rows: [{ id: "m1", subject: "Hallo" }], nextCursor: null },
         };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     renderWithDispatcher(list("inbox:query:message:list"), dispatcher);
     await waitFor(() => expect(screen.getByRole("button")).toBeTruthy());
@@ -249,10 +249,10 @@ describe("InfinityList", () => {
 
   test("leeres Result rendert Empty-State", async () => {
     const dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { rows: [], nextCursor: null },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     renderWithDispatcher(
       <InfinityList<Page, Row>
@@ -275,10 +275,10 @@ describe("InfinityList", () => {
   test("discards an outdated response when an earlier request resolves later", async () => {
     const resolvers: Array<(res: unknown) => void> = [];
     const dispatcher = createMockDispatcher({
-      query: (() =>
+      query: () =>
         new Promise((resolve) => {
           resolvers.push(resolve);
-        })) as unknown as Dispatcher["query"],
+        }),
     });
 
     const { rerender } = renderWithDispatcher(<SearchList search="Bo" />, dispatcher);
@@ -318,7 +318,7 @@ describe("InfinityList", () => {
     test("SSE event merges only the first page, already loaded subsequent pages remain intact", async () => {
       const calls: Array<Readonly<Record<string, unknown>>> = [];
       const dispatcher = createMockDispatcher({
-        query: ((_type: string, payload: Readonly<Record<string, unknown>>) => {
+        query: (_type: string, payload: Readonly<Record<string, unknown>>) => {
           calls.push(payload);
           if (calls.length === 1) {
             return Promise.resolve({
@@ -343,7 +343,7 @@ describe("InfinityList", () => {
               nextCursor: "c1",
             },
           });
-        }) as unknown as Dispatcher["query"],
+        },
       });
       const fake = makeFakeLiveEvents();
 
@@ -392,7 +392,7 @@ describe("InfinityList", () => {
     test("Row deleted from page 1 → disappears after refresh", async () => {
       const calls: Array<Readonly<Record<string, unknown>>> = [];
       const dispatcher = createMockDispatcher({
-        query: ((_type: string, payload: Readonly<Record<string, unknown>>) => {
+        query: (_type: string, payload: Readonly<Record<string, unknown>>) => {
           calls.push(payload);
           if (calls.length === 1) {
             return Promise.resolve({
@@ -411,7 +411,7 @@ describe("InfinityList", () => {
             isSuccess: true,
             data: { rows: [{ id: "m2", subject: "Zweite" }], nextCursor: null },
           });
-        }) as unknown as Dispatcher["query"],
+        },
       });
       const fake = makeFakeLiveEvents();
 
@@ -441,7 +441,7 @@ describe("InfinityList", () => {
     test("Row from page 2 remains after a page-1 refresh", async () => {
       const calls: Array<Readonly<Record<string, unknown>>> = [];
       const dispatcher = createMockDispatcher({
-        query: ((_type: string, payload: Readonly<Record<string, unknown>>) => {
+        query: (_type: string, payload: Readonly<Record<string, unknown>>) => {
           calls.push(payload);
           if (calls.length === 1) {
             return Promise.resolve({
@@ -461,7 +461,7 @@ describe("InfinityList", () => {
             isSuccess: true,
             data: { rows: [{ id: "m3", subject: "Neu" }], nextCursor: null },
           });
-        }) as unknown as Dispatcher["query"],
+        },
       });
       const fake = makeFakeLiveEvents();
 
@@ -509,14 +509,14 @@ describe("InfinityList", () => {
     test("a burst of rapid SSE events triggers exactly one refresh query", async () => {
       let calls = 0;
       const dispatcher = createMockDispatcher({
-        query: (() => {
+        query: () => {
           calls += 1;
           const subject = calls === 1 ? "Alt" : "Neu";
           return Promise.resolve({
             isSuccess: true,
             data: { rows: [{ id: "m1", subject }], nextCursor: null },
           });
-        }) as unknown as Dispatcher["query"],
+        },
       });
       const fake = makeFakeLiveEvents();
       renderWithLive(list("inbox:query:message:list", true), dispatcher, fake.subscriber);
@@ -535,7 +535,7 @@ describe("InfinityList", () => {
       let calls = 0;
       let releaseRefresh: () => void = () => {};
       const dispatcher = createMockDispatcher({
-        query: (() => {
+        query: () => {
           calls += 1;
           const subject = `v${calls}`;
           const result = {
@@ -546,7 +546,7 @@ describe("InfinityList", () => {
           return new Promise((resolve) => {
             releaseRefresh = () => resolve(result);
           });
-        }) as unknown as Dispatcher["query"],
+        },
       });
       const fake = makeFakeLiveEvents();
       renderWithLive(list("inbox:query:message:list", true), dispatcher, fake.subscriber);
@@ -565,13 +565,13 @@ describe("InfinityList", () => {
     test("live=false: SSE event is ignored, no refetch", async () => {
       let calls = 0;
       const dispatcher = createMockDispatcher({
-        query: (() => {
+        query: () => {
           calls += 1;
           return Promise.resolve({
             isSuccess: true,
             data: { rows: [{ id: "m1", subject: "Hallo" }], nextCursor: null },
           });
-        }) as unknown as Dispatcher["query"],
+        },
       });
       const fake = makeFakeLiveEvents();
 
@@ -607,13 +607,13 @@ describe("InfinityList", () => {
     test("only events for the query entity trigger the refresh", async () => {
       let calls = 0;
       const dispatcher = createMockDispatcher({
-        query: (() => {
+        query: () => {
           calls += 1;
           return Promise.resolve({
             isSuccess: true,
             data: { rows: [{ id: "m1", subject: "Hallo" }], nextCursor: null },
           });
-        }) as unknown as Dispatcher["query"],
+        },
       });
       const fake = makeFakeLiveEvents();
 
@@ -652,10 +652,10 @@ describe("InfinityList", () => {
     test("SSE event during the initial loading phase still lets the mount request complete", async () => {
       const resolvers: Array<(res: unknown) => void> = [];
       const dispatcher = createMockDispatcher({
-        query: (() =>
+        query: () =>
           new Promise((resolve) => {
             resolvers.push(resolve);
-          })) as unknown as Dispatcher["query"],
+          }),
       });
       const fake = makeFakeLiveEvents();
 
@@ -694,7 +694,7 @@ describe("InfinityList", () => {
 
 describe("InfinityList selection position", () => {
   const threeRows = createMockDispatcher({
-    query: (async () => ({
+    query: async () => ({
       isSuccess: true,
       data: {
         rows: [
@@ -704,7 +704,7 @@ describe("InfinityList selection position", () => {
         ],
         nextCursor: null,
       },
-    })) as unknown as Dispatcher["query"],
+    }),
   });
 
   function selectionList(selectedId: string | null, seen: InfinityListSelection[]): ReactNode {

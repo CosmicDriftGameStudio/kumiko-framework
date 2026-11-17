@@ -44,7 +44,7 @@ const depositScreen: EntityEditScreenDefinition = {
 function makeDispatcher(): Dispatcher & { readonly queried: string[] } {
   const queried: string[] = [];
   const dispatcher = createMockDispatcher({
-    query: (async (qn: string) => {
+    query: async (qn: string) => {
       queried.push(qn);
       if (qn === "deposits:query:lease:options") {
         return {
@@ -53,7 +53,7 @@ function makeDispatcher(): Dispatcher & { readonly queried: string[] } {
         };
       }
       return { isSuccess: true, data: { rows: [{ id: LEASE_ID, startDate: "2026-09-01" }] } };
-    }) as unknown as Dispatcher["query"],
+    },
   });
   return { ...dispatcher, queried };
 }

@@ -4,10 +4,9 @@ import type {
   ProjectionDetailScreenDefinition,
   ProjectionListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "../../headless/index.ts";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
 import { DataTable } from "./_primitives-helpers.tsx";
-import { createMockDispatcher, fireEvent, render, screen, waitFor } from "./test-utils.tsx";
+import { createMockDispatcher, fireEvent, type MockQueryHandler, type MockWriteHandler, render, screen, waitFor } from "./test-utils.tsx";
 
 const listScreen: ProjectionListScreenDefinition = {
   id: "orders",
@@ -18,10 +17,10 @@ const listScreen: ProjectionListScreenDefinition = {
 };
 
 function renderList(rows: readonly Record<string, unknown>[]): void {
-  const query = (async () => ({
+  const query: MockQueryHandler = async () => ({
     isSuccess: true,
     data: { rows, nextCursor: null },
-  })) as unknown as Dispatcher["query"];
+  });
   render(
     <DispatcherProvider dispatcher={createMockDispatcher({ query })}>
       <KumikoScreen
@@ -133,10 +132,10 @@ const detailScreen: ProjectionDetailScreenDefinition = {
 
 function renderDetail(
   data: Record<string, unknown>,
-  write?: Dispatcher["write"],
+  write?: MockWriteHandler,
   definition: ProjectionDetailScreenDefinition = detailScreen,
 ): void {
-  const query = (async () => ({ isSuccess: true, data })) as unknown as Dispatcher["query"];
+  const query: MockQueryHandler = async () => ({ isSuccess: true, data });
   render(
     <DispatcherProvider
       dispatcher={{ ...createMockDispatcher({ query }), ...(write !== undefined && { write }) }}
@@ -189,8 +188,8 @@ describe("projectionDetail record guidance blocks", () => {
   });
 
   test("banner and steps actions dispatch their handler with the shown record id", async () => {
-    const write = mock(async (_type: string, _payload: unknown) => ({ isSuccess: true, data: {} }));
-    renderDetail(FULL, write as unknown as Dispatcher["write"]);
+    const write = mock<MockWriteHandler>(async (_type: string, _payload: unknown) => ({ isSuccess: true, data: {} }));
+    renderDetail(FULL, write);
     await waitFor(() => expect(screen.getByText("Send reminder")).toBeTruthy());
     fireEvent.click(screen.getAllByRole("button", { name: "Close it" })[0] as HTMLElement);
     await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
@@ -199,9 +198,9 @@ describe("projectionDetail record guidance blocks", () => {
   });
 
   test("a singleton detail whose row has no id offers no payload-less step action, so no step key is sent as id", async () => {
-    const write = mock(async (_type: string, _payload: unknown) => ({ isSuccess: true, data: {} }));
+    const write = mock<MockWriteHandler>(async (_type: string, _payload: unknown) => ({ isSuccess: true, data: {} }));
     const { id: _omitted, ...rowWithoutId } = FULL;
-    renderDetail(rowWithoutId, write as unknown as Dispatcher["write"], {
+    renderDetail(rowWithoutId, write, {
       ...detailScreen,
       singleton: true,
     });

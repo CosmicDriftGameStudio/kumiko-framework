@@ -1,17 +1,8 @@
 // Phone variants of the record guidance blocks: short summary, limited steps, hidden chain, step subtitle.
 import { describe, expect, test } from "bun:test";
 import type { ProjectionDetailScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "../../headless/index.ts";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
-import {
-  createMockDispatcher,
-  fireEvent,
-  render,
-  restoreViewportWidthAfterEach,
-  screen,
-  setViewportWidth,
-  waitFor,
-} from "./test-utils.tsx";
+import { createMockDispatcher, fireEvent, type MockQueryHandler, render, restoreViewportWidthAfterEach, screen, setViewportWidth, waitFor } from "./test-utils.tsx";
 
 const PHONE_WIDTH = 500;
 const DESKTOP_WIDTH = 1280;
@@ -29,7 +20,7 @@ function detailScreen(
 }
 
 function renderDetail(screenDefinition: ProjectionDetailScreenDefinition): void {
-  const query = (async () => ({ isSuccess: true, data: RECORD })) as unknown as Dispatcher["query"];
+  const query: MockQueryHandler = async () => ({ isSuccess: true, data: RECORD });
   render(
     <DispatcherProvider dispatcher={createMockDispatcher({ query })}>
       <KumikoScreen

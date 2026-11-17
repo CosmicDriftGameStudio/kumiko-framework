@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
+import { createMockDispatcher } from "@cosmicdrift/kumiko-renderer/testing";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { SignupScreen } from "../signup-screen.tsx";
 import { renderWithProviders } from "./test-utils.tsx";
@@ -95,7 +96,7 @@ describe("SignupScreen", () => {
 
 describe("SignupScreen registration status", () => {
   function statusDispatcher(enabled: boolean): Dispatcher {
-    return { query: async () => ({ isSuccess: true, data: { enabled } }) } as unknown as Dispatcher;
+    return createMockDispatcher({ query: async () => ({ isSuccess: true, data: { enabled } }) });
   }
 
   test("enabled: the form shows", async () => {

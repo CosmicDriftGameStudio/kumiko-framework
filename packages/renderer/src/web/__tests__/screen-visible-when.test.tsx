@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import type { ScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import {
   AppFeaturesProvider,
@@ -80,7 +79,7 @@ function renderDirect(gate: GateResult, options: GateOptions = {}): { queryTypes
   const queryTypes: string[] = [];
   const schema = buildSchema(options);
   const dispatcher = createMockDispatcher({
-    query: (async (type: string) => {
+    query: async (type: string) => {
       queryTypes.push(type);
       if (type === GATE_QUERY) {
         if (gate.kind === "pending") return new Promise(() => undefined);
@@ -94,7 +93,7 @@ function renderDirect(gate: GateResult, options: GateOptions = {}): { queryTypes
       }
       const name = type === "billing:query:upgrade:list" ? "UPGRADE ROW" : "CHANNEL ROW";
       return { isSuccess: true, data: { rows: [{ id: "r1", name }], nextCursor: null } };
-    }) as unknown as Dispatcher["query"],
+    },
   });
   render(
     <DispatcherProvider dispatcher={dispatcher}>
@@ -173,7 +172,7 @@ describe("KumikoScreen visibleWhen refetch", () => {
       return () => {};
     };
     const dispatcher = createMockDispatcher({
-      query: (async (type: string) => {
+      query: async (type: string) => {
         if (type === GATE_QUERY) {
           gateCalls++;
           return gateFails
@@ -187,7 +186,7 @@ describe("KumikoScreen visibleWhen refetch", () => {
           isSuccess: true,
           data: { rows: [{ id: "r1", name: "CHANNEL ROW" }], nextCursor: null },
         };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -244,7 +243,7 @@ describe("KumikoScreen visibleWhen inside an app shell", () => {
       ],
     };
     const dispatcher = createMockDispatcher({
-      query: (async (type: string) =>
+      query: async (type: string) =>
         type === GATE_QUERY
           ? { isSuccess: true, data: { chatAlertsAvailable: currentAvailable } }
           : type === SECOND_GATE_QUERY
@@ -252,7 +251,7 @@ describe("KumikoScreen visibleWhen inside an app shell", () => {
             : {
                 isSuccess: true,
                 data: { rows: [{ id: "r1", name: "UPGRADE ROW" }], nextCursor: null },
-              }) as unknown as Dispatcher["query"],
+              },
     });
     renderWithSidebar(
       <DispatcherProvider dispatcher={dispatcher}>

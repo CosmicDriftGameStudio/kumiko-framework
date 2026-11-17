@@ -2,15 +2,8 @@
 // beside, metric visibility, mobile summary, narrow order, concealed values, iconless banner.
 import { describe, expect, test } from "bun:test";
 import type { ProjectionDetailScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "../../headless/index.ts";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
-import {
-  createMockDispatcher,
-  render,
-  restoreViewportWidthAfterEach,
-  screen,
-  setViewportWidth,
-} from "./test-utils.tsx";
+import { createMockDispatcher, type MockQueryHandler, render, restoreViewportWidthAfterEach, screen, setViewportWidth } from "./test-utils.tsx";
 
 const record = {
   id: "r1",
@@ -37,10 +30,10 @@ function renderScreen(
   },
   sections: Sections,
 ): void {
-  const query = (async () => ({
+  const query: MockQueryHandler = async () => ({
     isSuccess: true,
     data: record,
-  })) as unknown as Dispatcher["query"];
+  });
   const definition = {
     id: "file",
     type: "projectionDetail",

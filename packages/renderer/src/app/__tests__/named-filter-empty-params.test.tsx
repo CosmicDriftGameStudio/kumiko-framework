@@ -3,7 +3,7 @@ import { screen, waitFor } from "@testing-library/react";
 import { ListEmptyStateBody } from "../../components/list-empty-state.tsx";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import type { Translate } from "../../headless/index.ts";
-import { makeDispatcher, queryAnswering, render } from "../../web/__tests__/test-utils.tsx";
+import { makeDispatcher, type MockQueryHandler, render } from "../../web/__tests__/test-utils.tsx";
 import { buildNamedFilterEmpty } from "../named-filter-facet.ts";
 
 const translate: Translate = (key, params) =>
@@ -36,10 +36,10 @@ function bodyFor(emptyState: NonNullable<Parameters<typeof buildNamedFilterEmpty
 describe("named filter empty state with a params query", () => {
   test("a static key keeps working and asks no query", () => {
     const asked: string[] = [];
-    const query = queryAnswering((type) => {
+    const query: MockQueryHandler = (type) => {
       asked.push(type);
       return { isSuccess: true, data: {} };
-    });
+    };
     render(
       <DispatcherProvider dispatcher={makeDispatcher({ query })}>
         {bodyFor({
@@ -56,10 +56,10 @@ describe("named filter empty state with a params query", () => {
 
   test("the query result becomes the translation params", async () => {
     const asked: string[] = [];
-    const query = queryAnswering((type) => {
+    const query: MockQueryHandler = (type) => {
       asked.push(type);
       return { isSuccess: true, data: { name: "Meier", date: "08.11." } };
-    });
+    };
     render(
       <DispatcherProvider dispatcher={makeDispatcher({ query })}>
         {bodyFor({
@@ -79,7 +79,7 @@ describe("named filter empty state with a params query", () => {
   });
 
   test("without data the description is not rendered, never a raw placeholder", () => {
-    const query = queryAnswering(() => ({ isSuccess: true, data: null }));
+    const query: MockQueryHandler = () => ({ isSuccess: true, data: null });
     render(
       <DispatcherProvider dispatcher={makeDispatcher({ query })}>
         {bodyFor({

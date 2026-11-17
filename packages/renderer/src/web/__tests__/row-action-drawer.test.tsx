@@ -63,14 +63,14 @@ type WriteCall = { readonly type: string; readonly payload: unknown };
 
 function makeDispatcher(writeCalls: WriteCall[] = []): Dispatcher {
   return createMockDispatcher({
-    query: (async () => ({
+    query: async () => ({
       isSuccess: true,
       data: { rows: [{ id: "r1", title: "Alpha" }], nextCursor: null },
-    })) as unknown as Dispatcher["query"],
-    write: (async (type: string, payload: unknown) => {
+    }),
+    write: async (type: string, payload: unknown) => {
       writeCalls.push({ type, payload });
       return { isSuccess: true, data: {} };
-    }) as unknown as Dispatcher["write"],
+    },
   });
 }
 
@@ -279,18 +279,18 @@ describe("facet counts after a drawer write", () => {
       screens: [listScreen, noteForm],
     };
     const dispatcher = createMockDispatcher({
-      query: (async (_type: string, payload: { filters?: { value: string[] }[] }) => {
+      query: async (_type: string, payload: { filters?: { value: string[] }[] }) => {
         const chipValue = payload.filters?.[0]?.value[0];
         const total = chipValue === "done" && !written ? 0 : 1;
         return {
           isSuccess: true,
           data: { rows: [{ id: "r1", title: "Alpha", status: "open" }], nextCursor: null, total },
         };
-      }) as unknown as Dispatcher["query"],
-      write: (async () => {
+      },
+      write: async () => {
         written = true;
         return { isSuccess: true, data: {} };
-      }) as unknown as Dispatcher["write"],
+      },
     });
 
     const user = await openDrawer(schema, dispatcher);

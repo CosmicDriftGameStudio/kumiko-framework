@@ -12,6 +12,7 @@ import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import { type CorePrimitives, PrimitivesProvider } from "../../primitives.tsx";
 import { SecretsEditBody } from "../secrets-edit-body.tsx";
+import { createMockDispatcher, type MockBatchHandler } from "../../testing.ts";
 
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 
@@ -94,21 +95,14 @@ const screenDef: SecretsEditScreenDefinition = {
 } as unknown as SecretsEditScreenDefinition;
 
 function rejectingDispatcher(): Dispatcher {
-  const reject = async (): Promise<never> => {
+  const reject: MockBatchHandler = async (): Promise<never> => {
     throw new Error("network down");
   };
-  return {
-    write: reject as unknown as Dispatcher["write"],
-    batch: reject as unknown as Dispatcher["batch"],
-    query: (async () => ({ isSuccess: true, data: [] })) as unknown as Dispatcher["query"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+  return createMockDispatcher({
+    write: reject,
+    batch: reject,
+    query: async () => ({ isSuccess: true, data: [] }),
+  });
 }
 
 describe("SecretsEditBody transport failure", () => {

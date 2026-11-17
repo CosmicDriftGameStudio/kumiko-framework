@@ -6,11 +6,6 @@
 //     changed field, using the qualified key and scope
 //   - Save-button disabling via controller.rebase after success
 //   - Loading state while config:query:values is pending
-//
-// `as unknown as Dispatcher["query"/"batch"]` throughout: each inline mock
-// lambda only implements the one overload a given test exercises, never the
-// full overloaded Dispatcher signature — the missing overloads are never
-// called at runtime.
 
 import { describe, expect, mock, test } from "bun:test";
 import type { ConfigEditScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
@@ -18,7 +13,7 @@ import userEvent from "@testing-library/user-event";
 import type { BatchResult, Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
-import { createMockDispatcher, render, screen, waitFor } from "./test-utils.tsx";
+import { createMockDispatcher, type MockBatchHandler, render, screen, waitFor } from "./test-utils.tsx";
 
 const settingsScreen: ConfigEditScreenDefinition = {
   id: "settings",
@@ -73,7 +68,7 @@ describe("KumikoScreen / configEdit", () => {
       resolveQuery = resolve;
     });
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (() => queryPending) as unknown as Dispatcher["query"],
+      query: () => queryPending,
     });
 
     render(
@@ -94,13 +89,13 @@ describe("KumikoScreen / configEdit", () => {
 
   test("loaded values pre-fill the form (string + numeric coercion)", async () => {
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: {
           "demo:config:site-name": { value: "Acme", scope: "tenant" },
           "demo:config:max-upload-mb": { value: 25, scope: "tenant" },
         },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
 
     render(
@@ -117,16 +112,16 @@ describe("KumikoScreen / configEdit", () => {
   });
 
   test("dirty footer: counts changed fields, Discard restores the loaded values client-side", async () => {
-    const batchSpy = mock(async () => ({ isSuccess: true as const, results: [] }));
+    const batchSpy = mock<MockBatchHandler>(async () => ({ isSuccess: true as const, results: [] }));
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: {
           "demo:config:site-name": { value: "Acme", scope: "tenant" },
           "demo:config:max-upload-mb": { value: 25, scope: "tenant" },
         },
-      })) as unknown as Dispatcher["query"],
-      batch: batchSpy as unknown as Dispatcher["batch"],
+      }),
+      batch: batchSpy,
     });
     const user = userEvent.setup();
     render(
@@ -178,13 +173,13 @@ describe("KumikoScreen / configEdit", () => {
       entities: {},
       screens: [boundedScreen],
     };
-    const batchSpy = mock(async () => ({ isSuccess: true as const, results: [] }));
+    const batchSpy = mock<MockBatchHandler>(async () => ({ isSuccess: true as const, results: [] }));
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { "demo:config:max-upload-mb": { value: 25, scope: "tenant" } },
-      })) as unknown as Dispatcher["query"],
-      batch: batchSpy as unknown as Dispatcher["batch"],
+      }),
+      batch: batchSpy,
     });
     const user = userEvent.setup();
     render(
@@ -214,19 +209,19 @@ describe("KumikoScreen / configEdit", () => {
   });
 
   test("submit dispatches one /api/batch with one command per changed field", async () => {
-    const batchSpy = mock(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
+    const batchSpy = mock<MockBatchHandler>(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
       isSuccess: true as const,
       results: [],
     }));
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: {
           "demo:config:site-name": { value: "Acme", scope: "tenant" },
           "demo:config:max-upload-mb": { value: 25, scope: "tenant" },
         },
-      })) as unknown as Dispatcher["query"],
-      batch: batchSpy as unknown as Dispatcher["batch"],
+      }),
+      batch: batchSpy,
     });
 
     const user = userEvent.setup();
@@ -278,14 +273,14 @@ describe("KumikoScreen / configEdit", () => {
 
     async function submitBothChanged(batchResult: BatchResult) {
       const dispatcher: Dispatcher = createMockDispatcher({
-        query: (async () => ({
+        query: async () => ({
           isSuccess: true,
           data: {
             "demo:config:first": { value: "a", scope: "tenant" },
             "demo:config:second": { value: "b", scope: "tenant" },
           },
-        })) as unknown as Dispatcher["query"],
-        batch: (async () => batchResult) as unknown as Dispatcher["batch"],
+        }),
+        batch: async () => batchResult,
       });
       const user = userEvent.setup();
       render(
@@ -358,16 +353,16 @@ describe("KumikoScreen / configEdit", () => {
   // batch's config:write:set value fails its `string | number | boolean`
   // schema entirely (regression guard for that unwrap).
   test("money field submit unwraps {amount, currency} back to a bare number", async () => {
-    const batchSpy = mock(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
+    const batchSpy = mock<MockBatchHandler>(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
       isSuccess: true as const,
       results: [],
     }));
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { "demo:config:price-limit": { value: 12.99, scope: "tenant" } },
-      })) as unknown as Dispatcher["query"],
-      batch: batchSpy as unknown as Dispatcher["batch"],
+      }),
+      batch: batchSpy,
     });
 
     const user = userEvent.setup();
@@ -397,14 +392,14 @@ describe("KumikoScreen / configEdit", () => {
 
   test("save-button disabled after successful submit (rebase fired)", async () => {
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { "demo:config:site-name": { value: "Acme", scope: "tenant" } },
-      })) as unknown as Dispatcher["query"],
-      batch: (async () => ({
+      }),
+      batch: async () => ({
         isSuccess: true,
         results: [],
-      })) as unknown as Dispatcher["batch"],
+      }),
     });
 
     const user = userEvent.setup();
@@ -434,7 +429,7 @@ describe("KumikoScreen / configEdit", () => {
   // before and after the input, on every settings screen with default values.
   test("Source badge and standard disclosure appear exactly once per field", async () => {
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async (qn: string) => {
+      query: async (qn: string) => {
         if (qn === "config:query:cascade") {
           return {
             isSuccess: true,
@@ -468,7 +463,7 @@ describe("KumikoScreen / configEdit", () => {
             "demo:config:site-name": { value: "Acme", scope: "tenant", source: "tenant-row" },
           },
         };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -496,7 +491,7 @@ describe("KumikoScreen / configEdit", () => {
   test("save refetches values + cascade — Disclosure is up to date after saving, not only after reloading", async () => {
     const queryCalls: Record<string, number> = {};
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async (qn: string) => {
+      query: async (qn: string) => {
         queryCalls[qn] = (queryCalls[qn] ?? 0) + 1;
         if (qn === "config:query:cascade") {
           return {
@@ -531,8 +526,8 @@ describe("KumikoScreen / configEdit", () => {
             "demo:config:site-name": { value: "Acme", scope: "tenant", source: "tenant-row" },
           },
         };
-      }) as unknown as Dispatcher["query"],
-      batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
+      },
+      batch: async () => ({ isSuccess: true, results: [] }),
     });
 
     const user = userEvent.setup();
@@ -563,7 +558,7 @@ describe("KumikoScreen / configEdit", () => {
   // the level panel; the open/close cycle is pinned here as an interaction.
   test("cascade disclosure toggles the level panel open and closed", async () => {
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async (qn: string) => {
+      query: async (qn: string) => {
         if (qn === "config:query:cascade") {
           return {
             isSuccess: true,
@@ -604,7 +599,7 @@ describe("KumikoScreen / configEdit", () => {
             "demo:config:site-name": { value: "Acme", scope: "tenant", source: "tenant-row" },
           },
         };
-      }) as unknown as Dispatcher["query"],
+      },
     });
 
     const user = userEvent.setup();
@@ -643,10 +638,10 @@ describe("KumikoScreen / configEdit", () => {
 
   test("a changed field gets the changed marker, an untouched one does not", async () => {
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { "demo:config:site-name": { value: "Acme", scope: "tenant" } },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     const user = userEvent.setup();
     render(
@@ -673,7 +668,7 @@ describe("KumikoScreen / configEdit", () => {
       ],
     };
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["query"],
+      query: async () => ({ isSuccess: true, data: {} }),
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -691,7 +686,7 @@ describe("KumikoScreen / configEdit", () => {
   test("a failed values query shows the error with a retry that refetches", async () => {
     let calls = 0;
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => {
+      query: async () => {
         calls += 1;
         if (calls === 1) {
           return {
@@ -700,7 +695,7 @@ describe("KumikoScreen / configEdit", () => {
           };
         }
         return { isSuccess: true, data: {} };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     const user = userEvent.setup();
     render(
@@ -718,7 +713,7 @@ describe("KumikoScreen / configEdit", () => {
   test("a failed refetch after saving keeps the form and its input and shows the error with retry", async () => {
     let valuesCalls = 0;
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async (name: string) => {
+      query: async (name: string) => {
         if (name !== "config:query:values") return { isSuccess: true, data: {} };
         valuesCalls += 1;
         if (valuesCalls === 1) {
@@ -739,8 +734,8 @@ describe("KumikoScreen / configEdit", () => {
             message: "offline",
           },
         };
-      }) as unknown as Dispatcher["query"],
-      batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
+      },
+      batch: async () => ({ isSuccess: true, results: [] }),
     });
     const user = userEvent.setup();
     render(
@@ -784,16 +779,16 @@ describe("KumikoScreen / configEdit bounds and row alignment", () => {
   };
 
   test("a number above its max is rejected on the field and never written", async () => {
-    const batchSpy = mock(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
+    const batchSpy = mock<MockBatchHandler>(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
       isSuccess: true as const,
       results: [],
     }));
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { "demo:config:max-upload-mb": { value: 25, scope: "tenant" } },
-      })) as unknown as Dispatcher["query"],
-      batch: batchSpy as unknown as Dispatcher["batch"],
+      }),
+      batch: batchSpy,
     });
     const user = userEvent.setup();
     render(
@@ -817,7 +812,7 @@ describe("KumikoScreen / configEdit bounds and row alignment", () => {
 
   test("a row with a below-control appendix aligns its cells to the top", async () => {
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async (qn: string) =>
+      query: async (qn: string) =>
         qn === "config:query:cascade"
           ? {
               isSuccess: true,
@@ -837,7 +832,7 @@ describe("KumikoScreen / configEdit bounds and row alignment", () => {
                 },
               },
             }
-          : { isSuccess: true, data: {} }) as unknown as Dispatcher["query"],
+          : { isSuccess: true, data: {} },
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -874,16 +869,16 @@ describe("KumikoScreen / configEdit write-only secret keys", () => {
   };
 
   async function renderSecretScreen(stored: boolean, source = "system-row") {
-    const batchSpy = mock(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
+    const batchSpy = mock<MockBatchHandler>(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
       isSuccess: true as const,
       results: [],
     }));
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: stored ? { "demo:config:api-key": { value: MASK, scope: "system", source } } : {},
-      })) as unknown as Dispatcher["query"],
-      batch: batchSpy as unknown as Dispatcher["batch"],
+      }),
+      batch: batchSpy,
     });
     const user = userEvent.setup();
     render(
@@ -902,10 +897,10 @@ describe("KumikoScreen / configEdit write-only secret keys", () => {
   test("a stored secret shows a set marker with Replace, and Replace reveals an empty input", async () => {
     const user = userEvent.setup();
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { "demo:config:api-key": { value: MASK, scope: "system", source: "system-row" } },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -1016,7 +1011,7 @@ describe("KumikoScreen / configEdit empty number fields", () => {
   const limitSchema: FeatureSchema = { featureName: "demo", entities: {}, screens: [limitScreen] };
 
   async function renderLimitScreen(stored: Record<string, unknown>) {
-    const batchSpy = mock(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
+    const batchSpy = mock<MockBatchHandler>(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
       isSuccess: true as const,
       results: [],
     }));
@@ -1024,8 +1019,8 @@ describe("KumikoScreen / configEdit empty number fields", () => {
       Object.entries(stored).map(([key, value]) => [key, { value, scope: "tenant" }]),
     );
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({ isSuccess: true, data })) as unknown as Dispatcher["query"],
-      batch: batchSpy as unknown as Dispatcher["batch"],
+      query: async () => ({ isSuccess: true, data }),
+      batch: batchSpy,
     });
     const user = userEvent.setup();
     render(
@@ -1101,16 +1096,16 @@ describe("KumikoScreen / configEdit empty number fields", () => {
   });
 
   test("clearing a stored money value sends a reset for that key", async () => {
-    const batchSpy = mock(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
+    const batchSpy = mock<MockBatchHandler>(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
       isSuccess: true as const,
       results: [],
     }));
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { "demo:config:price-limit": { value: 12.99, scope: "tenant" } },
-      })) as unknown as Dispatcher["query"],
-      batch: batchSpy as unknown as Dispatcher["batch"],
+      }),
+      batch: batchSpy,
     });
     const user = userEvent.setup();
     render(
@@ -1170,7 +1165,7 @@ describe("KumikoScreen / configEdit — tenant value shows in the control", () =
 
   test("a set tenant value prefills the text input and marks the select option without opening the cascade", async () => {
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async (qn: string) => {
+      query: async (qn: string) => {
         if (qn === "config:query:cascade") {
           return {
             isSuccess: true,
@@ -1187,7 +1182,7 @@ describe("KumikoScreen / configEdit — tenant value shows in the control", () =
             "demo:config:layout": { value: "wide", scope: "tenant", source: "tenant-row" },
           },
         };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -1229,7 +1224,7 @@ describe("KumikoScreen / configEdit — tenant value shows in the control", () =
       screens: [layoutScreen, otherScreen],
     };
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async (qn: string) => {
+      query: async (qn: string) => {
         if (qn === "config:query:cascade") return { isSuccess: true, data: {} };
         return {
           isSuccess: true,
@@ -1240,7 +1235,7 @@ describe("KumikoScreen / configEdit — tenant value shows in the control", () =
             "demo:config:mode": { value: "b", scope: "tenant", source: "tenant-row" },
           },
         };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     const view = render(
       <DispatcherProvider dispatcher={dispatcher}>

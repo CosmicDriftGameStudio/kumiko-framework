@@ -51,17 +51,17 @@ function schemaWith(appIdField: ActionFormScreenDefinition["layout"]["sections"]
 async function openDrawerAndSubmit(schema: FeatureSchema) {
   const writes: { type: string; payload: unknown }[] = [];
   const dispatcher: Dispatcher = createMockDispatcher({
-    query: (async (type: string) =>
+    query: async (type: string) =>
       type === DETAIL_QUERY
         ? { isSuccess: true, data: { id: "app-7", name: "My app" } }
         : {
             isSuccess: true,
             data: { rows: [], nextCursor: null },
-          }) as unknown as Dispatcher["query"],
-    write: (async (type: string, payload: unknown) => {
+          },
+    write: async (type: string, payload: unknown) => {
       writes.push({ type, payload });
       return { isSuccess: true, data: {} };
-    }) as unknown as Dispatcher["write"],
+    },
   });
   const user = userEvent.setup();
   render(

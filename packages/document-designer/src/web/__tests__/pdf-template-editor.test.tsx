@@ -32,6 +32,7 @@ import {
   TEMPLATE_IMPORT_CLIENT_ACTION,
 } from "../constants.ts";
 import { PdfTemplateEditor } from "../pdf-template-editor.tsx";
+import { createMockDispatcher } from "@cosmicdrift/kumiko-renderer/testing";
 
 const translations = mergeTranslations(
   mergeTranslations(kumikoDefaultTranslations, textBlocksClient().translations ?? {}),
@@ -205,15 +206,11 @@ function createFakeDispatcher(options: FakeOptions): {
     writes.push({ type, payload });
     return { isSuccess: true, data: { id: "saved", slug: SLUG, isNew: false } };
   };
-  const dispatcher = {
+  const dispatcher = createMockDispatcher({
     query,
     write,
-    batch: async () => ({ isSuccess: true, data: [] }),
-    statusStore: { getState: () => "online", subscribe: () => () => {} },
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  } as unknown as Dispatcher;
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
   return { dispatcher, writes, queries };
 }
 

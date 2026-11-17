@@ -4,21 +4,7 @@ import type { ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import type { Dispatcher } from "../../headless/index.ts";
 import { useMutation } from "../use-mutation.ts";
-
-function makeDispatcher(write: Dispatcher["write"]): Dispatcher {
-  return {
-    write,
-    query: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
-}
+import { createMockDispatcher } from "../../testing.ts";
 
 function wrapperFor(dispatcher: Dispatcher) {
   return ({ children }: { readonly children: ReactNode }) => (
@@ -32,10 +18,10 @@ describe("useMutation", () => {
     const gate = new Promise<void>((r) => {
       resolve = r;
     });
-    const dispatcher = makeDispatcher((async (_type: string, payload: unknown) => {
+    const dispatcher = createMockDispatcher({ write: async (_type: string, payload: unknown) => {
       await gate;
       return { isSuccess: true, data: { echoed: payload } };
-    }) as unknown as Dispatcher["write"]);
+    } });
 
     const { result } = renderHook(() => useMutation<{ echoed: unknown }>("f:write:x:create"), {
       wrapper: wrapperFor(dispatcher),
@@ -57,10 +43,10 @@ describe("useMutation", () => {
   });
 
   test("Failure sets error, reset clears it", async () => {
-    const dispatcher = makeDispatcher((async () => ({
+    const dispatcher = createMockDispatcher({ write: async () => ({
       isSuccess: false,
       error: { code: "conflict", message: "boom", i18nKey: "errors.conflict" },
-    })) as unknown as Dispatcher["write"]);
+    }) });
 
     const { result } = renderHook(() => useMutation("f:write:x:create"), {
       wrapper: wrapperFor(dispatcher),

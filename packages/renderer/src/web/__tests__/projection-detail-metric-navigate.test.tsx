@@ -2,9 +2,8 @@
 
 import { describe, expect, test } from "bun:test";
 import type { ProjectionDetailScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "../../headless/index.ts";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
-import { createMockDispatcher, render, screen, waitFor } from "./test-utils.tsx";
+import { createMockDispatcher, type MockQueryHandler, render, screen, waitFor } from "./test-utils.tsx";
 
 const metricScreen: ProjectionDetailScreenDefinition = {
   id: "unit-detail",
@@ -23,7 +22,7 @@ const metricScreen: ProjectionDetailScreenDefinition = {
 };
 
 function renderMetrics(data: Readonly<Record<string, unknown>>): void {
-  const query = (async () => ({ isSuccess: true, data })) as unknown as Dispatcher["query"];
+  const query: MockQueryHandler = async () => ({ isSuccess: true, data });
   render(
     <DispatcherProvider dispatcher={createMockDispatcher({ query })}>
       <KumikoScreen

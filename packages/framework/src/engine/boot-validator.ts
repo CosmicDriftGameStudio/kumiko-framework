@@ -1,4 +1,7 @@
 export {
+  type BootValidationResult,
+  type BootWarning,
+  type BootWarningKind,
   type CardMetaOverflow,
   collectCardMetaOverflow,
   collectWriteHandlerQns,

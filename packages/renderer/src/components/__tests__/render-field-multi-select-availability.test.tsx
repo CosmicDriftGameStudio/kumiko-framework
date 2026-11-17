@@ -10,6 +10,7 @@ import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import { type CorePrimitives, type InputProps, PrimitivesProvider } from "../../primitives.tsx";
 import { RenderField } from "../render-field.tsx";
+import { createMockDispatcher } from "../../testing.ts";
 
 let capturedInputs: InputProps[] = [];
 const captureInput: ComponentType<InputProps> = (props) => {
@@ -43,9 +44,9 @@ const testPrimitives: CorePrimitives = {
 const AVAILABILITY_QUERY = "tenant:query:member-role-availability";
 
 function stubDispatcher(): Dispatcher {
-  return {
-    write: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"],
-    query: (async (type: string) =>
+  return createMockDispatcher({
+    write: async () => ({ isSuccess: true, data: {} }),
+    query: async (type: string) =>
       type === AVAILABILITY_QUERY
         ? {
             isSuccess: true,
@@ -56,16 +57,9 @@ function stubDispatcher(): Dispatcher {
               ],
             },
           }
-        : { isSuccess: true, data: { rows: [] } }) as unknown as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+        : { isSuccess: true, data: { rows: [] } },
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
 }
 
 function rolesField(overrides: Partial<EditFieldViewModel>): EditFieldViewModel {

@@ -31,7 +31,7 @@ const schema: FeatureSchema = { featureName: "demo", entities: {}, screens: [scr
 
 function dispatcherRejecting(paths: readonly string[]): Dispatcher {
   return createMockDispatcher({
-    write: (async () => ({
+    write: async () => ({
       isSuccess: false,
       error: {
         code: "validation_error",
@@ -46,7 +46,7 @@ function dispatcherRejecting(paths: readonly string[]): Dispatcher {
           })),
         },
       },
-    })) as unknown as Dispatcher["write"],
+    }),
   });
 }
 

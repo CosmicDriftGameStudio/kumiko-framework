@@ -233,7 +233,7 @@ export function renderTestSetup(input: RenderTestSetupInput): ScaffoldTestSetup 
       "test:unit": unitTestScript,
       "test:integration": integrationTestScript,
       "test:integration:ci": integrationTestScript,
-      "test:dom": `bun --config=${BUNFIG_FILES.dom} test --timeout=${TEST_TIMEOUT_MS.unit} --dots --pass-with-no-tests .test.tsx`,
+      "test:dom": `bun --config=${BUNFIG_FILES.dom} test --timeout=${TEST_TIMEOUT_MS.dom} --dots --pass-with-no-tests .test.tsx`,
       // bunfig.real.toml's pathIgnorePatterns can only blacklist (no "!" negation,
       // verified against bun 1.4), so it can't express "match only *.real.test.ts"
       // on its own — every *.test.ts file matches bun's default test glob too,

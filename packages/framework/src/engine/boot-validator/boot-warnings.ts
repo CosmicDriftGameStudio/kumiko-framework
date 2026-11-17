@@ -9,7 +9,7 @@ import { resolveNavAllowlist } from "./workspaces.ts";
 // validation phase passed.
 export function emitBootWarnings(ctx: BootContext): void {
   const { features, options, allNavQns, allWorkspaceQns } = ctx;
-  warnOnNavAccessInversion(allNavQns);
+  warnOnNavAccessInversion(ctx.warn, allNavQns);
   const effectiveNavAllowlist = resolveNavAllowlist(
     options?.navAllowlist,
     allNavQns,
@@ -17,15 +17,16 @@ export function emitBootWarnings(ctx: BootContext): void {
   );
   if (effectiveNavAllowlist !== undefined) {
     warnOnUnreachableNavScreens(
+      ctx.warn,
       allNavQns,
       effectiveNavAllowlist,
       options?.navAllowlistExempt,
       options?.navAllowlist === undefined ? "workspaces" : "explicit",
     );
   }
-  warnOnToggleableDependencies(features, ctx.featureMap);
-  warnOnMissingSecurityBaseline(features);
+  warnOnToggleableDependencies(ctx.warn, features, ctx.featureMap);
+  warnOnMissingSecurityBaseline(ctx.warn, features);
   if (options?.warnOnUniqueAccessRoles === true) {
-    warnOnUniqueAccessRoles(features);
+    warnOnUniqueAccessRoles(ctx.warn, features);
   }
 }

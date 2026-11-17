@@ -23,6 +23,7 @@ import {
   type SectionProps,
 } from "../../primitives.tsx";
 import { WriteFormSection } from "../write-form-section.tsx";
+import { createMockDispatcher, type MockBatchHandler, type MockQueryHandler, type MockWriteHandler } from "../../testing.ts";
 
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 const noop = () => {};
@@ -112,27 +113,20 @@ function testPrimitives(): CorePrimitives {
   } as unknown as CorePrimitives;
 }
 
-function stubDispatcher(writeImpl?: Dispatcher["write"]): {
+function stubDispatcher(writeImpl?: MockWriteHandler): {
   dispatcher: Dispatcher;
   writes: Array<{ type: string; payload: unknown }>;
 } {
   const writes: Array<{ type: string; payload: unknown }> = [];
-  const dispatcher: Dispatcher = {
-    write: (async (type, payload) => {
+  const dispatcher: Dispatcher = createMockDispatcher({
+    write: async (type, payload) => {
       writes.push({ type, payload });
       if (writeImpl) return writeImpl(type, payload);
       return { isSuccess: true, data: { id: "n1" } };
-    }) as Dispatcher["write"],
-    query: (async () => ({ isSuccess: true, data: {} })) as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+    },
+    query: async () => ({ isSuccess: true, data: {} }),
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
   return { dispatcher, writes };
 }
 

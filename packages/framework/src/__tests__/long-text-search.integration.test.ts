@@ -2,7 +2,11 @@
 // under the same tenant, ownership and soft-delete rules as any other list.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  liveMeiliConnection,
+  meiliAvailable,
+  resetPiiSubjectKmsForTests,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -165,21 +169,9 @@ describe("longText find: fuzzy", () => {
   });
 });
 
-const MEILI_URL = process.env["MEILI_URL"] ?? "http://localhost:17700";
-const MEILI_KEY = process.env["MEILI_MASTER_KEY"] ?? "kumiko-dev-key";
-
-async function meiliAvailable(): Promise<boolean> {
-  try {
-    return (await fetch(`${MEILI_URL}/health`, { signal: AbortSignal.timeout(2000) })).ok;
-  } catch {
-    return false;
-  }
-}
+const { url: MEILI_URL, masterKey: MEILI_KEY } = liveMeiliConnection();
 
 const MEILI_UP = await meiliAvailable();
-if (!MEILI_UP && process.env["REQUIRE_MEILI"] === "1") {
-  throw new Error(`REQUIRE_MEILI=1 but Meilisearch not reachable at ${MEILI_URL}`);
-}
 
 // The stack's own search adapter is in-memory, so the real search consumer is replayed over the
 // stored events of one memo against a live Meilisearch index.

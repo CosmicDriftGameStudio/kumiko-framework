@@ -21,6 +21,7 @@ import { defaultTranslations as templateResolverTranslations } from "../../../te
 import { DocumentDraftHandlers } from "../constants.ts";
 import { DocumentDraftEditorScreen } from "../editor-screen.tsx";
 import { defaultTranslations } from "../i18n.ts";
+import { createMockDispatcher } from "@cosmicdrift/kumiko-renderer/testing";
 
 type Write = { type: string; payload: Record<string, unknown> };
 let writes: Write[] = [];
@@ -50,27 +51,20 @@ const OPEN_DRAFT = {
 };
 
 function dispatcherFor(record: Readonly<Record<string, unknown>>): Dispatcher {
-  return {
-    write: (async (type: string, payload: unknown) => {
+  return createMockDispatcher({
+    write: async (type: string, payload: unknown) => {
       writes.push({ type, payload: payload as Record<string, unknown> });
       return { isSuccess: true, data: { id: "d1" } };
-    }) as unknown as Dispatcher["write"],
-    query: (async (type: string) => ({
+    },
+    query: async (type: string) => ({
       isSuccess: true,
       data:
         type === "config:query:values"
           ? { "tenant-settings:config:currency": { value: "GBP", scope: "tenant" } }
           : record,
-    })) as unknown as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+    }),
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
 }
 
 function WebPreviewStub({ content }: PreviewRendererProps): ReactNode {

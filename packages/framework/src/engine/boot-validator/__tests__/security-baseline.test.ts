@@ -5,6 +5,7 @@ import {
 } from "@cosmicdrift/kumiko-testing/helpers";
 import { defineFeature } from "../../define-feature.ts";
 import type { FeatureDefinition } from "../../types/index.ts";
+import type { BootWarning, BootWarningSink } from "../boot-warning.ts";
 import { validateBoot } from "../index.ts";
 import {
   SECURITY_BASELINE_FEATURE_NAMES,
@@ -16,22 +17,21 @@ function stubFeature(name: string): FeatureDefinition {
 }
 
 describe("warnOnMissingSecurityBaseline", () => {
-  let warnSpy: ReturnType<typeof spyOn<Console, "warn">>;
+  let warnings: BootWarning[];
+  const warn: BootWarningSink = (warning) => {
+    warnings.push(warning);
+  };
 
   beforeEach(() => {
-    warnSpy = spyOn(console, "warn").mockImplementation(() => {});
-  });
-
-  afterEach(() => {
-    warnSpy.mockRestore();
+    warnings = [];
   });
 
   test("production + no baseline features → warns once, naming all four", () => {
-    warnOnMissingSecurityBaseline([], "production");
+    warnOnMissingSecurityBaseline(warn, [], "production");
 
-    const warnings = consoleCallsMentioning(warnSpy, "security baseline is incomplete");
     expect(warnings).toHaveLength(1);
-    const msg = String(warnings[0]?.[0]);
+    expect(warnings[0]?.kind).toBe("security/baseline-incomplete");
+    const msg = String(warnings[0]?.message);
     for (const name of SECURITY_BASELINE_FEATURE_NAMES) {
       expect(msg).toContain(name);
     }
@@ -42,36 +42,37 @@ describe("warnOnMissingSecurityBaseline", () => {
   test("production + only sessions/audit mounted → warns about the missing two only", () => {
     const features = [stubFeature("sessions"), stubFeature("audit")];
 
-    warnOnMissingSecurityBaseline(features, "production");
+    warnOnMissingSecurityBaseline(warn, features, "production");
 
-    const warnings = consoleCallsMentioning(warnSpy, "security baseline is incomplete");
     expect(warnings).toHaveLength(1);
-    const msg = String(warnings[0]?.[0]);
+    expect(warnings[0]?.kind).toBe("security/baseline-incomplete");
+    const msg = String(warnings[0]?.message);
     expect(msg).toContain("missing feature(s): crypto-shredding, rate-limiting.");
   });
 
   test("production + all four baseline features mounted → no warning", () => {
     const features = SECURITY_BASELINE_FEATURE_NAMES.map((name) => stubFeature(name));
 
-    warnOnMissingSecurityBaseline(features, "production");
+    warnOnMissingSecurityBaseline(warn, features, "production");
 
-    expect(consoleCallsFromNamespace(warnSpy, "kumiko:boot")).toHaveLength(0);
+    expect(warnings).toHaveLength(0);
   });
 
   test.each(["development", "test", undefined])(
     "nodeEnv=%p + no baseline features → no warning",
     (nodeEnv) => {
-      warnOnMissingSecurityBaseline([], nodeEnv);
+      warnOnMissingSecurityBaseline(warn, [], nodeEnv);
 
-      expect(consoleCallsFromNamespace(warnSpy, "kumiko:boot")).toHaveLength(0);
+      expect(warnings).toHaveLength(0);
     },
   );
 
   test("never throws, regardless of nodeEnv or mounted features", () => {
-    expect(() => warnOnMissingSecurityBaseline([], "production")).not.toThrow();
-    expect(() => warnOnMissingSecurityBaseline([], "development")).not.toThrow();
+    expect(() => warnOnMissingSecurityBaseline(warn, [], "production")).not.toThrow();
+    expect(() => warnOnMissingSecurityBaseline(warn, [], "development")).not.toThrow();
     expect(() =>
       warnOnMissingSecurityBaseline(
+        warn,
         SECURITY_BASELINE_FEATURE_NAMES.map((name) => stubFeature(name)),
         "production",
       ),

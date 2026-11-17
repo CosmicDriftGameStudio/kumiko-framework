@@ -49,10 +49,10 @@ const listScreen: EntityListScreenDefinition = {
 
 function makeDispatcher(): Dispatcher {
   return createMockDispatcher({
-    query: (async () => ({
+    query: async () => ({
       isSuccess: true,
       data: { rows: [], nextCursor: null },
-    })) as unknown as Dispatcher["query"],
+    }),
   });
 }
 
@@ -463,10 +463,10 @@ describe("createKumikoApp", () => {
     await mountApp({
       schema: conflictSchema,
       dispatcher: createMockDispatcher({
-        query: (async () => ({
+        query: async () => ({
           isSuccess: true,
           data: { rows: [{ id: "r1", color: "#ddd" }], nextCursor: null },
-        })) as unknown as Dispatcher["query"],
+        }),
       }),
       clientFeatures: [
         { name: "first", columnRenderers: { Swatch: FirstSwatch } },
@@ -503,10 +503,10 @@ describe("createKumikoApp", () => {
       ],
     };
     const dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { rows: [{ id: "r1", title: "Alpha", color: "#a1b2c3" }], nextCursor: null },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     const clientFeature: ClientFeatureDefinition = {
       name: "tasks",
@@ -588,10 +588,10 @@ describe("createKumikoApp", () => {
       },
     };
     const dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { value: "3" },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
 
     mountRoot();
@@ -638,10 +638,10 @@ describe("createKumikoApp", () => {
       },
     };
     const dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { value: "3" },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     const override: ClientFeatureDefinition = {
       name: "cap-counter-app-override",
@@ -705,10 +705,10 @@ describe("createKumikoApp", () => {
 
     function makeRowDispatcher(): Dispatcher {
       return createMockDispatcher({
-        query: (async () => ({
+        query: async () => ({
           isSuccess: true,
           data: { rows: [{ id: "r1", title: "Alpha" }], nextCursor: null },
-        })) as unknown as Dispatcher["query"],
+        }),
       });
     }
 

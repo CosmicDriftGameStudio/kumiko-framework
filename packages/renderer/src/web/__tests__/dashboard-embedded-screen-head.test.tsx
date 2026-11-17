@@ -22,7 +22,7 @@ import { useBrowserNavApi } from "../app/nav.tsx";
 import { defaultPrimitives, EmbeddedFormProvider } from "../primitives/index.tsx";
 import {
   createMockDispatcher,
-  queryAnswering,
+  type MockQueryHandler,
   render,
   screen,
   taskEntity,
@@ -55,11 +55,10 @@ function renderBoard(board: DashboardScreenDefinition): void {
     entities: {},
     screens: [detailScreen, board],
   };
-  const query = queryAnswering((type) =>
+  const query: MockQueryHandler = (type) =>
     type === "sites:query:site:detail"
       ? { isSuccess: true, data: { id: "site-1", region: "EU-North" } }
-      : { isSuccess: true, data: { value: "1" } },
-  );
+      : { isSuccess: true, data: { value: "1" } };
   render(
     <BrowserNav>
       <DispatcherProvider dispatcher={createMockDispatcher({ query })}>
@@ -168,10 +167,10 @@ describe("embedded list description", () => {
         entities: { task: taskEntity },
         screens: [list, board],
       };
-      const query = queryAnswering(() => ({
+      const query: MockQueryHandler = () => ({
         isSuccess: true,
         data: { rows: [{ id: "r1", title: "Alpha" }], nextCursor: null },
-      }));
+      });
       render(
         <BrowserNav>
           <DispatcherProvider dispatcher={createMockDispatcher({ query })}>

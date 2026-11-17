@@ -17,17 +17,14 @@ import {
   PrimitivesProvider,
   TokensProvider,
 } from "@cosmicdrift/kumiko-renderer";
-import {
-  createStore,
-  type Dispatcher,
-  type DispatcherStatus,
-} from "@cosmicdrift/kumiko-renderer/headless";
+import { type Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
 import { defaultPrimitives, defaultTokens } from "@cosmicdrift/kumiko-renderer/web";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { NotesHistoryHandlers, NotesHistoryQueries } from "../web/constants.ts";
 import { defaultTranslations } from "../web/i18n.ts";
 import { NotesSection } from "../web/notes-section.tsx";
+import { createMockDispatcher, type MockQueryHandler, type MockWriteHandler } from "@cosmicdrift/kumiko-renderer/testing";
 
 if (typeof globalThis.ResizeObserver === "undefined") {
   globalThis.ResizeObserver = class {
@@ -94,23 +91,18 @@ const NOTE_ROWS: readonly NoteRowFixture[] = [
 ];
 
 function makeDispatcher(queryPayloads: unknown[] = []): Dispatcher {
-  const statusStore = createStore<DispatcherStatus>("online");
-  const query = (async (type: string, payload: unknown) => {
+  const query: MockQueryHandler = async (type: string, payload: unknown) => {
     queryPayloads.push(payload);
     if (type === NotesHistoryQueries.noteList) {
       return { isSuccess: true, data: { rows: NOTE_ROWS } };
     }
     return { isSuccess: true, data: null };
-  }) as unknown as Dispatcher["query"];
-  return {
-    write: (async () => ({ isSuccess: true, data: null })) as unknown as Dispatcher["write"],
+  };
+  return createMockDispatcher({
+    write: async () => ({ isSuccess: true, data: null }),
     query,
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore,
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  } as unknown as Dispatcher; // @cast-boundary test-stub
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
 }
 
 function renderSection(queryPayloads: unknown[] = []): ReturnType<typeof render> {
@@ -251,27 +243,22 @@ function makeWriteCapturingDispatcher(): {
   readonly writes: { readonly type: string; readonly payload: unknown }[];
 } {
   const writes: { type: string; payload: unknown }[] = [];
-  const statusStore = createStore<DispatcherStatus>("online");
-  const query = (async (type: string) => {
+  const query: MockQueryHandler = async (type: string) => {
     if (type === NotesHistoryQueries.noteList) {
       return { isSuccess: true, data: { rows: [] } };
     }
     return { isSuccess: true, data: null };
-  }) as unknown as Dispatcher["query"];
-  const write = (async (type: string, payload: unknown) => {
+  };
+  const write: MockWriteHandler = async (type: string, payload: unknown) => {
     writes.push({ type, payload });
     return { isSuccess: true, data: null };
-  }) as unknown as Dispatcher["write"];
+  };
   return {
-    dispatcher: {
+    dispatcher: createMockDispatcher({
       write,
       query,
-      batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-      statusStore,
-      async *stream() {},
-      pendingWrites: () => [],
-      pendingFiles: () => [],
-    } as unknown as Dispatcher, // @cast-boundary test-stub
+      batch: async () => ({ isSuccess: true, results: [] }),
+    }),
     writes,
   };
 }

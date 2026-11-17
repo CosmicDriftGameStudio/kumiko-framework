@@ -4,6 +4,7 @@ import type { FeatureDefinition } from "../types/index.ts";
 import { BOOT_ENVIRONMENT_RULES } from "./boot-environment-rules.ts";
 import type { ValidateBootOptions } from "./boot-options.ts";
 import { bootRuleError } from "./boot-rule.ts";
+import type { BootWarningSink } from "./boot-warning.ts";
 import { collectKnownRoles, collectNavQns, collectWriteHandlerQns } from "./nav.ts";
 import { collectClaimKeys } from "./ownership.ts";
 import { buildQueryHandlerMap } from "./projection-list-screens.ts";
@@ -14,6 +15,7 @@ export type BootContext = {
   readonly features: readonly FeatureDefinition[];
   readonly featureMap: ReadonlyMap<string, FeatureDefinition>;
   readonly options: ValidateBootOptions | undefined;
+  readonly warn: BootWarningSink;
   readonly extensionProviders: ReadonlyMap<string, string>;
   readonly allConfigKeys: ReadonlySet<string>;
   readonly configKeyDefsByQn: ReadonlyMap<string, ConfigKeyDefinition>;
@@ -30,6 +32,7 @@ export type BootContext = {
 export function buildBootContext(
   features: readonly FeatureDefinition[],
   options: ValidateBootOptions | undefined,
+  warn: BootWarningSink,
 ): BootContext {
   const featureMap = new Map<string, FeatureDefinition>();
   const extensionProviders = new Map<string, string>();
@@ -53,6 +56,7 @@ export function buildBootContext(
     features,
     featureMap,
     options,
+    warn,
     extensionProviders,
     allConfigKeys,
     configKeyDefsByQn,

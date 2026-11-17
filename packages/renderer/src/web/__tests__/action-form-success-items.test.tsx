@@ -1,7 +1,6 @@
 import { describe, expect, mock, test } from "bun:test";
 import type { ActionFormScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import userEvent from "@testing-library/user-event";
-import type { Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import { DispatcherProvider, KumikoScreen, NavProvider } from "../../index.ts";
 import { createMockDispatcher, render, screen, waitFor } from "./test-utils.tsx";
@@ -33,7 +32,7 @@ function renderUpload(
   navigate: (...args: unknown[]) => void = () => {},
 ) {
   const dispatcher = createMockDispatcher({
-    write: (async () => ({ isSuccess: true, data })) as unknown as Dispatcher["write"],
+    write: async () => ({ isSuccess: true, data }),
   });
   return render(
     <DispatcherProvider dispatcher={dispatcher}>

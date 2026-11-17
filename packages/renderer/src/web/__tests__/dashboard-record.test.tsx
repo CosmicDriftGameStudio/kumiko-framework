@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, jest, setSystemTime, test } fr
 import type { DashboardScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import { act, cleanup, fireEvent } from "@testing-library/react";
 import type { ReactNode } from "react";
-import type { Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import {
   DashboardBodyProvider,
@@ -57,15 +56,15 @@ function mountDashboard(
   const queries: Call[] = [];
   const writes: Call[] = [];
   const dispatcher = createMockDispatcher({
-    query: (async (type: string, payload: unknown) => {
+    query: async (type: string, payload: unknown) => {
       queries.push({ type, payload });
       return { isSuccess: true, data: handlers.query?.(type, payload) ?? { value: "ok" } };
-    }) as unknown as Dispatcher["query"],
-    write: (async (type: string, payload: unknown) => {
+    },
+    write: async (type: string, payload: unknown) => {
       writes.push({ type, payload });
       handlers.write?.(type, payload);
       return { isSuccess: true, data: {} };
-    }) as unknown as Dispatcher["write"],
+    },
   });
   render(
     <BrowserNav>

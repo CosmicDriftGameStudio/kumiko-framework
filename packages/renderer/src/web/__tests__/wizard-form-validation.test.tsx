@@ -9,15 +9,9 @@ import type {
   EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import userEvent from "@testing-library/user-event";
-import type { Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
-import {
-  createMockDispatcher,
-  render,
-  renderWithPrimitivesOverride,
-  screen,
-} from "./test-utils.tsx";
+import { createMockDispatcher, type MockWriteHandler, render, renderWithPrimitivesOverride, screen } from "./test-utils.tsx";
 
 const profileEntity = {
   fields: {
@@ -119,10 +113,10 @@ describe("entityEdit wizard — presence validation on Next", () => {
   // that step 2 shows no error.
   test("submitting from a later step still sends an earlier step's value to the dispatcher", async () => {
     const calls: Array<[string, unknown]> = [];
-    const write = (async (type: string, payload: unknown) => {
+    const write: MockWriteHandler = async (type: string, payload: unknown) => {
       calls.push([type, payload]);
       return { isSuccess: true, data: {} };
-    }) as unknown as Dispatcher["write"];
+    };
     const { container } = render(
       <DispatcherProvider dispatcher={createMockDispatcher({ write })}>
         <KumikoScreen schema={schema} qn="demo:screen:profile-edit" />

@@ -215,6 +215,9 @@ export {
 } from "./boot-validator/entity-handler.ts";
 export { entityHasAnonymizableSubjectField } from "./boot-validator/pii-retention.ts";
 export {
+  type BootValidationResult,
+  type BootWarning,
+  type BootWarningKind,
   collectCardMetaOverflow,
   collectWriteHandlerQns,
   MAX_TRANSFER_DEPTH,

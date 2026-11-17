@@ -13,19 +13,14 @@
 // ui-walkthrough. Here only "renderer calls the dispatcher with
 // the expected QNs, the dispatcher answers in the expected format".
 
-import type {
-  BatchResult,
-  Command,
-  Dispatcher,
-  DispatcherStatus,
-  PendingFile,
-  PendingWrite,
-  QueryOpts,
-  QueryResult,
-  Store,
-  WriteOpts,
-  WriteResult,
-} from "@cosmicdrift/kumiko-renderer/headless";
+import type { WriteResult } from "@cosmicdrift/kumiko-renderer/headless";
+import {
+  createMockDispatcher,
+  type MockBatchHandler,
+  type MockDispatcher,
+  type MockQueryHandler,
+  type MockWriteHandler,
+} from "@cosmicdrift/kumiko-renderer/testing";
 
 import { dashboardQueryResponse } from "./dashboard-fixture";
 import { answerMockList } from "./mock-list-query";
@@ -57,7 +52,7 @@ export type MockDispatcherState = {
   readonly holdWrites?: boolean;
 };
 
-export type MockDispatcher = Dispatcher & {
+export type InMemoryDispatcher = MockDispatcher & {
   /** `<verb>:<id>` of every write in the order it started. */
   readonly writeLog: readonly string[];
   readonly releaseWrites: () => void;
@@ -93,14 +88,7 @@ function parseQn(qn: string): {
   };
 }
 
-// Read-only store stub for statusStore. Tests do not care about
-// online/offline transitions — the status is always "online".
-const ONLINE_STORE: Store<DispatcherStatus> = {
-  getSnapshot: () => "online",
-  subscribe: () => () => {},
-};
-
-export function createMockDispatcher(state: MockDispatcherState = {}): MockDispatcher {
+export function createInMemoryDispatcher(state: MockDispatcherState = {}): InMemoryDispatcher {
   const tables = new Map<string, Map<string, Row>>();
   const writeLog: string[] = [];
   const rejectWriteIds = new Set(state.rejectWriteIds ?? []);
@@ -128,11 +116,7 @@ export function createMockDispatcher(state: MockDispatcherState = {}): MockDispa
     return table;
   }
 
-  async function write<TData = unknown>(
-    type: string,
-    payload: unknown,
-    _opts?: WriteOpts,
-  ): Promise<WriteResult<TData>> {
+  const write: MockWriteHandler = async (type, payload) => {
     const { entity, verb } = parseQn(type);
     const table = getTable(entity);
     const data = (payload ?? {}) as Record<string, unknown>; // @cast-boundary render-helper
@@ -167,7 +151,7 @@ export function createMockDispatcher(state: MockDispatcherState = {}): MockDispa
         const id = (data["id"] as string | undefined) ?? generateId();
         const row: Row = { ...data, id };
         table.set(id, row);
-        return { isSuccess: true, data: row as unknown as TData };
+        return { isSuccess: true, data: row };
       }
       case "archive":
       case "update": {
@@ -183,7 +167,7 @@ export function createMockDispatcher(state: MockDispatcherState = {}): MockDispa
           id,
         };
         table.set(id, row);
-        return { isSuccess: true, data: row as unknown as TData };
+        return { isSuccess: true, data: row };
       }
       case "reassign": {
         const ids = stringsOf(data["taskIds"]);
@@ -191,34 +175,30 @@ export function createMockDispatcher(state: MockDispatcherState = {}): MockDispa
           const existing = table.get(id);
           if (existing) table.set(id, { ...existing, owner: data["owner"] });
         }
-        return { isSuccess: true, data: { count: ids.length } as unknown as TData };
+        return { isSuccess: true, data: { count: ids.length } };
       }
       case "delete": {
         const id = data["id"] as string | undefined;
         if (id === undefined) throw new Error(`MockDispatcher: delete without id (qn=${type})`);
         table.delete(id);
-        return { isSuccess: true, data: { id } as unknown as TData };
+        return { isSuccess: true, data: { id } };
       }
       default:
         throw new Error(`MockDispatcher: unsupported write verb "${verb}" (qn=${type})`);
     }
-  }
+  };
 
-  async function query<TData = unknown>(
-    type: string,
-    payload: unknown,
-    _opts?: QueryOpts,
-  ): Promise<QueryResult<TData>> {
+  const query: MockQueryHandler = async (type, payload) => {
     if (type === ROLE_AVAILABILITY_QUERY) {
       const rows = [
         ...["User", "Member", "Editor", "Admin"].map((value) => ({ value, disabled: false })),
         { value: "TenantAdmin", disabled: true },
       ];
-      return { isSuccess: true, data: { rows } as unknown as TData };
+      return { isSuccess: true, data: { rows } };
     }
     const dashboardResponse = dashboardQueryResponse(type);
     if (dashboardResponse !== undefined) {
-      return { isSuccess: true, data: dashboardResponse as unknown as TData };
+      return { isSuccess: true, data: dashboardResponse };
     }
     const { entity, verb } = parseQn(type);
     const table = getTable(entity);
@@ -227,7 +207,7 @@ export function createMockDispatcher(state: MockDispatcherState = {}): MockDispa
       case "list":
         return {
           isSuccess: true,
-          data: answerMockList(type, Array.from(table.values()), payload) as unknown as TData,
+          data: answerMockList(type, Array.from(table.values()), payload),
         };
       case "detail": {
         const data = (payload ?? {}) as Record<string, unknown>; // @cast-boundary render-helper
@@ -236,30 +216,20 @@ export function createMockDispatcher(state: MockDispatcherState = {}): MockDispa
         const row = table.get(id);
         if (!row)
           throw new Error(`MockDispatcher: detail on missing row id=${id} entity=${entity}`);
-        return { isSuccess: true, data: row as unknown as TData };
+        return { isSuccess: true, data: row };
       }
       default:
         throw new Error(`MockDispatcher: unsupported query verb "${verb}" (qn=${type})`);
     }
-  }
+  };
 
-  async function batch(commands: readonly Command[], opts?: WriteOpts): Promise<BatchResult> {
+  const batch: MockBatchHandler = async (commands, opts) => {
     const results: WriteResult[] = [];
     for (const cmd of commands) {
       results.push(await write(cmd.type, cmd.payload, opts));
     }
     return { isSuccess: true, results };
-  }
-
-  return {
-    writeLog,
-    releaseWrites,
-    write,
-    query,
-    batch,
-    statusStore: ONLINE_STORE,
-    async *stream() {},
-    pendingWrites: (): readonly PendingWrite[] => [],
-    pendingFiles: (): readonly PendingFile[] => [],
   };
+
+  return { ...createMockDispatcher({ write, query, batch }), writeLog, releaseWrites };
 }

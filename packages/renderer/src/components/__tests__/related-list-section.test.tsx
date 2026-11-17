@@ -21,6 +21,7 @@ import {
   type SectionProps,
 } from "../../primitives.tsx";
 import { RelatedListSection } from "../related-list-section.tsx";
+import { createMockDispatcher, type MockBatchHandler, type MockQueryHandler, type MockWriteHandler } from "../../testing.ts";
 
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 const noop = () => {};
@@ -109,12 +110,12 @@ function stubDispatcher(
 } {
   const writes: Array<{ type: string; payload: unknown }> = [];
   let queryCalls = 0;
-  const dispatcher: Dispatcher = {
-    write: (async (type, payload) => {
+  const dispatcher: Dispatcher = createMockDispatcher({
+    write: async (type, payload) => {
       writes.push({ type, payload });
       return { isSuccess: true, data: null };
-    }) as Dispatcher["write"],
-    query: (async () => {
+    },
+    query: async () => {
       queryCalls += 1;
       return {
         isSuccess: true,
@@ -124,16 +125,9 @@ function stubDispatcher(
           ...(envelope.total !== undefined && { total: envelope.total }),
         },
       };
-    }) as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+    },
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
   return { dispatcher, writes, queryCount: () => queryCalls };
 }
 
@@ -752,9 +746,9 @@ describe("RelatedListSection — list-screen toolbar in tabs mode", () => {
 
   test("a reference facet loads its options from the referenced entity's list query, and selecting one sends an id filter", async () => {
     const calls: Array<{ type: string; payload: unknown }> = [];
-    const dispatcher: Dispatcher = {
-      write: (async () => ({ isSuccess: true, data: null })) as Dispatcher["write"],
-      query: (async (type: string, payload: unknown) => {
+    const dispatcher: Dispatcher = createMockDispatcher({
+      write: async () => ({ isSuccess: true, data: null }),
+      query: async (type: string, payload: unknown) => {
         calls.push({ type, payload });
         if (type === "orders:query:tenant:list") {
           return {
@@ -766,16 +760,9 @@ describe("RelatedListSection — list-screen toolbar in tabs mode", () => {
           };
         }
         return { isSuccess: true, data: { rows: [{ id: "r1", name: "Alice" }], nextCursor: null } };
-      }) as Dispatcher["query"],
-      batch: (async () => ({ isSuccess: true, results: [] })) as Dispatcher["batch"],
-      statusStore: {
-        getState: () => "online",
-        subscribe: () => () => {},
-      } as unknown as Dispatcher["statusStore"],
-      async *stream() {},
-      pendingWrites: () => [],
-      pendingFiles: () => [],
-    };
+      },
+      batch: async () => ({ isSuccess: true, results: [] }),
+    });
     let capturedFilterFacets: DataTableProps["filterFacets"];
     let capturedOnFilterChange: DataTableProps["onFilterChange"];
     const capturingDataTable: ComponentType<DataTableProps> = (props) => {
@@ -1372,9 +1359,9 @@ function filteringDispatcher(rows: readonly Record<string, unknown>[]): {
   payloads: Record<string, unknown>[];
 } {
   const payloads: Record<string, unknown>[] = [];
-  const dispatcher: Dispatcher = {
-    write: (async () => ({ isSuccess: true, data: null })) as Dispatcher["write"],
-    query: (async (_type: string, payload: unknown) => {
+  const dispatcher: Dispatcher = createMockDispatcher({
+    write: async () => ({ isSuccess: true, data: null }),
+    query: async (_type: string, payload: unknown) => {
       const p = payload as {
         search?: string;
         filters?: readonly { field: string; op: "in"; value: readonly unknown[] }[];
@@ -1393,16 +1380,9 @@ function filteringDispatcher(rows: readonly Record<string, unknown>[]): {
         result = result.filter((r) => f.value.includes(r[f.field]));
       }
       return { isSuccess: true, data: { rows: result, nextCursor: null } };
-    }) as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+    },
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
   return { dispatcher, payloads };
 }
 
@@ -1618,9 +1598,9 @@ function parentFilterDispatcher(rows: readonly Record<string, unknown>[]): {
   payloads: Record<string, unknown>[];
 } {
   const payloads: Record<string, unknown>[] = [];
-  const dispatcher: Dispatcher = {
-    write: (async () => ({ isSuccess: true, data: null })) as Dispatcher["write"],
-    query: (async (_type: string, payload: unknown) => {
+  const dispatcher: Dispatcher = createMockDispatcher({
+    write: async () => ({ isSuccess: true, data: null }),
+    query: async (_type: string, payload: unknown) => {
       const p = payload as {
         filter?: { field: string; op: "eq"; value: unknown };
         search?: string;
@@ -1644,16 +1624,9 @@ function parentFilterDispatcher(rows: readonly Record<string, unknown>[]): {
         result = result.filter((r) => f.value.includes(r[f.field]));
       }
       return { isSuccess: true, data: { rows: result, nextCursor: null } };
-    }) as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+    },
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
   return { dispatcher, payloads };
 }
 

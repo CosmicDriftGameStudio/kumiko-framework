@@ -319,10 +319,10 @@ const ownerRows = [
 
 function detail(initial: Record<string, unknown>, setup: Setup = {}) {
   const dispatcher = createMockDispatcher({
-    query: (async () => ({
+    query: async () => ({
       isSuccess: true,
       data: { rows: ownerRows },
-    })) as unknown as Dispatcher["query"],
+    }),
   });
   return renderWith(
     <RenderEdit

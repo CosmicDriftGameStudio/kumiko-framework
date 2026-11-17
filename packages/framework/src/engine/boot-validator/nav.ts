@@ -6,13 +6,12 @@ import type { AccessRule } from "@cosmicdrift/kumiko-types/handlers";
 import { isAnySignedInGranted, isOpenToAllGranted } from "@cosmicdrift/kumiko-types/handlers";
 import type { NavDefinition } from "@cosmicdrift/kumiko-types/nav";
 import type { WorkspaceDefinition } from "@cosmicdrift/kumiko-types/workspace";
-import { createFallbackLogger } from "../../logging/utils.ts";
 import { qualifyEntityName } from "../qualified-name.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 import { bootRuleError } from "./boot-rule.ts";
+import type { BootWarningSink } from "./boot-warning.ts";
 import { NAV_RULES } from "./nav-rules.ts";
 
-const log = createFallbackLogger("kumiko:boot");
 
 export function collectWriteHandlerQns(features: readonly FeatureDefinition[]): Set<string> {
   const set = new Set<string>();
@@ -165,6 +164,7 @@ function navViewerRoles(access: AccessRule | undefined): readonly string[] | und
 // Only fires when BOTH sides declare an explicit, non-empty role list:
 // an unset/openToAll side is visible to everyone, so it can't invert.
 export function warnOnNavAccessInversion(
+  warn: BootWarningSink,
   allNavQns: ReadonlyMap<string, NavDefinition & { readonly featureName: string }>,
 ): void {
   for (const [qn, navDef] of allNavQns) {
@@ -177,12 +177,15 @@ export function warnOnNavAccessInversion(
     if (leafRoles.length === 0) continue; // leaf visible to nobody (empty roles or invalid openToAll) — not an inversion
     if (parentRoles.length === 0) continue; // parent already visible to nobody — a different problem
     if (leafRoles.some((role) => parentRoles.includes(role))) continue;
-    log.warn(
+    warn({
+      kind: "nav/access-inversion",
+      feature: navDef.featureName,
+      message:
       `Nav entry "${qn}" requires roles [${leafRoles.join(", ")}] but its parent ` +
         `"${navDef.parent}" only allows [${parentRoles.join(", ")}] — no user who can see the ` +
         `parent section could ever see this entry. If this is intentional, ignore this warning; ` +
         `otherwise align the role sets.`,
-    );
+    });
   }
 }
 
@@ -198,6 +201,7 @@ export function warnOnNavAccessInversion(
 export type NavAllowlistSource = "explicit" | "workspaces";
 
 export function warnOnUnreachableNavScreens(
+  warn: BootWarningSink,
   allNavQns: ReadonlyMap<string, NavDefinition & { readonly featureName: string }>,
   allowedNavQns: ReadonlySet<string>,
   navAllowlistExempt: ReadonlySet<string> = new Set(),
@@ -220,12 +224,15 @@ export function warnOnUnreachableNavScreens(
       allowlistSource === "workspaces"
         ? "add it to a workspace's `nav` array or set `workspaces` on the nav"
         : "add it to the allowlist";
-    log.warn(
+    warn({
+      kind: "nav/screen-unreachable",
+      feature: navDef.featureName,
+      message:
       `Nav entry "${qn}" declared by feature "${navDef.featureName}" points at ` +
         `screen "${screenQn}", which no allowlisted nav entry reaches — it is unreachable via ` +
         `the sidebar. If this is intentional (e.g. reachable through a generated hub), add ` +
         `"${qn}" to navAllowlistExempt; otherwise ${remedy}.`,
-    );
+    });
   }
 }
 

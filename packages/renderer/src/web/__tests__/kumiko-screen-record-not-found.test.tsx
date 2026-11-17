@@ -4,7 +4,6 @@ import type {
   EntityListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
-import type { Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import { DispatcherProvider, KumikoScreen, NavProvider } from "../../index.ts";
 import { fireEvent, makeDispatcher, render, screen, taskEntity, waitFor } from "./test-utils.tsx";
@@ -30,7 +29,7 @@ const schema: FeatureSchema = {
 const translateDe = (key: string): string => localeDeBundle[key] ?? key;
 
 const unknownRecordDispatcher = makeDispatcher({
-  query: (async () => ({ isSuccess: true, data: null })) as unknown as Dispatcher["query"],
+  query: async () => ({ isSuccess: true, data: null }),
 });
 
 describe("KumikoScreen: entityEdit with an unknown record id", () => {

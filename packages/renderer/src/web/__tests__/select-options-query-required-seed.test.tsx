@@ -35,7 +35,7 @@ describe("required optionsQuery select with a default row", () => {
       releaseOptions = resolve;
     });
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => {
+      query: async () => {
         await optionsLoaded;
         return {
           isSuccess: true,
@@ -46,7 +46,7 @@ describe("required optionsQuery select with a default row", () => {
             ],
           },
         };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>

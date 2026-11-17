@@ -33,27 +33,21 @@ import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import type { NavTarget } from "../nav.tsx";
 import { NavProvider } from "../nav.tsx";
+import { createMockDispatcher } from "../../testing.ts";
 
 function stubDispatcher(): Dispatcher {
-  return {
-    write: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"],
-    query: (async () => ({
+  return createMockDispatcher({
+    write: async () => ({ isSuccess: true, data: {} }),
+    query: async () => ({
       isSuccess: true,
       data: {
         rows: [{ id: "invoice-42", customerId: "cust-7", status: "open" }],
         nextCursor: null,
         total: 1,
       },
-    })) as unknown as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+    }),
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
 }
 
 let capturedRowActions: readonly DataTableRowAction[] | undefined;
@@ -337,18 +331,11 @@ const detailTestPrimitives: CorePrimitives = {
 };
 
 function detailStubDispatcher(record: Readonly<Record<string, unknown>>): Dispatcher {
-  return {
-    write: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"],
-    query: (async () => ({ isSuccess: true, data: record })) as unknown as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+  return createMockDispatcher({
+    write: async () => ({ isSuccess: true, data: {} }),
+    query: async () => ({ isSuccess: true, data: record }),
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
 }
 
 function buildProjectionDetailSchema(action: RowActionNavigate): FeatureSchema {

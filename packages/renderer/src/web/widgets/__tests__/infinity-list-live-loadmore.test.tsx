@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from "bun:test";
-import type { Dispatcher } from "../../../headless/index.ts";
 import {
   DispatcherProvider,
   type LiveEvent,
@@ -50,10 +49,10 @@ describe("InfinityList: live refresh racing a load-more", () => {
   test("a page-1 change whose refresh is superseded by a load-more shows up without another event", async () => {
     const resolvers: Array<(res: unknown) => void> = [];
     const dispatcher = createMockDispatcher({
-      query: (() =>
+      query: () =>
         new Promise((resolve) => {
           resolvers.push(resolve);
-        })) as unknown as Dispatcher["query"],
+        }),
     });
     let emit: ((event: LiveEvent) => void) | undefined;
     const liveEvents: LiveEventSubscriber = (_entity, listener) => {
@@ -118,10 +117,10 @@ describe("InfinityList: live refresh racing a load-more", () => {
   test("a live refresh overtaken by a payload change does not re-query the old payload", async () => {
     const calls: Array<{ resolve: (res: unknown) => void; search: unknown }> = [];
     const dispatcher = createMockDispatcher({
-      query: ((_type: string, payload: { readonly search: string }) =>
+      query: (_type: string, payload: { readonly search: string }) =>
         new Promise((resolve) => {
           calls.push({ resolve, search: payload.search });
-        })) as unknown as Dispatcher["query"],
+        }),
     });
     let emit: ((event: LiveEvent) => void) | undefined;
     const liveEvents: LiveEventSubscriber = (_entity, listener) => {
@@ -180,10 +179,10 @@ describe("InfinityList: live refresh racing a load-more", () => {
   test("a live event of the new payload that arrives while the old payload's refresh is running is refreshed right away instead of parked behind it", async () => {
     const calls: Array<{ resolve: (res: unknown) => void; search: unknown }> = [];
     const dispatcher = createMockDispatcher({
-      query: ((_type: string, payload: { readonly search: string }) =>
+      query: (_type: string, payload: { readonly search: string }) =>
         new Promise((resolve) => {
           calls.push({ resolve, search: payload.search });
-        })) as unknown as Dispatcher["query"],
+        }),
     });
     let emit: ((event: LiveEvent) => void) | undefined;
     const liveEvents: LiveEventSubscriber = (_entity, listener) => {

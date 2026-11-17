@@ -34,6 +34,9 @@ describe("renderTestSetup", () => {
     expect(setup.scripts["test"]).toBe(
       `bun --config=bunfig.toml test --timeout=${TEST_TIMEOUT_MS.unit} --dots`,
     );
+    expect(setup.scripts["test:dom"]).toBe(
+      `bun --config=bunfig.dom.toml test --timeout=${TEST_TIMEOUT_MS.dom} --dots --pass-with-no-tests .test.tsx`,
+    );
     expect(setup.scripts["test:real"]).toBe(
       `KUMIKO_REAL_PROVIDERS=1 bun --config=bunfig.real.toml test --timeout=${TEST_TIMEOUT_MS.real} .real.test.ts`,
     );

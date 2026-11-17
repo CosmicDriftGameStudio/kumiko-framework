@@ -12,16 +12,17 @@ import { type ReactElement, type ReactNode, useState } from "react";
 import { defaultTranslations } from "../i18n.ts";
 import { MfaDisableDialog } from "../mfa-disable-dialog.tsx";
 import { MfaRegenerateRecoveryDialog } from "../mfa-regenerate-recovery-dialog.tsx";
+import { createMockDispatcher } from "@cosmicdrift/kumiko-renderer/testing";
 
 type WriteCall = { readonly type: string; readonly payload: unknown };
 
 function makeDispatcher(calls: WriteCall[]): Dispatcher {
-  return {
+  return createMockDispatcher({
     write: async (type: string, payload: unknown) => {
       calls.push({ type, payload });
       return { isSuccess: true, data: { disabled: true, recoveryCodes: [] } };
     },
-  } as unknown as Dispatcher;
+  });
 }
 
 function renderWith(ui: ReactElement, dispatcher: Dispatcher): void {

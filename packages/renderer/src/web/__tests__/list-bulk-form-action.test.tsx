@@ -81,10 +81,10 @@ describe("list bulk form action", () => {
   test("three selected rows open the form with three ids and submit calls the handler once", async () => {
     const calls: { type: string; payload: unknown }[] = [];
     const dispatcher = createMockDispatcher({
-      write: (async (type: string, payload: unknown) => {
+      write: async (type: string, payload: unknown) => {
         calls.push({ type, payload });
         return { isSuccess: true, data: {} };
-      }) as unknown as Dispatcher["write"],
+      },
     });
     render(<ListThenForm dispatcher={dispatcher} />);
 

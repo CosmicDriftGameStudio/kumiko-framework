@@ -5,7 +5,6 @@ import type { ReactNode } from "react";
 import { stubDispatcher } from "../../__tests__/stub-dispatcher.ts";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import { UserRolesProvider } from "../../context/user-roles-context.tsx";
-import type { Dispatcher } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import { PageHeaderSlotAvailableProvider } from "../../page-header-slot.ts";
@@ -66,10 +65,10 @@ const testPrimitives: CorePrimitives = {
 };
 
 const { dispatcher } = stubDispatcher({
-  query: (async () => ({
+  query: async () => ({
     isSuccess: true,
     data: { id: "r1", name: "Release 1.2", state: "in_review", due: "2026-11-05" },
-  })) as unknown as Dispatcher["query"],
+  }),
 });
 
 const METRIC_VALUE_ID = "kumiko-screen-projection-detail-metric-due-value";

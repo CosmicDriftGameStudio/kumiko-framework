@@ -23,6 +23,7 @@ import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import type { NavApi } from "../nav.tsx";
 import { NavProvider } from "../nav.tsx";
+import { createMockDispatcher } from "../../testing.ts";
 
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
@@ -139,28 +140,21 @@ type Calls = {
 };
 
 function stubDispatcher(calls: Calls, state: { name: string }): Dispatcher {
-  return {
-    write: (async (type: string, payload: unknown) => {
+  return createMockDispatcher({
+    write: async (type: string, payload: unknown) => {
       calls.writes.push({ type, payload });
       state.name = "Renamed";
       return { isSuccess: true, data: {} };
-    }) as unknown as Dispatcher["write"],
-    query: (async (type: string, payload: unknown) => {
+    },
+    query: async (type: string, payload: unknown) => {
       calls.queries.push({ type, payload });
       if (type === NOTES_QUERY) {
         return { isSuccess: true, data: { rows: [], nextCursor: null } };
       }
       return { isSuccess: true, data: { id: "o1", name: state.name } };
-    }) as unknown as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+    },
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
 }
 
 async function renderOrderScreen(calls: Calls, state: { name: string }): Promise<void> {

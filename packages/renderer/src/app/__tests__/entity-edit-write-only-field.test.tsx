@@ -24,6 +24,7 @@ import {
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import { NavProvider } from "../nav.tsx";
+import { createMockDispatcher } from "../../testing.ts";
 
 const capturedInputs: Record<string, InputProps | undefined> = {};
 let capturedFormSubmit: ((e?: FormEvent) => void) | undefined;
@@ -92,21 +93,14 @@ function requireLastWrite(): { type: string; payload: unknown } {
 }
 
 function stubDispatcher(record: Readonly<Record<string, unknown>>): Dispatcher {
-  return {
-    write: (async (type: string, payload: unknown) => {
+  return createMockDispatcher({
+    write: async (type: string, payload: unknown) => {
       lastWrite = { type, payload };
       return { isSuccess: true, data: {} };
-    }) as unknown as Dispatcher["write"],
-    query: (async () => ({ isSuccess: true, data: record })) as unknown as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+    },
+    query: async () => ({ isSuccess: true, data: record }),
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
 }
 
 function buildSchema(apiKeyRequired: boolean): FeatureSchema {

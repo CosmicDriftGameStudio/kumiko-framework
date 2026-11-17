@@ -22,6 +22,7 @@ import { type ButtonProps, type CorePrimitives, PrimitivesProvider } from "../..
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import { NavProvider } from "../nav.tsx";
+import { createMockDispatcher } from "../../testing.ts";
 
 const capturedButtonTestIds: string[] = [];
 const captureButton: ComponentType<ButtonProps> = (props) => {
@@ -53,21 +54,14 @@ const testPrimitives: CorePrimitives = {
 };
 
 function stubDispatcher(): Dispatcher {
-  return {
-    write: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"],
-    query: (async () => ({
+  return createMockDispatcher({
+    write: async () => ({ isSuccess: true, data: {} }),
+    query: async () => ({
       isSuccess: true,
       data: { rows: [], total: 0 },
-    })) as unknown as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+    }),
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
 }
 
 function buildSchema(): FeatureSchema {

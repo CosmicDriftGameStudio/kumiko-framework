@@ -3,7 +3,6 @@
 
 import { describe, expect, test } from "bun:test";
 import type { ProjectionListScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import {
   AppFeaturesProvider,
@@ -64,7 +63,7 @@ function renderList(initial: Gate): {
     return () => {};
   };
   const dispatcher = createMockDispatcher({
-    query: (async (type: string) => {
+    query: async (type: string) => {
       if (type !== GATE_QUERY) {
         return {
           isSuccess: true,
@@ -78,7 +77,7 @@ function renderList(initial: Gate): {
             error: { code: "internal", message: "kaputt", i18nKey: "errors.internal" },
           }
         : { isSuccess: true, data: gate };
-    }) as unknown as Dispatcher["query"],
+    },
   });
   render(
     <DispatcherProvider dispatcher={dispatcher}>

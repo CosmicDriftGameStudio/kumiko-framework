@@ -61,7 +61,7 @@ describe("actionForm preview", () => {
   test("a changed form value runs the preview query and renders facts and list", async () => {
     const queries: { type: string; payload: unknown }[] = [];
     const dispatcher = createMockDispatcher({
-      query: (async (type: string, payload: unknown) => {
+      query: async (type: string, payload: unknown) => {
         queries.push({ type, payload });
         return {
           isSuccess: true,
@@ -73,7 +73,7 @@ describe("actionForm preview", () => {
             ],
           },
         };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     renderForm(dispatcher);
 
@@ -92,10 +92,10 @@ describe("actionForm preview", () => {
 
   test("an empty list under facts shows no empty state, a list-only preview keeps it", async () => {
     const dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { count: 0, tasks: [] },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     const { unmount } = renderForm(dispatcher);
     typeInto("status", "blocked");
@@ -113,10 +113,10 @@ describe("actionForm preview", () => {
   test("an emptied optional field is left out of the preview payload", async () => {
     const queries: unknown[] = [];
     const dispatcher = createMockDispatcher({
-      query: (async (_type: string, payload: unknown) => {
+      query: async (_type: string, payload: unknown) => {
         queries.push(payload);
         return { isSuccess: true, data: { count: 0, tasks: [] } };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     renderForm(dispatcher, {
       ...form,
@@ -134,10 +134,10 @@ describe("actionForm preview", () => {
   test("an untouched optional money field stays out of the preview payload", async () => {
     const queries: unknown[] = [];
     const dispatcher = createMockDispatcher({
-      query: (async (_type: string, payload: unknown) => {
+      query: async (_type: string, payload: unknown) => {
         queries.push(payload);
         return { isSuccess: true, data: { count: 0, tasks: [] } };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     renderForm(dispatcher, {
       ...form,
@@ -157,14 +157,14 @@ describe("actionForm preview", () => {
 
   test("typed facts and columns render formatted: money object and date string", async () => {
     const dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: {
           total: { amount: 1234.5, currency: "EUR" },
           dueOn: "2026-11-30",
           rows: [{ label: "Rate 1", amount: { amount: 12.5, currency: "EUR" } }],
         },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     renderForm(dispatcher, {
       ...form,
@@ -197,18 +197,18 @@ describe("actionForm preview", () => {
   test("a failing preview query shows a hint and does not block the submit", async () => {
     const writes: unknown[] = [];
     const dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: false,
         error: {
           code: "internal_error",
           message: "Preview is unavailable",
           i18nKey: "preview.unavailable",
         },
-      })) as unknown as Dispatcher["query"],
-      write: (async (_type: string, payload: unknown) => {
+      }),
+      write: async (_type: string, payload: unknown) => {
         writes.push(payload);
         return { isSuccess: true, data: {} };
-      }) as unknown as Dispatcher["write"],
+      },
     });
     renderForm(dispatcher);
 
@@ -237,10 +237,10 @@ describe("actionForm preview", () => {
     }) as unknown as typeof fetch;
     try {
       const dispatcher = createMockDispatcher({
-        query: (async () => ({
+        query: async () => ({
           isSuccess: true,
           data: { attachment: attachmentId, missing: null },
-        })) as unknown as Dispatcher["query"],
+        }),
       });
       renderForm(dispatcher, {
         ...form,

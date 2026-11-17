@@ -41,14 +41,14 @@ function makeDispatcher(
   configValues: unknown = TENANT_CURRENCY_VALUES,
 ): Dispatcher {
   return createMockDispatcher({
-    query: (async (type: string) => {
+    query: async (type: string) => {
       if (type === "config:query:values") return { isSuccess: true, data: configValues };
       return { isSuccess: true, data: { rows: [], nextCursor: null } };
-    }) as unknown as Dispatcher["query"],
-    write: (async (type: string, payload: unknown) => {
+    },
+    write: async (type: string, payload: unknown) => {
       writeCalls.push({ type, payload });
       return { isSuccess: true, data: { id: "inv-1" } };
-    }) as unknown as Dispatcher["write"],
+    },
   });
 }
 
@@ -118,13 +118,13 @@ describe("actionForm money field currency source", () => {
   test("the tenant currency lookup asks for the currency key only, not every readable config key", async () => {
     const configPayloads: unknown[] = [];
     const dispatcher = createMockDispatcher({
-      query: (async (type: string, payload: unknown) => {
+      query: async (type: string, payload: unknown) => {
         if (type === "config:query:values") {
           configPayloads.push(payload);
           return { isSuccess: true, data: TENANT_CURRENCY_VALUES };
         }
         return { isSuccess: true, data: { rows: [], nextCursor: null } };
-      }) as unknown as Dispatcher["query"],
+      },
     });
 
     render(
@@ -139,10 +139,10 @@ describe("actionForm money field currency source", () => {
 
   test("a failing or empty tenant currency lookup blocks the form instead of submitting a guessed currency", async () => {
     const failing = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: false,
         error: { code: "internal", i18nKey: "errors.internal" },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     const { unmount } = render(
       <DispatcherProvider dispatcher={failing}>
@@ -170,10 +170,10 @@ describe("actionForm money field currency source", () => {
   test("a form with only literal-declared money fields never calls config:query:values", async () => {
     const queriedTypes: string[] = [];
     const dispatcher = createMockDispatcher({
-      query: (async (type: string) => {
+      query: async (type: string) => {
         queriedTypes.push(type);
         return { isSuccess: true, data: { rows: [], nextCursor: null } };
-      }) as unknown as Dispatcher["query"],
+      },
     });
 
     render(
@@ -214,10 +214,10 @@ describe("secretMint money field currency source", () => {
   test("literal money fields in the mint step and the confirm step both submit { amount, currency }", async () => {
     const writeCalls: { type: string; payload: unknown }[] = [];
     const dispatcher = createMockDispatcher({
-      write: (async (type: string, payload: unknown) => {
+      write: async (type: string, payload: unknown) => {
         writeCalls.push({ type, payload });
         return { isSuccess: true, data: { token: "kpat_secret" } };
-      }) as unknown as Dispatcher["write"],
+      },
     });
     const schema: FeatureSchema = {
       featureName: "billing",

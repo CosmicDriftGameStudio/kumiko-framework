@@ -3,11 +3,6 @@
 // security invariant this file exists to pin: an input NEVER starts pre-filled
 // with the redacted preview, and no dispatched payload ever carries that
 // preview string next to the plaintext the user typed.
-//
-// `as unknown as Dispatcher["query"/"batch"/"write"]` throughout: each inline
-// mock lambda only implements the one overload a given test exercises, never
-// the full overloaded Dispatcher signature — the missing overloads are never
-// called at runtime.
 
 import { describe, expect, mock, test } from "bun:test";
 import type { SecretsEditScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
@@ -22,7 +17,7 @@ import {
   kumikoDefaultTranslations,
   LocaleProvider,
 } from "../../index.ts";
-import { createMockDispatcher, render, screen, waitFor } from "./test-utils.tsx";
+import { createMockDispatcher, type MockBatchHandler, type MockWriteHandler, render, screen, waitFor } from "./test-utils.tsx";
 
 const secretsScreen: SecretsEditScreenDefinition = {
   id: "secrets",
@@ -59,10 +54,10 @@ const schema: FeatureSchema = {
 describe("KumikoScreen / secretsEdit", () => {
   test("a set secret shows its redacted preview while the input stays empty", async () => {
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: [{ key: "stripe:secret:api-key", redactedPreview: "sk_***abc", hint: null }],
-      })) as unknown as Dispatcher["query"],
+      }),
     });
 
     render(
@@ -94,7 +89,7 @@ describe("KumikoScreen / secretsEdit", () => {
       screens: [multiScreen],
     };
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({ isSuccess: true, data: [] })) as unknown as Dispatcher["query"],
+      query: async () => ({ isSuccess: true, data: [] }),
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -108,13 +103,13 @@ describe("KumikoScreen / secretsEdit", () => {
   });
 
   test("submitting with no input dispatches nothing", async () => {
-    const batchSpy = mock(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
+    const batchSpy = mock<MockBatchHandler>(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
       isSuccess: true as const,
       results: [],
     }));
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({ isSuccess: true, data: [] })) as unknown as Dispatcher["query"],
-      batch: batchSpy as unknown as Dispatcher["batch"],
+      query: async () => ({ isSuccess: true, data: [] }),
+      batch: batchSpy,
     });
 
     const user = userEvent.setup();
@@ -131,7 +126,7 @@ describe("KumikoScreen / secretsEdit", () => {
 
   test("footer: Save is disabled while clean; typing counts the change and Discard clears the input", async () => {
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({ isSuccess: true, data: [] })) as unknown as Dispatcher["query"],
+      query: async () => ({ isSuccess: true, data: [] }),
     });
     const user = userEvent.setup();
     render(
@@ -153,16 +148,16 @@ describe("KumikoScreen / secretsEdit", () => {
   });
 
   test("typing a value and saving dispatches exactly one secrets:write:set with the plaintext, never the redacted preview", async () => {
-    const batchSpy = mock(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
+    const batchSpy = mock<MockBatchHandler>(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
       isSuccess: true as const,
       results: [],
     }));
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: [{ key: "stripe:secret:api-key", redactedPreview: "sk_***abc", hint: null }],
-      })) as unknown as Dispatcher["query"],
-      batch: batchSpy as unknown as Dispatcher["batch"],
+      }),
+      batch: batchSpy,
     });
 
     const user = userEvent.setup();
@@ -203,7 +198,7 @@ describe("KumikoScreen / secretsEdit", () => {
     };
 
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({ isSuccess: true, data: [] })) as unknown as Dispatcher["query"],
+      query: async () => ({ isSuccess: true, data: [] }),
     });
 
     render(
@@ -233,10 +228,10 @@ describe("KumikoScreen / secretsEdit", () => {
     const qualifiedKey = requiredScreen.secretKeys["stripe-api-key"];
 
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: [{ key: qualifiedKey, redactedPreview: "sk_***abc", hint: null }],
-      })) as unknown as Dispatcher["query"],
+      }),
     });
 
     render(
@@ -273,13 +268,13 @@ describe("KumikoScreen / secretsEdit", () => {
       entities: {},
       screens: [twoFieldScreen],
     };
-    const batchSpy = mock(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
+    const batchSpy = mock<MockBatchHandler>(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
       isSuccess: true as const,
       results: [],
     }));
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({ isSuccess: true, data: [] })) as unknown as Dispatcher["query"],
-      batch: batchSpy as unknown as Dispatcher["batch"],
+      query: async () => ({ isSuccess: true, data: [] }),
+      batch: batchSpy,
     });
 
     const user = userEvent.setup();
@@ -308,16 +303,16 @@ describe("KumikoScreen / secretsEdit", () => {
   });
 
   test("delete dispatches secrets:write:delete with the qualified key", async () => {
-    const writeSpy = mock(async (_type: string, _payload: unknown) => ({
+    const writeSpy = mock<MockWriteHandler>(async (_type: string, _payload: unknown) => ({
       isSuccess: true as const,
       data: {},
     }));
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: [{ key: "stripe:secret:api-key", redactedPreview: "sk_***abc", hint: null }],
-      })) as unknown as Dispatcher["query"],
-      write: writeSpy as unknown as Dispatcher["write"],
+      }),
+      write: writeSpy,
     });
 
     const user = userEvent.setup();
@@ -337,16 +332,16 @@ describe("KumikoScreen / secretsEdit", () => {
   });
 
   test("cancelling the delete confirmation dispatches nothing", async () => {
-    const writeSpy = mock(async (_type: string, _payload: unknown) => ({
+    const writeSpy = mock<MockWriteHandler>(async (_type: string, _payload: unknown) => ({
       isSuccess: true as const,
       data: {},
     }));
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: [{ key: "stripe:secret:api-key", redactedPreview: "sk_***abc", hint: null }],
-      })) as unknown as Dispatcher["query"],
-      write: writeSpy as unknown as Dispatcher["write"],
+      }),
+      write: writeSpy,
     });
 
     const user = userEvent.setup();
@@ -371,13 +366,13 @@ describe("KumikoScreen / secretsEdit", () => {
       i18nKey: "secrets:errors.writeConflict",
       message: "Could not save secret: a concurrent update conflicted, please retry.",
     };
-    const batchSpy = mock(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
+    const batchSpy = mock<MockBatchHandler>(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
       isSuccess: false as const,
       error: serverError,
     }));
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({ isSuccess: true, data: [] })) as unknown as Dispatcher["query"],
-      batch: batchSpy as unknown as Dispatcher["batch"],
+      query: async () => ({ isSuccess: true, data: [] }),
+      batch: batchSpy,
     });
 
     const user = userEvent.setup();

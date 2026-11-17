@@ -3,7 +3,6 @@ import type {
   ActionFormScreenDefinition,
   EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
 import { clickSubmitOnceEnabled, listScreen } from "./_kumiko-screen-helpers.tsx";
@@ -40,10 +39,10 @@ describe("KumikoScreen: update-only entityEdit (allowCreate/allowDelete)", () =>
 
   test("allowDelete:false → update mode does not render a Delete button", async () => {
     const dispatcher = makeDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { id: "task-1", version: 3, title: "loaded", count: 0, done: false },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -57,10 +56,10 @@ describe("KumikoScreen: update-only entityEdit (allowCreate/allowDelete)", () =>
 
   test("allowCreate:false → entityList does not render an automatic + New button", async () => {
     const dispatcher = makeDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { rows: [], nextCursor: null },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -73,10 +72,10 @@ describe("KumikoScreen: update-only entityEdit (allowCreate/allowDelete)", () =>
 
   test("entityList allowCreate:false hides + Neu while the edit screen keeps its create branch", async () => {
     const dispatcher = makeDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { rows: [], nextCursor: null },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     const renderList = async (list: typeof listScreen) => {
       const view = render(
@@ -142,10 +141,10 @@ describe("KumikoScreen: entityEdit header actions", () => {
   };
   const detailDispatcher = () =>
     makeDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { id: "task-1", version: 1, title: "loaded", count: 0, done: false },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
 
   test("update mode with three header actions collapses to icon-only with ariaLabel", async () => {
@@ -261,17 +260,17 @@ describe("KumikoScreen: entityEdit actions drawer-kind", () => {
     let queryCallCount = 0;
     const writeCalls: { type: string; payload: unknown }[] = [];
     const dispatcher = makeDispatcher({
-      query: (async () => {
+      query: async () => {
         queryCallCount += 1;
         return {
           isSuccess: true,
           data: { id: "task-1", version: 1, title: "loaded", count: 0, done: false },
         };
-      }) as unknown as Dispatcher["query"],
-      write: (async (type: string, payload: unknown) => {
+      },
+      write: async (type: string, payload: unknown) => {
         writeCalls.push({ type, payload });
         return { isSuccess: true, data: {} };
-      }) as unknown as Dispatcher["write"],
+      },
     });
 
     render(

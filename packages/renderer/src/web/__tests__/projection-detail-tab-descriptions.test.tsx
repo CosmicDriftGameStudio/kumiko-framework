@@ -6,7 +6,7 @@ import type { ProjectionDetailScreenDefinition } from "@cosmicdrift/kumiko-frame
 import type { Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema, NavApi } from "../../index.ts";
 import { DispatcherProvider, KumikoScreen, NavProvider } from "../../index.ts";
-import { createMockDispatcher, render, screen, waitFor } from "./test-utils.tsx";
+import { createMockDispatcher, type MockQueryHandler, render, screen, waitFor } from "./test-utils.tsx";
 
 const DETAIL_QUERY = "rentals:query:rent:detail";
 const PAYMENTS_QUERY = "rentals:query:rent:payments";
@@ -48,10 +48,10 @@ const tabsScreen: ProjectionDetailScreenDefinition = {
 const schema: FeatureSchema = { featureName: "rentals", entities: {}, screens: [tabsScreen] };
 
 function dispatcherWithPayments(paymentRows: readonly Record<string, unknown>[]): Dispatcher {
-  const query = (async (type: string) => {
+  const query: MockQueryHandler = async (type: string) => {
     if (type === DETAIL_QUERY) return { isSuccess: true, data: detailRow };
     return { isSuccess: true, data: { rows: paymentRows, nextCursor: null } };
-  }) as unknown as Dispatcher["query"];
+  };
   return createMockDispatcher({ query });
 }
 

@@ -6,10 +6,9 @@ import type {
 
 import userEvent from "@testing-library/user-event";
 import { RelatedPhotoGrid } from "../../components/related-photo-grid.tsx";
-import type { Dispatcher } from "../../headless/index.ts";
 import { DispatcherProvider, RenderEdit } from "../../index.ts";
 import { DefaultRecordSummary } from "../primitives/record-summary.tsx";
-import { createMockDispatcher, render, screen, waitFor } from "./test-utils.tsx";
+import { createMockDispatcher, type MockQueryHandler, render, screen, waitFor } from "./test-utils.tsx";
 
 const entity = {
   fields: {
@@ -50,7 +49,7 @@ const SCREEN: EntityEditScreenDefinition = {
   },
 };
 
-function renderOffer(query: Dispatcher["query"] | undefined) {
+function renderOffer(query: MockQueryHandler | undefined) {
   const dispatcher = createMockDispatcher(query === undefined ? {} : { query });
   return render(
     <DispatcherProvider dispatcher={dispatcher}>
@@ -67,10 +66,10 @@ function renderOffer(query: Dispatcher["query"] | undefined) {
 
 function recordingQuery(result: unknown = { isSuccess: true, data: { message: "Drafted" } }) {
   const calls: { type: string; payload: unknown }[] = [];
-  const query = (async (type: string, payload: unknown) => {
+  const query: MockQueryHandler = async (type: string, payload: unknown) => {
     calls.push({ type, payload });
     return result;
-  }) as unknown as Dispatcher["query"];
+  };
   return { query, calls };
 }
 
@@ -113,9 +112,9 @@ describe("aiAssist", () => {
   });
 
   test("a rejecting query shows the error banner and enables the chips again", async () => {
-    const query = (async () => {
+    const query: MockQueryHandler = async () => {
       throw new Error("network");
-    }) as unknown as Dispatcher["query"];
+    };
     renderOffer(query);
 
     await userEvent.setup().click(screen.getByTestId("field-ai-chip-note-0"));

@@ -17,12 +17,6 @@ import type { EntityDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import { render as _render, type RenderOptions, type RenderResult } from "@testing-library/react";
 import type { ReactElement, ReactNode } from "react";
 import {
-  createStore,
-  type Dispatcher,
-  type DispatcherStatus,
-  type WritableStore,
-} from "../../headless/index.ts";
-import {
   createStaticLocaleResolver,
   type DraftStorage,
   kumikoDefaultTranslations,
@@ -34,6 +28,11 @@ import {
   PrimitivesProvider,
   TokensProvider,
 } from "../../index.ts";
+import {
+  createMockDispatcher,
+  type MockDispatcher,
+  type MockDispatcherOptions,
+} from "../../testing.ts";
 import { defaultPrimitives } from "../primitives/index.tsx";
 import { defaultTokens } from "../tokens.ts";
 import { SidebarProvider } from "../ui/sidebar.tsx";
@@ -141,51 +140,15 @@ export function renderWithPrimitivesOverride(
 // Mock-Dispatcher-Helper
 // ---------------------------------------------------------------------------
 
-export type MockDispatcherOptions = {
-  /** Initial status. Default: "online". Tests that check transitions can
-   * access the returned `statusStore` and mutate it via
-   * `statusStore.setState(...)`. */
-  readonly initialStatus?: DispatcherStatus;
-  /** Override write(). Default: returnt `{ isSuccess: true, data: {} }`. */
-  readonly write?: Dispatcher["write"];
-  /** Override query(). Default: returnt `{ isSuccess: true, data: {} }`. */
-  readonly query?: Dispatcher["query"];
-  /** Override batch(). Default: returnt `{ isSuccess: true, results: [] }`. */
-  readonly batch?: Dispatcher["batch"];
-};
-
-/** Minimal mock dispatcher for renderer-web tests. Replaces the
- *  hand-rolled `makeDispatcher()` functions that were duplicated in nearly
- *  every test file. The returned `statusStore` is writable so tests can
- *  trigger status changes; the public dispatcher contract exposes it as
- *  read-only, but mocks may provide additional access.
- *
- *  Pending queues are always `[]` (live-dispatcher semantics). Tests that
- *  check savable pending behavior should mock the dispatcher themselves.
- */
-export function createMockDispatcher(options: MockDispatcherOptions = {}): Dispatcher & {
-  /** Writable access to the status store for test mutations.
-   *  Aliases `dispatcher.statusStore`, but is typed as a
-   *  WritableStore. */
-  readonly statusStore: WritableStore<DispatcherStatus>;
-} {
-  const statusStore = createStore<DispatcherStatus>(options.initialStatus ?? "online");
-  return {
-    write:
-      options.write ??
-      ((async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"]),
-    query:
-      options.query ??
-      ((async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["query"]),
-    batch:
-      options.batch ??
-      ((async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"]),
-    statusStore,
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
-}
+export {
+  createMockDispatcher,
+  type MockBatchHandler,
+  type MockDispatcher,
+  type MockDispatcherOptions,
+  type MockQueryHandler,
+  type MockStreamHandler,
+  type MockWriteHandler,
+} from "../../testing.ts";
 
 // Shared fixtures for the KumikoScreen test files (kumiko-screen*.test.tsx).
 export const taskEntity = {
@@ -196,20 +159,12 @@ export const taskEntity = {
   },
 } as unknown as EntityDefinition;
 
-/** Typed-once stand-in for the generic `Dispatcher["query"]`: answers every query with `respond(type)`. */
-export function queryAnswering(respond: (type: string) => unknown): Dispatcher["query"] {
-  return (async (type: string) => respond(type)) as unknown as Dispatcher["query"];
-}
-
 /** Mock dispatcher whose default `query` returns an empty list page. */
-export function makeDispatcher(overrides: Partial<Dispatcher> = {}): Dispatcher {
-  const base = createMockDispatcher({
-    query: (async () => ({
-      isSuccess: true,
-      data: { rows: [], nextCursor: null },
-    })) as unknown as Dispatcher["query"],
+export function makeDispatcher(options: MockDispatcherOptions = {}): MockDispatcher {
+  return createMockDispatcher({
+    query: () => ({ isSuccess: true, data: { rows: [], nextCursor: null } }),
+    ...options,
   });
-  return { ...base, ...overrides };
 }
 
 // ---------------------------------------------------------------------------

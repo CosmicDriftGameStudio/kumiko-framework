@@ -4,9 +4,8 @@ import type {
   EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import userEvent from "@testing-library/user-event";
-import type { Dispatcher } from "../../headless/index.ts";
 import { DispatcherProvider, RenderEdit } from "../../index.ts";
-import { createMockDispatcher, render, screen, waitFor } from "./test-utils.tsx";
+import { createMockDispatcher, type MockQueryHandler, type MockWriteHandler, render, screen, waitFor } from "./test-utils.tsx";
 
 const siteEntity = {
   fields: {
@@ -54,7 +53,7 @@ const SCREEN: EntityEditScreenDefinition = {
   },
 };
 
-type QueryFn = Dispatcher["query"];
+type QueryFn = MockQueryHandler;
 type QueryResult = { isSuccess: true; data: unknown } | { isSuccess: false };
 
 function queryReturning(result: QueryResult) {
@@ -70,7 +69,7 @@ function queryReturning(result: QueryResult) {
 
 function renderSite(options: {
   query: QueryFn;
-  write?: Dispatcher["write"];
+  write?: MockWriteHandler;
   onDirtyChange?: (dirty: boolean) => void;
   disabled?: boolean;
 }) {
@@ -145,10 +144,10 @@ describe("field prefix, suffix and fillAction", () => {
 
   test("a value filled into a readOnly field is part of the submitted payload", async () => {
     const payloads: unknown[] = [];
-    const write = (async (_type: string, payload: unknown) => {
+    const write: MockWriteHandler = async (_type: string, payload: unknown) => {
       payloads.push(payload);
       return { isSuccess: true, data: { id: "1" } };
-    }) as unknown as Dispatcher["write"];
+    };
     renderSite({
       query: queryReturning({ isSuccess: true, data: { suggestion: "quiet-fox" } }),
       write,

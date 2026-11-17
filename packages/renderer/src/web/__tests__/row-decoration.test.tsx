@@ -5,9 +5,8 @@ import type {
   ProjectionListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { mergeRowDecoration, useRowDecoration } from "../../app/use-row-decoration.ts";
-import type { Dispatcher } from "../../headless/index.ts";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
-import { createMockDispatcher, render, screen, taskEntity, waitFor } from "./test-utils.tsx";
+import { createMockDispatcher, type MockQueryHandler, render, screen, taskEntity, waitFor } from "./test-utils.tsx";
 
 const DECORATION_QUERY = "shop:query:order:decorate";
 const LIST_QUERY = "shop:query:order:list";
@@ -36,20 +35,20 @@ function mockQueries(
   rows: readonly Record<string, unknown>[],
   decoration: (call: Call) => unknown,
   listQuery: string,
-): { readonly query: Dispatcher["query"]; readonly calls: Call[] } {
+): { readonly query: MockQueryHandler; readonly calls: Call[] } {
   const calls: Call[] = [];
-  const query = (async (type: string, payload: unknown) => {
+  const query: MockQueryHandler = async (type: string, payload: unknown) => {
     calls.push({ type, payload });
     if (type === listQuery) return { isSuccess: true, data: { rows, nextCursor: null } };
     const answer = decoration({ type, payload });
     return answer instanceof Error
       ? { isSuccess: false, error: { code: "boom", message: answer.message } }
       : { isSuccess: true, data: answer };
-  }) as unknown as Dispatcher["query"];
+  };
   return { query, calls };
 }
 
-function renderProjection(query: Dispatcher["query"]): void {
+function renderProjection(query: MockQueryHandler): void {
   render(
     <DispatcherProvider dispatcher={createMockDispatcher({ query })}>
       <KumikoScreen
@@ -60,7 +59,7 @@ function renderProjection(query: Dispatcher["query"]): void {
   );
 }
 
-function renderEntity(query: Dispatcher["query"]): void {
+function renderEntity(query: MockQueryHandler): void {
   render(
     <DispatcherProvider dispatcher={createMockDispatcher({ query })}>
       <KumikoScreen
@@ -180,7 +179,7 @@ function renderHarness(
   isUndecorated: (id: string, callNumber: number) => boolean = () => false,
 ) {
   const calls: Call[] = [];
-  const query = (async (type: string, payload: unknown) => {
+  const query: MockQueryHandler = async (type: string, payload: unknown) => {
     calls.push({ type, payload });
     const ids = (payload as { ids: string[] }).ids;
     return {
@@ -191,7 +190,7 @@ function renderHarness(
           .map((id) => ({ id, stage: `${id}${calls.length}` })),
       },
     };
-  }) as unknown as Dispatcher["query"];
+  };
   const dispatcher = createMockDispatcher({ query });
   const tree = (rows: readonly HarnessRow[], resetKey: string) => (
     <DispatcherProvider dispatcher={dispatcher}>

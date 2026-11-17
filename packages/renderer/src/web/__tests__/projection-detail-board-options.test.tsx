@@ -2,7 +2,6 @@
 import { describe, expect, test } from "bun:test";
 import type { ProjectionDetailScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { ReactNode } from "react";
-import type { Dispatcher } from "../../headless/index.ts";
 import type { ExtensionSectionProps, FeatureSchema, NavApi } from "../../index.ts";
 import {
   DispatcherProvider,
@@ -10,14 +9,7 @@ import {
   KumikoScreen,
   NavProvider,
 } from "../../index.ts";
-import {
-  createMockDispatcher,
-  render,
-  restoreViewportWidthAfterEach,
-  screen,
-  setViewportWidth,
-  waitFor,
-} from "./test-utils.tsx";
+import { createMockDispatcher, type MockQueryHandler, render, restoreViewportWidthAfterEach, screen, setViewportWidth, waitFor } from "./test-utils.tsx";
 
 const writeAction = (id: string) => ({
   kind: "writeHandler" as const,
@@ -55,7 +47,7 @@ function renderDetail(
   searchParams: Record<string, string> = {},
   data: Record<string, unknown> = record,
 ): void {
-  const query = (async () => ({ isSuccess: true, data })) as unknown as Dispatcher["query"];
+  const query: MockQueryHandler = async () => ({ isSuccess: true, data });
   const nav: NavApi = {
     route: undefined,
     navigate: () => {},

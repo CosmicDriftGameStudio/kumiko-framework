@@ -1,7 +1,6 @@
 // In-memory dispatcher for wizard-form/e2e. Implements the dispatcher
 // interface from @cosmicdrift/kumiko-renderer/headless without the HTTP layer, its
-// own lean variant (no import from renderer/web/e2e — its fixtures are
-// package-internal, not exported).
+// own lean variant (the dispatcher shell comes from @cosmicdrift/kumiko-renderer/testing).
 //
 // Serves two QN formats:
 //   - 4-segment CRUD (`<feature>:<write|query>:<entity>:<verb>`) — only
@@ -19,19 +18,13 @@
 // test-isolated). The listing CRUD table stays in-memory on purpose: it
 // doesn't need to survive a reload, only the draft does.
 
-import type {
-  BatchResult,
-  Command,
-  Dispatcher,
-  DispatcherStatus,
-  PendingFile,
-  PendingWrite,
-  QueryOpts,
-  QueryResult,
-  Store,
-  WriteOpts,
-  WriteResult,
-} from "@cosmicdrift/kumiko-renderer/headless";
+import type { Dispatcher, WriteResult } from "@cosmicdrift/kumiko-renderer/headless";
+import {
+  createMockDispatcher,
+  type MockBatchHandler,
+  type MockQueryHandler,
+  type MockWriteHandler,
+} from "@cosmicdrift/kumiko-renderer/testing";
 
 type Row = Record<string, unknown> & { id: string };
 
@@ -61,12 +54,7 @@ export function draftStorageKey(draftKey: string): string {
   return `${DRAFT_STORAGE_PREFIX}${draftKey}`;
 }
 
-const ONLINE_STORE: Store<DispatcherStatus> = {
-  getSnapshot: () => "online",
-  subscribe: () => () => {},
-};
-
-export function createMockDispatcher(): Dispatcher {
+export function createInMemoryDispatcher(): Dispatcher {
   const tables = new Map<string, Map<string, Row>>();
 
   function getTable(entity: string): Map<string, Row> {
@@ -78,11 +66,7 @@ export function createMockDispatcher(): Dispatcher {
     return table;
   }
 
-  async function write<TData = unknown>(
-    type: string,
-    payload: unknown,
-    _opts?: WriteOpts,
-  ): Promise<WriteResult<TData>> {
+  const write: MockWriteHandler = async (type, payload) => {
     const data = (payload ?? {}) as Record<string, unknown>; // @cast-boundary mock-dispatcher wire payload
 
     if (type === FORM_DRAFT_SAVE) {
@@ -93,12 +77,12 @@ export function createMockDispatcher(): Dispatcher {
         savedAt: Temporal.Now.instant().toString(),
       };
       localStorage.setItem(draftStorageKey(draftKey), JSON.stringify(blob));
-      return { isSuccess: true, data: {} as unknown as TData };
+      return { isSuccess: true, data: {} };
     }
     if (type === FORM_DRAFT_DISCARD) {
       const draftKey = data["draftKey"] as string;
       localStorage.removeItem(draftStorageKey(draftKey));
-      return { isSuccess: true, data: {} as unknown as TData };
+      return { isSuccess: true, data: {} };
     }
 
     const parts = type.split(":");
@@ -120,20 +104,16 @@ export function createMockDispatcher(): Dispatcher {
     const created = JSON.parse(localStorage.getItem(CREATED_LISTINGS_KEY) ?? "[]") as Row[];
     created.push(row);
     localStorage.setItem(CREATED_LISTINGS_KEY, JSON.stringify(created));
-    return { isSuccess: true, data: row as unknown as TData };
-  }
+    return { isSuccess: true, data: row };
+  };
 
-  async function query<TData = unknown>(
-    type: string,
-    payload: unknown,
-    _opts?: QueryOpts,
-  ): Promise<QueryResult<TData>> {
+  const query: MockQueryHandler = async (type, payload) => {
     if (type === FORM_DRAFT_GET) {
       const data = (payload ?? {}) as Record<string, unknown>; // @cast-boundary mock-dispatcher wire payload
       const draftKey = data["draftKey"] as string;
       const raw = localStorage.getItem(draftStorageKey(draftKey));
       const draft = raw === null ? null : (JSON.parse(raw) as FormDraftBlob);
-      return { isSuccess: true, data: { draft } as unknown as TData };
+      return { isSuccess: true, data: { draft } };
     }
     if (type === FORM_DRAFT_LIST) {
       // Mirrors the real handler's LIKE-prefix scan (issue #1913's
@@ -158,24 +138,16 @@ export function createMockDispatcher(): Dispatcher {
         const draftKey = key.slice(DRAFT_STORAGE_PREFIX.length);
         drafts.push({ id: draftKey, draftKey, stepIndex: blob.stepIndex, savedAt: blob.savedAt });
       }
-      return { isSuccess: true, data: { drafts } as unknown as TData };
+      return { isSuccess: true, data: { drafts } };
     }
     throw new Error(`mock-dispatcher: unsupported query qn "${type}"`);
-  }
+  };
 
-  async function batch(commands: readonly Command[], opts?: WriteOpts): Promise<BatchResult> {
+  const batch: MockBatchHandler = async (commands, opts) => {
     const results: WriteResult[] = [];
     for (const cmd of commands) results.push(await write(cmd.type, cmd.payload, opts));
     return { isSuccess: true, results };
-  }
-
-  return {
-    write,
-    query,
-    batch,
-    statusStore: ONLINE_STORE,
-    async *stream() {},
-    pendingWrites: (): readonly PendingWrite[] => [],
-    pendingFiles: (): readonly PendingFile[] => [],
   };
+
+  return createMockDispatcher({ write, query, batch });
 }

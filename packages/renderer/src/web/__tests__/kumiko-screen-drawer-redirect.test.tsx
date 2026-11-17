@@ -5,7 +5,6 @@ import type {
   ProjectionDetailScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import userEvent from "@testing-library/user-event";
-import type { Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema, NavTarget } from "../../index.ts";
 import { DispatcherProvider, KumikoScreen, NavProvider } from "../../index.ts";
 import { clickSubmitOnceEnabled, schema } from "./_kumiko-screen-helpers.tsx";
@@ -58,14 +57,14 @@ async function submitDrawer(redirect: ActionFormScreenDefinition["redirect"]): P
     setSearchParams: () => undefined,
   };
   const dispatcher = makeDispatcher({
-    query: (async () => ({
+    query: async () => ({
       isSuccess: true,
       data: { rows: [], nextCursor: null },
-    })) as unknown as Dispatcher["query"],
-    write: (async () => ({
+    }),
+    write: async () => ({
       isSuccess: true,
       data: { id: "new-1" },
-    })) as unknown as Dispatcher["write"],
+    }),
   });
   const user = userEvent.setup();
   render(

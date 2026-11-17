@@ -17,11 +17,7 @@ import {
   PrimitivesProvider,
   TokensProvider,
 } from "@cosmicdrift/kumiko-renderer";
-import {
-  createStore,
-  type Dispatcher,
-  type DispatcherStatus,
-} from "@cosmicdrift/kumiko-renderer/headless";
+import { type Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
 import { defaultPrimitives, defaultTokens } from "@cosmicdrift/kumiko-renderer/web";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
@@ -35,6 +31,7 @@ import {
 } from "../constants.ts";
 import { defaultTranslations } from "../default-translations.ts";
 import { ExportSection, formatDate } from "../privacy-center-screen.tsx";
+import { createMockDispatcher, type MockQueryHandler, type MockWriteHandler } from "@cosmicdrift/kumiko-renderer/testing";
 
 const stubLiveEvents: LiveEventSubscriber = () => () => {};
 const stubTokens = {
@@ -57,8 +54,7 @@ function makeDispatcher(
   writes: Array<{ type: string; payload: unknown }>,
   queries: Array<{ type: string; payload: unknown }> = [],
 ): Dispatcher {
-  const statusStore = createStore<DispatcherStatus>("online");
-  const query = (async (type: string, payload: unknown) => {
+  const query: MockQueryHandler = async (type: string, payload: unknown) => {
     queries.push({ type, payload });
     if (type === UserDataRightsQueries.exportStatus) {
       return { isSuccess: true, data: responses.exportStatus ?? { hasJob: false } };
@@ -73,20 +69,16 @@ function makeDispatcher(
       return { isSuccess: true, data: { url: responses.downloadUrl } };
     }
     return { isSuccess: true, data: null };
-  }) as unknown as Dispatcher["query"];
-  const write = (async (type: string, payload: unknown) => {
+  };
+  const write: MockWriteHandler = async (type: string, payload: unknown) => {
     writes.push({ type, payload });
     return { isSuccess: true, data: {} };
-  }) as unknown as Dispatcher["write"];
-  return {
+  };
+  return createMockDispatcher({
     write,
     query,
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore,
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  } as unknown as Dispatcher; // @cast-boundary test-stub
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
 }
 
 function renderExportSection(responses: QueryResponses): {

@@ -19,6 +19,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { documentDesignerClient } from "../client-plugin.tsx";
 import { LayoutEditor } from "../layout-editor.tsx";
 import type { LayoutSourceView } from "../layout-types.ts";
+import { createMockDispatcher } from "@cosmicdrift/kumiko-renderer/testing";
 
 const MJML = "<mjml><mj-body><mj-raw>{{{content}}}</mj-raw></mj-body></mjml>";
 
@@ -73,13 +74,13 @@ function fakeDispatcher(source: LayoutSourceView | null, calls: Call[]): Dispatc
       totalTenants: 4,
     },
   };
-  return {
-    write: (async (type: string, payload: unknown) => {
+  return createMockDispatcher({
+    write: async (type: string, payload: unknown) => {
       calls.push({ type, payload });
       return { isSuccess: true, data: { id: "s-2" } };
-    }) as unknown as Dispatcher["write"],
-    batch: (async () => ({ isSuccess: true, data: [] })) as unknown as Dispatcher["batch"],
-    query: (async (type: string, payload: unknown) => {
+    },
+    batch: async () => ({ isSuccess: true, results: [] }),
+    query: async (type: string, payload: unknown) => {
       calls.push({ type, payload });
       return type in answers
         ? { isSuccess: true, data: answers[type] }
@@ -87,15 +88,8 @@ function fakeDispatcher(source: LayoutSourceView | null, calls: Call[]): Dispatc
             isSuccess: false,
             error: { code: "not_found", httpStatus: 404, i18nKey: "x", message: "" },
           };
-    }) as unknown as Dispatcher["query"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+    },
+  });
 }
 
 const nav: NavApi = {

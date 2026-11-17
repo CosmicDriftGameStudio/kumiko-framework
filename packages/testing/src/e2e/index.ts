@@ -118,3 +118,4 @@ export {
   terminalStage,
 } from "./video/terminal-stage";
 export { findVideoTextGaps, loadVideoTexts } from "./video/video-texts";
+export { waitForWrite } from "./wait-for-write";

@@ -3,7 +3,6 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
 import { fireEvent, makeDispatcher, render, screen, waitFor } from "./test-utils.tsx";
@@ -50,10 +49,10 @@ describe("optional number fields start empty", () => {
   test("create: an untouched optional number is absent from the payload, a required one is 0", async () => {
     const writeCalls: { type: string; payload: unknown }[] = [];
     const dispatcher = makeDispatcher({
-      write: (async (type: string, payload: unknown) => {
+      write: async (type: string, payload: unknown) => {
         writeCalls.push({ type, payload });
         return { isSuccess: true, data: { id: "item-1" } };
-      }) as unknown as Dispatcher["write"],
+      },
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -76,14 +75,14 @@ describe("optional number fields start empty", () => {
   test("update: a stored null stays empty and is not sent when another field changes", async () => {
     const writeCalls: { type: string; payload: unknown }[] = [];
     const dispatcher = makeDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { id: "item-1", version: 3, title: "Bolt", quantity: null, pieces: 5 },
-      })) as unknown as Dispatcher["query"],
-      write: (async (type: string, payload: unknown) => {
+      }),
+      write: async (type: string, payload: unknown) => {
         writeCalls.push({ type, payload });
         return { isSuccess: true, data: { id: "item-1" } };
-      }) as unknown as Dispatcher["write"],
+      },
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>

@@ -9,7 +9,7 @@ import userEvent from "@testing-library/user-event";
 import type { Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
-import { createMockDispatcher, render, screen, waitFor } from "./test-utils.tsx";
+import { createMockDispatcher, type MockBatchHandler, render, screen, waitFor } from "./test-utils.tsx";
 
 const OPTIONS_QUERY = "catalog:query:model-options";
 const OPTIONS_PAYLOAD = { modality: "text", provider: "anthropic" } as const;
@@ -39,12 +39,12 @@ const schema: FeatureSchema = {
 
 function makeDispatcher(storedModel: string) {
   const optionCalls: unknown[] = [];
-  const batchSpy = mock(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
+  const batchSpy = mock<MockBatchHandler>(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
     isSuccess: true as const,
     results: [],
   }));
   const dispatcher: Dispatcher = createMockDispatcher({
-    query: (async (qn: string, payload: unknown) => {
+    query: async (qn: string, payload: unknown) => {
       if (qn === OPTIONS_QUERY) {
         optionCalls.push(payload);
         return {
@@ -61,8 +61,8 @@ function makeDispatcher(storedModel: string) {
         isSuccess: true,
         data: { "demo:config:model": { value: storedModel, scope: "tenant" } },
       };
-    }) as unknown as Dispatcher["query"],
-    batch: batchSpy as unknown as Dispatcher["batch"],
+    },
+    batch: batchSpy,
   });
   return { dispatcher, optionCalls, batchSpy };
 }
@@ -162,12 +162,12 @@ describe("select optionsQuery depending on a sibling field", () => {
 
   function makeDependentDispatcher(stored: { provider: string; model: string }) {
     const optionCalls: Record<string, unknown>[] = [];
-    const batchSpy = mock(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
+    const batchSpy = mock<MockBatchHandler>(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
       isSuccess: true as const,
       results: [],
     }));
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async (qn: string, payload: unknown) => {
+      query: async (qn: string, payload: unknown) => {
         if (qn === OPTIONS_QUERY) {
           const asked = payload as Record<string, unknown>;
           optionCalls.push(asked);
@@ -190,8 +190,8 @@ describe("select optionsQuery depending on a sibling field", () => {
             "demo:config:model": { value: stored.model, scope: "tenant" },
           },
         };
-      }) as unknown as Dispatcher["query"],
-      batch: batchSpy as unknown as Dispatcher["batch"],
+      },
+      batch: batchSpy,
     });
     return { dispatcher, optionCalls, batchSpy };
   }
@@ -308,7 +308,7 @@ describe("config origin line for a static-options select", () => {
       screens: [staticScreen],
     };
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async (qn: string) => {
+      query: async (qn: string) => {
         if (qn === "config:query:cascade") {
           return {
             isSuccess: true,
@@ -340,7 +340,7 @@ describe("config origin line for a static-options select", () => {
           isSuccess: true,
           data: { "demo:config:mode": { value: "fast-mode", scope: "tenant" } },
         };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     const translate = (key: string) =>
       key.endsWith(":field:mode:option:slow-mode") ? "Slow mode" : key;
@@ -365,7 +365,7 @@ describe("config origin line for an optionsQuery select", () => {
   test("origin line and level rows show option labels instead of stored ids", async () => {
     const user = userEvent.setup();
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async (qn: string) => {
+      query: async (qn: string) => {
         if (qn === OPTIONS_QUERY) {
           return {
             isSuccess: true,
@@ -415,7 +415,7 @@ describe("config origin line for an optionsQuery select", () => {
           isSuccess: true,
           data: { "demo:config:model": { value: "0b1c-uuid", scope: "tenant" } },
         };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>

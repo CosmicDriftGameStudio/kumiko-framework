@@ -23,13 +23,13 @@ const COLUMNS = [
 describe("QueryTable", () => {
   test("renders the query result as DataTable rows", async () => {
     const dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: [
           { id: "t1", name: "Acme", plan: "pro" },
           { id: "t2", name: "Beta GmbH", plan: "free" },
         ],
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     renderWithDispatcher(
       <QueryTable query="tenant:query:tenant:list" columns={COLUMNS} testId="tbl" />,
@@ -43,10 +43,10 @@ describe("QueryTable", () => {
   test("row click provides the clicked row", async () => {
     const onRowClick = mock((_row: { id: string }) => {});
     const dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: [{ id: "t1", name: "Acme", plan: "pro" }],
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     renderWithDispatcher(
       <QueryTable query="tenant:query:tenant:list" columns={COLUMNS} onRowClick={onRowClick} />,
@@ -61,7 +61,7 @@ describe("QueryTable", () => {
   test("Fehler → ErrorState, Retry refetcht", async () => {
     let calls = 0;
     const dispatcher = createMockDispatcher({
-      query: (async () => {
+      query: async () => {
         calls += 1;
         if (calls === 1) {
           return {
@@ -70,7 +70,7 @@ describe("QueryTable", () => {
           };
         }
         return { isSuccess: true, data: [{ id: "t1", name: "Acme", plan: "pro" }] };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     renderWithDispatcher(
       <QueryTable query="tenant:query:tenant:list" columns={COLUMNS} testId="tbl" />,
@@ -84,7 +84,7 @@ describe("QueryTable", () => {
 
   test("leeres Result rendert Empty-State", async () => {
     const dispatcher = createMockDispatcher({
-      query: (async () => ({ isSuccess: true, data: [] })) as unknown as Dispatcher["query"],
+      query: async () => ({ isSuccess: true, data: [] }),
     });
     const { container } = renderWithDispatcher(
       <QueryTable
@@ -100,10 +100,10 @@ describe("QueryTable", () => {
 
   test("row selector extracts rows from nested result", async () => {
     const dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { items: [{ id: "x", name: "Nested", plan: "pro" }], total: 1 },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     renderWithDispatcher(
       <QueryTable<{ items: readonly Record<string, unknown>[]; total: number }>
