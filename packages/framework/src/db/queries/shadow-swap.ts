@@ -22,15 +22,17 @@
 import { isUuid, parseTenantId } from "@cosmicdrift/kumiko-types/identifiers";
 import type { ProjectionRowIdOf } from "@cosmicdrift/kumiko-types/projection";
 import { configuredBlindIndexKey } from "../../crypto/index.ts";
+import { SYSTEM_TENANT_ID } from "../../engine/types/identifiers.ts";
 import { InternalError } from "../../errors/index.ts";
 import type { DbConnection, DbTx } from "../connection.ts";
 import type { EntityTableMeta } from "../entity-table-meta.ts";
 import { extractPgError } from "../pg-error.ts";
 import { type AnyDb, asEntityTableMeta, asRawClient } from "../query.ts";
 import { renderTableDdl } from "../render-ddl.ts";
+import { runInSystemRowLevelSecurityScope } from "../row-level-security-scope.ts";
 import { columnNamesOf, tableExists } from "../schema-inspection.ts";
 import { toPostgresArrayLiteral } from "./postgres-array-literal.ts";
-import { executeRawQueryRead } from "./raw-sql.ts";
+import { executeRawQuery, executeRawQueryRead } from "./raw-sql.ts";
 import { readRowLevelSecurityState, restoreRowLevelSecurityState } from "./rls-catalog.ts";
 import { quoteIdent } from "../sql-identifier.ts";
 
@@ -542,4 +544,37 @@ export async function swapShadowIntoLive(tx: DbTx, tableName: string): Promise<v
   await raw.unsafe(`DROP TABLE public.${ident}`);
   await raw.unsafe(`ALTER TABLE ${SCHEMA_IDENT}.${ident} SET SCHEMA public`);
   await restoreRowLevelSecurityState(tx, tableName, live);
+}
+
+// Domain events are not replayed into an entity shadow, so the replayed rows still hold the version
+// of their last lifecycle event; live, every domain event on the stream moved it further.
+export async function alignShadowRowVersionsWithStreams(
+  tx: AnyDb,
+  tableName: string,
+  aggregateTypes: readonly string[],
+  systemStream: boolean,
+): Promise<void> {
+  // skip: no source streams, nothing to align
+  if (aggregateTypes.length === 0) return;
+  const tenantMatch = systemStream ? "$2" : 's."tenant_id"';
+  const params: readonly unknown[] = systemStream
+    ? [toPostgresArrayLiteral(aggregateTypes), SYSTEM_TENANT_ID]
+    : [toPostgresArrayLiteral(aggregateTypes)];
+  await runInSystemRowLevelSecurityScope(
+    "rebuild aligns shadow row versions with the event streams without a tenant scope",
+    () =>
+      executeRawQuery(
+        tx,
+        `UPDATE ${SCHEMA_IDENT}.${quoteIdent(tableName)} AS s
+            SET "version" = e."stream_version"
+           FROM (SELECT "tenant_id", "aggregate_id", MAX("version") AS "stream_version"
+                   FROM "kumiko_events"
+                  WHERE "aggregate_type" = ANY($1::text[])
+                  GROUP BY "tenant_id", "aggregate_id") AS e
+          WHERE e."aggregate_id" = s."id"
+            AND e."tenant_id" = ${tenantMatch}
+            AND s."version" < e."stream_version"`,
+        params,
+      ),
+  );
 }

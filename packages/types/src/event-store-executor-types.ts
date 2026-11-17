@@ -227,6 +227,8 @@ export type EventStoreExecutor<Row extends Record<string, unknown> = Record<stri
       sortDirection?: "asc" | "desc" | undefined;
       offset?: number | undefined;
       totalCount?: boolean | undefined;
+      /** Reads and returns only these fields plus id and version; derived fields are not computed. A name that is no stored field fails with a validation error. */
+      readonly fields?: readonly string[] | undefined;
       filter?: ListFilterOption | undefined;
       // User-chosen faceted filters (dynamic, additive to the static
       // `filter`). All combined with AND.

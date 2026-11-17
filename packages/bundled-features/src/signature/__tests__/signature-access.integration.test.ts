@@ -43,7 +43,7 @@ beforeAll(async () => {
       createUserDataRightsFeature(),
       createFilesFeature(),
       createSignatureFeature({
-        retention: { keepFor: "10y" },
+        retention: { keepFor: "10y", unfinishedKeepFor: "90d" },
         linkSecret: "signature-access-test-link-secret-0123456789",
         renderHtmlToPdf: async () => new Uint8Array(),
         signaturePageUrl: "https://app.example/sign",

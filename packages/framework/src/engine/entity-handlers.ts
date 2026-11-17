@@ -167,6 +167,7 @@ export const entityListSchema = z.object({
   sortDirection: z.enum(["asc", "desc"]).optional(),
   offset: z.number().int().nonnegative().optional(),
   totalCount: z.boolean().optional(),
+  fields: z.array(z.string().min(1)).min(1).max(100).optional(),
   // Trash query: include soft-deleted rows. Honoured only for softDelete
   // entities; the dispatcher mirrors it onto ctx.includeDeleted. Tenant +
   // ownership filters still apply.
@@ -629,7 +630,14 @@ export function defineEntityQueryHandler(
         const enrichedRows = hasRefFields
           ? await enrichWithReferences(result.rows, entity, resolveEntity, db, eagerLoadViewer)
           : result.rows;
-        return { ...result, rows: augmentDerivedFields(enrichedRows, entity, ctx.tz.now()) };
+        // JS derives read fields the selection may have left out.
+        return {
+          ...result,
+          rows:
+            listPayload.fields === undefined
+              ? augmentDerivedFields(enrichedRows, entity, ctx.tz.now())
+              : enrichedRows,
+        };
       };
       break;
     case "detail":

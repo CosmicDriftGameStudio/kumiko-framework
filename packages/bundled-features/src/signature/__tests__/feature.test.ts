@@ -3,7 +3,7 @@ import { createSignatureFeature } from "../feature.ts";
 import type { SignatureOptions } from "../options.ts";
 
 const baseOptions: SignatureOptions = {
-  retention: { keepFor: "10y" },
+  retention: { keepFor: "10y", unfinishedKeepFor: "90d" },
   linkSecret: "signature-feature-test-link-secret-0123456789",
   renderHtmlToPdf: async () => new Uint8Array(),
   signaturePageUrl: "https://app.example/sign",

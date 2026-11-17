@@ -225,16 +225,14 @@ export type ExecutorContext = {
     db: TenantDb,
     parentVisibility: ParentVisibilityOption | undefined,
   ) => Promise<boolean>;
-  readonly loadDetailSnapshot: (
+  readonly loadDetailRow: (
     db: TenantDb,
     idWhere: WhereObject,
     ownership:
       | { kind: "pass" }
       | { kind: "empty" }
       | { kind: "sql"; sqlText: string; params: readonly unknown[] },
-    streamTenantId: TenantId,
-    aggregateId: string,
-  ) => Promise<{ readonly row: Record<string, unknown> | null; readonly streamVersion: number }>;
+  ) => Promise<Record<string, unknown> | null>;
   readonly loadWriteSnapshot: (
     db: TenantDb,
     id: EntityId,
@@ -617,38 +615,25 @@ export function buildExecutorContext(
     return rows.length > 0;
   }
 
-  // Row and MAX(version) in ONE statement: two reads can pair a post-write
-  // version with a pre-write row, and update({version: detail.version}) would
-  // then pass the optimistic lock and overwrite the newer write (lost update).
-  async function loadDetailSnapshot(
+  // One row read; row.version follows the stream, unlike the write snapshot, which also covers rows seeded without events.
+  async function loadDetailRow(
     db: TenantDb,
     idWhere: WhereObject,
     ownership:
       | { kind: "pass" }
       | { kind: "empty" }
       | { kind: "sql"; sqlText: string; params: readonly unknown[] },
-    streamTenantId: TenantId,
-    aggregateId: string,
-  ): Promise<{ readonly row: Record<string, unknown> | null; readonly streamVersion: number }> {
-    if (ownership.kind === "empty") return { row: null, streamVersion: 0 };
+  ): Promise<Record<string, unknown> | null> {
+    if (ownership.kind === "empty") return null;
     const tableName = String(schemaTableName(table));
     const { whereParts, params } = buildRawIdWhere(db, idWhere, ownership);
-    params.push(aggregateId, streamTenantId);
-    const sqlText =
-      `SELECT *, ${streamVersionSubquerySql(params.length - 1, params.length)} ` +
-      `FROM ${quoteIdent(tableName)} WHERE ${whereParts.join(" AND ")} LIMIT 1`;
+    const sqlText = `SELECT * FROM ${quoteIdent(tableName)} WHERE ${whereParts.join(" AND ")} LIMIT 1`;
     const rows = await executeRawQueryRead<Record<string, unknown>>(
       tenantDbRunnerForTable(db, table),
       sqlText,
       params,
     );
-    const first = rows[0];
-    if (!first) return { row: null, streamVersion: 0 };
-    const { __streamVersion, ...row } = first;
-    return {
-      row,
-      streamVersion: typeof __streamVersion === "number" ? __streamVersion : 0,
-    };
+    return rows[0] ?? null;
   }
 
   function expectColumnOf(field: string): string {
@@ -743,7 +728,7 @@ export function buildExecutorContext(
     idFilter,
     assertStreamWritable,
     isRowReadable,
-    loadDetailSnapshot,
+    loadDetailRow,
     loadWriteSnapshot,
     assertExpectKeysComparable,
     expectColumnOf,

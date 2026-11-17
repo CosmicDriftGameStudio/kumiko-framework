@@ -47,7 +47,7 @@ const ADOPTING_FEATURES: Readonly<Record<string, () => FeatureDefinition>> = {
   sessions: () => createSessionsFeature(),
   signature: () =>
     createSignatureFeature({
-      retention: { keepFor: "10y" },
+      retention: { keepFor: "10y", unfinishedKeepFor: "90d" },
       linkSecret: "test-secret",
       signaturePageUrl: "https://example.test/sign",
       renderHtmlToPdf: async () => new Uint8Array(),

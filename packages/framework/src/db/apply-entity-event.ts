@@ -132,6 +132,28 @@ export function applyEntityEvent(
   );
 }
 
+// A domain event on an entity row's stream moves the stream without changing the row; the row still
+// takes the stream's version, so list, detail and their callers read row.version alone.
+export async function applyStreamVersionToEntityRow(
+  event: StoredEvent,
+  table: Table,
+  tx: ExecutorManagedRunner,
+): Promise<void> {
+  const bump = async (): Promise<void> => {
+    await updateMany(
+      tx,
+      table,
+      { version: event.version },
+      { id: event.aggregateId, version: { lt: event.version } },
+    );
+  };
+  if (keepsAmbientTenantScope(table)) return bump();
+  return runInSystemRowLevelSecurityScope(
+    "replay, rebuild and global-table projection writes carry no tenant scope of their own",
+    bump,
+  );
+}
+
 function keepsAmbientTenantScope(table: Table): boolean {
   return (
     activeRowLevelSecurityScope()?.kind === "tenant" &&

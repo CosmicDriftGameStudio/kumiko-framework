@@ -12,7 +12,7 @@ import { createSignatureFeature } from "@cosmicdrift/kumiko-bundled-features/sig
 import { renderHtmlToPdf } from "@cosmicdrift/kumiko-renderer-puppeteer-client";
 
 createSignatureFeature({
-  retention: { keepFor: "10y" },
+  retention: { keepFor: "10y", unfinishedKeepFor: "90d" },
   linkSecret: process.env.SIGNATURE_LINK_SECRET,
   renderHtmlToPdf,
 });
@@ -25,7 +25,7 @@ the `files` feature. Order of signatures is free.
 
 | Option             | Default                                      | Effect                                                                                                                                                                    |
 | ------------------ | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `retention`        | required                                     | `{ keepFor }`, counted from creation, hard delete                                                                                                                         |
+| `retention`        | required                                     | `{ keepFor, unfinishedKeepFor }`; keepFor counts from creation and hard-deletes, see Retention below                                                                      |
 | `renderHtmlToPdf`  | required                                     | Renders the signature page; an outage leaves `all-signed`, the job retries                                                                                                |
 | `linkSecret`       | required                                     | HMAC secret of the links; empty rejects every link                                                                                                                        |
 | `deliverLink`      | required                                     | `(ctx, delivery)`: sends the link to the signer (mail) inside `issue-link`'s transaction; `delivery.issuedBy` is the issuing user. The token is never in a handler result |
@@ -39,9 +39,14 @@ rows of allowed subjects, reading up to ten base pages per answer (it can still 
 and nav stay at `access`. `signatureSigner:list` needs a `requestId` eq filter, otherwise 403. `request` also
 refuses a document the caller cannot open through `GET /files/:id`. The list cursor of a scoped user is sealed with a key derived from `linkSecret`, so `authorizeSubject` throws at startup without a non-empty `linkSecret`.
 
+## Retention
+
+`keepFor` counts from creation and hard-deletes requests and signers. `unfinishedKeepFor`: the signers of declined, expired, failed or cancelled requests are anonymized this long after the request's last change, by the job `erase-unfinished-signers` (daily). Completed requests keep `keepFor`.
+
 ## Handlers
 
 Signed in: `request`, `sign-in-person`, `issue-link`, `revoke-link`, `cancel`.
+`forget-signer`: a TenantAdmin or DataProtectionOfficer erases one signer without an account (row, image, record key) and cancels an open or all-signed request. The signer's data is exported through the query `signature-signer:list`.
 Anonymous (rate limited): `open-by-link`, `sign-by-link`, `decline-by-link`. Signing is never an
 agent tool. `request`, `issue-link` and `cancel` are agent tools with `risk: "mid"`.
 

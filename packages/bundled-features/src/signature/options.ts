@@ -40,7 +40,7 @@ export type AuthorizeSignatureSubject = (
 ) => Promise<boolean>;
 
 export type SignatureOptions = {
-  /** How long requests and signers are kept, data-retention keepFor syntax, counted from creation. */
+  /** keepFor: how long requests and signers are kept, counted from creation (hard delete). unfinishedKeepFor: signers of declined, expired, failed or cancelled requests are anonymized this long after the request's last change. Both in data-retention keepFor syntax. */
   readonly retention: SignatureRetention;
   /** Renders the signature page (HTML) to a PDF. An outage leaves the request at `all-signed` and the sweep job retries. */
   readonly renderHtmlToPdf: RenderSignatureHtmlToPdf;

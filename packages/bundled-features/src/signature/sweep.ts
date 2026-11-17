@@ -39,7 +39,7 @@ const SWEEP_PAGE_SIZE = 200;
 type RequestPage = Awaited<ReturnType<typeof requestExecutor.list>>;
 
 // Keyset-paged, so rows that leave the status while the sweep works on them cannot shift the next page.
-async function forEachRequestPageWithStatus(
+export async function forEachRequestPageWithStatus(
   ctx: JobContext,
   status: string,
   visitPage: (requests: readonly RequestRow[]) => Promise<void>,

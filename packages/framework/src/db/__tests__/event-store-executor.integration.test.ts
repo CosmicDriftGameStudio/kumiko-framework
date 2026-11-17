@@ -16,7 +16,6 @@ import { createBooleanField, createEntity, createTextField } from "../../engine/
 
 import { FrameworkReasons } from "../../errors/index.ts";
 import { loadEventsAfterVersion } from "../../event-store/event-store.ts";
-import { append } from "../../event-store/index.ts";
 
 import { TestUsers, testTenantId } from "../../seeding/seed-users.ts";
 import { applyEntityEvent } from "../apply-entity-event.ts";
@@ -316,42 +315,8 @@ describe("event-store-executor — sensitive fields", () => {
   });
 });
 
-describe("event-store-executor — detail returns the stream version", () => {
+describe("event-store-executor — detail and list read one consistent row", () => {
   const crud = createEventStoreExecutor(table, entity, { entityName: "esExecUser" });
-
-  // Lifecycle writes via ctx.events.append advance the stream without changing row.version.
-  // Returning the stale row version from detail would make every CRUD update built on
-  // entityEdit (which uses detail.version for optimistic locking) fail with
-  // version_conflict. For example, incident:open can advance the stream to v2 while
-  // the row remains at v1, preventing incident-edit from saving.
-  test("after a ctx.events.append-like stream bump: detail.version == Stream, update succeeds", async () => {
-    const created = await crud.create({ email: "stream@test.de" }, adminUser, tdb);
-    expect(created.isSuccess).toBe(true);
-    if (!created.isSuccess) return;
-    const id = created.data.id;
-
-    // Hand-emitted event on the same aggregate, as in incident:post-update.
-    await append(testDb.db, {
-      aggregateId: String(id),
-      aggregateType: "esExecUser",
-      tenantId: adminUser.tenantId,
-      expectedVersion: 1,
-      type: "esExecUser.lifecycle-bumped",
-      payload: { note: "stream moved past the row" },
-      metadata: { userId: String(adminUser.id) },
-    });
-
-    const detail = await crud.detail({ id }, adminUser, tdb);
-    expect(detail).not.toBeNull();
-    expect(detail?.["version"]).toBe(2);
-
-    const updated = await crud.update(
-      { id, version: 2, changes: { firstName: "After" } },
-      adminUser,
-      tdb,
-    );
-    expect(updated.isSuccess).toBe(true);
-  });
 
   // A's detail() reads row and stream version; B commits an update in between
   // the two reads of the old implementation. Handing out (old row, new
@@ -399,26 +364,6 @@ describe("event-store-executor — detail returns the stream version", () => {
 
     const after = await crud.detail({ id }, adminUser, tdb);
     expect(after?.["firstName"]).toBe("B");
-  });
-
-  test("list after a stream bump returns the stream version", async () => {
-    const created = await crud.create({ email: "list-stream@test.de" }, adminUser, tdb);
-    expect(created.isSuccess).toBe(true);
-    if (!created.isSuccess) return;
-    const id = created.data.id;
-    await append(testDb.db, {
-      aggregateId: String(id),
-      aggregateType: "esExecUser",
-      tenantId: adminUser.tenantId,
-      expectedVersion: 1,
-      type: "esExecUser.lifecycle-bumped",
-      payload: { note: "stream moved past the row" },
-      metadata: { userId: String(adminUser.id) },
-    });
-
-    const listed = await crud.list({ limit: 10 }, adminUser, tdb);
-
-    expect(listed.rows.map((r) => [r["id"], r["version"]])).toEqual([[id, 2]]);
   });
 
   test("concurrent update during list(): row and version come from the same snapshot", async () => {

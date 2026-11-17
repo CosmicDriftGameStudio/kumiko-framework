@@ -382,7 +382,7 @@ export const APP_FEATURES = [
   // signature: needs files; the print function is the real client, asked only when a request completes.
   // deliverLink is smoke-only: boot never sends a link.
   createSignatureFeature({
-    retention: { keepFor: "10y" },
+    retention: { keepFor: "10y", unfinishedKeepFor: "90d" },
     renderHtmlToPdf,
     linkSecret: SMOKE_HMAC_SECRET,
     signaturePageUrl: "https://use-all-bundled.example/sign",

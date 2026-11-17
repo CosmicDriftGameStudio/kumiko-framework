@@ -11,10 +11,9 @@ import {
   resolveListPagination,
 } from "./event-store-executor-read-paging.ts";
 import {
-  appendStreamVersionProjection,
   coerceAndRehydrateRow,
-  takeStreamVersions,
-  withStreamVersion,
+  listSelectColumns,
+  pickListFields,
 } from "./event-store-executor-read-rows.ts";
 import {
   renderListOrderBy,
@@ -41,14 +40,7 @@ function emptyListPage(totalCount: boolean) {
 export function createReadVerbs(
   ctx: ExecutorContext,
 ): Pick<EventStoreExecutor, "list" | "detail" | "aggregate"> {
-  const {
-    table,
-    entity,
-    streamTenantFor,
-    idFilter,
-    loadDetailSnapshot,
-    decryptForRead,
-  } = ctx;
+  const { table, entity, idFilter, loadDetailRow, decryptForRead } = ctx;
 
   return {
     // list + detail are unchanged from crud-executor — projections are the
@@ -95,13 +87,10 @@ export function createReadVerbs(
       const offsetClause = !payload.cursor && offset > 0 ? ` OFFSET ${offset}` : "";
       const whereClauseSqlText =
         where.whereSql.length > 0 ? ` WHERE ${where.whereSql.join(" AND ")}` : "";
-      const streamVersionProjection = appendStreamVersionProjection(
-        where.params,
-        tableName,
-        streamTenantFor(user),
-      );
-      const derivedProjection = derived?.projections(where.params) ?? "";
-      const selectList = `*${sortLabelProjection}${streamVersionProjection}${derivedProjection}`;
+      const fields = payload.fields;
+      const columnList = fields === undefined ? "*" : listSelectColumns(fields, sort, table, entity);
+      const derivedProjection = fields === undefined ? (derived?.projections(where.params) ?? "") : "";
+      const selectList = `${columnList}${sortLabelProjection}${derivedProjection}`;
       const listSql = `SELECT ${selectList} FROM ${quoteIdent(tableName)}${whereClauseSqlText}${orderByClause} LIMIT ${limit}${offsetClause}`;
 
       const rawRows = await executeRawQueryRead<Record<string, unknown>>(
@@ -110,18 +99,15 @@ export function createReadVerbs(
         where.params,
       );
       const lastSortLabel = takeLastSortLabel(rawRows, sort);
-      const streamVersions = takeStreamVersions(rawRows);
-      const derivedValues = derived?.takeValues(rawRows);
+      const derivedValues = fields === undefined ? derived?.takeValues(rawRows) : undefined;
       const tableInfo = extractTableInfo(table);
       const encryptedRows = rawRows.map((r) => coerceAndRehydrateRow(r, tableInfo, entity));
       const decryptedRows = await Promise.all(
         encryptedRows.map((r) => decryptForRead(r, { degradeUndecryptable: () => {} })),
       );
 
-      // Stream version is authoritative (see detail()): ctx.events.append bumps the
-      // stream without touching row.version, so the raw row version would hand
-      // clients a stale optimistic-lock base. Rows without events keep theirs.
-      const storedRows = decryptedRows.map((r, i) => withStreamVersion(r, streamVersions[i] ?? 0));
+      const storedRows =
+        fields === undefined ? decryptedRows : decryptedRows.map((r) => pickListFields(r, fields));
 
       // Viewer-dependent, so attached as new row objects.
       const rows =
@@ -171,26 +157,12 @@ export function createReadVerbs(
 
       const idWhere = idFilter(payload.id);
 
-      // Stream-version authoritative (same policy as update/Block 0):
-      // ctx.events.append (lifecycle-writes like incident:post-update) bumps
-      // the stream WITHOUT touching row.version — a detail-read that hands
-      // out the stale row.version dooms the next CRUD update built on it
-      // (entityEdit loads detail.version as its optimistic-lock base) to a
-      // guaranteed version_conflict.
-      const snapshot = await loadDetailSnapshot(
-        db,
-        idWhere,
-        ownership,
-        streamTenantFor(user),
-        String(payload.id),
-      );
-      const raw = snapshot.row;
+      // row.version follows the stream (domain events bump it in runProjectionsForEvent), so one row read is consistent.
+      const raw = await loadDetailRow(db, idWhere, ownership);
       if (!raw) return null;
-      const coerced = await decryptForRead(
-        coerceAndRehydrateRow(raw, extractTableInfo(table), entity),
-        { degradeUndecryptable: () => {} },
-      );
-      return withStreamVersion(coerced, snapshot.streamVersion);
+      return decryptForRead(coerceAndRehydrateRow(raw, extractTableInfo(table), entity), {
+        degradeUndecryptable: () => {},
+      });
     },
   };
 }

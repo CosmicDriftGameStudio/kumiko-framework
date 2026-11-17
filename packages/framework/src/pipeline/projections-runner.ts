@@ -1,5 +1,6 @@
 import type { LifecycleResult } from "@cosmicdrift/kumiko-types/hooks";
 import type { DbRunner } from "../db/index.ts";
+import { applyStreamVersionToEntityRow, parseAutoVerb } from "../db/apply-entity-event.ts";
 import { withExecutorManagedWrites } from "../db/tenant-db.ts";
 import type { Registry } from "../engine/types/index.ts";
 
@@ -47,6 +48,7 @@ export async function runProjections(
 // CRUD path (via runProjections) and the ctx.events.append path (domain events
 // emitted inside a write handler). Keeping one function means an auto-event
 // and a r.defineEvent-event land in the same inline-projection pipeline.
+// A domain event also sets the version of the entity row on its stream.
 // Events whose projections already ran. The EventStoreExecutor projects right
 // after its write and hands the same object back on the LifecycleResult, so the
 // dispatcher's later runProjections() and manual calls become no-ops instead of
@@ -63,6 +65,14 @@ function liveProjectionsForEvent(event: StoredEvent, registry: Registry) {
     .filter((proj) => !proj.isImplicit && proj.apply[event.type] !== undefined);
 }
 
+// Only domain events: an auto-verb event is written to the row by the executor itself.
+function implicitEntityProjectionFor(event: StoredEvent, registry: Registry) {
+  if (parseAutoVerb(event) !== null) return undefined;
+  return registry
+    .getProjectionsForSource(event.aggregateType)
+    .find((proj) => proj.isImplicit === true && proj.source === event.aggregateType);
+}
+
 export function hasLiveProjectionsForEvent(event: StoredEvent, registry: Registry): boolean {
   return liveProjectionsForEvent(event, registry).length > 0;
 }
@@ -76,6 +86,14 @@ export async function runProjectionsForEvent(
   if (projectedEvents.has(event)) return;
   // Inline projections write the event's own tenant, which differs from the caller's scope for system-actor events.
   await inEventStreamScope(event.tenantId, async () => {
+    const entityProjection = implicitEntityProjectionFor(event, registry);
+    if (entityProjection !== undefined) {
+      await applyStreamVersionToEntityRow(
+        event,
+        entityProjection.table,
+        withExecutorManagedWrites(tx),
+      );
+    }
     for (const proj of liveProjectionsForEvent(event, registry)) {
       const applyFn = proj.apply[event.type];
       if (applyFn) await applyFn(event, withExecutorManagedWrites(tx), proj.table);

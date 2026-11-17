@@ -143,7 +143,7 @@ beforeAll(async () => {
       createFilesFeature(),
       deliveryOutboxFeature,
       createSignatureFeature({
-        retention: { keepFor: "10y" },
+        retention: { keepFor: "10y", unfinishedKeepFor: "0h" },
         linkSecret: LINK_SECRET,
         renderHtmlToPdf: async (html) => {
           if (printerRejectsSize) {
@@ -308,6 +308,13 @@ async function runSweep(): Promise<void> {
   const runner = stack.jobRunner;
   if (!runner) throw new Error("setupTestStack({ jobs }) did not wire a jobRunner");
   await runner.dispatch(SignatureJobs.sweep, { tenantId: TENANT });
+  await stack.drainJobs();
+}
+
+async function runEraseUnfinished(): Promise<void> {
+  const runner = stack.jobRunner;
+  if (!runner) throw new Error("setupTestStack({ jobs }) did not wire a jobRunner");
+  await runner.dispatch(SignatureJobs.eraseUnfinishedSigners, { tenantId: TENANT });
   await stack.drainJobs();
 }
 
@@ -891,7 +898,7 @@ describe("signature :: user data rights", () => {
       },
       USER,
     );
-    const [ada, grace] = signerIds as [string, string];
+    const [ada, grace] = twoSignerIds({ requestId, signerIds });
     await signInPerson(ada);
     return { requestId, ada, grace };
   }
@@ -973,3 +980,76 @@ describe("signature :: user data rights", () => {
     expect(printedHtml()).toHaveLength(0);
   });
 });
+
+describe("signature :: signers without an account", () => {
+  async function imageIsDeleted(imageFileId: string): Promise<boolean> {
+    const [ref] = await selectMany<{ isDeleted: boolean }>(stack.db, fileRefsTable, {
+      id: imageFileId,
+    });
+    return ref?.isDeleted ?? true;
+  }
+
+  test("the retention job anonymizes the signers of a cancelled request and leaves an open one alone", async () => {
+    const cancelled = await requestSignatures(["Ada", "Grace"]);
+    const [ada, grace] = twoSignerIds(cancelled);
+    await signInPerson(ada);
+    const imageFileId = String((await signerRow(ada))["imageFileId"]);
+    await stack.http.writeOk(SignatureHandlers.cancel, { requestId: cancelled.requestId }, USER);
+    const open = await requestSignatures(["Linus"]);
+
+    await runEraseUnfinished();
+
+    const anonymized = await signerRow(ada);
+    expect(anonymized["name"]).toBe("anonymized");
+    expect(anonymized["imageFileId"]).toBeNull();
+    expect(anonymized["signedFromIp"]).toBeNull();
+    expect(anonymized["status"]).toBe("signed");
+    expect((await signerRow(grace))["name"]).toBe("anonymized");
+    expect(await imageIsDeleted(imageFileId)).toBe(true);
+    expect((await signerRow(firstSignerId(open)))["name"]).toBe("Linus");
+    expect((await requestRow(cancelled.requestId))["status"]).toBe("cancelled");
+
+    const updates = (await eventsOfType(`${SIGNATURE_SIGNER_ENTITY}.updated`)).length;
+    await runEraseUnfinished();
+    expect((await eventsOfType(`${SIGNATURE_SIGNER_ENTITY}.updated`)).length).toBe(updates);
+  });
+
+  test("a TenantAdmin forgets a signer without an account: row, image and the open request", async () => {
+    const { requestId, signerIds } = await requestSignatures(["Ada", "Grace"]);
+    const [ada, grace] = twoSignerIds({ requestId, signerIds });
+    await signInPerson(ada);
+    const imageFileId = String((await signerRow(ada))["imageFileId"]);
+
+    await stack.http.writeOk(SignatureHandlers.forgetSigner, { signerId: ada }, USER);
+
+    expect(await selectMany(stack.db, signatureSignerTable, { id: ada })).toHaveLength(0);
+    expect(await imageIsDeleted(imageFileId)).toBe(true);
+    expect((await requestRow(requestId))["status"]).toBe("cancelled");
+    expect((await signerRow(grace))["name"]).toBe("Grace");
+  });
+
+  test("a TenantMember cannot forget a signer", async () => {
+    const member = createTestUser({ id: 2, tenantId: TENANT, roles: ["TenantMember"] });
+    const {
+      signerIds: [signerId],
+    } = await requestSignatures(["Ada"]);
+    if (signerId === undefined) throw new Error("request created no signer");
+
+    const error = await stack.http.writeErr(SignatureHandlers.forgetSigner, { signerId }, member);
+
+    expect(error.httpStatus).toBe(403);
+    expect((await signerRow(signerId))["name"]).toBe("Ada");
+  });
+});
+
+function firstSignerId(data: RequestData): string {
+  const [first] = data.signerIds;
+  if (first === undefined) throw new Error("request created no signer");
+  return first;
+}
+
+function twoSignerIds(data: RequestData): [string, string] {
+  const [first, second] = data.signerIds;
+  if (first === undefined || second === undefined) throw new Error("request needs two signers");
+  return [first, second];
+}

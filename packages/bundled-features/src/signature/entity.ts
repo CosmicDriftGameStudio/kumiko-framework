@@ -36,7 +36,10 @@ const METHOD_OPTIONS = [SIGNATURE_METHOD.InPerson, SIGNATURE_METHOD.Link] as con
 
 export const DEFAULT_SIGNATURE_RETENTION_KEEP_FOR = "10y";
 
-export type SignatureRetention = { readonly keepFor: string };
+export type SignatureRetention = {
+  readonly keepFor: string;
+  readonly unfinishedKeepFor: string;
+};
 
 // A signer has no user account, so the signer row itself is the crypto-shredding subject for the
 // name, email, signature image and the audit values (IP, user agent) stored with the signature.
@@ -44,7 +47,7 @@ export type SignatureRetention = { readonly keepFor: string };
 const SIGNER_PERSONAL = { personal: "self", find: "none" } as const;
 
 export function createSignatureRequestEntity(
-  retention: SignatureRetention = { keepFor: DEFAULT_SIGNATURE_RETENTION_KEEP_FOR },
+  retention: Pick<SignatureRetention, "keepFor"> = { keepFor: DEFAULT_SIGNATURE_RETENTION_KEEP_FOR },
 ) {
   return createEntity({
     table: "read_signature_requests",
@@ -125,7 +128,7 @@ export function createSignatureRequestEntity(
 }
 
 export function createSignatureSignerEntity(
-  retention: SignatureRetention = { keepFor: DEFAULT_SIGNATURE_RETENTION_KEEP_FOR },
+  retention: Pick<SignatureRetention, "keepFor"> = { keepFor: DEFAULT_SIGNATURE_RETENTION_KEEP_FOR },
 ) {
   return createEntity({
     table: "read_signature_signers",

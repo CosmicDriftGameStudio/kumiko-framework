@@ -2,6 +2,7 @@
 import type { ProjectionDefinition } from "@cosmicdrift/kumiko-types/projection";
 import type { DbConnection, DbTx } from "../db/connection.ts";
 import { extractTableName } from "../db/dialect.ts";
+import { executorManagedEntitySourceOf } from "../db/executor-managed-tables.ts";
 import {
   countSubscribedEvents,
   finalizeProjectionRebuild,
@@ -11,6 +12,7 @@ import {
 } from "../db/queries/projection-rebuild.ts";
 import { assertRebuildableRowLevelSecurity } from "../db/queries/rebuild-rls-guard.ts";
 import {
+  alignShadowRowVersionsWithStreams,
   assertLiveColumnsMatchMeta,
   assertNoBlindIndexLoss,
   assertNoUnreachableLiveRows,
@@ -388,6 +390,15 @@ async function replayProjectionIntoShadow(
             );
           }
         }
+      }
+
+      if (projection.isImplicit === true) {
+        await alignShadowRowVersionsWithStreams(
+          tx,
+          meta.tableName,
+          sourcesList,
+          executorManagedEntitySourceOf(projection.table)?.entity.systemStream === true,
+        );
       }
 
       await assertReplayWroteOnlyShadow(tx, liveWritesBefore, projectionName);

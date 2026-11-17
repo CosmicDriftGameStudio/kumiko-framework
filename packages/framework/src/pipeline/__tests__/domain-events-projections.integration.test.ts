@@ -29,6 +29,7 @@ import { buildEntityTable } from "../../db/table-builder.ts";
 import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
 import { loadAggregate } from "../../event-store/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
+import { rebuildProjection } from "../projection-rebuild.ts";
 
 // --- Entity ---
 
@@ -308,6 +309,35 @@ describe("Marten gold-standard: domain events → inline projections", () => {
     expect(updated.data.version).toBe(3);
   });
 
+  test("ctx.events.append moves the stored row version, and a rebuild keeps it", async () => {
+    const created = await stack.http.writeOk<{ id: string }>(
+      "shipping:write:shipment:create",
+      { cargo: "Container R", status: "loaded" },
+      admin,
+    );
+    await stack.http.writeOk("shipping:write:shipment:bill", { id: created.id, cost: 5 }, admin);
+    expect(
+      (await selectMany<{ version: number }>(stack.db, shipmentTable, { id: created.id }))[0]
+        ?.version,
+    ).toBe(2);
+
+    await rebuildProjection("shipping:projection:domain-shipment-entity", {
+      db: stack.db,
+      registry: stack.registry,
+    });
+
+    expect(
+      (await selectMany<{ version: number }>(stack.db, shipmentTable, { id: created.id }))[0]
+        ?.version,
+    ).toBe(2);
+    const updated = await stack.http.writeOk<{ data: { version: number } }>(
+      "shipping:write:shipment:update",
+      { id: created.id, version: 2, changes: { status: "delivered" } },
+      admin,
+    );
+    expect(updated.data.version).toBe(3);
+  });
+
   test("Block 0 regression: CRUD update after ctx.events.append on same stream succeeds", async () => {
     // Before Block 0, the CRUD executor read row.version as expectedVersion.
     // ctx.events.append bumps the stream past that (billed = v2), and the next
@@ -319,17 +349,15 @@ describe("Marten gold-standard: domain events → inline projections", () => {
       { cargo: "Container Z", status: "loaded" },
       admin,
     );
-    // Create auto-event: stream at v1; projection row.version = 1
+    // Create auto-event: stream at v1; row.version = 1
     expect(created.data.version).toBe(1);
 
-    // ctx.events.append: stream at v2; projection row still at v1
+    // ctx.events.append: stream at v2; row.version moves with the domain event
     await stack.http.writeOk("shipping:write:shipment:bill", { id: created.id, cost: 2500 }, admin);
 
     // CRUD update — client presents the version it last saw (v2 is the
-    // current stream version). Without Block 0 this would fail: row.version
-    // is still 1, the local check rejects payload.version=2 as stale.
-    // With Block 0 the executor reads stream-version (2), accepts payload.version=2,
-    // and appends v3.
+    // current stream version). The executor reads the stream version (2),
+    // accepts payload.version=2, and appends v3.
     const updated = await stack.http.writeOk<{ data: { version: number } }>(
       "shipping:write:shipment:update",
       { id: created.id, version: 2, changes: { status: "delivered" } },

@@ -16,7 +16,7 @@ async function printSignaturePage(): Promise<Uint8Array> {
 export const SIGNATURE_LINK_SECRET = "signature-recipe-link-secret-0123456789";
 
 export const signatureFeature = createSignatureFeature({
-  retention: { keepFor: "10y" },
+  retention: { keepFor: "10y", unfinishedKeepFor: "90d" },
   linkSecret: SIGNATURE_LINK_SECRET,
   renderHtmlToPdf: printSignaturePage,
   signaturePageUrl: "https://app.example/sign",

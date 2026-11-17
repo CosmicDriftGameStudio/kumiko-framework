@@ -6,10 +6,14 @@ import {
   type FeatureDefinition,
   i18nKey,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import { computeCutoff } from "../data-retention/index.ts";
 import { createSubjectScope } from "../shared/index.ts";
 import { createSignatureRequestEntity, createSignatureSignerEntity } from "./entity.ts";
+import { eraseSignersOfUnfinishedRequests } from "./erase-unfinished.ts";
 import { createAnonymousLinkHandlers } from "./handlers/anonymous.write.ts";
 import { createCancelHandler } from "./handlers/cancel.write.ts";
+import { createForgetSignerHandler } from "./handlers/forget-signer.write.ts";
 import { createIssueLinkHandler } from "./handlers/issue-link.write.ts";
 import {
   expireHandler,
@@ -44,6 +48,8 @@ export function createSignatureFeature(opts: SignatureOptions): FeatureDefinitio
   if (opts.authorizeSubject !== undefined && opts.linkSecret.trim() === "") {
     throw new Error("authorizeSubject needs a non-empty linkSecret: it also seals the list cursor");
   }
+  // Fails the boot on a malformed spec instead of the first nightly run; the instant is irrelevant.
+  computeCutoff(opts.retention.unfinishedKeepFor, Temporal.Instant.fromEpochMilliseconds(0));
   const signedInAccess = opts.access ?? DEFAULT_SIGNATURE_ACCESS;
   const scope = createSubjectScope(opts);
   const requestEntity = createSignatureRequestEntity(opts.retention);
@@ -81,6 +87,7 @@ export function createSignatureFeature(opts: SignatureOptions): FeatureDefinitio
     r.writeHandler(createIssueLinkHandler(signedInAccess, scope, opts));
     r.writeHandler(createRevokeLinkHandler(signedInAccess, scope));
     r.writeHandler(createCancelHandler(signedInAccess, scope));
+    r.writeHandler(createForgetSignerHandler(scope));
     r.writeHandler(anonymous.openByLink);
     r.writeHandler(anonymous.signByLink);
     r.writeHandler(anonymous.declineByLink);
@@ -122,6 +129,14 @@ export function createSignatureFeature(opts: SignatureOptions): FeatureDefinitio
       perTenant: true,
       concurrency: "skip",
       handler: (_payload, ctx) => sweepSignatureRequests(ctx, opts),
+    });
+
+    r.job({
+      name: "erase-unfinished-signers",
+      trigger: { cron: "17 3 * * *" },
+      perTenant: true,
+      concurrency: "skip",
+      handler: (_payload, ctx) => eraseSignersOfUnfinishedRequests(ctx, opts.retention),
     });
 
     r.screen(createSignatureListScreen(signedInAccess));

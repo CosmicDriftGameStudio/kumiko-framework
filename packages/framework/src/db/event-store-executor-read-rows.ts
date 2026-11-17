@@ -1,19 +1,12 @@
 import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
-import type { TenantId } from "../engine/types/index.ts";
-
+import { ValidationError } from "../errors/index.ts";
 import { rehydrateCompoundTypes } from "./compound-types.ts";
+import type { Table } from "./event-store-executor-context.ts";
+import type { ListSort } from "./event-store-executor-read-sort.ts";
 import { coerceRow } from "./query.ts";
 import { quoteIdent } from "./sql-identifier.ts";
-import type { TableInfo } from "./table-info.ts";
-
-const STREAM_VERSION_ALIAS = "__streamVersion";
-
-export function withStreamVersion(
-  row: Record<string, unknown>,
-  streamVersion: number,
-): Record<string, unknown> {
-  return streamVersion > 0 ? { ...row, version: streamVersion } : row;
-}
+import { physicalColumnName } from "./table-builder.ts";
+import { extractTableInfo, type TableInfo } from "./table-info.ts";
 
 // Coerce BEFORE rehydrate/decrypt: raw SQL rows carry snake_case column names,
 // while compound-type lookups (rehydrateMoney et al.) and the encrypted/pii
@@ -28,28 +21,46 @@ export function coerceAndRehydrateRow(
   return rehydrateCompoundTypes(coerceRow(raw, tableInfo), entity);
 }
 
-// Stream version in the same statement as the rows: a separate read could pair a
-// post-write version with a pre-write row, and update({version}) would then pass
-// the optimistic lock against a state the client never saw (see loadDetailSnapshot).
-export function appendStreamVersionProjection(
-  params: unknown[],
-  tableName: string,
-  streamTenantId: TenantId,
+// Money and located timestamps live in companion columns; the sort column is read so the cursor can be built.
+export function listSelectColumns(
+  fields: readonly string[],
+  sort: ListSort,
+  table: Table,
+  entity: EntityDefinition,
 ): string {
-  params.push(streamTenantId);
-  return (
-    `, (SELECT MAX("version") FROM "kumiko_events" ` +
-    `WHERE "aggregate_id" = ${quoteIdent(tableName)}."id" AND "tenant_id" = $${params.length}) ` +
-    `AS ${quoteIdent(STREAM_VERSION_ALIAS)}`
-  );
+  const info = extractTableInfo(table);
+  const columns = new Set<string>([info.columnOf("id"), info.columnOf("version")]);
+  for (const name of fields) {
+    const keys = [name, `${name}Currency`, `${name}Utc`, `${name}Tz`].filter((key) =>
+      info.hasColumn(key),
+    );
+    if (keys.length === 0 || !(name in entity.fields || info.hasColumn(name))) {
+      throw new ValidationError({
+        fields: [
+          {
+            path: "fields",
+            code: "unknown_field",
+            i18nKey: "errors.validation.invalid_value",
+            params: { field: name },
+          },
+        ],
+      });
+    }
+    for (const key of keys) columns.add(info.columnOf(key));
+  }
+  if (sort.kind !== "unsorted" && sort.kind !== "expression") {
+    columns.add(physicalColumnName(table, sort.field));
+  }
+  return [...columns].map(quoteIdent).join(", ");
 }
 
-// The alias is a query artifact, not a column of this entity — stripped before
-// coercion so it never reaches the caller or the entity cache.
-export function takeStreamVersions(rawRows: readonly Record<string, unknown>[]): number[] {
-  return rawRows.map((r) => {
-    const v = r[STREAM_VERSION_ALIAS];
-    delete r[STREAM_VERSION_ALIAS];
-    return typeof v === "number" ? v : 0;
-  });
+export function pickListFields(
+  row: Record<string, unknown>,
+  fields: readonly string[],
+): Record<string, unknown> {
+  const picked: Record<string, unknown> = {};
+  for (const key of ["id", "version", ...fields]) {
+    if (key in row) picked[key] = row[key];
+  }
+  return picked;
 }
