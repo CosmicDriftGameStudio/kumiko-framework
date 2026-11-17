@@ -97,7 +97,7 @@ describe("secrets feature — CRUD round-trip", () => {
       key: PLAIN_KEY,
     });
     if (!dbRow) throw new Error("row missing");
-    const env = dbRow.envelope as StoredEnvelope;
+    const env = dbRow["envelope"] as StoredEnvelope;
     expect(env.ciphertext).toBeTruthy();
     expect(env.kekVersion).toBe(1);
     expect(JSON.stringify(dbRow)).not.toContain("this-is-secret-value-xyz");
