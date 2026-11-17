@@ -95,6 +95,10 @@ export type HandlerEvents<TMap extends object = KumikoEventTypeMap> = {
   ) => Promise<void>;
   readonly restore: (aggregateId: string) => Promise<void>;
   readonly isArchived: (aggregateId: string) => Promise<boolean>;
+  // Highest stored version of the stream in the caller's tenant, 0 when no event exists. One
+  // indexed MAX query instead of loading events. Unlike load it ignores archiving: an archived
+  // stream still reports its version, so a reused id stays visible.
+  readonly streamVersion: (aggregateId: string) => Promise<number>;
   // Cache the current state of an aggregate as a snapshot, alongside the version it reflects.
   // The snapshot policy (every N events, every M minutes, on-demand) stays with the feature —
   // or pass { snapshotEvery } to loadWithSnapshot for the common case. Snapshots are a perf

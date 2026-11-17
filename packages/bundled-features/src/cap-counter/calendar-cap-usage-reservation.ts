@@ -119,6 +119,9 @@ export type CalendarCapReservationHandle = {
   consume(units: number): Promise<void>;
   // Gives back the unconsumed rest; a no-op once settled or already released.
   release(): Promise<void>;
+  // Replaces the reservation by the actual amount (books the overflow when actual exceeds it);
+  // a repeat after a lost ack books nothing twice, so a caller may retry it.
+  settle(actualAmount: number): Promise<void>;
 };
 
 // Addresses a reservation by id so a job can consume it per unit; capName and period are needed
@@ -147,6 +150,14 @@ export function calendarCapReservationHandle(
       if (released) return;
       await releaseCapReservation(ctx, reservationId, outsideTransaction);
       released = true;
+    },
+    async settle(actualAmount) {
+      await settleCalendarCapReservation(
+        ctx,
+        reservationId,
+        { capName: spec.capName, periodStartIso: spec.periodStartIso, actualAmount },
+        outsideTransaction,
+      );
     },
   };
 }

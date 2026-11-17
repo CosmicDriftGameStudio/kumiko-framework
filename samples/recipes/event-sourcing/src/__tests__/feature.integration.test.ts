@@ -304,6 +304,45 @@ describe("Event Sourcing Showcase", () => {
     expect(raw.length).toBeGreaterThan(0); // events are still on disk for ops
   });
 
+  test("streamVersion: 0 for an unknown id, counts appended events, keeps the version after archive", async () => {
+    const versionOf = (id: string, user: typeof admin) =>
+      stack.http.queryOk<{ version: number }>(
+        "showcase:query:invoice:stream-version",
+        { id },
+        user,
+      );
+
+    expect((await versionOf(crypto.randomUUID(), admin)).version).toBe(0);
+
+    const { id } = await stack.http.writeOk<{ id: string }>(
+      "showcase:write:invoice:create",
+      { customer: "VersionPal" },
+      admin,
+    );
+    await stack.http.writeOk(
+      "showcase:write:invoice:approve",
+      { id, amountCents: 1000, approvedBy: "cfo" },
+      admin,
+    );
+    expect((await versionOf(id, admin)).version).toBe(2);
+
+    await stack.http.writeOk("showcase:write:invoice:archive", { id }, admin);
+    expect((await versionOf(id, admin)).version).toBe(2);
+    const state = await stack.http.queryOk<{ status: string }>(
+      "showcase:query:invoice:state",
+      { id },
+      admin,
+    );
+    expect(state.status).toBe("missing");
+
+    const otherTenantAdmin = createTestUser({
+      id: 98,
+      roles: ["Admin"],
+      tenantId: "00000000-0000-4000-8000-000000000042",
+    });
+    expect((await versionOf(id, otherTenantAdmin)).version).toBe(0);
+  });
+
   test("snapshot: fast-state uses the snapshot + upcaster-wrapped delta replay", async () => {
     // Seed a full invoice lifecycle so there are three events on the
     // stream (created, approved, paid).

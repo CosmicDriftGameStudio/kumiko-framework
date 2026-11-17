@@ -24,6 +24,7 @@ export {
   failNotFound,
   failTransition,
   failUnprocessable,
+  isVersionConflict,
   reraiseAsKumikoError,
   writeFailure,
 } from "./write-error-info.ts";

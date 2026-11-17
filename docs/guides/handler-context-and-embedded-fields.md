@@ -35,7 +35,7 @@ flowchart LR
 | `ctx.db` | TenantDb methods, `outsideTransaction` | rows of the caller's tenant, inside or outside the handler transaction |
 | `ctx.systemDb` | `assertTenantMatch`, `assertRowsTenant`, `acknowledgeCrossTenant`, `unsafeRaw` | `r.systemScope()` features only |
 | `ctx.crossTenantReads` | `selectMany`, `fetchOne`, `count` | read-only access to other tenants, only with an `escapeHatch` grant |
-| `ctx.events` | `append`, `unsafeAppend`, `tryAppend`, `fetchForWriting`, `load`, `loadWithSnapshot`, `snapshot`, `archive`, `restore`, `isArchived` | event streams of the feature |
+| `ctx.events` | `append`, `unsafeAppend`, `tryAppend`, `fetchForWriting`, `load`, `loadWithSnapshot`, `snapshot`, `archive`, `restore`, `isArchived`, `streamVersion` | event streams of the feature |
 | `ctx.dispatch` | `query`, `write`, `queryAs`, `writeAs`, `queryAsMember`, `queryProjection` | calling other handlers |
 | `ctx.lifecycle` | `afterCommit`, `afterRollback`, `signal`, `runPreSave` | work after commit or rollback, cancellation |
 | `ctx.obs` | `log`, `tracer`, `metrics`, `metricsFor`, `meter` | logging, traces and metrics |

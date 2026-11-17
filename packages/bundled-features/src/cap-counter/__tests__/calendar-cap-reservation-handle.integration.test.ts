@@ -30,7 +30,7 @@ import {
   calendarCapReservationHandle,
   reserveCalendarCapUsage,
 } from "../calendar-cap-usage-reservation.ts";
-import { releaseExpiredCapReservations, settleCalendarCapReservation } from "../cap-reservation.ts";
+import { releaseExpiredCapReservations } from "../cap-reservation.ts";
 import { CAP_RESERVATION_TTL_MINUTES, CAP_SETTLED_TOMBSTONE_TTL_MINUTES } from "../constants.ts";
 import { capCounterEntity } from "../entity.ts";
 import { createCapCounterFeature } from "../feature.ts";
@@ -106,11 +106,10 @@ const capHandleFeature = defineFeature("caphandle", (r) => {
     access: { roles: ["TenantAdmin"] },
     handler: async (event, ctx) => {
       const payload = settlePayload.parse(event.payload);
-      await settleCalendarCapReservation(ctx, payload.reservationId, {
+      await calendarCapReservationHandle(ctx, payload.reservationId, {
         capName: payload.capName,
         periodStartIso: PERIOD,
-        actualAmount: payload.actual,
-      });
+      }).settle(payload.actual);
       return { isSuccess: true as const, data: {} };
     },
   } satisfies WriteHandlerDef);
@@ -267,6 +266,25 @@ describe("calendarCapReservationHandle", () => {
 
     expect(rejected.httpStatus).toBe(422);
     expect(await readCounterValue(user, "settled-cap")).toBe(2);
+  });
+
+  test("settle above the reservation books the overflow, a repeated settle books nothing", async () => {
+    const user = adminFor(3217);
+    const reservationId = await reserve(user, "overflow-cap", 5);
+
+    await stack.http.writeOk(SETTLE_QN, { capName: "overflow-cap", reservationId, actual: 7 }, user);
+    expect(await readCounterValue(user, "overflow-cap")).toBe(7);
+
+    await stack.http.writeOk(SETTLE_QN, { capName: "overflow-cap", reservationId, actual: 7 }, user);
+    expect(await readCounterValue(user, "overflow-cap")).toBe(7);
+  });
+
+  test("settle below the reservation gives the rest back", async () => {
+    const user = adminFor(3218);
+    const reservationId = await reserve(user, "under-cap", 5);
+
+    await stack.http.writeOk(SETTLE_QN, { capName: "under-cap", reservationId, actual: 3 }, user);
+    expect(await readCounterValue(user, "under-cap")).toBe(3);
   });
 
   test("settle after a partial consume books the total once and rejects less than consumed", async () => {

@@ -1,12 +1,14 @@
 import { describe, expect, test } from "bun:test";
-import { InternalError, NotFoundError } from "../classes.ts";
+import { InternalError, NotFoundError, VersionConflictError } from "../classes.ts";
 import {
   failNotFound,
   failTransition,
   failUnprocessable,
+  isVersionConflict,
   reraiseAsKumikoError,
   toClientWriteErrorInfo,
   toWriteErrorInfo,
+  writeFailure,
 } from "../write-error-info.ts";
 
 describe("failNotFound", () => {
@@ -206,5 +208,25 @@ describe("toClientWriteErrorInfo", () => {
       const info = toWriteErrorInfo(new NotFoundError("invoice", "inv-1"));
       expect(toClientWriteErrorInfo(info)).toBe(info);
     });
+  });
+});
+
+describe("isVersionConflict", () => {
+  test("true for a failed write that lost a version race, narrowing to the failure", () => {
+    const result = writeFailure(
+      new VersionConflictError({ entityId: "inv-1", expectedVersion: 1, currentVersion: 2 }),
+    );
+    expect(isVersionConflict(result)).toBe(true);
+    if (isVersionConflict(result)) {
+      expect(result.error.httpStatus).toBe(409);
+    }
+  });
+
+  test("false for another failure code", () => {
+    expect(isVersionConflict(failNotFound("invoice", "inv-1"))).toBe(false);
+  });
+
+  test("false for a successful result", () => {
+    expect(isVersionConflict({ isSuccess: true as const, data: { id: "x" } })).toBe(false);
   });
 });

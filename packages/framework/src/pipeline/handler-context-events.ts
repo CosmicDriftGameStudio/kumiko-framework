@@ -26,6 +26,7 @@ import {
   VersionConflictError as EventStoreVersionConflictError,
 } from "../event-store/errors.ts";
 import {
+  getStreamVersion,
   loadAggregate,
   loadAggregateAsOf,
   loadAggregateForWriting,
@@ -336,6 +337,10 @@ export function buildEventStoreFacet(scope: HandlerContextScope): {
     isArchived: async (aggregateId: string): Promise<boolean> => {
       const dbSource = requireDbSource(ctx, tx, `ctx.events.isArchived("${aggregateId}")`);
       return isStreamArchived(dbSource, user.tenantId, aggregateId);
+    },
+    streamVersion: async (aggregateId: string): Promise<number> => {
+      const dbSource = requireDbSource(ctx, tx, `ctx.events.streamVersion("${aggregateId}")`);
+      return getStreamVersion(dbSource, aggregateId, user.tenantId);
     },
     snapshot: buildSnapshotAggregate(scope),
     loadWithSnapshot: buildLoadAggregateWithSnapshot(scope),

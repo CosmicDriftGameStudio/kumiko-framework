@@ -1,8 +1,10 @@
+import type { WriteResult } from "@cosmicdrift/kumiko-types/handlers";
 import type {
   WriteErrorInfo,
   WriteFailure,
 } from "@cosmicdrift/kumiko-types/write-error-info-types";
 import { NotFoundError, UnprocessableError } from "./classes.ts";
+import type { FrameworkErrorCode } from "./error-codes.ts";
 import { KumikoError } from "./kumiko-error.ts";
 import { FrameworkReasons } from "./reasons.ts";
 import {
@@ -24,6 +26,14 @@ export type { WriteErrorInfo, WriteFailure };
 // and the CrudExecutor don't need to spell out the shape each time.
 export function writeFailure(err: KumikoError): WriteFailure {
   return { isSuccess: false, error: toWriteErrorInfo(err) };
+}
+
+const VERSION_CONFLICT_CODE: FrameworkErrorCode = "version_conflict";
+
+// A failed WriteResult carries WriteErrorInfo, not the VersionConflictError instance, so the
+// code is the only marker left; callers retry or re-check on it instead of comparing strings.
+export function isVersionConflict<TData>(result: WriteResult<TData>): result is WriteFailure {
+  return !result.isSuccess && result.error.code === VERSION_CONFLICT_CODE;
 }
 
 // Focused convenience for the two most common handler failures: "X not found"

@@ -399,6 +399,20 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
     },
   });
 
+  // Existence and version probe without loading the stream; counts archived streams too.
+  r.queryHandler({
+    name: "invoice:stream-version",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (query, ctx) => ({ version: await ctx.events.streamVersion(query.payload.id) }),
+    access: {
+      openToAll: {
+        reason:
+          "demo recipe: any signed-in user may read the event-sourced invoice state; " +
+          "there is no per-user invoice ownership in this sample",
+      },
+    },
+  });
+
   // List page over many invoices: ONE query for just the approved/paid events of the
   // requested aggregates instead of ctx.events.load per invoice.
   r.queryHandler({
