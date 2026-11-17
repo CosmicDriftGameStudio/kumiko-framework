@@ -77,7 +77,7 @@ export function systemIdentitySwitchDenied(callerLabel: string): AccessDeniedErr
   return new AccessDeniedError({
     message:
       `${callerLabel} may not switch identity to SYSTEM — declare r.systemScope() or ` +
-      "escapeHatch: { reason } on it",
+      "escapeHatch: { reason, grants: [\"systemIdentity\"] } on it",
     details: { reason: FrameworkReasons.systemIdentitySwitchDenied },
   });
 }
@@ -87,7 +87,7 @@ export function identitySwitchDenied(callerLabel: string, asUser: SessionUser): 
   return new AccessDeniedError({
     message:
       `${callerLabel} may only switch identity to its own caller (same user, tenant, claims and ` +
-      "a subset of its roles) — declare r.systemScope() or escapeHatch: { reason } on it",
+      "a subset of its roles) — declare r.systemScope() or escapeHatch: { reason, grants: [\"systemIdentity\"] } on it",
     details: { reason: FrameworkReasons.identitySwitchDenied },
   });
 }
@@ -96,7 +96,7 @@ export function unsafeAllTenantsDenied(callerLabel: string): AccessDeniedError {
   return new AccessDeniedError({
     message:
       `${callerLabel} may not call ctx.dispatch.queryProjection(..., { unsafeAllTenants: true }) — declare ` +
-      "r.systemScope() or escapeHatch: { reason } on it",
+      "r.systemScope() or escapeHatch: { reason, grants: [\"systemIdentity\"] } on it",
     details: { reason: FrameworkReasons.unsafeAllTenantsDenied },
   });
 }

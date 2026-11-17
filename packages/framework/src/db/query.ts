@@ -115,7 +115,7 @@ export function asRawClient(db: unknown): RawClient {
     throw new Error(
       "asRawClient: received a tenant-scoped TenantDb (ctx.db). Raw SQL helpers do not apply the " +
         "tenant filter — use a ctx.db.<method>, or ctx.db.unsafeRaw() with escapeHatch: " +
-        "{ reason } on the handler/hook (r.systemScope() features: ctx.systemDb.unsafeRaw(reason)).",
+        "{ reason, grants: [\"unsafeRaw\"] } on the handler/hook (r.systemScope() features: ctx.systemDb.unsafeRaw(reason)).",
     );
   }
   // Wrapper handle: $client = Bun.SQL pool.
@@ -279,7 +279,7 @@ function assertNotTenantScoped(db: unknown, fnName: string): void {
   if (tenantDbDelegate(db) !== undefined) {
     throw new Error(
       `${fnName}: received a tenant-scoped db but this helper does not apply the tenant filter. ` +
-        "Pass ctx.db.unsafeRaw() (with escapeHatch: { reason } on the handler/hook) for an " +
+        "Pass ctx.db.unsafeRaw() (with escapeHatch: { reason, grants: [\"unsafeRaw\"] } on the handler/hook) for an " +
         "explicit cross-tenant op, or use a scoped TenantDb method " +
         "(for an upsert: ctx.db.upsert(table, values, { conflictTarget })).",
     );
