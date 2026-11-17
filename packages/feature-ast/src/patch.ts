@@ -97,7 +97,6 @@ export type PatternId =
   | { readonly kind: "toggleable" }
   | { readonly kind: "describe" }
   | { readonly kind: "uiHints" }
-  | { readonly kind: "adoptsBundledLists" }
   | { readonly kind: "config" }
   | { readonly kind: "translations" }
   | { readonly kind: "authClaims" }
@@ -634,7 +633,6 @@ export const SINGLETON_KINDS: ReadonlySet<PatternId["kind"]> = new Set([
   "toggleable",
   "describe",
   "uiHints",
-  "adoptsBundledLists",
   "config",
   "translations",
   "authClaims",

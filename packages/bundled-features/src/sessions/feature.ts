@@ -78,7 +78,6 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
     "sessions",
     (r) => {
       const adminRoles = access[options?.adminAccess ?? "admin"];
-      r.adoptsBundledLists();
       r.describe(
         "Tracks signed-in clients in the `store_user_sessions` table (one row per JWT, keyed by the `sid`/`jti` claim) and exposes handlers for `mine` (list your sessions), `revoke`, and `revokeAllOthers`. Session creation and revocation on the hot auth path are handled by `createSessionCallbacks()`, wired into `buildServer({ auth: { ... } })` outside the dispatcher; the same callbacks are also registered as an auth-foundation sessionStore provider, resolvable generically via `resolveSessionStore()`. The feature also ships a daily maintenance-window cleanup job that prunes expired and revoked rows, and registers as an auth-foundation credentialRevoker, so a password change or MFA state change revokes the user's sessions in the same transaction.",
       );

@@ -17,7 +17,7 @@ import {
   render,
   renderDeployFiles,
 } from "../scaffold-deploy.ts";
-import { findBundledListsWiringErrors } from "./bundled-lists-wiring.ts";
+import { findListDefaultsWiringErrors } from "./list-defaults-wiring.ts";
 import { addManagedMarker, type MarkerCommentStyle } from "./marker.ts";
 import { findKumikoPinErrors } from "./pins.ts";
 
@@ -118,7 +118,7 @@ function readPackageJsonOrEmpty(appRoot: string): unknown {
 export function listManagedErrors(facts: ManagedAppFacts): readonly string[] {
   const errors: string[] = [];
   errors.push(...findKumikoPinErrors(readPackageJsonOrEmpty(facts.appRoot)));
-  errors.push(...findBundledListsWiringErrors(facts.appRoot));
+  errors.push(...findListDefaultsWiringErrors(facts.appRoot));
   return errors;
 }
 

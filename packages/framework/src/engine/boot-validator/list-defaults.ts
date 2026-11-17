@@ -4,25 +4,25 @@ import { bootRuleError } from "./boot-rule.ts";
 import { validateListTableOptions } from "./list-table-options.ts";
 import { LIST_TABLE_RULES } from "./list-table-rules.ts";
 
-export const BUNDLED_LISTS_OPTION_KEYS = ["table", "pinFirstColumn"] as const;
+export const LIST_DEFAULTS_OPTION_KEYS = ["table", "pinFirstColumn"] as const;
 
 // grouping and totals name fields; summaryRow names a query of one list, so they cannot be shared across lists
 const SCREEN_ONLY_TABLE_KEYS = ["grouping", "totals", "summaryRow"] as const;
 
-export function validateBundledListsOptions(options: unknown): void {
+export function validateListDefaultsOptions(options: unknown): void {
   if (!isPlainObject(options)) {
-    throw bootRuleError(LIST_TABLE_RULES.bundledListsNotObject, {
-      message: "bundledLists must be an object like { table: { columnPicker: true } }.",
+    throw bootRuleError(LIST_TABLE_RULES.listDefaultsNotObject, {
+      message: "listDefaults must be an object like { table: { columnPicker: true } }.",
     });
   }
   const unknownKeys = Object.keys(options).filter(
-    (key) => !BUNDLED_LISTS_OPTION_KEYS.some((allowed) => allowed === key),
+    (key) => !LIST_DEFAULTS_OPTION_KEYS.some((allowed) => allowed === key),
   );
   if (unknownKeys.length > 0) {
-    throw bootRuleError(LIST_TABLE_RULES.bundledListsUnknownKey, {
+    throw bootRuleError(LIST_TABLE_RULES.listDefaultsUnknownKey, {
       message:
-        `bundledLists has unknown key(s) ${unknownKeys.map((k) => `"${k}"`).join(", ")}. ` +
-        `Allowed keys: ${BUNDLED_LISTS_OPTION_KEYS.join(", ")}.`,
+        `listDefaults has unknown key(s) ${unknownKeys.map((k) => `"${k}"`).join(", ")}. ` +
+        `Allowed keys: ${LIST_DEFAULTS_OPTION_KEYS.join(", ")}.`,
     });
   }
   const table = options["table"];
@@ -30,31 +30,31 @@ export function validateBundledListsOptions(options: unknown): void {
     const allowed = LIST_TABLE_OPTION_KEYS.filter(
       (key) => !SCREEN_ONLY_TABLE_KEYS.some((screenOnly) => screenOnly === key),
     );
-    throw bootRuleError(LIST_TABLE_RULES.bundledListsTableNotObject, {
+    throw bootRuleError(LIST_TABLE_RULES.listDefaultsTableNotObject, {
       message:
-        `bundledLists.table must be an object like { columnPicker: true }. ` +
+        `listDefaults.table must be an object like { columnPicker: true }. ` +
         `Allowed keys: ${allowed.join(", ")}.`,
     });
   }
   for (const key of SCREEN_ONLY_TABLE_KEYS) {
     if (table[key] !== undefined) {
-      throw bootRuleError(LIST_TABLE_RULES.bundledListsScreenOnlyKey, {
+      throw bootRuleError(LIST_TABLE_RULES.listDefaultsScreenOnlyKey, {
         message:
-          `bundledLists.table.${key} is not allowed: ${key} depends on the fields of one list. ` +
+          `listDefaults.table.${key} is not allowed: ${key} depends on the fields of one list. ` +
           `Set it in the table block of that screen.`,
       });
     }
   }
-  validateListTableOptions("bundledLists", table, [], true);
+  validateListTableOptions("listDefaults", table, [], true);
   const pinFirstColumn = options["pinFirstColumn"];
   if (pinFirstColumn !== undefined && typeof pinFirstColumn !== "boolean") {
-    throw bootRuleError(LIST_TABLE_RULES.bundledListsPinFirstColumnNotBoolean, {
-      message: "bundledLists.pinFirstColumn must be a boolean.",
+    throw bootRuleError(LIST_TABLE_RULES.listDefaultsPinFirstColumnNotBoolean, {
+      message: "listDefaults.pinFirstColumn must be a boolean.",
     });
   }
   if (pinFirstColumn === true && table["pinning"] !== true) {
-    throw bootRuleError(LIST_TABLE_RULES.bundledListsPinFirstColumnWithoutPinning, {
-      message: "bundledLists.pinFirstColumn needs bundledLists.table.pinning: true.",
+    throw bootRuleError(LIST_TABLE_RULES.listDefaultsPinFirstColumnWithoutPinning, {
+      message: "listDefaults.pinFirstColumn needs listDefaults.table.pinning: true.",
     });
   }
 }

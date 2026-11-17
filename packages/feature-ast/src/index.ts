@@ -62,7 +62,6 @@ export type {
 } from "./pattern-library/index.ts";
 export { getPatternSchema, groupByCategory, PATTERN_LIBRARY } from "./pattern-library/index.ts";
 export type {
-  AdoptsBundledListsPattern,
   AuthClaimsPattern,
   ClaimKeyPattern,
   ConfigPattern,

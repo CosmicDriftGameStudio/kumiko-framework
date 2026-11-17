@@ -6,7 +6,7 @@ import {
 import { tenantEntity, tenantMembershipsTable } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { userEntity } from "@cosmicdrift/kumiko-bundled-features/user";
 import {
-  type BundledListsOptions,
+  type ListDefaultsOptions,
   createEntity,
   createTextField,
   defineFeature,
@@ -22,7 +22,7 @@ import {
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { composeFeatures } from "../compose-features.ts";
 
-const BUNDLED_LISTS: BundledListsOptions = {
+const LIST_DEFAULTS: ListDefaultsOptions = {
   table: { columnPicker: true, pinning: true, export: { xlsx: true } },
   pinFirstColumn: true,
 };
@@ -77,7 +77,7 @@ let stack: TestStack;
 beforeAll(async () => {
   const features = composeFeatures([shopFeature], {
     includeBundled: true,
-    bundledLists: BUNDLED_LISTS,
+    listDefaults: LIST_DEFAULTS,
   });
   stack = await setupTestStack({
     features,
@@ -93,8 +93,8 @@ afterAll(async () => {
   await stack.cleanup();
 });
 
-describe("composeFeatures bundledLists in GET /api/schema", () => {
-  test("bundled lists carry the shared table block, app lists stay untouched", async () => {
+describe("composeFeatures listDefaults in GET /api/schema", () => {
+  test("every list carries the shared table block", async () => {
     const token = await stack.jwt.sign(TestUsers.systemAdmin);
     const res = await stack.app.request("/api/schema", {
       headers: { Authorization: `Bearer ${token}` },
@@ -104,11 +104,16 @@ describe("composeFeatures bundledLists in GET /api/schema", () => {
     if (!isSchemaBody(body)) throw new Error("unexpected /api/schema body");
 
     const userList = screenFromSchema(body, "user", "user-list");
-    expect(userList.table).toEqual(BUNDLED_LISTS.table);
+    expect(userList.table).toEqual(LIST_DEFAULTS.table);
     expect(Array.isArray(userList.columns) && userList.columns[0]).toEqual({
       field: "email",
       pinned: "left",
     });
-    expect(screenFromSchema(body, "shop", "item-list").table).toBeUndefined();
+    const shopList = screenFromSchema(body, "shop", "item-list");
+    expect(shopList.table).toEqual(LIST_DEFAULTS.table);
+    expect(Array.isArray(shopList.columns) && shopList.columns[0]).toEqual({
+      field: "name",
+      pinned: "left",
+    });
   });
 });

@@ -23,7 +23,6 @@
 
 import { isRawRefSentinel } from "./extractors/shared.ts";
 import type {
-  AdoptsBundledListsPattern,
   AuthClaimsPattern,
   ClaimKeyPattern,
   ConfigPattern,
@@ -91,7 +90,6 @@ const PATTERN_RENDERERS: PatternRenderers = {
   toggleable: renderToggleable,
   describe: renderDescribe,
   uiHints: renderUiHints,
-  adoptsBundledLists: renderAdoptsBundledLists,
   entity: renderEntity,
   relation: renderRelation,
   nav: renderNav,
@@ -212,10 +210,6 @@ function renderReadsConfig(p: ReadsConfigPattern): string {
 
 function renderSystemScope(_p: SystemScopePattern): string {
   return "r.systemScope();";
-}
-
-function renderAdoptsBundledLists(_p: AdoptsBundledListsPattern): string {
-  return "r.adoptsBundledLists();";
 }
 
 function renderToggleable(p: ToggleablePattern): string {

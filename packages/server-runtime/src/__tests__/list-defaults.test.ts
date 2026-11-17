@@ -1,13 +1,13 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import { createJobsFeature, JOBS_FEATURE } from "@cosmicdrift/kumiko-bundled-features/jobs";
 import {
-  type BundledListsOptions,
   createEntity,
   createTextField,
   defineFeature,
   type EditRelatedListSection,
   type FeatureDefinition,
   type ListColumnSpec,
+  type ListDefaultsOptions,
   validateBoot,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { withBootValidatorFixture } from "@cosmicdrift/kumiko-testing/helpers";
@@ -15,7 +15,7 @@ import * as z from "zod";
 import { composeAppFeatures } from "../boot/shared-boot-steps.ts";
 import { composeFeatures } from "../compose-features.ts";
 
-const FULL: BundledListsOptions = {
+const FULL: ListDefaultsOptions = {
   table: {
     rememberState: true,
     resetAll: true,
@@ -69,11 +69,10 @@ const shopFeature = defineFeature("shop", (r) => {
   });
 });
 
-// Opts in like a bundled feature so the mixing applies; its own keys must win.
+// Its own keys must win over the shared block.
 const OWN_TABLE = { columnPicker: false, density: { default: "compact" } } as const;
 const PINNED_COLUMNS: readonly ListColumnSpec[] = ["id", { field: "name", pinned: "right" }];
 const jobsOverride = defineFeature(JOBS_FEATURE, (r) => {
-  r.adoptsBundledLists();
   r.screen({
     id: "own-table",
     type: "projectionList",
@@ -167,11 +166,11 @@ function relatedListOf(
 }
 
 const withJobsOverride = () =>
-  composeFeatures([jobsOverride], { includeBundled: false, bundledLists: FULL });
+  composeFeatures([jobsOverride], { includeBundled: false, listDefaults: FULL });
 
-describe("composeFeatures bundledLists", () => {
-  test("applies the block and pins the first column on bundled lists, leaves features without the marker alone", () => {
-    const features = composeFeatures([shopFeature], { includeBundled: true, bundledLists: FULL });
+describe("composeFeatures listDefaults", () => {
+  test("applies the block and pins the first column on every list, bundled and app", () => {
+    const features = composeFeatures([shopFeature], { includeBundled: true, listDefaults: FULL });
 
     const userList = listScreenOf(features, "user", "user-list");
     expect(userList.table).toEqual(FULL.table);
@@ -187,16 +186,16 @@ describe("composeFeatures bundledLists", () => {
     expect(tenantList.columns[0]).toEqual({ field: "key", pinned: "left" });
 
     const shopList = listScreenOf(features, "shop", "item-list");
-    expect(shopList.table).toBeUndefined();
-    expect(shopList.columns).toBe(SHOP_COLUMNS);
-    expect(relatedListOf(features, "shop", "item-detail").table).toBeUndefined();
+    expect(shopList.table).toEqual(FULL.table);
+    expect(shopList.columns[0]).toEqual({ field: "name", pinned: "left" });
+    const { export: _shopExport, ...shopWithoutExport } = FULL.table;
+    expect(relatedListOf(features, "shop", "item-detail").table).toEqual(shopWithoutExport);
 
     expect(() => validateBoot(withBootValidatorFixture(features))).not.toThrow();
   });
 
-  test("an app feature that calls adoptsBundledLists takes the block on its lists and relatedList sections", () => {
+  test("an app feature takes the block on its lists and relatedList sections", () => {
     const crm = defineFeature("crm", (r) => {
-      r.adoptsBundledLists();
       r.entity({
         name: "contact",
         ...createEntity({
@@ -236,7 +235,7 @@ describe("composeFeatures bundledLists", () => {
     });
     const features = composeFeatures([crm, shopFeature], {
       includeBundled: true,
-      bundledLists: FULL,
+      listDefaults: FULL,
     });
 
     const list = listScreenOf(features, "crm", "contact-list");
@@ -246,13 +245,12 @@ describe("composeFeatures bundledLists", () => {
     const { export: _export, ...withoutExport } = FULL.table;
     expect(relatedListOf(features, "crm", "contact-detail").table).toEqual(withoutExport);
 
-    expect(listScreenOf(features, "shop", "item-list").table).toBeUndefined();
+    expect(listScreenOf(features, "shop", "item-list").table).toEqual(FULL.table);
     expect(() => validateBoot(withBootValidatorFixture(features))).not.toThrow();
   });
 
-  test("export: undefined on an adopting screen drops the shared export", () => {
+  test("export: undefined on a screen drops the shared export", () => {
     const lean = defineFeature("crm-lean", (r) => {
-      r.adoptsBundledLists();
       r.screen({
         id: "plain",
         type: "projectionList",
@@ -261,7 +259,7 @@ describe("composeFeatures bundledLists", () => {
         table: { export: undefined, pinning: false, resizing: false },
       });
     });
-    const features = composeFeatures([lean], { includeBundled: false, bundledLists: FULL });
+    const features = composeFeatures([lean], { includeBundled: false, listDefaults: FULL });
 
     const screen = listScreenOf(features, "crm-lean", "plain");
     expect(screen.table?.export).toBeUndefined();
@@ -274,7 +272,7 @@ describe("composeFeatures bundledLists", () => {
   test("does not mutate the shared bundled screen constants", () => {
     const [jobs] = composeFeatures([createJobsFeature()], {
       includeBundled: false,
-      bundledLists: FULL,
+      listDefaults: FULL,
     });
     const mixed = listScreenOf(jobs ? [jobs] : [], JOBS_FEATURE, "job-runs");
     expect(mixed.table).toEqual(FULL.table);
@@ -326,7 +324,7 @@ describe("composeFeatures bundledLists", () => {
   test("without pinFirstColumn no column is pinned", () => {
     const features = composeFeatures([jobsOverride], {
       includeBundled: false,
-      bundledLists: { table: FULL.table },
+      listDefaults: { table: FULL.table },
     });
     expect(listScreenOf(features, JOBS_FEATURE, "own-object-column").columns).toEqual([
       { field: "id", label: "jobs.id", width: 80 },
@@ -342,44 +340,40 @@ describe("composeFeatures bundledLists", () => {
     ]);
   });
 
-  test("a feature with list screens but without the marker stays untouched, even under a bundled name", () => {
-    const unmarked = defineFeature(JOBS_FEATURE, (r) => {
-      r.screen({ id: "plain", type: "projectionList", query: ROWS_QN, columns: ["id", "name"] });
-    });
-    const [feature] = composeFeatures([unmarked], { includeBundled: false, bundledLists: FULL });
-    expect(feature).toBe(unmarked);
-  });
-
-  test("calling adoptsBundledLists twice is idempotent", () => {
-    const twice = defineFeature("twice", (r) => {
-      r.adoptsBundledLists();
-      r.adoptsBundledLists();
-    });
-    expect(twice.adoptsBundledLists).toBe(true);
-  });
-
-  test("undefined bundledLists keeps the feature objects", () => {
+  test("undefined listDefaults keeps the feature objects", () => {
     const [feature] = composeFeatures([shopFeature], { includeBundled: false });
     expect(feature).toBe(shopFeature);
   });
 
   test("composing twice gives the same screens", () => {
     const once = withJobsOverride();
-    const twice = composeFeatures([...once], { includeBundled: false, bundledLists: FULL });
+    const twice = composeFeatures([...once], { includeBundled: false, listDefaults: FULL });
     expect(twice).toEqual(once);
   });
 
-  test("composeAppFeatures passes bundledLists through", () => {
+  test("composing twice with includeBundled does not warn about bundled copies", () => {
+    const once = composeFeatures([shopFeature], { includeBundled: true, listDefaults: FULL });
+    const warn = spyOn(console, "warn");
+    try {
+      const twice = composeFeatures([...once], { includeBundled: true, listDefaults: FULL });
+      expect(warn).not.toHaveBeenCalled();
+      expect(twice.map((f) => f.name)).toEqual(once.map((f) => f.name));
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  test("composeAppFeatures passes listDefaults through", () => {
     const features = composeAppFeatures([jobsOverride], [], undefined, FULL);
     expect(listScreenOf(features, JOBS_FEATURE, "own-object-column").table).toEqual(FULL.table);
   });
 
   test.each(["grouping", "totals"] as const)("rejects %s in the shared block", (key) => {
-    const bundledLists: BundledListsOptions = {
+    const listDefaults: ListDefaultsOptions = {
       table: key === "grouping" ? { grouping: { field: "status" } } : { totals: [] },
     };
-    expect(() => composeFeatures([shopFeature], { includeBundled: false, bundledLists })).toThrow(
-      new RegExp(`bundledLists\\.table\\.${key}`),
+    expect(() => composeFeatures([shopFeature], { includeBundled: false, listDefaults })).toThrow(
+      new RegExp(`listDefaults\\.table\\.${key}`),
     );
   });
 });

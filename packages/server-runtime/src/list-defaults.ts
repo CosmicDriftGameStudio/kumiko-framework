@@ -1,28 +1,26 @@
 import {
-  type BundledListsOptions,
   type EditSectionSpec,
   type FeatureDefinition,
   type ListColumnSpec,
+  type ListDefaultsOptions,
   type ListTableOptions,
   normalizeListColumn,
   type ScreenDefinition,
-  validateBundledListsOptions,
+  validateListDefaultsOptions,
 } from "@cosmicdrift/kumiko-framework/engine";
 
-export function applyBundledListsTable(
+export function applyListDefaults(
   features: readonly FeatureDefinition[],
-  options: BundledListsOptions | undefined,
+  options: ListDefaultsOptions | undefined,
 ): FeatureDefinition[] {
   if (options === undefined) return [...features];
-  validateBundledListsOptions(options);
-  return features.map((feature) =>
-    feature.adoptsBundledLists === true ? withListTableDefaults(feature, options) : feature,
-  );
+  validateListDefaultsOptions(options);
+  return features.map((feature) => withListTableDefaults(feature, options));
 }
 
 function withListTableDefaults(
   feature: FeatureDefinition,
-  options: BundledListsOptions,
+  options: ListDefaultsOptions,
 ): FeatureDefinition {
   return {
     ...feature,
@@ -37,7 +35,7 @@ function withListTableDefaults(
 
 function withScreenTableDefaults(
   screen: ScreenDefinition,
-  options: BundledListsOptions,
+  options: ListDefaultsOptions,
 ): ScreenDefinition {
   switch (screen.type) {
     case "entityList":
@@ -63,7 +61,7 @@ function withScreenTableDefaults(
 
 function withSectionTableDefaults(
   section: EditSectionSpec,
-  options: BundledListsOptions,
+  options: ListDefaultsOptions,
 ): EditSectionSpec {
   if (section.kind !== "relatedList") return section;
   // export is only valid on entityList and projectionList
@@ -75,7 +73,7 @@ function withSectionTableDefaults(
 function pinFirstColumn(
   columns: readonly ListColumnSpec[],
   table: ListTableOptions,
-  options: BundledListsOptions,
+  options: ListDefaultsOptions,
 ): readonly ListColumnSpec[] {
   if (options.pinFirstColumn !== true || table.pinning !== true) return columns;
   const normalized = columns.map(normalizeListColumn);

@@ -29,7 +29,6 @@ const ALL_KINDS: FeaturePatternKind[] = [
   "optionalRequires",
   "readsConfig",
   "systemScope",
-  "adoptsBundledLists",
   "toggleable",
   "describe",
   "uiHints",
@@ -196,7 +195,6 @@ function makePlaceholderPattern(kind: FeaturePatternKind): FeaturePattern {
     case "readsConfig":
       return { kind, source: PLACEHOLDER_LOC, qualifiedKeys: [] };
     case "systemScope":
-    case "adoptsBundledLists":
       return { kind, source: PLACEHOLDER_LOC };
     case "toggleable":
       return { kind, source: PLACEHOLDER_LOC, default: false };

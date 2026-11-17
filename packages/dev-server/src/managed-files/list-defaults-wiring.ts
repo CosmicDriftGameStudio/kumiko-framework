@@ -4,7 +4,7 @@ import { APP_CONFIG_FILE } from "@cosmicdrift/kumiko-framework/config";
 import { type Node, type ObjectLiteralExpression, Project, SyntaxKind } from "ts-morph";
 
 const RUNNER_NAMES: ReadonlySet<string> = new Set(["runProdApp", "runDevApp", "runWorkerApp"]);
-const BUNDLED_LISTS = "bundledLists";
+const LIST_DEFAULTS = "listDefaults";
 
 function parseSource(fileName: string, source: string) {
   const project = new Project({ useInMemoryFileSystem: true, skipFileDependencyResolution: true });
@@ -30,15 +30,15 @@ function firstObjectArgument(args: readonly Node[]): ObjectLiteralExpression | u
   return first?.isKind(SyntaxKind.ObjectLiteralExpression) ? first : undefined;
 }
 
-function configDeclaresBundledLists(source: string): boolean {
+function configDeclaresListDefaults(source: string): boolean {
   const call = parseSource(APP_CONFIG_FILE, source)
     .getDescendantsOfKind(SyntaxKind.CallExpression)
     .find((candidate) => candidate.getExpression().getText() === "defineAppConfig");
   const config = call === undefined ? undefined : firstObjectArgument(call.getArguments());
-  return config !== undefined && declaresProperty(config, BUNDLED_LISTS);
+  return config !== undefined && declaresProperty(config, LIST_DEFAULTS);
 }
 
-function runnersWithoutBundledLists(fileName: string, source: string): readonly string[] {
+function runnersWithoutListDefaults(fileName: string, source: string): readonly string[] {
   return parseSource(fileName, source)
     .getDescendantsOfKind(SyntaxKind.CallExpression)
     .flatMap((call) => {
@@ -46,7 +46,7 @@ function runnersWithoutBundledLists(fileName: string, source: string): readonly 
       if (!RUNNER_NAMES.has(runner)) return [];
       const options = firstObjectArgument(call.getArguments());
       // A spread may carry the key; the static check cannot see into it.
-      if (options === undefined || declaresProperty(options, BUNDLED_LISTS) || hasSpread(options)) {
+      if (options === undefined || declaresProperty(options, LIST_DEFAULTS) || hasSpread(options)) {
         return [];
       }
       return [runner];
@@ -54,13 +54,13 @@ function runnersWithoutBundledLists(fileName: string, source: string): readonly 
 }
 
 /**
- * `bundledLists` lives in kumiko.config.ts for the schema tooling and in the runner options for
+ * `listDefaults` lives in kumiko.config.ts for the schema tooling and in the runner options for
  * the running app. A runner call in bin/ that leaves it out would serve other screens than
  * `kumiko check` validates.
  */
-export function findBundledListsWiringErrors(appRoot: string): readonly string[] {
+export function findListDefaultsWiringErrors(appRoot: string): readonly string[] {
   const configPath = join(appRoot, APP_CONFIG_FILE);
-  if (!existsSync(configPath) || !configDeclaresBundledLists(readFileSync(configPath, "utf-8"))) {
+  if (!existsSync(configPath) || !configDeclaresListDefaults(readFileSync(configPath, "utf-8"))) {
     return [];
   }
   const binDir = join(appRoot, "bin");
@@ -69,9 +69,9 @@ export function findBundledListsWiringErrors(appRoot: string): readonly string[]
     .filter((name) => name.endsWith(".ts"))
     .sort()
     .flatMap((name) =>
-      runnersWithoutBundledLists(name, readFileSync(join(binDir, name), "utf-8")).map(
+      runnersWithoutListDefaults(name, readFileSync(join(binDir, name), "utf-8")).map(
         (runner) =>
-          `bin/${name}: ${runner}() does not pass bundledLists although ${APP_CONFIG_FILE} sets it. Add \`bundledLists: appConfig.bundledLists\` to the runner options, otherwise the app serves other screens than \`kumiko check\` validates.`,
+          `bin/${name}: ${runner}() does not pass listDefaults although ${APP_CONFIG_FILE} sets it. Add \`listDefaults: appConfig.listDefaults\` to the runner options, otherwise the app serves other screens than \`kumiko check\` validates.`,
       ),
     );
 }

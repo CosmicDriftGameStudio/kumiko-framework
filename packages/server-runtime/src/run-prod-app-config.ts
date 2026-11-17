@@ -199,7 +199,7 @@ export function composeProdFeatures(
     options.features,
     bootOptionWiring.features,
     effectiveAuth,
-    options.bundledLists,
+    options.listDefaults,
   );
 
   const bootCrypto = resolveBootCrypto(envSource, options.masterKey);

@@ -58,7 +58,7 @@ import {
   type RowLevelSecurityMode,
 } from "@cosmicdrift/kumiko-framework/db";
 import type {
-  BundledListsOptions,
+  ListDefaultsOptions,
   FeatureDefinition,
   ValidateBootOptions,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -406,8 +406,8 @@ export type AppRuntimeOptions = {
   readonly features: readonly FeatureDefinition[];
   /** Opt-in boot-validator warnings — see ValidateBootOptions. */
   readonly validateBootOptions?: ValidateBootOptions;
-  /** One table block for every list of the bundled features, see ComposeFeaturesOptions.bundledLists. */
-  readonly bundledLists?: BundledListsOptions;
+  /** One table block for every list of all composed features, see ComposeFeaturesOptions.listDefaults. */
+  readonly listDefaults?: ListDefaultsOptions;
   /** Row level security mode of every connection; pass `appConfig.rowLevelSecurity`. Default "on". runDevApp applies it to the dev stack too, so tenant-isolation bugs show up in development. */
   readonly rowLevelSecurity?: RowLevelSecurityMode;
   /** Per-request head-metadata resolver (Open-Graph/title/description) for

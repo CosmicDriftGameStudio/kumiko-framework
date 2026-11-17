@@ -37,7 +37,6 @@ import {
   usesApiSchema,
 } from "./opaque-schemas.ts";
 import {
-  adoptsBundledListsSchema,
   claimKeySchema,
   configSchema,
   describeSchema,
@@ -65,7 +64,6 @@ export const PATTERN_LIBRARY: Readonly<Record<FeaturePatternKind, PatternFormSch
   optionalRequires: optionalRequiresSchema,
   readsConfig: readsConfigSchema,
   systemScope: systemScopeSchema,
-  adoptsBundledLists: adoptsBundledListsSchema,
   toggleable: toggleableSchema,
   describe: describeSchema,
   uiHints: uiHintsSchema,

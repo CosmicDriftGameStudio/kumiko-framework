@@ -97,9 +97,4 @@ export type {
 export { checkDeployDrift, renderDeployFiles, scaffoldDeploy } from "./scaffold-deploy.ts";
 export type { ScaffoldFeatureOptions, ScaffoldFeatureResult } from "./scaffold-feature.ts";
 export { scaffoldFeature } from "./scaffold-feature.ts";
-export {
-  type SetupTestStackFromFeaturesOptions,
-  setupTestStackFromFeatures,
-  type TestStackPreset,
-} from "./setup-test-stack-from-features.ts";
 export { renderWelcomeBanner, type WelcomeBannerInput } from "./welcome-banner.ts";

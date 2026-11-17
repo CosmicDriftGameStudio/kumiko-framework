@@ -29,7 +29,7 @@ import {
   SYSTEM_TENANT_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { BUNDLED_LISTS } from "../bundled-lists";
+import { LIST_DEFAULTS } from "../list-defaults";
 import {
   AUTH_COMPOSE_OPTIONS,
   BOOT_FEATURES,
@@ -76,7 +76,7 @@ export const devAppOptions = {
     ...VALIDATE_BOOT_OPTIONS,
     env: { [FILE_STORAGE_PROVIDER_ENV]: "inmemory", ...process.env },
   },
-  bundledLists: BUNDLED_LISTS,
+  listDefaults: LIST_DEFAULTS,
   port: Number.parseInt(process.env["PORT"] ?? "4186", 10),
   clientEntry: "./src/app/client.tsx",
   htmlPath: "./public/index.html",

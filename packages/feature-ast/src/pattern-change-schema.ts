@@ -527,13 +527,6 @@ const describeSchema = z
   })
   .strict();
 
-const adoptsBundledListsSchema = z
-  .object({
-    kind: z.literal("adoptsBundledLists"),
-    source: sourceFieldSchema,
-  })
-  .strict();
-
 const uiHintsSchema = z
   .object({
     kind: z.literal("uiHints"),
@@ -833,7 +826,6 @@ export const PATTERN_SCHEMAS_BY_KIND = {
   toggleable: toggleableSchema,
   describe: describeSchema,
   uiHints: uiHintsSchema,
-  adoptsBundledLists: adoptsBundledListsSchema,
   metric: metricSchema,
   secret: secretSchema,
   secretNamespace: secretNamespaceSchema,
@@ -874,7 +866,6 @@ export const patternSchema = z.discriminatedUnion("kind", [
   toggleableSchema,
   describeSchema,
   uiHintsSchema,
-  adoptsBundledListsSchema,
   metricSchema,
   secretSchema,
   secretNamespaceSchema,

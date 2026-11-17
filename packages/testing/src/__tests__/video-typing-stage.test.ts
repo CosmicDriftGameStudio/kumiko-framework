@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { editorStage, terminalStage } from "../e2e";
+import { editorStage, terminalStage } from "../e2e/video";
 import { seededRandom, typedWidthKeyframes, typingOffsetsMs } from "../e2e/video/typing";
 
 const rhythm = { charMs: 70, jitterMs: 35, spaceExtraMs: 90 };

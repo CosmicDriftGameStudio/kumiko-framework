@@ -18,7 +18,6 @@ const PATTERN_ID_MATCHERS: PatternIdMatchers = {
   toggleable: matchSingletonCall,
   describe: matchSingletonCall,
   uiHints: matchSingletonCall,
-  adoptsBundledLists: matchSingletonCall,
   config: matchSingletonCall,
   translations: matchSingletonCall,
   authClaims: matchSingletonCall,

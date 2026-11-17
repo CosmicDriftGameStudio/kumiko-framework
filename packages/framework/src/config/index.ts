@@ -3,7 +3,7 @@
 // pulling the engine runtime.
 
 import type { TranslationKeys } from "@cosmicdrift/kumiko-types/config";
-import type { BundledListsOptions } from "@cosmicdrift/kumiko-types/screen";
+import type { ListDefaultsOptions } from "@cosmicdrift/kumiko-types/screen";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { ROW_LEVEL_SECURITY_MODES, type RowLevelSecurityMode } from "../db/render-rls-ddl.ts";
 import type { ValidateBootOptions } from "../engine/boot-validator.ts";
@@ -72,8 +72,8 @@ export type AppConfig = {
   readonly ports: AppPorts;
   /** Passed to validateBoot by `kumiko check` and, via the app's bin files, by the runners. */
   readonly validateBootOptions?: AppValidateBootOptions;
-  /** One table block for every list of the bundled features. kumiko/schema.ts passes it to composeFeatures; the app's bin files pass it to the runners, like validateBootOptions. */
-  readonly bundledLists?: BundledListsOptions;
+  /** One table block for every list of all composed features. kumiko/schema.ts passes it to composeFeatures; the app's bin files pass it to the runners, like validateBootOptions. */
+  readonly listDefaults?: ListDefaultsOptions;
   /** "on" enforces tenant isolation in Postgres via row level security; schema tooling and every runner read this one value. Default "on". */
   readonly rowLevelSecurity?: RowLevelSecurityMode;
   readonly apiDocs?: AppApiDocsConfig;

@@ -166,7 +166,7 @@ export async function resolveDevBootConfig(
     options.features,
     wiring.features,
     effectiveAuth,
-    options.bundledLists,
+    options.listDefaults,
   );
   return { stackSeeds, wiring, envSource, effectiveAuth, unsubscribeLinks, extraRoutes, features };
 }

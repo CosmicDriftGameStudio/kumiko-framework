@@ -197,13 +197,6 @@ export type SystemScopePattern = {
   readonly source: SourceLocation;
 };
 
-// `r.adoptsBundledLists()` — opts the feature's list screens into the app-wide
-// `bundledLists` table block. Marker call — no arguments.
-export type AdoptsBundledListsPattern = {
-  readonly kind: "adoptsBundledLists";
-  readonly source: SourceLocation;
-};
-
 // `r.toggleable({ default })` — declares the feature operator-switchable via
 // the feature-toggles bundled feature; `default` is the effective state when
 // no global-toggle row exists. At most once per feature. Don't declare it on
@@ -680,7 +673,6 @@ export type FeaturePattern =
   | RequiresPattern
   | OptionalRequiresPattern
   | SystemScopePattern
-  | AdoptsBundledListsPattern
   | ToggleablePattern
   | DescribePattern
   | UiHintsPattern
@@ -771,7 +763,6 @@ const EDITABILITY_BY_KIND: Readonly<Record<FeaturePatternKind, Editability>> = {
   extendsRegistrar: "opaque",
   envSchema: "opaque",
   uiHints: "opaque",
-  adoptsBundledLists: "opaque",
   unknown: "opaque",
 };
 

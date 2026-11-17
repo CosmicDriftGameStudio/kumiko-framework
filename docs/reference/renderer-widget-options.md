@@ -1,7 +1,7 @@
 ---
 status: reference
 verified: 2026-11-17
-evidence: "packages/server-runtime/src/bundled-lists-table.ts (bundledLists); packages/framework/src/engine/boot-validator/bundled-lists-table.ts; packages/framework/src/engine/define-feature.ts (adoptsBundledLists); packages/renderer/src/web/primitives/lightbox.tsx (actions, showPosition); packages/renderer/src/web/app/nav.tsx (searchParams); kumiko-framework#3570 (chart axes and height, ModeSwitch pill, LanguageSwitcher chip, useQuery concurrency); d5b87a19e (Lightbox paging); packages/renderer/src/hooks/use-query.ts; packages/renderer/src/web/widgets/charts.tsx; packages/renderer/src/web/widgets/mode-switch.tsx; packages/renderer/src/web/layout/language-switcher.tsx; packages/renderer/src/primitives.tsx; packages/types/src/screen-list-table.ts; packages/renderer/src/web/primitives/data-table/; packages/renderer/src/web/app/session-list-state-store.ts; packages/types/src/screen-list-bulk.ts; packages/renderer/src/app/list-bulk-actions.ts; packages/renderer/src/hooks/use-bulk-run.ts; samples/recipes/list-table-options"
+evidence: "packages/server-runtime/src/list-defaults.ts (listDefaults); packages/framework/src/engine/boot-validator/list-defaults.ts; packages/renderer/src/web/primitives/lightbox.tsx (actions, showPosition); packages/renderer/src/web/app/nav.tsx (searchParams); kumiko-framework#3570 (chart axes and height, ModeSwitch pill, LanguageSwitcher chip, useQuery concurrency); d5b87a19e (Lightbox paging); packages/renderer/src/hooks/use-query.ts; packages/renderer/src/web/widgets/charts.tsx; packages/renderer/src/web/widgets/mode-switch.tsx; packages/renderer/src/web/layout/language-switcher.tsx; packages/renderer/src/primitives.tsx; packages/types/src/screen-list-table.ts; packages/renderer/src/web/primitives/data-table/; packages/renderer/src/web/app/session-list-state-store.ts; packages/types/src/screen-list-bulk.ts; packages/renderer/src/app/list-bulk-actions.ts; packages/renderer/src/hooks/use-bulk-run.ts; samples/recipes/list-table-options"
 ---
 
 # Renderer widget options
@@ -326,14 +326,14 @@ r.screen({
 
 **Session storage.** Choices live in `sessionStorage` under `kumiko.list.<tenantId>.<userId>.<storeKey>`, so they last for the tab only. The marker `kumiko.list.identity` records who wrote them. They are removed when the user or tenant changes, when the identity disappears, and on logout. An app without a current user keeps them in memory only and writes nothing to `sessionStorage`.
 
-## `bundledLists`: one `table` block for the bundled lists
+## `listDefaults`: one `table` block for every list
 
-The bundled features (users, tenants, jobs, sessions, audit and the others) ship their list screens without a `table` block. `bundledLists` in the `composeFeatures` options sets one block for all of them, so an app does not redefine every bundled screen to get the column picker or the export button there.
+`listDefaults` sets one `table` block for every list screen of the app, the bundled features (users, tenants, jobs, sessions, audit and the others) included, so an app does not repeat its table standard on every screen.
 
 ```ts illustration
 export default defineAppConfig({
   features: [...APP_FEATURES],
-  bundledLists: {
+  listDefaults: {
     table: {
       rememberState: true,
       resetAll: true,
@@ -351,12 +351,12 @@ export default defineAppConfig({
 });
 ```
 
-- The block reaches every `entityList`, `projectionList` and `relatedList` section of a feature that calls `r.adoptsBundledLists()`: the bundled features with lists (including the foundation features `user` and `tenant`), feature packages such as Enterprise, and any app feature that calls it. An app with one table standard calls `r.adoptsBundledLists()` in each of its features with lists instead of wrapping every screen. Features without the call stay untouched.
+- The block reaches every `entityList`, `projectionList` and `relatedList` section of every composed feature: app features, feature packages such as Enterprise and the bundled features.
 - A `table` block on the screen itself wins per key, so a single list sets `pinning: false` or `resizing: false` there; `export: undefined` drops the shared export for that list. `export` is left out on `relatedList` sections, where it is not allowed.
-- `grouping` and `totals` are rejected in `bundledLists.table`, because they depend on the fields of one list. Set them on the screen's own `table` block.
-- `pinFirstColumn: true` pins the first column left on every bundled list where no column is pinned yet. It needs `table.pinning: true`.
+- `grouping` and `totals` are rejected in `listDefaults.table`, because they depend on the fields of one list. Set them on the screen's own `table` block.
+- `pinFirstColumn: true` pins the first column left on every list where no column is pinned yet. It needs `table.pinning: true`.
 - `composeFeatures` validates the block before it mixes it in. The mixed screens then pass the boot validator like any app screen, and `/api/schema` delivers them with the block, so the renderer needs no change.
-- The option lives in `kumiko.config.ts` (`bundledLists`), where the managed `kumiko/schema.ts` reads it, and in the run options of `runProdApp`, `runDevApp` and `runWorkerApp` (`bundledLists`), which the app's bin files pass on like `validateBootOptions`. Both must carry the same value, so `kumiko check` and the running app see the same screens. An app whose `kumiko.config.ts` already calls `composeFeatures` can pass the option there as well; a second pass over already mixed screens changes nothing.
+- The option lives in `kumiko.config.ts` (`listDefaults`), where the managed `kumiko/schema.ts` reads it, and in the run options of `runProdApp`, `runDevApp` and `runWorkerApp` (`listDefaults`), which the app's bin files pass on like `validateBootOptions`. Both must carry the same value, so `kumiko check` and the running app see the same screens. An app whose `kumiko.config.ts` already calls `composeFeatures` can pass the option there as well; a second pass over already mixed screens changes nothing.
 
 ## List `bulkActions`
 

@@ -29,8 +29,7 @@ await tenant.api.writeOk("my-feature:write:thing:create", { title: "x" });
 
 ## E2E (`./e2e`, `./e2e/seed-route`)
 
-`@playwright/test` is an optional peer dependency; only the `./e2e` subpath imports it. The server side
-(`./e2e/seed-route`) never does.
+`@playwright/test` is an optional peer dependency; only the `./e2e` and `./video` subpaths import it. The server side (`./e2e/seed-route`) never does.
 
 ```ts
 // e2e/server.ts: mount the seed routes next to the app
@@ -88,6 +87,10 @@ test("member sees the note", async ({ seedTenant, page }) => {
 - App-wide defaults for tests (e.g. a completed onboarding) belong in a `SeedPart` passed to
   `seedTenant({ with: [defaults] })` — never in a `postSave` hook on the `"tenant"` entity, since that
   hook also fires on every real signup in prod.
+
+## Video (`./video`)
+
+`defineVideo`, `runVideos`, `editorStage`, `terminalStage` and `loadVideoTexts` render product videos from Playwright scenes with TTS voice-over. They live on their own subpath so e2e specs that import `./e2e` do not load the video pipeline.
 
 ## Screenshots (`./e2e`)
 

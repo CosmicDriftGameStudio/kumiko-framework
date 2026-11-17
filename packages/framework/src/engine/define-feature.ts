@@ -118,9 +118,6 @@ export function defineFeature<const TName extends string, TExports = undefined>(
       }
       state.toggleableDefault = options.default;
     },
-    adoptsBundledLists(): void {
-      state.adoptsBundledLists = true;
-    },
     // guard:dup-ok builder setter shape, sharing would add a parameter per line
     uiHints(hints: UiHints): void {
       if (state.uiHints !== undefined) {
@@ -152,7 +149,6 @@ export function defineFeature<const TName extends string, TExports = undefined>(
     requiredProjections: state.requiredProjections,
     requiredSteps: state.requiredSteps,
     ...(state.toggleableDefault !== undefined && { toggleableDefault: state.toggleableDefault }),
-    ...(state.adoptsBundledLists && { adoptsBundledLists: true as const }),
     ...(state.uiHints !== undefined && { uiHints: state.uiHints }),
     entities: state.entities,
     entityTables: state.entityTables,

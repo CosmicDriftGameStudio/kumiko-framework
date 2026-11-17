@@ -63,7 +63,6 @@ export function createSignatureFeature(opts: SignatureOptions): FeatureDefinitio
     );
     r.uiHints({ displayLabel: "Signatures", category: "data", recommended: false });
     r.requires({ features: ["files", "user-data-rights", "renderer-puppeteer-client"] });
-    r.adoptsBundledLists();
     r.translations({ keys: SIGNATURE_I18N });
 
     r.entity({ name: "signatureRequest", ...requestEntity });

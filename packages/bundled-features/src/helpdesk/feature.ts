@@ -77,7 +77,6 @@ export function createHelpdeskFeature(opts: HelpdeskOptions): FeatureDefinition 
     // default still names Telegram as an optional dependency.
     if (telegram) r.requires({ features: [TELEGRAM_FEATURE] });
     else r.optionalRequires(TELEGRAM_FEATURE);
-    r.adoptsBundledLists();
     r.translations({ keys: createHelpdeskI18n() });
 
     r.config({

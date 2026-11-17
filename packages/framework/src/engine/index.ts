@@ -147,7 +147,7 @@ export type {
 export type { RelationDefinition } from "@cosmicdrift/kumiko-types/relations";
 export type {
   ActionFormScreenDefinition,
-  BundledListsOptions,
+  ListDefaultsOptions,
   ConfigEditScreenDefinition,
   DashboardCustomPanel,
   DashboardI18nText,
@@ -209,7 +209,7 @@ export {
   type BootViolation,
   bootRuleError,
 } from "./boot-validator/boot-rule.ts";
-export { validateBundledListsOptions } from "./boot-validator/bundled-lists-table.ts";
+export { validateListDefaultsOptions } from "./boot-validator/list-defaults.ts";
 export {
   PII_DIRECT_NAME_HINTS,
   PII_USER_OWNED_NAME_HINTS,

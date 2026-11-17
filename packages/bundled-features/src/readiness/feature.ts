@@ -61,7 +61,6 @@ export function createReadinessFeature(options: ReadinessFeatureOptions = {}) {
       r.requires({ features: ["config"] });
       r.requires({ features: ["secrets"] });
       r.optionalRequires("user");
-      r.adoptsBundledLists();
 
       r.translations({ keys: READINESS_I18N });
       r.entity({ name: "probe-run", ...probeRunEntity });

@@ -1,6 +1,6 @@
-import type { BundledListsOptions } from "@cosmicdrift/kumiko-framework/engine";
+import type { ListDefaultsOptions } from "@cosmicdrift/kumiko-framework/engine";
 
-export const BUNDLED_LISTS = {
+export const LIST_DEFAULTS = {
   table: {
     rememberState: true,
     resetAll: true,
@@ -12,4 +12,4 @@ export const BUNDLED_LISTS = {
     export: { xlsx: true },
   },
   pinFirstColumn: true,
-} as const satisfies BundledListsOptions;
+} as const satisfies ListDefaultsOptions;

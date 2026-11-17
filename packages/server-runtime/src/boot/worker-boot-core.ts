@@ -177,7 +177,7 @@ export async function bootWorkerProcess(
   const features = composeFeatures(options.features, {
     includeBundled,
     ...(profile.authOptions && { authOptions: profile.authOptions }),
-    ...(options.bundledLists && { bundledLists: options.bundledLists }),
+    ...(options.listDefaults && { listDefaults: options.listDefaults }),
   });
   const bootCrypto = resolveBootCrypto(envSource, options.masterKey);
   validateBootAndWarnTz(features, {

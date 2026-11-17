@@ -178,9 +178,6 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   // feature; calling on an always-on feature (e.g. auth/tenant/user) is a
   // bug — and one nothing catches at boot, so don't.
   toggleable(options: { default: boolean }): void;
-  // Opt the feature's list screens into the app-wide `bundledLists` table block.
-  // Bundled features, feature packages and app features may call it; idempotent.
-  adoptsBundledLists(): void;
   // Picker/scaffolder metadata — see UiHints. At most once per feature.
   uiHints(hints: UiHints): void;
 

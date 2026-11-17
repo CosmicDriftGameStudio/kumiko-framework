@@ -54,7 +54,6 @@ export type ManifestFeature = {
   readonly name: string;
   readonly description: string | null;
   readonly toggleableDefault: boolean | null;
-  readonly adoptsBundledLists?: true;
   readonly requires: readonly string[];
   readonly optionalRequires: readonly string[];
   readonly configReads: readonly string[];
@@ -154,7 +153,6 @@ export function buildManifestFromRegistry(
       name: feature.name,
       description: feature.description ?? null,
       toggleableDefault: feature.toggleableDefault ?? null,
-      ...(feature.adoptsBundledLists && { adoptsBundledLists: true as const }),
       requires: [...feature.requires],
       optionalRequires: [...feature.optionalRequires],
       configReads: [...feature.configReads],
