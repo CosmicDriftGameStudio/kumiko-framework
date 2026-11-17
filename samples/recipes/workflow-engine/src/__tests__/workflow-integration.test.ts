@@ -22,7 +22,10 @@ import { startAndRunWorkflow } from "../workflow-runner";
 // No Postgres in-memory: wait steps read their wake time from this stand-in for the database clock.
 function makeAppendOnlyCtx() {
   return {
-    events: { unsafeAppend: mock().mockResolvedValue(undefined) },
+    events: {
+      unsafeAppend: mock().mockResolvedValue(undefined),
+      streamVersion: mock().mockResolvedValue(0),
+    },
     db: { databaseNow: async () => new Date("2031-03-04T05:06:07.000Z") },
   };
 }
@@ -574,6 +577,7 @@ describe("resume-loop", () => {
         unsafeAppend: mock()
           .mockRejectedValueOnce(new VersionConflictError("wf-conflict-run", 1))
           .mockResolvedValue(undefined),
+        streamVersion: mock().mockResolvedValue(0),
       },
     };
 
