@@ -700,10 +700,12 @@ jobs:
           for cfg in "${configs[@]}"; do
             started=$SECONDS
             # Sample apps only run their screenshots.spec.ts when SCREENSHOT_DIR is set;
-            # it points outside the repo so the committed docs images stay untouched.
+            # it points outside the repo so the committed docs images stay untouched. One theme,
+            # viewport and locale per PR: nothing compares the images here, the full matrix runs
+            # in the screenshot update round.
             screenshot_env=()
             if [[ "$cfg" == samples/apps/* ]]; then
-              screenshot_env=(SCREENSHOT_DIR="$RUNNER_TEMP/screenshots")
+              screenshot_env=(SCREENSHOT_DIR="$RUNNER_TEMP/screenshots" SCREENSHOT_THEMES=default-light SCREENSHOT_VIEWPORTS=desktop SCREENSHOT_LOCALES=en)
             fi
             env "${screenshot_env[@]}" bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "e2e: $cfg" -- bunx playwright test --config="$cfg"
             code=$?

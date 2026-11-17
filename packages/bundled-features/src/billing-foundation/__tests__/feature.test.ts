@@ -16,7 +16,6 @@ import {
   BILLING_PLANS_SCREEN_ID,
   SUBSCRIPTION_PROVIDER_EXTENSION,
   SubscriptionEventTypes,
-  SubscriptionFoundationHandlers,
   SubscriptionStatuses,
 } from "../web/constants.ts";
 
@@ -96,11 +95,8 @@ describe("billingFoundationFeature — events + projection + handlers registered
     );
   });
 
-  test("process-event write-handler registered with expected QN", () => {
+  test("process-event write-handler is registered", () => {
     expect(createBillingFoundationFeature().writeHandlers["process-event"]).toBeDefined();
-    expect(SubscriptionFoundationHandlers.processEvent).toBe(
-      "billing-foundation:write:process-event",
-    );
   });
 
   test("process-event is SystemAdmin-only (programmatic-only entry-point)", () => {

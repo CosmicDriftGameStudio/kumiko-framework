@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-10-22
+verified: 2026-11-17
 evidence: "Decisions recorded from maintainer sessions; each entry names the code or issue it rests on where one exists."
 ---
 
@@ -34,7 +34,7 @@ A screen that is genuinely custom (a gallery, an ad-hoc comparison) may stay cus
 
 ### 2026-09-22 Event sourcing means no relational pivots
 
-Cross-aggregate views are composed in the read layer from several projections, never with a SQL join over a pivot table. A generic "applies to any entity" feature such as tagging uses a feature-owned projection keyed on `(entityType, entityId)` and merges in the read layer, so it works for every host entity without touching it. Denormalizing a column onto the host entity (the `custom-fields` pattern) is the alternative when the host can declare it. Entity ids are uuid or text, never numbers.
+Cross-aggregate views are composed in the read layer from several projections, never with a SQL join over a pivot table. A generic "applies to any entity" feature such as tagging uses a feature-owned projection keyed on `(entityType, entityId)` and merges in the read layer, so it works for every host entity without touching it. Denormalizing a column onto the host entity (the `custom-fields` pattern) is the alternative when the host can declare it. Entity ids are uuid or text, never numbers. Superseded by the entry of 2026-11-17 "Generic features keep the no-pivot rule, app read models aggregate in SQL", which keeps this rule for generic features only.
 
 ### 2026-09-22 Entity index changes live in `entity.indexes`
 
@@ -254,7 +254,7 @@ Every content editor (mail and PDF templates, layouts, managed pages, text block
 
 ### 2026-11-17 A missing ratchet baseline counts as an empty baseline
 
-**Every baseline ratchet in `@cosmicdrift/kumiko-guards` treats a missing baseline file as an empty baseline, in the framework and in consumer repos alike: each existing finding fails until the repo freezes its current state with `--write-baseline`.** Before, a repo without the file only got a console warning, so most ratchets had no effect in the apps and cast markers and oversized files grew unchecked. Consumer repos freeze all ratchet baselines once on the bump that brings this change. A baseline with fewer findings than frozen still passes; tightening it stays a deliberate `--write-baseline`.
+**Every baseline ratchet in `@cosmicdrift/kumiko-guards` treats a missing baseline file as an empty baseline, in the framework and in consumer repos alike: each existing finding fails until the repo freezes its current state with `--write-baseline`.** Before, a repo without the file only got a console warning, so most ratchets had no effect in the apps and cast markers and oversized files grew unchecked. Consumer repos freeze all ratchet baselines once on the bump that brings this change. A baseline with fewer findings than frozen fails as stale until `--write-baseline` tightens it (see "A ratchet baseline with headroom fails").
 
 ### 2026-11-17 Handlers identify an HTTP caller by a daily keyed hash, not by the IP
 
@@ -385,14 +385,6 @@ Rejected:
 ### 2026-11-17 Generic features keep the no-pivot rule, app read models aggregate in SQL
 
 **The rule "Event sourcing means no relational pivots" (2026-09-22) binds generic features that attach to any host entity, such as tagging: they keep a feature-owned projection keyed on `(entityType, entityId)` and merge in the read layer. It does not forbid SQL over an app's own read tables. A query handler computes counts, distinct counts, sums, averages, minimum, maximum and percentiles over one table with `ctx.db.aggregate`, filtered by the where DSL (including `equalsIgnoreCase` for case-insensitive matches) and grouped per field or per hour or day bucket. A figure that combines several entities is kept as a column of an `r.projection` that folds the events it needs.** Loading a whole list into a handler to sum, count, match or pivot it in JavaScript reads every row on each call and computes over a truncated set once the list is paged or capped; the old wording pushed apps into that pattern. What is allowed stays what the framework can scope to the tenant: `TenantDb` offers no join, `selectInnerJoin` refuses a tenant-scoped db, and a generic custom-SQL read on `TenantDb` was rejected on 2026-10-21 because the tenant filter cannot be proven inside arbitrary SQL. Allowing ad-hoc joins over read tables was therefore rejected again; a cross-entity view reads each projection through `ctx.db` with `in` filters and combines the results, or reads a projection built for it. A declarative aggregate read model (a sum or count per key as its own projection type) was not built, because `ctx.db.aggregate` and a hand-written projection cover every case found.
-
-## Änderung an bestehendem Eintrag
-
-Eintrag "### 2026-09-22 Event sourcing means no relational pivots": am Ende des Absatzes anhängen:
-
-` Superseded by the entry of 2026-11-17 "Generic features keep the no-pivot rule, app read models aggregate in SQL", which keeps this rule for generic features only.`
-
-Außerdem Frontmatter `verified: 2026-10-22` auf `verified: 2026-11-17` setzen.
 
 ### 2026-11-17 Handler layout and feature import cycles are ratchet guards
 
@@ -529,12 +521,6 @@ Rejected: a separate `unsafeRawAllTenants` grant (every declaration would change
 ### 2026-11-17 A ratchet baseline with headroom fails
 
 **Fewer findings than frozen fail as a stale baseline until `--write-baseline` tightens it.** Headroom in a baseline lets new findings in unnoticed. `generated`, `total` and `totalSuspect` are no longer written, so parallel PRs only collide on real `perFile` lines. Auto-writing in pre-push was rejected because the file would arise after the commit. No contradiction with an earlier entry found.
-
-## Änderung an bestehendem Eintrag
-
-Eintrag "### 2026-11-17 A missing ratchet baseline counts as an empty baseline": den letzten Satz "A baseline with fewer findings than frozen still passes; tightening it stays a deliberate `--write-baseline`." ersetzen durch:
-
-"A baseline with fewer findings than frozen fails as stale until `--write-baseline` tightens it (see "A ratchet baseline with headroom fails")."
 
 ### 2026-11-17 Mail and PDF renderers are bundled features
 
