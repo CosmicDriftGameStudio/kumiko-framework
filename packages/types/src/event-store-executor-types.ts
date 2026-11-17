@@ -126,7 +126,9 @@ export type ListRuntimeOptions = {
   };
 };
 
-type ListFilterOption = {
+// `value: null` with `eq`/`ne` filters on IS NULL / IS NOT NULL. `filter` and `filters` are
+// AND-joined; there is no OR and no exists filter.
+export type ListFilterOption = {
   readonly field: string;
   readonly op: "eq" | "ne" | "lt" | "gt" | "lte" | "gte" | "in";
   readonly value: unknown;
@@ -222,22 +224,10 @@ export type EventStoreExecutor<Row extends Record<string, unknown> = Record<stri
       sortDirection?: "asc" | "desc" | undefined;
       offset?: number | undefined;
       totalCount?: boolean | undefined;
-      filter?:
-        | {
-            readonly field: string;
-            readonly op: "eq" | "ne" | "lt" | "gt" | "lte" | "gte" | "in";
-            readonly value: unknown;
-          }
-        | undefined;
+      filter?: ListFilterOption | undefined;
       // User-chosen faceted filters (dynamic, additive to the static
       // `filter`). All combined with AND.
-      filters?:
-        | ReadonlyArray<{
-            readonly field: string;
-            readonly op: "eq" | "ne" | "lt" | "gt" | "lte" | "gte" | "in";
-            readonly value: unknown;
-          }>
-        | undefined;
+      filters?: readonly ListFilterOption[] | undefined;
     },
     user: SessionUser,
     db: TenantDb,
