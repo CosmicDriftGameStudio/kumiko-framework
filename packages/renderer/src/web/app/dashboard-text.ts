@@ -6,13 +6,10 @@ import type {
   DashboardTextParam,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Translate } from "../../headless/index.ts";
+import { isRecord } from "../../headless/is-record.ts";
 import type { DashboardFormats } from "./dashboard-shared.tsx";
 
 const MAX_TEXT_PARAM_DEPTH = 4;
-
-export function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 export function isDashboardI18nText(value: unknown): value is DashboardI18nText {
   return isRecord(value) && typeof value["i18nKey"] === "string";

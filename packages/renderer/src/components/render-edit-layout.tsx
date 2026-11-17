@@ -31,15 +31,13 @@ function renderPageHeader<TValues extends FormValues, TCtx>(
   const { PageHeader, ActionOverflowMenu } = state.primitives;
   const { pageHeaderCompact } = state;
   return (
-    layout.titleInShell &&
-    PageHeader !== undefined && (
+    layout.titleInShell && (
       <PageHeader
         title={titles.formTitle}
         {...(titles.recordTitle !== undefined && { recordTitle: titles.recordTitle })}
         {...(headerMenuItems.length > 0 && pageHeaderCompact && { overflowItems: headerMenuItems })}
         {...(headerMenuItems.length > 0 &&
-          !pageHeaderCompact &&
-          ActionOverflowMenu !== undefined && {
+          !pageHeaderCompact && {
             actions: (
               <ActionOverflowMenu
                 label={state.translate("kumiko.list.row-actions.more")}
@@ -60,7 +58,6 @@ function renderWizardSideRail<TValues extends FormValues, TCtx>(
   const { state, steps, sections, nav } = engine;
   const { StepBar } = state.primitives;
   const { translate } = state;
-  if (StepBar === undefined) return undefined;
   const { description, subtitles, upNext } = deriveWizardRail(model);
   return (
     <StepBar

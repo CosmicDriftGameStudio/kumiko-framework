@@ -100,17 +100,13 @@ export function DiffDrawer({
   readonly onClose: () => void;
 }): ReactNode {
   const t = useTranslation();
-  const { Drawer, Modal } = usePrimitives();
+  const { Drawer } = usePrimitives();
   const title = t("documentDesigner.editor.diff.title");
   const body = <DiffPanel tenantId={tenantId} />;
   const onOpenChange = (open: boolean): void => {
     if (!open) onClose();
   };
-  return Drawer === undefined ? (
-    <Modal open onOpenChange={onOpenChange} title={title}>
-      {body}
-    </Modal>
-  ) : (
+  return (
     <Drawer open onOpenChange={onOpenChange} title={title}>
       {body}
     </Drawer>

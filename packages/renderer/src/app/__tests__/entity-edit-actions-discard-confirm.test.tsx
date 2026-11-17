@@ -16,9 +16,7 @@ import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import {
   type BannerProps,
-  type ButtonProps,
-  type CorePrimitives,
-  type DialogProps,
+  type ButtonProps,  type DialogProps,
   type FormProps,
   type InputProps,
   PrimitivesProvider,
@@ -28,7 +26,7 @@ import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import type { NavApi } from "../nav.tsx";
 import { NavProvider } from "../nav.tsx";
-import { createMockDispatcher } from "../../testing.ts";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 
 afterEach(cleanup);
 
@@ -77,7 +75,7 @@ const TestDialog = (props: DialogProps): ReactNode => {
   return null;
 };
 
-const testPrimitives: CorePrimitives = {
+const testPrimitives = createStubPrimitives({
   Button: TestButton,
   Banner: TestBanner,
   Field: passChildren,
@@ -101,7 +99,7 @@ const testPrimitives: CorePrimitives = {
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,
   Link: noop,
-};
+});
 
 type Calls = { writes: number; detailQueries: number };
 

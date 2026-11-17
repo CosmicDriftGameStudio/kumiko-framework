@@ -7,11 +7,11 @@ import type { ComponentType, ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import type { Dispatcher } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
-import { type CorePrimitives, type FormProps, PrimitivesProvider } from "../../primitives.tsx";
+import {type FormProps, PrimitivesProvider } from "../../primitives.tsx";
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import { NavProvider } from "../nav.tsx";
-import { createMockDispatcher } from "../../testing.ts";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
@@ -46,7 +46,7 @@ async function captureFormProps(fillHeight?: boolean): Promise<FormProps> {
     captured = props;
     return null;
   };
-  const primitives: CorePrimitives = {
+  const primitives = createStubPrimitives({
     Button: noop,
     Banner: passChildren,
     Field: passChildren,
@@ -65,7 +65,7 @@ async function captureFormProps(fillHeight?: boolean): Promise<FormProps> {
     ConfigSourceBadge: noop,
     ConfigCascadeView: noop,
     Link: noop,
-  };
+  });
   render(
     <LocaleProvider resolver={createStaticLocaleResolver({ locale: "de-DE" })}>
       <DispatcherProvider dispatcher={stubDispatcher()}>

@@ -112,8 +112,7 @@ export function renderPageHeaderSlot(
     usesPageHeaderSlot &&
     (badgeInHeader || dateStamp !== null || recordTitle !== undefined || headerActionsBar !== null);
   return (
-    showPageHeader &&
-    PageHeader !== undefined && (
+    showPageHeader && (
       <PageHeader
         {...(recordTitle !== undefined && { title: recordTitle })}
         {...((badgeInHeader || dateStamp !== null) && {

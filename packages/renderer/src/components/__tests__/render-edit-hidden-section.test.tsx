@@ -27,6 +27,7 @@ import type { ComponentType, ReactNode } from "react";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import { type CorePrimitives, PrimitivesProvider, type SectionProps } from "../../primitives.tsx";
+import { createStubPrimitives } from "../../testing.ts";
 import { RenderEdit } from "../render-edit.tsx";
 
 const noop = (): ReactNode => null;
@@ -36,7 +37,7 @@ const renderSection: ComponentType<SectionProps> = ({ testId, children }) => (
 );
 
 function testPrimitives(): CorePrimitives {
-  return {
+  return createStubPrimitives({
     Button: noop,
     Banner: noop,
     Field: passChildren,
@@ -55,7 +56,7 @@ function testPrimitives(): CorePrimitives {
     ConfigSourceBadge: noop,
     ConfigCascadeView: noop,
     Link: noop,
-  };
+  });
 }
 
 function buildEntity(): EntityDefinition {

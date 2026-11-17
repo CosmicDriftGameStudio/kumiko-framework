@@ -62,18 +62,16 @@ export function deriveLayoutFlags<TValues extends FormValues, TCtx>({
   sections,
 }: RenderEditEngine<TValues, TCtx>): LayoutFlags {
   const { fillScreenHeight, hideSectionTitles, headerRegion, actions, onCancel } = props;
-  const { PageHeader, ActionOverflowMenu } = state.primitives;
   // Screen forms (entityEdit/actionForm filling the shell height) drop the card;
   // the title then lives in the shell header when the shell offers a slot.
   const rootIssues = form.snapshot.errors[ROOT_ISSUE_PATH] ?? [];
   const isScreenForm =
     fillScreenHeight === true && hideSectionTitles !== true && !state.insideDrawer;
   const titleInShell =
-    PageHeader !== undefined &&
     state.pageHeaderSlotAvailable &&
     hideSectionTitles !== true &&
     headerRegion === undefined;
-  const menuPageHeaderActions = titleInShell && isScreenForm && ActionOverflowMenu !== undefined;
+  const menuPageHeaderActions = titleInShell && isScreenForm;
   const cancelInHeaderMenu = menuPageHeaderActions && state.isWizard && onCancel !== undefined;
   return {
     rootIssues,

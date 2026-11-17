@@ -2403,3 +2403,51 @@ describe("dashboard stat-group strip with a group link and a navigating tile", (
     expect(within(raised[0] as HTMLElement).queryByText("demo:open")).toBeNull();
   });
 });
+
+describe("dashboard resultField", () => {
+  const OVERVIEW_QUERY = "demo:query:overview:today";
+  const overviewScreen: DashboardScreenDefinition = {
+    id: "overview",
+    type: "dashboard",
+    panels: [
+      {
+        kind: "stat",
+        id: "open",
+        label: "demo:open",
+        query: OVERVIEW_QUERY,
+        resultField: "stats",
+        valueField: "open",
+      },
+      {
+        kind: "stat",
+        id: "closed",
+        label: "demo:closed",
+        query: OVERVIEW_QUERY,
+        resultField: "stats",
+        valueField: "closed",
+      },
+      {
+        kind: "list",
+        id: "recent",
+        label: "demo:recent",
+        query: OVERVIEW_QUERY,
+        resultField: "recent",
+        columns: ["title"],
+      },
+    ],
+  };
+
+  test("panels on one query share one request and each reads its own field", async () => {
+    const { calls } = renderDashboard(overviewScreen, {
+      [OVERVIEW_QUERY]: () =>
+        ok({
+          stats: { open: 3, closed: 8 },
+          recent: { rows: [{ title: "Printer broken" }], nextCursor: null, total: 1 },
+        }),
+    });
+    await waitFor(() => expect(screen.getByText("Printer broken")).toBeTruthy());
+    expect(screen.getByTestId("dashboard-panel-open").textContent).toContain("3");
+    expect(screen.getByTestId("dashboard-panel-closed").textContent).toContain("8");
+    expect(calls.filter((call) => call.type === OVERVIEW_QUERY)).toHaveLength(1);
+  });
+});

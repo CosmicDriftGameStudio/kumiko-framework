@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import {
   type BatchResult,
   type Command,
@@ -11,6 +12,7 @@ import {
   type WriteOpts,
   type WriteResult,
 } from "./headless/index.ts";
+import type { CorePrimitives } from "./primitives.tsx";
 
 export type MockWriteHandler = (
   type: string,
@@ -103,4 +105,64 @@ export function createMockDispatcher(options: MockDispatcherOptions = {}): MockD
     pendingWrites: () => [],
     pendingFiles: () => [],
   };
+}
+
+// Stubs render nothing and import no web code, so tests swap primitives without a DOM.
+function renderNothing(): ReactNode {
+  return null;
+}
+
+// Structural wrappers keep their children so content behind them stays testable.
+function passChildren({ children }: { readonly children?: ReactNode }): ReactNode {
+  return children;
+}
+
+const STUB_PRIMITIVES = {
+  Button: renderNothing,
+  Banner: renderNothing,
+  Field: renderNothing,
+  Input: renderNothing,
+  DataTable: renderNothing,
+  EmbeddedListInput: renderNothing,
+  Form: renderNothing,
+  Section: renderNothing,
+  Card: renderNothing,
+  Grid: renderNothing,
+  GridCell: renderNothing,
+  Text: renderNothing,
+  Heading: renderNothing,
+  Dialog: renderNothing,
+  Modal: renderNothing,
+  Drawer: renderNothing,
+  Lightbox: renderNothing,
+  ConfigSourceBadge: renderNothing,
+  ConfigCascadeView: renderNothing,
+  Link: renderNothing,
+  Progress: renderNothing,
+  StepBar: renderNothing,
+  WizardStepGroup: passChildren,
+  Tabs: renderNothing,
+  StatusBadge: renderNothing,
+  Metric: renderNothing,
+  JsonView: renderNothing,
+  FileValueList: renderNothing,
+  FillContainer: passChildren,
+  PageHeader: renderNothing,
+  MetricBand: passChildren,
+  RecordBreadcrumb: renderNothing,
+  RecordSummary: renderNothing,
+  PhotoGrid: renderNothing,
+  StepList: renderNothing,
+  RecordSteps: renderNothing,
+  ActionOverflowMenu: renderNothing,
+  SecretReveal: renderNothing,
+  StickyActionBar: renderNothing,
+  CopyButton: renderNothing,
+  ShareButton: renderNothing,
+  PromoPanel: renderNothing,
+  EmptyState: renderNothing,
+} satisfies CorePrimitives;
+
+export function createStubPrimitives(overrides: Partial<CorePrimitives> = {}): CorePrimitives {
+  return { ...STUB_PRIMITIVES, ...overrides };
 }

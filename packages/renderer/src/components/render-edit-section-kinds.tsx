@@ -124,7 +124,7 @@ function renderStepListSection<TValues extends FormValues, TCtx>(
   section: Extract<EditSectionViewModel, { readonly kind: "stepList" }>,
 ): ReactNode {
   const { Section, StepList } = model.engine.state.primitives;
-  if (StepList === undefined || section.items.length === 0) return null;
+  if (section.items.length === 0) return null;
   const items = section.items.map((item, index) => ({ id: String(index), ...item }));
   return (
     <Section
@@ -234,11 +234,6 @@ function createWizardStepWrapper<TValues extends FormValues, TCtx>(
   const stepHidden = state.isStepped && sectionIndex !== steps.currentStep;
   return (key, el) => {
     if (!state.isStepped) return el;
-    if (WizardStepGroup === undefined) {
-      throw new Error(
-        `RenderEdit: ${props.screen.layout.mode} layout requires primitives.WizardStepGroup, but none is registered.`,
-      );
-    }
     return (
       <WizardStepGroup
         key={key}
@@ -261,7 +256,7 @@ function withSectionPresentation<TValues extends FormValues, TCtx>(
 ): ReactNode {
   const { props, form, sections, state } = model.engine;
   const { FillContainer } = state.primitives;
-  if (node === null || FillContainer === undefined) return node;
+  if (node === null) return node;
   const narrowClass =
     section.hideOnNarrow === true
       ? "max-sm:hidden"
@@ -327,7 +322,7 @@ export function renderEditSections<TValues extends FormValues, TCtx>(
     }),
   );
   const { FillContainer } = model.engine.state.primitives;
-  if (model.engine.props.recordSections?.photosBeside !== true || FillContainer === undefined) {
+  if (model.engine.props.recordSections?.photosBeside !== true) {
     return rendered.map(({ node }) => node);
   }
   const photos = rendered.filter(({ section }) => isPhotoGridSection(section));

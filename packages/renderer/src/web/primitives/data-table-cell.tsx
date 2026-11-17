@@ -306,7 +306,7 @@ export function selectPill(
   optionLabels: Readonly<Record<string, string>> | undefined,
   optionTones: Readonly<Partial<Record<string, SelectOptionTone>>> | undefined,
   locale: string | undefined,
-  RegisteredStatusBadge: PrimitivesRegistry["StatusBadge"],
+  RegisteredStatusBadge: PrimitivesRegistry["StatusBadge"] | undefined,
 ): ReactNode {
   const label = defaultCellRender(value, "select", optionLabels, locale);
   const declaredTone =
@@ -842,7 +842,7 @@ function renderFormatSpecCell({
   translate: DataTableCellProps["translate"];
   locale: string | undefined;
   link: DataTableCellProps["link"];
-  RegisteredStatusBadge: PrimitivesRegistry["StatusBadge"];
+  RegisteredStatusBadge: PrimitivesRegistry["StatusBadge"] | undefined;
 }): ReactNode {
   const text = applyFormatSpec(
     { ...renderer, locale: renderer.locale ?? locale },
@@ -952,7 +952,7 @@ function renderSelectTypeCell({
   optionLabels: DataTableCellProps["optionLabels"];
   optionTones: DataTableCellProps["optionTones"];
   locale: string | undefined;
-  RegisteredStatusBadge: PrimitivesRegistry["StatusBadge"];
+  RegisteredStatusBadge: PrimitivesRegistry["StatusBadge"] | undefined;
 }): ReactNode | undefined {
   if (type === "select" && value !== null && value !== undefined && value !== "") {
     return selectPill(value, optionLabels, optionTones, locale, RegisteredStatusBadge);

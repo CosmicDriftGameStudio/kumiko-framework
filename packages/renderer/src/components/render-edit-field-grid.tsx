@@ -21,9 +21,9 @@ function nonEmptyText(value: unknown): string | undefined {
 function declaredBadge(
   field: EditFieldViewModel,
   values: Readonly<Record<string, unknown>>,
-  StatusBadge: ComponentType<StatusBadgeProps> | undefined,
+  StatusBadge: ComponentType<StatusBadgeProps>,
 ): ReactNode {
-  if (field.badge === undefined || StatusBadge === undefined) return undefined;
+  if (field.badge === undefined) return undefined;
   const text = "label" in field.badge ? field.badge.label : nonEmptyText(values[field.badge.field]);
   if (text === undefined) return undefined;
   return (
@@ -39,7 +39,7 @@ export function appendixCellProps(
   props: AppendixProps,
   field: EditFieldViewModel,
   values: Readonly<Record<string, unknown>>,
-  StatusBadge: ComponentType<StatusBadgeProps> | undefined,
+  StatusBadge: ComponentType<StatusBadgeProps>,
 ) {
   const { labelAppendix, fieldAppendix, fieldAppendixPlacement, fieldDescription } = props;
   const fieldName = field.field;

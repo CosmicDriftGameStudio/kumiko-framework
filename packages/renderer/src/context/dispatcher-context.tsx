@@ -1,7 +1,8 @@
-import { createContext, type ReactNode, useContext, useState } from "react";
+import { createContext, type ReactNode, useContext, useMemo, useState } from "react";
 import type { Dispatcher, DispatcherStatus } from "../headless/index.ts";
 import { useStore } from "../hooks/use-store.ts";
-import { createQueryPools, type QueryPools } from "./query-pool.ts";
+import { createQueryHub, type QueryHub } from "./query-hub.ts";
+import { createQueryPools } from "./query-pool.ts";
 
 // React Context threading the Dispatcher through the tree. An app
 // wraps its root in <DispatcherProvider dispatcher={createLiveDispatcher()}>
@@ -14,7 +15,7 @@ import { createQueryPools, type QueryPools } from "./query-pool.ts";
 // status listeners). Tests wire a fake dispatcher in directly.
 
 const DispatcherContext = createContext<Dispatcher | null>(null);
-const QueryPoolsContext = createContext<QueryPools | null>(null);
+const QueryHubContext = createContext<QueryHub | null>(null);
 
 export type DispatcherProviderProps = {
   readonly dispatcher: Dispatcher;
@@ -24,15 +25,12 @@ export type DispatcherProviderProps = {
 export function DispatcherProvider({ dispatcher, children }: DispatcherProviderProps): ReactNode {
   // Pools live with the provider so every hook of one query name shares them.
   const [queryPools] = useState(createQueryPools);
+  const queryHub = useMemo(() => createQueryHub(dispatcher, queryPools), [dispatcher, queryPools]);
   return (
     <DispatcherContext value={dispatcher}>
-      <QueryPoolsContext value={queryPools}>{children}</QueryPoolsContext>
+      <QueryHubContext value={queryHub}>{children}</QueryHubContext>
     </DispatcherContext>
   );
-}
-
-export function useOptionalQueryPools(): QueryPools | undefined {
-  return useContext(QueryPoolsContext) ?? undefined;
 }
 
 // Reads the ambient Dispatcher. Throws instead of returning null when
@@ -68,4 +66,14 @@ export function useOptionalDispatcher(): Dispatcher | undefined {
 // no flash on hydration.
 export function useDispatcherStatus(): DispatcherStatus {
   return useStore(useDispatcher().statusStore);
+}
+
+export function useQueryHub(): QueryHub {
+  const hub = useContext(QueryHubContext);
+  if (!hub) {
+    throw new Error(
+      "useQueryHub: no <DispatcherProvider> mounted above this component. Wrap your app root with <DispatcherProvider dispatcher={createLiveDispatcher()}>.",
+    );
+  }
+  return hub;
 }

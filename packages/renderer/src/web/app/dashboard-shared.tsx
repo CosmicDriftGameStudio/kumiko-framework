@@ -108,13 +108,14 @@ export function useRefetchRegistry(): {
 export function useDashboardQuery<TData>(
   type: string,
   payload: Readonly<Record<string, unknown>>,
-  options: { readonly enabled?: boolean } = {},
+  options: { readonly enabled?: boolean; readonly resultField?: string } = {},
 ): UseQueryResult<TData> {
   const { refreshIntervalMs, register } = useContext(DashboardQueryContext);
   const enabled = options.enabled ?? true;
   const result = useQuery<TData>(type, payload, {
     live: true,
     enabled,
+    ...(options.resultField !== undefined && { resultField: options.resultField }),
     ...(refreshIntervalMs !== undefined && { refetchIntervalMs: refreshIntervalMs }),
   });
   const { refetch } = result;
@@ -378,6 +379,7 @@ export function QueryPanel<TData>({
   const { data, error, loading, refetch } = useDashboardQuery<TData>(
     panel.query,
     panelPayload(panel, screenParams),
+    { ...(panel.resultField !== undefined && { resultField: panel.resultField }) },
   );
   useReportPanelLoaded(data, loading);
   let body: ReactNode;

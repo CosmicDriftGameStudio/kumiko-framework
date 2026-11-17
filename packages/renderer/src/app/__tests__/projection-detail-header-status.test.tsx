@@ -8,12 +8,11 @@ import { UserRolesProvider } from "../../context/user-roles-context.tsx";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import { PageHeaderSlotAvailableProvider } from "../../page-header-slot.ts";
-import {
-  type CorePrimitives,
-  type PageHeaderProps,
+import {  type PageHeaderProps,
   PrimitivesProvider,
   type StatusBadgeProps,
 } from "../../primitives.tsx";
+import { createStubPrimitives } from "../../testing.ts";
 import { AppFeaturesProvider } from "../app-features-context.tsx";
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
@@ -36,7 +35,7 @@ const TestStatusBadge = ({ value, tone, testId }: StatusBadgeProps): ReactNode =
   </span>
 );
 
-const testPrimitives: CorePrimitives = {
+const testPrimitives = createStubPrimitives({
   Button: noop,
   Banner: passChildren,
   Field: passChildren,
@@ -52,6 +51,13 @@ const testPrimitives: CorePrimitives = {
   Card: passChildren,
   Grid: passChildren,
   GridCell: passChildren,
+  Metric: ({ label, value, testId }) => (
+    <div>
+      <span>{label}</span>
+      <span data-testid={`${testId}-value`}>{value}</span>
+    </div>
+  ),
+  MetricBand: passChildren,
   Text: ({ children, testId }) => <span data-testid={testId}>{children}</span>,
   Heading: noop,
   Dialog: noop,
@@ -62,7 +68,7 @@ const testPrimitives: CorePrimitives = {
   Link: noop,
   PageHeader: TestPageHeader,
   StatusBadge: TestStatusBadge,
-};
+});
 
 const { dispatcher } = stubDispatcher({
   query: async () => ({

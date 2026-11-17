@@ -4,7 +4,8 @@ import { render, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
-import { type CorePrimitives, PrimitivesProvider } from "../../primitives.tsx";
+import {PrimitivesProvider } from "../../primitives.tsx";
+import { createStubPrimitives } from "../../testing.ts";
 import { createMockDispatcher, type MockQueryHandler } from "../../web/__tests__/test-utils.tsx";
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
@@ -13,7 +14,7 @@ import { NavProvider } from "../nav.tsx";
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 
-const primitives: CorePrimitives = {
+const primitives = createStubPrimitives({
   Button: noop,
   Banner: passChildren,
   Field: passChildren,
@@ -32,7 +33,7 @@ const primitives: CorePrimitives = {
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,
   Link: noop,
-};
+});
 
 describe("configEdit reads at the scope it edits", () => {
   test("a system-scope screen asks config:query:values for the system level", async () => {

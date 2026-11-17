@@ -19,12 +19,12 @@ import type { Dispatcher, RuntimeRenderer } from "../../headless/index.ts";
 import { REFERENCE_LIST_LOOKUP_LIMIT } from "../../hooks/reference-limits.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
-import { type CorePrimitives, type DataTableProps, PrimitivesProvider } from "../../primitives.tsx";
+import {type DataTableProps, PrimitivesProvider } from "../../primitives.tsx";
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import type { NavApi } from "../nav.tsx";
 import { NavProvider } from "../nav.tsx";
-import { createMockDispatcher } from "../../testing.ts";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 
 function systemReferenceId(referenceKey: string): string {
   const label = SYSTEM_REFERENCE_LABELS[referenceKey];
@@ -71,7 +71,7 @@ const getCapturedProps = (): DataTableProps | undefined => capturedProps;
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 
-const testPrimitives: CorePrimitives = {
+const testPrimitives = createStubPrimitives({
   Button: noop,
   Banner: passChildren,
   Field: passChildren,
@@ -90,7 +90,7 @@ const testPrimitives: CorePrimitives = {
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,
   Link: noop,
-};
+});
 
 function stubDispatcher(): Dispatcher {
   return createMockDispatcher({

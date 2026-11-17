@@ -69,34 +69,25 @@ export function renderWizardProgress<TValues extends FormValues, TCtx>({
   engine: { state, steps, sections, nav },
   titles,
 }: RenderEditModel<TValues, TCtx>): ReactNode {
-  const { Progress, StepBar, Text } = state.primitives;
+  const { Progress, StepBar } = state.primitives;
   const { currentStep, lastStepIndex, updateModeStepBarProps } = steps;
   return (
     state.isWizard &&
     !titles.stepRail && (
       <>
-        {Progress !== undefined && (
-          <Progress
-            value={(currentStep + 1) / (lastStepIndex + 1)}
-            testId="render-edit-wizard-progress"
-          />
-        )}
-        {/* No StepBar registered → keep the plain label RenderEdit always had (additive rollout, see CorePrimitives.StepBar). */}
-        {StepBar === undefined ? (
-          <Text variant="small" testId="render-edit-wizard-step-label">
-            {titles.compactStepLabel}
-          </Text>
-        ) : (
-          <StepBar
-            steps={sections.filteredSections.map((section) => section.title ?? "")}
-            currentIndex={currentStep}
-            compactLabel={titles.compactStepLabel}
-            onStepSelect={nav.handleWizardStepSelect}
-            {...updateModeStepBarProps}
-            testId="render-edit-wizard-steps"
-            compactTestId="render-edit-wizard-step-label"
-          />
-        )}
+        <Progress
+          value={(currentStep + 1) / (lastStepIndex + 1)}
+          testId="render-edit-wizard-progress"
+        />
+        <StepBar
+          steps={sections.filteredSections.map((section) => section.title ?? "")}
+          currentIndex={currentStep}
+          compactLabel={titles.compactStepLabel}
+          onStepSelect={nav.handleWizardStepSelect}
+          {...updateModeStepBarProps}
+          testId="render-edit-wizard-steps"
+          compactTestId="render-edit-wizard-step-label"
+        />
       </>
     )
   );
@@ -107,11 +98,6 @@ export function renderTabStrip<TValues extends FormValues, TCtx>({
 }: RenderEditModel<TValues, TCtx>): ReactNode {
   const { Tabs } = state.primitives;
   const { filteredSections } = sections;
-  // No Tabs primitive registered → every section renders stacked
-  // (stepHidden below is gated on the same condition), which is the
-  // single-layout behaviour. Degrading to one long form beats
-  // hiding sections behind a strip that never drew.
-  if (Tabs === undefined) return null;
   return (
     <Tabs
       testId="render-edit-tabs"

@@ -6,9 +6,6 @@ import QRCode from "qrcode/lib/browser.js";
 import { defaultPrimitives } from "../index.tsx";
 
 const { SecretReveal } = defaultPrimitives;
-if (SecretReveal === undefined) {
-  throw new Error("defaultPrimitives.SecretReveal is not registered");
-}
 
 describe("DefaultSecretReveal", () => {
   test("without qr, renders the value as monospaced text", () => {

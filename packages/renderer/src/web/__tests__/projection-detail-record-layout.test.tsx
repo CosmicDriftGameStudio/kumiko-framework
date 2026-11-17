@@ -20,7 +20,7 @@ import {
 import { PageHeaderSlotProvider } from "../layout/page-header-slot.tsx";
 import { ShellHeader } from "../layout/shell-header.tsx";
 import { defaultPrimitives } from "../primitives/index.tsx";
-import { createMockDispatcher, type MockQueryHandler, render, renderWithPrimitivesOverride, renderWithSidebar, screen, waitFor } from "./test-utils.tsx";
+import { createMockDispatcher, type MockQueryHandler, render, renderWithSidebar, screen, waitFor } from "./test-utils.tsx";
 
 const baseScreen: ProjectionDetailScreenDefinition = {
   id: "rent-detail",
@@ -902,27 +902,6 @@ describe("KumikoScreen / projectionDetail — metric tiles render through the Me
       screen.getByTestId("kumiko-screen-projection-detail-metric-balance-value").textContent,
     ).toBe("120");
   });
-
-  test("falls back to plain label/value Text when no Metric primitive is registered", async () => {
-    const dispatcher = dispatcherReturning(rowData);
-
-    renderWithPrimitivesOverride(
-      <DispatcherProvider dispatcher={dispatcher}>
-        <KumikoScreen
-          schema={schemaFor(metricsScreen)}
-          qn="rentals:screen:rent-detail"
-          entityId="rent-1"
-        />
-      </DispatcherProvider>,
-      { Metric: undefined },
-    );
-
-    await waitFor(() => screen.getByTestId("render-edit-form"));
-    expect(
-      screen.getByTestId("kumiko-screen-projection-detail-metric-balance-value").textContent,
-    ).toBe("120");
-    expect(screen.queryByTestId("kumiko-screen-projection-detail-metric-balance")).toBeNull();
-  });
 });
 
 function StatefulTabNav({ children }: { readonly children: ReactNode }): ReactNode {
@@ -1164,34 +1143,6 @@ describe("KumikoScreen / projectionDetail — layout.mode: 'tabs'", () => {
     // draws its own card frame, so a second nested Card would double it up.
     expect(screen.queryByTestId("related-list-Payments")).toBeNull();
   });
-
-  test("without a Tabs primitive, falls back to the stacked all-sections layout instead of truncating to the first section", async () => {
-    const dispatcher = dispatcherReturning(rowData);
-    const { navApi } = navWithTab(undefined);
-
-    renderWithPrimitivesOverride(
-      <NavProvider value={navApi}>
-        <DispatcherProvider dispatcher={dispatcher}>
-          <KumikoScreen
-            schema={schemaFor(tabsScreen)}
-            qn="rentals:screen:rent-detail"
-            entityId="rent-1"
-          />
-        </DispatcherProvider>
-      </NavProvider>,
-      { Tabs: undefined },
-    );
-
-    await waitFor(() => screen.getByTestId("field-description"));
-    // Pre-fix: activeSection stayed truncated to sections[0] even without a
-    // Tabs primitive to switch away from it — payments/invoices content was
-    // permanently unreachable, with no tab strip to reach it either.
-    await waitFor(() =>
-      expect(dispatcher.calls.some((c) => c.type === "rentals:query:rent:payments")).toBe(true),
-    );
-    expect(dispatcher.calls.some((c) => c.type === "rentals:query:rent:invoices")).toBe(true);
-    expect(screen.queryByTestId("kumiko-screen-projection-detail-tabs")).toBeNull();
-  });
 });
 
 // Only guard against a solon-shaped screen (relatedList-heavy) silently regressing.
@@ -1295,7 +1246,7 @@ describe("KumikoScreen / projectionDetail — switching records remounts the bod
   });
 });
 
-describe("KumikoScreen / projectionDetail — PageHeader without MetricBand", () => {
+describe("KumikoScreen / projectionDetail — PageHeader subtitle", () => {
   test.each([
     ["without metrics", undefined],
     ["with metrics", [{ field: "balance", label: "rentals.detail.metric.balance" }]],
@@ -1307,7 +1258,7 @@ describe("KumikoScreen / projectionDetail — PageHeader without MetricBand", ()
     };
 
     renderWithSidebar(
-      <PrimitivesProvider value={{ ...defaultPrimitives, MetricBand: undefined }}>
+      <PrimitivesProvider value={defaultPrimitives}>
         <DispatcherProvider dispatcher={dispatcherReturning(rowData)}>
           <PageHeaderSlotProvider>
             <ShellHeader schema={{ features: [schemaFor(screenDef)] }} />

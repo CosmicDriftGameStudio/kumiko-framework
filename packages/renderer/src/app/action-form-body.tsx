@@ -8,7 +8,6 @@ import { AiAssistPayloadProvider } from "../components/ai-assist-payload.tsx";
 import { withDerivedValues } from "../components/form-derivation-patch.ts";
 import { RenderEdit } from "../components/render-edit.tsx";
 import { useDispatcher } from "../context/dispatcher-context.tsx";
-import { rendererWarn } from "../dev-console.ts";
 import {
   type FormSnapshot,
   type FormValues,
@@ -154,20 +153,7 @@ export function DrawerHost({
     if (hasUnsavedInput) setConfirmDiscardOpen(true);
     else closeAndReset();
   }, [hasUnsavedInput, closeAndReset]);
-  // Drawer is an optional Core-Primitive (additive rollout) — same "skip +
-  // warn" precedent as rowActions without a mounted DispatcherProvider above,
-  // instead of crashing when a web app hasn't upgraded its createKumikoApp
-  // wiring yet. The warning repeats per mount and whenever the action changes.
-  // Dev-time setup error, so no dedupe.
-  useEffect(() => {
-    if (drawerAction !== null && Drawer === undefined) {
-      rendererWarn(
-        `[kumiko] toolbarAction "${drawerAction.id}" is kind:"drawer", but no <Drawer> primitive is registered — it will not open. createKumikoApp() from kumiko-renderer-web wires it automatically.`,
-      );
-    }
-  }, [drawerAction, Drawer]);
-
-  if (drawerAction === null || Drawer === undefined) return null;
+  if (drawerAction === null) return null;
 
   // Access mirrors kind:"navigate" exactly: the toolbar button itself stays
   // visible either way (same as navigate — access is enforced at the
@@ -611,20 +597,19 @@ export function ActionFormBody({
             </>
           ),
         })}
-        {...(screen.fieldBadges !== undefined &&
-          StatusBadge !== undefined && {
-            labelAppendix: (fieldName: string) => {
-              const badge = screen.fieldBadges?.[fieldName];
-              if (badge === undefined) return undefined;
-              return (
-                <StatusBadge
-                  value={effectiveTranslate(badge.label)}
-                  tone={statusToneForOptionTone(badge.tone) ?? "muted"}
-                  testId={`field-badge-${fieldName}`}
-                />
-              );
-            },
-          })}
+        {...(screen.fieldBadges !== undefined && {
+          labelAppendix: (fieldName: string) => {
+            const badge = screen.fieldBadges?.[fieldName];
+            if (badge === undefined) return undefined;
+            return (
+              <StatusBadge
+                value={effectiveTranslate(badge.label)}
+                tone={statusToneForOptionTone(badge.tone) ?? "muted"}
+                testId={`field-badge-${fieldName}`}
+              />
+            );
+          },
+        })}
         writeCommand={submitThrough?.handler ?? screen.handler}
         payloadMode="values"
         {...(submitThrough !== undefined && {

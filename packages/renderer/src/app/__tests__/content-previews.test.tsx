@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { cleanup, render, screen } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
-import { type CorePrimitives, type InputProps, PrimitivesProvider } from "../../primitives.tsx";
+import {type InputProps, PrimitivesProvider } from "../../primitives.tsx";
+import { createStubPrimitives } from "../../testing.ts";
 import {
   ContentPreviewsProvider,
   PREVIEW_TARGETS,
@@ -18,7 +19,7 @@ const textareaInput: ComponentType<InputProps> = (props) =>
     <textarea data-testid="fallback-text" value={props.value} readOnly />
   ) : null;
 
-const testPrimitives: CorePrimitives = {
+const testPrimitives = createStubPrimitives({
   Button: noop,
   Banner: passChildren,
   Field: passChildren,
@@ -37,7 +38,7 @@ const testPrimitives: CorePrimitives = {
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,
   Link: noop,
-};
+});
 
 function WithPrimitives({ children }: { readonly children: ReactNode }): ReactNode {
   return <PrimitivesProvider value={testPrimitives}>{children}</PrimitivesProvider>;

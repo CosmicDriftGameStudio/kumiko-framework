@@ -64,24 +64,15 @@ function NotAvailableState({
   readonly actions?: ReactNode;
   readonly testId: string;
 }): ReactNode {
-  const { EmptyState, Card, Text } = usePrimitives();
-  if (EmptyState !== undefined) {
-    return (
-      <EmptyState
-        icon={icon}
-        title={title}
-        description={description}
-        actions={actions}
-        testId={testId}
-      />
-    );
-  }
+  const { EmptyState } = usePrimitives();
   return (
-    <Card options={{ padded: true }} testId={testId}>
-      <Text testId={`${testId}-title`}>{title}</Text>
-      {description}
-      {actions}
-    </Card>
+    <EmptyState
+      icon={icon}
+      title={title}
+      description={description}
+      actions={actions}
+      testId={testId}
+    />
   );
 }
 

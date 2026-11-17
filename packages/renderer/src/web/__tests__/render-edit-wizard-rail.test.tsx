@@ -7,7 +7,7 @@ import {
   useExtensionFormSubmit,
 } from "../../index.ts";
 import { makeDispatcher, orderEntity, type TestValues } from "./_render-edit-helpers.tsx";
-import { fireEvent, render, renderWithPrimitivesOverride, screen, waitFor } from "./test-utils.tsx";
+import { fireEvent, render, screen, waitFor } from "./test-utils.tsx";
 
 type WizardLayout = NonNullable<EntityEditScreenDefinition["layout"]["wizard"]>;
 type SectionSpecs = EntityEditScreenDefinition["layout"]["sections"];
@@ -67,24 +67,6 @@ describe("wizard step rail: per-step texts", () => {
     // Step 1 stays mounted but hidden: only its own header copy remains, the rail intro moved on.
     expect(screen.getAllByText("Name the order.")).toHaveLength(1);
     expect(screen.getAllByText("Count the items.")).toHaveLength(2);
-  });
-
-  test("without a rendered rail the step description stays in the section header", () => {
-    renderWithPrimitivesOverride(
-      <DispatcherProvider dispatcher={makeDispatcher()}>
-        <RenderEdit<TestValues>
-          screen={wizardScreen(describedSections)}
-          entity={orderEntity}
-          featureName="orders"
-          initial={{ title: "Acme", count: 1, isUrgent: false } as TestValues}
-          writeCommand="order:create"
-          fillScreenHeight
-        />
-      </DispatcherProvider>,
-      { StepBar: undefined },
-    );
-    expect(screen.getByText("Name the order.").className).not.toContain("lg:hidden");
-    expect(screen.queryByTestId("render-edit-wizard-steps")).toBeNull();
   });
 
   test("an explicit subtitle wins over the description in the row", () => {

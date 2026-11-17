@@ -37,13 +37,11 @@ export function FieldRendererOutput({
       : undefined;
   const Component = useColumnRenderer(componentName);
   if (isFormatSpec(renderer)) {
-    // format:"json" wants the raw value (JsonView stringifies + highlights
-    // itself) — applyFormatSpec's already-indented string is only the
-    // fallback for primitives-providers without JsonView.
-    if (renderer.format === "json" && JsonView !== undefined) {
+    // format:"json" wants the raw value: JsonView stringifies and highlights itself.
+    if (renderer.format === "json") {
       return <JsonView value={field.value} indent={renderer.indent} testId={valueTestId} />;
     }
-    if (renderer.format === "file" && FileValueList !== undefined) {
+    if (renderer.format === "file") {
       const fileIds = fileIdsOf(field.value);
       if (fileIds.length === 0) return <Text testId={valueTestId}>{EMPTY_VALUE_PLACEHOLDER}</Text>;
       return (

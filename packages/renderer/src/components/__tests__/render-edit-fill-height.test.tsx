@@ -12,7 +12,8 @@ import { render } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
-import { type CorePrimitives, type FormProps, PrimitivesProvider } from "../../primitives.tsx";
+import {type FormProps, PrimitivesProvider } from "../../primitives.tsx";
+import { createStubPrimitives } from "../../testing.ts";
 import { RenderEdit } from "../render-edit.tsx";
 
 const noop = (): ReactNode => null;
@@ -48,7 +49,7 @@ function capturedFormFor(
     captured = props;
     return props.children;
   };
-  const primitives: CorePrimitives = {
+  const primitives = createStubPrimitives({
     Button: noop,
     Banner: noop,
     Field: passChildren,
@@ -67,7 +68,7 @@ function capturedFormFor(
     ConfigSourceBadge: noop,
     ConfigCascadeView: noop,
     Link: noop,
-  };
+  });
   const screen: EntityEditScreenDefinition = {
     id: "widget-edit",
     type: "entityEdit",

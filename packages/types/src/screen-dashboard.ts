@@ -79,6 +79,8 @@ export type DashboardPanelQueryOptions = {
    *  picker must not hit sources without a tenant column). The screen
    *  `timeRange` still is. */
   readonly ignoreScreenFilter?: boolean;
+  /** Reads `answer[resultField]` instead of the whole answer. Panels with the same `query` and the same merged params share one request, so one screen query can feed several panels. */
+  readonly resultField?: string;
 };
 
 // Gate of a top-level query panel (stat, stat-group, chart, list, feed,

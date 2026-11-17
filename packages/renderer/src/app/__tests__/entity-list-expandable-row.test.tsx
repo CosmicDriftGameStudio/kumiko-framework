@@ -17,15 +17,13 @@ import type { Dispatcher } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import {
-  type ButtonProps,
-  type CorePrimitives,
-  type DataTableProps,
+  type ButtonProps,  type DataTableProps,
   PrimitivesProvider,
 } from "../../primitives.tsx";
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import { NavProvider } from "../nav.tsx";
-import { createMockDispatcher } from "../../testing.ts";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 
 const PARENT_QN = "campaigns:query:campaign:list";
 const CHILD_QN = "campaigns:query:campaign-post:list";
@@ -129,7 +127,7 @@ const TestButton: ComponentType<ButtonProps> = ({ children, onClick, testId }) =
   </button>
 );
 
-const testPrimitives: CorePrimitives = {
+const testPrimitives = createStubPrimitives({
   Button: TestButton,
   Banner: passChildren,
   Field: passChildren,
@@ -148,7 +146,7 @@ const testPrimitives: CorePrimitives = {
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,
   Link: noop,
-};
+});
 
 function buildSchema(withExpandableRow: boolean): FeatureSchema {
   const entity: EntityDefinition = {

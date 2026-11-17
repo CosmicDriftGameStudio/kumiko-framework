@@ -184,24 +184,20 @@ export function MfaSetupPreauthScreen({
         <Form onSubmit={onSubmit}>
           <Section testId="mfa-setup-preauth-setup">
             <div className="flex flex-col items-center gap-2 text-center">
-              {SecretReveal !== undefined ? (
-                <SecretReveal
-                  values={[
-                    {
-                      label: t("auth.mfa.enable.scanTitle"),
-                      value: setup.otpauthUri,
-                      qr: true,
-                      copyable: false,
-                      multiline: false,
-                    },
-                  ]}
-                  copyLabel={t("kumiko.secretMint.copy")}
-                  copiedLabel={t("kumiko.secretMint.copied")}
-                  testId="mfa-setup-preauth-qr"
-                />
-              ) : (
-                <span className="text-sm font-semibold">{t("auth.mfa.enable.scanTitle")}</span>
-              )}
+              <SecretReveal
+                values={[
+                  {
+                    label: t("auth.mfa.enable.scanTitle"),
+                    value: setup.otpauthUri,
+                    qr: true,
+                    copyable: false,
+                    multiline: false,
+                  },
+                ]}
+                copyLabel={t("kumiko.secretMint.copy")}
+                copiedLabel={t("kumiko.secretMint.copied")}
+                testId="mfa-setup-preauth-qr"
+              />
               <span className="text-xs text-muted-foreground">
                 {t("auth.mfa.enable.manualEntry")}
               </span>

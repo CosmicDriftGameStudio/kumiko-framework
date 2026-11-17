@@ -68,11 +68,7 @@ export function ExtensionSectionMount({
     // the testId without adding chrome (same primitive RelatedListSection
     // uses for its own hideTitle branch).
     return hideTitle === true ? (
-      FillContainer !== undefined ? (
-        <FillContainer testId={testId}>{placeholder}</FillContainer>
-      ) : (
-        placeholder
-      )
+      <FillContainer testId={testId}>{placeholder}</FillContainer>
     ) : (
       <Section
         key={section.title}
@@ -99,11 +95,7 @@ export function ExtensionSectionMount({
   // Same reasoning as the placeholder branch above: tabs mode's outer Card
   // is the only frame this content gets, no nested Section divider.
   return hideTitle === true ? (
-    FillContainer !== undefined ? (
-      <FillContainer testId={testId}>{mounted}</FillContainer>
-    ) : (
-      mounted
-    )
+    <FillContainer testId={testId}>{mounted}</FillContainer>
   ) : (
     <Section
       {...(actions !== undefined && { actions })}

@@ -284,7 +284,6 @@ export function ActionFormFacts({
   return facts.map((fact) => {
     const factTestId = `${testIdPrefix}-${fact.key}`;
     if (fact.fileIds !== undefined) {
-      if (FileValueList === undefined) return null;
       return (
         <Grid key={fact.key} columns={1} testId={factTestId}>
           <Text>{fact.label}:</Text>

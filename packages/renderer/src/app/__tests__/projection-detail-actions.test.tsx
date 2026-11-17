@@ -26,9 +26,7 @@ import {
   type ActionOverflowMenuProps,
   type BannerProps,
   type ButtonProps,
-  type CardProps,
-  type CorePrimitives,
-  type DialogProps,
+  type CardProps,  type DialogProps,
   type FormProps,
   PrimitivesProvider,
 } from "../../primitives.tsx";
@@ -38,7 +36,7 @@ import { KumikoScreen } from "../kumiko-screen.tsx";
 import type { NavApi, ScreenTarget } from "../nav.tsx";
 import { NavProvider } from "../nav.tsx";
 import type { ProjectionDetailScreenWithTarget } from "../projection-detail-states.tsx";
-import { createMockDispatcher } from "../../testing.ts";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
@@ -136,7 +134,7 @@ const TestDialog: DialogSpy = Object.assign(
   { lastProps: null as DialogProps | null },
 );
 
-const testPrimitives: CorePrimitives = {
+const testPrimitives = createStubPrimitives({
   Button: TestButton,
   Banner: TestBanner,
   Field: passChildren,
@@ -156,7 +154,7 @@ const testPrimitives: CorePrimitives = {
   ConfigCascadeView: noop,
   Link: noop,
   ActionOverflowMenu: TestActionOverflowMenu,
-};
+});
 
 function stubDispatcher(
   record: Readonly<Record<string, unknown>>,

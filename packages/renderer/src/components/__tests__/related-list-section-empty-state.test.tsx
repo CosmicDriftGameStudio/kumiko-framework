@@ -17,6 +17,7 @@ import {
   PrimitivesProvider,
   type TextProps,
 } from "../../primitives.tsx";
+import { createStubPrimitives } from "../../testing.ts";
 import { RelatedListSection } from "../related-list-section.tsx";
 
 const noop = () => {};
@@ -34,7 +35,7 @@ const testButton = (props: ButtonProps) => (
 const testText = ({ children }: TextProps) => <span>{children}</span>;
 
 function testPrimitives(): CorePrimitives {
-  return {
+  return createStubPrimitives({
     Button: testButton,
     Banner: passChildren,
     Field: passChildren,
@@ -53,7 +54,7 @@ function testPrimitives(): CorePrimitives {
     ConfigSourceBadge: noop,
     ConfigCascadeView: noop,
     Link: noop,
-  } as unknown as CorePrimitives;
+  });
 }
 
 const baseSection: EditRelatedListSectionViewModel = {

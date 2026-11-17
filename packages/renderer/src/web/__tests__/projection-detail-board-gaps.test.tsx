@@ -4,7 +4,7 @@ import { describe, expect, test } from "bun:test";
 import type { ProjectionDetailScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
 import { PageHeaderSlotAvailableProvider } from "../../page-header-slot.ts";
-import { createMockDispatcher, type MockQueryHandler, render, renderWithPrimitivesOverride, screen, waitFor } from "./test-utils.tsx";
+import { createMockDispatcher, type MockQueryHandler, render, screen, waitFor } from "./test-utils.tsx";
 
 const baseScreen: ProjectionDetailScreenDefinition = {
   id: "order-detail",
@@ -265,7 +265,6 @@ describe("KumikoScreen / projectionDetail — board gaps", () => {
     function renderNotice(
       detail: ProjectionDetailScreenDefinition,
       data: Record<string, unknown>,
-      primitives?: Parameters<typeof renderWithPrimitivesOverride>[1],
     ): void {
       const query: MockQueryHandler = async () => ({ isSuccess: true, data });
       const ui = (
@@ -277,20 +276,13 @@ describe("KumikoScreen / projectionDetail — board gaps", () => {
           />
         </DispatcherProvider>
       );
-      if (primitives === undefined) render(ui);
-      else renderWithPrimitivesOverride(ui, primitives);
+      render(ui);
     }
 
     test("a narrowLabel draws both labels, one per breakpoint", async () => {
       renderNotice(withBannerAction, notice);
       await waitFor(() => screen.getByText("Refresh order"));
       expect(screen.getByText("Refresh")).toBeTruthy();
-    });
-
-    test("without FillContainer the host gets the one button, not both stacked", async () => {
-      renderNotice(withBannerAction, notice, { FillContainer: undefined });
-      await waitFor(() => screen.getByText("Refresh order"));
-      expect(screen.queryByText("Refresh")).toBeNull();
     });
 
     const withSubtitle = (narrowSubtitle: string): ProjectionDetailScreenDefinition => ({

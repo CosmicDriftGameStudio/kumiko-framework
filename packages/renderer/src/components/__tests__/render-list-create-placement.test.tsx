@@ -12,12 +12,11 @@ import {
   PageHeaderSlotAvailableProvider,
 } from "../../page-header-slot.ts";
 import {
-  type ButtonProps,
-  type CorePrimitives,
-  type DataTableProps,
+  type ButtonProps,  type DataTableProps,
   type PageHeaderProps,
   PrimitivesProvider,
 } from "../../primitives.tsx";
+import { createStubPrimitives } from "../../testing.ts";
 import { RenderList } from "../render-list.tsx";
 import { withPlusIconFallback } from "../render-list-toolbar-model.ts";
 
@@ -50,7 +49,7 @@ const toolbarOnlyDataTable: ComponentType<DataTableProps> = ({ toolbarEnd }) => 
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 
-const testPrimitives: CorePrimitives = {
+const testPrimitives = createStubPrimitives({
   Button: TestButton,
   PageHeader: TestPageHeader,
   Banner: passChildren,
@@ -70,7 +69,7 @@ const testPrimitives: CorePrimitives = {
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,
   Link: noop,
-};
+});
 
 const entity: EntityDefinition = {
   fields: {

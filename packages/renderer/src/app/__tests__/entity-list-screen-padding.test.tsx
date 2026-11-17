@@ -13,11 +13,11 @@ import type { ComponentType, ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import type { Dispatcher } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
-import { type CorePrimitives, type DataTableProps, PrimitivesProvider } from "../../primitives.tsx";
+import {type DataTableProps, PrimitivesProvider } from "../../primitives.tsx";
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import { NavProvider } from "../nav.tsx";
-import { createMockDispatcher } from "../../testing.ts";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
@@ -66,7 +66,7 @@ async function captureListProps(fillHeight?: boolean): Promise<DataTableProps> {
     captured = props;
     return null;
   };
-  const primitives: CorePrimitives = {
+  const primitives = createStubPrimitives({
     Button: noop,
     Banner: passChildren,
     Field: passChildren,
@@ -85,7 +85,7 @@ async function captureListProps(fillHeight?: boolean): Promise<DataTableProps> {
     ConfigSourceBadge: noop,
     ConfigCascadeView: noop,
     Link: noop,
-  };
+  });
   render(
     <LocaleProvider resolver={createStaticLocaleResolver({ locale: "de-DE" })}>
       <DispatcherProvider dispatcher={stubDispatcher()}>

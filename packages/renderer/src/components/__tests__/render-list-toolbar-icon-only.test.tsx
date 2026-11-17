@@ -14,11 +14,10 @@ import type { ComponentType, ReactNode } from "react";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import {
-  type ButtonProps,
-  type CorePrimitives,
-  type DataTableProps,
+  type ButtonProps,  type DataTableProps,
   PrimitivesProvider,
 } from "../../primitives.tsx";
+import { createStubPrimitives } from "../../testing.ts";
 import { RenderList, type ToolbarActionButton } from "../render-list.tsx";
 
 const TestButton: ComponentType<ButtonProps> = ({
@@ -52,7 +51,7 @@ const toolbarOnlyDataTable: ComponentType<DataTableProps> = ({ toolbarEnd }) => 
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 
-const testPrimitives: CorePrimitives = {
+const testPrimitives = createStubPrimitives({
   Button: TestButton,
   Banner: passChildren,
   Field: passChildren,
@@ -71,7 +70,7 @@ const testPrimitives: CorePrimitives = {
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,
   Link: noop,
-};
+});
 
 const entity: EntityDefinition = {
   fields: {

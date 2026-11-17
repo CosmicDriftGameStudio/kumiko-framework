@@ -8,6 +8,7 @@ import type { ReactNode } from "react";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import { type CardProps, type CorePrimitives, PrimitivesProvider } from "../../primitives.tsx";
+import { createStubPrimitives } from "../../testing.ts";
 import { RenderEdit } from "../render-edit.tsx";
 
 const noop = (): ReactNode => null;
@@ -45,7 +46,7 @@ function renderTabsMode(description: string | undefined): void {
       ],
     },
   };
-  const primitives = {
+  const primitives = createStubPrimitives({
     Button: noop,
     Banner: noop,
     Field: passChildren,
@@ -64,7 +65,7 @@ function renderTabsMode(description: string | undefined): void {
     ConfigSourceBadge: noop,
     ConfigCascadeView: noop,
     Link: noop,
-  } as unknown as CorePrimitives;
+  });
   render(
     <LocaleProvider
       resolver={createStaticLocaleResolver({ locale: "en-US" })}

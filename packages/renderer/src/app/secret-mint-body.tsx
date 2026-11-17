@@ -76,9 +76,6 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
     Heading,
     Banner,
     Button,
-    Text,
-    Grid,
-    GridCell,
     Section,
     SecretReveal,
     Field,
@@ -278,23 +275,12 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
         <Banner variant="warning" testId="kumiko-screen-secret-mint-warning">
           {effectiveTranslate(screen.reveal.warning ?? "kumiko.secretMint.warning")}
         </Banner>
-        {SecretReveal !== undefined ? (
-          <SecretReveal
-            values={values}
-            copyLabel={effectiveTranslate("kumiko.secretMint.copy")}
-            copiedLabel={effectiveTranslate("kumiko.secretMint.copied")}
-            testId="kumiko-screen-secret-mint-reveal"
-          />
-        ) : (
-          <Grid columns={1} testId="kumiko-screen-secret-mint-reveal">
-            {values.map((v) => (
-              <GridCell key={v.label}>
-                <Text>{v.label}</Text>
-                <Text variant="code">{v.value}</Text>
-              </GridCell>
-            ))}
-          </Grid>
-        )}
+        <SecretReveal
+          values={values}
+          copyLabel={effectiveTranslate("kumiko.secretMint.copy")}
+          copiedLabel={effectiveTranslate("kumiko.secretMint.copied")}
+          testId="kumiko-screen-secret-mint-reveal"
+        />
         {acknowledgeKey !== undefined && (
           <Field
             id="secret-mint-acknowledge"

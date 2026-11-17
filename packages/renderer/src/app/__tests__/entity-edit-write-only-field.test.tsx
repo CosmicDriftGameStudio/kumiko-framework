@@ -15,16 +15,14 @@ import type { Dispatcher } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import {
-  type ButtonProps,
-  type CorePrimitives,
-  type FormProps,
+  type ButtonProps,  type FormProps,
   type InputProps,
   PrimitivesProvider,
 } from "../../primitives.tsx";
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import { NavProvider } from "../nav.tsx";
-import { createMockDispatcher } from "../../testing.ts";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 
 const capturedInputs: Record<string, InputProps | undefined> = {};
 let capturedFormSubmit: ((e?: FormEvent) => void) | undefined;
@@ -63,7 +61,7 @@ const domInput: ComponentType<InputProps> = (props) => {
   );
 };
 
-const testPrimitives: CorePrimitives = {
+const testPrimitives = createStubPrimitives({
   Button: domButton,
   Banner: passChildren,
   Field: passChildren,
@@ -82,7 +80,7 @@ const testPrimitives: CorePrimitives = {
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,
   Link: noop,
-};
+});
 
 let lastWrite: { type: string; payload: unknown } | undefined;
 

@@ -260,7 +260,7 @@ export function RelatedListSection({
    *  sort/search/filter state — the host's record changed without a remount. */
   readonly refreshToken?: number;
 }): ReactNode {
-  const { Banner, Section, FillContainer, PhotoGrid } = usePrimitives();
+  const { Banner, Section, FillContainer } = usePrimitives();
   const [emptyStateActionError, setEmptyStateActionError] = useState<ErrorNotice | null>(null);
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
@@ -545,7 +545,7 @@ export function RelatedListSection({
         </Banner>
       )}
       <ListGroupPageBridges {...aggregates.groupPages} />
-      {section.photoGrid !== undefined && PhotoGrid !== undefined ? (
+      {section.photoGrid !== undefined ? (
         listRows.rows.length === 0 ? (
           emptyStateContent
         ) : (
@@ -642,16 +642,12 @@ export function RelatedListSection({
     return (
       <>
         {bridges}
-        {FillContainer !== undefined ? (
-          <FillContainer
-            testId="related-list-card"
-            className="mx-6 my-3 overflow-hidden rounded-[9px] border border-border bg-card max-sm:mx-4 max-sm:rounded-none max-sm:border-0 max-sm:bg-transparent [&_thead_th]:bg-muted"
-          >
-            {content}
-          </FillContainer>
-        ) : (
-          content
-        )}
+        <FillContainer
+          testId="related-list-card"
+          className="mx-6 my-3 overflow-hidden rounded-[9px] border border-border bg-card max-sm:mx-4 max-sm:rounded-none max-sm:border-0 max-sm:bg-transparent [&_thead_th]:bg-muted"
+        >
+          {content}
+        </FillContainer>
       </>
     );
   }

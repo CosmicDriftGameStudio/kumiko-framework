@@ -13,12 +13,12 @@ import type { Dispatcher } from "../../headless/index.ts";
 import { REFERENCE_COMBOBOX_LIMIT } from "../../hooks/reference-limits.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
-import { type CorePrimitives, PrimitivesProvider, type TextProps } from "../../primitives.tsx";
+import {PrimitivesProvider, type TextProps } from "../../primitives.tsx";
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import type { NavApi } from "../nav.tsx";
 import { NavProvider } from "../nav.tsx";
-import { createMockDispatcher } from "../../testing.ts";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 
 const SYSTEM_USER_ID = "00000000-0000-0000-0000-000000000000";
 
@@ -53,7 +53,7 @@ const TestText: ComponentType<TextProps> = ({ children, testId }) => (
   <span data-testid={testId}>{children}</span>
 );
 
-const testPrimitives: CorePrimitives = {
+const testPrimitives = createStubPrimitives({
   Button: noop,
   Banner: passChildren,
   Field: passChildren,
@@ -72,7 +72,7 @@ const testPrimitives: CorePrimitives = {
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,
   Link: noop,
-};
+});
 
 function stubDispatcher(): Dispatcher {
   return createMockDispatcher({

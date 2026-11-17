@@ -13,7 +13,6 @@ import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import {
   type ButtonProps,
   type CardProps,
-  type CorePrimitives,
   type FormProps,
   PrimitivesProvider,
   type SectionProps,
@@ -23,7 +22,7 @@ import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import type { NavApi } from "../nav.tsx";
 import { NavProvider } from "../nav.tsx";
-import { createMockDispatcher } from "../../testing.ts";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
@@ -66,7 +65,7 @@ const TestSection: ComponentType<SectionProps> = ({ testId, children, actions })
   </div>
 );
 
-const testPrimitives = {
+const testPrimitives = createStubPrimitives({
   Button: TestButton,
   Banner: noop,
   Field: passChildren,
@@ -85,7 +84,7 @@ const testPrimitives = {
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,
   Link: noop,
-} as unknown as CorePrimitives;
+});
 
 const DETAIL_QUERY = "app:query:order-detail";
 const NOTES_QUERY = "app:query:order-notes";

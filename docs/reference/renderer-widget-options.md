@@ -45,6 +45,93 @@ const stats = useQuery<RowStats>("metrics:query:row-stats", { rowId }, { concurr
 
 The x axis is time, not index: five minutes of data in a 30-day window draws a narrow strip at the right edge.
 
+## `NumericLineChart`, `SignedBarChart`, `HistogramChart` and `DivergingBarChart`: numeric axes
+
+These four charts from `@cosmicdrift/kumiko-renderer/web` cover numeric x axes (years, euros, correlations) that `TimeseriesChart` and `StackedBarChart` do not. They share the styling of `TimeseriesChart`: an SVG that scales to its box, axis labels in an HTML gutter, colors from the status theme tokens. `StackedAreaChart` and its types (`ChartSeries`, `ChartMarker`, `ChartLine`, `StackedAreaRanges`) are now exported from `/web` as well. `niceTicks(min, max, tickCount)` returns the round tick values the charts use.
+
+### `NumericLineChart`
+
+| Prop | Type | Effect |
+|---|---|---|
+| `series` | `{ key; label; points: { x; y }[]; dashed? }[]` | One line per series. |
+| `xAxis` | `{ ticks: number; format?; domain?: { min; max } }` | `domain` defaults to the min and max of all x values. |
+| `yAxis` | `{ ticks: number; format? }` | Ticks span `min(0, all y)` to `max(all y)`, rounded to 1, 2 or 5 times a power of ten. |
+| `referenceLines` | `{ axis: "x" \| "y"; value; label?; dashed? }[]` | Lines such as a sale date or a threshold. |
+| `colors` | `Record<string, string>` | Series key to CSS color. |
+| `renderTooltip` | `(x: number) => ReactNode` | Hover box for the x value nearest to the pointer. |
+| `ariaLabel`, `height`, `testId` | | `height` in px, default 192. |
+
+```tsx
+<NumericLineChart
+  ariaLabel={t("wealth.chart")}
+  series={[
+    { key: "property", label: t("wealth.property"), points: propertyByYear },
+    { key: "etf", label: t("wealth.etf"), points: etfByYear, dashed: true },
+  ]}
+  xAxis={{ ticks: 5, format: (year) => `${year} y` }}
+  yAxis={{ ticks: 5, format: (eur) => euro.format(eur) }}
+  referenceLines={[{ axis: "x", value: 10, label: t("wealth.sale"), dashed: true }]}
+  renderTooltip={(year) => <YearTooltip year={year} />}
+/>
+```
+
+### `SignedBarChart`
+
+| Prop | Type | Effect |
+|---|---|---|
+| `buckets` | `{ x: number; values: Record<string, number> }[]` | One bar per bucket. Positive values stack up from the zero line in `series` order, negative values down. A value of 0 draws no segment. |
+| `series` | `{ key; label }[]` | Stack order and legend. |
+| `xAxis` | `{ format: (x: number) => string }` | Bucket label. |
+| `yAxis` | `{ ticks: number; format? }` | The range comes from the largest positive and the smallest negative sum. |
+| `colors`, `formatValue` | | `formatValue` fills the segment tooltips and the legend. |
+| `ariaLabel`, `height`, `testId` | | |
+
+```tsx
+<SignedBarChart
+  ariaLabel={t("cashflow.chart")}
+  buckets={years.map((year) => ({ x: year, values: { subsidy: -costs[year], surplus: income[year] } }))}
+  series={[{ key: "subsidy", label: t("cashflow.subsidy") }, { key: "surplus", label: t("cashflow.surplus") }]}
+  xAxis={{ format: (year) => String(year) }}
+  yAxis={{ ticks: 5 }}
+/>
+```
+
+### `HistogramChart`
+
+| Prop | Type | Effect |
+|---|---|---|
+| `bins` | `{ id; start; end; count }[]` | Each bar spans `start` to `end` on the x axis. |
+| `xAxis`, `yAxis` | `{ ticks: number; format? }` | The y ticks run from 0 to the largest count. |
+| `referenceLines` | `{ value; label? }[]` | Vertical dashed lines, for example the breakeven. |
+| `color`, `ariaLabel`, `height`, `testId` | | |
+
+```tsx
+<HistogramChart
+  ariaLabel={t("result.distribution")}
+  bins={bins}
+  xAxis={{ ticks: 5, format: (eur) => euro.format(eur) }}
+  yAxis={{ ticks: 4 }}
+  referenceLines={[{ value: 0, label: t("result.breakeven") }]}
+/>
+```
+
+### `DivergingBarChart`
+
+| Prop | Type | Effect |
+|---|---|---|
+| `rows` | `{ key; label; value }[]` | Sorted by absolute value, largest first. The widest bar fills half of the track. |
+| `formatValue` | `(value: number) => string` | Value text next to the bar. |
+| `positiveTone`, `negativeTone` | `"positive" \| "negative" \| "active" \| "neutral"` | Defaults `"positive"` and `"negative"`. |
+| `ariaLabel`, `testId` | | |
+
+```tsx
+<DivergingBarChart
+  ariaLabel={t("drivers.chart")}
+  rows={drivers.map((d) => ({ key: d.id, label: d.label, value: d.correlation }))}
+  formatValue={(value) => value.toFixed(2)}
+/>
+```
+
 ## `ModeSwitch`: `variant` and `className`
 
 `ModeSwitch` is a segmented control for mutually exclusive modes. `variant` is `"outline"` (default, bordered segments with a tinted active one) or `"pill"` (grey track with a raised active segment). `className` is merged into the root element, for width or margin.

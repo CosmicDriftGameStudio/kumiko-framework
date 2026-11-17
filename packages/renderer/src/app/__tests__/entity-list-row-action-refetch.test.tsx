@@ -31,7 +31,7 @@ import {
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import { NavProvider } from "../nav.tsx";
-import { createMockDispatcher } from "../../testing.ts";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 
 type StubState = {
   queryCallCount: number;
@@ -55,7 +55,7 @@ async function flushPendingWork(): Promise<void> {
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 
-const baseTestPrimitives: CorePrimitives = {
+const baseTestPrimitives = createStubPrimitives({
   Button: noop,
   Banner: passChildren,
   Field: passChildren,
@@ -74,7 +74,7 @@ const baseTestPrimitives: CorePrimitives = {
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,
   Link: noop,
-};
+});
 
 function capturingPrimitives(state: StubState): CorePrimitives {
   const captureDataTable: ComponentType<DataTableProps> = (props) => {
@@ -238,11 +238,11 @@ const TestButton: ComponentType<ButtonProps> = ({ children, onClick, testId }) =
 
 const renderToolbarEnd: ComponentType<DataTableProps> = (props) => <>{props.toolbarEnd}</>;
 
-const toolbarTestPrimitives: CorePrimitives = {
+const toolbarTestPrimitives = createStubPrimitives({
   ...baseTestPrimitives,
   Button: TestButton,
   DataTable: renderToolbarEnd,
-};
+});
 
 function buildToolbarSchema(): FeatureSchema {
   const entity: EntityDefinition = {

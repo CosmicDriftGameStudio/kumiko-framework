@@ -28,6 +28,7 @@ export const ticketEntity = createEntity({
 });
 
 export const TICKET_STATS_QUERY = "tickets:query:ticket:stats";
+export const TICKET_OVERVIEW_QUERY = "tickets:query:ticket:overview";
 export const TICKET_CAPABILITIES_QUERY = "tickets:query:ticket:capabilities";
 export const TICKET_LIST_QUERY = "tickets:query:ticket:list";
 
@@ -121,6 +122,49 @@ export const ticketFeature = defineFeature("tickets", (r) => {
     access: readerRoles,
   });
 
+  // One query feeds every panel of the overview screen: each panel reads one field through
+  // `resultField`, so the screen loads with one request.
+  r.queryHandler({
+    name: "ticket:overview",
+    schema: z.object({}),
+    outputSchema: z.object({
+      stats: z.object({ open: z.number(), closed: z.number(), total: z.number() }),
+      recent: z.object({
+        rows: z.array(z.object({ id: z.string(), title: z.string(), status: z.string() })),
+        nextCursor: z.null(),
+        total: z.number(),
+      }),
+    }),
+    handler: async (query, ctx) => {
+      const countWithStatus = async (status: (typeof TICKET_STATUSES)[number]): Promise<number> => {
+        const page = await ticketExecutor.list(
+          { filter: { field: "status", op: "eq", value: status }, limit: 1, totalCount: true },
+          query.user,
+          ctx.db,
+        );
+        return page.total ?? 0;
+      };
+      const [open, closed, recent] = await Promise.all([
+        countWithStatus("open"),
+        countWithStatus("closed"),
+        ticketExecutor.list({ limit: 3, totalCount: true }, query.user, ctx.db),
+      ]);
+      return {
+        stats: { open, closed, total: open + closed },
+        recent: {
+          rows: recent.rows.map((row) => ({
+            id: String(row.id),
+            title: String(row.title),
+            status: String(row.status),
+          })),
+          nextCursor: null,
+          total: recent.total ?? recent.rows.length,
+        },
+      };
+    },
+    access: readerRoles,
+  });
+
   r.translations({
     keys: {
       "tickets.dashboard.recent": { en: "Recent tickets" },
@@ -128,6 +172,7 @@ export const ticketFeature = defineFeature("tickets", (r) => {
       "tickets.dashboard.quota": { en: "Quota {month}" },
       "screen:ticket-list.title": { en: "Tickets" },
       "screen:ticket-card.title": { en: "Ticket" },
+      "screen:ticket-overview.title": { en: "Ticket overview (one query)" },
       "screen:ticket-record-dashboard.title": { en: "Ticket overview" },
       "entity:ticket:field:title": { en: "Title" },
       "entity:ticket:field:status": { en: "Status" },
@@ -208,6 +253,45 @@ export const ticketFeature = defineFeature("tickets", (r) => {
         labelParams: { month: "month" },
         subtitleField: "period",
         query: "tickets:query:ticket:quota",
+      },
+    ],
+    access: readerRoles,
+  });
+
+  r.screen({
+    id: "ticket-overview",
+    type: "dashboard",
+    panels: [
+      {
+        kind: "stat-group",
+        id: "by-status",
+        label: "tickets.dashboard.group",
+        stats: [
+          {
+            kind: "stat",
+            id: "open",
+            label: "tickets.dashboard.open",
+            query: TICKET_OVERVIEW_QUERY,
+            resultField: "stats",
+            valueField: "open",
+          },
+          {
+            kind: "stat",
+            id: "closed",
+            label: "tickets.dashboard.closed",
+            query: TICKET_OVERVIEW_QUERY,
+            resultField: "stats",
+            valueField: "closed",
+          },
+        ],
+      },
+      {
+        kind: "list",
+        id: "recent",
+        label: "tickets.dashboard.recent",
+        query: TICKET_OVERVIEW_QUERY,
+        resultField: "recent",
+        columns: ["title", "status"],
       },
     ],
     access: readerRoles,

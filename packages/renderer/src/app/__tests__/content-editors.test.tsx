@@ -2,7 +2,8 @@ import { describe, expect, test } from "bun:test";
 import type { ContentEditorFormat } from "@cosmicdrift/kumiko-types/nav";
 import { render, screen } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
-import { type CorePrimitives, type InputProps, PrimitivesProvider } from "../../primitives.tsx";
+import {type InputProps, PrimitivesProvider } from "../../primitives.tsx";
+import { createStubPrimitives } from "../../testing.ts";
 import {
   CONTENT_EDITOR_ELEMENT_ID,
   type ContentEditorProps,
@@ -28,7 +29,7 @@ const captureInput: ComponentType<InputProps> = (props) => {
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 
-const testPrimitives: CorePrimitives = {
+const testPrimitives = createStubPrimitives({
   Button: noop,
   Banner: passChildren,
   Field: passChildren,
@@ -47,7 +48,7 @@ const testPrimitives: CorePrimitives = {
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,
   Link: noop,
-};
+});
 
 function DocumentEditor({ value }: ContentEditorProps): ReactNode {
   return <div data-testid="ca-document">{value}</div>;

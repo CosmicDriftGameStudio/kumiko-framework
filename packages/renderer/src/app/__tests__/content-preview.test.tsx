@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { render, screen } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
-import { type CorePrimitives, type InputProps, PrimitivesProvider } from "../../primitives.tsx";
+import {type InputProps, PrimitivesProvider } from "../../primitives.tsx";
+import { createStubPrimitives } from "../../testing.ts";
 import { type ContentEditorProps, ContentEditorsProvider } from "../content-editors.tsx";
 import { ContentPreview, substituteVariables } from "../content-preview.tsx";
 
@@ -15,7 +16,7 @@ const captureInput: ComponentType<InputProps> = (props) => {
   );
 };
 
-const testPrimitives: CorePrimitives = {
+const testPrimitives = createStubPrimitives({
   Button: noop,
   Banner: passChildren,
   Field: passChildren,
@@ -34,7 +35,7 @@ const testPrimitives: CorePrimitives = {
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,
   Link: noop,
-};
+});
 
 function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
   return <PrimitivesProvider value={testPrimitives}>{children}</PrimitivesProvider>;

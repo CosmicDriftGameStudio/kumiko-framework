@@ -25,7 +25,6 @@ import { PageHeaderSlotAvailableProvider } from "../../page-header-slot.ts";
 import {
   type BannerProps,
   type CardProps,
-  type CorePrimitives,
   type PageHeaderProps,
   PrimitivesProvider,
   type SecretRevealProps,
@@ -35,7 +34,7 @@ import {
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import { NavProvider, type NavTarget } from "../nav.tsx";
-import { createMockDispatcher } from "../../testing.ts";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 
 const cardOptionsSeen: Array<CardProps["options"]> = [];
 
@@ -123,7 +122,7 @@ const testPageHeader: ComponentType<PageHeaderProps> = ({ title }) => (
   <div data-testid="test-page-header-title">{title}</div>
 );
 
-const testPrimitives: CorePrimitives = {
+const testPrimitives = createStubPrimitives({
   Button: testButton,
   Banner: testBanner,
   Field: passChildren,
@@ -146,7 +145,7 @@ const testPrimitives: CorePrimitives = {
   ConfigCascadeView: noop,
   Link: noop,
   SecretReveal: testSecretReveal,
-} as unknown as CorePrimitives;
+});
 
 const mintScreen: SecretMintScreenDefinition = {
   id: "mint-token",

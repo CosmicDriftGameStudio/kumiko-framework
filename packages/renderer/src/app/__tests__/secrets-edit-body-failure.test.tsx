@@ -12,11 +12,11 @@ import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import { type CorePrimitives, PrimitivesProvider } from "../../primitives.tsx";
 import { SecretsEditBody } from "../secrets-edit-body.tsx";
-import { createMockDispatcher, type MockBatchHandler } from "../../testing.ts";
+import { createMockDispatcher, createStubPrimitives, type MockBatchHandler } from "../../testing.ts";
 
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 
-const testPrimitives = {
+const testPrimitives = createStubPrimitives({
   Banner: ({ children, testId }: { children?: ReactNode; testId?: string }) => (
     <div data-testid={testId}>{children}</div>
   ),
@@ -84,7 +84,7 @@ const testPrimitives = {
   Text: passChildren,
   Grid: passChildren,
   Dialog: () => null,
-} as unknown as CorePrimitives;
+});
 
 const screenDef: SecretsEditScreenDefinition = {
   id: "secrets",

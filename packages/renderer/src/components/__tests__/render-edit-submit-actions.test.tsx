@@ -24,6 +24,7 @@ import {
   type SectionProps,
   type TextProps,
 } from "../../primitives.tsx";
+import { createStubPrimitives } from "../../testing.ts";
 import { RenderEdit, type RenderEditAction, type RenderEditProps } from "../render-edit.tsx";
 
 type Values = { name: string };
@@ -99,7 +100,7 @@ const testText: ComponentType<TextProps> = ({ children, testId }) => (
 );
 
 function testPrimitives(): CorePrimitives {
-  return {
+  return createStubPrimitives({
     Button: testButton,
     Banner: testBanner,
     Field: testField,
@@ -118,7 +119,7 @@ function testPrimitives(): CorePrimitives {
     ConfigSourceBadge: noop,
     ConfigCascadeView: noop,
     Link: noop,
-  } as unknown as CorePrimitives;
+  });
 }
 
 function buildEntity(required = false): EntityDefinition {

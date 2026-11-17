@@ -23,16 +23,14 @@ import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import type { Dispatcher } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
-import {
-  type CorePrimitives,
-  type FormProps,
+import {  type FormProps,
   type InputProps,
   PrimitivesProvider,
 } from "../../primitives.tsx";
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import { NavProvider } from "../nav.tsx";
-import { createMockDispatcher } from "../../testing.ts";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 
 const capturedInputs: Record<string, InputProps | undefined> = {};
 const captureInput: ComponentType<InputProps> = (props) => {
@@ -47,7 +45,7 @@ const captureForm: ComponentType<FormProps> = (props) => {
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 
-const testPrimitives: CorePrimitives = {
+const testPrimitives = createStubPrimitives({
   Button: noop,
   Banner: passChildren,
   Field: passChildren,
@@ -66,7 +64,7 @@ const testPrimitives: CorePrimitives = {
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,
   Link: noop,
-};
+});
 
 let lastWrite: { type: string; payload: unknown } | undefined;
 

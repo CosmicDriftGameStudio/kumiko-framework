@@ -8,12 +8,11 @@ import type { ReactNode } from "react";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import { PageHeaderSlotAvailableProvider } from "../../page-header-slot.ts";
-import {
-  type CorePrimitives,
-  type FormProps,
+import {  type FormProps,
   type PageHeaderProps,
   PrimitivesProvider,
 } from "../../primitives.tsx";
+import { createStubPrimitives } from "../../testing.ts";
 import { RenderEdit } from "../render-edit.tsx";
 
 const noop = (): ReactNode => null;
@@ -49,7 +48,7 @@ function renderCapturingPageHeader(
   options: { readonly entityId: string | null; readonly name: string },
 ): PageHeaderProps | undefined {
   let captured: PageHeaderProps | undefined;
-  const primitives: CorePrimitives = {
+  const primitives = createStubPrimitives({
     Button: noop,
     Banner: noop,
     Field: passChildren,
@@ -73,7 +72,7 @@ function renderCapturingPageHeader(
       captured = props;
       return null;
     },
-  };
+  });
   render(
     <LocaleProvider
       resolver={createStaticLocaleResolver({ locale: "en-US" })}

@@ -10,15 +10,13 @@ import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import type { Dispatcher } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import {
-  type ButtonProps,
-  type CorePrimitives,
-  type DataTableProps,
+  type ButtonProps,  type DataTableProps,
   PrimitivesProvider,
 } from "../../primitives.tsx";
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import { NavProvider, type NavTarget } from "../nav.tsx";
-import { createMockDispatcher } from "../../testing.ts";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
@@ -81,7 +79,7 @@ async function renderList(
     }
     return null;
   };
-  const primitives: CorePrimitives = {
+  const primitives = createStubPrimitives({
     Button: captureButton,
     Banner: passChildren,
     Field: passChildren,
@@ -109,7 +107,7 @@ async function renderList(
     ConfigSourceBadge: noop,
     ConfigCascadeView: noop,
     Link: noop,
-  };
+  });
   render(
     <LocaleProvider resolver={createStaticLocaleResolver({ locale: "de-DE" })}>
       <DispatcherProvider dispatcher={stubDispatcher()}>

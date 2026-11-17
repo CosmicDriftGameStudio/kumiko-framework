@@ -75,7 +75,6 @@ function renderDetail(live: boolean) {
     () =>
       useProjectionDetailData({
         screen: screenWith(live),
-        Tabs: undefined,
         nav,
         effectiveEntityId: undefined,
       }),

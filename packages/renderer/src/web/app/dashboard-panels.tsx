@@ -13,6 +13,7 @@ import { type ReactNode, useEffect, useState } from "react";
 import { namedFilterNavigateAllows, navigateTargetAllows } from "../../app/screen-access.ts";
 import { rendererWarn } from "../../dev-console.ts";
 import { EMPTY_VALUE_PLACEHOLDER, type Translate } from "../../headless/index.ts";
+import { isRecord } from "../../headless/is-record.ts";
 import {
   extensionSectionName,
   useAppFeatures,
@@ -64,7 +65,7 @@ import {
   useDashboardQuery,
   useReportPanelLoaded,
 } from "./dashboard-shared.tsx";
-import { isRecord, resolveDashboardText } from "./dashboard-text.ts";
+import { resolveDashboardText } from "./dashboard-text.ts";
 
 function isSparkPoint(
   value: unknown,
@@ -153,6 +154,7 @@ function StatPanelContent({
     panel.query,
     // A navigate tile counts exactly what its target list can reproduce from the URL.
     panel.navigate === undefined ? panelPayload(panel, screenParams) : (panel.params ?? {}),
+    { ...(panel.resultField !== undefined && { resultField: panel.resultField }) },
   );
   useReportPanelLoaded(data, loading);
   if (loading && data === null) return <LoadingState rows={2} />;

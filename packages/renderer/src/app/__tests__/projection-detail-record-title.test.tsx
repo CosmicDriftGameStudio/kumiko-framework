@@ -8,12 +8,11 @@ import { UserRolesProvider } from "../../context/user-roles-context.tsx";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import { PageHeaderSlotAvailableProvider } from "../../page-header-slot.ts";
-import {
-  type CorePrimitives,
-  type FormProps,
+import {  type FormProps,
   type PageHeaderProps,
   PrimitivesProvider,
 } from "../../primitives.tsx";
+import { createStubPrimitives } from "../../testing.ts";
 import { AppFeaturesProvider } from "../app-features-context.tsx";
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
@@ -35,7 +34,7 @@ const TestPageHeader: ComponentType<PageHeaderProps> = ({ title }) => (
   <h1 data-testid="page-header-title">{title}</h1>
 );
 
-const testPrimitives: CorePrimitives = {
+const testPrimitives = createStubPrimitives({
   Button: noop,
   Banner: passChildren,
   Field: passChildren,
@@ -55,7 +54,7 @@ const testPrimitives: CorePrimitives = {
   ConfigCascadeView: noop,
   Link: noop,
   PageHeader: TestPageHeader,
-};
+});
 
 const { dispatcher } = stubDispatcher({
   query: async () => ({

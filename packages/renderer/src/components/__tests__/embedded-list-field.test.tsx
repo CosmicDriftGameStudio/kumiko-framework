@@ -23,7 +23,7 @@ import {
 } from "../../primitives.tsx";
 import { EmbeddedListField } from "../embedded-list-field.tsx";
 import { RenderField, type RenderFieldProps } from "../render-field.tsx";
-import { createMockDispatcher } from "../../testing.ts";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 
 let captured: EmbeddedListInputProps | undefined;
 const captureEmbeddedListInput: ComponentType<EmbeddedListInputProps> = (props) => {
@@ -45,7 +45,7 @@ const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 
 function testPrimitives(): CorePrimitives {
-  return {
+  return createStubPrimitives({
     Button: noop,
     Banner: noop,
     Field: passChildren,
@@ -65,7 +65,7 @@ function testPrimitives(): CorePrimitives {
     ConfigSourceBadge: noop,
     ConfigCascadeView: noop,
     Link: noop,
-  };
+  });
 }
 
 type ProductRow = { readonly id: string; readonly name: string };

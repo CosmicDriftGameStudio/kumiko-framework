@@ -18,9 +18,7 @@ import type { Dispatcher } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import {
-  type ButtonProps,
-  type CorePrimitives,
-  type DataTableProps,
+  type ButtonProps,  type DataTableProps,
   type DataTableRowAction,
   type FormProps,
   PrimitivesProvider,
@@ -30,7 +28,7 @@ import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import type { NavApi, ScreenTarget } from "../nav.tsx";
 import { NavProvider } from "../nav.tsx";
-import { createMockDispatcher } from "../../testing.ts";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 
 afterEach(cleanup);
 
@@ -63,7 +61,7 @@ const captureDataTable: ComponentType<DataTableProps> = (props) => {
   return null;
 };
 
-const testPrimitives: CorePrimitives = {
+const testPrimitives = createStubPrimitives({
   Button: TestButton,
   Banner: passChildren,
   Field: passChildren,
@@ -87,7 +85,7 @@ const testPrimitives: CorePrimitives = {
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,
   Link: noop,
-};
+});
 
 function stubDispatcher(): Dispatcher {
   return createMockDispatcher({

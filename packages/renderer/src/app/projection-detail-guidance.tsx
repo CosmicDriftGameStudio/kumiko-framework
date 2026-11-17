@@ -18,7 +18,6 @@ import {
 } from "./projection-detail-guidance-data.ts";
 import type { DetailHeaderModel } from "./projection-detail-header.tsx";
 import type { ReferenceLinkResolver } from "./reference-link.ts";
-import { uniqueLabelKeys } from "./unique-label-keys.ts";
 
 type GuidanceActions = NonNullable<RecordBannerSpec["actions"]>;
 
@@ -48,18 +47,14 @@ const BANNER_ICON: Record<SelectOptionTone, NonNullable<BannerProps["icon"]>> = 
   critical: "info",
 };
 
-// The app layer may not render DOM tags, so layout classes ride on FillContainer; hosts without it (native) fall back to plain stacking.
+// The app layer may not render DOM tags, so layout classes ride on FillContainer.
 export function wrapLayout(
   primitives: DetailGuidanceModel["primitives"],
   className: string,
   node: ReactNode,
 ): ReactNode {
   const { FillContainer } = primitives;
-  return FillContainer !== undefined ? (
-    <FillContainer className={className}>{node}</FillContainer>
-  ) : (
-    node
-  );
+  return <FillContainer className={className}>{node}</FillContainer>;
 }
 
 function renderActionButtons(
@@ -84,7 +79,7 @@ function renderActionButtons(
     <Grid columns="auto">
       {resolved.map((action) => {
         const narrowLabel = specs?.find((spec) => spec.id === action.id)?.narrowLabel;
-        if (narrowLabel === undefined || model.primitives.FillContainer === undefined) {
+        if (narrowLabel === undefined) {
           return button(action);
         }
         // The viewport is a CSS matter in this layer: both labels render, one is hidden per breakpoint.
@@ -144,39 +139,13 @@ export function renderDetailBreadcrumb(model: DetailGuidanceModel): ReactNode {
         : undefined;
     return { label: item.label, ...(link !== undefined && { link }) };
   });
-  const keys = uniqueLabelKeys(items.map((item) => item.label));
-  const { RecordBreadcrumb, Text, Link } = model.primitives;
+  const { RecordBreadcrumb } = model.primitives;
   const ariaLabel = model.effectiveTranslate("kumiko.detail.breadcrumb");
   const testId = "kumiko-screen-projection-detail-breadcrumb";
-  if (RecordBreadcrumb !== undefined) {
-    return wrapLayout(
-      model.primitives,
-      "max-sm:hidden",
-      <RecordBreadcrumb items={items} ariaLabel={ariaLabel} testId={testId} />,
-    );
-  }
-  return (
-    <Text testId={testId}>
-      {items.map((item, index) => (
-        <Fragment key={keys[index]}>
-          {index > 0 && (
-            <Text variant="muted" decorative>
-              {" / "}
-            </Text>
-          )}
-          {item.link !== undefined ? (
-            <Link
-              href={item.link.href}
-              {...(item.link.onPress !== undefined && { onPress: item.link.onPress })}
-            >
-              {item.label}
-            </Link>
-          ) : (
-            <Text>{item.label}</Text>
-          )}
-        </Fragment>
-      ))}
-    </Text>
+  return wrapLayout(
+    model.primitives,
+    "max-sm:hidden",
+    <RecordBreadcrumb items={items} ariaLabel={ariaLabel} testId={testId} />,
   );
 }
 
@@ -189,20 +158,16 @@ export function renderDetailSummary(model: DetailGuidanceModel): ReactNode {
   const narrowText = typeof narrowRaw === "string" && narrowRaw !== "" ? narrowRaw : undefined;
   const toneRaw = spec.toneField !== undefined ? model.record[spec.toneField] : undefined;
   const tone = readTone(toneRaw);
-  const { RecordSummary, Text } = model.primitives;
-  const testId = "kumiko-screen-projection-detail-summary";
-  if (RecordSummary !== undefined) {
-    return (
-      <RecordSummary
-        text={text}
-        {...(narrowText !== undefined && { narrowText })}
-        {...(tone !== undefined && { tone })}
-        {...(spec.icon !== undefined && { icon: spec.icon })}
-        testId={testId}
-      />
-    );
-  }
-  return <Text testId={testId}>{text}</Text>;
+  const { RecordSummary } = model.primitives;
+  return (
+    <RecordSummary
+      text={text}
+      {...(narrowText !== undefined && { narrowText })}
+      {...(tone !== undefined && { tone })}
+      {...(spec.icon !== undefined && { icon: spec.icon })}
+      testId="kumiko-screen-projection-detail-summary"
+    />
+  );
 }
 
 function renderBanner(model: DetailGuidanceModel): ReactNode {
@@ -286,38 +251,18 @@ function renderSteps(model: DetailGuidanceModel): ReactNode {
   const subtitle = typeof subtitleRaw === "string" && subtitleRaw !== "" ? subtitleRaw : undefined;
   const emptyLabel = t(spec.emptyLabel ?? "kumiko.detail.steps.empty");
   const items = steps.map((step) => buildStepItem(model, spec, step));
-  const { RecordSteps, Card, Text } = model.primitives;
-  const testId = "kumiko-screen-projection-detail-steps";
-  if (RecordSteps !== undefined) {
-    return (
-      <RecordSteps
-        title={title}
-        {...(subtitle !== undefined && { subtitle })}
-        emptyLabel={emptyLabel}
-        reasonLabel={t("kumiko.detail.steps.reason")}
-        {...stepsCollapseProps(spec, t)}
-        items={items}
-        count={items.length}
-        testId={testId}
-      />
-    );
-  }
+  const { RecordSteps } = model.primitives;
   return (
-    <Card slots={{ title, ...(subtitle !== undefined && { subtitle }) }} testId={testId}>
-      {items.length === 0 ? (
-        <Text variant="muted">{emptyLabel}</Text>
-      ) : (
-        items.map((item) => (
-          <Fragment key={item.id}>
-            <Text>{item.title}</Text>
-            {item.detail !== undefined && <Text variant="muted">{item.detail}</Text>}
-            {item.reason !== undefined && <Text variant="muted">{item.reason}</Text>}
-            {item.actions}
-            {item.moreActions}
-          </Fragment>
-        ))
-      )}
-    </Card>
+    <RecordSteps
+      title={title}
+      {...(subtitle !== undefined && { subtitle })}
+      emptyLabel={emptyLabel}
+      reasonLabel={t("kumiko.detail.steps.reason")}
+      {...stepsCollapseProps(spec, t)}
+      items={items}
+      count={items.length}
+      testId="kumiko-screen-projection-detail-steps"
+    />
   );
 }
 
@@ -326,7 +271,7 @@ function renderProgress(model: DetailGuidanceModel, stacked: boolean): ReactNode
   if (spec === undefined) return undefined;
   const chains = model.record[spec.field];
   const { StepBar, Card, Text } = model.primitives;
-  if (StepBar === undefined || !isRecordProgressArray(chains) || chains.length === 0) {
+  if (!isRecordProgressArray(chains) || chains.length === 0) {
     return undefined;
   }
   const t = model.effectiveTranslate;

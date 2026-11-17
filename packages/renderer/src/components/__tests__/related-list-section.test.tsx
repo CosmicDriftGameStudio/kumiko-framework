@@ -21,7 +21,7 @@ import {
   type SectionProps,
 } from "../../primitives.tsx";
 import { RelatedListSection } from "../related-list-section.tsx";
-import { createMockDispatcher, type MockBatchHandler, type MockQueryHandler, type MockWriteHandler } from "../../testing.ts";
+import { createMockDispatcher, createStubPrimitives, type MockBatchHandler, type MockQueryHandler, type MockWriteHandler } from "../../testing.ts";
 
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 const noop = () => {};
@@ -77,7 +77,7 @@ const testBanner = ({ children, testId }: { children?: ReactNode; testId?: strin
 );
 
 function testPrimitives(): CorePrimitives {
-  return {
+  return createStubPrimitives({
     Button: noop,
     Banner: testBanner,
     Field: passChildren,
@@ -96,7 +96,7 @@ function testPrimitives(): CorePrimitives {
     ConfigSourceBadge: noop,
     ConfigCascadeView: noop,
     Link: noop,
-  } as unknown as CorePrimitives;
+  });
 }
 
 function stubDispatcher(

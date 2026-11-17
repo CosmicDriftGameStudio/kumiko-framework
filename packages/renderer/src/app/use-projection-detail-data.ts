@@ -1,9 +1,7 @@
 import type { ProjectionDetailScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import { evalFieldCondition } from "@cosmicdrift/kumiko-framework/ui-types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { rendererWarn } from "../dev-console.ts";
 import { useQuery } from "../hooks/use-query.ts";
-import type { usePrimitives } from "../primitives.tsx";
 import type { NavApi } from "./nav.tsx";
 import {
   synthesizeProjectionDetailEntity,
@@ -13,13 +11,12 @@ import { refetchAfterWrite } from "./row-actions.ts";
 
 type DetailDataInput = {
   readonly screen: ProjectionDetailScreenDefinition;
-  readonly Tabs: ReturnType<typeof usePrimitives>["Tabs"];
   readonly nav: NavApi;
   readonly effectiveEntityId: string | undefined;
 };
 
 export function useProjectionDetailData(input: DetailDataInput) {
-  const { screen, Tabs, nav, effectiveEntityId } = input;
+  const { screen, nav, effectiveEntityId } = input;
   const idParam = screen.idParam ?? "id";
   const isTabsMode = screen.layout.mode === "tabs";
   const live = screen.live === true;
@@ -42,26 +39,17 @@ export function useProjectionDetailData(input: DetailDataInput) {
   );
   // Adjacent sections sharing one `id` form a single tab (several blocks under one tab label).
   const activeSections = useMemo(() => {
-    // skip: only tabs mode with a registered Tabs primitive has an active section
-    if (!isTabsMode || Tabs === undefined) return [];
+    // skip: only tabs mode has an active section
+    if (!isTabsMode) return [];
     const tabParam = nav.searchParams["tab"];
     const activeId =
       visibleSections.find((section) => section.id === tabParam)?.id ??
       initialTabId(screen.initialTab, record, visibleSections) ??
       visibleSections[0]?.id;
     return visibleSections.filter((section) => section.id === activeId);
-  }, [isTabsMode, Tabs, visibleSections, nav.searchParams, screen.initialTab, record]);
+  }, [isTabsMode, visibleSections, nav.searchParams, screen.initialTab, record]);
   const activeSection = activeSections[0];
-  const hasTabs = isTabsMode && Tabs !== undefined && activeSection !== undefined;
-  // Tabs is an optional Core-Primitive: without it the screen falls back to
-  // the stacked all-sections layout instead of silently truncating to section 1.
-  useEffect(() => {
-    if (isTabsMode && Tabs === undefined) {
-      rendererWarn(
-        `[kumiko] screen "${screen.id}" uses layout.mode: "tabs", but no <Tabs> primitive is registered — the tab strip will not render. createKumikoApp() from kumiko-renderer-web wires it automatically.`,
-      );
-    }
-  }, [isTabsMode, Tabs, screen.id]);
+  const hasTabs = isTabsMode && activeSection !== undefined;
   const entity = useMemo(() => synthesizeProjectionDetailEntity(screen.layout), [screen.layout]);
   const detailScreen = useMemo(() => {
     if (activeSections.length > 0 && screen.layout.narrowTabs === false) {

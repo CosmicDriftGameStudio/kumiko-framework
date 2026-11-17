@@ -1612,10 +1612,7 @@ export type CorePrimitives = {
   readonly Field: ComponentType<FieldProps>;
   readonly Input: ComponentType<InputProps>;
   readonly DataTable: ComponentType<DataTableProps>;
-  /** Optional (unlike the other Core-Primitives) so existing partial
-   *  CorePrimitives mocks in tests keep compiling — additive rollout of
-   *  a new primitive shouldn't force every test double to grow a stub. */
-  readonly EmbeddedListInput?: ComponentType<EmbeddedListInputProps>;
+  readonly EmbeddedListInput: ComponentType<EmbeddedListInputProps>;
   readonly Form: ComponentType<FormProps>;
   readonly Section: ComponentType<SectionProps>;
   readonly Card: ComponentType<CardProps>;
@@ -1625,85 +1622,34 @@ export type CorePrimitives = {
   readonly Heading: ComponentType<HeadingProps>;
   readonly Dialog: ComponentType<DialogProps>;
   readonly Modal: ComponentType<ModalProps>;
-  /** Optional (unlike the other Core-Primitives) so existing partial
-   *  CorePrimitives mocks in tests keep compiling — additive rollout of
-   *  a new primitive shouldn't force every test double to grow a stub. */
-  readonly Drawer?: ComponentType<DrawerProps>;
+  readonly Drawer: ComponentType<DrawerProps>;
   readonly Lightbox: ComponentType<LightboxProps>;
   readonly ConfigSourceBadge: ComponentType<ConfigSourceBadgeProps>;
   readonly ConfigCascadeView: ComponentType<ConfigCascadeViewProps>;
   readonly Link: ComponentType<LinkProps>;
-  /** Optional (unlike the other Core-Primitives) so existing partial
-   *  CorePrimitives mocks in tests keep compiling — additive rollout of
-   *  a new primitive shouldn't force every test double to grow a stub. */
-  readonly Progress?: ComponentType<ProgressProps>;
-  /** Optional (unlike the other Core-Primitives) so existing partial
-   *  CorePrimitives mocks in tests keep compiling — additive rollout of
-   *  a new primitive shouldn't force every test double to grow a stub. */
-  readonly StepBar?: ComponentType<StepBarProps>;
-  /** Optional (unlike the other Core-Primitives) so existing partial
-   *  CorePrimitives mocks in tests keep compiling — additive rollout of
-   *  a new primitive shouldn't force every test double to grow a stub. */
-  readonly WizardStepGroup?: ComponentType<WizardStepGroupProps>;
-  /** Optional (unlike the other Core-Primitives) so existing partial
-   *  CorePrimitives mocks in tests keep compiling — additive rollout of
-   *  a new primitive shouldn't force every test double to grow a stub. */
-  readonly Tabs?: ComponentType<TabsProps>;
-  /** Optional (unlike the other Core-Primitives) so existing partial
-   *  CorePrimitives mocks in tests keep compiling — additive rollout of
-   *  a new primitive shouldn't force every test double to grow a stub. */
-  readonly StatusBadge?: ComponentType<StatusBadgeProps>;
-  /** Optional (unlike the other Core-Primitives) so existing partial
-   *  CorePrimitives mocks in tests keep compiling — additive rollout of
-   *  a new primitive shouldn't force every test double to grow a stub. */
-  readonly Metric?: ComponentType<MetricProps>;
-  /** Optional (unlike the other Core-Primitives) so existing partial
-   *  CorePrimitives mocks in tests keep compiling — additive rollout of
-   *  a new primitive shouldn't force every test double to grow a stub. */
-  readonly JsonView?: ComponentType<JsonViewProps>;
-  /** Optional (unlike the other Core-Primitives) so existing partial
-   *  CorePrimitives mocks in tests keep compiling — additive rollout of
-   *  a new primitive shouldn't force every test double to grow a stub. */
-  readonly FileValueList?: ComponentType<FileValueListProps>;
-  /** Optional (unlike the other Core-Primitives) so existing partial
-   *  CorePrimitives mocks in tests keep compiling — additive rollout of
-   *  a new primitive shouldn't force every test double to grow a stub. */
-  readonly FillContainer?: ComponentType<FillContainerProps>;
-  /** Optional — additive rollout, see StickyActionBar. Without it, header
-   *  content stays where the screen always rendered it. */
-  readonly PageHeader?: ComponentType<PageHeaderProps>;
-  /** Optional — additive rollout, see StickyActionBar. */
-  readonly MetricBand?: ComponentType<MetricBandProps>;
-  /** Optional — without it the detail screen renders the path as plain links. */
-  readonly RecordBreadcrumb?: ComponentType<RecordBreadcrumbProps>;
-  /** Optional — without it the summary renders as plain text. */
-  readonly RecordSummary?: ComponentType<RecordSummaryProps>;
-  /** Optional — without it a relatedList with `photoGrid` falls back to its table. */
-  readonly PhotoGrid?: ComponentType<PhotoGridProps>;
-  /** Optional — without it a stepList section renders nothing. */
-  readonly StepList?: ComponentType<StepListProps>;
-  /** Optional — without it the steps render as a plain card. */
-  readonly RecordSteps?: ComponentType<RecordStepsProps>;
-  /** Optional: without an implementation, callers with >2 header/row
-   *  actions fall back to today's all-buttons-inline rendering. */
-  readonly ActionOverflowMenu?: ComponentType<ActionOverflowMenuProps>;
-  /** Optional (unlike the other Core-Primitives) so existing partial
-   *  CorePrimitives mocks in tests keep compiling — additive rollout of
-   *  a new primitive shouldn't force every test double to grow a stub. */
-  readonly SecretReveal?: ComponentType<SecretRevealProps>;
-  /** Optional (unlike the other Core-Primitives) so existing partial
-   *  CorePrimitives mocks in tests keep compiling — additive rollout of
-   *  a new primitive shouldn't force every test double to grow a stub. */
-  readonly StickyActionBar?: ComponentType<StickyActionBarProps>;
-  /** Optional — additive rollout, see StickyActionBar. */
-  readonly CopyButton?: ComponentType<CopyButtonProps>;
-  /** Optional — additive rollout, see StickyActionBar. */
-  readonly ShareButton?: ComponentType<ShareButtonProps>;
-  /** Optional — additive rollout, see StickyActionBar. */
-  readonly PromoPanel?: ComponentType<PromoPanelProps>;
-  /** Optional — additive rollout, see StickyActionBar. Without it the
-   *  "not available" states fall back to a Card. */
-  readonly EmptyState?: ComponentType<EmptyStateProps>;
+  readonly Progress: ComponentType<ProgressProps>;
+  readonly StepBar: ComponentType<StepBarProps>;
+  readonly WizardStepGroup: ComponentType<WizardStepGroupProps>;
+  readonly Tabs: ComponentType<TabsProps>;
+  readonly StatusBadge: ComponentType<StatusBadgeProps>;
+  readonly Metric: ComponentType<MetricProps>;
+  readonly JsonView: ComponentType<JsonViewProps>;
+  readonly FileValueList: ComponentType<FileValueListProps>;
+  readonly FillContainer: ComponentType<FillContainerProps>;
+  readonly PageHeader: ComponentType<PageHeaderProps>;
+  readonly MetricBand: ComponentType<MetricBandProps>;
+  readonly RecordBreadcrumb: ComponentType<RecordBreadcrumbProps>;
+  readonly RecordSummary: ComponentType<RecordSummaryProps>;
+  readonly PhotoGrid: ComponentType<PhotoGridProps>;
+  readonly StepList: ComponentType<StepListProps>;
+  readonly RecordSteps: ComponentType<RecordStepsProps>;
+  readonly ActionOverflowMenu: ComponentType<ActionOverflowMenuProps>;
+  readonly SecretReveal: ComponentType<SecretRevealProps>;
+  readonly StickyActionBar: ComponentType<StickyActionBarProps>;
+  readonly CopyButton: ComponentType<CopyButtonProps>;
+  readonly ShareButton: ComponentType<ShareButtonProps>;
+  readonly PromoPanel: ComponentType<PromoPanelProps>;
+  readonly EmptyState: ComponentType<EmptyStateProps>;
 };
 
 /** Extension point for app-owned primitives. Developers extend this

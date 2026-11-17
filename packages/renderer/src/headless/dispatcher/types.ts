@@ -147,9 +147,6 @@ export type WriteOpts = {
 
 export type QueryOpts = {
   readonly signal?: AbortSignal;
-  // Joins an identical query (same type and payload) that is still in flight instead of sending
-  // its own; a write or batch through the same dispatcher ends the sharing.
-  readonly shareInFlight?: boolean;
 };
 
 export type StreamOpts = {

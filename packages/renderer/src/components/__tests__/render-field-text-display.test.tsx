@@ -4,7 +4,8 @@ import { cleanup, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { type EditFieldViewModel, EMPTY_VALUE_PLACEHOLDER } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
-import { type CorePrimitives, PrimitivesProvider, type TextProps } from "../../primitives.tsx";
+import {PrimitivesProvider, type TextProps } from "../../primitives.tsx";
+import { createStubPrimitives } from "../../testing.ts";
 import { RenderField } from "../render-field.tsx";
 
 const noop = (): ReactNode => null;
@@ -13,7 +14,7 @@ const DefaultText = ({ testId, children }: TextProps): ReactNode => (
   <span data-testid={testId}>{children}</span>
 );
 
-const testPrimitives: CorePrimitives = {
+const testPrimitives = createStubPrimitives({
   Button: noop,
   Banner: noop,
   Field: passChildren,
@@ -32,7 +33,7 @@ const testPrimitives: CorePrimitives = {
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,
   Link: noop,
-};
+});
 
 function renderText(
   partial: Partial<EditFieldViewModel> & Pick<EditFieldViewModel, "type" | "value">,

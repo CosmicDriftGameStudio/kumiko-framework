@@ -16,16 +16,14 @@ import type { Dispatcher } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import {
-  type BannerProps,
-  type CorePrimitives,
-  type DataTableProps,
+  type BannerProps,  type DataTableProps,
   PrimitivesProvider,
 } from "../../primitives.tsx";
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import type { NavApi } from "../nav.tsx";
 import { NavProvider } from "../nav.tsx";
-import { createMockDispatcher } from "../../testing.ts";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 
 let capturedProps: DataTableProps | undefined;
 const captureDataTable: ComponentType<DataTableProps> = (props) => {
@@ -42,7 +40,7 @@ const TestBanner: ComponentType<BannerProps> = ({ children, testId }) => (
   <div data-testid={testId}>{children}</div>
 );
 
-const testPrimitives: CorePrimitives = {
+const testPrimitives = createStubPrimitives({
   Button: noop,
   Banner: TestBanner,
   Field: passChildren,
@@ -61,7 +59,7 @@ const testPrimitives: CorePrimitives = {
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,
   Link: noop,
-};
+});
 
 function stubDispatcher(queryResult: unknown): Dispatcher {
   return createMockDispatcher({

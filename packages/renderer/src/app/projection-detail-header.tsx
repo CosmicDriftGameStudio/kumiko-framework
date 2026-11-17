@@ -89,15 +89,11 @@ export function renderHeaderTitleSlot(model: DetailHeaderModel): ReactNode {
         <Text testId="kumiko-screen-projection-detail-title">
           {String(record[header.title] ?? "")}
         </Text>
-        {StatusBadge !== undefined ? (
-          <StatusBadge
-            value={statusText}
-            tone={headerStatusTone(header, record)}
-            testId="kumiko-screen-projection-detail-status"
-          />
-        ) : (
-          <Text testId="kumiko-screen-projection-detail-status">{statusText}</Text>
-        )}
+        <StatusBadge
+          value={statusText}
+          tone={headerStatusTone(header, record)}
+          testId="kumiko-screen-projection-detail-status"
+        />
       </Grid>
     ) : (
       <Text testId="kumiko-screen-projection-detail-title">
@@ -119,13 +115,13 @@ export function renderRecordTitleBlock(
   const { Grid, Heading, FillContainer } = model.primitives;
   // With a mobileSummary the phone shows only the H1 and that line: chip and subtitle give way.
   const hiddenOnPhone = (node: ReactNode): ReactNode =>
-    FillContainer !== undefined && mobileSummaryLineOf(model) !== undefined && node != null ? (
+    mobileSummaryLineOf(model) !== undefined && node != null ? (
       <FillContainer className="max-sm:hidden">{node}</FillContainer>
     ) : (
       node
     );
-  const block = (
-    <>
+  return (
+    <FillContainer className="flex flex-col gap-1 px-6 pt-2 max-sm:px-4">
       <Grid columns="auto" testId="kumiko-screen-projection-detail-title-block">
         <Heading variant="page" testId="kumiko-screen-projection-detail-title">
           {titleText}
@@ -133,12 +129,7 @@ export function renderRecordTitleBlock(
         {!chipInBar && hiddenOnPhone(statusBadge)}
       </Grid>
       {hiddenOnPhone(subtitle)}
-    </>
-  );
-  return FillContainer !== undefined ? (
-    <FillContainer className="flex flex-col gap-1 px-6 pt-2 max-sm:px-4">{block}</FillContainer>
-  ) : (
-    block
+    </FillContainer>
   );
 }
 
@@ -211,7 +202,7 @@ export function renderHeaderSubtitleSlot(model: DetailHeaderModel): ReactNode {
     "kumiko-screen-projection-detail-narrow-subtitle",
   );
   const { FillContainer } = model.primitives;
-  if (narrow === undefined || FillContainer === undefined) return full;
+  if (narrow === undefined) return full;
   return (
     <>
       {full !== undefined && <FillContainer className="max-sm:hidden">{full}</FillContainer>}
@@ -309,7 +300,7 @@ function metricTone(
 // top right) instead of rendering as an unframed block above it.
 export function buildMetricItems(model: DetailHeaderModel): ReactNode[] | undefined {
   const { screen, record, primitives, effectiveTranslate } = model;
-  const { Metric, GridCell, Text } = primitives;
+  const { Metric } = primitives;
   return screen.metrics?.map((metric) => {
     const field = metric.field;
     const label = metricLabel(metric, record, effectiveTranslate);
@@ -321,30 +312,22 @@ export function buildMetricItems(model: DetailHeaderModel): ReactNode[] | undefi
     const narrowSub = metricSubline(metric.subFieldNarrow, record);
     const testId = `kumiko-screen-projection-detail-metric-${field}`;
     const onPress = metricPressHandler(model, metric);
-    const item =
-      Metric !== undefined ? (
-        <Metric
-          key={field}
-          label={label}
-          value={value}
-          testId={testId}
-          {...(onPress !== undefined && { onPress })}
-          {...(tiles && { tile: true })}
-          {...(tone !== undefined && { tone })}
-          {...(metric.icon !== undefined && { icon: metric.icon })}
-          {...(sub !== undefined && { sub })}
-          {...(narrowSub !== undefined && { narrowSub })}
-        />
-      ) : (
-        <GridCell key={field}>
-          <Text variant="small" testId={`${testId}-label`}>
-            {label}
-          </Text>
-          <Text testId={`${testId}-value`}>{value}</Text>
-        </GridCell>
-      );
+    const item = (
+      <Metric
+        key={field}
+        label={label}
+        value={value}
+        testId={testId}
+        {...(onPress !== undefined && { onPress })}
+        {...(tiles && { tile: true })}
+        {...(tone !== undefined && { tone })}
+        {...(metric.icon !== undefined && { icon: metric.icon })}
+        {...(sub !== undefined && { sub })}
+        {...(narrowSub !== undefined && { narrowSub })}
+      />
+    );
     const { FillContainer } = primitives;
-    return metric.hideOnNarrow === true && FillContainer !== undefined ? (
+    return metric.hideOnNarrow === true ? (
       <FillContainer key={field} className="max-sm:hidden">
         {item}
       </FillContainer>
@@ -354,7 +337,6 @@ export function buildMetricItems(model: DetailHeaderModel): ReactNode[] | undefi
   });
 }
 
-// Metrics are a dl band when the primitive exists; the old Grid stays as the fallback.
 export function renderMetricsBlock(
   model: DetailHeaderModel,
   metricItems: ReactNode[] | undefined,
@@ -362,7 +344,7 @@ export function renderMetricsBlock(
   lead?: ReactNode,
 ): ReactNode {
   const { FillContainer } = model.primitives;
-  if (mobileSummaryLineOf(model) === undefined || FillContainer === undefined) {
+  if (mobileSummaryLineOf(model) === undefined) {
     return renderPlainMetricsBlock(model, metricItems, subtitle, lead);
   }
   // Tiles give way to the summary line (rendered under the title) below sm; display:none keeps one copy for assistive tech.
@@ -388,7 +370,7 @@ function mobileSummaryLineOf(model: DetailHeaderModel): string | undefined {
 export function renderMobileSummary(model: DetailHeaderModel): ReactNode {
   const { FillContainer, Text } = model.primitives;
   const line = mobileSummaryLineOf(model);
-  if (line === undefined || FillContainer === undefined) return undefined;
+  if (line === undefined) return undefined;
   return (
     <FillContainer className="px-6 pt-1 text-left sm:hidden max-sm:px-4">
       <Text variant="muted" testId="kumiko-screen-projection-detail-mobile-summary">
@@ -405,8 +387,8 @@ function renderPlainMetricsBlock(
   lead?: ReactNode,
 ): ReactNode {
   const { screen, primitives } = model;
-  const { MetricBand, Grid } = primitives;
-  return MetricBand !== undefined ? (
+  const { MetricBand } = primitives;
+  return (
     <MetricBand
       testId="kumiko-screen-projection-detail-metrics"
       subtitle={subtitle}
@@ -415,10 +397,6 @@ function renderPlainMetricsBlock(
     >
       {metricItems}
     </MetricBand>
-  ) : (
-    <Grid columns={screen.metrics?.length ?? 1} testId="kumiko-screen-projection-detail-metrics">
-      {metricItems}
-    </Grid>
   );
 }
 
@@ -428,7 +406,7 @@ export function renderStatusBadge(model: DetailHeaderModel): ReactNode {
   const { screen, record, primitives } = model;
   const { StatusBadge } = primitives;
   const header = screen.header;
-  return header?.status !== undefined && StatusBadge !== undefined ? (
+  return header?.status !== undefined ? (
     <StatusBadge
       value={resolveHeaderStatusText(screen, record, model.effectiveTranslate)}
       tone={headerStatusTone(header, record)}

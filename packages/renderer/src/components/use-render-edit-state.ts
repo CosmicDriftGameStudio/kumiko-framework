@@ -160,14 +160,8 @@ export function useRenderEditState({
   const pageHeaderCompact = usePageHeaderCompact();
   const insideDrawer = useInsideDrawer();
 
-  // Both stepped layouts show one section at a time and keep the rest mounted
-  // but inert. A tabs layout on a host without the Tabs primitive has no strip
-  // to switch with, so it falls back to rendering every section stacked rather
-  // than stranding the user on section 0. Same fallback when the
-  // WizardStepGroup wrapper is missing.
-  const isStepped =
-    isWizard ||
-    (isTabs && primitives.Tabs !== undefined && primitives.WizardStepGroup !== undefined);
+  // Both stepped layouts show one section at a time and keep the rest mounted but inert.
+  const isStepped = isWizard || isTabs;
   return {
     translate,
     appLocale,

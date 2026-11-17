@@ -5,18 +5,17 @@ import type { ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import { LocaleProvider } from "../../i18n.tsx";
 import {
-  type ButtonProps,
-  type CorePrimitives,
-  type FieldProps,
+  type ButtonProps,  type FieldProps,
   PrimitivesProvider,
 } from "../../primitives.tsx";
+import { createStubPrimitives } from "../../testing.ts";
 import { createMockDispatcher, type MockWriteHandler } from "../../web/__tests__/test-utils.tsx";
 import { ConfigEditActionRow } from "../config-edit-action-row.tsx";
 
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 
-const primitives: CorePrimitives = {
+const primitives = createStubPrimitives({
   Button: ({ children, disabled, onClick, testId, title }: ButtonProps) => (
     <button type="button" disabled={disabled} onClick={onClick} data-testid={testId} title={title}>
       {children}
@@ -45,7 +44,7 @@ const primitives: CorePrimitives = {
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,
   Link: noop,
-};
+});
 
 const action: ConfigEditAction = {
   id: "send-test",

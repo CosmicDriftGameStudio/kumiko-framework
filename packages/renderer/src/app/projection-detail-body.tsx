@@ -86,7 +86,7 @@ export function ProjectionDetailBody({
     detailQuery,
     reloadNonce,
     reloadDetail,
-  } = useProjectionDetailData({ screen, Tabs: primitives.Tabs, nav, effectiveEntityId });
+  } = useProjectionDetailData({ screen, nav, effectiveEntityId });
 
   // Header actions render directly via RenderEditActionButton
   // headerActions moved out of RenderEdit's footer — this component owns

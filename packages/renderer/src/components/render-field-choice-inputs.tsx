@@ -146,7 +146,6 @@ export function renderUnsupportedInput({
   field,
   id,
   Banner,
-  Text,
   JsonView,
   t,
 }: RenderInputArgs): ReactNode {
@@ -154,12 +153,7 @@ export function renderUnsupportedInput({
   return (
     <Banner id={id} variant="info">
       {t("kumiko.field.unsupported")}
-      {hasValue &&
-        (JsonView !== undefined ? (
-          <JsonView value={field.value} testId={`field-value-${field.field}`} />
-        ) : (
-          <Text variant="code">{JSON.stringify(field.value)}</Text>
-        ))}
+      {hasValue && <JsonView value={field.value} testId={`field-value-${field.field}`} />}
     </Banner>
   );
 }

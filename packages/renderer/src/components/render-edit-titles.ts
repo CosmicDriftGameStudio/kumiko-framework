@@ -138,7 +138,6 @@ export function deriveTitles<TValues extends FormValues, TCtx>(
   const { translate } = state;
   const { filteredSections } = sections;
   const { currentStep, lastStepIndex } = steps;
-  const { PageHeader, StepBar } = state.primitives;
   const { recordTitle, formTitle, formSubtitle } = deriveFormTitleTexts(engine, footer.isCreate);
   return {
     recordTitle,
@@ -151,9 +150,8 @@ export function deriveTitles<TValues extends FormValues, TCtx>(
     usesFieldFlow: layout.isScreenForm || state.insideDrawer,
     // The caller's headerRegion fills the shell page header with the record title
     // or, without one, the screen title, so a form title above the sections repeats it.
-    titleInHeaderRegion:
-      headerRegion !== undefined && PageHeader !== undefined && state.pageHeaderSlotAvailable,
-    stepRail: state.isWizard && layout.isScreenForm && StepBar !== undefined,
+    titleInHeaderRegion: headerRegion !== undefined && state.pageHeaderSlotAvailable,
+    stepRail: state.isWizard && layout.isScreenForm,
     sectionNavItems:
       layout.isScreenForm && !state.isStepped && props.recordSections?.pageNavigation !== false
         ? deriveSectionNavItems(filteredSections, formTitle)

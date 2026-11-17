@@ -11,7 +11,7 @@ import type {
 import userEvent from "@testing-library/user-event";
 import type { FeatureSchema } from "../../index.ts";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
-import { createMockDispatcher, type MockWriteHandler, render, renderWithPrimitivesOverride, screen } from "./test-utils.tsx";
+import { createMockDispatcher, type MockWriteHandler, render, screen } from "./test-utils.tsx";
 
 const profileEntity = {
   fields: {
@@ -251,23 +251,6 @@ describe("entityEdit wizard — step bar", () => {
 
     const steps = container.querySelectorAll('[data-testid^="render-edit-wizard-steps-step-"]');
     expect(steps.length).toBe(3);
-  });
-
-  // A PrimitivesRegistry without StepBar (older/custom registry)
-  // must stay on the plain "Step X of Y" label RenderEdit always had —
-  // this is the changeset's stated backward-compat guarantee.
-  test("falls back to the plain step label when the registry doesn't supply StepBar", () => {
-    renderWithPrimitivesOverride(
-      <DispatcherProvider dispatcher={createMockDispatcher()}>
-        <KumikoScreen schema={schema} qn="demo:screen:profile-edit" />
-      </DispatcherProvider>,
-      { StepBar: undefined },
-    );
-
-    expect(screen.getByTestId("render-edit-wizard-step-label").textContent).toBe(
-      "Step 1 of 2 · Step 1",
-    );
-    expect(screen.queryByTestId("render-edit-wizard-steps-step-0")).toBeNull();
   });
 
   // A titleless section used to fall back to the stringified step

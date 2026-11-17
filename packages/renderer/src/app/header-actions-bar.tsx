@@ -83,14 +83,11 @@ export function HeaderActionsBar({
   const dangerMenuActions = actions.filter(
     (action) =>
       (collapseAfterPrimary && action.style === "danger") ||
-      (ActionOverflowMenu !== undefined && menuActionIds?.includes(action.id) === true),
+      menuActionIds?.includes(action.id) === true,
   );
   const visibleCandidates = actions.filter((action) => !dangerMenuActions.includes(action));
   const maxPlainButtons = collapseAfterPrimary ? 1 : 2;
-  if (
-    ActionOverflowMenu === undefined ||
-    (visibleCandidates.length <= maxPlainButtons && dangerMenuActions.length === 0)
-  ) {
+  if (visibleCandidates.length <= maxPlainButtons && dangerMenuActions.length === 0) {
     return (
       <>
         {orderPlainHeaderActions(actions, preferredPrimaryId).map((action) => (

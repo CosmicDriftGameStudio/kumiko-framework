@@ -11,9 +11,7 @@ import type { Dispatcher } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import {
-  type ButtonProps,
-  type CorePrimitives,
-  type FieldProps,
+  type ButtonProps,  type FieldProps,
   type FormProps,
   type InputProps,
   PrimitivesProvider,
@@ -21,7 +19,7 @@ import {
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import { type NavApi, NavProvider, type NavTarget, useNavigateWithInitialValues } from "../nav.tsx";
-import { createMockDispatcher } from "../../testing.ts";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
@@ -56,7 +54,7 @@ const PlainButton: ComponentType<ButtonProps> = ({ children, type }) => (
   <button type={type ?? "button"}>{children}</button>
 );
 
-const testPrimitives: CorePrimitives = {
+const testPrimitives = createStubPrimitives({
   Button: PlainButton,
   Banner: passChildren,
   Field: FieldWithIssues,
@@ -76,7 +74,7 @@ const testPrimitives: CorePrimitives = {
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,
   Link: noop,
-};
+});
 
 const screen: ActionFormScreenDefinition = {
   id: "compose",
