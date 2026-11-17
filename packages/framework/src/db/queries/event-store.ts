@@ -471,13 +471,15 @@ export async function selectExpiredStreamEventIds(
     db,
     `SELECT e."id" FROM "kumiko_events" e
 JOIN (
-  SELECT s."tenant_id", s."aggregate_id" FROM "kumiko_events" s
+  SELECT s."tenant_id", s."aggregate_type", s."aggregate_id" FROM "kumiko_events" s
   WHERE s."aggregate_type" = ANY($1::text[]) ${idFilter}
-  GROUP BY s."tenant_id", s."aggregate_id"
+  GROUP BY s."tenant_id", s."aggregate_type", s."aggregate_id"
   HAVING MAX(s."created_at") < ${cutoffPlaceholder}
   ORDER BY MIN(s."id")
   ${limitClause}
-) expired ON expired."tenant_id" = e."tenant_id" AND expired."aggregate_id" = e."aggregate_id"
+) expired ON expired."tenant_id" = e."tenant_id"
+  AND expired."aggregate_type" = e."aggregate_type"
+  AND expired."aggregate_id" = e."aggregate_id"
 ORDER BY e."id"`,
     params,
   );
