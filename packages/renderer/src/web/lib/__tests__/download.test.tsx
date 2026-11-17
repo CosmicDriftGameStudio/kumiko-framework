@@ -3,8 +3,8 @@
 
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import type { Dispatcher, QueryResult } from "../../../headless/index.ts";
-import { postWithDownload } from "../download.ts";
 import { createMockDispatcher } from "../../../testing.ts";
+import { postWithDownload } from "../download.ts";
 
 function stubDispatcher(result: QueryResult<{ url?: string }>): Dispatcher {
   return createMockDispatcher({ query: async () => result });

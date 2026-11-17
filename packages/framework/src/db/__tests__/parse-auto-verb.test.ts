@@ -8,8 +8,8 @@
 // ImplicitProjection would fire the wrong handler.
 
 import { describe, expect, test } from "bun:test";
-import type { StoredEvent } from "../../event-store/index.ts";
 import { createEntity, createTextField } from "../../engine/index.ts";
+import type { StoredEvent } from "../../event-store/index.ts";
 import { parseAutoVerb } from "../apply-entity-event.ts";
 
 function event(overrides: Partial<StoredEvent>): StoredEvent {

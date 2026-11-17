@@ -209,10 +209,7 @@ export function applyFormDerivations(values: unknown, screen: FormDerivationScre
     if (targetField.type === "money") {
       const minor = roundDerivedCellValue(computed, { type: "money" });
       const currency = targetCurrency(targetField, result[target], sourceCurrency);
-      result[target] =
-        currency === undefined
-          ? { amount: minor }
-          : { amount: minor, currency };
+      result[target] = currency === undefined ? { amount: minor } : { amount: minor, currency };
     } else if (targetField.type === "decimal") {
       result[target] = roundDerivedCellValue(computed, targetField);
     } else {

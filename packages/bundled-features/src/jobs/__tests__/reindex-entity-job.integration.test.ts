@@ -14,7 +14,6 @@ import {
   createEventStoreExecutor,
   createSystemDbView,
 } from "@cosmicdrift/kumiko-framework/db";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   bridgeStub,
   createEntity,
@@ -22,6 +21,7 @@ import {
   defineFeature,
   type JobContext,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { testDatabaseUrl } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -133,7 +133,10 @@ describe("reindexEntityJob", () => {
           mode: "system",
           reason: "test seeds and inspects entity rows across tenants for the reindex job",
           grants: {
-            unsafeRaw: { reason: "test: job context mirrors systemScope() grant", grants: ["unsafeRaw"] },
+            unsafeRaw: {
+              reason: "test: job context mirrors systemScope() grant",
+              grants: ["unsafeRaw"],
+            },
           },
         }),
       ),
@@ -191,7 +194,10 @@ describe("reindexEntityJob", () => {
           mode: "system",
           reason: "test seeds and inspects entity rows across tenants for the reindex job",
           grants: {
-            unsafeRaw: { reason: "test: job context mirrors systemScope() grant", grants: ["unsafeRaw"] },
+            unsafeRaw: {
+              reason: "test: job context mirrors systemScope() grant",
+              grants: ["unsafeRaw"],
+            },
           },
         }),
       ),
@@ -333,7 +339,10 @@ describe("reindexEntityJob under a server statement_timeout", () => {
             mode: "system",
             reason: "test seeds and inspects entity rows across tenants for the reindex job",
             grants: {
-              unsafeRaw: { reason: "test: job context mirrors systemScope() grant", grants: ["unsafeRaw"] },
+              unsafeRaw: {
+                reason: "test: job context mirrors systemScope() grant",
+                grants: ["unsafeRaw"],
+              },
               projectionRegistry: stack.registry,
             },
           }),

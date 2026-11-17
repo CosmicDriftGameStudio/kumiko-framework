@@ -1,13 +1,13 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
-import type { DbTx } from "@cosmicdrift/kumiko-types/db-connection";
-import type { EscapeHatchDeclaration } from "@cosmicdrift/kumiko-types/handlers";
 import {
   createTestDb,
   type TestDb,
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
+import type { DbTx } from "@cosmicdrift/kumiko-types/db-connection";
+import type { EscapeHatchDeclaration } from "@cosmicdrift/kumiko-types/handlers";
 import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
 import { createRegistry } from "../../engine/registry.ts";
 import { AccessDeniedError } from "../../errors/index.ts";
@@ -149,7 +149,11 @@ describe("executor-managed write lock: TenantDb", () => {
   });
 
   test("db.global() writes reject a managed global table even with the escape hatch", async () => {
-    const tdb = createTenantDb({ db: testDb.db, tenantId, grants: { globalWrites: globalWritesGrant } });
+    const tdb = createTenantDb({
+      db: testDb.db,
+      tenantId,
+      grants: { globalWrites: globalWritesGrant },
+    });
     const globalDb = tdb.global(globalManagedTable);
     await expectDenied(globalDb.insertOne({ label: "x" }));
     await expectDenied(globalDb.updateMany({ label: "y" }, { label: "x" }));
@@ -158,7 +162,9 @@ describe("executor-managed write lock: TenantDb", () => {
 
   test("unsafeRaw does not unlock a managed table", async () => {
     const tdb = createTenantDb({ db: testDb.db, tenantId, grants: { unsafeRaw: unsafeRawGrant } });
-    await expectDenied(async () => insertOne(tdb.unsafeRawAllTenants(), erasedManagedTable, { name: "x" }));
+    await expectDenied(async () =>
+      insertOne(tdb.unsafeRawAllTenants(), erasedManagedTable, { name: "x" }),
+    );
   });
 
   test("unsafeRaw on a TenantDb over a capable runner still does not unlock", async () => {
@@ -167,7 +173,9 @@ describe("executor-managed write lock: TenantDb", () => {
       tenantId,
       grants: { unsafeRaw: unsafeRawGrant },
     });
-    await expectDenied(async () => insertOne(tdb.unsafeRawAllTenants(), erasedManagedTable, { name: "x" }));
+    await expectDenied(async () =>
+      insertOne(tdb.unsafeRawAllTenants(), erasedManagedTable, { name: "x" }),
+    );
     // the TenantDb itself still sits on the capable runner
     const row = await tdb.insertOne<{ id: string }>(erasedManagedTable, { name: "cap" });
     expect(row?.id).toBeDefined();

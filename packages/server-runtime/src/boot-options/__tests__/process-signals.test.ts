@@ -7,8 +7,8 @@ import {
   resolveDrainTimeoutMs,
   SERVER_STOP_GRACE_MS,
   SHUTDOWN_TAIL_RESERVE_MS,
-  shutdownBudgetsMs,
   type SignalProcess,
+  shutdownBudgetsMs,
 } from "../process-signals.ts";
 
 function fakeProcess(): SignalProcess & { emit(signal: string): void; count(): number } {
@@ -169,9 +169,9 @@ describe("shutdownBudgetsMs", () => {
   test("the default budget fits HTTP grace, job drain and tail", () => {
     const budgets = shutdownBudgetsMs(25_000);
     expect(budgets).toEqual({ serverGraceMs: 5_000, jobDrainMs: 15_000 });
-    expect(budgets.serverGraceMs + budgets.jobDrainMs + SHUTDOWN_TAIL_RESERVE_MS).toBeLessThanOrEqual(
-      25_000,
-    );
+    expect(
+      budgets.serverGraceMs + budgets.jobDrainMs + SHUTDOWN_TAIL_RESERVE_MS,
+    ).toBeLessThanOrEqual(25_000);
   });
 
   test("a long budget goes to the job drain", () => {

@@ -110,11 +110,10 @@ describe("forget-message", () => {
     const kms = configuredPiiSubjectKms();
     if (!kms) throw new Error("expected a configured PII-subject KMS in this test stack");
     const readReceived = async (messageId: string) => {
-      const events = await selectMany<{ type: string; payload: { from?: string; bodyText?: string } }>(
-        env.stack.db,
-        eventsTable,
-        { aggregateId: messageId },
-      );
+      const events = await selectMany<{
+        type: string;
+        payload: { from?: string; bodyText?: string };
+      }>(env.stack.db, eventsTable, { aggregateId: messageId });
       const received = events.find((e) => e.type.endsWith("inbound-message-received"));
       const { from, bodyText } = received?.payload ?? {};
       if (!from || !bodyText) throw new Error("expected a received event with from and bodyText");

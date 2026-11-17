@@ -5,7 +5,14 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import userEvent from "@testing-library/user-event";
 import { DispatcherProvider, RenderEdit } from "../../index.ts";
-import { createMockDispatcher, type MockQueryHandler, type MockWriteHandler, render, screen, waitFor } from "./test-utils.tsx";
+import {
+  createMockDispatcher,
+  type MockQueryHandler,
+  type MockWriteHandler,
+  render,
+  screen,
+  waitFor,
+} from "./test-utils.tsx";
 
 const siteEntity = {
   fields: {

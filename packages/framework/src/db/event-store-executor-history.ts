@@ -100,7 +100,11 @@ export function createHistoryVerbs(
       }
       return events;
     }
-    return upcastStoredEvents(events, registry.getEventUpcasters(), makeUpcastCtx(runner, tenantId));
+    return upcastStoredEvents(
+      events,
+      registry.getEventUpcasters(),
+      makeUpcastCtx(runner, tenantId),
+    );
   }
 
   // Ownership rules (from/where) cannot be checked against a past event, so a field behind one counts as restricted (audit rule 2026-11-17).
@@ -142,9 +146,7 @@ export function createHistoryVerbs(
       degradeUndecryptable: () => {},
     });
     const kept = Object.fromEntries(
-      Object.entries(ctx.stripSensitive(decrypted)).filter(([key]) =>
-        mayReadPastField(key, user),
-      ),
+      Object.entries(ctx.stripSensitive(decrypted)).filter(([key]) => mayReadPastField(key, user)),
     );
     return maskWriteOnlyFields(entity, kept);
   }

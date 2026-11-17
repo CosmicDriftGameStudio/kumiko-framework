@@ -26,9 +26,7 @@ const entity = createEntity({
 
 describe("decimal field — column + DDL", () => {
   test("maps to numeric(precision,scale) with required→NOT NULL", () => {
-    const cols = new Map(
-      deriveEntityTableMeta(entity).columns.map((c) => [c.name, c]),
-    );
+    const cols = new Map(deriveEntityTableMeta(entity).columns.map((c) => [c.name, c]));
     expect(cols.get("sum")?.pgType).toBe("numeric(14,2)");
     expect(cols.get("interest")?.pgType).toBe("numeric(6,4)");
     expect(cols.get("rate")?.pgType).toBe("numeric(12,2)");

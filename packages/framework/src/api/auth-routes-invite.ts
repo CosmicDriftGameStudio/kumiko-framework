@@ -8,8 +8,8 @@ import { toClientWriteErrorInfo, toWriteErrorInfo } from "../errors/write-error-
 import { Routes } from "./api-constants.ts";
 import { getUser } from "./auth-middleware.ts";
 import type { AuthRouteContext } from "./auth-routes-context.ts";
-import { toContentfulStatus } from "./contentful-status.ts";
 import { pendingMfaStepResponse } from "./auth-routes-shared.ts";
+import { toContentfulStatus } from "./contentful-status.ts";
 
 const InviteAcceptBody = z.object({
   token: z.string().min(1),

@@ -9,9 +9,9 @@ export {
   createNotesHistoryFeature,
   type NotesHistoryFeatureOptions,
 } from "./feature.ts";
-export { eraseNoteBodiesReachingSubject } from "./user-data-hooks.ts";
 export { createAddNoteHandler } from "./handlers/add-note.write.ts";
 export { type AddNotePayload, addNotePayloadSchema } from "./schemas.ts";
+export { eraseNoteBodiesReachingSubject } from "./user-data-hooks.ts";
 export {
   DEFAULT_NOTES_HISTORY_ACCESS,
   DEFAULT_NOTES_HISTORY_ROLES,

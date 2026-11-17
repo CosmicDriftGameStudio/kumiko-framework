@@ -11,17 +11,11 @@ import {
   test,
 } from "bun:test";
 import { updateMany } from "@cosmicdrift/kumiko-framework/db";
-import {
-  defineFeature,
-  type WriteHandlerDef,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { defineFeature, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { burst, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
-import {
-  setupTestStack,
-  type TestStack,
-} from "@cosmicdrift/kumiko-testing/stack";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import {
@@ -35,7 +29,6 @@ import { capCountersTable, capReservationsTable } from "../tables.ts";
 import { fetchCounterValue } from "./read-counter.ts";
 
 const PERIOD = "2026-09-01T00:00:00Z";
-
 
 const reservePayload = z.object({
   capName: z.string(),
@@ -267,10 +260,18 @@ describe("calendarCapReservationHandle", () => {
     const user = adminFor(3217);
     const reservationId = await reserve(user, "overflow-cap", 5);
 
-    await stack.http.writeOk(SETTLE_QN, { capName: "overflow-cap", reservationId, actual: 7 }, user);
+    await stack.http.writeOk(
+      SETTLE_QN,
+      { capName: "overflow-cap", reservationId, actual: 7 },
+      user,
+    );
     expect(await readCounterValue(user, "overflow-cap")).toBe(7);
 
-    await stack.http.writeOk(SETTLE_QN, { capName: "overflow-cap", reservationId, actual: 7 }, user);
+    await stack.http.writeOk(
+      SETTLE_QN,
+      { capName: "overflow-cap", reservationId, actual: 7 },
+      user,
+    );
     expect(await readCounterValue(user, "overflow-cap")).toBe(7);
   });
 

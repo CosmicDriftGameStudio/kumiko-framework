@@ -13,7 +13,6 @@ import {
   createEventStoreExecutor,
   fetchOne,
 } from "@cosmicdrift/kumiko-framework/db";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   createEntity,
   createSystemUser,
@@ -23,6 +22,7 @@ import {
   type TenantId,
   type UserDataDeleteHook,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -84,12 +84,16 @@ const probeDeleteHook: UserDataDeleteHook = async (ctx) => {
 
 const probeFeature = defineFeature("erasure-probe-host", (r) => {
   r.entity(probeEntity);
-  r.applyExtension({ name: EXT_USER_DATA, entity: PROBE_ENTITY, export: async () => null,
+  r.applyExtension({
+    name: EXT_USER_DATA,
+    entity: PROBE_ENTITY,
+    export: async () => null,
     delete: probeDeleteHook,
     escapeHatch: {
       reason:
         "test fixture: probes the erasure-failure contract with a hook that forgets through the executor",
-    } });
+    },
+  });
 });
 
 let stack: TestStack;

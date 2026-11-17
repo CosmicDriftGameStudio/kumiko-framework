@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { queryContract } from "@cosmicdrift/kumiko-types/handler-contract";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { queryContract } from "@cosmicdrift/kumiko-types/handler-contract";
 import * as z from "zod";
 import { defineFeature } from "../../engine/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";

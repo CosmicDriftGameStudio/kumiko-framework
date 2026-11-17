@@ -390,62 +390,62 @@ async function processUser(args: {
             ),
         },
         eraseRows: async () => {
-        for (const tenantId of tenantList) {
-          currentTenantId = tenantId;
-          // Refine the app-level model to THIS tenant: "single-user" only if the
-          // tenant truly has one member, so a stray invite can't let a per-user
-          // forget erase a co-member's tenant-scoped data (money-path safety).
-          const tenantModel = await resolveEffectiveTenantModel(tx, tenantId, appTenantModel);
-          // Resolved ONCE per tenant (not per hookEntry below) — the compliance-
-          // profile lookup it does internally is a single indexed read; N entities
-          // re-deriving it per tenant would be N reads for the same answer.
-          const tenantPreset = await resolveTenantRetentionPreset({ db: tx, registry, tenantId });
-          for (const entry of hookEntries) {
-            currentEntityName = entry.entityName;
-            const policy = await resolveRetentionPolicyForTenant({
-              db: tx,
-              registry,
-              tenantId,
-              entityName: entry.entityName,
-              preloadedTenantPreset: tenantPreset,
-            });
-            const strategy = policyToStrategy(policy.policy?.strategy ?? null);
-
-            hookCallsAttempted++;
-            const hookResult = await entry.deleteHook(
-              {
-                db: buildHookDb(tx, tenantId, entry, {
-                  escapeHatchAuditSink: args.escapeHatchAuditSink,
-                  escapeHatchAuditLog: args.escapeHatchAuditLog,
-                  actor: args.actor,
-                  registry,
-                }),
+          for (const tenantId of tenantList) {
+            currentTenantId = tenantId;
+            // Refine the app-level model to THIS tenant: "single-user" only if the
+            // tenant truly has one member, so a stray invite can't let a per-user
+            // forget erase a co-member's tenant-scoped data (money-path safety).
+            const tenantModel = await resolveEffectiveTenantModel(tx, tenantId, appTenantModel);
+            // Resolved ONCE per tenant (not per hookEntry below) — the compliance-
+            // profile lookup it does internally is a single indexed read; N entities
+            // re-deriving it per tenant would be N reads for the same answer.
+            const tenantPreset = await resolveTenantRetentionPreset({ db: tx, registry, tenantId });
+            for (const entry of hookEntries) {
+              currentEntityName = entry.entityName;
+              const policy = await resolveRetentionPolicyForTenant({
+                db: tx,
                 registry,
                 tenantId,
-                userId,
-                buildStorageProvider,
-                tenantModel,
-                userEmailBeforeDelete,
-              },
-              strategy,
-            );
-            // "incomplete" is not a hard failure (see Header): no throw,
-            // no rollback, eraseKey + status flip proceed unchanged.
-            // Only collected + logged for operator visibility.
-            if (hookResult?.status === "incomplete") {
-              incomplete.push({
-                userId,
-                tenantId,
                 entityName: entry.entityName,
-                reason: hookResult.reason,
+                preloadedTenantPreset: tenantPreset,
               });
-              // biome-ignore lint/suspicious/noConsole: operator-visibility for partial hook completion
-              console.warn(
-                `[user-data-rights:run-forget-cleanup] hook incomplete userId=${userId} tenantId=${tenantId} entityName=${entry.entityName} reason=${sanitizeReasonForLog(hookResult.reason)}`,
+              const strategy = policyToStrategy(policy.policy?.strategy ?? null);
+
+              hookCallsAttempted++;
+              const hookResult = await entry.deleteHook(
+                {
+                  db: buildHookDb(tx, tenantId, entry, {
+                    escapeHatchAuditSink: args.escapeHatchAuditSink,
+                    escapeHatchAuditLog: args.escapeHatchAuditLog,
+                    actor: args.actor,
+                    registry,
+                  }),
+                  registry,
+                  tenantId,
+                  userId,
+                  buildStorageProvider,
+                  tenantModel,
+                  userEmailBeforeDelete,
+                },
+                strategy,
               );
+              // "incomplete" is not a hard failure (see Header): no throw,
+              // no rollback, eraseKey + status flip proceed unchanged.
+              // Only collected + logged for operator visibility.
+              if (hookResult?.status === "incomplete") {
+                incomplete.push({
+                  userId,
+                  tenantId,
+                  entityName: entry.entityName,
+                  reason: hookResult.reason,
+                });
+                // biome-ignore lint/suspicious/noConsole: operator-visibility for partial hook completion
+                console.warn(
+                  `[user-data-rights:run-forget-cleanup] hook incomplete userId=${userId} tenantId=${tenantId} entityName=${entry.entityName} reason=${sanitizeReasonForLog(hookResult.reason)}`,
+                );
+              }
             }
           }
-        }
         },
       });
 

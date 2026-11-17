@@ -2,9 +2,8 @@ import { createEntityExecutor, type EntityDefinition } from "@cosmicdrift/kumiko
 import { createNoteEntryEntity, noteEntryEntity, noteMentionEntity } from "./entity.ts";
 
 // ungated: system paths and tests only; handlers use createNoteEntryExecutor
-export const { executor: noteEntryExecutor, table: noteEntryTable } = createEntityExecutor(
-  noteEntryEntity,
-);
+export const { executor: noteEntryExecutor, table: noteEntryTable } =
+  createEntityExecutor(noteEntryEntity);
 
 // Carries only `ownership.write`: the executor enforces entity.access.write on
 // create, while read ownership is applied by the list handler.
@@ -20,6 +19,5 @@ export function createNoteEntryExecutor(
   ).executor;
 }
 
-export const { executor: noteMentionExecutor, table: noteMentionTable } = createEntityExecutor(
-  noteMentionEntity,
-);
+export const { executor: noteMentionExecutor, table: noteMentionTable } =
+  createEntityExecutor(noteMentionEntity);

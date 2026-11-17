@@ -58,11 +58,16 @@ const itemFeature = defineFeature("dlive", (r) => {
     access: { roles: ["Admin"] },
   });
 
-  r.streamHandler({ name: "item:tail", schema: z.object({ count: z.number().int().min(0) }), handler: async function* (query) {
+  r.streamHandler({
+    name: "item:tail",
+    schema: z.object({ count: z.number().int().min(0) }),
+    handler: async function* (query) {
       for (let i = 0; i < query.payload.count; i++) {
         yield { i, name: `n-${i}` };
       }
-    }, access: { roles: ["Admin"] } });
+    },
+    access: { roles: ["Admin"] },
+  });
 });
 
 let stack: TestStack;

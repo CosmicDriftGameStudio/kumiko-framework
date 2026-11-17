@@ -195,16 +195,31 @@ export function createAuthEmailPasswordFeature(
 
     // Declared unconditionally: apps also issue the activation link from their
     // own flows (issueSignupActivation) without enabling the signup option.
-    r.notification({ name: "password-reset", variables: AUTH_MAIL_VARIABLES,
-      localizedTemplate: authMailLocalizedTemplate("passwordReset") });
-    r.notification({ name: "account-unlock", variables: AUTH_MAIL_VARIABLES,
-      localizedTemplate: authMailLocalizedTemplate("accountUnlock") });
-    r.notification({ name: "email-verification", variables: AUTH_MAIL_VARIABLES,
-      localizedTemplate: authMailLocalizedTemplate("emailVerification") });
-    r.notification({ name: "signup-activation", variables: AUTH_MAIL_VARIABLES,
-      localizedTemplate: authMailLocalizedTemplate("signupActivation") });
-    r.notification({ name: "invite", variables: INVITE_MAIL_VARIABLES,
-      localizedTemplate: authMailLocalizedTemplate("invite") });
+    r.notification({
+      name: "password-reset",
+      variables: AUTH_MAIL_VARIABLES,
+      localizedTemplate: authMailLocalizedTemplate("passwordReset"),
+    });
+    r.notification({
+      name: "account-unlock",
+      variables: AUTH_MAIL_VARIABLES,
+      localizedTemplate: authMailLocalizedTemplate("accountUnlock"),
+    });
+    r.notification({
+      name: "email-verification",
+      variables: AUTH_MAIL_VARIABLES,
+      localizedTemplate: authMailLocalizedTemplate("emailVerification"),
+    });
+    r.notification({
+      name: "signup-activation",
+      variables: AUTH_MAIL_VARIABLES,
+      localizedTemplate: authMailLocalizedTemplate("signupActivation"),
+    });
+    r.notification({
+      name: "invite",
+      variables: INVITE_MAIL_VARIABLES,
+      localizedTemplate: authMailLocalizedTemplate("invite"),
+    });
 
     const handlers = {
       login: r.writeHandler(

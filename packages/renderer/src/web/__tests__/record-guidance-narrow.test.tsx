@@ -2,7 +2,16 @@
 import { describe, expect, test } from "bun:test";
 import type { ProjectionDetailScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
-import { createMockDispatcher, fireEvent, type MockQueryHandler, render, restoreViewportWidthAfterEach, screen, setViewportWidth, waitFor } from "./test-utils.tsx";
+import {
+  createMockDispatcher,
+  fireEvent,
+  type MockQueryHandler,
+  render,
+  restoreViewportWidthAfterEach,
+  screen,
+  setViewportWidth,
+  waitFor,
+} from "./test-utils.tsx";
 
 const PHONE_WIDTH = 500;
 const DESKTOP_WIDTH = 1280;

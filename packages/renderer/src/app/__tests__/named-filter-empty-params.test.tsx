@@ -3,7 +3,7 @@ import { screen, waitFor } from "@testing-library/react";
 import { ListEmptyStateBody } from "../../components/list-empty-state.tsx";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import type { Translate } from "../../headless/index.ts";
-import { makeDispatcher, type MockQueryHandler, render } from "../../web/__tests__/test-utils.tsx";
+import { type MockQueryHandler, makeDispatcher, render } from "../../web/__tests__/test-utils.tsx";
 import { buildNamedFilterEmpty } from "../named-filter-facet.ts";
 
 const translate: Translate = (key, params) =>

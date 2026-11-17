@@ -2,9 +2,9 @@ import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
   hasAccess,
   parentRulesFromRegistry,
+  type Registry,
   registeredEntityExecutor,
   resolveParentWriteAccess,
-  type Registry,
   type SessionUser,
   toKebab,
   userCanWriteFieldRow,

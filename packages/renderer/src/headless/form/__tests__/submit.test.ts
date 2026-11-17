@@ -1,8 +1,8 @@
 import { describe, expect, mock, test } from "bun:test";
 import * as z from "zod";
+import { createMockDispatcher, type MockWriteHandler } from "../../../testing.ts";
 import type { Dispatcher, WriteResult } from "../../dispatcher/index.ts";
 import { createFormController } from "../form-controller.ts";
-import { createMockDispatcher, type MockWriteHandler } from "../../../testing.ts";
 
 // Fake dispatcher scoped to this test file — same shape as contract.test.ts
 // but with an explicit spy on write() so assertions can inspect argv.

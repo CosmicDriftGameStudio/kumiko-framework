@@ -20,7 +20,8 @@ export function createProductArchiveWrite(archivedEventName: string) {
         aggregateType: "product",
         type: archivedEventName,
         payload: () => ({ reason: event.payload.reason }),
-        blindAppendReason: "archiving is decided by the caller, not by the product state on the stream",
+        blindAppendReason:
+          "archiving is decided by the caller, not by the product state on the stream",
       }),
       r.step.unsafeProjectionDelete({
         table: lowStockAlertsTable,

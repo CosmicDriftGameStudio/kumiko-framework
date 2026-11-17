@@ -52,7 +52,9 @@ export const supportFeature = defineFeature("support", (r) => {
 
   r.entity(ticketEntity);
 
-  r.notification({ name: "ticket-assigned", variables: {
+  r.notification({
+    name: "ticket-assigned",
+    variables: {
       ticketId: templateVariable.text({ required: true }),
       title: templateVariable.text({ required: true }),
       description: templateVariable.text({ required: true }),
@@ -72,7 +74,8 @@ export const supportFeature = defineFeature("support", (r) => {
         title: `New ticket: ${data["title"]}`,
         body: (data["description"] as string) || "A ticket was assigned to you.",
       }),
-    } });
+    },
+  });
 
   r.writeHandler({
     name: "ticket:create",

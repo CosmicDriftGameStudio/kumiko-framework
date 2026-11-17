@@ -3,6 +3,7 @@
 // helpers: createKumikoApp (react-dom bootstrap), defaultPrimitives (HTML),
 // useBrowserNavApi (window.history), createEventSourceLiveEvents, KumikoLink.
 
+export type { FormatMoneyOptions } from "../headless/index.ts";
 // --- Shared re-exports (Components, Hooks, Types, Contexts) ---
 export type {
   AppPrimitives,
@@ -235,7 +236,6 @@ export {
   ScreenWidthProvider,
 } from "./primitives/index.tsx";
 export { PageSection, Stack } from "./primitives/layout.tsx";
-export type { FormatMoneyOptions } from "../headless/index.ts";
 export { formatMoney } from "./primitives/money-input.tsx";
 export type { ToastOptions, ToastProviderProps, ToastVariant } from "./primitives/toast.tsx";
 export { ToastProvider, useToast } from "./primitives/toast.tsx";
@@ -395,8 +395,8 @@ export {
   SideBySideTable,
   SignedBarChart,
   Sparkline,
-  StackedAreaChart,
   STATUS_TONE_TEXT,
+  StackedAreaChart,
   StatCard,
   StatusBadge,
   StatusBarChart,

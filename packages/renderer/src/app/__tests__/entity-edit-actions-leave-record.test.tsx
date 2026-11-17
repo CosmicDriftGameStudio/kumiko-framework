@@ -17,16 +17,17 @@ import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import {
   type BannerProps,
-  type ButtonProps,  type DialogProps,
+  type ButtonProps,
+  type DialogProps,
   type FormProps,
   PrimitivesProvider,
 } from "../../primitives.tsx";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 import { AppFeaturesProvider } from "../app-features-context.tsx";
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import type { NavApi, ScreenTarget } from "../nav.tsx";
 import { NavProvider } from "../nav.tsx";
-import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 
 afterEach(cleanup);
 

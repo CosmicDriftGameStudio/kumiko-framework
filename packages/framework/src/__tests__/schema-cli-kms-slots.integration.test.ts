@@ -52,11 +52,9 @@ const personEntity = createEntity({
 const personFeature = defineFeature("kmsslotsbidx", (r) => {
   r.entity(personEntity);
 });
-const personExecutor = createEventStoreExecutor(
-  buildEntityTable(personEntity),
-  personEntity,
-  { entityName: "person" },
-);
+const personExecutor = createEventStoreExecutor(buildEntityTable(personEntity), personEntity, {
+  entityName: "person",
+});
 
 const PLATFORM_KEK_PLAINTEXT = Buffer.alloc(32, 1).toString("base64");
 const BLIND_INDEX_PLAINTEXT = Buffer.alloc(32, 2).toString("base64");

@@ -91,7 +91,11 @@ const oauthPlugin: InboundMailProviderPlugin = {
 
 const oauthProviderFeature = defineFeature("inbound-provider-oauth-rls", (r) => {
   r.requires({ features: ["inbound-mail-foundation"] });
-  r.applyExtension({ name: INBOUND_MAIL_PROVIDER_EXTENSION, entity: OAUTH_PROVIDER_KEY, ...oauthPlugin });
+  r.applyExtension({
+    name: INBOUND_MAIL_PROVIDER_EXTENSION,
+    entity: OAUTH_PROVIDER_KEY,
+    ...oauthPlugin,
+  });
 });
 
 let stack: TestStack;

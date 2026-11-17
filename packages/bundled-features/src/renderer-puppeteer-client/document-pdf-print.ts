@@ -87,7 +87,10 @@ function fillPaperBehindContent(doc: PDFDocument, paperColor: string): void {
 async function swapInFirstPage(doc: PDFDocument, firstPagePdf: Uint8Array): Promise<void> {
   const firstPageDoc = await PDFDocument.load(firstPagePdf, { updateMetadata: false });
   if (firstPageDoc.getPageCount() === 0) {
-    throw new RendererError("renderer-puppeteer-client: the first-page print has no pages", "other");
+    throw new RendererError(
+      "renderer-puppeteer-client: the first-page print has no pages",
+      "other",
+    );
   }
   const [firstPage] = await doc.copyPages(firstPageDoc, [0]);
   if (firstPage === undefined) return;

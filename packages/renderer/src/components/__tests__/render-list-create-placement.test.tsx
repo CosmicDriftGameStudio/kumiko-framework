@@ -12,7 +12,8 @@ import {
   PageHeaderSlotAvailableProvider,
 } from "../../page-header-slot.ts";
 import {
-  type ButtonProps,  type DataTableProps,
+  type ButtonProps,
+  type DataTableProps,
   type PageHeaderProps,
   PrimitivesProvider,
 } from "../../primitives.tsx";

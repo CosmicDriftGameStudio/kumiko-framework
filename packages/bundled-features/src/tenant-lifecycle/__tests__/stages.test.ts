@@ -32,8 +32,11 @@ function stageNamed(name: string) {
 describe("tenant-lifecycle stages", () => {
   test("app-data stage fails loud when a tenantData registration has no destroy function", async () => {
     const broken = defineFeature("broken-tenant-data", (r) => {
-      r.applyExtension({ name: EXT_TENANT_DATA, entity: "bad-entity", // @ts-expect-error destroy must be a function — proves the guard rejects a non-function value instead of silently skipping it
-        destroy: "x" });
+      r.applyExtension({
+        name: EXT_TENANT_DATA,
+        entity: "bad-entity", // @ts-expect-error destroy must be a function — proves the guard rejects a non-function value instead of silently skipping it
+        destroy: "x",
+      });
     });
     const registry = createRegistry([declares(EXT_TENANT_DATA), broken]);
     await expect(
@@ -68,9 +71,13 @@ describe("tenant-lifecycle stages", () => {
 
   test("app-data stage denies unsafeRaw for a destroy hook without a declared escapeHatch", async () => {
     const undeclared = defineFeature("undeclared-escape-hatch", (r) => {
-      r.applyExtension({ name: EXT_TENANT_DATA, entity: "leaky-entity", destroy: async (hookCtx) => {
+      r.applyExtension({
+        name: EXT_TENANT_DATA,
+        entity: "leaky-entity",
+        destroy: async (hookCtx) => {
           hookCtx.db.unsafeRawAllTenants();
-        } });
+        },
+      });
     });
     const registry = createRegistry([declares(EXT_TENANT_DATA), undeclared]);
     await expect(
@@ -87,10 +94,14 @@ describe("tenant-lifecycle stages", () => {
   test("app-data stage audits a declared escapeHatch attributed to the destruction actor", async () => {
     const reason = "declared on the registration, wipes a cross-tenant table";
     const declared = defineFeature("declared-escape-hatch", (r) => {
-      r.applyExtension({ name: EXT_TENANT_DATA, entity: "wiping-entity", destroy: async (hookCtx) => {
+      r.applyExtension({
+        name: EXT_TENANT_DATA,
+        entity: "wiping-entity",
+        destroy: async (hookCtx) => {
           hookCtx.db.unsafeRawAllTenants();
         },
-        escapeHatch: { reason } });
+        escapeHatch: { reason },
+      });
     });
     const registry = createRegistry([declares(EXT_TENANT_DATA), declared]);
     const events: { handler: string; actor: string; reason: string }[] = [];
@@ -112,10 +123,18 @@ describe("tenant-lifecycle stages", () => {
 
   test("files stage reports a stuck hook as no progress even when another hook is pending", async () => {
     const pendingProvider = defineFeature("pending-storage-provider", (r) => {
-      r.applyExtension({ name: EXT_STORAGE_PROVIDER, entity: "pending-entity", destroyTenant: async () => ({ done: false, processed: 0, pending: true }) });
+      r.applyExtension({
+        name: EXT_STORAGE_PROVIDER,
+        entity: "pending-entity",
+        destroyTenant: async () => ({ done: false, processed: 0, pending: true }),
+      });
     });
     const stuckProvider = defineFeature("stuck-storage-provider", (r) => {
-      r.applyExtension({ name: EXT_STORAGE_PROVIDER, entity: "stuck-entity", destroyTenant: async () => ({ done: false, processed: 0 }) });
+      r.applyExtension({
+        name: EXT_STORAGE_PROVIDER,
+        entity: "stuck-entity",
+        destroyTenant: async () => ({ done: false, processed: 0 }),
+      });
     });
     const registry = createRegistry([
       declares(EXT_STORAGE_PROVIDER),
@@ -134,7 +153,11 @@ describe("tenant-lifecycle stages", () => {
 
   test("files stage stays pending when the only unfinished hook is pending", async () => {
     const pendingProvider = defineFeature("pending-only-storage-provider", (r) => {
-      r.applyExtension({ name: EXT_STORAGE_PROVIDER, entity: "pending-entity", destroyTenant: async () => ({ done: false, processed: 0, pending: true }) });
+      r.applyExtension({
+        name: EXT_STORAGE_PROVIDER,
+        entity: "pending-entity",
+        destroyTenant: async () => ({ done: false, processed: 0, pending: true }),
+      });
     });
     const registry = createRegistry([declares(EXT_STORAGE_PROVIDER), pendingProvider]);
     const outcome = await stageNamed("files").run({

@@ -3,13 +3,13 @@ import {
   createSystemDbView,
   runInSavepointIfSupported,
 } from "@cosmicdrift/kumiko-framework/db";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   defineWriteHandler,
   type HandlerContext,
   type TenantId,
   type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { normalizeEmail, requireSystemDb, sendBestEffort } from "../../shared/index.ts";
 import { platformActor, waitlistDb, waitlistExecutor } from "../lib.ts";
@@ -120,12 +120,7 @@ export function createSubmitHandler(opts: WaitlistOptions) {
 
       const email = normalizeEmail(payload.email);
       const systemDb = requireSystemDb(ctx, "waitlist:submit");
-      const adminRecipient = await resolveAdminRecipient(
-        opts,
-        ctx,
-        systemDb,
-        event.user.tenantId,
-      );
+      const adminRecipient = await resolveAdminRecipient(opts, ctx, systemDb, event.user.tenantId);
       await acquireNamespacedAdvisoryLock(
         systemDb.unsafeRaw(SUBMIT_LOCK_REASON),
         SUBMIT_LOCK_NAMESPACE,

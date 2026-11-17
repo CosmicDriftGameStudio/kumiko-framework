@@ -2,7 +2,15 @@
 import { describe, expect, test } from "bun:test";
 import type { ProjectionDetailScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
-import { createMockDispatcher, type MockQueryHandler, render, restoreViewportWidthAfterEach, screen, setViewportWidth, waitFor } from "./test-utils.tsx";
+import {
+  createMockDispatcher,
+  type MockQueryHandler,
+  render,
+  restoreViewportWidthAfterEach,
+  screen,
+  setViewportWidth,
+  waitFor,
+} from "./test-utils.tsx";
 
 function renderScreen(definition: ProjectionDetailScreenDefinition, data: unknown): void {
   const query: MockQueryHandler = async () => ({ isSuccess: true, data });

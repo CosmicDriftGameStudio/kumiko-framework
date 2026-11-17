@@ -12,7 +12,12 @@ import {
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import { createFilesFeature, createInMemoryFileProvider, fileRefsTable, type InMemoryFileProvider } from "@cosmicdrift/kumiko-framework/files";
+import {
+  createFilesFeature,
+  createInMemoryFileProvider,
+  fileRefsTable,
+  type InMemoryFileProvider,
+} from "@cosmicdrift/kumiko-framework/files";
 import {
   buildMultipartBody,
   patchFileInstanceofForBunTest,

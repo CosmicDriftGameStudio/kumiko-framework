@@ -126,7 +126,8 @@ describe("warnOnUnreachableNavScreens", () => {
       ],
     ]);
 
-    warnOnUnreachableNavScreens(warn, 
+    warnOnUnreachableNavScreens(
+      warn,
       allNavQns,
       new Set(["vehicles:nav:a"]),
       new Set(["vehicles:nav:c"]),
@@ -202,7 +203,8 @@ describe("warnOnNavAccessInversion", () => {
   ];
 
   test("warns for a leaf whose roles are disjoint from the parent's", () => {
-    warnOnNavAccessInversion(warn, 
+    warnOnNavAccessInversion(
+      warn,
       navMap([
         parent,
         [
@@ -217,7 +219,8 @@ describe("warnOnNavAccessInversion", () => {
   });
 
   test("does not emit a misleading 'requires roles []' warning for an invalid openToAll leaf", () => {
-    warnOnNavAccessInversion(warn, 
+    warnOnNavAccessInversion(
+      warn,
       navMap([
         parent,
         [
@@ -398,10 +401,12 @@ describe("validateBoot nav allowlist wiring", () => {
 
   function shopFeature(options: { readonly withWorkspace: boolean }) {
     return defineFeature("shop", (r) => {
-      r.entity(createEntity({
+      r.entity(
+        createEntity({
           name: "item",
           fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
-        }));
+        }),
+      );
       r.queryHandler({
         name: "item:list",
         schema: z.object({}),

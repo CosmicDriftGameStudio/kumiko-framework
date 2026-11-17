@@ -49,7 +49,9 @@ describe("defineProdBootE2eConfig input", () => {
       testDir: "./boot-specs",
     };
 
-    expect(singleWebServer(input).command).toEndWith("prod-boot-server.ts out/server.js out/cli.js");
+    expect(singleWebServer(input).command).toEndWith(
+      "prod-boot-server.ts out/server.js out/cli.js",
+    );
     expect(defineProdBootE2eConfig(input).testDir).toBe("./boot-specs");
   });
 

@@ -22,9 +22,9 @@ import {
   type DbConnection,
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import type { JobContext, SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, VERSION_CONFLICT_CODE } from "@cosmicdrift/kumiko-framework/errors";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   decodeStoredEnvelope,
   encodeStoredEnvelope,

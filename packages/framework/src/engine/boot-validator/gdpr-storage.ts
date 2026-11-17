@@ -1,7 +1,6 @@
 import type { FeatureDefinition } from "../types/index.ts";
 import type { BootWarningSink } from "./boot-warning.ts";
 
-
 // Providers whose bytes do not survive a process restart. Only "inmemory"
 // today; extend if another ephemeral bundled provider lands.
 const EPHEMERAL_PROVIDERS: ReadonlySet<string> = new Set(["inmemory"]);
@@ -45,7 +44,7 @@ export function validateGdprStoragePersistence(
       kind: "gdpr/ephemeral-store",
       feature: "user-data-rights",
       message:
-      "user-data-rights is mounted but no persistent file provider is — GDPR exports use an ephemeral/in-memory store and are LOST on restart (the download then 500s). Mount createFileProviderS3Feature() or createFileProviderS3Feature({ fromEnv: true }) and select it via the file-foundation provider config.",
+        "user-data-rights is mounted but no persistent file provider is — GDPR exports use an ephemeral/in-memory store and are LOST on restart (the download then 500s). Mount createFileProviderS3Feature() or createFileProviderS3Feature({ fromEnv: true }) and select it via the file-foundation provider config.",
     });
     // skip: ephemeral store already warned; the s3-env env-var check below is moot
     return;
@@ -60,8 +59,7 @@ export function validateGdprStoragePersistence(
       warn({
         kind: "gdpr/s3-env-unset",
         feature: "user-data-rights",
-        message:
-        `createFileProviderS3Feature({ fromEnv: true }) (provider "s3-env") is the GDPR file store but these env vars are unset: ${missing.join(", ")}. The provider throws on the first export (inside the cron), not here — set them so GDPR storage works.`,
+        message: `createFileProviderS3Feature({ fromEnv: true }) (provider "s3-env") is the GDPR file store but these env vars are unset: ${missing.join(", ")}. The provider throws on the first export (inside the cron), not here — set them so GDPR storage works.`,
       });
     }
   }

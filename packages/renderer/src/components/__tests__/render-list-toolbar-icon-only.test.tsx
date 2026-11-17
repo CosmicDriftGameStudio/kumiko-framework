@@ -13,10 +13,7 @@ import { render, screen as rtlScreen } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
-import {
-  type ButtonProps,  type DataTableProps,
-  PrimitivesProvider,
-} from "../../primitives.tsx";
+import { type ButtonProps, type DataTableProps, PrimitivesProvider } from "../../primitives.tsx";
 import { createStubPrimitives } from "../../testing.ts";
 import { RenderList, type ToolbarActionButton } from "../render-list.tsx";
 

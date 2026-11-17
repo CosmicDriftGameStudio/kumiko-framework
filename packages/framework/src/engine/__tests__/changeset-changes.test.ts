@@ -145,7 +145,10 @@ describe("parseChangesetChanges", () => {
 
     test("a breaking change with a codemod and without manualAfterCodemod needs no affects", () => {
       const [change] = parseChangesetChanges(
-        changeset("breaking", "migration: Run the codemod\ncodemod: scripts/codemod/migrate-db-raw.ts"),
+        changeset(
+          "breaking",
+          "migration: Run the codemod\ncodemod: scripts/codemod/migrate-db-raw.ts",
+        ),
         ".changeset/affects.md",
       );
       expect(change?.affects).toBeUndefined();
@@ -153,10 +156,7 @@ describe("parseChangesetChanges", () => {
 
     test("affects on an improvement throws", () => {
       expect(() =>
-        parseChangesetChanges(
-          changeset("improvement", "affects: fooBar"),
-          ".changeset/affects.md",
-        ),
+        parseChangesetChanges(changeset("improvement", "affects: fooBar"), ".changeset/affects.md"),
       ).toThrow(/only allowed on breaking/);
     });
   });

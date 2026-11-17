@@ -19,13 +19,13 @@
 
 import * as path from "node:path";
 import { type Identifier, Node, Project, type SourceFile, SyntaxKind } from "ts-morph";
-import { FILE_IGNORE_TAG_PREFIX, fileIgnoreTagLine } from "./_lib/ignore-tag";
 import {
   type GuardViolation,
   type RepoCheck,
   reportResults,
   runRepoChecks,
 } from "./_lib/guard-kit";
+import { FILE_IGNORE_TAG_PREFIX, fileIgnoreTagLine } from "./_lib/ignore-tag";
 import { frameworkTsConfigPath } from "./_lib/roots";
 import { type ScanSpec, scanFiles } from "./_lib/scan-scope";
 

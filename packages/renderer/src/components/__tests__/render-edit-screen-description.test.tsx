@@ -22,7 +22,7 @@ import {
   type TranslationsByLocale,
 } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
-import {type FormProps, PrimitivesProvider } from "../../primitives.tsx";
+import { type FormProps, PrimitivesProvider } from "../../primitives.tsx";
 import { createStubPrimitives } from "../../testing.ts";
 import { RenderEdit } from "../render-edit.tsx";
 

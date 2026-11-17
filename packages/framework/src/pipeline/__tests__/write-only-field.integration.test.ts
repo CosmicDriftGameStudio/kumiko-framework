@@ -70,7 +70,9 @@ const feature = defineFeature("wo", (r) => {
   // Returns only a boolean so the secret itself never leaves the server.
   r.queryHandler({
     name: "stored-key-matches",
-    unfilteredResult: { reason: "returns only whether the candidate matches, never the stored key" },
+    unfilteredResult: {
+      reason: "returns only whether the candidate matches, never the stored key",
+    },
     schema: z.object({ id: z.uuid(), candidate: z.string() }),
     handler: async (query, ctx) => {
       const row = await connectionExecutor.detail({ id: query.payload.id }, query.user, ctx.db);
@@ -88,10 +90,14 @@ const feature = defineFeature("wo", (r) => {
     read: { access: { roles: ["Admin"] } },
   });
   r.entity(vaultEntity);
-  r.relation({ entity: "vault", name: "connections", type: "hasMany",
+  r.relation({
+    entity: "vault",
+    name: "connections",
+    type: "hasMany",
     target: "connection",
     foreignKey: "vaultId",
-    nestedWrite: true });
+    nestedWrite: true,
+  });
   r.crud(vaultEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: { roles: ["Admin"] } },

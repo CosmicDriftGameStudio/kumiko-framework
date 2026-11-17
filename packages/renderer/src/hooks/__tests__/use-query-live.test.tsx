@@ -8,9 +8,9 @@ import {
   type LiveEventSubscriber,
   LiveEventsProvider,
 } from "../../index.ts";
+import { createMockDispatcher } from "../../testing.ts";
 import { LIVE_REFETCH_COALESCE_MS } from "../live-refetch-scheduler.ts";
 import { useQuery } from "../use-query.ts";
-import { createMockDispatcher } from "../../testing.ts";
 
 const QUERY_TYPE = "f:query:invoice:list";
 
@@ -66,10 +66,12 @@ describe("useQuery live refetch", () => {
 
   test("a burst of events inside the window triggers one refetch", async () => {
     let calls = 0;
-    const dispatcher = createMockDispatcher({ query: async () => {
-      calls += 1;
-      return success(calls);
-    } });
+    const dispatcher = createMockDispatcher({
+      query: async () => {
+        calls += 1;
+        return success(calls);
+      },
+    });
     const feed = createLiveFeed();
     const { result } = renderHook(() => useQuery<{ n: number }>(QUERY_TYPE, {}, { live: true }), {
       wrapper: wrapperFor(dispatcher, feed.subscribe),
@@ -106,11 +108,13 @@ describe("useQuery live refetch", () => {
   test("events during an in-flight refetch queue exactly one follow-up", async () => {
     const pending: Array<(result: QueryResult) => void> = [];
     let calls = 0;
-    const dispatcher = createMockDispatcher({ query: async () => {
-      calls += 1;
-      if (calls === 1) return success(calls);
-      return new Promise<QueryResult>((resolve) => pending.push(resolve));
-    } });
+    const dispatcher = createMockDispatcher({
+      query: async () => {
+        calls += 1;
+        if (calls === 1) return success(calls);
+        return new Promise<QueryResult>((resolve) => pending.push(resolve));
+      },
+    });
     const feed = createLiveFeed();
     renderHook(() => useQuery(QUERY_TYPE, {}, { live: true }), {
       wrapper: wrapperFor(dispatcher, feed.subscribe),
@@ -141,19 +145,21 @@ describe("useQuery live refetch", () => {
 
   test("a failed refetch keeps the last data and reports the error", async () => {
     let calls = 0;
-    const dispatcher = createMockDispatcher({ query: async () => {
-      calls += 1;
-      if (calls === 1) return success(1);
-      return {
-        isSuccess: false,
-        error: {
-          code: "internal_error",
-          httpStatus: 500,
-          i18nKey: "errors.internal",
-          message: "boom",
-        },
-      };
-    } });
+    const dispatcher = createMockDispatcher({
+      query: async () => {
+        calls += 1;
+        if (calls === 1) return success(1);
+        return {
+          isSuccess: false,
+          error: {
+            code: "internal_error",
+            httpStatus: 500,
+            i18nKey: "errors.internal",
+            message: "boom",
+          },
+        };
+      },
+    });
     const feed = createLiveFeed();
     const { result } = renderHook(() => useQuery<{ n: number }>(QUERY_TYPE, {}, { live: true }), {
       wrapper: wrapperFor(dispatcher, feed.subscribe),
@@ -170,10 +176,12 @@ describe("useQuery live refetch", () => {
 
   test("unmounting drops a pending coalesced refetch", async () => {
     let calls = 0;
-    const dispatcher = createMockDispatcher({ query: async () => {
-      calls += 1;
-      return success(calls);
-    } });
+    const dispatcher = createMockDispatcher({
+      query: async () => {
+        calls += 1;
+        return success(calls);
+      },
+    });
     const feed = createLiveFeed();
     const { unmount } = renderHook(() => useQuery(QUERY_TYPE, {}, { live: true }), {
       wrapper: wrapperFor(dispatcher, feed.subscribe),

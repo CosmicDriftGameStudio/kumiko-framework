@@ -43,10 +43,7 @@ export type MultiStreamApplyContextDeps = {
 export function createMultiStreamApplyContext(
   deps: MultiStreamApplyContextDeps,
 ): MultiStreamApplyContext {
-  const appendWithLabel = async (
-    callSiteLabel: string,
-    args: AppendEventArgs,
-  ): Promise<void> => {
+  const appendWithLabel = async (callSiteLabel: string, args: AppendEventArgs): Promise<void> => {
     await appendDomainEventCore(
       {
         registry: deps.registry,

@@ -99,16 +99,11 @@ describe("createTagsFeature access-options", () => {
   });
 
   test("access:{openToAll} applies to every write- and query-path", () => {
-    const feature = createTagsFeature({ parents: ["credit"],
+    const feature = createTagsFeature({
+      parents: ["credit"],
       access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
     });
-    for (const path of [
-      "tag:create",
-      "tag:update",
-      "tag:delete",
-      "assign-tag",
-      "remove-tag",
-    ]) {
+    for (const path of ["tag:create", "tag:update", "tag:delete", "assign-tag", "remove-tag"]) {
       expect(rawWriteAccess(feature, path)).toEqual({
         openToAll: { reason: "test handler callable by any signed-in test user" },
       });
@@ -121,7 +116,8 @@ describe("createTagsFeature access-options", () => {
   });
 
   test("access takes precedence over the roles shorthand", () => {
-    const feature = createTagsFeature({ parents: ["credit"],
+    const feature = createTagsFeature({
+      parents: ["credit"],
       access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       roles: ["Admin"],
     });
@@ -144,14 +140,16 @@ describe("createTagsFeature toggleable-option (tier-gating)", () => {
   test("without toggleable: feature is always-on (toggleableDefault undefined)", () => {
     expect(createTagsFeature({ parents: ["credit"] }).toggleableDefault).toBeUndefined();
     expect(
-      createTagsFeature({ parents: ["credit"],
+      createTagsFeature({
+        parents: ["credit"],
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       }).toggleableDefault,
     ).toBeUndefined();
   });
 
   test("toggleable:{default:false} makes the feature tier-gatable, fail-closed", () => {
-    const feature = createTagsFeature({ parents: ["credit"],
+    const feature = createTagsFeature({
+      parents: ["credit"],
       access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       toggleable: { default: false },
     });
@@ -159,7 +157,9 @@ describe("createTagsFeature toggleable-option (tier-gating)", () => {
   });
 
   test("toggleable:{default:true} declares toggleable, enabled-by-default", () => {
-    expect(createTagsFeature({ parents: ["credit"], toggleable: { default: true } }).toggleableDefault).toBe(true);
+    expect(
+      createTagsFeature({ parents: ["credit"], toggleable: { default: true } }).toggleableDefault,
+    ).toBe(true);
   });
 
   test("toggleable alone (no access/roles) keeps the default roles", () => {

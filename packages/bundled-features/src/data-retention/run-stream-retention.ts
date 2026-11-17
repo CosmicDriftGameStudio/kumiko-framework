@@ -27,7 +27,11 @@ export async function runStreamRetention(
   let deletedEvents = 0;
   let deletedRows = 0;
   for (const projection of args.registry.getAllProjections().values()) {
-    if (projection.isImplicit !== true || typeof projection.source !== "string" || !projection.table) {
+    if (
+      projection.isImplicit !== true ||
+      typeof projection.source !== "string" ||
+      !projection.table
+    ) {
       continue;
     }
     const keepFor = args.registry.getEntity(projection.source)?.streamRetention?.keepFor;

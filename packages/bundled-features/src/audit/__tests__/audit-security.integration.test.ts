@@ -5,9 +5,9 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
-  createEntity,
   createEmbeddedField,
   createEmbeddedListField,
+  createEntity,
   createEntityExecutor,
   createTextField,
   defineEntityCreateHandler,
@@ -382,7 +382,10 @@ describe("audit payload follows entity read rules", () => {
       hrTenantAdmin(),
     );
 
-    const reviewedPayload = rowOfType(await listFor("memo", tenantAdmin()), "memo.reviewed").payload;
+    const reviewedPayload = rowOfType(
+      await listFor("memo", tenantAdmin()),
+      "memo.reviewed",
+    ).payload;
     expect(reviewedPayload).not.toBeNull();
     expect(reviewedPayload?.["changes"]).not.toHaveProperty("salary");
     expect(reviewedPayload?.["previous"]).not.toHaveProperty("salary");

@@ -39,7 +39,9 @@ describe("validateHandlerAccess — dispatchOnly", () => {
       rateLimit: { per: "ip", limit: 5, windowSeconds: 60 },
       tenantlessAnonymous: true,
     });
-    expect(() => validateHandlerAccess(feature)).toThrow(/dispatch-only-tenantless|feature:write:name/);
+    expect(() => validateHandlerAccess(feature)).toThrow(
+      /dispatch-only-tenantless|feature:write:name/,
+    );
   });
 });
 

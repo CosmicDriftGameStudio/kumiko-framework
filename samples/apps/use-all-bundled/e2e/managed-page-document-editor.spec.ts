@@ -4,11 +4,7 @@
 // serves the typed text as a document.
 
 import { PAGE_UPDATE_HANDLER } from "@cosmicdrift/kumiko-bundled-features/managed-pages";
-import {
-  expect,
-  boundaryGuardedTest as test,
-  waitForWrite,
-} from "@cosmicdrift/kumiko-testing/e2e";
+import { expect, boundaryGuardedTest as test, waitForWrite } from "@cosmicdrift/kumiko-testing/e2e";
 import { loginAsAdmin } from "./_helpers/login";
 
 const TYPED_TEXT = "Typed in the document editor.";

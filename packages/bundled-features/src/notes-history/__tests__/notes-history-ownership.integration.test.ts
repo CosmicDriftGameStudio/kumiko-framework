@@ -122,7 +122,10 @@ async function insertProjects(
 
 beforeAll(async () => {
   scopedStack = await setupTestStack({
-    features: [createNotesHistoryFeature({ parents: ["project"], ownership: teamOwnership }), projectFixtureFeature],
+    features: [
+      createNotesHistoryFeature({ parents: ["project"], ownership: teamOwnership }),
+      projectFixtureFeature,
+    ],
   });
   await unsafeCreateEntityTable(scopedStack.db, createNoteEntryEntity(teamOwnership, ["project"]));
   await unsafeCreateEntityTable(scopedStack.db, noteMentionEntity);
@@ -285,7 +288,10 @@ describe("unqualified where-rule fails closed, not open", () => {
         projectFixtureFeature,
       ],
     });
-    await unsafeCreateEntityTable(unqualifiedStack.db, createNoteEntryEntity(unqualifiedOwnership, ["project"]));
+    await unsafeCreateEntityTable(
+      unqualifiedStack.db,
+      createNoteEntryEntity(unqualifiedOwnership, ["project"]),
+    );
     await unsafeCreateEntityTable(unqualifiedStack.db, noteMentionEntity);
     await unsafeCreateEntityTable(unqualifiedStack.db, projectEntity);
     await asRawClient(unqualifiedStack.db).unsafe(
@@ -327,7 +333,8 @@ describe("unqualified where-rule fails closed, not open", () => {
 describe("notes-history — boot guard rejects a where-rule in ownership.write", () => {
   test("createNotesHistoryFeature throws instead of shipping a deny-only ownership map", () => {
     expect(() =>
-      createNotesHistoryFeature({ parents: ["project"],
+      createNotesHistoryFeature({
+        parents: ["project"],
         ownership: {
           write: {
             TenantMember: { kind: "where", where: () => ({ sqlText: "1=1", params: [] }) },

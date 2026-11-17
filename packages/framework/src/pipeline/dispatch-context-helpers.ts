@@ -72,9 +72,12 @@ export function getTable(
   if (tableCache.has(entityName)) return tableCache.get(entityName);
   const entity = registry.getEntity(entityName);
   if (!entity) return undefined;
-  const table = buildEntityTable({ ...entity, name: entityName }, {
-    relations: registry.getRelations(entityName),
-  });
+  const table = buildEntityTable(
+    { ...entity, name: entityName },
+    {
+      relations: registry.getRelations(entityName),
+    },
+  );
   tableCache.set(entityName, table);
   return table;
 }

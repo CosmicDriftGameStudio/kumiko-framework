@@ -8,7 +8,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/db";
 import { createEntity, createTextField } from "@cosmicdrift/kumiko-framework/engine";
 
-
 export type InvoiceState = {
   id: string | null;
   customer: string | null;

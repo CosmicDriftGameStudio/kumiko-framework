@@ -1,18 +1,18 @@
 import type { AggregateRow, AggregateSpec } from "@cosmicdrift/kumiko-types/aggregate-types";
-import type { EntityTableMeta } from "@cosmicdrift/kumiko-types/entity-table-meta-types";
 import type { DbConnection } from "@cosmicdrift/kumiko-types/db-connection";
+import type { EntityTableMeta } from "@cosmicdrift/kumiko-types/entity-table-meta-types";
 import type { ExecutorManagedRunner } from "@cosmicdrift/kumiko-types/executor-brand";
 import type { EscapeHatchReporter, HandlerDb } from "@cosmicdrift/kumiko-types/handlers";
 import type { Meter, Tracer } from "@cosmicdrift/kumiko-types/observability";
 import type { SchemaTable } from "@cosmicdrift/kumiko-types/schema-table-types";
 import type { TenancyBrand } from "@cosmicdrift/kumiko-types/tenancy-brand";
-import {
-  type ConnectionTenantDb,
-  type ExecutorManagedTenantDb,
-  type GlobalTableDb,
-  type TenantDb,
-  type TenantDbMode,
-  type TenantDbUpsertOptions,
+import type {
+  ConnectionTenantDb,
+  ExecutorManagedTenantDb,
+  GlobalTableDb,
+  TenantDb,
+  TenantDbMode,
+  TenantDbUpsertOptions,
 } from "@cosmicdrift/kumiko-types/tenant-db-types";
 import {
   asEntityTableMeta,
@@ -53,6 +53,11 @@ import {
 } from "./row-level-security-scope.ts";
 import { hasFieldProperty, tableNameOf } from "./table-introspection.ts";
 import {
+  bindTenantDbRunner,
+  denyTenantDbWrites,
+  tenantDbWritesDeniedError,
+} from "./tenant-db-runner.ts";
+import {
   appProjectionRegistryOf,
   boundRunner,
   crossTenantRebinders,
@@ -68,11 +73,6 @@ import {
   withExecutorManagedWrites,
   withoutExecutorManagedWrites,
 } from "./tenant-db-runner-binding.ts";
-import {
-  bindTenantDbRunner,
-  denyTenantDbWrites,
-  tenantDbWritesDeniedError,
-} from "./tenant-db-runner.ts";
 import { registerScopedRebinder } from "./tenant-db-scoped-rebind.ts";
 import { createTenantDbStatementRunner } from "./tenant-db-statement-runner.ts";
 import { upsertTableDenied, upsertTenantRow } from "./tenant-db-upsert.ts";
@@ -141,7 +141,6 @@ export function hasTenantColumn(table: Table | EntityTableMeta): boolean {
   if (meta) return meta.columns.some((c) => c.name === "tenant_id");
   return hasFieldProperty(table, "tenantId");
 }
-
 
 export type OutsideTransactionContext = { readonly db: Pick<HandlerDb, "outsideTransaction"> };
 

@@ -4,7 +4,7 @@ import { render, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
-import {PrimitivesProvider } from "../../primitives.tsx";
+import { PrimitivesProvider } from "../../primitives.tsx";
 import { createStubPrimitives } from "../../testing.ts";
 import { createMockDispatcher, type MockQueryHandler } from "../../web/__tests__/test-utils.tsx";
 import type { FeatureSchema } from "../feature-schema.ts";
@@ -37,7 +37,10 @@ const primitives = createStubPrimitives({
 
 describe("configEdit reads at the scope it edits", () => {
   test("a system-scope screen asks config:query:values for the system level", async () => {
-    const query = mock<MockQueryHandler>(async (_name: string, _payload: unknown) => ({ isSuccess: true, data: {} }));
+    const query = mock<MockQueryHandler>(async (_name: string, _payload: unknown) => ({
+      isSuccess: true,
+      data: {},
+    }));
     const screen: ConfigEditScreenDefinition = {
       id: "settings",
       type: "configEdit",

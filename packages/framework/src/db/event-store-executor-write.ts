@@ -82,10 +82,10 @@ import {
   runPreSave,
 } from "./event-store-executor-write-steps.ts";
 import { isFrameworkSystemUser, isLockGuardBypassed } from "./lock-guard.ts";
+import { parentRulesFromOption, resolveParentWriteAccess } from "./parent-ownership.ts";
 import { runInSavepointIfSupported } from "./query.ts";
 import { assertPersonalDataWrite, tableNameOf, withExecutorManagedWrites } from "./tenant-db.ts";
 import { tenantDbWriteRunnerForTable } from "./tenant-db-runner.ts";
-import { parentRulesFromOption, resolveParentWriteAccess } from "./parent-ownership.ts";
 import { createOwnershipFailure, updateOwnershipFailure } from "./write-ownership-failures.ts";
 
 type WriteRunner = ReturnType<typeof tenantDbWriteRunnerForTable>;
@@ -729,7 +729,14 @@ export function createWriteVerbs(
     if (versionConflict) return versionConflict;
 
     const { flatChangesPlain, flatChanges, encryptedPrevious, changedPrevious } =
-      await encryptUpdatePayload(user, streamTenantId, previous, verbChanges, mergedNew, updateOptions);
+      await encryptUpdatePayload(
+        user,
+        streamTenantId,
+        previous,
+        verbChanges,
+        mergedNew,
+        updateOptions,
+      );
     return {
       id: payload.id,
       previous,
@@ -745,7 +752,9 @@ export function createWriteVerbs(
         tenantId: streamTenant,
         expectedVersion: currentVersion,
         type:
-          verbName === undefined ? entityEventName(entityName, "updated") : `${entityName}.${verbName}`,
+          verbName === undefined
+            ? entityEventName(entityName, "updated")
+            : `${entityName}.${verbName}`,
         eventVersion,
         payload: { changes: flatChanges, previous: encryptedPrevious },
         metadata: buildEventMetadata(user),
@@ -858,7 +867,13 @@ export function createWriteVerbs(
       // row matters (there's no "new" row for a delete); passing existing
       // twice to userCanWriteFieldRow makes the Straddle check trivial
       // (same row on both sides) while keeping the multi-role-atomic shape.
-      const writeAccess = await resolveWriteAccess(user, streamTenantId, db, [existing], options?.parentVisibility);
+      const writeAccess = await resolveWriteAccess(
+        user,
+        streamTenantId,
+        db,
+        [existing],
+        options?.parentVisibility,
+      );
       if (
         !userCanWriteFieldRow(
           ownershipSubject(user, streamTenantId),
@@ -933,7 +948,6 @@ export function createWriteVerbs(
         );
       }
 
-
       const echoEvent = { ...event, payload: { previous: stripSensitive(existing) } };
       await projectEntityEvent(db, runner, echoEvent);
 
@@ -971,7 +985,13 @@ export function createWriteVerbs(
       if (streamTenantMismatch) return streamTenantMismatch;
       const existing = await readProjectedRow(raw);
 
-      const writeAccess = await resolveWriteAccess(user, streamTenantId, db, [existing], options?.parentVisibility);
+      const writeAccess = await resolveWriteAccess(
+        user,
+        streamTenantId,
+        db,
+        [existing],
+        options?.parentVisibility,
+      );
       if (
         !isFrameworkSystemUser(user) &&
         !userCanWriteFieldRow(
@@ -1036,7 +1056,6 @@ export function createWriteVerbs(
         );
       }
 
-
       const echoEvent = { ...event, payload: { previous: stripSensitive(existing) } };
       await projectEntityEvent(db, runner, echoEvent);
 
@@ -1079,15 +1098,14 @@ export function createWriteVerbs(
       // H.2 — entity-level write-ownership on restore. Same shape as delete:
       // only the stored row matters. Stored row carries pre-soft-delete
       // teamId/... fields, so the ownership predicate still applies cleanly.
-      const writeAccess = await resolveWriteAccess(user, streamTenantId, db, [data], options?.parentVisibility);
-      if (
-        !userCanWriteFieldRow(
-          ownershipSubject(user, streamTenantId),
-          writeAccess,
-          data,
-          data,
-        )
-      ) {
+      const writeAccess = await resolveWriteAccess(
+        user,
+        streamTenantId,
+        db,
+        [data],
+        options?.parentVisibility,
+      );
+      if (!userCanWriteFieldRow(ownershipSubject(user, streamTenantId), writeAccess, data, data)) {
         return ownershipDeniedFailure({
           scope: "entity",
           entityName,
@@ -1129,7 +1147,6 @@ export function createWriteVerbs(
       // Soft-delete unique indexes are partial (WHERE is_deleted = false), so a live row may have re-taken the value this restore brings back.
       const projected = await applyProjection(runner, event, "projection restore returned no row");
       if ("failure" in projected) return projected.failure;
-
 
       // Read-side auto-convert for compound types, same as update/list.
       // decryptForRead matches create/update/list/detail: the caller-facing

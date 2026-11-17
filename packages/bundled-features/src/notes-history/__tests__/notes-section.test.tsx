@@ -17,14 +17,18 @@ import {
   PrimitivesProvider,
   TokensProvider,
 } from "@cosmicdrift/kumiko-renderer";
-import { type Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
+import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
+import {
+  createMockDispatcher,
+  type MockQueryHandler,
+  type MockWriteHandler,
+} from "@cosmicdrift/kumiko-renderer/testing";
 import { defaultPrimitives, defaultTokens } from "@cosmicdrift/kumiko-renderer/web";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { NotesHistoryHandlers, NotesHistoryQueries } from "../web/constants.ts";
 import { defaultTranslations } from "../web/i18n.ts";
 import { NotesSection } from "../web/notes-section.tsx";
-import { createMockDispatcher, type MockQueryHandler, type MockWriteHandler } from "@cosmicdrift/kumiko-renderer/testing";
 
 if (typeof globalThis.ResizeObserver === "undefined") {
   globalThis.ResizeObserver = class {

@@ -9,14 +9,9 @@
 // This is the smallest evidence that an entity needs zero notes-wiring.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import {
-  createNotesHistoryFeature,
-} from "@cosmicdrift/kumiko-bundled-features/notes-history";
+import { createNotesHistoryFeature } from "@cosmicdrift/kumiko-bundled-features/notes-history";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import {
-  setupTestStack,
-  type TestStack,
-} from "@cosmicdrift/kumiko-testing/stack";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { taskFeature } from "../feature";
 import { type NotesClient, notesFlow } from "../usage";
 
@@ -33,7 +28,9 @@ const notesClient: NotesClient = {
 let stack: TestStack;
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [createNotesHistoryFeature({ parents: ["task"] }), taskFeature] });
+  stack = await setupTestStack({
+    features: [createNotesHistoryFeature({ parents: ["task"] }), taskFeature],
+  });
 });
 
 afterAll(async () => {

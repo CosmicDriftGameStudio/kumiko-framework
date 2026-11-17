@@ -111,7 +111,9 @@ describe("seedComplianceProfile", () => {
     });
 
     const result = await stack.http.queryOk<{
-      profile: { userRights: { gracePeriod: { days: number }; exportDownloadTtl: { days: number } } };
+      profile: {
+        userRights: { gracePeriod: { days: number }; exportDownloadTtl: { days: number } };
+      };
     }>(FOR_TENANT, {}, user);
     expect(result.profile.userRights.gracePeriod).toEqual({ days: 90 });
     // Other userRights remain from eu-dsgvo

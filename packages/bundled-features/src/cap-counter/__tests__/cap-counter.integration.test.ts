@@ -13,17 +13,11 @@ import {
   insertOne,
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
-import {
-  defineFeature,
-  type WriteHandlerDef,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { defineFeature, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
-import {
-  setupTestStack,
-  type TestStack,
-} from "@cosmicdrift/kumiko-testing/stack";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { readRollingCapUsage, rollingBucketStart } from "../book-cap-usage.ts";
@@ -132,7 +126,6 @@ beforeAll(async () => {
     features: [createCapCounterFeature(), enforceProbeFeature],
   });
   db = stack.db;
-
 });
 
 afterAll(async () => {

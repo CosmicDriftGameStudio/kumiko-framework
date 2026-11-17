@@ -42,9 +42,14 @@ const catchUpFixtureFeature = defineFeature("catch-up-fixture", (r) => {
     access: { roles: ["Admin"] },
   });
 
-  r.job({ name: "on-ping-catch-up", trigger: { on: ping.name, catchUp: true }, runIn: "worker", handler: async (payload) => {
+  r.job({
+    name: "on-ping-catch-up",
+    trigger: { on: ping.name, catchUp: true },
+    runIn: "worker",
+    handler: async (payload) => {
       catchUpRuns.push(payload["pingId"] as string);
-    } });
+    },
+  });
   const versionedPing = r.defineEvent(
     "versioned-ping",
     z.object({ pingId: z.uuid(), source: z.string() }),
@@ -54,9 +59,14 @@ const catchUpFixtureFeature = defineFeature("catch-up-fixture", (r) => {
       migrations: [{ fromVersion: 1, toVersion: 2, transform: { default: { source: "v1" } } }],
     },
   );
-  r.job({ name: "on-versioned-ping", trigger: { on: versionedPing.name, catchUp: true }, runIn: "worker", handler: async (payload) => {
+  r.job({
+    name: "on-versioned-ping",
+    trigger: { on: versionedPing.name, catchUp: true },
+    runIn: "worker",
+    handler: async (payload) => {
       versionedRuns.push({ pingId: payload["pingId"], source: payload["source"] });
-    } });
+    },
+  });
 
   // Its upcaster always throws: only a consumer that decodes it would fail.
   r.defineEvent("poison", z.object({ id: z.uuid() }), {
@@ -73,9 +83,14 @@ const catchUpFixtureFeature = defineFeature("catch-up-fixture", (r) => {
     ],
   });
 
-  r.job({ name: "on-ping-plain", trigger: { on: ping.name }, runIn: "worker", handler: async (payload) => {
-    plainRuns.push(payload["pingId"] as string);
-  } });
+  r.job({
+    name: "on-ping-plain",
+    trigger: { on: ping.name },
+    runIn: "worker",
+    handler: async (payload) => {
+      plainRuns.push(payload["pingId"] as string);
+    },
+  });
 });
 
 let stack: TestStack;
@@ -211,7 +226,11 @@ describe("r.job trigger.catchUp boot validation", () => {
         handler: async () => ({ isSuccess: true, data: { kind: "save", id: generateId() } }),
         access: { roles: ["Admin"] },
       });
-      r.job({ name: "replay-handler", trigger: { on: "catch-up-broken:write:do-it", catchUp: true }, handler: async () => {} });
+      r.job({
+        name: "replay-handler",
+        trigger: { on: "catch-up-broken:write:do-it", catchUp: true },
+        handler: async () => {},
+      });
     });
     await expect(setupTestStack({ features: [broken] })).rejects.toThrow(
       /Jobs trigger on events only/,

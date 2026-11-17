@@ -58,7 +58,8 @@ const notePayload = () => ({ entityType: "contact", entityId: owner.id, body: "h
 beforeAll(async () => {
   stack = await setupTestStack({
     features: [
-      createNotesHistoryFeature({ parents: ["contact"],
+      createNotesHistoryFeature({
+        parents: ["contact"],
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         ownership: { write: { TenantMember: from("user:id", "entityId") } },
       }),

@@ -9,4 +9,5 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { BRANDING_I18N } from "./i18n.ts";
 
-export const defaultTranslations: TranslationsByLocale = translationsByLocaleFromKeys(BRANDING_I18N);
+export const defaultTranslations: TranslationsByLocale =
+  translationsByLocaleFromKeys(BRANDING_I18N);

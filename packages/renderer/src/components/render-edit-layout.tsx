@@ -185,27 +185,29 @@ export function renderEditLayout<TValues extends FormValues, TCtx>(
           {...buildFormChromeProps(model, header)}
         >
           <FieldIconsHiddenProvider value={props.fieldIcons === false}>
-          <AllFieldsRequiredProvider
-            value={sections.showsAllRequiredHint || props.screen.layout.hideRequiredMarker === true}
-          >
-            {showsIntroBox(model) && renderIntroBox(model)}
-            {props.leadContent}
-            {sections.showsAllRequiredHint &&
-              !state.insideDrawer &&
-              !showsIntroBox(model) &&
-              renderAllRequiredHint(model)}
-            {renderDraftPicker(model)}
-            {renderWizardProgress(model)}
-            {state.isTabs && state.isStepped && renderTabStrip(model)}
-            {renderEditSections(model)}
-            {props.belowSections?.(form.snapshot.values)}
-            {renderAfterFormSlot(model)}
-            {props.formErrorOnTop !== true && renderFormErrorBanner(model)}
-            {renderRootIssueBanners(model)}
-            {renderExtensionErrorBanner(model)}
-            {renderActionErrorBanner(model)}
-            {renderDeleteDialog(model)}
-          </AllFieldsRequiredProvider>
+            <AllFieldsRequiredProvider
+              value={
+                sections.showsAllRequiredHint || props.screen.layout.hideRequiredMarker === true
+              }
+            >
+              {showsIntroBox(model) && renderIntroBox(model)}
+              {props.leadContent}
+              {sections.showsAllRequiredHint &&
+                !state.insideDrawer &&
+                !showsIntroBox(model) &&
+                renderAllRequiredHint(model)}
+              {renderDraftPicker(model)}
+              {renderWizardProgress(model)}
+              {state.isTabs && state.isStepped && renderTabStrip(model)}
+              {renderEditSections(model)}
+              {props.belowSections?.(form.snapshot.values)}
+              {renderAfterFormSlot(model)}
+              {props.formErrorOnTop !== true && renderFormErrorBanner(model)}
+              {renderRootIssueBanners(model)}
+              {renderExtensionErrorBanner(model)}
+              {renderActionErrorBanner(model)}
+              {renderDeleteDialog(model)}
+            </AllFieldsRequiredProvider>
           </FieldIconsHiddenProvider>
         </Form>
       </FormUploadTrackerProvider>

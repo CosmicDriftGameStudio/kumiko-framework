@@ -61,7 +61,11 @@ export function registerConsumerProtection(
   // later event for the same consentId shows the contract is live. The jobs
   // are at-least-once, the handler's append makes the mail once-only.
   for (const trigger of CONFIRMATION_TRIGGERS) {
-    r.job({ name: trigger.jobName, trigger: { on: trigger.eventQn }, runIn: "worker", handler: async (payload, ctx) => {
+    r.job({
+      name: trigger.jobName,
+      trigger: { on: trigger.eventQn },
+      runIn: "worker",
+      handler: async (payload, ctx) => {
         const consentId = payload["consentId"];
         // skip: trigger event carries no consent to confirm
         if (typeof consentId !== "string" || consentId.length === 0) return;
@@ -88,6 +92,7 @@ export function registerConsumerProtection(
             `billing-foundation:${trigger.jobName}: issue-contract-confirmation failed: ${JSON.stringify(result.error)}`,
           );
         }
-      } });
+      },
+    });
   }
 }

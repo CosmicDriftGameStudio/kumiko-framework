@@ -284,13 +284,19 @@ export function createSeoFeature(opts: SeoOptions): FeatureDefinition {
     // Boot-check body extracted as a named function—directly unit-testable,
     // following the same "thin job-shell calls testable function" pattern as
     // legal-pages' runLegalPagesBootCheck.
-    r.job({ name: "seo-boot-check", trigger: { manual: true }, runOnBoot: true, runIn: "api", handler: async (_payload, ctx) =>
+    r.job({
+      name: "seo-boot-check",
+      trigger: { manual: true },
+      runOnBoot: true,
+      runIn: "api",
+      handler: async (_payload, ctx) =>
         runSeoBootCheck({
           sitemapEntries: opts.sitemapEntries,
           includeLegalPages: opts.includeLegalPages ?? false,
           hasManagedPages: opts.managedPages !== undefined,
           log: ctx.obs.log,
-        }) });
+        }),
+    });
 
     return {};
   });

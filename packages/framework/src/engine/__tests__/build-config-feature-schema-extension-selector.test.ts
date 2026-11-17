@@ -203,9 +203,12 @@ describe("buildConfigFeatureSchema — extension selector", () => {
           }),
         },
       });
-      r.secret({ name: "password", label: { en: "SMTP password" },
+      r.secret({
+        name: "password",
+        label: { en: "SMTP password" },
         scope: "tenant",
-        writeRoles: ["SystemAdmin"] });
+        writeRoles: ["SystemAdmin"],
+      });
     });
     const schema = build([secretsFeature(), mailFoundation(), gatedSecret]);
     const form = screenOf(schema, "mail-foundation-tenant", "configEdit");
@@ -219,7 +222,11 @@ describe("buildConfigFeatureSchema — extension selector", () => {
   test("a plugin registered as not selectable in settings is no option, but the server still accepts it", () => {
     const testInbox = defineFeature("mail-test-inbox", (r) => {
       r.requires({ features: ["mail-foundation"] });
-      r.applyExtension({ name: "mailTransport", entity: "test-inbox", selectableInSettings: false });
+      r.applyExtension({
+        name: "mailTransport",
+        entity: "test-inbox",
+        selectableInSettings: false,
+      });
     });
     const registry = createRegistry([secretsFeature(), mailFoundation(), smtp, testInbox]);
     const form = screenOf(

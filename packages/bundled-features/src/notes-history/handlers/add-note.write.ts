@@ -4,7 +4,7 @@ import { ValidationError, writeFailure } from "@cosmicdrift/kumiko-framework/err
 import { decryptStoredPii, denyUnlessJoinRowParentVisible } from "../../shared/index.ts";
 import { tenantMembershipsTable } from "../../tenant/index.ts";
 import { userTable } from "../../user/index.ts";
-import { noteEntryExecutor, noteMentionExecutor } from "../executor.ts";
+import { type noteEntryExecutor, noteMentionExecutor } from "../executor.ts";
 import { type AddNotePayload, addNotePayloadSchema } from "../schemas.ts";
 
 const READ_AUTHOR_DISPLAY_NAME_REASON =

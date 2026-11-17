@@ -30,9 +30,9 @@ import {
   resolveE2eWorkers,
 } from "../e2e/define-app-e2e-config";
 import { screenshotSpecsIgnore } from "../e2e/screenshot-dir";
-import { SERVICE_ENV_DEFAULTS } from "../preload/service-env-defaults-values";
 import { E2E_TIMEOUT_MS } from "../e2e-timeouts";
 import { REAL_PROVIDERS_ENV } from "../helpers/real-providers.ts";
+import { SERVICE_ENV_DEFAULTS } from "../preload/service-env-defaults-values";
 
 const TOUCHED_ENV = [
   SEED_TOKEN_ENV,

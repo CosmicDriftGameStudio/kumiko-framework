@@ -11,9 +11,9 @@ import {
   createTenantDb,
   deleteMany,
   insertOne,
-  selectMany,
   table as pgTable,
   uuid as pgUuid,
+  selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
@@ -59,8 +59,12 @@ const probeEntity = createEntity({
 
 const probeFeature = defineFeature(PROBE, (r) => {
   r.entity(probeEntity);
-  r.applyExtension({ name: EXT_USER_DATA, entity: PROBE, export: async () => null,
-    delete: captureHook });
+  r.applyExtension({
+    name: EXT_USER_DATA,
+    entity: PROBE,
+    export: async () => null,
+    delete: captureHook,
+  });
 });
 
 const FORGET_USER = "cccccccc-cccc-4ccc-8ccc-0000000000b1";
@@ -149,7 +153,10 @@ const cascadeFeature = defineFeature("forget-cascade-host", (r) => {
       },
     },
   });
-  r.applyExtension({ name: EXT_USER_DATA, entity: CASCADE, export: async () => null,
+  r.applyExtension({
+    name: EXT_USER_DATA,
+    entity: CASCADE,
+    export: async () => null,
     delete: async (ctx) => {
       const rows = await ctx.db.selectMany<{ id: string }>(cascadeTable, {
         tenantId: ctx.tenantId,
@@ -162,7 +169,8 @@ const cascadeFeature = defineFeature("forget-cascade-host", (r) => {
         );
         if (!res.isSuccess) throw new Error("forget failed");
       }
-    } });
+    },
+  });
 });
 
 describe("forget hook cascade", () => {

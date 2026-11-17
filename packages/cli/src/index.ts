@@ -105,7 +105,9 @@ async function runAdd(args: readonly string[], out: Output, cwd: string): Promis
     return 1;
   }
   try {
-    const { scaffoldAppFeature } = await import("@cosmicdrift/kumiko-dev-server/scaffold-app-feature");
+    const { scaffoldAppFeature } = await import(
+      "@cosmicdrift/kumiko-dev-server/scaffold-app-feature"
+    );
     const result = scaffoldAppFeature({ name, appRoot: cwd });
     out.log(`✓ Added feature ${result.featureName}:`);
     for (const f of result.files) out.log(`  ${f}`);
@@ -125,7 +127,9 @@ function printHelp(out: Output): void {
   out.log(`kumiko v${readCliVersion()} — scaffold Kumiko apps`);
   out.log("");
   out.log("Commands:");
-  out.log("  kumiko new app <name>        Scaffold an app with the recommended features (--blank: no demo data)");
+  out.log(
+    "  kumiko new app <name>        Scaffold an app with the recommended features (--blank: no demo data)",
+  );
   out.log("  kumiko add feature <name>    Add + auto-mount a feature");
   for (const cmd of APP_COMMANDS) {
     out.log(`  kumiko ${cmd.id.padEnd(22)}${cmd.description}`);

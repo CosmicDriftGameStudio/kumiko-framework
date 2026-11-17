@@ -8,7 +8,6 @@ import {
   createInMemoryFileProvider,
 } from "@cosmicdrift/kumiko-framework/files";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { createRendererMailHtmlFeature } from "../../renderer-mail-html/index.ts";
 import {
   buildMultipartBody,
   expectErrorIncludes,
@@ -28,6 +27,7 @@ import { configValuesTable } from "../../config/table.ts";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.ts";
 import { deliveryAttemptsTable, notificationPreferencesTable } from "../../delivery/tables.ts";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature.ts";
+import { createRendererMailHtmlFeature } from "../../renderer-mail-html/index.ts";
 import { createTenantFeature } from "../../tenant/index.ts";
 import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
 import { tenantEntity } from "../../tenant/schema/tenant.ts";
@@ -60,7 +60,9 @@ const invMailer = defineFeature("inv-mailer", (r) => {
     access: { roles: ["TenantAdmin"] },
     handler: async () => ({ isSuccess: true as const, data: {} }),
   });
-  r.notification({ name: "invoice", trigger: { on: "create" },
+  r.notification({
+    name: "invoice",
+    trigger: { on: "create" },
     recipient: () => null,
     data: () => ({}),
     variables: {
@@ -88,7 +90,8 @@ const invMailer = defineFeature("inv-mailer", (r) => {
         ].join(""),
       },
     },
-    meta: { de: { subject: "Rechnung {{invoiceNumber}}" } } });
+    meta: { de: { subject: "Rechnung {{invoiceNumber}}" } },
+  });
   r.translations({
     keys: {
       "inv-mailer:mail.example.headline": { de: "Neue Rechnung", en: "New invoice" },

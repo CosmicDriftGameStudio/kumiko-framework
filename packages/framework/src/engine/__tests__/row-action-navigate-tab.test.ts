@@ -15,10 +15,12 @@ function buildFeature(options: {
   readonly via: "entityEditSection" | "entityListRowAction";
 }) {
   return defineFeature("app", (r) => {
-    r.entity(createEntity({
+    r.entity(
+      createEntity({
         name: "vehicle",
         fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-      }));
+      }),
+    );
     r.queryHandler({
       name: "vehicle:detail",
       schema: z.object({}),

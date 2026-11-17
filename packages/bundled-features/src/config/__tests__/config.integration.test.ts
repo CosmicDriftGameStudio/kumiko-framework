@@ -143,7 +143,11 @@ const ordersFeature = defineFeature("orders", (r) => {
 // wiring end-to-end (registry → resolver → ctx.config). No seeds needed here.
 const configKeyDemoFeature = defineFeature("configkeydemo", (r) => {
   r.requires({ features: ["config"] });
-  const betaEnabled = r.config({ keys: { betaEnabled: createTenantConfig("boolean", { default: false, write: access.roles("Admin") }) } }).betaEnabled;
+  const betaEnabled = r.config({
+    keys: {
+      betaEnabled: createTenantConfig("boolean", { default: false, write: access.roles("Admin") }),
+    },
+  }).betaEnabled;
   return { betaEnabled };
 });
 
@@ -1232,7 +1236,9 @@ type ConfigEventRow = {
 describe("configValue lifecycle events", () => {
   // An update event carries only the changed keys, so the stream is found through its created event.
   async function eventsOfConfigKey(key: string) {
-    const events = await selectMany<ConfigEventRow>(db, eventsTable, { aggregateType: "config-value" });
+    const events = await selectMany<ConfigEventRow>(db, eventsTable, {
+      aggregateType: "config-value",
+    });
     const created = events.find(
       (e) => e.type === "config-value.created" && (e.payload as { key?: string })?.key === key,
     );
@@ -1270,7 +1276,9 @@ describe("configValue lifecycle events", () => {
       { key: "invoicing:config:mail-signature" },
       tenantAdmin,
     );
-    const events = await selectMany<ConfigEventRow>(db, eventsTable, { aggregateType: "config-value" });
+    const events = await selectMany<ConfigEventRow>(db, eventsTable, {
+      aggregateType: "config-value",
+    });
     const deletes = events.filter(
       (e) =>
         e.type === "config-value.deleted" &&
@@ -1282,7 +1290,9 @@ describe("configValue lifecycle events", () => {
 
   test("reset of a number key that was never set succeeds as a no-op", async () => {
     const key = "orders:config:unset-quota";
-    const eventsBefore = await selectMany<ConfigEventRow>(db, eventsTable, { aggregateType: "config-value" });
+    const eventsBefore = await selectMany<ConfigEventRow>(db, eventsTable, {
+      aggregateType: "config-value",
+    });
 
     await stack.http.writeOk(ConfigHandlers.reset, { key }, tenantAdmin);
 
@@ -1294,7 +1304,9 @@ describe("configValue lifecycle events", () => {
       db,
     );
     expect(await configFn(key)).toBeUndefined();
-    const eventsAfter = await selectMany<ConfigEventRow>(db, eventsTable, { aggregateType: "config-value" });
+    const eventsAfter = await selectMany<ConfigEventRow>(db, eventsTable, {
+      aggregateType: "config-value",
+    });
     expect(eventsAfter.length).toBe(eventsBefore.length);
   });
 
@@ -1308,7 +1320,9 @@ describe("configValue lifecycle events", () => {
       { key: "integration:config:lifecycle-probe", value: "alpha" },
       tenantAdmin,
     );
-    const events = await selectMany<ConfigEventRow>(db, eventsTable, { aggregateType: "config-value" });
+    const events = await selectMany<ConfigEventRow>(db, eventsTable, {
+      aggregateType: "config-value",
+    });
     const created = events.filter(
       (e) =>
         e.type === "config-value.created" &&
@@ -1351,7 +1365,9 @@ describe("configValue lifecycle events", () => {
       { key: "integration:config:api-secret", value: "rotated-secret-987" },
       systemAdmin,
     );
-    const events = await selectMany<ConfigEventRow>(db, eventsTable, { aggregateType: "config-value" });
+    const events = await selectMany<ConfigEventRow>(db, eventsTable, {
+      aggregateType: "config-value",
+    });
     const created = events.filter(
       (e) =>
         e.type === "config-value.created" &&

@@ -19,8 +19,12 @@ const typedExecutions: Array<{ readonly type: string; readonly id: string }> = [
 // that listens to both events. One job body with multiple triggers is the DRY
 // case addressed by r.job multi-trigger.
 const orderFeature = defineFeature("multi", (r) => {
-  const orderOpened = r.defineEvent("order-opened", z.object({ id: z.string() }), { piiFields: "none" });
-  const orderCancelled = r.defineEvent("order-cancelled", z.object({ id: z.string() }), { piiFields: "none" });
+  const orderOpened = r.defineEvent("order-opened", z.object({ id: z.string() }), {
+    piiFields: "none",
+  });
+  const orderCancelled = r.defineEvent("order-cancelled", z.object({ id: z.string() }), {
+    piiFields: "none",
+  });
   r.writeHandler({
     name: "order:open",
     schema: z.object({ id: z.string() }),
@@ -49,17 +53,25 @@ const orderFeature = defineFeature("multi", (r) => {
     },
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
-  r.job({ name: "fanout", trigger: {
-        on: ["multi:event:order-opened", "multi:event:order-cancelled"],
-      }, handler: async (payload, ctx) => {
+  r.job({
+    name: "fanout",
+    trigger: {
+      on: ["multi:event:order-opened", "multi:event:order-cancelled"],
+    },
+    handler: async (payload, ctx) => {
       // ctx.triggerName is the idiomatic API: for multi-trigger jobs,
       // this field tells the handler which of the N triggers fired.
       jobExecutions.push({ trigger: ctx.triggerName ?? "<missing>", payload });
-    } });
-  r.job({ name: "typed-fanout", trigger: { on: [orderOpened.name, orderCancelled.name] }, handler: async (payload, ctx) => {
+    },
+  });
+  r.job({
+    name: "typed-fanout",
+    trigger: { on: [orderOpened.name, orderCancelled.name] },
+    handler: async (payload, ctx) => {
       const event = await triggeredEventOf([orderOpened, orderCancelled], payload, ctx);
       typedExecutions.push({ type: event.type, id: event.payload.id });
-    } });
+    },
+  });
 });
 
 let stack: TestStack;

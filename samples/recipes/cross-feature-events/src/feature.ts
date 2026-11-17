@@ -111,10 +111,15 @@ export const pubsubOrderFeature = defineFeature("pubsubOrders", (r) => {
   // consumer cursor that starts at the beginning of the event store, so a job
   // added to a running app also processes the orders placed before it existed.
   // Without catchUp the job only sees events appended after its deploy.
-  r.job({ name: "invoice-order", trigger: { on: orderPlaced.name, catchUp: true }, runIn: "worker", handler: async (payload) => {
+  r.job({
+    name: "invoice-order",
+    trigger: { on: orderPlaced.name, catchUp: true },
+    runIn: "worker",
+    handler: async (payload) => {
       const order = orderPlaced.schema.parse(payload);
       invoicedOrderIds.push(order.id);
-    } });
+    },
+  });
 
   // Async consumer — Marten-style. Fires after commit, via the event-
   // dispatcher. No `table` means this MSP is pure side-effect (no state

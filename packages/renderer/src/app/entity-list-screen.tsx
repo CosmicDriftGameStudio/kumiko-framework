@@ -276,8 +276,8 @@ function EntityListBody({
     [],
   );
   const { facetCounts, handleFacetCount } = useFacetCounts();
-  const { valueCountQueries, facetValueCounts, handleFacetValueCounts } =
-    useEntityFacetValueCounts({
+  const { valueCountQueries, facetValueCounts, handleFacetValueCounts } = useEntityFacetValueCounts(
+    {
       specs: entityFacetSpecs,
       facets: screen.facets,
       urlFilters: urlState.filters,
@@ -286,7 +286,8 @@ function EntityListBody({
       fields: entity.fields,
       rangeFilters: range.rangeFilters,
       activeNamedFilter,
-    });
+    },
+  );
   const filterFacets = useMemo<DataTableFacet[]>(() => {
     const namedFacet = buildNamedFilterFacet(
       screen.namedFilters,

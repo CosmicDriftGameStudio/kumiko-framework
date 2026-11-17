@@ -13,6 +13,8 @@ import {
 import { createComplianceProfilesFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
 import { createDeliveryFeature } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
+import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-mail-html";
+import { createRendererPuppeteerClientFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-puppeteer-client";
 import {
   createTemplateResolverFeature,
   type TenantEditableTemplate,
@@ -23,8 +25,6 @@ import { createDocumentDesignerFeature } from "@cosmicdrift/kumiko-document-desi
 import { createFilesFeature } from "@cosmicdrift/kumiko-framework/files";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
 import { localeEs } from "@cosmicdrift/kumiko-locale-es";
-import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-mail-html";
-import { createRendererPuppeteerClientFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-puppeteer-client";
 import { TENANT_ADMIN_EMAIL } from "./app/auth-constants";
 import { billingFeature } from "./features/billing";
 import { rentalFeature } from "./features/rental";

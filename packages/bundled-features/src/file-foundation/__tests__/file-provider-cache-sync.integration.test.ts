@@ -3,7 +3,12 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { defineFeature, FILE_PROVIDER_CONFIG_KEY } from "@cosmicdrift/kumiko-framework/engine";
-import { createFilesFeature, createInMemoryFileProvider, fileRefsTable, type InMemoryFileProvider } from "@cosmicdrift/kumiko-framework/files";
+import {
+  createFilesFeature,
+  createInMemoryFileProvider,
+  fileRefsTable,
+  type InMemoryFileProvider,
+} from "@cosmicdrift/kumiko-framework/files";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import {
@@ -40,10 +45,14 @@ function createCountingProvider(name: string): CountingProvider {
   let buildCount = 0;
   const feature = defineFeature(`test-file-provider-${name}`, (r) => {
     r.requires({ features: ["file-foundation"] });
-    r.applyExtension({ name: "fileProvider", entity: name, build: async () => {
+    r.applyExtension({
+      name: "fileProvider",
+      entity: name,
+      build: async () => {
         buildCount += 1;
         return store;
-      } });
+      },
+    });
   });
   return { store, feature, builds: () => buildCount };
 }

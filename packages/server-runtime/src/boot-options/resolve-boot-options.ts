@@ -155,7 +155,11 @@ function warnAboutBootOptions(
   }
   if (
     options.runSingleInstance === false &&
-    (options.mail || options.fileStorage || options.search || options.featureToggles || options.appOverrides) &&
+    (options.mail ||
+      options.fileStorage ||
+      options.search ||
+      options.featureToggles ||
+      options.appOverrides) &&
     options.workerMountsFeatures !== true
   ) {
     bootWarnings.push(

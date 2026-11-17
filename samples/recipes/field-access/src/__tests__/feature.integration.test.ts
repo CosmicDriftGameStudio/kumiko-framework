@@ -5,10 +5,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { EntityId, SaveContext } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-testing/helpers";
-import {
-  setupTestStack,
-  type TestStack,
-} from "@cosmicdrift/kumiko-testing/stack";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { employeeFeature } from "../feature";
 
 let stack: TestStack;

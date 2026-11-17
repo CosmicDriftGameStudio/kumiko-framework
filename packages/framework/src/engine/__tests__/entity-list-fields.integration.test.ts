@@ -56,7 +56,9 @@ const listFieldsFeature = defineFeature("listfields", (r) => {
     access: { roles: ["Admin"] },
   });
 
-  r.queryHandler(defineEntityListHandler("list-note", noteEntity, { access: { roles: ["Admin"] } }));
+  r.queryHandler(
+    defineEntityListHandler("list-note", noteEntity, { access: { roles: ["Admin"] } }),
+  );
 });
 
 let stack: TestStack;

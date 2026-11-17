@@ -3,7 +3,6 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   createSystemUser,
   defineFeature,
@@ -15,8 +14,8 @@ import {
   fileRefEntity,
   fileRefsTable,
 } from "@cosmicdrift/kumiko-framework/files";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { createRendererMailHtmlFeature } from "../../renderer-mail-html/index.ts";
 import {
   buildMultipartBody,
   expectErrorIncludes,
@@ -36,6 +35,7 @@ import { configValuesTable } from "../../config/table.ts";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.ts";
 import { deliveryAttemptsTable, notificationPreferencesTable } from "../../delivery/tables.ts";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature.ts";
+import { createRendererMailHtmlFeature } from "../../renderer-mail-html/index.ts";
 import { createTenantFeature } from "../../tenant/index.ts";
 import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
 import { tenantEntity } from "../../tenant/schema/tenant.ts";
@@ -78,7 +78,9 @@ const invMailer = defineFeature("inv-mailer", (r) => {
     access: { roles: ["TenantAdmin"] },
     handler: async () => ({ isSuccess: true as const, data: {} }),
   });
-  r.notification({ name: "invoice", trigger: { on: "create" },
+  r.notification({
+    name: "invoice",
+    trigger: { on: "create" },
     recipient: () => null,
     data: () => ({}),
     variables: {
@@ -106,12 +108,16 @@ const invMailer = defineFeature("inv-mailer", (r) => {
         ].join(""),
       },
     },
-    meta: { de: { subject: "Rechnung {{invoiceNumber}}" } } });
-  r.notification({ name: "locked", trigger: { on: "create" },
+    meta: { de: { subject: "Rechnung {{invoiceNumber}}" } },
+  });
+  r.notification({
+    name: "locked",
+    trigger: { on: "create" },
     recipient: () => null,
     data: () => ({}),
     template: { de: { body: "<p>Gesperrt</p>" } },
-    meta: { de: { subject: "Gesperrt" } } });
+    meta: { de: { subject: "Gesperrt" } },
+  });
   r.translations({
     keys: {
       "inv-mailer:mail.example.headline": { de: "Neue Rechnung", en: "New invoice" },

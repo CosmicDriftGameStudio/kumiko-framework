@@ -29,12 +29,12 @@ import {
 import { seedNotificationTemplates } from "@cosmicdrift/kumiko-bundled-features/template-resolver/seeding";
 import { setupAppTestStack } from "@cosmicdrift/kumiko-dev-server/testing";
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   defineFeature,
   type TenantId,
   templateVariable,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { type TestStack, unsafeCreateEntityTable } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
@@ -60,7 +60,9 @@ const mailDemo = defineFeature("mail-demo", (r) => {
     access: { roles: ["TenantAdmin"] },
     handler: async () => ({ isSuccess: true as const, data: {} }),
   });
-  r.notification({ name: "welcome", trigger: { on: "create" },
+  r.notification({
+    name: "welcome",
+    trigger: { on: "create" },
     recipient: () => null,
     data: () => ({}),
     variables: {
@@ -83,13 +85,17 @@ const mailDemo = defineFeature("mail-demo", (r) => {
         ].join(""),
       },
     },
-    meta: { de: { subject: "Willkommen {{name}}", previewText: "Summe {{total}} fällig {{due}}" } } });
-  r.notification({ name: "reply", trigger: { on: "create" },
+    meta: { de: { subject: "Willkommen {{name}}", previewText: "Summe {{total}} fällig {{due}}" } },
+  });
+  r.notification({
+    name: "reply",
+    trigger: { on: "create" },
     recipient: () => null,
     data: () => ({}),
     variables: { note: templateVariable.richText() },
     template: { de: { body: "<p>Antwort</p>" } },
-    meta: { de: { subject: "Re: {{note}}" } } });
+    meta: { de: { subject: "Re: {{note}}" } },
+  });
 });
 
 const tenantAdmin = (id: number) =>

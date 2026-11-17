@@ -5,12 +5,12 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { AUTH_MAIL_EN } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/email-templates";
 import { UNSUBSCRIBE_PAGE_EN } from "@cosmicdrift/kumiko-bundled-features/delivery";
+import { MAIL_CHROME_EN } from "@cosmicdrift/kumiko-bundled-features/renderer-mail-html";
 import { INACTIVITY_MAIL_EN } from "@cosmicdrift/kumiko-bundled-features/tenant-inactivity/email-templates";
 import { GDPR_MAIL_EN } from "@cosmicdrift/kumiko-bundled-features/user-data-rights/email-templates";
 import { buildAppSchema, createRegistry } from "@cosmicdrift/kumiko-framework/engine";
 import type { TranslationValue } from "@cosmicdrift/kumiko-framework/ui-types";
 import { kumikoDefaultTranslations } from "@cosmicdrift/kumiko-renderer";
-import { MAIL_CHROME_EN } from "@cosmicdrift/kumiko-bundled-features/renderer-mail-html";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import { APP_FEATURES, AUTH_COMPOSE_OPTIONS } from "../run-config";
 

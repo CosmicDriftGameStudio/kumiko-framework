@@ -25,7 +25,8 @@ function featureWith(
   withRecordOwnedField: boolean,
 ): FeatureDefinition {
   return defineFeature("notes", (r) => {
-    r.entity(createEntity({
+    r.entity(
+      createEntity({
         name: "note",
         table: "fw2809_guard_notes",
         idType,
@@ -34,7 +35,8 @@ function featureWith(
             ? createTextField({ personal: { of: "id" }, find: "none" })
             : plaintextText,
         },
-      }));
+      }),
+    );
   });
 }
 
@@ -76,12 +78,15 @@ describe("validateForgetWithSubject", () => {
           ? createTextField({ personal: { of: "id" }, find: "none" })
           : plaintextText;
     return defineFeature("subscribers", (r) => {
-      r.entity(createEntity({
+      r.entity(
+        createEntity({
           table: "forget_with_subject_subscribers",
           forgetWithSubject: true,
           ...(retention && { retention }),
-          fields: { email }, name: "subscriber",
-        }));
+          fields: { email },
+          name: "subscriber",
+        }),
+      );
     });
   }
 

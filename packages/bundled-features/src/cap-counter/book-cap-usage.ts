@@ -166,11 +166,7 @@ export async function applyCapDeltaOn(
     return 0;
   }
 
-  const tenantValue = await incrementCounterRow(
-    db,
-    keyFor(TENANT_WIDE_SUBJECT_HASH),
-    delta.amount,
-  );
+  const tenantValue = await incrementCounterRow(db, keyFor(TENANT_WIDE_SUBJECT_HASH), delta.amount);
   delta.guardTenantValue?.(tenantValue - delta.amount);
   if (delta.subjectHash !== null) {
     // Always the tenant row before the subject row: a fixed lock order keeps two bookings of the

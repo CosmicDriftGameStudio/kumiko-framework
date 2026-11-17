@@ -3,24 +3,14 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 
-import {
-  type DbConnection,
-  insertOne,
-  selectMany,
-} from "@cosmicdrift/kumiko-framework/db";
-import {
-  defineFeature,
-  type WriteHandlerDef,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { type DbConnection, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { defineFeature, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { RateLimitError } from "@cosmicdrift/kumiko-framework/errors";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
-import {
-  setupTestStack,
-  type TestStack,
-} from "@cosmicdrift/kumiko-testing/stack";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import type {
   RateLimitConfig,
   RateLimitDecision,
@@ -175,7 +165,6 @@ const capGateFeature = defineFeature("capgate", (r) => {
 // =============================================================================
 // Setup
 // =============================================================================
-
 
 let stack: TestStack;
 let db: DbConnection;

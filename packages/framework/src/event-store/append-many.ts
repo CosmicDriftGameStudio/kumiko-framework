@@ -13,8 +13,8 @@ import { VersionConflictError } from "./errors.ts";
 import {
   append,
   buildStoredEvent,
-  type EventToAppend,
   EVENTS_PUBSUB_CHANNEL,
+  type EventToAppend,
   insertReturnOf,
   mapAppendUniqueViolation,
   prepareEventForStore,

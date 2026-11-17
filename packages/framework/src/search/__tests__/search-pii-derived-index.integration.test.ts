@@ -14,11 +14,7 @@ import {
   isPiiCiphertext,
   subjectIdToKey,
 } from "../../crypto/index.ts";
-import {
-  asRawClient,
-  buildEntityTable,
-  createEventStoreExecutor,
-} from "../../db/index.ts";
+import { asRawClient, buildEntityTable, createEventStoreExecutor } from "../../db/index.ts";
 import { createTenantDb } from "../../db/tenant-db.ts";
 import {
   createEntity,

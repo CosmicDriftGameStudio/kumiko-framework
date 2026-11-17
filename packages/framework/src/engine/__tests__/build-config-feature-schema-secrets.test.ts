@@ -56,10 +56,18 @@ describe("buildConfigFeatureSchema — secrets field-id collisions", () => {
 describe("buildConfigFeatureSchema — secrets derivation", () => {
   test("mounted secrets feature + declared r.secret() yields exactly one secretsEdit screen", () => {
     const stripe = defineFeature("stripe", (r) => {
-      r.secret({ name: "apiKey", label: { en: "Stripe API Key" }, scope: "tenant", required: true });
-      r.secret({ name: "webhookSecret", label: { en: "Stripe Webhook Secret" },
+      r.secret({
+        name: "apiKey",
+        label: { en: "Stripe API Key" },
+        scope: "tenant",
+        required: true,
+      });
+      r.secret({
+        name: "webhookSecret",
+        label: { en: "Stripe Webhook Secret" },
         hint: { en: "Found in the Stripe dashboard" },
-        scope: "tenant" });
+        scope: "tenant",
+      });
     });
     const schema = buildConfigFeatureSchema(createRegistry([secretsFeature(), stripe]));
 
@@ -86,9 +94,12 @@ describe("buildConfigFeatureSchema — secrets derivation", () => {
 
   test("fieldAccess carries writeRoles for exactly the keys that declare them", () => {
     const stripe = defineFeature("stripe", (r) => {
-      r.secret({ name: "apiKey", label: { en: "Stripe API Key" },
+      r.secret({
+        name: "apiKey",
+        label: { en: "Stripe API Key" },
         scope: "tenant",
-        writeRoles: ["SystemAdmin"] });
+        writeRoles: ["SystemAdmin"],
+      });
       r.secret({ name: "webhookSecret", label: { en: "Stripe Webhook Secret" }, scope: "tenant" });
     });
     const screen = secretsScreen(
@@ -210,9 +221,12 @@ describe("buildConfigFeatureSchema — secrets derivation", () => {
 
   test("generated screen is JSON-safe (no leaked SecretKeyDefinition.redact function)", () => {
     const stripe = defineFeature("stripe", (r) => {
-      r.secret({ name: "apiKey", label: { en: "Stripe API Key" },
+      r.secret({
+        name: "apiKey",
+        label: { en: "Stripe API Key" },
         scope: "tenant",
-        redact: (plaintext) => `${plaintext.slice(0, 3)}...` });
+        redact: (plaintext) => `${plaintext.slice(0, 3)}...`,
+      });
     });
     const schema = buildConfigFeatureSchema(createRegistry([secretsFeature(), stripe]));
     const screen = secretsScreen(schema);

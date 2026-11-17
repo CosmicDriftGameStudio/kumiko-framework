@@ -54,11 +54,7 @@ function isTestCall(call: CallExpression, aliases: ReadonlyMap<string, string>):
   );
 }
 
-const SELF_COMPARISON_MATCHERS: ReadonlySet<string> = new Set([
-  "toBe",
-  "toEqual",
-  "toStrictEqual",
-]);
+const SELF_COMPARISON_MATCHERS: ReadonlySet<string> = new Set(["toBe", "toEqual", "toStrictEqual"]);
 
 function withoutWhitespace(text: string): string {
   return text.replace(/\s+/g, "");

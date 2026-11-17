@@ -86,7 +86,11 @@ const oauthTestPlugin: InboundMailProviderPlugin = {
 
 export const oauthTestProviderFeature = defineFeature("inbound-provider-oauth-test", (r) => {
   r.requires({ features: ["inbound-mail-foundation"] });
-  r.applyExtension({ name: INBOUND_MAIL_PROVIDER_EXTENSION, entity: OAUTH_PROVIDER_KEY, ...oauthTestPlugin });
+  r.applyExtension({
+    name: INBOUND_MAIL_PROVIDER_EXTENSION,
+    entity: OAUTH_PROVIDER_KEY,
+    ...oauthTestPlugin,
+  });
 });
 
 export const connectRouteFeatures = [
@@ -172,7 +176,10 @@ export async function getConnect(stack: TestStack, query: string, user?: Connect
 }
 
 export async function getCallback(stack: TestStack, query: string, cookie?: string) {
-  return stack.app.request(`${CALLBACK_PATH}?${query}`, cookie ? { headers: { Cookie: cookie } } : {});
+  return stack.app.request(
+    `${CALLBACK_PATH}?${query}`,
+    cookie ? { headers: { Cookie: cookie } } : {},
+  );
 }
 
 // The "name=value" pair a browser would send back to the callback.

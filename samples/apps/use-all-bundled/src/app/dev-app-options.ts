@@ -18,10 +18,7 @@ import {
   createNotesHistoryFeature,
   NOTES_HISTORY_FEATURE_NAME,
 } from "@cosmicdrift/kumiko-bundled-features/notes-history";
-import {
-  createTagsFeature,
-  TAGS_FEATURE_NAME,
-} from "@cosmicdrift/kumiko-bundled-features/tags";
+import { createTagsFeature, TAGS_FEATURE_NAME } from "@cosmicdrift/kumiko-bundled-features/tags";
 import { createTemplateResolverApi } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import type { RunDevAppOptions } from "@cosmicdrift/kumiko-dev-server";
 import {

@@ -158,7 +158,8 @@ export const counterFeature = defineFeature("counters", (r) => {
   r.queryHandler({
     name: "counter:history",
     schema: z.object({ id: z.uuid() }),
-    handler: async (query, ctx) => counterExecutor.history({ id: query.payload.id }, query.user, ctx.db),
+    handler: async (query, ctx) =>
+      counterExecutor.history({ id: query.payload.id }, query.user, ctx.db),
     access: {
       openToAll: {
         reason:
@@ -171,7 +172,11 @@ export const counterFeature = defineFeature("counters", (r) => {
     name: "counter:as-of",
     schema: z.object({ asOf: z.iso.datetime() }),
     handler: async (query, ctx) =>
-      counterExecutor.listAsOf({ asOf: Temporal.Instant.from(query.payload.asOf) }, query.user, ctx.db),
+      counterExecutor.listAsOf(
+        { asOf: Temporal.Instant.from(query.payload.asOf) },
+        query.user,
+        ctx.db,
+      ),
     access: {
       openToAll: {
         reason:

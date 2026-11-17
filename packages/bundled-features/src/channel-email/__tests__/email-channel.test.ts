@@ -243,8 +243,11 @@ describe("email channel List-Unsubscribe headers", () => {
 
 describe("email channel template notifications", () => {
   const templated = defineFeature("tpl", (r) => {
-    r.notification({ name: "welcome", template: { en: { body: "<p>Hi</p>" } },
-      meta: { en: { subject: "Hi" } } });
+    r.notification({
+      name: "welcome",
+      template: { en: { body: "<p>Hi</p>" } },
+      meta: { en: { subject: "Hi" } },
+    });
   });
   const message: ChannelMessage = {
     notificationType: "tpl:notify:welcome",
@@ -428,8 +431,11 @@ describe("email channel notifications without a template", () => {
 describe("email channel transport per notification", () => {
   const routingRegistry = createRegistry([
     defineFeature("app", (r) => {
-      r.notification({ name: "status-update", tenantTransport: true,
-        renamedFrom: ["app:notify:incident"] });
+      r.notification({
+        name: "status-update",
+        tenantTransport: true,
+        renamedFrom: ["app:notify:incident"],
+      });
       r.notification({ name: "password-reset" });
     }),
   ]);

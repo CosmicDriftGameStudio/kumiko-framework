@@ -1,6 +1,6 @@
 import type { LifecycleResult } from "@cosmicdrift/kumiko-types/hooks";
-import type { DbRunner } from "../db/index.ts";
 import { applyStreamVersionToEntityRow, parseAutoVerb } from "../db/apply-entity-event.ts";
+import type { DbRunner } from "../db/index.ts";
 import { withExecutorManagedWrites } from "../db/tenant-db.ts";
 import type { Registry } from "../engine/types/index.ts";
 

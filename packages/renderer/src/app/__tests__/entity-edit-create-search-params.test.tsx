@@ -16,11 +16,11 @@ import { type ComponentType, type ReactNode, useState } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import type { Dispatcher } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
-import {type InputProps, PrimitivesProvider } from "../../primitives.tsx";
+import { type InputProps, PrimitivesProvider } from "../../primitives.tsx";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import { type NavApi, NavProvider, type NavTarget, useNavigateWithInitialValues } from "../nav.tsx";
-import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 
 const captured: Record<string, InputProps | undefined> = {};
 const captureInput: ComponentType<InputProps> = (props) => {

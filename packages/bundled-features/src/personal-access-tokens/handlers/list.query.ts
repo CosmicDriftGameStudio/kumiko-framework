@@ -1,8 +1,8 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { definePagedQueryHandler, MAX_LIST_LIMIT } from "@cosmicdrift/kumiko-framework/engine";
+import { mapWithConcurrency } from "@cosmicdrift/kumiko-framework/utils";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
-import { mapWithConcurrency } from "@cosmicdrift/kumiko-framework/utils";
 import { decryptStoredPii, KMS_POOL_CONCURRENCY } from "../../shared/index.ts";
 import { isExpiredAt } from "../expiry.ts";
 import { parseScopeNames } from "../parse-scope-names.ts";
@@ -95,14 +95,14 @@ export const listPatQuery = definePagedQueryHandler({
       },
     );
     const decryptedRows = await mapWithConcurrency(rows, KMS_POOL_CONCURRENCY, async (r) => ({
-        id: r.id,
-        name: await decryptStoredPii(r.name, "name", "pat:list"),
-        prefix: r.prefix,
-        scopes: parseScopeNames(r.scopes),
-        status: tokenStatus(r),
-        createdAt: r.createdAt,
-        expiresAt: r.expiresAt,
-        revokedAt: r.revokedAt,
+      id: r.id,
+      name: await decryptStoredPii(r.name, "name", "pat:list"),
+      prefix: r.prefix,
+      scopes: parseScopeNames(r.scopes),
+      status: tokenStatus(r),
+      createdAt: r.createdAt,
+      expiresAt: r.expiresAt,
+      revokedAt: r.revokedAt,
     }));
     return { rows: decryptedRows, nextCursor: null };
   },

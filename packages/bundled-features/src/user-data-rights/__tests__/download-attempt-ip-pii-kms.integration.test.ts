@@ -15,7 +15,12 @@ import {
 } from "@cosmicdrift/kumiko-framework/crypto";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import { createFilesFeature, createInMemoryFileProvider, fileRefsTable, type FileStorageProvider } from "@cosmicdrift/kumiko-framework/files";
+import {
+  createFilesFeature,
+  createInMemoryFileProvider,
+  type FileStorageProvider,
+  fileRefsTable,
+} from "@cosmicdrift/kumiko-framework/files";
 import {
   createProjectionStateTable,
   rebuildProjection,

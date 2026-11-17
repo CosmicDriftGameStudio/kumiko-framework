@@ -2,16 +2,16 @@ import * as z from "zod";
 import { createAnonymousUser } from "../engine/system-user.ts";
 import type { SessionUser } from "../engine/types/index.ts";
 import { SYSTEM_TENANT_ID } from "../engine/types/index.ts";
+import { toClientWriteErrorInfo } from "../errors/write-error-info.ts";
 import { Routes } from "./api-constants.ts";
 import type { AuthRouteContext } from "./auth-routes-context.ts";
 import type { PendingMfaStep } from "./auth-routes-shared.ts";
-import { toContentfulStatus } from "./contentful-status.ts";
 import {
   pendingMfaStepResponse,
   registerTokenRequestRoute,
   SignupRequestBody,
 } from "./auth-routes-shared.ts";
-import { toClientWriteErrorInfo } from "../errors/write-error-info.ts";
+import { toContentfulStatus } from "./contentful-status.ts";
 
 const SignupConfirmBody = z.object({
   token: z.string().min(1),

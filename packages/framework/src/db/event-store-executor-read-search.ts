@@ -16,10 +16,11 @@ import { hasSearchablePlaintext, isSensitiveLabelField } from "./entity-field-en
 import type { EventStoreExecutor } from "./event-store-executor.ts";
 import type { Table } from "./event-store-executor-context.ts";
 import { bindPlaceholders, type ListWhere } from "./event-store-executor-read-filter.ts";
-import type { ParentVisibilityOption } from "./parent-ref-clause.ts";
 import { referenceTargetTable } from "./parent-ownership.ts";
+import type { ParentVisibilityOption } from "./parent-ref-clause.ts";
 
 export { referenceTargetTable } from "./parent-ownership.ts";
+
 import { executeRawQueryRead } from "./queries/raw-sql.ts";
 import { resolveReadOwnership } from "./read-ownership.ts";
 import { quoteIdent } from "./sql-identifier.ts";
@@ -425,19 +426,17 @@ async function resolveChildMatches(
   const childTable =
     referenceSearch?.resolveTable?.(relation.childEntityName) ??
     referenceTargetTable(relation.childEntityName, child);
-  const allFieldsReadable = relation.searchableFields.every(
-    (searchableField) => {
-      // Embedded entries are named "parent_sub"; the access lives on the parent field.
-      const fieldName =
-        searchableField in child.fields ? searchableField : searchableField.split("_")[0];
-      const field = fieldName === undefined ? undefined : child.fields[fieldName];
-      if (field === undefined) return false;
-      return (
-        buildOwnershipClause(user, normalizeAccessEntry(field.access?.read), childTable).kind ===
-        "pass"
-      );
-    },
-  );
+  const allFieldsReadable = relation.searchableFields.every((searchableField) => {
+    // Embedded entries are named "parent_sub"; the access lives on the parent field.
+    const fieldName =
+      searchableField in child.fields ? searchableField : searchableField.split("_")[0];
+    const field = fieldName === undefined ? undefined : child.fields[fieldName];
+    if (field === undefined) return false;
+    return (
+      buildOwnershipClause(user, normalizeAccessEntry(field.access?.read), childTable).kind ===
+      "pass"
+    );
+  });
   if (!allFieldsReadable) return none;
 
   const childTableName = String(schemaTableName(childTable));

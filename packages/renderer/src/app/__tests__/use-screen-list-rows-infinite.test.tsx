@@ -9,8 +9,8 @@ import {
   type LiveEventSubscriber,
   LiveEventsProvider,
 } from "../../index.ts";
-import { useScreenListRows } from "../use-screen-list-rows.ts";
 import { createMockDispatcher, type MockQueryHandler } from "../../testing.ts";
+import { useScreenListRows } from "../use-screen-list-rows.ts";
 
 type QueryFn = MockQueryHandler;
 type QueryResult = Awaited<ReturnType<QueryFn>>;
@@ -73,16 +73,18 @@ function setup() {
     failCursor: false,
   };
   const payloads: Record<string, unknown>[] = [];
-  const dispatcher = createMockDispatcher({ query: (async (_type: string, payload: Record<string, unknown>) => {
-    payloads.push(payload);
-    if (payload["cursor"] === "c1") {
-      if (server.failCursor) {
-        return { isSuccess: false, error: { code: "network", message: "x" } };
+  const dispatcher = createMockDispatcher({
+    query: (async (_type: string, payload: Record<string, unknown>) => {
+      payloads.push(payload);
+      if (payload["cursor"] === "c1") {
+        if (server.failCursor) {
+          return { isSuccess: false, error: { code: "network", message: "x" } };
+        }
+        return { isSuccess: true, data: { rows: server.secondPage, nextCursor: null } };
       }
-      return { isSuccess: true, data: { rows: server.secondPage, nextCursor: null } };
-    }
-    return { isSuccess: true, data: { rows: server.firstPage, nextCursor: "c1" } };
-  }) as unknown as QueryFn });
+      return { isSuccess: true, data: { rows: server.firstPage, nextCursor: "c1" } };
+    }) as unknown as QueryFn,
+  });
   const feed = createLiveFeed();
   const wrapper = ({ children }: { readonly children: ReactNode }) => (
     <DispatcherProvider dispatcher={dispatcher}>

@@ -142,5 +142,4 @@ describe("RenderField — unsupported jsonb/embedded/files/images fallback banne
     expect(capturedJsonView?.value).toBe(value);
     expect(capturedText).toBeUndefined();
   });
-
 });

@@ -51,9 +51,7 @@ function featureWith(bodyFind: "none" | "fuzzy") {
   const entity = memoEntityWith(bodyFind);
   return defineFeature("findchange", (r) => {
     r.entity(entity);
-    r.writeHandler(
-      defineEntityCreateHandler("memo", entity, { access: { roles: ["Admin"] } }),
-    );
+    r.writeHandler(defineEntityCreateHandler("memo", entity, { access: { roles: ["Admin"] } }));
   });
 }
 

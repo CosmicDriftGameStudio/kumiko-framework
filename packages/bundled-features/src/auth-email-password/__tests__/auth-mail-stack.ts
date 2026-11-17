@@ -1,7 +1,7 @@
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { createRendererMailHtmlFeature } from "../../renderer-mail-html/index.ts";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature.ts";
+import { createRendererMailHtmlFeature } from "../../renderer-mail-html/index.ts";
 import { createTemplateResolverFeature } from "../../template-resolver/feature.ts";
 import { seedNotificationTemplates } from "../../template-resolver/seeding.ts";
 import { AuthMailNotificationTypes } from "../mail-notifications.ts";

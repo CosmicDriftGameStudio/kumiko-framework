@@ -105,9 +105,7 @@ const labelRestrictedCustomerEntity = createEntity({
     read: { Admin: "all", User: "all" },
   },
 });
-const labelRestrictedCustomerTable = buildEntityTable(
-  labelRestrictedCustomerEntity,
-);
+const labelRestrictedCustomerTable = buildEntityTable(labelRestrictedCustomerEntity);
 
 const CUSTOMER_MIKE = "11111111-1111-4111-8111-111111111111";
 const CUSTOMER_ALPHA = "22222222-2222-4222-8222-222222222222";

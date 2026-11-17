@@ -20,9 +20,7 @@ describe("tag-assignment entity — DDL", () => {
   });
 
   test("the parents variant carries the same indexes", () => {
-    const meta = deriveEntityTableMeta(
-      createTagAssignmentEntity(undefined, ["note"]),
-    );
+    const meta = deriveEntityTableMeta(createTagAssignmentEntity(undefined, ["note"]));
     expect(meta.indexes).toEqual(expect.arrayContaining(EXPECTED_INDEXES));
   });
 });

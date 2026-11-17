@@ -51,12 +51,14 @@ function entityListFeature(
   summarySchema: z.ZodObject,
 ) {
   return defineFeature("shop", (r) => {
-    r.entity(createEntity({
+    r.entity(
+      createEntity({
         name: "item",
         fields: {
           name: createTextField({ personal: false, reason: "test_fixture", ...fieldOptions }),
         },
-      }));
+      }),
+    );
     r.queryHandler({
       name: "order:summary",
       schema: summarySchema,

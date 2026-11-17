@@ -6,10 +6,7 @@ import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
-import {
-  setupTestStack,
-  type TestStack,
-} from "@cosmicdrift/kumiko-testing/stack";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import {
@@ -66,7 +63,6 @@ const probeFeature = defineFeature("probe", (r) => {
   r.writeHandler(monthlyProbe);
   r.writeHandler(overrideProbe);
 });
-
 
 let stack: TestStack;
 

@@ -22,7 +22,13 @@
 
 import { base32Decode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import { currentTotpCode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa/testing";
-import { CSRF_COOKIE_NAME, clearSession, E2E_TIMEOUT_MS, expect, test } from "@cosmicdrift/kumiko-testing/e2e";
+import {
+  CSRF_COOKIE_NAME,
+  clearSession,
+  E2E_TIMEOUT_MS,
+  expect,
+  test,
+} from "@cosmicdrift/kumiko-testing/e2e";
 import type { Page } from "@playwright/test";
 
 const DISPLAY_NAME = "MFA E2E";

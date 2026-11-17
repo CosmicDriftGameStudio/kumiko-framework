@@ -74,9 +74,12 @@ export const jobRunEntity = createEntity({
 // executor may write it): job-run is an unmanaged direct-write store, so
 // onJobStart/-Complete/-Failed need to write via ctx.db/insertOne directly
 // (same pattern as sessions/schema/user-session.ts).
-export const jobRunsTable: WritableTable = deriveEntityTableMeta({ ...jobRunEntity, name: "job-run" }, {
-  source: "unmanaged",
-});
+export const jobRunsTable: WritableTable = deriveEntityTableMeta(
+  { ...jobRunEntity, name: "job-run" },
+  {
+    source: "unmanaged",
+  },
+);
 export const jobRunsTableMeta = jobRunsTable;
 
 // Child projection keyed by the jobRun aggregate id. Pre-ES used a serial

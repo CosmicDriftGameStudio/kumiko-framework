@@ -74,7 +74,13 @@ async function generatePdf(ctx, tenantId) {
   const result = await renderer.render(
     {
       kind: "document-pdf",
-      payload: { slug: "my-feature:document:offer", locale: "de", variables: { /* ... */ } },
+      payload: {
+        slug: "my-feature:document:offer",
+        locale: "de",
+        variables: {
+          /* ... */
+        },
+      },
       options: { format: "A4", marginMm: { top: 15, bottom: 15 } },
     },
     { db: ctx.db, registry: ctx.registry, tenantId },

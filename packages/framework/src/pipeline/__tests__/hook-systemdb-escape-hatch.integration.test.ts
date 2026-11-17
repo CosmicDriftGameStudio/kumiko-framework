@@ -122,7 +122,9 @@ const featureB = defineFeature("hooksys3198-b", (r) => {
         });
         await otherTenantDb.insertOne(auditTable, { note: `${mode}:${labelOf(result)}` });
       } else if (mode === "no-escapeHatch-ack-unsafe-raw") {
-        const rawDb = ctx.systemDb.acknowledgeCrossTenant(NO_HOOK_ESCAPE_HATCH_REASON).unsafeRawAllTenants();
+        const rawDb = ctx.systemDb
+          .acknowledgeCrossTenant(NO_HOOK_ESCAPE_HATCH_REASON)
+          .unsafeRawAllTenants();
         const otherTenantDb = createTenantDb({
           db: rawDb,
           tenantId: OTHER_TENANT_ID,

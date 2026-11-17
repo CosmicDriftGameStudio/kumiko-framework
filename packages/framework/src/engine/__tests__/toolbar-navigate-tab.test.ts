@@ -30,10 +30,12 @@ describe("validateBoot — ToolbarAction.tab", () => {
           ],
         },
       });
-      r.entity(createEntity({
+      r.entity(
+        createEntity({
           name: "car",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-        }));
+        }),
+      );
       r.screen({
         id: "car-list",
         type: "entityList",
@@ -75,10 +77,12 @@ describe("validateBoot — ToolbarAction.tab", () => {
           ],
         },
       });
-      r.entity(createEntity({
+      r.entity(
+        createEntity({
           name: "car",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-        }));
+        }),
+      );
       r.screen({
         id: "car-list",
         type: "entityList",
@@ -112,10 +116,12 @@ describe("validateBoot — ToolbarAction.tab", () => {
         query: "app:query:vehicle:detail",
         layout: { sections: [{ title: "Overview", fields: ["name"] }] },
       });
-      r.entity(createEntity({
+      r.entity(
+        createEntity({
           name: "car",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-        }));
+        }),
+      );
       r.screen({
         id: "car-list",
         type: "entityList",

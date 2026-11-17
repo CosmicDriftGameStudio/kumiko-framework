@@ -59,43 +59,58 @@ const jobAppendFeature = defineFeature("jobappend", (r) => {
     },
   });
 
-  r.job({ name: "append-own", trigger: { manual: true }, retries: 0, handler: async (payload, ctx) => {
-    await untypedAppend(ctx)({
-      aggregateId: String(payload["noteId"]),
-      blindAppendReason: "the job appends one independent note; ordering is not under test",
-      aggregateType: "note",
-      type: noted.name,
-      payload: { text: String(payload["text"]) },
-    });
-  } });
-
-  r.job({ name: "append-foreign", trigger: { manual: true }, retries: 0, handler: async (payload, ctx) => {
-    try {
-      await untypedAppend(ctx)({
-        aggregateId: String(payload["noteId"]),
-        blindAppendReason: "the job appends one independent note; ordering is not under test",
-        aggregateType: "note",
-        type: "jobappendother:event:foreign",
-        payload: { text: "x" },
-      });
-    } catch (error) {
-      jobFailures.push(error instanceof Error ? error.message : String(error));
-    }
-  } });
-
-  r.job({ name: "append-invalid", trigger: { manual: true }, retries: 0, handler: async (payload, ctx) => {
-    try {
+  r.job({
+    name: "append-own",
+    trigger: { manual: true },
+    retries: 0,
+    handler: async (payload, ctx) => {
       await untypedAppend(ctx)({
         aggregateId: String(payload["noteId"]),
         blindAppendReason: "the job appends one independent note; ordering is not under test",
         aggregateType: "note",
         type: noted.name,
-        payload: { text: 42 },
+        payload: { text: String(payload["text"]) },
       });
-    } catch (error) {
-      jobFailures.push(error instanceof Error ? error.message : String(error));
-    }
-  } });
+    },
+  });
+
+  r.job({
+    name: "append-foreign",
+    trigger: { manual: true },
+    retries: 0,
+    handler: async (payload, ctx) => {
+      try {
+        await untypedAppend(ctx)({
+          aggregateId: String(payload["noteId"]),
+          blindAppendReason: "the job appends one independent note; ordering is not under test",
+          aggregateType: "note",
+          type: "jobappendother:event:foreign",
+          payload: { text: "x" },
+        });
+      } catch (error) {
+        jobFailures.push(error instanceof Error ? error.message : String(error));
+      }
+    },
+  });
+
+  r.job({
+    name: "append-invalid",
+    trigger: { manual: true },
+    retries: 0,
+    handler: async (payload, ctx) => {
+      try {
+        await untypedAppend(ctx)({
+          aggregateId: String(payload["noteId"]),
+          blindAppendReason: "the job appends one independent note; ordering is not under test",
+          aggregateType: "note",
+          type: noted.name,
+          payload: { text: 42 },
+        });
+      } catch (error) {
+        jobFailures.push(error instanceof Error ? error.message : String(error));
+      }
+    },
+  });
 });
 
 let stack: TestStack;

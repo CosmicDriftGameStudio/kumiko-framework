@@ -12,8 +12,8 @@ import {
   isPiiCiphertext,
   PII_ERASED_SENTINEL,
 } from "../crypto/index.ts";
-import { AGGREGATE_TRANSFERRED_EVENT_TYPE } from "../crypto/system-event-pii.ts";
 import { collectSearchableSubjectFields } from "../crypto/subject-resolver.ts";
+import { AGGREGATE_TRANSFERRED_EVENT_TYPE } from "../crypto/system-event-pii.ts";
 import { rehydrateCompoundTypes } from "../db/compound-types.ts";
 import type { DbConnection, DbRow } from "../db/connection.ts";
 import { createTenantDb, entityTableFromRegistry } from "../db/index.ts";

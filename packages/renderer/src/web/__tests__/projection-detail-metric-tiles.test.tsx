@@ -3,7 +3,13 @@
 import { describe, expect, test } from "bun:test";
 import type { ProjectionDetailScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
-import { createMockDispatcher, type MockQueryHandler, render, screen, waitFor } from "./test-utils.tsx";
+import {
+  createMockDispatcher,
+  type MockQueryHandler,
+  render,
+  screen,
+  waitFor,
+} from "./test-utils.tsx";
 
 const tilesScreen: ProjectionDetailScreenDefinition = {
   id: "check-detail",

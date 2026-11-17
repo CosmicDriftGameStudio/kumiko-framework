@@ -1,13 +1,13 @@
 // onDelete cascades run inside the delete lifecycle: every delete over HTTP applies the
 // relations' strategies, recurses through grandchildren and runs the children's entity hooks.
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import type { DeleteContext } from "@cosmicdrift/kumiko-types/hooks";
 import {
   resetEventStore,
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
+import type { DeleteContext } from "@cosmicdrift/kumiko-types/hooks";
 import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 
@@ -32,7 +32,11 @@ const sessionEntity = createEntity({
   table: "cascade_sessions",
   fields: { userId: textField(), token: textField() },
 });
-const groupEntity = createEntity({ name: "group", table: "cascade_groups", fields: { name: textField() } });
+const groupEntity = createEntity({
+  name: "group",
+  table: "cascade_groups",
+  fields: { name: textField() },
+});
 // Two separate junction tables so one Registry can host both onDelete
 // strategies (restrict + cascade) on the same user→group pair.
 const userGroupRestrictEntity = createEntity({
@@ -46,7 +50,11 @@ const userGroupCascadeEntity = createEntity({
   fields: { userId: textField(), groupId: textField() },
 });
 // setNull pair: members survive the team deletion with teamId nulled out.
-const teamEntity = createEntity({ name: "team", table: "cascade_teams", fields: { name: textField() } });
+const teamEntity = createEntity({
+  name: "team",
+  table: "cascade_teams",
+  fields: { name: textField() },
+});
 const memberEntity = createEntity({
   name: "member",
   table: "cascade_members",
@@ -58,7 +66,11 @@ const taskEntity = createEntity({
   fields: { title: textField(), memberId: textField() },
 });
 // Grandchild chain: squad → recruit → badge, all cascade.
-const squadEntity = createEntity({ name: "squad", table: "cascade_squads", fields: { name: textField() } });
+const squadEntity = createEntity({
+  name: "squad",
+  table: "cascade_squads",
+  fields: { name: textField() },
+});
 const recruitEntity = createEntity({
   name: "recruit",
   table: "cascade_recruits",
@@ -70,7 +82,11 @@ const badgeEntity = createEntity({
   fields: { label: textField(), recruitId: textField() },
 });
 // Restrict on the grandchild level: fort → bunker (cascade) → crate (restrict).
-const fortEntity = createEntity({ name: "fort", table: "cascade_forts", fields: { name: textField() } });
+const fortEntity = createEntity({
+  name: "fort",
+  table: "cascade_forts",
+  fields: { name: textField() },
+});
 const bunkerEntity = createEntity({
   name: "bunker",
   table: "cascade_bunkers",
@@ -111,42 +127,78 @@ const cascadeFeature = defineFeature("cascade", (r) => {
     r.entity({ ...entity, name });
   }
 
-  r.relation({ entity: "department", name: "users", type: "hasMany",
+  r.relation({
+    entity: "department",
+    name: "users",
+    type: "hasMany",
     target: "user",
     foreignKey: "departmentId",
-    onDelete: "restrict" });
-  r.relation({ entity: "user", name: "sessions", type: "hasMany",
+    onDelete: "restrict",
+  });
+  r.relation({
+    entity: "user",
+    name: "sessions",
+    type: "hasMany",
     target: "session",
     foreignKey: "userId",
-    onDelete: "cascade" });
-  r.relation({ entity: "user", name: "groupsRestrict", type: "manyToMany",
+    onDelete: "cascade",
+  });
+  r.relation({
+    entity: "user",
+    name: "groupsRestrict",
+    type: "manyToMany",
     target: "group",
     through: { table: "user-group-restrict", sourceKey: "userId", targetKey: "groupId" },
-    onDelete: "restrict" });
-  r.relation({ entity: "user", name: "groupsCascade", type: "manyToMany",
+    onDelete: "restrict",
+  });
+  r.relation({
+    entity: "user",
+    name: "groupsCascade",
+    type: "manyToMany",
     target: "group",
     through: { table: "user-group-cascade", sourceKey: "userId", targetKey: "groupId" },
-    onDelete: "cascade" });
-  r.relation({ entity: "team", name: "members", type: "hasMany",
+    onDelete: "cascade",
+  });
+  r.relation({
+    entity: "team",
+    name: "members",
+    type: "hasMany",
     target: "member",
     foreignKey: "teamId",
-    onDelete: "setNull" });
-  r.relation({ entity: "squad", name: "recruits", type: "hasMany",
+    onDelete: "setNull",
+  });
+  r.relation({
+    entity: "squad",
+    name: "recruits",
+    type: "hasMany",
     target: "recruit",
     foreignKey: "squadId",
-    onDelete: "cascade" });
-  r.relation({ entity: "recruit", name: "badges", type: "hasMany",
+    onDelete: "cascade",
+  });
+  r.relation({
+    entity: "recruit",
+    name: "badges",
+    type: "hasMany",
     target: "badge",
     foreignKey: "recruitId",
-    onDelete: "cascade" });
-  r.relation({ entity: "fort", name: "bunkers", type: "hasMany",
+    onDelete: "cascade",
+  });
+  r.relation({
+    entity: "fort",
+    name: "bunkers",
+    type: "hasMany",
     target: "bunker",
     foreignKey: "fortId",
-    onDelete: "cascade" });
-  r.relation({ entity: "bunker", name: "crates", type: "hasMany",
+    onDelete: "cascade",
+  });
+  r.relation({
+    entity: "bunker",
+    name: "crates",
+    type: "hasMany",
     target: "crate",
     foreignKey: "bunkerId",
-    onDelete: "restrict" });
+    onDelete: "restrict",
+  });
 
   r.hook({
     type: "preDelete",
@@ -303,7 +355,9 @@ describe("cascade delete: hasMany setNull", () => {
 
     await remove("team", team);
 
-    const members = (await rowsOf("member")).filter((row) => [alice, bob].includes(String(row["id"])));
+    const members = (await rowsOf("member")).filter((row) =>
+      [alice, bob].includes(String(row["id"])),
+    );
     expect(members).toHaveLength(2);
     expect(members.every((row) => row["teamId"] === null)).toBe(true);
   });

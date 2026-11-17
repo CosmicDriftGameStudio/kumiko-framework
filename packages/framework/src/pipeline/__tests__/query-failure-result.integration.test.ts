@@ -34,7 +34,13 @@ const extraRoutes: ExtraRouteDefinition[] = [
     path: "/public/missing-thing",
     entry: "anonymous",
     handler: async (c, deps) =>
-      c.json(await deps.systemQuery("query-failure:query:missing", { id: "x" }, TestUsers.admin.tenantId)),
+      c.json(
+        await deps.systemQuery(
+          "query-failure:query:missing",
+          { id: "x" },
+          TestUsers.admin.tenantId,
+        ),
+      ),
   },
 ];
 

@@ -1,5 +1,4 @@
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   access,
   declareEscapeHatch,
@@ -7,6 +6,7 @@ import {
   type SessionUser,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { type MfaRequiredPolicy, mfaRequiredConfigHandle, mfaRequiredConfigKey } from "./config.ts";
 import { findUserMfaRow } from "./db/queries.ts";
 import { signMfaChallengeToken } from "./mfa-challenge-token.ts";

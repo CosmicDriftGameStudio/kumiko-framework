@@ -13,12 +13,12 @@ import type { Dispatcher } from "../../headless/index.ts";
 import { REFERENCE_COMBOBOX_LIMIT } from "../../hooks/reference-limits.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
-import {PrimitivesProvider, type TextProps } from "../../primitives.tsx";
+import { PrimitivesProvider, type TextProps } from "../../primitives.tsx";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import type { NavApi } from "../nav.tsx";
 import { NavProvider } from "../nav.tsx";
-import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 
 const SYSTEM_USER_ID = "00000000-0000-0000-0000-000000000000";
 

@@ -99,11 +99,7 @@ export async function resolveParentWriteAccess(input: {
   if (accessMap === undefined || !hasParentRule(accessMap)) return accessMap;
 
   const cache = new Map<string, Promise<boolean>>();
-  const mayWriteParent = (
-    role: string,
-    entityName: string,
-    parentId: string,
-  ): Promise<boolean> => {
+  const mayWriteParent = (role: string, entityName: string, parentId: string): Promise<boolean> => {
     const key = `${role}\u0000${entityName}\u0000${parentId}`;
     let result = cache.get(key);
     if (result === undefined) {

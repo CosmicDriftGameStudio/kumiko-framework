@@ -35,10 +35,7 @@ import { seedTenantMembership } from "../../tenant/seeding.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { USER_STATUS, userEntity, userTable } from "../../user/index.ts";
 import { seedUser } from "../../user/seeding.ts";
-import {
-  SUBJECT_FORGOTTEN_EVENT_NAME,
-  SUBJECT_KEY_ERASER_CONSUMER_NAME,
-} from "../constants.ts";
+import { SUBJECT_FORGOTTEN_EVENT_NAME, SUBJECT_KEY_ERASER_CONSUMER_NAME } from "../constants.ts";
 import { createCryptoShreddingFeature } from "../feature.ts";
 
 const FORGET = "crypto-shredding:write:forget-subject";

@@ -24,11 +24,7 @@ import { escapeHtml } from "@cosmicdrift/kumiko-renderer/headless";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import { resolveFrameworkVersion } from "./framework-version.ts";
 import { isKebabSegment } from "./kebab.ts";
-import {
-  PREPARE_SCRIPT,
-  resolveManagedAppFacts,
-  syncManagedFiles,
-} from "./managed-files/index.ts";
+import { PREPARE_SCRIPT, resolveManagedAppFacts, syncManagedFiles } from "./managed-files/index.ts";
 import { renderAgentsMd, renderClaudeMd, renderMountedFeatureList } from "./scaffold-agent-docs.ts";
 import {
   BLANK_ENV_EXAMPLE_ADMIN_BLOCK,

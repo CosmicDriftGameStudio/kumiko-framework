@@ -14,7 +14,10 @@ const localesSeenBySend: (string | undefined)[] = [];
 
 const localeProbeFeature = defineFeature("locale-probe", (r) => {
   r.requires({ features: ["delivery"] });
-  r.applyExtension({ name: DELIVERY_CHANNEL_EXTENSION, entity: "locale-probe", mode: "queued",
+  r.applyExtension({
+    name: DELIVERY_CHANNEL_EXTENSION,
+    entity: "locale-probe",
+    mode: "queued",
     render: async (message: ChannelMessage) => {
       localesSeenByRender.push(message.locale);
       return { html: "<p>x</p>", subject: "x" };
@@ -22,7 +25,8 @@ const localeProbeFeature = defineFeature("locale-probe", (r) => {
     send: async (_address: string, message: ChannelMessage): Promise<ChannelResult> => {
       localesSeenBySend.push(message.locale);
       return { status: "sent" };
-    } });
+    },
+  });
 });
 
 beforeAll(async () => {

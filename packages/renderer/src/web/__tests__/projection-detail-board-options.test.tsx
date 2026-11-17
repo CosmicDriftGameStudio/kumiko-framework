@@ -9,7 +9,15 @@ import {
   KumikoScreen,
   NavProvider,
 } from "../../index.ts";
-import { createMockDispatcher, type MockQueryHandler, render, restoreViewportWidthAfterEach, screen, setViewportWidth, waitFor } from "./test-utils.tsx";
+import {
+  createMockDispatcher,
+  type MockQueryHandler,
+  render,
+  restoreViewportWidthAfterEach,
+  screen,
+  setViewportWidth,
+  waitFor,
+} from "./test-utils.tsx";
 
 const writeAction = (id: string) => ({
   kind: "writeHandler" as const,

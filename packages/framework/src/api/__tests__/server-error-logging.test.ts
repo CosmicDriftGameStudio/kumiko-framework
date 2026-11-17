@@ -89,10 +89,15 @@ const boomFeature = defineFeature("boom", (r) => {
     },
     ...openToAll,
   });
-  r.streamHandler({ name: "abort-before-first-yield", schema: z.object({}), handler: async function* (_query, ctx) {
+  r.streamHandler({
+    name: "abort-before-first-yield",
+    schema: z.object({}),
+    handler: async function* (_query, ctx) {
       ctx.lifecycle.signal?.throwIfAborted();
       yield { ok: true };
-    }, ...openToAll });
+    },
+    ...openToAll,
+  });
 });
 
 const { app, jwt } = buildServer({

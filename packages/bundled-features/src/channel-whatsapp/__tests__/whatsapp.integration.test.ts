@@ -34,6 +34,8 @@ import {
 } from "../events.ts";
 import { createChannelWhatsappFeature } from "../feature.ts";
 import { createWhatsappClient, type WhatsappCallContext } from "../graph-client.ts";
+import type { ChannelWhatsappOptions } from "../options.ts";
+import { readWhatsappMessagePii, readWhatsappStatusPii, readWhatsappThrottledPii } from "../pii.ts";
 import {
   createInMemoryMeta,
   deliverMetaWebhook,
@@ -44,8 +46,6 @@ import {
   metaWebhookPayload,
   requestMetaVerification,
 } from "../testing.ts";
-import type { ChannelWhatsappOptions } from "../options.ts";
-import { readWhatsappMessagePii, readWhatsappStatusPii, readWhatsappThrottledPii } from "../pii.ts";
 import { createWhatsappWebhookRoutes } from "../webhook-routes.ts";
 
 const tenantAdmin = createTestUser({ roles: ["TenantAdmin"] });

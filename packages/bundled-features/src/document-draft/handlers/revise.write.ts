@@ -6,7 +6,10 @@ import { DOCUMENT_DRAFT_STATUS } from "../web/constants.ts";
 
 type ReviseData = { readonly id: string; readonly version: number; readonly revision: number };
 
-export function createReviseHandler(access: AccessRule, documentDraftExecutor: DocumentDraftExecutor) {
+export function createReviseHandler(
+  access: AccessRule,
+  documentDraftExecutor: DocumentDraftExecutor,
+) {
   return defineWriteHandler<"revise", typeof DraftBaseSchema, ReviseData>({
     name: "revise",
     schema: DraftBaseSchema,

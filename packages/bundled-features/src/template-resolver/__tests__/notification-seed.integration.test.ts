@@ -8,7 +8,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
-import { createRendererMailHtmlFeature } from "../../renderer-mail-html/index.ts";
 import {
   setupTestStack,
   type TestStack,
@@ -16,6 +15,7 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature.ts";
+import { createRendererMailHtmlFeature } from "../../renderer-mail-html/index.ts";
 import { createTemplateResolverFeature } from "../feature.ts";
 import { seedNotificationTemplates } from "../seeding.ts";
 import {
@@ -36,7 +36,9 @@ function mailerFeature(bodyDe: string) {
       access: { roles: ["TenantAdmin"] },
       handler: async () => ({ isSuccess: true as const, data: {} }),
     });
-    r.notification({ name: "welcome-mail", trigger: { on: "create" },
+    r.notification({
+      name: "welcome-mail",
+      trigger: { on: "create" },
       recipient: () => null,
       data: () => ({}),
       variables: { name: templateVariable.text({ required: true }) },
@@ -44,7 +46,8 @@ function mailerFeature(bodyDe: string) {
         de: { body: bodyDe },
         en: { body: '<p>Hello <span data-variable="name"></span></p>' },
       },
-      meta: { de: { subject: "Willkommen {{name}}" }, en: { subject: "Welcome {{name}}" } } });
+      meta: { de: { subject: "Willkommen {{name}}" }, en: { subject: "Welcome {{name}}" } },
+    });
   });
 }
 

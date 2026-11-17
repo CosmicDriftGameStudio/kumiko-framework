@@ -8,7 +8,6 @@ import {
   type NotifyFn,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
-import { createRendererMailHtmlFeature } from "../../renderer-mail-html/index.ts";
 import { expectSuccess, resetBlindIndexKeyForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -20,6 +19,7 @@ import { createInMemoryTransport } from "../../channel-email/types.ts";
 import { createConfigFeature } from "../../config/feature.ts";
 import { configValuesTable } from "../../config/table.ts";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature.ts";
+import { createRendererMailHtmlFeature } from "../../renderer-mail-html/index.ts";
 import { createTemplateResolverFeature } from "../../template-resolver/feature.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantMembershipsTable } from "../../tenant/membership-table.ts";

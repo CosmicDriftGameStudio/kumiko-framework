@@ -32,10 +32,14 @@ function helpdesk(options: {
   return defineFeature("helpdesk", (r) => {
     const ticket = r.entity(ticketEntity);
     r.entity(replyEntity(options.searchableBody));
-    r.relation({ entity: ticket, name: "replies", type: "hasMany",
+    r.relation({
+      entity: ticket,
+      name: "replies",
+      type: "hasMany",
       target: options.target,
       foreignKey: options.foreignKey,
-      searchable: true });
+      searchable: true,
+    });
   });
 }
 

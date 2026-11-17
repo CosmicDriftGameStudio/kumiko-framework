@@ -10,14 +10,11 @@ import {
 } from "./entities";
 
 export const { executor: leaseExecutor } = createEntityExecutor(leaseEntity);
-export const { executor: positionExecutor } = createEntityExecutor(
-  leasePositionEntity,
-);
+export const { executor: positionExecutor } = createEntityExecutor(leasePositionEntity);
 export const { executor: partyExecutor } = createEntityExecutor(leasePartyEntity);
 
-export const { executor: managementProfileExecutor } = createEntityExecutor(
-  managementProfileEntity,
-);
+export const { executor: managementProfileExecutor } =
+  createEntityExecutor(managementProfileEntity);
 
 export const saveManagementProfilePayloadSchema = z.object({
   name: z.string().min(1).max(200),

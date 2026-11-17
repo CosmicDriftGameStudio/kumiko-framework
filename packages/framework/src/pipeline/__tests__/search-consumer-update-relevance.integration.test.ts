@@ -24,7 +24,11 @@ function memoFields() {
   };
 }
 
-const memoEntity = createEntity({ name: "memo", table: "read_update_relevance_memos", fields: memoFields() });
+const memoEntity = createEntity({
+  name: "memo",
+  table: "read_update_relevance_memos",
+  fields: memoFields(),
+});
 const memoExtEntity = createEntity({
   name: "memoExt",
   table: "read_update_relevance_memo_exts",
@@ -73,10 +77,7 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await resetEventStore(stack, [
-    "read_update_relevance_memos",
-    "read_update_relevance_memo_exts",
-  ]);
+  await resetEventStore(stack, ["read_update_relevance_memos", "read_update_relevance_memo_exts"]);
 });
 
 type Written = { id: string; data: { version: number } };

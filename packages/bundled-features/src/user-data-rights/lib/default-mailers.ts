@@ -30,10 +30,7 @@ import {
   type DeliveryChannel,
   EMAIL_CHANNEL_NAME,
 } from "../../delivery/index.ts";
-import {
-  collectRendererPlugins,
-  selectRendererPlugin,
-} from "../../renderer-foundation/index.ts";
+import { collectRendererPlugins, selectRendererPlugin } from "../../renderer-foundation/index.ts";
 import {
   formatGdprMailTimestamp,
   type GdprMailLocale,

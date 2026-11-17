@@ -24,7 +24,9 @@ function gapsBetween(starts: readonly number[]): number[] {
 }
 
 const backoffFixtureFeature = defineFeature("backofffixture", (r) => {
-  const triggerExponentialDefault = r.defineEvent("trigger-exponential-default", z.object({}), { piiFields: "none" });
+  const triggerExponentialDefault = r.defineEvent("trigger-exponential-default", z.object({}), {
+    piiFields: "none",
+  });
   r.writeHandler({
     name: "trigger-exponential-default",
     schema: z.object({}),
@@ -41,14 +43,20 @@ const backoffFixtureFeature = defineFeature("backofffixture", (r) => {
   });
   // AC: retries: 3, backoff: "exponential" — fails once, succeeds on retry 2.
   // Default base delay is 1000ms, so the single retry gap must be >= 1000ms.
-  r.job({ name: "exponential-default", trigger: { on: "backofffixture:event:trigger-exponential-default" },
-      retries: 3,
-      backoff: "exponential", handler: async () => {
+  r.job({
+    name: "exponential-default",
+    trigger: { on: "backofffixture:event:trigger-exponential-default" },
+    retries: 3,
+    backoff: "exponential",
+    handler: async () => {
       exponentialDefaultStarts.push(Date.now());
       if (exponentialDefaultStarts.length === 1) throw new Error("fails on attempt 1");
-    } });
+    },
+  });
 
-  const triggerExponentialCustom = r.defineEvent("trigger-exponential-custom", z.object({}), { piiFields: "none" });
+  const triggerExponentialCustom = r.defineEvent("trigger-exponential-custom", z.object({}), {
+    piiFields: "none",
+  });
   r.writeHandler({
     name: "trigger-exponential-custom",
     schema: z.object({}),
@@ -64,15 +72,21 @@ const backoffFixtureFeature = defineFeature("backofffixture", (r) => {
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
   // Per-job configurable + growing: delayMs 50 → gaps 50, 100, 200ms.
-  r.job({ name: "exponential-custom", trigger: { on: "backofffixture:event:trigger-exponential-custom" },
-      retries: 3,
-      backoff: { type: "exponential", delayMs: 50 }, handler: async () => {
+  r.job({
+    name: "exponential-custom",
+    trigger: { on: "backofffixture:event:trigger-exponential-custom" },
+    retries: 3,
+    backoff: { type: "exponential", delayMs: 50 },
+    handler: async () => {
       exponentialCustomStarts.push(Date.now());
       if (exponentialCustomStarts.length < 4)
         throw new Error(`fails on attempt ${exponentialCustomStarts.length}`);
-    } });
+    },
+  });
 
-  const triggerFixedCustom = r.defineEvent("trigger-fixed-custom", z.object({}), { piiFields: "none" });
+  const triggerFixedCustom = r.defineEvent("trigger-fixed-custom", z.object({}), {
+    piiFields: "none",
+  });
   r.writeHandler({
     name: "trigger-fixed-custom",
     schema: z.object({}),
@@ -87,12 +101,16 @@ const backoffFixtureFeature = defineFeature("backofffixture", (r) => {
     },
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
-  r.job({ name: "fixed-custom", trigger: { on: "backofffixture:event:trigger-fixed-custom" },
-      retries: 1,
-      backoff: { type: "fixed", delayMs: 300 }, handler: async () => {
+  r.job({
+    name: "fixed-custom",
+    trigger: { on: "backofffixture:event:trigger-fixed-custom" },
+    retries: 1,
+    backoff: { type: "fixed", delayMs: 300 },
+    handler: async () => {
       fixedCustomStarts.push(Date.now());
       if (fixedCustomStarts.length === 1) throw new Error("fails on attempt 1");
-    } });
+    },
+  });
 });
 
 let stack: TestStack;

@@ -34,7 +34,11 @@ describe("assignable app role declarations at boot (tenant r.bootCheck)", () => 
   test("a screen option with a different assignableFrom fails the boot", () => {
     const app = defineFeature("assignable-boot-mismatch-app", (r) => {
       r.requires({ features: ["tenant"] });
-      r.applyExtension({ name: EXT_ASSIGNABLE_ROLE, entity: "PropertyManager", assignableFrom: "TenantAdmin" });
+      r.applyExtension({
+        name: EXT_ASSIGNABLE_ROLE,
+        entity: "PropertyManager",
+        assignableFrom: "TenantAdmin",
+      });
     });
     const tenant = createTenantFeature({
       assignableAppRoles: new Map([["PropertyManager", "Admin"]]),
@@ -65,7 +69,11 @@ describe("assignable app role declarations at boot (tenant r.bootCheck)", () => 
   test("conflicting declarations across features fail the boot", () => {
     const other = defineFeature("assignable-boot-other", (r) => {
       r.requires({ features: ["tenant"] });
-      r.applyExtension({ name: EXT_ASSIGNABLE_ROLE, entity: "PropertyManager", assignableFrom: "TenantAdmin" });
+      r.applyExtension({
+        name: EXT_ASSIGNABLE_ROLE,
+        entity: "PropertyManager",
+        assignableFrom: "TenantAdmin",
+      });
     });
     const app = defineFeature("assignable-boot-app", (r) => {
       r.requires({ features: ["tenant"] });

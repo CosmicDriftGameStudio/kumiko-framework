@@ -28,10 +28,7 @@ import {
   resetTestTables,
   waitFor,
 } from "@cosmicdrift/kumiko-testing/helpers";
-import {
-  setupTestStack,
-  type TestStack,
-} from "@cosmicdrift/kumiko-testing/stack";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { employeeEntity, hrFeature } from "../feature";
 
 let stack: TestStack;

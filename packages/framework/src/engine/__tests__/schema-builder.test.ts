@@ -232,7 +232,11 @@ describe("buildInsertSchema", () => {
   // asserts the new UUID contract AND explicitly rejects the old number
   // shape, so a regression to z.number() would flip every test red.
   test("file field accepts UUID (fileRefId)", () => {
-    const entity = createEntity({ name: "entity", table: "Test", fields: { contract: createFileField() } });
+    const entity = createEntity({
+      name: "entity",
+      table: "Test",
+      fields: { contract: createFileField() },
+    });
     const schema = buildInsertSchema(entity);
     expect(schema.safeParse({ contract: "00000000-0000-4000-8000-000000000001" }).success).toBe(
       true,
@@ -242,7 +246,11 @@ describe("buildInsertSchema", () => {
   });
 
   test("image field accepts UUID (fileRefId)", () => {
-    const entity = createEntity({ name: "entity", table: "Test", fields: { avatar: createImageField() } });
+    const entity = createEntity({
+      name: "entity",
+      table: "Test",
+      fields: { avatar: createImageField() },
+    });
     const schema = buildInsertSchema(entity);
     expect(schema.safeParse({ avatar: "00000000-0000-4000-8000-000000000002" }).success).toBe(true);
     expect(schema.safeParse({ avatar: 1 }).success).toBe(false);
@@ -250,7 +258,11 @@ describe("buildInsertSchema", () => {
   });
 
   test("files field accepts array of UUIDs", () => {
-    const entity = createEntity({ name: "entity", table: "Test", fields: { docs: createFilesField() } });
+    const entity = createEntity({
+      name: "entity",
+      table: "Test",
+      fields: { docs: createFilesField() },
+    });
     const schema = buildInsertSchema(entity);
     expect(
       schema.safeParse({
@@ -262,7 +274,11 @@ describe("buildInsertSchema", () => {
   });
 
   test("images field accepts array of UUIDs", () => {
-    const entity = createEntity({ name: "entity", table: "Test", fields: { photos: createImagesField() } });
+    const entity = createEntity({
+      name: "entity",
+      table: "Test",
+      fields: { photos: createImagesField() },
+    });
     const schema = buildInsertSchema(entity);
     expect(schema.safeParse({ photos: ["00000000-0000-4000-8000-000000000003"] }).success).toBe(
       true,

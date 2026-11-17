@@ -67,6 +67,4 @@ export const inspectionProtocolEntity = createEntity({
   },
 });
 
-export const inspectionProtocolTable = buildEntityTable(
-  inspectionProtocolEntity,
-);
+export const inspectionProtocolTable = buildEntityTable(inspectionProtocolEntity);

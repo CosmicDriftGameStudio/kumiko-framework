@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { render } from "@testing-library/react";
 import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
 import { createMockDispatcher } from "@cosmicdrift/kumiko-renderer/testing";
+import { render } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { emailPasswordClient } from "../client-plugin.ts";
 import { DefaultAuthPagesGate, makeDefaultAuthPagesGate } from "../default-auth-pages-gate.tsx";
@@ -117,13 +117,12 @@ describe("DefaultAuthPagesGate", () => {
     expect(emailPasswordClient({ defaultAuthPages: { paths: {} } }).gates).toHaveLength(2);
   });
 
-  test.each([
-    "/verify-email?token=abc",
-    "/signup/complete?token=abc",
-    "/invite/accept?token=abc",
-  ])("%s shows a framework screen, not the app", (path) => {
-    expect(renderAt(path).queryByTestId("app")).toBeNull();
-  });
+  test.each(["/verify-email?token=abc", "/signup/complete?token=abc", "/invite/accept?token=abc"])(
+    "%s shows a framework screen, not the app",
+    (path) => {
+      expect(renderAt(path).queryByTestId("app")).toBeNull();
+    },
+  );
 
   test("/signup without a dispatcher shows the form", () => {
     const ui = renderAt("/signup");

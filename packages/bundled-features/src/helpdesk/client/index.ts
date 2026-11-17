@@ -1,8 +1,4 @@
 export { HELPDESK_CLIENT_SOURCE } from "./helpdesk-client-source.ts";
-export {
-  HELPDESK_WEBSITE_SUBMIT_OUTCOME,
-  helpdeskWebsiteClient,
-} from "./helpdesk-website-client.ts";
 export type {
   HelpdeskWebsiteClient,
   HelpdeskWebsiteFormOptions,
@@ -11,4 +7,8 @@ export type {
   HelpdeskWebsiteSubmitOutcome,
   HelpdeskWebsiteSubmitResult,
   HelpdeskWebsiteWindow,
+} from "./helpdesk-website-client.ts";
+export {
+  HELPDESK_WEBSITE_SUBMIT_OUTCOME,
+  helpdeskWebsiteClient,
 } from "./helpdesk-website-client.ts";

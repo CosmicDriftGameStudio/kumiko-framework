@@ -69,7 +69,6 @@ export const outboundMailSendEntity = createEntity({
   },
 });
 
-export const outboundMailSendsTable = deriveEntityTableMeta(
-  outboundMailSendEntity,
-  { source: "unmanaged" },
-);
+export const outboundMailSendsTable = deriveEntityTableMeta(outboundMailSendEntity, {
+  source: "unmanaged",
+});

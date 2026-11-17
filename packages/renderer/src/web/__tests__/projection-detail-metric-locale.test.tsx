@@ -9,7 +9,13 @@ import {
   kumikoDefaultTranslations,
   LocaleProvider,
 } from "../../index.ts";
-import { createMockDispatcher, type MockQueryHandler, render, screen, waitFor } from "./test-utils.tsx";
+import {
+  createMockDispatcher,
+  type MockQueryHandler,
+  render,
+  screen,
+  waitFor,
+} from "./test-utils.tsx";
 
 const NOW = Date.parse("2026-11-07T12:00:00Z");
 

@@ -2,7 +2,6 @@ import { createEntityExecutor, type WriteHandlerFn } from "@cosmicdrift/kumiko-f
 import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import {
   bindPendingFileRef,
-  FILE_REF_ENTITY_NAME,
   fileRefEntity,
   loadPendingFileRef,
 } from "@cosmicdrift/kumiko-framework/files";

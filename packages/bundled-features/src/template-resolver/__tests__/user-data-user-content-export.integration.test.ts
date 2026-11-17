@@ -10,7 +10,10 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { resetPiiSubjectKmsForTests, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  resetPiiSubjectKmsForTests,
+  seedRowViaEventStore,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,

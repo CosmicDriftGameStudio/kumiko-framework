@@ -13,7 +13,8 @@ const base = "shop:entity:order:field";
 
 function shopWith(translationKeys: readonly string[]) {
   return defineFeature("shop", (r) => {
-    r.entity(createEntity({
+    r.entity(
+      createEntity({
         name: "order",
         fields: {
           title: createTextField({ personal: false, reason: "test_fixture" }),
@@ -24,7 +25,8 @@ function shopWith(translationKeys: readonly string[]) {
             kind: { type: "select", options: ["goods", "service"] },
           }),
         },
-      }));
+      }),
+    );
     r.screen({
       id: "order-list",
       type: "entityList",

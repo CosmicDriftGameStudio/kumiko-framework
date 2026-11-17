@@ -13,8 +13,8 @@ import type { SessionUser } from "../engine/types/index.ts";
 import { FILE_REF_ENTITY_NAME } from "../files/types.ts";
 import type { Table } from "./event-store-executor-context.ts";
 import { isFrameworkSystemUser } from "./lock-guard.ts";
-import { buildParentRefClause } from "./parent-ref-clause.ts";
 import { parentRulesFromOption } from "./parent-ownership.ts";
+import { buildParentRefClause } from "./parent-ref-clause.ts";
 import { quoteIdent } from "./sql-identifier.ts";
 import { buildEntityTable, physicalColumnName } from "./table-builder.ts";
 import { schemaTableName } from "./table-introspection.ts";
@@ -63,7 +63,9 @@ function tenantScopeSql(sql: GateSql, db: TenantDb, table: Table, alias: string)
   if (table["tenantId"] === undefined || db.mode !== "tenant") return [];
   const first = sql.bind(db.tenantId);
   const second = sql.bind(SYSTEM_TENANT_ID);
-  return [`${quoteIdent(alias)}.${quoteIdent(physicalColumnName(table, "tenantId"))} IN (${first}, ${second})`];
+  return [
+    `${quoteIdent(alias)}.${quoteIdent(physicalColumnName(table, "tenantId"))} IN (${first}, ${second})`,
+  ];
 }
 
 function liveRowSql(entity: EntityDefinition, table: Table, alias: string): string[] {

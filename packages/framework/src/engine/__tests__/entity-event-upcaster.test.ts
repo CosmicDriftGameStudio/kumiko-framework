@@ -19,7 +19,12 @@ function registryWith(def: {
   eventVersion?: number;
   eventMigrations?: readonly EntityEventMigration[];
 }) {
-  const entity = createEntity({ name: "thing", table: "read_ev_things", fields: { name: textField }, ...def });
+  const entity = createEntity({
+    name: "thing",
+    table: "read_ev_things",
+    fields: { name: textField },
+    ...def,
+  });
   return createRegistry([defineFeature("evtest", (r) => r.entity(entity))]);
 }
 

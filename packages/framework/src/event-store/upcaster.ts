@@ -1,9 +1,8 @@
 import type { EventUpcastCtx, EventUpcastFn } from "@cosmicdrift/kumiko-types/handlers";
 import type { DbRunner } from "../db/index.ts";
 import type { TenantId } from "../engine/types/index.ts";
-
-import type { StoredEvent } from "./event-store.ts";
 import { EventVersionAheadError } from "./errors.ts";
+import type { StoredEvent } from "./event-store.ts";
 
 // Event schema evolution (Marten-style upcaster). An event's stored payload
 // stays immutable on disk; when a feature bumps the event version and

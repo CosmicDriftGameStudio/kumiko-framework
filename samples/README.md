@@ -21,18 +21,18 @@ so a new recipe shows up there without a hand-written entry. The smallest comple
 
 ## Apps — UI + dev-server
 
-| Sample | What it shows |
-| --- | --- |
-| [apps/admin-console](apps/admin-console/) | Bundled admin shell: tenant and platform workspaces with screens from the owning features. |
-| [apps/cap-billing-demo](apps/cap-billing-demo/) | Billing-foundation + cap engine + Stripe + Mollie integration on one app. |
-| [apps/config-demo](apps/config-demo/) | Config seeding and the config source badge in the config edit form. |
-| [apps/marketing-demo](apps/marketing-demo/) | Asset tracker + ticketing on one Kumiko instance — internal-tools showcase with translated select options, deterministically seeded. |
-| [apps/showcase](apps/showcase/) | Generic showcase app to exercise the full feature surface in one place. |
-| [apps/styleguide](apps/styleguide/) | Gallery of the auto-UI building blocks; its screenshot runner shoots them in three themes for the docs. |
-| [apps/ui-walkthrough](apps/ui-walkthrough/) | DefaultAppShell + LanguageSwitcher + ThemeToggle + emailPasswordClient + TenantSwitcher + tasks demo. Includes Playwright E2E. |
-| [apps/use-all-bundled](apps/use-all-bundled/) | Mounts every bundled feature, so framework CI catches coverage gaps that real apps miss. |
+| Sample                                                    | What it shows                                                                                                                                                      |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [apps/admin-console](apps/admin-console/)                 | Bundled admin shell: tenant and platform workspaces with screens from the owning features.                                                                         |
+| [apps/cap-billing-demo](apps/cap-billing-demo/)           | Billing-foundation + cap engine + Stripe + Mollie integration on one app.                                                                                          |
+| [apps/config-demo](apps/config-demo/)                     | Config seeding and the config source badge in the config edit form.                                                                                                |
+| [apps/marketing-demo](apps/marketing-demo/)               | Asset tracker + ticketing on one Kumiko instance — internal-tools showcase with translated select options, deterministically seeded.                               |
+| [apps/showcase](apps/showcase/)                           | Generic showcase app to exercise the full feature surface in one place.                                                                                            |
+| [apps/styleguide](apps/styleguide/)                       | Gallery of the auto-UI building blocks; its screenshot runner shoots them in three themes for the docs.                                                            |
+| [apps/ui-walkthrough](apps/ui-walkthrough/)               | DefaultAppShell + LanguageSwitcher + ThemeToggle + emailPasswordClient + TenantSwitcher + tasks demo. Includes Playwright E2E.                                     |
+| [apps/use-all-bundled](apps/use-all-bundled/)             | Mounts every bundled feature, so framework CI catches coverage gaps that real apps miss.                                                                           |
 | [apps/user-data-rights-demo](apps/user-data-rights-demo/) | DSGVO Art. 15+17+18+20 end-to-end: todos-Domain mit `EXT_USER_DATA`-Hooks, request-export → ZIP-Bundle, request-deletion → Forget-Cleanup, Restriction-Auth-Block. |
-| [apps/workspaces](apps/workspaces/) | WorkspaceShell + persona/role-gated workspaces + cross-feature nav members + server-injected AppSchema. |
+| [apps/workspaces](apps/workspaces/)                       | WorkspaceShell + persona/role-gated workspaces + cross-feature nav members + server-injected AppSchema.                                                            |
 
 ## Running tests
 

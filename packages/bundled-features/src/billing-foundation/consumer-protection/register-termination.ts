@@ -67,11 +67,14 @@ export function registerContractTermination(
   // and a declaration arriving mid-run hit version conflicts. Sequential runs
   // rule out the first; a retry re-reads the stream and the requestId check in
   // record-contract-termination keeps it from recording twice.
-  r.job({ name: "cancel-on-public-termination-declared", trigger: { on: CONTRACT_TERMINATION_DECLARED_EVENT_QN },
-      runIn: "worker",
-      concurrency: "sequential",
-      retries: 3,
-      backoff: "exponential", handler: async (payload, ctx) => {
+  r.job({
+    name: "cancel-on-public-termination-declared",
+    trigger: { on: CONTRACT_TERMINATION_DECLARED_EVENT_QN },
+    runIn: "worker",
+    concurrency: "sequential",
+    retries: 3,
+    backoff: "exponential",
+    handler: async (payload, ctx) => {
       const declared = contractTerminationDeclaredPayloadSchema.safeParse(payload);
       // skip: trigger event carries no usable declaration
       if (!declared.success) return;
@@ -95,5 +98,6 @@ export function registerContractTermination(
           `billing-foundation:cancel-on-public-termination-declared: record-contract-termination failed: ${JSON.stringify(result.error)}`,
         );
       }
-    } });
+    },
+  });
 }

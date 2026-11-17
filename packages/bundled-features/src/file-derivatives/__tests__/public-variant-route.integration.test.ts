@@ -109,10 +109,14 @@ const widgetPredicateFeature = defineFeature("publicvariantroutetest", (r) => {
     r.writeHandler(defineEntityUpdateHandler(name, entity, adminOnly));
     r.queryHandler(defineEntityDetailHandler(name, entity, adminOnly));
   }
-  r.applyExtension({ name: EXT_DERIVATIVE_PUBLIC_PREDICATE, entity: "widget", isPublic: (args: DerivativePublicPredicateArgs) => {
+  r.applyExtension({
+    name: EXT_DERIVATIVE_PUBLIC_PREDICATE,
+    entity: "widget",
+    isPublic: (args: DerivativePublicPredicateArgs) => {
       predicateCalls++;
       return args.entityId === publicWidgetId;
-    } });
+    },
+  });
   // EXT_DERIVATIVE_RENDERER itself is already declared by
   // createFileDerivativesFeature — only register a plugin under it here.
   r.applyExtension({ name: EXT_DERIVATIVE_RENDERER, entity: "image/*", render: fakeRender });

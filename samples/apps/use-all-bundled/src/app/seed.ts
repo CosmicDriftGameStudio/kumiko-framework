@@ -56,13 +56,9 @@ import { seedPdfDocuments } from "./seed-documents";
 // projection table + executor), so seeded rows are proper event streams, not
 // projection-wiped direct writes. entityName must match the handlers' QNs.
 const { executor: tagExecutor } = createEntityExecutor(tagEntity);
-const { executor: tagAssignmentExecutor } = createEntityExecutor(
-  tagAssignmentEntity,
-);
+const { executor: tagAssignmentExecutor } = createEntityExecutor(tagAssignmentEntity);
 const { executor: noteExecutor } = createEntityExecutor(noteEntity);
-const { executor: tierAssignmentExecutor } = createEntityExecutor(
-  tierAssignmentEntity,
-);
+const { executor: tierAssignmentExecutor } = createEntityExecutor(tierAssignmentEntity);
 
 // Resolves the real dev-admin user (runDevApp's auth.admin, seeded via
 // seedAdmin() before options.seeds run) so seeded writes carry a created_by

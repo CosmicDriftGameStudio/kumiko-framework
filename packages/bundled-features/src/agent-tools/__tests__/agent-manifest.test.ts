@@ -759,10 +759,13 @@ describe("manifest entities cover every registry-derived entity tool", () => {
       read: { access: { roles: ["admin", "viewer"] } },
       write: { access: { roles: ["admin"] } },
     });
-    r.crud({ ...entity, name: "admin-item" }, {
-      read: { access: { roles: ["admin"] } },
-      write: { access: { roles: ["admin"] } },
-    });
+    r.crud(
+      { ...entity, name: "admin-item" },
+      {
+        read: { access: { roles: ["admin"] } },
+        write: { access: { roles: ["admin"] } },
+      },
+    );
   });
   const registry = createRegistry([feature]);
 

@@ -1,6 +1,6 @@
 import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
-import { TICKET_STATUSES, ticketExecutor } from "../schema/ticket";
+import { type TICKET_STATUSES, ticketExecutor } from "../schema/ticket";
 
 export async function countTicketsWithStatus(
   status: (typeof TICKET_STATUSES)[number],

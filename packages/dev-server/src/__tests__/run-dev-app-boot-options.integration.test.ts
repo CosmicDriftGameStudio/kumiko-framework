@@ -24,10 +24,12 @@ const PLAINTEXT_REASON = "test: boot options focus, not PII crypto";
 
 function shopFeature() {
   return defineFeature("shop", (r) => {
-    r.entity(createEntity({
+    r.entity(
+      createEntity({
         name: "product",
         fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-      }));
+      }),
+    );
   });
 }
 
@@ -182,7 +184,11 @@ describe("runDevApp boot options", () => {
         kmsMode: { plaintextReason: PLAINTEXT_REASON },
         search: { provider: "meili-env" },
         extraContext: { searchAdapter: createInMemorySearchAdapter() },
-        envSource: { ...process.env, MEILI_URL: "http://127.0.0.1:1", MEILI_MASTER_KEY: "test-key" },
+        envSource: {
+          ...process.env,
+          MEILI_URL: "http://127.0.0.1:1",
+          MEILI_MASTER_KEY: "test-key",
+        },
       }),
     ).rejects.toThrow(/\[runDevApp\] the search option and extraContext.searchAdapter/);
   });

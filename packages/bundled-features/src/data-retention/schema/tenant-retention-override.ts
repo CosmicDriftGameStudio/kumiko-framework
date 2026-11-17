@@ -47,6 +47,4 @@ export const tenantRetentionOverrideEntity = createEntity({
   indexes: [{ unique: true, columns: ["tenantId", "entityName"] }],
 });
 
-export const tenantRetentionOverrideTable = buildEntityTable(
-  tenantRetentionOverrideEntity,
-);
+export const tenantRetentionOverrideTable = buildEntityTable(tenantRetentionOverrideEntity);

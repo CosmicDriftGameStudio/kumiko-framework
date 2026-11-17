@@ -15,7 +15,9 @@ an. user-data-rights orchestriert Export- und Forget-Pipeline:
 ```ts
 defineFeature("tasks", (r) => {
   r.requires({ features: ["user-data-rights"] });
-  r.applyExtension({ name: EXT_USER_DATA, entity: "task",
+  r.applyExtension({
+    name: EXT_USER_DATA,
+    entity: "task",
     export: async (ctx) => ({
       entity: "task",
       rows: await ctx.db.select().from(tasksTable).where(eq(tasksTable.authorId, ctx.userId)),
@@ -42,15 +44,15 @@ Hook-Signaturen in `framework/src/engine/extensions/user-data.ts`:
 
 ## Endpoints
 
-| Article    | Handler                                         | Zweck                                                                                                                                                      |
-| ---------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Art. 15    | `user-data-rights:query:my-audit-log`           | User sieht eigene Framework-Events (account-weit über alle Memberships). Domain-Entities ohne `ctx.events.append` erscheinen NICHT — nur im Export-Bundle. |
-| Art. 15+20 | `user-data-rights:write:request-export`         | Async job (runs right after the request; daily maintenance run as backstop) → ZIP mit user-Profil + fileRefs + alle EXT_USER_DATA-Provider-Daten + signed Magic-Link                                                         |
-| Art. 17    | `user-data-rights:write:request-deletion`       | Soft-Delete mit Grace-Period, anschließend Cron anonymisiert User + cleant Domain-Entities                                                                 |
-| Art. 17    | `user-data-rights:write:cancel-deletion`        | User widerruft seinen Forget-Request während der Grace                                                                                                     |
-| Art. 18    | `user-data-rights:write:restrict-account`       | Auth-Middleware blockt Logins bis Lift                                                                                                                     |
-| Art. 18    | `user-data-rights:write:lift-restriction`       | Admin/SystemAdmin hebt Restriction auf                                                                                                                     |
-| Operator   | `user-data-rights:query:list-download-attempts` | DPO-Sicht auf invalid Download-Versuche (Brute-Force-Detection, Admin/SystemAdmin only)                                                                    |
+| Article    | Handler                                         | Zweck                                                                                                                                                                |
+| ---------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Art. 15    | `user-data-rights:query:my-audit-log`           | User sieht eigene Framework-Events (account-weit über alle Memberships). Domain-Entities ohne `ctx.events.append` erscheinen NICHT — nur im Export-Bundle.           |
+| Art. 15+20 | `user-data-rights:write:request-export`         | Async job (runs right after the request; daily maintenance run as backstop) → ZIP mit user-Profil + fileRefs + alle EXT_USER_DATA-Provider-Daten + signed Magic-Link |
+| Art. 17    | `user-data-rights:write:request-deletion`       | Soft-Delete mit Grace-Period, anschließend Cron anonymisiert User + cleant Domain-Entities                                                                           |
+| Art. 17    | `user-data-rights:write:cancel-deletion`        | User widerruft seinen Forget-Request während der Grace                                                                                                               |
+| Art. 18    | `user-data-rights:write:restrict-account`       | Auth-Middleware blockt Logins bis Lift                                                                                                                               |
+| Art. 18    | `user-data-rights:write:lift-restriction`       | Admin/SystemAdmin hebt Restriction auf                                                                                                                               |
+| Operator   | `user-data-rights:query:list-download-attempts` | DPO-Sicht auf invalid Download-Versuche (Brute-Force-Detection, Admin/SystemAdmin only)                                                                              |
 
 Plus 2 anonyme HTTP-Routes für Export-Download (Magic-Link-Pfad +
 session-auth-Pfad), siehe `handlers/download-by-{token,job}.query.ts`.

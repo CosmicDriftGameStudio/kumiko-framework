@@ -114,9 +114,16 @@ export async function advanceIfAllSigned(
     signers.length > 0 &&
     signers.every((signer) => signer.status === SIGNATURE_SIGNER_STATUS.Signed);
   if (!allSigned) return false;
-  const moved = await setRequestStatus(requestExecutor, ctx, user, requestId, SIGNATURE_REQUEST_STATUS.Open, {
-    status: SIGNATURE_REQUEST_STATUS.AllSigned,
-  });
+  const moved = await setRequestStatus(
+    requestExecutor,
+    ctx,
+    user,
+    requestId,
+    SIGNATURE_REQUEST_STATUS.Open,
+    {
+      status: SIGNATURE_REQUEST_STATUS.AllSigned,
+    },
+  );
   return moved.isSuccess;
 }
 

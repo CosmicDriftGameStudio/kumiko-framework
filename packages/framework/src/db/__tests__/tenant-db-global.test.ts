@@ -335,7 +335,10 @@ describe("withUnsafeRawGrant", () => {
     const tdb = createTenantDb({ db: rawDb, tenantId: own });
     expect(() => tdb.unsafeRawAllTenants()).toThrow(AccessDeniedError);
 
-    const rebound = withUnsafeRawGrant(tdb, { reason: "narrower hook grant", grants: ["unsafeRaw"] });
+    const rebound = withUnsafeRawGrant(tdb, {
+      reason: "narrower hook grant",
+      grants: ["unsafeRaw"],
+    });
     expect(unscopedRunner(rebound.unsafeRawAllTenants())).toBe(rawDb);
   });
 
@@ -357,7 +360,9 @@ describe("withUnsafeRawGrant", () => {
 
   test("passes an object not built by createTenantDb through unchanged", () => {
     const notATenantDb = { some: "stub" } as unknown as TenantDb;
-    expect(withUnsafeRawGrant(notATenantDb, { reason: "x", grants: ["unsafeRaw"] })).toBe(notATenantDb);
+    expect(withUnsafeRawGrant(notATenantDb, { reason: "x", grants: ["unsafeRaw"] })).toBe(
+      notATenantDb,
+    );
   });
 });
 

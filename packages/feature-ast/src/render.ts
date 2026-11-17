@@ -309,7 +309,10 @@ function renderUseExtension(p: UseExtensionPattern): string {
     return `r.applyExtension({ ${head} });`;
   }
   // renderValue serializes a raw-ref name as a plain string, so the head is spliced in as text.
-  const optionsBody = renderValue(p.options).trim().replace(/^\{\s*/, "").replace(/\s*\}$/, "");
+  const optionsBody = renderValue(p.options)
+    .trim()
+    .replace(/^\{\s*/, "")
+    .replace(/\s*\}$/, "");
   return `r.applyExtension({ ${head}, ${optionsBody} });`;
 }
 

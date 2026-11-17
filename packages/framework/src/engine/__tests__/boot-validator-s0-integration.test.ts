@@ -55,7 +55,8 @@ describe("S0 Integration — full surface stack", () => {
     const tenantFeature = defineFeature("tenant-app", (r) => {
       r.requires({ features: ["user-data-rights", "compliance-profiles"] });
 
-      r.entity(createEntity({
+      r.entity(
+        createEntity({
           name: "user",
           fields: {
             email: createTextField({
@@ -75,9 +76,11 @@ describe("S0 Integration — full surface stack", () => {
             strategy: "blockDelete",
             reference: "createdAt",
           },
-        }));
+        }),
+      );
 
-      r.entity(createEntity({
+      r.entity(
+        createEntity({
           name: "comment",
           fields: {
             body: createLongTextField({
@@ -87,7 +90,8 @@ describe("S0 Integration — full surface stack", () => {
             }),
             authorId: { type: "reference", entity: "user" },
           },
-        }));
+        }),
+      );
 
       r.queryHandler({
         name: "user:list",
@@ -127,7 +131,8 @@ describe("S0 Integration — full surface stack", () => {
 
   test("retention.reference pointing to non-existent field throws even with valid PII annotations", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(createEntity({
+      r.entity(
+        createEntity({
           name: "user",
           fields: {
             email: createTextField({
@@ -140,7 +145,8 @@ describe("S0 Integration — full surface stack", () => {
             strategy: "hardDelete",
             reference: "notARealField",
           },
-        }));
+        }),
+      );
     });
     expect(() => validateBoot([feature])).toThrow(
       /retention\.reference "notARealField" does not exist/,

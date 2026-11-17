@@ -164,11 +164,11 @@ describe("buildAppSchema", () => {
   // schema rather than a hand-rolled FeatureSchema literal.
   test("custom screen's `detailFor` survives the buildAppSchema projection, screen id stays unqualified", () => {
     const propertyFeature = defineFeature("property", (r) => {
-      r.entity(({
-          name: "lease",
-          table: "leases",
-          fields: { name: { type: "text" } },
-        } as unknown as EntityDefinition));
+      r.entity({
+        name: "lease",
+        table: "leases",
+        fields: { name: { type: "text" } },
+      } as unknown as EntityDefinition);
       r.screen({
         id: "lease-detail",
         type: "custom",
@@ -860,11 +860,11 @@ describe("buildAppSchema", () => {
 
   test("entity lockedWhen survives the projection so the client can show locked records read-only", () => {
     const f = defineFeature("ent", (r) => {
-      r.entity(({
-          name: "thing",
-          fields: { status: { type: "text" } },
-          lockedWhen: { field: "status", eq: "closed" },
-        } as unknown as EntityDefinition));
+      r.entity({
+        name: "thing",
+        fields: { status: { type: "text" } },
+        lockedWhen: { field: "status", eq: "closed" },
+      } as unknown as EntityDefinition);
     });
     const app = buildAppSchema(createRegistry([f]));
     expect(app.features[0]!.entities["thing"]!.lockedWhen).toEqual({
@@ -875,7 +875,10 @@ describe("buildAppSchema", () => {
 
   test("entity without lockedWhen omits the key", () => {
     const f = defineFeature("ent", (r) => {
-      r.entity(({ name: "thing", fields: { label: { type: "text" } } } as unknown as EntityDefinition));
+      r.entity({
+        name: "thing",
+        fields: { label: { type: "text" } },
+      } as unknown as EntityDefinition);
     });
     const app = buildAppSchema(createRegistry([f]));
     expect("lockedWhen" in app.features[0]!.entities["thing"]!).toBe(false);
@@ -883,7 +886,10 @@ describe("buildAppSchema", () => {
 
   test("entity without defaultCurrency omits the key", () => {
     const f = defineFeature("ent", (r) => {
-      r.entity(({ name: "thing", fields: { label: { type: "text" } } } as unknown as EntityDefinition));
+      r.entity({
+        name: "thing",
+        fields: { label: { type: "text" } },
+      } as unknown as EntityDefinition);
     });
     const app = buildAppSchema(createRegistry([f]));
     expect("defaultCurrency" in app.features[0]!.entities["thing"]!).toBe(false);

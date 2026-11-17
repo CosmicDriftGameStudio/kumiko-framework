@@ -8,9 +8,9 @@ import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import type { Dispatcher, EditFieldViewModel } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
-import {type InputProps, PrimitivesProvider } from "../../primitives.tsx";
-import { RenderField } from "../render-field.tsx";
+import { type InputProps, PrimitivesProvider } from "../../primitives.tsx";
 import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
+import { RenderField } from "../render-field.tsx";
 
 let capturedInputs: InputProps[] = [];
 const captureInput: ComponentType<InputProps> = (props) => {

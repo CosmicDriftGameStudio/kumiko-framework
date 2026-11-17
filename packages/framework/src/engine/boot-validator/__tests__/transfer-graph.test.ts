@@ -47,7 +47,8 @@ function entity(opts: {
       ...references,
       ...(opts.parentRefTo && { hostType: textField(), hostId: textField() }),
       label: textField(),
-    }, name: "run",
+    },
+    name: "run",
   });
 }
 
@@ -203,15 +204,17 @@ describe("validateTransferGraph: projections fed by a transferable entity", () =
     readonly onEntityTable: boolean;
   }): void {
     const run = entity({ transferable: opts.sourceTransferable });
-    const summary = createEntity({ name: "runSummary", table: "run_summaries", fields: { label: textField() } });
+    const summary = createEntity({
+      name: "runSummary",
+      table: "run_summaries",
+      fields: { label: textField() },
+    });
     const feature = defineFeature("graph", (r) => {
       r.entity(run);
       r.projection({
         name: "run-summary",
         source: "run",
-        table: opts.onEntityTable
-          ? buildEntityTable(run)
-          : buildEntityTable(summary),
+        table: opts.onEntityTable ? buildEntityTable(run) : buildEntityTable(summary),
         apply: { "run.created": async () => {} },
       });
     });
@@ -225,7 +228,9 @@ describe("validateTransferGraph: projections fed by a transferable entity", () =
   });
 
   test("accepts a projection on the transferable entity's own table", () => {
-    expect(() => validateProjection({ sourceTransferable: true, onEntityTable: true })).not.toThrow();
+    expect(() =>
+      validateProjection({ sourceTransferable: true, onEntityTable: true }),
+    ).not.toThrow();
   });
 
   test("accepts a side projection of an entity that is not transferable", () => {
@@ -241,7 +246,11 @@ describe("validateTransferGraph: multi-stream projections fed by a transferable 
     readonly withTable: boolean;
   }): void {
     const run = entity({ transferable: opts.sourceTransferable });
-    const rollup = createEntity({ name: "runRollup", table: "run_rollups", fields: { label: textField() } });
+    const rollup = createEntity({
+      name: "runRollup",
+      table: "run_rollups",
+      fields: { label: textField() },
+    });
     const feature = defineFeature("graph", (r) => {
       r.entity(run);
       r.multiStreamProjection({

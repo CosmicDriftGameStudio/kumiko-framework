@@ -1,8 +1,4 @@
-import {
-  buildEntityTable,
-  createEventStoreExecutor,
-} from "@cosmicdrift/kumiko-framework/db";
-import { createTenantDb } from "@cosmicdrift/kumiko-testing/helpers";
+import { buildEntityTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
@@ -10,6 +6,7 @@ import {
   type SessionUser,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTenantDb } from "@cosmicdrift/kumiko-testing/helpers";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 
 export const leaseHostEntity = createEntity({
@@ -29,11 +26,9 @@ export const leaseHostFeature = defineFeature("signature-test-lease-host", (r) =
   r.entity(leaseHostEntity);
 });
 
-const leaseExecutor = createEventStoreExecutor(
-  buildEntityTable(leaseHostEntity),
-  leaseHostEntity,
-  { entityName: "lease" },
-);
+const leaseExecutor = createEventStoreExecutor(buildEntityTable(leaseHostEntity), leaseHostEntity, {
+  entityName: "lease",
+});
 
 export async function seedLease(
   db: TestStack["db"],

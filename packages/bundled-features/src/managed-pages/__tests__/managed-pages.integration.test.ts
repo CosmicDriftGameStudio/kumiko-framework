@@ -677,7 +677,11 @@ describe("managed-pages :: Branding (Config + Render)", () => {
       adminA,
     );
     await stack.http.writeOk("config:write:set", { key: BRANDING_QN.siteUrl, value: "" }, adminA);
-    const branding = await stack.http.queryOk<{ siteUrl: string }>(BRANDING_TOKENS_QUERY_QN, {}, adminA);
+    const branding = await stack.http.queryOk<{ siteUrl: string }>(
+      BRANDING_TOKENS_QUERY_QN,
+      {},
+      adminA,
+    );
     expect(branding.siteUrl).toBe("");
   });
 
@@ -719,11 +723,19 @@ describe("managed-pages :: Branding (Config + Render)", () => {
     );
     expect(res.isSuccess).toBe(true);
 
-    const branding = await stack.http.queryOk<{ title: string }>(BRANDING_TOKENS_QUERY_QN, {}, adminA);
+    const branding = await stack.http.queryOk<{ title: string }>(
+      BRANDING_TOKENS_QUERY_QN,
+      {},
+      adminA,
+    );
     expect(branding.title).toBe("Provisioned by system");
 
     // The provisioned value lands on TENANT_A only — not leaked to TENANT_B.
-    const brandingB = await stack.http.queryOk<{ title: string }>(BRANDING_TOKENS_QUERY_QN, {}, adminB);
+    const brandingB = await stack.http.queryOk<{ title: string }>(
+      BRANDING_TOKENS_QUERY_QN,
+      {},
+      adminB,
+    );
     expect(brandingB.title).not.toBe("Provisioned by system");
   });
 });

@@ -2,7 +2,6 @@ import { normalizeAccessEntry } from "../ownership.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 import type { BootWarningSink } from "./boot-warning.ts";
 
-
 const BUILTIN_ROLES = new Set(["all", "system"]);
 
 function addRole(roleHandlers: Map<string, Set<string>>, role: string, identifier: string): void {
@@ -83,7 +82,7 @@ export function warnOnUniqueAccessRoles(
     warn({
       kind: "access/unique-role",
       message:
-      `Access role "${role}" is only used by one handler (${identifier}). ` +
+        `Access role "${role}" is only used by one handler (${identifier}). ` +
         `This is often a typo — the role is unknown to every other handler in the boot scan. ` +
         `If this is intentional, ignore this warning.`,
     });

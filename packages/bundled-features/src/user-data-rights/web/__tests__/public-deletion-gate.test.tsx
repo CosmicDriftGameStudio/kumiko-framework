@@ -13,12 +13,12 @@ import {
   LocaleProvider,
   PrimitivesProvider,
 } from "@cosmicdrift/kumiko-renderer";
+import { createMockDispatcher } from "@cosmicdrift/kumiko-renderer/testing";
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
 import { render, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { defaultTranslations } from "../default-translations.ts";
 import { makePublicDeletionGate } from "../public-deletion-gate.tsx";
-import { createMockDispatcher } from "@cosmicdrift/kumiko-renderer/testing";
 
 const resolver = createStaticLocaleResolver({ locale: "en" });
 const stubDispatcher = createMockDispatcher({

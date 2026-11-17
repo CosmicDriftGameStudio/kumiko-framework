@@ -3,9 +3,7 @@ import { isFieldDefinitionRow, parseSerializedField } from "../lib/parse-seriali
 
 describe("parseSerializedField", () => {
   test("parses a valid JSON string into the typed shape", () => {
-    const parsed = parseSerializedField(
-      '{"type":"text","fieldAccess":{"read":["TenantAdmin"]}}',
-    );
+    const parsed = parseSerializedField('{"type":"text","fieldAccess":{"read":["TenantAdmin"]}}');
     expect(parsed).toEqual({ type: "text", fieldAccess: { read: ["TenantAdmin"] } });
   });
 

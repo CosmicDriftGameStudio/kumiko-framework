@@ -118,7 +118,9 @@ describe("createClientIpResolver", () => {
 
     test("no XFF: ignores x-real-ip and uses the socket address", () => {
       const resolver = createClientIpResolver(1);
-      expect(resolver.resolve(sourceOf({ "x-real-ip": "203.0.113.10" }, "10.2.2.2"))).toBe("10.2.2.2");
+      expect(resolver.resolve(sourceOf({ "x-real-ip": "203.0.113.10" }, "10.2.2.2"))).toBe(
+        "10.2.2.2",
+      );
     });
 
     test("no XFF, x-real-ip only, no socket address: 'unknown'", () => {

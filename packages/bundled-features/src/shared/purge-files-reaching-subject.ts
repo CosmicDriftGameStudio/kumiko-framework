@@ -10,7 +10,6 @@ import {
   selectMany,
   type WhereObject,
 } from "@cosmicdrift/kumiko-framework/db";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   createSystemUser,
   type EntityDefinition,
@@ -25,6 +24,7 @@ import {
   fileRefsTable,
   listActionFormFileFields,
 } from "@cosmicdrift/kumiko-framework/files";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   collectSingleFileHolders,
   type FileRefPurgeOutcome,

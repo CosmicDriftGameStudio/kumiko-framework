@@ -5,6 +5,7 @@ import { validateApiExposureMatching, validateExtensionUsages } from "./api-ext.
 import type { BootContext } from "./boot-context.ts";
 import { collectExposedApis } from "./boot-context.ts";
 import type { BootReport } from "./boot-report.ts";
+import { validateChildSearchRelations } from "./child-search.ts";
 import {
   validateCircularDeps,
   validateConfigKeyBacking,
@@ -14,7 +15,6 @@ import {
   validateConfigKeyPiiEncrypted,
   validateConfigKeyRequired,
 } from "./config-deps.ts";
-import { validateChildSearchRelations } from "./child-search.ts";
 import { validateCrossTenantFileRead } from "./cross-tenant-file-read.ts";
 import { validateSqlDerivedFields } from "./derived-sql-fields.ts";
 import { collectDetailForScreens } from "./detail-screens.ts";

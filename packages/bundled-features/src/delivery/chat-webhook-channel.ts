@@ -129,7 +129,9 @@ export function registerChatWebhookChannel(
         },
     options,
   );
-  const webhooks = r.secretNamespace({ name: "webhooks", label: {
+  const webhooks = r.secretNamespace({
+    name: "webhooks",
+    label: {
       en: `${providerLabel} webhooks`,
       de: `${providerLabel}-Webhooks`,
       es: `Webhooks de ${providerLabel}`,
@@ -141,10 +143,15 @@ export function registerChatWebhookChannel(
     },
     scope: "tenant",
     nameSchema: chatConnectionNameSchema,
-    valueSchema: chatWebhookUrlSchema(webhookTarget) });
+    valueSchema: chatWebhookUrlSchema(webhookTarget),
+  });
 
   const channel = spec.createChannel(webhooks.keyFor);
-  r.applyExtension({ name: DELIVERY_CHANNEL_EXTENSION, entity: channelName, mode: channel.mode,
+  r.applyExtension({
+    name: DELIVERY_CHANNEL_EXTENSION,
+    entity: channelName,
+    mode: channel.mode,
     addressKind: "connection-name",
-    send: channel.send });
+    send: channel.send,
+  });
 }

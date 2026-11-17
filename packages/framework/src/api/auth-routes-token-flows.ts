@@ -2,12 +2,12 @@ import type { Hono } from "hono";
 import * as z from "zod";
 import { createAnonymousUser } from "../engine/system-user.ts";
 import { SYSTEM_TENANT_ID } from "../engine/types/index.ts";
+import { toClientWriteErrorInfo } from "../errors/write-error-info.ts";
 import type { Dispatcher } from "../pipeline/dispatcher.ts";
 import { Routes } from "./api-constants.ts";
 import type { AuthRouteContext } from "./auth-routes-context.ts";
-import { toContentfulStatus } from "./contentful-status.ts";
 import { registerTokenRequestRoute } from "./auth-routes-shared.ts";
-import { toClientWriteErrorInfo } from "../errors/write-error-info.ts";
+import { toContentfulStatus } from "./contentful-status.ts";
 
 const ResetPasswordBody = z.object({
   token: z.string().min(1),

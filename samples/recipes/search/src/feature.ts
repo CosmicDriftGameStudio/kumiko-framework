@@ -73,10 +73,14 @@ export const productFeature = defineFeature("shop", (r) => {
   r.entity(productEntity);
   const article = r.entity(articleEntity);
   r.entity(commentEntity);
-  r.relation({ entity: article, name: "comments", type: "hasMany",
+  r.relation({
+    entity: article,
+    name: "comments",
+    type: "hasMany",
     target: "comment",
     foreignKey: "articleId",
-    searchable: true });
+    searchable: true,
+  });
 
   const articleAccess = { access: { roles: ["Admin"] } };
   r.writeHandler(defineEntityCreateHandler("article", articleEntity, articleAccess));

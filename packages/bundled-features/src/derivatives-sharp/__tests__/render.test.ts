@@ -224,7 +224,12 @@ describe("renderImage — blurRegions", () => {
 
   test("alpha outside a blurred region survives the raw intermediate", async () => {
     const input = await sharp({
-      create: { width: 100, height: 100, channels: 4, background: { r: 10, g: 200, b: 10, alpha: 0.5 } },
+      create: {
+        width: 100,
+        height: 100,
+        channels: 4,
+        background: { r: 10, g: 200, b: 10, alpha: 0.5 },
+      },
     })
       .png()
       .toBuffer();

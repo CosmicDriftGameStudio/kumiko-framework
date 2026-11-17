@@ -12,11 +12,7 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { configurePiiSubjectKms, InMemoryKmsAdapter, isPiiCiphertext } from "../../crypto/index.ts";
-import {
-  asRawClient,
-  buildEntityTable,
-  createEventStoreExecutor,
-} from "../../db/index.ts";
+import { asRawClient, buildEntityTable, createEventStoreExecutor } from "../../db/index.ts";
 import { createTenantDb } from "../../db/tenant-db.ts";
 import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";

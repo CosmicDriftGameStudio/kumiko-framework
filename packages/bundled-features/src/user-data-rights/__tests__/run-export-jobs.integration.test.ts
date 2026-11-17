@@ -717,7 +717,9 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
     expect(plainToken).toMatch(/^[A-Za-z0-9_-]{43}$/);
 
     // Hash in DB matched plain via hashDownloadToken roundtrip
-    const tokenRows = (await selectMany(stack.db, exportDownloadTokensTable, { jobId })) as ReadonlyArray<{
+    const tokenRows = (await selectMany(stack.db, exportDownloadTokensTable, {
+      jobId,
+    })) as ReadonlyArray<{
       jobId: string;
       tokenHash: string;
       issuedAt: { toString(): string };
@@ -1063,7 +1065,10 @@ describe("runExportJobs :: Atom 3c file-binaries", () => {
   beforeAll(async () => {
     const { defineFeature, EXT_USER_DATA } = await import("@cosmicdrift/kumiko-framework/engine");
     const testFileExporter = defineFeature("test-file-exporter", (r) => {
-      r.applyExtension({ name: EXT_USER_DATA, entity: "test-file", export: async (ctx: { tenantId: string; userId: string }) => ({
+      r.applyExtension({
+        name: EXT_USER_DATA,
+        entity: "test-file",
+        export: async (ctx: { tenantId: string; userId: string }) => ({
           entity: "test-file",
           rows: [{ id: "f1", name: currentTestFileName }],
           fileRefs: [
@@ -1077,7 +1082,8 @@ describe("runExportJobs :: Atom 3c file-binaries", () => {
         // no-op: this fixture exercises only the export/file path; the erase
         // side is covered by forget-*.integration.test.ts. Required so the
         // V2 boot gate (export-without-erase) does not reject the stack.
-        delete: async () => {} });
+        delete: async () => {},
+      });
     });
 
     localStack = await setupTestStack({
@@ -1218,7 +1224,9 @@ describe("runExportJobs :: Atom 3c file-binaries", () => {
     expect(result.failedJobIds).toContain(jobId);
     expect(result.errors[0]?.message).toMatch(/in-memory file not found/);
 
-    const [row] = (await selectMany(localStack.db, exportJobsTable, { id: jobId })) as ReadonlyArray<{
+    const [row] = (await selectMany(localStack.db, exportJobsTable, {
+      id: jobId,
+    })) as ReadonlyArray<{
       status: string;
       errorMessage: string | null;
     }>;

@@ -181,7 +181,9 @@ describe("E.3 — ctx.events.append strict validation", () => {
     );
     expect(res.status).toBe(200);
 
-    const stored = await selectMany<StoredEventRow>(stack.db, eventsTable, { type: welcomeEventName });
+    const stored = await selectMany<StoredEventRow>(stack.db, eventsTable, {
+      type: welcomeEventName,
+    });
     expect(stored).toHaveLength(1);
     expect(stored[0]?.payload).toEqual({ userId, email: "welcome@test.de" });
     expect(stored[0]?.aggregateType).toBe("user");
@@ -207,7 +209,9 @@ describe("E.3 — ctx.events.append strict validation", () => {
     // ValidationError is a first-class Kumiko error → 400.
     expect(res.status).toBe(400);
 
-    const stored = await selectMany<StoredEventRow>(stack.db, eventsTable, { type: welcomeEventName });
+    const stored = await selectMany<StoredEventRow>(stack.db, eventsTable, {
+      type: welcomeEventName,
+    });
     expect(stored).toHaveLength(0);
   });
 });
@@ -233,7 +237,9 @@ describe("E.3 — cross-feature ownership guard", () => {
     const res = await stack.http.write("emitter:write:emit:foreign-event", { userId }, admin);
     expect(res.status).toBe(500);
 
-    const stored = await selectMany<StoredEventRow>(stack.db, eventsTable, { type: foreignEventName });
+    const stored = await selectMany<StoredEventRow>(stack.db, eventsTable, {
+      type: foreignEventName,
+    });
     expect(stored).toHaveLength(0);
   });
 });

@@ -133,20 +133,30 @@ const attributionFeature = defineFeature("attribution", (r) => {
 
   // The write happens after the first yield, i.e. in a later it.next() pull; a stream holds no
   // transaction, so ctx.dispatch.write runs it as its own command.
-  r.streamHandler({ name: "order:emit-after-yield", schema: z.object({}), handler: async function* (_query, ctx) {
+  r.streamHandler({
+    name: "order:emit-after-yield",
+    schema: z.object({}),
+    handler: async function* (_query, ctx) {
       yield "first";
       await ctx.dispatch.write(EMIT_STREAMED_HANDLER, {});
       yield "second";
-    }, access: { roles: ["Admin"] } });
+    },
+    access: { roles: ["Admin"] },
+  });
 
-  r.job({ name: "order-seed", trigger: { manual: true }, retries: 0, handler: async (payload, ctx) => {
-    const created = await orderExecutor.create(
-      { item: String(payload["item"]) },
-      ctx.systemUser,
-      ctx.db,
-    );
-    if (!created.isSuccess) throw new Error(created.error.message);
-  } });
+  r.job({
+    name: "order-seed",
+    trigger: { manual: true },
+    retries: 0,
+    handler: async (payload, ctx) => {
+      const created = await orderExecutor.create(
+        { item: String(payload["item"]) },
+        ctx.systemUser,
+        ctx.db,
+      );
+      if (!created.isSuccess) throw new Error(created.error.message);
+    },
+  });
 
   r.multiStreamProjection({
     name: "confirmer",

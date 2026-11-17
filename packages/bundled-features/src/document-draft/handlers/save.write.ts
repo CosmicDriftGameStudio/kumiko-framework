@@ -11,7 +11,10 @@ import { DOCUMENT_DRAFT_LAST_CHANGE_SOURCE, DOCUMENT_DRAFT_STATUS } from "../web
 
 type SaveData = { readonly id: string; readonly version: number };
 
-export function createSaveHandler(access: AccessRule, documentDraftExecutor: DocumentDraftExecutor) {
+export function createSaveHandler(
+  access: AccessRule,
+  documentDraftExecutor: DocumentDraftExecutor,
+) {
   return defineWriteHandler<"save", typeof SaveDraftSchema, SaveData>({
     name: "save",
     schema: SaveDraftSchema,

@@ -121,10 +121,16 @@ describe("TenantDb.global() — writes, real Postgres", () => {
       tenantId: tenantA,
       mode: "tenant",
       grants: {
-        globalWrites: { reason: "fw#2875 — handler-level global write grant", grants: ["globalWrites"] },
+        globalWrites: {
+          reason: "fw#2875 — handler-level global write grant",
+          grants: ["globalWrites"],
+        },
       },
     });
-    const hookDb = withUnsafeRawGrant(handlerDb, { reason: "fw#2875 — hook's own raw grant", grants: ["unsafeRaw"] });
+    const hookDb = withUnsafeRawGrant(handlerDb, {
+      reason: "fw#2875 — hook's own raw grant",
+      grants: ["unsafeRaw"],
+    });
 
     await expect(
       hookDb.global(globalItemsTable).insertOne({ someField: "hook-inherited" }),
@@ -141,7 +147,10 @@ describe("TenantDb.global() — writes, real Postgres", () => {
       tenantId: tenantA,
       mode: "tenant",
       grants: {
-        globalWrites: { reason: "fw#2858 integration test — cross-tenant write via db.global()", grants: ["globalWrites"] },
+        globalWrites: {
+          reason: "fw#2858 integration test — cross-tenant write via db.global()",
+          grants: ["globalWrites"],
+        },
       },
     });
     const globalDb = tdb.global(globalItemsTable);

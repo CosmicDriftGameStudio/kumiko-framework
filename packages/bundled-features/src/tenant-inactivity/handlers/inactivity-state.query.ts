@@ -1,7 +1,7 @@
-import { type TenantDb } from "@cosmicdrift/kumiko-framework/db";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
+import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler, parseTenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { AccessDeniedError, UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import * as z from "zod";
 import { TENANT_KEEP_ACCOUNT_ROLES } from "../constants.ts";
 import { describeOutlook, foldActivity } from "../inactivity-plan.ts";

@@ -1,3 +1,4 @@
+import type { ContractQueryAs, ContractWriteAs } from "@cosmicdrift/kumiko-types/handler-contract";
 import type {
   ActiveMembershipResult,
   EscapeHatchDeclaration,
@@ -7,7 +8,6 @@ import type {
 } from "@cosmicdrift/kumiko-types/handlers";
 import { escapeHatchFor } from "@cosmicdrift/kumiko-types/handlers";
 import type { LifecycleHookFn } from "@cosmicdrift/kumiko-types/hooks";
-import type { ContractQueryAs, ContractWriteAs } from "@cosmicdrift/kumiko-types/handler-contract";
 import { withSystemDbUnsafeRawGrant, withUnsafeRawGrant } from "../db/tenant-db.ts";
 import { SYSTEM_ROLE, SYSTEM_USER_ID } from "../engine/system-user.ts";
 import type { TenantId } from "../engine/types/identifiers.ts";
@@ -77,7 +77,7 @@ export function systemIdentitySwitchDenied(callerLabel: string): AccessDeniedErr
   return new AccessDeniedError({
     message:
       `${callerLabel} may not switch identity to SYSTEM — declare r.systemScope() or ` +
-      "escapeHatch: { reason, grants: [\"systemIdentity\"] } on it",
+      'escapeHatch: { reason, grants: ["systemIdentity"] } on it',
     details: { reason: FrameworkReasons.systemIdentitySwitchDenied },
   });
 }
@@ -87,7 +87,7 @@ export function identitySwitchDenied(callerLabel: string, asUser: SessionUser): 
   return new AccessDeniedError({
     message:
       `${callerLabel} may only switch identity to its own caller (same user, tenant, claims and ` +
-      "a subset of its roles) — declare r.systemScope() or escapeHatch: { reason, grants: [\"systemIdentity\"] } on it",
+      'a subset of its roles) — declare r.systemScope() or escapeHatch: { reason, grants: ["systemIdentity"] } on it',
     details: { reason: FrameworkReasons.identitySwitchDenied },
   });
 }
@@ -96,7 +96,7 @@ export function unsafeAllTenantsDenied(callerLabel: string): AccessDeniedError {
   return new AccessDeniedError({
     message:
       `${callerLabel} may not call ctx.dispatch.queryProjection(..., { unsafeAllTenants: true }) — declare ` +
-      "r.systemScope() or escapeHatch: { reason, grants: [\"systemIdentity\"] } on it",
+      'r.systemScope() or escapeHatch: { reason, grants: ["systemIdentity"] } on it',
     details: { reason: FrameworkReasons.unsafeAllTenantsDenied },
   });
 }

@@ -36,9 +36,7 @@ import type {
 // Drizzle table instances derived from the entity shapes, shared between
 // projection applies and list queries to provide one column namespace.
 export const mailAccountsProjectionTable = buildEntityTable(mailAccountEntity);
-export const inboundMessagesProjectionTable = buildEntityTable(
-  inboundMessageEntity,
-);
+export const inboundMessagesProjectionTable = buildEntityTable(inboundMessageEntity);
 
 // Unbranded metas: the apply functions below ARE the executor of these
 // projections, so they may write through the typed helpers.

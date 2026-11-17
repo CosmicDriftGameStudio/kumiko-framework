@@ -8,7 +8,8 @@ export const CHILD_SEARCH_RULES = {
   },
   childSearchUnknownForeignKey: {
     id: "child-search/unknown-foreign-key",
-    summary: "A searchable hasMany relation names a foreignKey that is a field of the target entity.",
+    summary:
+      "A searchable hasMany relation names a foreignKey that is a field of the target entity.",
     fix: "Use a field of the target entity as the foreignKey.",
   },
   childSearchNoSearchableField: {

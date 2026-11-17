@@ -70,9 +70,7 @@ describe("scaffoldApp starter blank", () => {
     // The sync wiring rejects *_CIPHERTEXT keys; kmsMode resolves them through the Key Manager.
     expect(main).toContain('{ kmsMode: "required" as const }');
     expect(main).not.toContain("requireKmsWiring");
-    expect(readFileSync(join(dest, "bin/kumiko.ts"), "utf-8")).toContain(
-      "runStandaloneCli",
-    );
+    expect(readFileSync(join(dest, "bin/kumiko.ts"), "utf-8")).toContain("runStandaloneCli");
     expect(readFileSync(join(dest, ".env.example"), "utf-8")).toContain(
       "KUMIKO_BOOTSTRAP_ADMIN_EMAIL=",
     );

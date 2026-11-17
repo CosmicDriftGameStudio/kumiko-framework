@@ -14,11 +14,7 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import { Meilisearch } from "meilisearch";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "../crypto/index.ts";
-import {
-  buildEntityTable,
-  createEventStoreExecutor,
-  selectMany,
-} from "../db/index.ts";
+import { buildEntityTable, createEventStoreExecutor, selectMany } from "../db/index.ts";
 import { createTenantDb } from "../db/tenant-db.ts";
 import { defineEntityQueryHandler, defineEntityWriteHandler } from "../engine/entity-handlers.ts";
 import {

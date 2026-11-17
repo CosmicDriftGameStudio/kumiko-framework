@@ -37,8 +37,8 @@ import {
   SignatureExpiredEventSchema,
   SignatureFailedEventSchema,
 } from "./payloads.ts";
-import { gateSignerListByRequestHost } from "./signer-list-gate.ts";
 import { createSignatureDetailScreen, createSignatureListScreen } from "./screens.ts";
+import { gateSignerListByRequestHost } from "./signer-list-gate.ts";
 import { sweepSignatureRequests } from "./sweep.ts";
 import { signatureDeleteHook, signatureExportHook } from "./user-data.ts";
 import {
@@ -117,8 +117,12 @@ export function createSignatureFeature(opts: SignatureOptions): FeatureDefinitio
     r.queryHandler(requestDetail);
     r.queryHandler(gateSignerListByRequestHost(signerList, requestExecutor));
 
-    r.applyExtension({ name: EXT_USER_DATA, entity: SIGNATURE_SIGNER_ENTITY, export: signatureExportHook,
-      delete: signatureDeleteHook });
+    r.applyExtension({
+      name: EXT_USER_DATA,
+      entity: SIGNATURE_SIGNER_ENTITY,
+      export: signatureExportHook,
+      delete: signatureDeleteHook,
+    });
 
     r.job({
       name: "sweep",

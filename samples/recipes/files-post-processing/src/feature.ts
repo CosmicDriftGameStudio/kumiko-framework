@@ -140,6 +140,10 @@ export const filesPostProcessingFeature = defineFeature("files-post-processing",
   // Entry point 3 — default-deny. No registration here means every entityId
   // 404s; a registration that returns false does the same. Only an explicit
   // `true` serves bytes.
-  r.applyExtension({ name: EXT_DERIVATIVE_PUBLIC_PREDICATE, entity: "photo", isPublic: ({ entityId, tenantId }: DerivativePublicPredicateArgs) =>
-      publishedPhotoIds.has(`${tenantId}:${entityId}`) });
+  r.applyExtension({
+    name: EXT_DERIVATIVE_PUBLIC_PREDICATE,
+    entity: "photo",
+    isPublic: ({ entityId, tenantId }: DerivativePublicPredicateArgs) =>
+      publishedPhotoIds.has(`${tenantId}:${entityId}`),
+  });
 });

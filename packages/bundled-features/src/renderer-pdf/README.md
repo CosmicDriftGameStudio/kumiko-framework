@@ -25,4 +25,3 @@ const { pdfBytes, pageCount } = await renderTablePdf(
 ```
 
 The caller passes ready-formatted strings (dates, numbers); the renderer never reads the clock. Characters Helvetica (WinAnsi) cannot encode are drawn as `?`; umlauts, `ß` and `€` are kept.
-

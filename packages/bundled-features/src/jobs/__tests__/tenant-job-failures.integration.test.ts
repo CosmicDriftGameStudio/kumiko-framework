@@ -95,20 +95,28 @@ const appFeature = defineFeature("app", (r) => {
     }),
   );
 
-  r.job({ name: "generateTexts", trigger: { on: "generation-requested" },
-      tenantVisibleFailure: { messageKey: DECLARED_KEY, subjectFields: ["campaignId"] }, handler: async (payload) => {
+  r.job({
+    name: "generateTexts",
+    trigger: { on: "generation-requested" },
+    tenantVisibleFailure: { messageKey: DECLARED_KEY, subjectFields: ["campaignId"] },
+    handler: async (payload) => {
       if (payload["mode"] === "budget") {
         throw new UnprocessableError("budget_exceeded", { i18nKey: BUDGET_KEY });
       }
       if (payload["mode"] === "fail") throw new Error(PROVIDER_MESSAGE);
-    } });
+    },
+  });
 
   // retries: 1 — two attempts, both failing. Only the last one may record.
-  r.job({ name: "flaky", trigger: { on: "flaky-requested" },
-      retries: 1,
-      tenantVisibleFailure: { messageKey: DECLARED_KEY }, handler: async () => {
+  r.job({
+    name: "flaky",
+    trigger: { on: "flaky-requested" },
+    retries: 1,
+    tenantVisibleFailure: { messageKey: DECLARED_KEY },
+    handler: async () => {
       throw new Error(PROVIDER_MESSAGE);
-    } });
+    },
+  });
 });
 
 let testDb: TestDb;

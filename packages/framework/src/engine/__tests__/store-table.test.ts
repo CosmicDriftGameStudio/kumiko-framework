@@ -225,8 +225,16 @@ describe("createRegistry — entity physical-table collisions use the DDL table 
   });
 
   test("the same explicit tableName in two features is rejected", () => {
-    const first = createEntity({ name: "firstThing", table: "shared_things", fields: { name: textField() } });
-    const second = createEntity({ name: "secondThing", table: "shared_things", fields: { name: textField() } });
+    const first = createEntity({
+      name: "firstThing",
+      table: "shared_things",
+      fields: { name: textField() },
+    });
+    const second = createEntity({
+      name: "secondThing",
+      table: "shared_things",
+      fields: { name: textField() },
+    });
     const featA = defineFeature("a", (r) => {
       r.entity(first);
     });

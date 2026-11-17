@@ -136,7 +136,9 @@ test("in a narrow window the title stays readable and the page keeps its room", 
 test("pdf-template-editor-preview", async ({ page }) => {
   await openEditor(page, TENANT_ADMIN_EMAIL, TENANT_ADMIN_PASSWORD);
   await page.getByTestId("pdf-mode-switch").getByText("Vorschau", { exact: true }).click();
-  await expect(page.getByTestId("document-designer-pdf-preview")).toBeVisible({ timeout: E2E_TIMEOUT_MS.test });
+  await expect(page.getByTestId("document-designer-pdf-preview")).toBeVisible({
+    timeout: E2E_TIMEOUT_MS.test,
+  });
   await expect(page.getByTestId("document-designer-preview-stale")).toHaveCount(0);
   await shot(page, "pdf-template-editor-preview");
 });

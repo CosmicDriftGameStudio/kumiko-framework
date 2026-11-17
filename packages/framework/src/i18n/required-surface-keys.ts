@@ -492,7 +492,9 @@ function actionFormTextEntityOf(
   const labelEntity = form.labelEntity;
   const entityFields = labelEntity === undefined ? undefined : ctx.entities?.[labelEntity]?.fields;
   return (fieldName) =>
-    labelEntity !== undefined && entityFields !== undefined && Object.hasOwn(entityFields, fieldName)
+    labelEntity !== undefined &&
+    entityFields !== undefined &&
+    Object.hasOwn(entityFields, fieldName)
       ? labelEntity
       : ACTION_FORM_ENTITY;
 }
@@ -763,7 +765,9 @@ export function requiredKeysFromFeature(feature: FeatureDefinition): readonly st
   const out = new Set<string>();
 
   for (const screen of Object.values(feature.screens)) {
-    for (const key of requiredKeysFromScreen(feature.name, screen, { entities: feature.entities })) {
+    for (const key of requiredKeysFromScreen(feature.name, screen, {
+      entities: feature.entities,
+    })) {
       out.add(key);
     }
   }

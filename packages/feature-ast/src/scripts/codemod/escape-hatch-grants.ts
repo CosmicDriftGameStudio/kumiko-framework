@@ -193,16 +193,25 @@ function visitEscapeHatch(
   const site = { file: filePath, line: property.getStartLineNumber() };
   const initializer = Node.isPropertyAssignment(property) ? property.getInitializer() : undefined;
   if (initializer === undefined || !Node.isObjectLiteralExpression(initializer)) {
-    result.manual.push({ ...site, description: "escapeHatch is not an object literal, add grants by hand" });
+    result.manual.push({
+      ...site,
+      description: "escapeHatch is not an object literal, add grants by hand",
+    });
     return;
   }
   if (hasProperty(initializer, "grants")) return;
   if (initializer.getProperties().some((member) => Node.isSpreadAssignment(member))) {
-    result.manual.push({ ...site, description: "escapeHatch contains a spread, add grants by hand" });
+    result.manual.push({
+      ...site,
+      description: "escapeHatch contains a spread, add grants by hand",
+    });
     return;
   }
   if (!hasProperty(initializer, "reason")) {
-    result.manual.push({ ...site, description: "escapeHatch has no reason, add reason and grants by hand" });
+    result.manual.push({
+      ...site,
+      description: "escapeHatch has no reason, add reason and grants by hand",
+    });
     return;
   }
   const inferred = inferGrants(sourceFile, definition, property);

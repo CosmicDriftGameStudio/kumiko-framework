@@ -14,8 +14,8 @@ import {
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { requireSystemDb } from "../../shared/index.ts";
 import { AuthErrors, AuthHandlers } from "../../auth-email-password/index.ts";
+import { requireSystemDb } from "../../shared/index.ts";
 import { TenantHandlers, tenantTable } from "../../tenant/index.ts";
 import { isOpenWaitlistStatus } from "../entity.ts";
 import {

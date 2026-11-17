@@ -22,19 +22,22 @@ const REWRITE_FIXTURES: readonly {
   },
   {
     name: "@template-drift-exception becomes the line form",
-    input: "  // @template-drift-exception: #3372 ad hoc local debug dump\n  await page.screenshot();\n",
+    input:
+      "  // @template-drift-exception: #3372 ad hoc local debug dump\n  await page.screenshot();\n",
     expected:
       "  // kumiko-lint-ignore test-template-drift #3372 ad hoc local debug dump\n  await page.screenshot();\n",
   },
   {
     name: "a trailing marker after code",
     input: "while (!ready()) { // @timeout-exception: #12 external queue has no callback\n",
-    expected: "while (!ready()) { // kumiko-lint-ignore test-timeouts #12 external queue has no callback\n",
+    expected:
+      "while (!ready()) { // kumiko-lint-ignore test-timeouts #12 external queue has no callback\n",
   },
   {
     name: "a marker inside a block comment",
     input: "/*\n * @no-server-stack: boot-time code without an HTTP route\n */\n",
-    expected: "/*\n * kumiko-lint-ignore-file test-stack-drift boot-time code without an HTTP route\n */\n",
+    expected:
+      "/*\n * kumiko-lint-ignore-file test-stack-drift boot-time code without an HTTP route\n */\n",
   },
 ];
 

@@ -15,11 +15,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { randomBytes } from "node:crypto";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
-import {
-  createRegistry,
-  type Registry,
-  type TenantId,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { createRegistry, type Registry, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createProjectionStateTable,

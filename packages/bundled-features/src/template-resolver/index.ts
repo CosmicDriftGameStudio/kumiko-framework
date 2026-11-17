@@ -44,6 +44,7 @@ export {
   serializeDocumentJson,
 } from "./document-sanitizer.ts";
 export { createTemplateResolverFeature, type TemplateResolverOptions } from "./feature.ts";
+export type { DocumentBase } from "./handlers/document-base.ts";
 export type { LayoutSourceResponse, LayoutSourceRow } from "./handlers/layout-source.query.ts";
 export type {
   OverviewKindGroup,
@@ -52,6 +53,7 @@ export type {
   OverviewRow,
   OverviewUsage,
 } from "./handlers/overview.query.ts";
+export type { SendTestStatus } from "./handlers/send-test-status.query.ts";
 export { localeSchema } from "./handlers/shared.ts";
 export {
   companyConfigKey,
@@ -60,6 +62,8 @@ export {
   readTenantConfigText,
   resolveDefaultPdfLayout,
 } from "./handlers/tenant-settings.ts";
+export type { PdfLayoutUser } from "./handlers/usage.query.ts";
+export type { VariantSummary } from "./handlers/variants.query.ts";
 export {
   isHexColor,
   type MailLayoutAppearance,
@@ -102,6 +106,7 @@ export {
   splitTemplateBlocks,
   type TemplateDiffBlock,
 } from "./template-diff.ts";
+export type { ActiveInfo } from "./template-draft.ts";
 export {
   type TemplateEditPolicy,
   type TenantEditableTemplate,
@@ -128,6 +133,7 @@ export {
   type TemplateMetaResult,
   templateSlugSchema,
 } from "./template-meta.ts";
+export type { TemplatePreview } from "./template-preview.ts";
 export { type DocumentDraftOutcome, evaluateDocumentDraft } from "./template-preview.ts";
 export { readTemplateResource, type TemplateResourceFile } from "./template-resources.ts";
 export { isSystemOnlyTemplate } from "./template-system-only.ts";
@@ -193,6 +199,7 @@ export {
   UPSERT_KINDS,
   type UpsertKind,
 } from "./web/constants.ts";
+export type { DocumentToolbarBlock } from "./web/document-blocks.ts";
 export {
   DOCUMENT_FONT_LABELS,
   DOCUMENT_FONT_PRINT_STACKS,
@@ -238,10 +245,3 @@ export {
   TemplateResolverHandlers,
   TemplateResolverQueries,
 } from "./web/qualified-names.ts";
-export type { DocumentBase } from "./handlers/document-base.ts";
-export type { SendTestStatus } from "./handlers/send-test-status.query.ts";
-export type { PdfLayoutUser } from "./handlers/usage.query.ts";
-export type { VariantSummary } from "./handlers/variants.query.ts";
-export type { ActiveInfo } from "./template-draft.ts";
-export type { TemplatePreview } from "./template-preview.ts";
-export type { DocumentToolbarBlock } from "./web/document-blocks.ts";

@@ -127,7 +127,9 @@ describe("compliance-profiles :: set-profile", () => {
     );
 
     const result = await stack.http.queryOk<{
-      profile: { userRights: { gracePeriod: { days: number }; exportDownloadTtl: { days: number } } };
+      profile: {
+        userRights: { gracePeriod: { days: number }; exportDownloadTtl: { days: number } };
+      };
     }>(FOR_TENANT, {}, tenantAdmin);
     expect(result.profile.userRights.gracePeriod).toEqual({ days: 60 });
     // Other userRights fields are preserved from eu-dsgvo

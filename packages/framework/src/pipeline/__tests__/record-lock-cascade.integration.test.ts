@@ -99,26 +99,46 @@ const cascadeFeature = defineFeature("lockcascade", (r) => {
   r.entity(choreEntity);
   r.entity(subtaskEntity);
   r.entity(pinEntity);
-  r.relation({ entity: "task", name: "subtasks", type: "hasMany",
+  r.relation({
+    entity: "task",
+    name: "subtasks",
+    type: "hasMany",
     target: "subtask",
     foreignKey: "taskId",
-    onDelete: "cascade" });
-  r.relation({ entity: "project", name: "pins", type: "manyToMany",
+    onDelete: "cascade",
+  });
+  r.relation({
+    entity: "project",
+    name: "pins",
+    type: "manyToMany",
     target: "note",
     through: { table: "pin", sourceKey: "projectId", targetKey: "noteId" },
-    onDelete: "cascade" });
-  r.relation({ entity: "project", name: "tasks", type: "hasMany",
+    onDelete: "cascade",
+  });
+  r.relation({
+    entity: "project",
+    name: "tasks",
+    type: "hasMany",
     target: "task",
     foreignKey: "projectId",
-    onDelete: "cascade" });
-  r.relation({ entity: "project", name: "notes", type: "hasMany",
+    onDelete: "cascade",
+  });
+  r.relation({
+    entity: "project",
+    name: "notes",
+    type: "hasMany",
     target: "note",
     foreignKey: "projectId",
-    onDelete: "setNull" });
-  r.relation({ entity: "project", name: "chores", type: "hasMany",
+    onDelete: "setNull",
+  });
+  r.relation({
+    entity: "project",
+    name: "chores",
+    type: "hasMany",
     target: "chore",
     foreignKey: "projectId",
-    onDelete: "cascade" });
+    onDelete: "cascade",
+  });
 
   const projectExecutor = createEventStoreExecutor(projectTable, projectEntity, {
     entityName: "project",
@@ -145,11 +165,9 @@ const cascadeFeature = defineFeature("lockcascade", (r) => {
     ...IRREVERSIBLE,
   });
 
-  const choreExecutor = createEventStoreExecutor(
-    buildEntityTable(choreEntity),
-    choreEntity,
-    { entityName: "chore" },
-  );
+  const choreExecutor = createEventStoreExecutor(buildEntityTable(choreEntity), choreEntity, {
+    entityName: "chore",
+  });
   r.writeHandler({
     name: "chore:unlocking-delete",
     schema: z.object({ id: z.uuid() }),

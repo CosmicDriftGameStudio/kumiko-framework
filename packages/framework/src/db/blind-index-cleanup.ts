@@ -14,7 +14,6 @@
 import { parseTenantId, type TenantId } from "@cosmicdrift/kumiko-types/identifiers";
 import { collectLookupableFields } from "../crypto/blind-index.ts";
 import { subjectCiphertextLikePattern } from "../crypto/ciphertext-pattern.ts";
-import { quoteIdent } from "./sql-identifier.ts";
 import { isSelfPiiField } from "../crypto/is-self-pii-field.ts";
 import type { SubjectId } from "../crypto/kms-adapter.ts";
 import { findEntity } from "../engine/find-entity.ts";
@@ -27,6 +26,7 @@ import { toPostgresArrayLiteral } from "./queries/postgres-array-literal.ts";
 import { executeRawQuery, executeRawQueryRead } from "./queries/raw-sql.ts";
 import { runInSystemRowLevelSecurityScope } from "./row-level-security-scope.ts";
 import { columnNamesOf, tableExists } from "./schema-inspection.ts";
+import { quoteIdent } from "./sql-identifier.ts";
 
 export async function nullBlindIndexesForSubject(
   db: DbRunner,

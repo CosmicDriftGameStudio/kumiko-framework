@@ -374,11 +374,15 @@ describe("raw-sql marker baseline", () => {
   test("a baseline entry for a marker that is gone fails as stale", async () => {
     const logSpy = spyOn(console, "log").mockImplementation(() => {});
     try {
-      await withRepo({ "src/x.ts": "export const x = 1;\n" }, { "src/x.ts::needs FOR UPDATE": 1 }, async (root) => {
-        const outcome = await check.run([root]);
-        expect(outcome.violations).toHaveLength(1);
-        expect(outcome.violations[0]?.message).toContain("under baseline");
-      });
+      await withRepo(
+        { "src/x.ts": "export const x = 1;\n" },
+        { "src/x.ts::needs FOR UPDATE": 1 },
+        async (root) => {
+          const outcome = await check.run([root]);
+          expect(outcome.violations).toHaveLength(1);
+          expect(outcome.violations[0]?.message).toContain("under baseline");
+        },
+      );
     } finally {
       logSpy.mockRestore();
     }

@@ -66,11 +66,15 @@ const gadgetPredicateFeature = defineFeature("publicvariantpredicateargstest", (
   r.writeHandler(defineEntityCreateHandler("gadget", gadgetEntity, adminOnly));
   r.writeHandler(defineEntityUpdateHandler("gadget", gadgetEntity, adminOnly));
   r.queryHandler(defineEntityDetailHandler("gadget", gadgetEntity, adminOnly));
-  r.applyExtension({ name: EXT_DERIVATIVE_PUBLIC_PREDICATE, entity: "gadget", isPublic: (args: DerivativePublicPredicateArgs) => {
+  r.applyExtension({
+    name: EXT_DERIVATIVE_PUBLIC_PREDICATE,
+    entity: "gadget",
+    isPublic: (args: DerivativePublicPredicateArgs) => {
       receivedArgs.push(args);
       if (args.fileRefId === spoofedFileRefId) return false;
       return args.variant !== "premium";
-    } });
+    },
+  });
   r.applyExtension({ name: EXT_DERIVATIVE_RENDERER, entity: "image/*", render: fakeRender });
 });
 

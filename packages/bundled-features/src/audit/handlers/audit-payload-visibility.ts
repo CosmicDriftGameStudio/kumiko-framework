@@ -39,10 +39,7 @@ function isReadRestrictedFor(
   return accessMap !== undefined && !userHoldsUnrestrictedRole(accessMap, user);
 }
 
-function isRestrictedField(
-  field: EntityDefinition["fields"][string],
-  user: SessionUser,
-): boolean {
+function isRestrictedField(field: EntityDefinition["fields"][string], user: SessionUser): boolean {
   if (field.type === "text" && field.writeOnly === true) return true;
   // An embedded value is withheld as a whole; its sub-fields are not filtered one by one.
   if (
@@ -120,7 +117,10 @@ export function createAuditPayloadFilter(
     const isLifecycleEvent =
       LIFECYCLE_VERBS.some((verb) => type === `${aggregateType}.${verb}`) ||
       (type.startsWith(`${aggregateType}.`) &&
-        isDeclaredEntityVerb(registry.getEntity(aggregateType), type.slice(aggregateType.length + 1)));
+        isDeclaredEntityVerb(
+          registry.getEntity(aggregateType),
+          type.slice(aggregateType.length + 1),
+        ));
     if (!isLifecycleEvent) return null;
     return stripLifecyclePayload(payload, visibility.restrictedFields);
   };

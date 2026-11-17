@@ -1,6 +1,6 @@
 import type { CacheSyncBus } from "@cosmicdrift/kumiko-types/cache-sync-types";
-import type { QueryContract, WriteContract } from "@cosmicdrift/kumiko-types/handler-contract";
 import type { WriteOrigin } from "@cosmicdrift/kumiko-types/event-store-types";
+import type { QueryContract, WriteContract } from "@cosmicdrift/kumiko-types/handler-contract";
 import type {
   ActiveMembershipResult,
   DispatchWriteRef,

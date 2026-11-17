@@ -20,7 +20,15 @@ import {
 } from "../../index.ts";
 import { WebDashboardBody } from "../app/dashboard-body.tsx";
 import { useBrowserNavApi } from "../app/nav.tsx";
-import { createMockDispatcher, fireEvent, type MockQueryHandler, type MockWriteHandler, render, screen, waitFor } from "./test-utils.tsx";
+import {
+  createMockDispatcher,
+  fireEvent,
+  type MockQueryHandler,
+  type MockWriteHandler,
+  render,
+  screen,
+  waitFor,
+} from "./test-utils.tsx";
 
 const settingEntity: EntityDefinition = {
   name: "setting",

@@ -2,8 +2,8 @@ import type { ChangelogEntry } from "./engine/feature-changelog.ts";
 import type { UpgradeCliOut } from "./upgrade-cli-internals.ts";
 import {
   dedupeManualById,
-  type MarkerCarry,
   MAX_RESOLVE_REASON_LENGTH,
+  type MarkerCarry,
   manualEntryId,
   type UpgradeMarkerResolvedManual,
 } from "./upgrade-marker-parse.ts";

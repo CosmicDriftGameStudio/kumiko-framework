@@ -17,10 +17,7 @@
 import type { TenantDataHookCtx } from "@cosmicdrift/kumiko-framework/engine";
 import { archiveAndDeleteTenantRows } from "../tenant-lifecycle/index.ts";
 import { seenMessageTable, syncCursorTable } from "./entities.ts";
-import {
-  INBOUND_MESSAGE_AGGREGATE_TYPE,
-  MAIL_ACCOUNT_AGGREGATE_TYPE,
-} from "./events.ts";
+import { INBOUND_MESSAGE_AGGREGATE_TYPE, MAIL_ACCOUNT_AGGREGATE_TYPE } from "./events.ts";
 import { ingestFailureTable } from "./ingest-failures.ts";
 import { inboundMessagesProjectionTable, mailAccountsProjectionTable } from "./projection.ts";
 import { eraseInboundMessageKey } from "./purge-messages.ts";

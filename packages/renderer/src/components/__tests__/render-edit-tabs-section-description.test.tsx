@@ -7,7 +7,7 @@ import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
-import { type CardProps, type CorePrimitives, PrimitivesProvider } from "../../primitives.tsx";
+import { type CardProps, PrimitivesProvider } from "../../primitives.tsx";
 import { createStubPrimitives } from "../../testing.ts";
 import { RenderEdit } from "../render-edit.tsx";
 

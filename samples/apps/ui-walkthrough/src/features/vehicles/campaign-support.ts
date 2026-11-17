@@ -3,9 +3,7 @@ import { z } from "zod";
 import { campaignEntity, campaignPostEntity } from "./entities";
 
 export const { executor: campaignExecutor } = createEntityExecutor(campaignEntity);
-export const { executor: campaignPostExecutor } = createEntityExecutor(
-  campaignPostEntity,
-);
+export const { executor: campaignPostExecutor } = createEntityExecutor(campaignPostEntity);
 
 export const markPostedPayloadSchema = z.object({ id: z.uuid() });
 

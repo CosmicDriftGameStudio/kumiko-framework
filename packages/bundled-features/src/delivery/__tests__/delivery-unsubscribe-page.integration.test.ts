@@ -12,18 +12,18 @@ import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/e
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
 import { localeEs } from "@cosmicdrift/kumiko-locale-es";
-import { createRendererMailHtmlFeature } from "../../renderer-mail-html/index.ts";
 import {
   setupTestStack,
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as jose from "jose";
+import { BRANDING_QN, createBrandingFeature } from "../../branding/index.ts";
 import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.ts";
 import { createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";
-import { BRANDING_QN, createBrandingFeature } from "../../branding/index.ts";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature.ts";
+import { createRendererMailHtmlFeature } from "../../renderer-mail-html/index.ts";
 import { createTemplateResolverFeature } from "../../template-resolver/feature.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import {

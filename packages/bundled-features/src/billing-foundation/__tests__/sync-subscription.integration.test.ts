@@ -74,7 +74,11 @@ const mockNoRetrieveProviderFeature = defineFeature("test-mock-no-retrieve-provi
     verifyAndParseWebhook: async () => null,
     priceToTier: PRICE_TO_TIER,
   };
-  r.applyExtension({ name: "subscriptionProvider", entity: "mock-no-retrieve-provider", ...plugin });
+  r.applyExtension({
+    name: "subscriptionProvider",
+    entity: "mock-no-retrieve-provider",
+    ...plugin,
+  });
 });
 
 let stack: TestStack;

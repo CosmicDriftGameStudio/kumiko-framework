@@ -39,7 +39,11 @@ import { collectDocumentResourceKeys } from "./compile-document-body.ts";
 import { parseStoredJson } from "./handlers/template-gates.ts";
 import { effectivePdfLayout } from "./handlers/tenant-settings.ts";
 import { validateTemplateDraft } from "./handlers/validate.query.ts";
-import { type LayoutRegions, readLayoutRegions, type TemplateWriteScope } from "./layout-regions.ts";
+import {
+  type LayoutRegions,
+  readLayoutRegions,
+  type TemplateWriteScope,
+} from "./layout-regions.ts";
 import { type LinkedResourceEntry, parseLinkedResourceEntries } from "./linked-resources.ts";
 import { buildDisplayHtml } from "./preview-display-html.ts";
 import { resolveTrustedLayout } from "./stored-template-body.ts";

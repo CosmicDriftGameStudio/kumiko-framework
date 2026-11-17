@@ -2,7 +2,13 @@ import { describe, expect, mock, test } from "bun:test";
 import type { ReactNode } from "react";
 import type { Dispatcher, DispatcherError } from "../../headless/index.ts";
 import { DispatcherProvider, useQuery } from "../../index.ts";
-import { act, createMockDispatcher, type MockQueryHandler, renderHook, waitFor } from "./test-utils.tsx";
+import {
+  act,
+  createMockDispatcher,
+  type MockQueryHandler,
+  renderHook,
+  waitFor,
+} from "./test-utils.tsx";
 
 function wrap(dispatcher: Dispatcher) {
   return ({ children }: { children: ReactNode }) => (

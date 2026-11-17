@@ -11,14 +11,9 @@
 // This is the smallest evidence that an entity needs zero tag-wiring.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import {
-  createTagsFeature,
-} from "@cosmicdrift/kumiko-bundled-features/tags";
+import { createTagsFeature } from "@cosmicdrift/kumiko-bundled-features/tags";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import {
-  setupTestStack,
-  type TestStack,
-} from "@cosmicdrift/kumiko-testing/stack";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { noteFeature } from "../feature";
 import { type TagClient, tagFlow } from "../usage";
 

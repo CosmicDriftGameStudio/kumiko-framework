@@ -14,12 +14,12 @@ import {
   UserRolesProvider,
 } from "@cosmicdrift/kumiko-renderer";
 import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
+import { createMockDispatcher } from "@cosmicdrift/kumiko-renderer/testing";
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { documentDesignerClient } from "../client-plugin.tsx";
 import { LayoutEditor } from "../layout-editor.tsx";
 import type { LayoutSourceView } from "../layout-types.ts";
-import { createMockDispatcher } from "@cosmicdrift/kumiko-renderer/testing";
 
 const MJML = "<mjml><mj-body><mj-raw>{{{content}}}</mj-raw></mj-body></mjml>";
 

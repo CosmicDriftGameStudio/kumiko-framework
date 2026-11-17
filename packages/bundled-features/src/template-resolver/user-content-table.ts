@@ -49,9 +49,7 @@ export const userContentEntryEntity = createEntity({
   ],
 });
 
-export const userContentEntriesTable = buildEntityTable(
-  userContentEntryEntity,
-);
+export const userContentEntriesTable = buildEntityTable(userContentEntryEntity);
 
 export type UserContentEntryRow = {
   readonly id: string | number;

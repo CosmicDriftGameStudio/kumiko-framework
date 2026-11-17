@@ -45,8 +45,7 @@ export function makeScreen(): EntityEditScreenDefinition {
 
 export function makeDispatcher(writeFn?: MockWriteHandler): Dispatcher {
   return createMockDispatcher({
-    write:
-      writeFn ?? (async () => ({ isSuccess: true, data: { id: "1" } })),
+    write: writeFn ?? (async () => ({ isSuccess: true, data: { id: "1" } })),
   });
 }
 

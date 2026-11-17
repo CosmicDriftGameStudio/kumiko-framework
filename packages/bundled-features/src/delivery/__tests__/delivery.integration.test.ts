@@ -7,7 +7,6 @@ import {
   createSystemDbView,
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   createEntity,
   createSystemUser,
@@ -21,9 +20,9 @@ import {
   templateVariable,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { FrameworkReasons } from "@cosmicdrift/kumiko-framework/errors";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { createRendererMailHtmlFeature } from "../../renderer-mail-html/index.ts";
 import {
   createTestEnvelopeCipher,
   expectSuccess,
@@ -45,6 +44,7 @@ import { inAppMessagesTable } from "../../channel-in-app/tables.ts";
 import { createConfigFeature } from "../../config/feature.ts";
 import { configValuesTable } from "../../config/table.ts";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature.ts";
+import { createRendererMailHtmlFeature } from "../../renderer-mail-html/index.ts";
 import { createTemplateResolverFeature } from "../../template-resolver/feature.ts";
 import { seedNotificationTemplates } from "../../template-resolver/seeding.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
@@ -153,7 +153,9 @@ const appFeature = defineFeature("app", (r) => {
   r.requires({ features: ["delivery"] });
 
   // Declared with a stored template so the async render job does a real mail render.
-  r.notification({ name: "async-e2e", variables: {
+  r.notification({
+    name: "async-e2e",
+    variables: {
       title: templateVariable.text({ required: true }),
       body: templateVariable.text({ required: true }),
       subject: templateVariable.text({ required: true }),
@@ -163,7 +165,8 @@ const appFeature = defineFeature("app", (r) => {
         body: '<h1><span data-variable="title"></span></h1><p><span data-variable="body"></span></p>',
       },
     },
-    meta: { en: { subject: "{{subject}}" } } });
+    meta: { en: { subject: "{{subject}}" } },
+  });
 
   r.writeHandler(
     defineWriteHandler({
@@ -296,7 +299,9 @@ const ticketFeature = defineFeature("tickets", (r) => {
 
   // Declarative: notify assignee when ticket is created with assigneeId
   // Uses handler ref + per-channel templates
-  r.notification({ name: "ticket-assigned", trigger: { on: createHandler },
+  r.notification({
+    name: "ticket-assigned",
+    trigger: { on: createHandler },
     recipient: (result) => {
       const assigneeId = result.data["assigneeId"] as string | undefined;
       return assigneeId ?? null;
@@ -328,16 +333,20 @@ const ticketFeature = defineFeature("tickets", (r) => {
         title: data["header"],
         body: data["text"],
       }),
-    } });
+    },
+  });
 
   // Second notification on same trigger — tests multiple notifications per handler
-  r.notification({ name: "ticketCreatedAdmin", trigger: { on: createHandler },
+  r.notification({
+    name: "ticketCreatedAdmin",
+    trigger: { on: createHandler },
     recipient: () => admin.id, // always notify admin
     data: (result) => ({
       title: "Ticket erstellt",
       body: `Neues Ticket: ${result.data["title"]}`,
       ticketId: result.id,
-    }) });
+    }),
+  });
 });
 
 // A tenantUserIdsQuery handler NOT declared r.systemScope() must get the same
@@ -421,7 +430,10 @@ const channelEmailFeature = createPlainFallbackEmailFeature({
 const channelPushFeature = defineFeature("test-push-channel", (r) => {
   r.requires({ features: ["delivery"] });
   r.translations({ keys: { "delivery.channel.push": { en: "Push" } } });
-  r.applyExtension({ name: DELIVERY_CHANNEL_EXTENSION, entity: "push", mode: "queued",
+  r.applyExtension({
+    name: DELIVERY_CHANNEL_EXTENSION,
+    entity: "push",
+    mode: "queued",
     resolve: async (userId) => {
       pushTokenResolveCalls.push(userId);
       return testPushToken(userId);
@@ -434,7 +446,8 @@ const channelPushFeature = defineFeature("test-push-channel", (r) => {
         data: message.data,
       });
       return { status: "sent", address };
-    } });
+    },
+  });
 });
 const features = [
   configFeature,
@@ -2138,7 +2151,10 @@ describe("flow 17: async send pipeline", () => {
         mode: "system",
         reason: "test reads delivery rows of any tenant",
         grants: {
-          unsafeRaw: { reason: "test: job context mirrors systemScope() grant", grants: ["unsafeRaw"] },
+          unsafeRaw: {
+            reason: "test: job context mirrors systemScope() grant",
+            grants: ["unsafeRaw"],
+          },
         },
       }),
     );

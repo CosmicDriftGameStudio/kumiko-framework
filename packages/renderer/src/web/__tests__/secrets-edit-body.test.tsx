@@ -11,7 +11,7 @@ import type { SecretsEditScreenDefinition } from "@cosmicdrift/kumiko-framework/
 import { SecretsEditBody } from "../../app/secrets-edit-body.tsx";
 import type { Dispatcher } from "../../headless/index.ts";
 import { DispatcherProvider } from "../../index.ts";
-import { createMockDispatcher, type MockQueryHandler, render, screen, waitFor } from "./test-utils.tsx";
+import { createMockDispatcher, render, screen, waitFor } from "./test-utils.tsx";
 
 function makeDispatcher(): Dispatcher {
   return createMockDispatcher({

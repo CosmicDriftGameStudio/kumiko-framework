@@ -29,6 +29,7 @@ import {
   FILES_TENANT_DATA_FEATURE,
 } from "@cosmicdrift/kumiko-bundled-features/files-tenant-data";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
+import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-mail-html";
 import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import {
   collectAssignableAppRoles,
@@ -37,12 +38,11 @@ import {
 import { TENANT_LIFECYCLE_FEATURE } from "@cosmicdrift/kumiko-bundled-features/tenant-lifecycle";
 import { createUserFeature } from "@cosmicdrift/kumiko-bundled-features/user";
 import {
-  type ListDefaultsOptions,
   dedupeFeatures,
   type FeatureDefinition,
+  type ListDefaultsOptions,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { FILES_FEATURE } from "@cosmicdrift/kumiko-framework/files";
-import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-mail-html";
 import { applyListDefaults } from "./list-defaults.ts";
 
 export { type AuthOptionsCarrier, buildComposeAuthOptions } from "./compose-auth-options.ts";
@@ -153,7 +153,8 @@ export function composeFeatures(
     options.listDefaults,
   );
   // applyListDefaults copies every feature, so the copies of the bundled ones are registered again.
-  for (const feature of composed) if (bundledNames.has(feature.name)) composedBundledInstances.add(feature);
+  for (const feature of composed)
+    if (bundledNames.has(feature.name)) composedBundledInstances.add(feature);
   return composed;
 }
 

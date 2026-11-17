@@ -37,11 +37,7 @@ import {
   createEventStoreExecutor,
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
-import {
-  createEntity,
-  createTextField,
-  defineFeature,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createFilesFeature,
   createInMemoryFileProvider,
@@ -104,11 +100,9 @@ const leaseEntity = createEntity({
 const leaseHostFeature = defineFeature("render-draft-test-lease-host", (r) => {
   r.entity(leaseEntity);
 });
-const leaseExecutor = createEventStoreExecutor(
-  buildEntityTable(leaseEntity),
-  leaseEntity,
-  { entityName: SUBJECT_TYPE },
-);
+const leaseExecutor = createEventStoreExecutor(buildEntityTable(leaseEntity), leaseEntity, {
+  entityName: SUBJECT_TYPE,
+});
 const provider = createInMemoryFileProvider();
 let stack: TestStack;
 

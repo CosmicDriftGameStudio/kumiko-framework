@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { render, screen } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
-import {type InputProps, PrimitivesProvider } from "../../primitives.tsx";
+import { type InputProps, PrimitivesProvider } from "../../primitives.tsx";
 import { createStubPrimitives } from "../../testing.ts";
 import { type ContentEditorProps, ContentEditorsProvider } from "../content-editors.tsx";
 import { ContentPreview, substituteVariables } from "../content-preview.tsx";

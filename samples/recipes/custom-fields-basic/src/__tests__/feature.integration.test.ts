@@ -11,14 +11,9 @@
 // projection-hook + entity-postQuery flattening all line up.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import {
-  createCustomFieldsFeature,
-} from "@cosmicdrift/kumiko-bundled-features/custom-fields";
+import { createCustomFieldsFeature } from "@cosmicdrift/kumiko-bundled-features/custom-fields";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import {
-  setupTestStack,
-  type TestStack,
-} from "@cosmicdrift/kumiko-testing/stack";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { propertyFeature } from "../feature";
 
 // Each test runs in its own tenant, so rows from other tests never show up.

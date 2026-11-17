@@ -11,7 +11,6 @@ import {
   PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/db";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   createEntity,
   createTextField,
@@ -20,6 +19,7 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createFilesFeature } from "@cosmicdrift/kumiko-framework/files";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
@@ -77,10 +77,14 @@ const contactFixtureFeature = defineFeature("notes-departed-tenant-test-contact-
 
 const hookTenantCalls: TenantId[] = [];
 const hookProbeFeature = defineFeature("notes-departed-tenant-test-hook-probe", (r) => {
-  r.applyExtension({ name: EXT_USER_DATA, entity: "contact", export: async () => null,
+  r.applyExtension({
+    name: EXT_USER_DATA,
+    entity: "contact",
+    export: async () => null,
     delete: async (ctx) => {
       hookTenantCalls.push(ctx.tenantId);
-    } });
+    },
+  });
 });
 
 const TENANT_T = testTenantId(11);

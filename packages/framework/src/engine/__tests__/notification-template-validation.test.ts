@@ -30,10 +30,13 @@ function featureWithNotification(name: string, declaration: TemplateDeclaration)
       access: { roles: ["TenantAdmin"] },
       handler: async () => ({ isSuccess: true as const, data: {} }),
     });
-    r.notification({ name, trigger: { on: "create" },
+    r.notification({
+      name,
+      trigger: { on: "create" },
       recipient: () => null,
       data: () => ({}),
-      ...declaration });
+      ...declaration,
+    });
   });
 }
 

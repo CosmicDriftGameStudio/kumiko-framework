@@ -644,7 +644,9 @@ export function defineEntityQueryHandler(
           );
         }
         const result = await executor.list(
-          excludedFields.length > 0 ? { ...listPayload, excludeFields: excludedFields } : listPayload,
+          excludedFields.length > 0
+            ? { ...listPayload, excludeFields: excludedFields }
+            : listPayload,
           query.user,
           db,
           runtimeOptions,

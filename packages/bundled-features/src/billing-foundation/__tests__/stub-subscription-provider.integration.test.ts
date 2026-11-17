@@ -149,9 +149,13 @@ describe("stub subscription provider", () => {
   test("seedSubscription rejects a tier without a stub plan", async () => {
     const admin = adminFor(8105);
     await expect(
-      stub.seedSubscription((qn, payload) => stack.http.writeOk(qn, payload, admin), admin.tenantId, {
-        tier: "enterprise",
-      }),
+      stub.seedSubscription(
+        (qn, payload) => stack.http.writeOk(qn, payload, admin),
+        admin.tenantId,
+        {
+          tier: "enterprise",
+        },
+      ),
     ).rejects.toThrow("no plan for tier enterprise");
   });
 
@@ -159,7 +163,11 @@ describe("stub subscription provider", () => {
     stub.resetCalls();
     const admin = adminFor(8106);
 
-    await stack.http.writeOk(SubscriptionFoundationHandlers.startPlanCheckout, { tier: "pro" }, admin);
+    await stack.http.writeOk(
+      SubscriptionFoundationHandlers.startPlanCheckout,
+      { tier: "pro" },
+      admin,
+    );
 
     expect(stub.calls.checkout).toHaveLength(1);
     expect(stub.calls.checkout[0]?.priceId).toBe("price_pro");

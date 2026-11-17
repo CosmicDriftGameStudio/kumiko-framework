@@ -33,7 +33,10 @@ export const selectedExtensionsQuery = defineQueryHandler({
       "per-tenant bucket would throttle the whole tenant, L1 IP limit still applies",
   },
   handler: async (query, ctx) => {
-    const db = requireSystemDb(ctx, "config:query:config-value:selected-extensions").assertTenantMatch(query.user.tenantId);
+    const db = requireSystemDb(
+      ctx,
+      "config:query:config-value:selected-extensions",
+    ).assertTenantMatch(query.user.tenantId);
     const resolver = requireConfigResolver(ctx, "config:query:config-value:selected-extensions");
     const readableSelectors = new Map<string, ConfigKeyDefinition>();
     const extensionBySelectorKey = new Map<string, string>();

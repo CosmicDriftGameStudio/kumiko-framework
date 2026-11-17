@@ -11,16 +11,20 @@ const searchable = () =>
   createTextField({ searchable: true, personal: false, reason: "test_fixture" });
 
 const crmFeature = defineFeature("crm", (r) => {
-  r.entity(createEntity({
+  r.entity(
+    createEntity({
       name: "customer",
       table: "customers",
       fields: { title: searchable(), email: searchable() },
-    }));
-  r.entity(createEntity({
+    }),
+  );
+  r.entity(
+    createEntity({
       name: "order",
       table: "orders",
       fields: { title: searchable(), note: searchable() },
-    }));
+    }),
+  );
 });
 
 describe("collectSearchableFieldNames", () => {

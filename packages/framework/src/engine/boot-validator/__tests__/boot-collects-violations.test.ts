@@ -79,11 +79,13 @@ describe("validateBoot collects violations", () => {
     });
     const consumer = defineFeature("money-horse", (r) => {
       r.requires({ features: ["cap-ext"] });
-      r.entity(createEntity({
+      r.entity(
+        createEntity({
           name: "credit",
           table: "Credits",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-        }));
+        }),
+      );
       r.applyExtension({ name: "credit-cap", entity: "credit" });
     });
     const violations = violationsOf(() => validateBoot([ext, consumer]));
@@ -125,10 +127,12 @@ describe("validateBoot collects violations", () => {
 
   test("a wiring violation suppresses validateScreens for the same feature only", () => {
     const wired = defineFeature("shop", (r) => {
-      r.entity(createEntity({
+      r.entity(
+        createEntity({
           name: "product",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-        }));
+        }),
+      );
       r.screen({
         id: "product-list",
         type: "entityList",

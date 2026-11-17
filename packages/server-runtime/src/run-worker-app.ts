@@ -19,8 +19,8 @@ import type { ServerOptions } from "@cosmicdrift/kumiko-framework/api";
 import type { KmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection, RowLevelSecurityMode } from "@cosmicdrift/kumiko-framework/db";
 import type {
-  ListDefaultsOptions,
   FeatureDefinition,
+  ListDefaultsOptions,
   Registry,
   ValidateBootOptions,
 } from "@cosmicdrift/kumiko-framework/engine";

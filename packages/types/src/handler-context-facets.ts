@@ -1,12 +1,12 @@
 /// <reference types="temporal-polyfill/global" preserve="true" />
 import type { KumikoEventTypeMap } from "./event-type-map.ts";
+import type { HandlerLifecycle } from "./handler-context-services.ts";
 import type {
   ContractQuery,
   ContractQueryAs,
   ContractWrite,
   ContractWriteAs,
 } from "./handler-contract.ts";
-import type { HandlerLifecycle } from "./handler-context-services.ts";
 import type {
   ActiveMembershipResult,
   AggregateStreamHandle,

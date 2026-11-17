@@ -23,7 +23,12 @@ import {
   createTextField,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createFilesFeature, createInMemoryFileProvider, deriveKey, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
+import {
+  createFilesFeature,
+  createInMemoryFileProvider,
+  deriveKey,
+  fileRefsTable,
+} from "@cosmicdrift/kumiko-framework/files";
 import { seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -101,7 +106,11 @@ const vehicleFeature = defineFeature("testVehicleFileFields", (r) => {
 const bootGuardFileProvider = createInMemoryFileProvider();
 const testFileProviderFeature = defineFeature("testFileProviderBootGuard", (r) => {
   r.requires({ features: ["file-foundation"] });
-  r.applyExtension({ name: "fileProvider", entity: "test", build: async () => bootGuardFileProvider });
+  r.applyExtension({
+    name: "fileProvider",
+    entity: "test",
+    build: async () => bootGuardFileProvider,
+  });
 });
 
 const features = [

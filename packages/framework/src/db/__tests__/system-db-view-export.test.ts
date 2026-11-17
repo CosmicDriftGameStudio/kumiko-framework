@@ -78,7 +78,10 @@ describe("createSystemDbView(...).unsafeRaw", () => {
       db: fakeRunner(),
       tenantId,
       mode: "tenant",
-      grants: { unsafeRaw: { reason: "handler declared unsafeRaw", grants: ["unsafeRaw"] }, memberReadOnly: true },
+      grants: {
+        unsafeRaw: { reason: "handler declared unsafeRaw", grants: ["unsafeRaw"] },
+        memberReadOnly: true,
+      },
     });
     const view = createSystemDbView(source);
 
@@ -101,7 +104,11 @@ describe("withSystemDbUnsafeRawGrant(createSystemDbView(...))", () => {
     const source = createTenantDb({ db: fakeRunner(), tenantId, mode: "tenant" });
     const view = createSystemDbView(source);
 
-    const rebound = withSystemDbUnsafeRawGrant(view, { reason: "hook grant", grants: ["unsafeRaw"] }, "some hook");
+    const rebound = withSystemDbUnsafeRawGrant(
+      view,
+      { reason: "hook grant", grants: ["unsafeRaw"] },
+      "some hook",
+    );
     expect(rebound).toBe(view);
     expect(() => rebound.unsafeRaw("x")).toThrow(AccessDeniedError);
   });

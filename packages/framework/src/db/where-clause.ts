@@ -6,8 +6,8 @@ import type {
 } from "@cosmicdrift/kumiko-types/where-clause-types";
 import { computeBlindIndex, configuredBlindIndexKey } from "../crypto/blind-index.ts";
 import { escapeLikePattern } from "../crypto/ciphertext-pattern.ts";
-import { quoteIdent } from "./sql-identifier.ts";
 import { prepareJsonbValue, prepareValue } from "./driver-value-preparation.ts";
+import { quoteIdent } from "./sql-identifier.ts";
 import type { TableInfo } from "./table-info.ts";
 
 type WhereColumn = {

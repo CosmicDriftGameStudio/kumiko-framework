@@ -59,7 +59,9 @@ const richTextProbeFeature = defineFeature("email-rich-text-probe", (r) => {
       },
     }),
   );
-  r.notification({ name: "rich-note", variables: {
+  r.notification({
+    name: "rich-note",
+    variables: {
       note: templateVariable.richText({ required: true }),
       plain: templateVariable.text({ required: true }),
     },
@@ -68,10 +70,15 @@ const richTextProbeFeature = defineFeature("email-rich-text-probe", (r) => {
         body: '<p><span data-variable="note"></span></p><p>Plain: <span data-variable="plain"></span></p>',
       },
     },
-    meta: { en: { subject: "Note" } } });
-  r.applyExtension({ name: DELIVERY_CHANNEL_EXTENSION, entity: "email-rich-text-probe", mode: emailChannel.mode,
+    meta: { en: { subject: "Note" } },
+  });
+  r.applyExtension({
+    name: DELIVERY_CHANNEL_EXTENSION,
+    entity: "email-rich-text-probe",
+    mode: emailChannel.mode,
     render: emailChannel.render,
-    send: emailChannel.send });
+    send: emailChannel.send,
+  });
 });
 
 let stack: TestStack;

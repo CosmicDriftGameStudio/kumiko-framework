@@ -6,7 +6,7 @@ import {
   configuredPiiSubjectKms,
   decryptPiiFieldValues,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import { SYSTEM_ROLE, type QueryHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { type QueryHandlerDef, SYSTEM_ROLE } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { SUBSCRIPTION_PII_FIELDS } from "../entities.ts";
 import { subscriptionsProjectionTable } from "../projection.ts";

@@ -101,26 +101,46 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
     });
 
     // Framework-provided rebuild job — available whenever `jobs` is composed; enqueueProjectionRebuild dispatches it.
-    r.job({ name: "projectionRebuild", trigger: { manual: true }, concurrency: "skip", schema: projectionRebuildPayloadSchema, handler: projectionRebuildJob });
+    r.job({
+      name: "projectionRebuild",
+      trigger: { manual: true },
+      concurrency: "skip",
+      schema: projectionRebuildPayloadSchema,
+      handler: projectionRebuildJob,
+    });
 
     // Retroactive search backfill — manual + perTenant, so one
     // `jobs:write:trigger` call with { entity } fans out to every active
     // tenant (job-runner.ts perTenant dispatch applies to manual triggers
     // too, not just cron).
-    r.job({ name: "reindexEntity", trigger: { manual: true },
-        perTenant: true,
-        concurrency: "skip",
-        schema: reindexEntityPayloadSchema, handler: reindexEntityJob });
+    r.job({
+      name: "reindexEntity",
+      trigger: { manual: true },
+      perTenant: true,
+      concurrency: "skip",
+      schema: reindexEntityPayloadSchema,
+      handler: reindexEntityJob,
+    });
 
     // store_job_runs/store_job_run_logs are direct-write, unbounded-growth
     // stores — nothing else purges them.
-    r.job({ name: "retention-cleanup", trigger: { maintenance: true }, concurrency: "skip", handler: createRetentionCleanupJob(retentionDays) });
+    r.job({
+      name: "retention-cleanup",
+      trigger: { maintenance: true },
+      concurrency: "skip",
+      handler: createRetentionCleanupJob(retentionDays),
+    });
 
     // Sweeps store_job_runs for rows stuck at status "running" past the
     // timeout. Runs in the maintenance window: the timeout is
     // hours, so a daily pass finds a stuck run at most a day late and a sleeping
     // app is not woken every hour for it.
-    r.job({ name: "stale-run-sweep", trigger: { maintenance: true }, concurrency: "skip", handler: createStaleRunSweepJob(staleRunTimeoutHours, retentionDays) });
+    r.job({
+      name: "stale-run-sweep",
+      trigger: { maintenance: true },
+      concurrency: "skip",
+      handler: createStaleRunSweepJob(staleRunTimeoutHours, retentionDays),
+    });
 
     const handlers = {
       trigger: r.writeHandler(triggerWrite),

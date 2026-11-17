@@ -21,10 +21,7 @@ import {
   buildMultipartBody,
   patchFileInstanceofForBunTest,
 } from "@cosmicdrift/kumiko-testing/helpers";
-import {
-  setupTestStack,
-  type TestStack,
-} from "@cosmicdrift/kumiko-testing/stack";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { retainedDocsFeature } from "../retained-docs";
 
 const CREATE = "retained-docs:write:retained-doc:create";

@@ -20,11 +20,10 @@ import type {
   ExecutorManagedWriteCapability,
   WritableTable,
 } from "@cosmicdrift/kumiko-types/executor-brand";
-import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { SchemaTable } from "@cosmicdrift/kumiko-types/schema-table-types";
 import type { TableColumnRow, TenantDb } from "@cosmicdrift/kumiko-types/tenant-db-types";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { SelectOptions, WhereObject } from "@cosmicdrift/kumiko-types/where-clause-types";
-import { quoteIdent } from "./sql-identifier.ts";
 import { InternalError } from "../errors/index.ts";
 import {
   aggregateDimensionSql,
@@ -46,6 +45,7 @@ import { type PreparedValue, prepareValue } from "./driver-value-preparation.ts"
 import type { EntityTableMeta } from "./entity-table-meta.ts";
 import { executorManagedWriteDenied } from "./executor-managed-tables.ts";
 import { extractPgError } from "./pg-error.ts";
+import { quoteIdent } from "./sql-identifier.ts";
 import { extractTableInfo, type TableInfo } from "./table-info.ts";
 import { asEntityTableMeta, requireEntityTableMeta } from "./table-introspection.ts";
 import {
@@ -117,7 +117,7 @@ export function asRawClient(db: unknown): RawClient {
     throw new Error(
       "asRawClient: received a tenant-scoped TenantDb (ctx.db). Raw SQL helpers do not apply the " +
         "tenant filter — use a ctx.db.<method>, or ctx.db.unsafeRaw() with escapeHatch: " +
-        "{ reason, grants: [\"unsafeRaw\"] } on the handler/hook (r.systemScope() features: ctx.systemDb.unsafeRaw(reason)).",
+        '{ reason, grants: ["unsafeRaw"] } on the handler/hook (r.systemScope() features: ctx.systemDb.unsafeRaw(reason)).',
     );
   }
   // Wrapper handle: $client = Bun.SQL pool.
@@ -281,7 +281,7 @@ function assertNotTenantScoped(db: unknown, fnName: string): void {
   if (tenantDbDelegate(db) !== undefined) {
     throw new Error(
       `${fnName}: received a tenant-scoped db but this helper does not apply the tenant filter. ` +
-        "Pass ctx.db.unsafeRaw() (with escapeHatch: { reason, grants: [\"unsafeRaw\"] } on the handler/hook) for an " +
+        'Pass ctx.db.unsafeRaw() (with escapeHatch: { reason, grants: ["unsafeRaw"] } on the handler/hook) for an ' +
         "explicit cross-tenant op, or use a scoped TenantDb method " +
         "(for an upsert: ctx.db.upsert(table, values, { conflictTarget })).",
     );

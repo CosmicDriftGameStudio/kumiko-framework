@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import * as z from "zod";
-import { FILE_REF_ENTITY_NAME, fileRefEntity } from "../../../files/file-ref-entity.ts";
+import { fileRefEntity } from "../../../files/file-ref-entity.ts";
 import { defineFeature } from "../../define-feature.ts";
 import { defineEntityListHandler } from "../../entity-handlers.ts";
 import { createEntity, createFileField, createTextField } from "../../factories.ts";
@@ -32,7 +32,8 @@ function gated(readGate: EntityDefinition["readGate"], extra: Partial<EntityDefi
     table: "read_gate_boot_docs",
     fields: { title: text(), file: createFileField() },
     ...(readGate !== undefined && { readGate }),
-    ...extra, name: "doc",
+    ...extra,
+    name: "doc",
   });
 }
 

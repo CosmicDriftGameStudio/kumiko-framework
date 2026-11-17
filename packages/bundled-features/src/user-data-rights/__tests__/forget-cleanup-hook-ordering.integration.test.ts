@@ -123,24 +123,40 @@ const hostFirstEntity = makeEntity(HOST_FIRST.entityName, HOST_FIRST.tableName);
 // (the order that exposed the bug). The order-sentinel must make both correct.
 const cfFirstFeature = defineFeature(CF_FIRST.featureName, (r) => {
   r.entity(cfFirstEntity);
-  r.applyExtension({ name: EXT_USER_DATA, entity: CF_FIRST.entityName, export: async () => null,
+  r.applyExtension({
+    name: EXT_USER_DATA,
+    entity: CF_FIRST.entityName,
+    export: async () => null,
     delete: makeRedactHook(CF_FIRST.tableName),
     order: EXT_USER_DATA_ORDER.REDACT_BEFORE_OWNER,
-    escapeHatch: { reason: REDACT_REASON } });
-  r.applyExtension({ name: EXT_USER_DATA, entity: CF_FIRST.entityName, export: async () => null,
+    escapeHatch: { reason: REDACT_REASON },
+  });
+  r.applyExtension({
+    name: EXT_USER_DATA,
+    entity: CF_FIRST.entityName,
+    export: async () => null,
     delete: makeHostDeleteHook(CF_FIRST.tableName),
-    escapeHatch: { reason: HOST_DELETE_REASON } });
+    escapeHatch: { reason: HOST_DELETE_REASON },
+  });
 });
 
 const hostFirstFeature = defineFeature(HOST_FIRST.featureName, (r) => {
   r.entity(hostFirstEntity);
-  r.applyExtension({ name: EXT_USER_DATA, entity: HOST_FIRST.entityName, export: async () => null,
+  r.applyExtension({
+    name: EXT_USER_DATA,
+    entity: HOST_FIRST.entityName,
+    export: async () => null,
     delete: makeHostDeleteHook(HOST_FIRST.tableName),
-    escapeHatch: { reason: HOST_DELETE_REASON } });
-  r.applyExtension({ name: EXT_USER_DATA, entity: HOST_FIRST.entityName, export: async () => null,
+    escapeHatch: { reason: HOST_DELETE_REASON },
+  });
+  r.applyExtension({
+    name: EXT_USER_DATA,
+    entity: HOST_FIRST.entityName,
+    export: async () => null,
     delete: makeRedactHook(HOST_FIRST.tableName),
     order: EXT_USER_DATA_ORDER.REDACT_BEFORE_OWNER,
-    escapeHatch: { reason: REDACT_REASON } });
+    escapeHatch: { reason: REDACT_REASON },
+  });
 });
 
 const FORGET_USER = "cccccccc-cccc-4ccc-8ccc-0000000000a1";

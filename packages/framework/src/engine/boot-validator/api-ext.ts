@@ -5,7 +5,6 @@ import { collectBootRuleViolations } from "./boot-report.ts";
 import { bootRuleError } from "./boot-rule.ts";
 import type { BootWarningSink } from "./boot-warning.ts";
 
-
 // --- Cross-feature API exposure / usage matching ---
 //
 // `r.exposesApi(name, impl)` registers a callable; `r.usesApi(name)`
@@ -37,8 +36,7 @@ export function validateApiExposureMatching(
       warn({
         kind: "api/self-use",
         feature: feature.name,
-        message:
-        `[Feature ${feature.name}] r.usesApi("${apiName}") on its own r.exposesApi — typically a refactor leftover. Call the impl directly instead.`,
+        message: `[Feature ${feature.name}] r.usesApi("${apiName}") on its own r.exposesApi — typically a refactor leftover. Call the impl directly instead.`,
       });
       return;
     }

@@ -21,10 +21,14 @@ export const categoryFeature = defineFeature("catalog", (r) => {
   r.entity(categoryEntity);
 
   // Static reference data — seeded on boot, upserted on changes
-  r.referenceData({ entity: "category", data: [
+  r.referenceData({
+    entity: "category",
+    data: [
       { code: "electronics", name: "Electronics", description: "Phones, laptops, tablets" },
       { code: "clothing", name: "Clothing", description: "Shirts, pants, shoes" },
       { code: "books", name: "Books", description: "Fiction and non-fiction" },
       { code: "food", name: "Food & Drinks", description: "Groceries and beverages" },
-    ], upsertKey: "code" });
+    ],
+    upsertKey: "code",
+  });
 });

@@ -20,10 +20,7 @@ import {
   tenantMembershipsTable,
 } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { seedTenantMembership } from "@cosmicdrift/kumiko-bundled-features/tenant/seeding";
-import {
-  createUserFeature,
-  UserHandlers,
-} from "@cosmicdrift/kumiko-bundled-features/user";
+import { createUserFeature, UserHandlers } from "@cosmicdrift/kumiko-bundled-features/user";
 import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";

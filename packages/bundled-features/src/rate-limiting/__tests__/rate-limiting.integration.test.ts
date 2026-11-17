@@ -153,7 +153,11 @@ describe("rate-limiting feature — bucket tenant scope", () => {
   });
 
   test("a TenantAdmin without Admin peeks its own tenant bucket", async () => {
-    const tenantAdminOnly = createTestUser({ id: 55, tenantId: admin.tenantId, roles: ["TenantAdmin"] });
+    const tenantAdminOnly = createTestUser({
+      id: 55,
+      tenantId: admin.tenantId,
+      roles: ["TenantAdmin"],
+    });
     const bucket = `tenant:${admin.tenantId}`;
     const status = await stack.http.queryOk<{ bucket: string }>(
       "rate-limiting:query:status",

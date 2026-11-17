@@ -141,7 +141,10 @@ describe("mergeScheduleActuals", () => {
   });
 
   test("a booking of another schedule in the same period does not count", () => {
-    const tx: LedgerTxRow[] = [confirmTx("tx-s1", "2026-02"), { ...confirmTx("tx-s2", "2026-01"), scheduleId: "s2" }];
+    const tx: LedgerTxRow[] = [
+      confirmTx("tx-s1", "2026-02"),
+      { ...confirmTx("tx-s2", "2026-01"), scheduleId: "s2" },
+    ];
     const months = mergeScheduleActuals("s1", projection, tx, "2026-03");
     expect(months[0]).toMatchObject({ period: "2026-01", status: "open", txId: null });
     expect(months[1]).toMatchObject({ period: "2026-02", status: "posted", txId: "tx-s1" });

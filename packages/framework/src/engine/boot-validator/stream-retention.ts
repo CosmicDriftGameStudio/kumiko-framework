@@ -15,7 +15,8 @@ function findForeignEventReader(
     for (const projection of Object.values(feature.projections)) {
       if (projection.isImplicit === true) continue;
       const sources = [projection.source, projection.extraSources ?? []].flat();
-      if (sources.includes(entityName)) return `r.projection "${projection.name}" (${feature.name})`;
+      if (sources.includes(entityName))
+        return `r.projection "${projection.name}" (${feature.name})`;
     }
     for (const msp of Object.values(feature.multiStreamProjections)) {
       if (msp.table === undefined) continue;

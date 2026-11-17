@@ -244,7 +244,12 @@ describe("validateBoot — entity.indexes", () => {
   test("deletedAt is a base column only on softDelete entities", () => {
     const featureFor = (softDelete: boolean) =>
       defineFeature("widgetFeature", (r) => {
-        r.entity({ ...(softDelete && { softDelete: true }), name: "widget", fields: { key: createTextField({ personal: false, reason: "test_fixture" }) }, indexes: [{ columns: ["tenantId", "deletedAt"] }] });
+        r.entity({
+          ...(softDelete && { softDelete: true }),
+          name: "widget",
+          fields: { key: createTextField({ personal: false, reason: "test_fixture" }) },
+          indexes: [{ columns: ["tenantId", "deletedAt"] }],
+        });
       });
     expect(() => validateBoot([featureFor(false)])).toThrow(/does not match any field/);
     expect(() => validateBoot([featureFor(true)])).not.toThrow();

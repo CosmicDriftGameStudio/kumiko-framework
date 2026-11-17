@@ -10,7 +10,8 @@ import { searchReindexFingerprint } from "../search-reindex-on-boot";
 
 function registryWith(contributor?: SearchPayloadContributorFn) {
   const feature = defineFeature("fingerprint", (r) => {
-    const thing = r.entity(createEntity({
+    const thing = r.entity(
+      createEntity({
         name: "thing",
         table: "fingerprint_things",
         fields: {
@@ -20,7 +21,8 @@ function registryWith(contributor?: SearchPayloadContributorFn) {
             searchable: true,
           }),
         },
-      }));
+      }),
+    );
     if (contributor) r.searchPayloadExtension(thing, contributor);
   });
   return createRegistry([feature]);

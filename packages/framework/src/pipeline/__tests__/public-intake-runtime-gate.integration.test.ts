@@ -147,7 +147,10 @@ const featureA = defineFeature("intakea", (r) => {
       }),
     access: { roles: ["anonymous"] },
     rateLimit: RATE_LIMIT,
-    escapeHatch: { reason: "test: cross-identity detour to prove the gate survives writeAs", grants: ["systemIdentity"] },
+    escapeHatch: {
+      reason: "test: cross-identity detour to prove the gate survives writeAs",
+      grants: ["systemIdentity"],
+    },
   });
 
   r.writeHandler({
@@ -160,7 +163,10 @@ const featureA = defineFeature("intakea", (r) => {
       }),
     access: { roles: ["anonymous"], personalData: "public-intake" },
     rateLimit: RATE_LIMIT,
-    escapeHatch: { reason: "test: cross-identity detour to prove the gate survives writeAs", grants: ["systemIdentity"] },
+    escapeHatch: {
+      reason: "test: cross-identity detour to prove the gate survives writeAs",
+      grants: ["systemIdentity"],
+    },
   });
 
   // The postSave hook only fires for handlers whose result is a genuine
@@ -275,7 +281,10 @@ const featureA = defineFeature("intakea", (r) => {
       }),
     access: { roles: ["anonymous"] },
     rateLimit: RATE_LIMIT,
-    escapeHatch: { reason: "test: cross-identity detour to prove the gate survives writeAs", grants: ["systemIdentity"] },
+    escapeHatch: {
+      reason: "test: cross-identity detour to prove the gate survives writeAs",
+      grants: ["systemIdentity"],
+    },
   });
 
   for (const declared of [false, true]) {
@@ -357,7 +366,10 @@ const featureA = defineFeature("intakea", (r) => {
 
   // A stream can never declare public-intake (only write and query handlers can), so an
   // anonymous stream root is always gated.
-  r.streamHandler({ name: "writeas-detour", schema: z.object({ note: z.string() }), handler: async function* (query, ctx) {
+  r.streamHandler({
+    name: "writeas-detour",
+    schema: z.object({ note: z.string() }),
+    handler: async function* (query, ctx) {
       const result = await ctx.dispatch.writeAs(
         createSystemUser(query.user.tenantId),
         "intakeb:write:create",
@@ -367,9 +379,14 @@ const featureA = defineFeature("intakea", (r) => {
         },
       );
       yield result.isSuccess ? "written" : (result.error.details as { reason?: string })?.reason;
-    }, access: { roles: ["anonymous", "Admin"] },
-      rateLimit: RATE_LIMIT,
-      escapeHatch: { reason: "test: stream detour to prove the gate applies to stream roots", grants: ["systemIdentity"] } });
+    },
+    access: { roles: ["anonymous", "Admin"] },
+    rateLimit: RATE_LIMIT,
+    escapeHatch: {
+      reason: "test: stream detour to prove the gate applies to stream roots",
+      grants: ["systemIdentity"],
+    },
+  });
 
   for (const declared of [false, true]) {
     const suffix = declared ? "declare" : "no-declare";
@@ -387,7 +404,10 @@ const featureA = defineFeature("intakea", (r) => {
         }),
       access,
       rateLimit: RATE_LIMIT,
-      escapeHatch: { reason: "test: anonymous query root writing through a SYSTEM detour", grants: ["systemIdentity"] },
+      escapeHatch: {
+        reason: "test: anonymous query root writing through a SYSTEM detour",
+        grants: ["systemIdentity"],
+      },
     });
   }
 

@@ -47,10 +47,18 @@ export function createRequestChangeHandler(
 
       const hostEntity = ctx.registry.getEntity(entityType);
       const field = hostEntity?.fields[fieldName];
-      if (hostEntity === undefined || field === undefined || fieldApproveRoles(field).length === 0) {
-        return unprocessable(FieldApprovalReasons.fieldNotApprovalGated, "errors.validation.invalid", {
-          field: fieldName,
-        });
+      if (
+        hostEntity === undefined ||
+        field === undefined ||
+        fieldApproveRoles(field).length === 0
+      ) {
+        return unprocessable(
+          FieldApprovalReasons.fieldNotApprovalGated,
+          "errors.validation.invalid",
+          {
+            field: fieldName,
+          },
+        );
       }
 
       const hostRow = await registeredEntityExecutor(ctx.registry, entityType)?.detail(
@@ -112,7 +120,12 @@ export function createRequestChangeHandler(
         { ...hostRow, id: entityId },
       );
 
-      const id = fieldChangeRequestAggregateId(event.user.tenantId, entityType, entityId, fieldName);
+      const id = fieldChangeRequestAggregateId(
+        event.user.tenantId,
+        entityType,
+        entityId,
+        fieldName,
+      );
       const existing = await requestExecutor.detail({ id }, event.user, ctx.db);
       // A new request overwrites the open value and bumps the version, so approve and reject pin
       // the version the approver saw.

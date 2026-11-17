@@ -44,12 +44,12 @@ export default {
 
 Rule of thumb: **if the target aggregate was created via a tenant user, you need the override.**
 
-| Aggregate type                | Stream tenant                                                                                                                                   | `tenantIdOverride`                                                  |
-| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| config-values (system scope)  | SYSTEM_TENANT                                                                                                                                   | omit                                                                |
-| system text-content           | SYSTEM_TENANT                                                                                                                                   | omit                                                                |
+| Aggregate type                | Stream tenant                                                                                                             | `tenantIdOverride`                       |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| config-values (system scope)  | SYSTEM_TENANT                                                                                                             | omit                                     |
+| system text-content           | SYSTEM_TENANT                                                                                                             | omit                                     |
 | tenant-membership             | Payload tenant; streams written before the 2026-10 stream-tenant migration may still use the tenant of the creating admin | ✅ `m.streamTenantId` (NOT `m.tenantId`) |
-| App entity (orders, tasks, …) | Tenant stream                                                                                                                                   | ✅ Tenant ID from the lookup                                        |
+| App entity (orders, tasks, …) | Tenant stream                                                                                                             | ✅ Tenant ID from the lookup             |
 
 **Why not `m.tenantId`?** `read_tenant_memberships.tenant_id` is the payload tenant (logical membership target), while `kumiko_events.tenant_id` in the v1 row is the stream tenant (where the aggregate physically lives). Before the stream-tenant migration of 2026-10, the two differed for memberships created by an admin from another tenant (`seedTenantMembership` now forces the stream tenant to the payload tenant). The `findMembershipsOfUser` helper returns both separately so seeds can choose the correct one.
 

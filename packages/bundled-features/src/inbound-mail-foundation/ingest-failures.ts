@@ -43,10 +43,9 @@ export const ingestFailureEntity = createEntity({
   },
 });
 
-export const ingestFailureTable = deriveEntityTableMeta(
-  ingestFailureEntity,
-  { source: "unmanaged" },
-);
+export const ingestFailureTable = deriveEntityTableMeta(ingestFailureEntity, {
+  source: "unmanaged",
+});
 
 export type IngestFailureTarget = {
   readonly tenantId: string;

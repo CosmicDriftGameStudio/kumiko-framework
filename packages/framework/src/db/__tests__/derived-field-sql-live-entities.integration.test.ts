@@ -110,12 +110,9 @@ describe("SQL derived fields and liveEntities", () => {
       await unsafeCreateEntityTable(stack.db, entity, name);
     }
     const tenantId = admin.tenantId;
-    await seedRows(
-      stack.db,
-      buildEntityTable(boxEntity),
-      [{ id: BOX, tenantId, name: "Box" }],
-      { projectionOnly: "fixture plants a projection row without its event" },
-    );
+    await seedRows(stack.db, buildEntityTable(boxEntity), [{ id: BOX, tenantId, name: "Box" }], {
+      projectionOnly: "fixture plants a projection row without its event",
+    });
     await seedRows(
       stack.db,
       buildEntityTable(liveOnlyEntity),
@@ -125,12 +122,9 @@ describe("SQL derived fields and liveEntities", () => {
       ],
       { projectionOnly: "fixture plants a projection row without its event" },
     );
-    await seedRows(
-      stack.db,
-      buildEntityTable(ownQueryEntity),
-      [{ tenantId, boxId: BOX }],
-      { projectionOnly: "fixture plants a projection row without its event" },
-    );
+    await seedRows(stack.db, buildEntityTable(ownQueryEntity), [{ tenantId, boxId: BOX }], {
+      projectionOnly: "fixture plants a projection row without its event",
+    });
   });
 
   afterAll(async () => {

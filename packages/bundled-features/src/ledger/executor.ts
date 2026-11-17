@@ -4,12 +4,9 @@ import { accountEntity, scheduleEntity, transactionEntity } from "./entity.ts";
 // Shared tables + executors for the account + transaction handlers. Built once
 // (side-effect-free). The tables back the report query-handlers (selectMany over
 // the entity projections — see handlers/reports.query.ts).
-export const { table: accountTable, executor: accountExecutor } = createEntityExecutor(
-  accountEntity,
-);
-export const { table: transactionTable, executor: transactionExecutor } = createEntityExecutor(
-  transactionEntity,
-);
-export const { table: scheduleTable, executor: scheduleExecutor } = createEntityExecutor(
-  scheduleEntity,
-);
+export const { table: accountTable, executor: accountExecutor } =
+  createEntityExecutor(accountEntity);
+export const { table: transactionTable, executor: transactionExecutor } =
+  createEntityExecutor(transactionEntity);
+export const { table: scheduleTable, executor: scheduleExecutor } =
+  createEntityExecutor(scheduleEntity);

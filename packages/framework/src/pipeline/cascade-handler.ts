@@ -146,10 +146,7 @@ async function childIds(
 
 // Only hasMany / manyToMany carry cascade semantics. belongsTo points
 // at a parent; the parent's onDelete decides what happens to this node.
-async function applyOnDelete(
-  run: CascadeRun,
-  relation: RelationDefinition,
-): Promise<void> {
+async function applyOnDelete(run: CascadeRun, relation: RelationDefinition): Promise<void> {
   if (relation.type === "hasMany" && relation.foreignKey) {
     const table = tableFor(run, relation.target);
     if (table) {

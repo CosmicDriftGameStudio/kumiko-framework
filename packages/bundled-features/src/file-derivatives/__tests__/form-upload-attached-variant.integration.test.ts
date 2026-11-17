@@ -111,10 +111,14 @@ const gadgetFeature = defineFeature("form-upload-gadget", (r) => {
     }),
   );
   r.applyExtension({ name: EXT_DERIVATIVE_RENDERER, entity: "image/*", ...stubRenderer });
-  r.applyExtension({ name: EXT_DERIVATIVE_OVERLAY_RESOLVER, entity: "fieldGadget", resolve: async (args: ResolverArgs) => {
+  r.applyExtension({
+    name: EXT_DERIVATIVE_OVERLAY_RESOLVER,
+    entity: "fieldGadget",
+    resolve: async (args: ResolverArgs) => {
       resolverCalls.push(args);
       return `https://example.com/gadget/${args.entityId}`;
-    } });
+    },
+  });
   r.writeHandler({
     name: "attach-generated-photo",
     schema: z.object({ gadgetId: z.uuid(), version: z.number() }),

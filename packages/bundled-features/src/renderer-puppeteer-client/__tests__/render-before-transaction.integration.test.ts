@@ -397,7 +397,11 @@ describe("renderPdfsBeforeTransaction", () => {
 
   test("a write that fails after storing the batch leaves no rows and no bytes", async () => {
     const admin = tenantAdmin(9613);
-    const pending = stack.http.writeErr(GENERATE_BATCH_THEN_FAIL, { numbers: ["X-1", "X-2"] }, admin);
+    const pending = stack.http.writeErr(
+      GENERATE_BATCH_THEN_FAIL,
+      { numbers: ["X-1", "X-2"] },
+      admin,
+    );
     await waitFor(() => stubReceived === 2);
     releaseHeldRequests();
 

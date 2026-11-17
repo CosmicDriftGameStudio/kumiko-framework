@@ -124,18 +124,20 @@ export async function signUnsubscribeToken(
 ): Promise<string> {
   assertUnsubscribeSecret(secret, "signUnsubscribeToken");
   const encodedSecret = new TextEncoder().encode(secret);
-  return new jose.SignJWT({
-    tenantId: payload.tenantId,
-    notificationType: payload.notificationType,
-    channel: payload.channel,
-    ...localeClaim(payload.locale),
-  })
-    .setProtectedHeader({ alg: "HS256" })
-    .setSubject(String(payload.userId))
-    .setIssuer(UNSUBSCRIBE_ISSUER)
-    .setIssuedAt()
-    // Only opt-out, so no expiry: List-Unsubscribe links in older mails must keep working.
-    .sign(encodedSecret);
+  return (
+    new jose.SignJWT({
+      tenantId: payload.tenantId,
+      notificationType: payload.notificationType,
+      channel: payload.channel,
+      ...localeClaim(payload.locale),
+    })
+      .setProtectedHeader({ alg: "HS256" })
+      .setSubject(String(payload.userId))
+      .setIssuer(UNSUBSCRIBE_ISSUER)
+      .setIssuedAt()
+      // Only opt-out, so no expiry: List-Unsubscribe links in older mails must keep working.
+      .sign(encodedSecret)
+  );
 }
 
 /**

@@ -3,8 +3,8 @@ import { act, render } from "@testing-library/react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import type { Dispatcher } from "../../headless/index.ts";
 import type { ListGroupPageResult } from "../../hooks/list-group-pages.ts";
-import { ListGroupPageBridges } from "../list-group-page-bridges.tsx";
 import { createMockDispatcher, type MockQueryHandler } from "../../testing.ts";
+import { ListGroupPageBridges } from "../list-group-page-bridges.tsx";
 
 type QueryFn = MockQueryHandler;
 

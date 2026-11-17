@@ -30,6 +30,7 @@ export async function ensureDocumentLink(
     db,
   );
   if (created.isSuccess) return withResponseData(created, { id });
-  if (created.error.code === VERSION_CONFLICT_CODE) return { isSuccess: true as const, data: { id } };
+  if (created.error.code === VERSION_CONFLICT_CODE)
+    return { isSuccess: true as const, data: { id } };
   return created;
 }

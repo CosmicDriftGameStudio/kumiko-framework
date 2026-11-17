@@ -29,10 +29,12 @@ const KINDS: ScreenKind[] = ["entityList", "projectionList", "relatedList"];
 // agent-authored features that the type system never sees.
 function featureWith(kind: ScreenKind, bulkActions: unknown) {
   return defineFeature("shop", (r) => {
-    r.entity(createEntity({
+    r.entity(
+      createEntity({
         name: "item",
         fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-      }));
+      }),
+    );
     r.queryHandler({
       name: "item:rows",
       schema: z.object({}),

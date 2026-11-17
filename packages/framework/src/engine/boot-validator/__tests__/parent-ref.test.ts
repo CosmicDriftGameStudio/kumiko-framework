@@ -111,7 +111,9 @@ describe("validateParentRefs", () => {
     const feature = defineFeature("joins", (r) => {
       r.entity(joinEntity({ ...validRef, allowedTypes: [] }));
     });
-    expect(() => validate(feature)).toThrow(/parent-ref\/allowed-types-empty|allowedTypes is empty/);
+    expect(() => validate(feature)).toThrow(
+      /parent-ref\/allowed-types-empty|allowedTypes is empty/,
+    );
   });
 
   test("rejects an allowedTypes entry that names no registered entity", () => {

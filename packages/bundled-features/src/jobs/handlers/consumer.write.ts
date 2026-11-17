@@ -1,8 +1,5 @@
 import { defineWriteHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  UnprocessableError,
-  writeFailure,
-} from "@cosmicdrift/kumiko-framework/errors";
+import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import {
   type ConsumerRecoveryState,
   ConsumerStatuses,

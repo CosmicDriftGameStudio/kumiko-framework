@@ -21,10 +21,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import {
-  setupTestStack,
-  type TestStack,
-} from "@cosmicdrift/kumiko-testing/stack";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { complianceProfilesDemoFeatures } from "../feature";
 
 const SET_PROFILE = "compliance-profiles:write:set-profile";

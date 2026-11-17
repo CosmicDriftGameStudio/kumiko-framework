@@ -179,7 +179,12 @@ describe("updateRows and deleteRows on an event-sourced entity table", () => {
     expect(await selectMany(stack.db, eventsTable, { aggregateId: GADGET_ID })).toHaveLength(0);
 
     expect(
-      await deleteRows(stack.db, gadgetTable, { id: GADGET_ID }, { projectionOnly: "drift scenario" }),
+      await deleteRows(
+        stack.db,
+        gadgetTable,
+        { id: GADGET_ID },
+        { projectionOnly: "drift scenario" },
+      ),
     ).toBe(1);
     expect(await selectMany(stack.db, gadgetTable, {})).toHaveLength(0);
   });

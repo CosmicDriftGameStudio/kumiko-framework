@@ -17,7 +17,12 @@ import {
   PrimitivesProvider,
   TokensProvider,
 } from "@cosmicdrift/kumiko-renderer";
-import { type Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
+import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
+import {
+  createMockDispatcher,
+  type MockQueryHandler,
+  type MockWriteHandler,
+} from "@cosmicdrift/kumiko-renderer/testing";
 import { defaultPrimitives, defaultTokens } from "@cosmicdrift/kumiko-renderer/web";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
@@ -31,7 +36,6 @@ import {
 } from "../constants.ts";
 import { defaultTranslations } from "../default-translations.ts";
 import { ExportSection, formatDate } from "../privacy-center-screen.tsx";
-import { createMockDispatcher, type MockQueryHandler, type MockWriteHandler } from "@cosmicdrift/kumiko-renderer/testing";
 
 const stubLiveEvents: LiveEventSubscriber = () => () => {};
 const stubTokens = {

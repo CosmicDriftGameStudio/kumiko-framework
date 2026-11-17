@@ -9,7 +9,7 @@ import {
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import { BRANDING_SCREEN_QN, BRANDING_FEATURE_NAME } from "./constants.ts";
+import { BRANDING_FEATURE_NAME, BRANDING_SCREEN_QN } from "./constants.ts";
 import {
   isHexColor,
   LAYOUT_ACCENT_LINES,

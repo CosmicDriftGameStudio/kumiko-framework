@@ -10,10 +10,7 @@ import {
   buildMultipartBody,
   patchFileInstanceofForBunTest,
 } from "@cosmicdrift/kumiko-testing/helpers";
-import {
-  setupTestStack,
-  type TestStack,
-} from "@cosmicdrift/kumiko-testing/stack";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { inspectionChecklistFeature } from "../feature";
 
 export const PROTOCOL_CREATE = "inspection-checklist:write:inspection-protocol:create";

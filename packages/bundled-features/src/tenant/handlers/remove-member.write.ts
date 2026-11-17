@@ -80,9 +80,7 @@ export const removeMemberWrite = defineWriteHandler({
   agent: { risk: "high" },
   handler: async (event, ctx) => {
     const systemDb = requireSystemDb(ctx, "tenant:write:removeMember");
-    const db = systemDb.acknowledgeCrossTenant(
-      "SystemAdmin manages memberships across tenants",
-    );
+    const db = systemDb.acknowledgeCrossTenant("SystemAdmin manages memberships across tenants");
     const streamTenantId = parseTenantId(event.payload.tenantId);
     const existing =
       streamTenantId === null

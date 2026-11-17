@@ -73,6 +73,7 @@ import { createPersonalAccessTokensFeature } from "@cosmicdrift/kumiko-bundled-f
 import { createPresenceFeature } from "@cosmicdrift/kumiko-bundled-features/presence";
 import { createReadinessFeature } from "@cosmicdrift/kumiko-bundled-features/readiness";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
+import { createRendererPuppeteerClientFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-puppeteer-client";
 import { createSecretsFeature } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { createSeoFeature } from "@cosmicdrift/kumiko-bundled-features/seo";
 import { createSignatureFeature } from "@cosmicdrift/kumiko-bundled-features/signature";
@@ -98,7 +99,6 @@ import {
 import { createDocumentDesignerFeature } from "@cosmicdrift/kumiko-document-designer";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
-import { createRendererPuppeteerClientFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-puppeteer-client";
 import { ADMIN_NAV_QN, ADMIN_NAV_WORKSPACES, adminNavFeature } from "./app/admin-nav-feature";
 import { DEV_TENANT_ID } from "./app/auth-constants";
 import { CAP_OVERVIEW_CAPS } from "./app/cap-overview-caps";

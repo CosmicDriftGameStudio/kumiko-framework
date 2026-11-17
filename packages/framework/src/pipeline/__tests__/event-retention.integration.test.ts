@@ -182,9 +182,7 @@ describe("E.2 — explicit-aggregateTypes pruning", () => {
 
 describe("whole-stream pruning", () => {
   async function createWidgetAt(createdAt: Temporal.Instant, name: string): Promise<string> {
-    const created = await runSeedWritesAt(createdAt, () =>
-      executor.create({ name }, admin, tdb),
-    );
+    const created = await runSeedWritesAt(createdAt, () => executor.create({ name }, admin, tdb));
     if (!created.isSuccess) throw new Error("create failed");
     return String(created.data.id);
   }

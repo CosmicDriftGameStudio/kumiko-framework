@@ -57,7 +57,9 @@ export type LedgerTxRow = {
 export function findReversedIds(
   rows: readonly { readonly reversesTransactionId: string | null }[],
 ): Set<string> {
-  return new Set(rows.flatMap((r) => (r.reversesTransactionId !== null ? [r.reversesTransactionId] : [])));
+  return new Set(
+    rows.flatMap((r) => (r.reversesTransactionId !== null ? [r.reversesTransactionId] : [])),
+  );
 }
 
 // "YYYY-MM" ⇄ a month index (year*12 + monthOfYear), so window math is pure

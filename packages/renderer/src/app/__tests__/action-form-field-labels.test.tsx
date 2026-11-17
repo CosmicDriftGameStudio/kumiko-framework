@@ -8,7 +8,7 @@ import type { ReactNode } from "react";
 import { RenderEdit } from "../../components/render-edit.tsx";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
-import {type FieldProps, PrimitivesProvider } from "../../primitives.tsx";
+import { type FieldProps, PrimitivesProvider } from "../../primitives.tsx";
 import { createStubPrimitives } from "../../testing.ts";
 import { synthesizeActionFormEntity, synthesizeActionFormScreen } from "../action-form-shim.ts";
 

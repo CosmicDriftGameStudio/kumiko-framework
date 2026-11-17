@@ -507,7 +507,10 @@ export function ConfigEditBody({
       {...(screen.submitLabel !== undefined && { submitLabel: screen.submitLabel })}
       {...(translate !== undefined && { translate })}
       fieldAppendixPlacement="below-control"
-      {...(compact && { recordSections: { labelTitles: true as const }, fieldIcons: false as const })}
+      {...(compact && {
+        recordSections: { labelTitles: true as const },
+        fieldIcons: false as const,
+      })}
       {...(!compact && {
         fieldAccent: (fieldName: string) =>
           cascades[fieldName]?.levels.find((level) => level.isActive)?.source ===

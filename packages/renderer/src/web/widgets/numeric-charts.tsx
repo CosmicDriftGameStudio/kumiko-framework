@@ -253,9 +253,7 @@ export function NumericLineChart({
         onPointerMove: (event) => {
           const rect = event.currentTarget.getBoundingClientRect();
           const fraction =
-            rect.width > 0
-              ? Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width))
-              : 0;
+            rect.width > 0 ? Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)) : 0;
           const nearest = nearestValue(allX, xDomain.min + fraction * (xDomain.max - xDomain.min));
           if (nearest !== undefined) setHoverX(nearest);
         },

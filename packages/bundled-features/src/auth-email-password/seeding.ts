@@ -228,10 +228,7 @@ export type SeedAdminOptions = {
  * password, N tenants, and N memberships. Idempotent, so rerunning it in
  * persistent-DB mode succeeds. Returns the userId.
  */
-export async function seedAdmin(
-  db: DbRunner,
-  options: SeedAdminOptions,
-): Promise<{ id: string }> {
+export async function seedAdmin(db: DbRunner, options: SeedAdminOptions): Promise<{ id: string }> {
   const byOption = options.by === undefined ? {} : { by: options.by };
 
   for (const m of options.memberships) {

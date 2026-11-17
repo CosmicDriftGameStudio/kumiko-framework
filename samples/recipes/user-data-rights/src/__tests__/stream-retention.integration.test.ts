@@ -48,12 +48,6 @@ describe("user-data-rights recipe :: stream retention prunes short-lived entitie
 
     expect(result.deletedRows).toBe(1);
     expect(await selectMany(stack.db, eventsTable, { aggregateId: id })).toEqual([]);
-    expect(
-      await selectMany(
-        stack.db,
-        buildEntityTable(previewSnapshotEntity),
-        { id },
-      ),
-    ).toEqual([]);
+    expect(await selectMany(stack.db, buildEntityTable(previewSnapshotEntity), { id })).toEqual([]);
   });
 });

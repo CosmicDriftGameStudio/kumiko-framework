@@ -62,10 +62,14 @@ const gadgetPredicateFeature = defineFeature("crosstenantpublicvarianttest", (r)
   r.writeHandler(defineEntityCreateHandler("gadget", gadgetEntity, adminOnly));
   r.writeHandler(defineEntityUpdateHandler("gadget", gadgetEntity, adminOnly));
   r.queryHandler(defineEntityDetailHandler("gadget", gadgetEntity, adminOnly));
-  r.applyExtension({ name: EXT_DERIVATIVE_PUBLIC_PREDICATE, entity: "gadget", isPublic: (args: DerivativePublicPredicateArgs) => {
+  r.applyExtension({
+    name: EXT_DERIVATIVE_PUBLIC_PREDICATE,
+    entity: "gadget",
+    isPublic: (args: DerivativePublicPredicateArgs) => {
       receivedArgs.push(args);
       return publicGadgetIds.has(args.entityId);
-    } });
+    },
+  });
   r.applyExtension({ name: EXT_DERIVATIVE_RENDERER, entity: "image/*", render: fakeRender });
 });
 

@@ -257,7 +257,11 @@ function resolveBackingTable(
         "EntityTableMeta — build it via table() / buildEntityTable.",
     );
   }
-  assertBackingTableSuperset(entityName, deriveEntityTableMeta({ ...entity, name: entityName }), tableMeta);
+  assertBackingTableSuperset(
+    entityName,
+    deriveEntityTableMeta({ ...entity, name: entityName }),
+    tableMeta,
+  );
   return backingTable as ProjectionDefinition["table"];
 }
 

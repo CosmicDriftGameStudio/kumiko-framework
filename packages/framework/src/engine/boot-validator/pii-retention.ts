@@ -12,7 +12,6 @@ import {
 } from "./entity-handler.ts";
 import { PII_RULES } from "./pii-retention-rules.ts";
 
-
 // Framework-managed timestamp fields may be used as retention.reference
 // even when they are not declared in entity.fields.
 const FRAMEWORK_TIMESTAMP_FIELDS: ReadonlySet<string> = new Set([
@@ -162,7 +161,9 @@ function validatePersonalJsonbField(input: FieldRuleInput): void {
 export function validatePiiAndRetention(feature: FeatureDefinition, warn: BootWarningSink): void {
   collectBootRuleViolations(Object.entries(feature.entities ?? {}), ([entityName, entity]) => {
     const entityChecks = [validateFieldAnnotations, validateEntityRetention];
-    collectBootRuleViolations(entityChecks, (check) => check(feature.name, entityName, entity, warn));
+    collectBootRuleViolations(entityChecks, (check) =>
+      check(feature.name, entityName, entity, warn),
+    );
   });
 }
 
@@ -390,8 +391,7 @@ function warnOnNonUserOwnerReference(
     input.warn({
       kind: "pii/owner-not-user-reference",
       feature: input.featureName,
-      message:
-      `[Feature ${input.featureName}] personal.of "${ownerName}" on entity "${input.entityName}" targets reference "${refTarget}" — typically should be a user reference. If intentional (custom subject-entity like employee/patient), ignore.`,
+      message: `[Feature ${input.featureName}] personal.of "${ownerName}" on entity "${input.entityName}" targets reference "${refTarget}" — typically should be a user reference. If intentional (custom subject-entity like employee/patient), ignore.`,
     });
   }
 }
@@ -489,8 +489,7 @@ function warnOnInvalidKeepFor({
     warn({
       kind: "retention/invalid-keep-for",
       feature: featureName,
-      message:
-      `[Feature ${featureName}] Entity "${entityName}" retention.keepFor="${retention.keepFor}" has an invalid format. Expected: <number><h|d|w|m|y> (e.g. "30d", "10y", "6m"). The cleanup job cannot parse anything else; fix keepFor.`,
+      message: `[Feature ${featureName}] Entity "${entityName}" retention.keepFor="${retention.keepFor}" has an invalid format. Expected: <number><h|d|w|m|y> (e.g. "30d", "10y", "6m"). The cleanup job cannot parse anything else; fix keepFor.`,
     });
   }
 }
@@ -523,8 +522,7 @@ function warnOnBlockDeleteWithoutAnonymize(input: RetentionRuleInput): void {
     warn({
       kind: "retention/block-delete-without-anonymize",
       feature: featureName,
-      message:
-      `[Feature ${featureName}] Entity "${entityName}" retention.strategy="blockDelete" but no field has an anonymize-function. Once keepFor expires, the data-retention cron anonymizes nothing and the row keeps its PII. Add { anonymize: () => null } or () => "[ANONYMIZED]" to PII fields.`,
+      message: `[Feature ${featureName}] Entity "${entityName}" retention.strategy="blockDelete" but no field has an anonymize-function. Once keepFor expires, the data-retention cron anonymizes nothing and the row keeps its PII. Add { anonymize: () => null } or () => "[ANONYMIZED]" to PII fields.`,
     });
   }
 }

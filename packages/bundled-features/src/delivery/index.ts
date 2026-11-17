@@ -63,13 +63,13 @@ export {
   DeliveryStatus,
   EMAIL_CHANNEL_NAME,
 } from "./constants.ts";
+export type { RateLimitConfig } from "./delivery-rate-limit.ts";
 export {
   collectChannels,
   createDeliveryService,
   type DeliveryServiceOptions,
   type KillSwitchResolver,
 } from "./delivery-service.ts";
-export type { RateLimitConfig } from "./delivery-rate-limit.ts";
 export { createDeliveryFeature } from "./feature.ts";
 export {
   type UnsubscribeAddressPayload,
@@ -112,6 +112,7 @@ export {
   type UnsubscribeResultPage,
 } from "./unsubscribe.ts";
 export type { UnsubscribeLinkConfig } from "./unsubscribe-link.ts";
+export { UNSUBSCRIBE_PAGE_EN } from "./unsubscribe-page-strings.ts";
 export {
   type AddressUnsubscribeTokenPayload,
   DELIVERY_UNSUBSCRIBE_ONE_CLICK_HEADER_VALUE,
@@ -120,4 +121,3 @@ export {
   type UnsubscribeRouteOptions,
   type UnsubscribeTokenPayload,
 } from "./unsubscribe-tokens.ts";
-export { UNSUBSCRIBE_PAGE_EN } from "./unsubscribe-page-strings.ts";

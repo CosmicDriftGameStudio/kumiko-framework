@@ -18,7 +18,8 @@ import {
   TokensProvider,
   UserRolesProvider,
 } from "@cosmicdrift/kumiko-renderer";
-import { type Dispatcher, type DispatcherError } from "@cosmicdrift/kumiko-renderer/headless";
+import type { Dispatcher, DispatcherError } from "@cosmicdrift/kumiko-renderer/headless";
+import { createMockDispatcher } from "@cosmicdrift/kumiko-renderer/testing";
 import { defaultPrimitives, defaultTokens } from "@cosmicdrift/kumiko-renderer/web";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
@@ -28,7 +29,6 @@ import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import { INBOUND_MAIL_FOUNDATION_FEATURE } from "../constants.ts";
 import { createInboundMailFoundationFeature } from "../feature.ts";
 import { INBOUND_MAIL_FOUNDATION_I18N } from "../i18n.ts";
-import { createMockDispatcher } from "@cosmicdrift/kumiko-renderer/testing";
 
 const ACCOUNT_ID = "6f1c0e0e-0000-4000-8000-000000000001";
 const stubLiveEvents: LiveEventSubscriber = () => () => {};

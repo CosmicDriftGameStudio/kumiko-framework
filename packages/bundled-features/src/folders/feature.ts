@@ -72,9 +72,18 @@ function registerFolders(
   const folderAssignmentEntity = createFolderAssignmentEntity(ownership, parents);
   r.entity(folderEntity);
   r.entity(folderAssignmentEntity);
-  r.applyExtension({ name: EXT_USER_DATA, entity: "folder", export: folderExportHook, delete: folderDeleteHook });
-  r.applyExtension({ name: EXT_USER_DATA, entity: "folder-assignment", export: folderAssignmentExportHook,
-    delete: folderAssignmentDeleteHook });
+  r.applyExtension({
+    name: EXT_USER_DATA,
+    entity: "folder",
+    export: folderExportHook,
+    delete: folderDeleteHook,
+  });
+  r.applyExtension({
+    name: EXT_USER_DATA,
+    entity: "folder-assignment",
+    export: folderAssignmentExportHook,
+    delete: folderAssignmentDeleteHook,
+  });
   const assignmentExecutor = createFolderAssignmentExecutor(ownership, parents);
 
   // Folder catalog — generic CRUD. update renames or reparents (optimistic-locked); the

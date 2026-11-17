@@ -16,10 +16,7 @@ import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { burst, createBarrier, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
-import {
-  setupTestStack,
-  type TestStack,
-} from "@cosmicdrift/kumiko-testing/stack";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { bookCapUsage } from "../book-cap-usage.ts";
@@ -37,7 +34,6 @@ import { withCapEnforcement } from "../with-cap-enforcement.ts";
 import { fetchCounterValue } from "./read-counter.ts";
 
 const PERIOD = "2026-09-01T00:00:00Z";
-
 
 const reservePayload = z.object({
   capName: z.string(),
@@ -647,9 +643,13 @@ describe("systemScope handlers", () => {
     await stack.http.writeOk(OTHER_TENANT_QN, body, caller);
 
     // The sweep of the other tenant gave the expired 2 back before booking the new 2.
-    const after = await selectMany<{ tenantId: string; value: number }>(stack.db, capCountersTable, {
-      capName: "stamped-cap",
-    });
+    const after = await selectMany<{ tenantId: string; value: number }>(
+      stack.db,
+      capCountersTable,
+      {
+        capName: "stamped-cap",
+      },
+    );
     expect(after.map((row) => row.value)).toEqual([2]);
     expect(
       await selectMany(stack.db, capReservationsTable, { capName: "stamped-cap" }),

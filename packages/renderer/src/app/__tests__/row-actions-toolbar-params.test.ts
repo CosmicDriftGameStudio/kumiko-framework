@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import type { RelatedListToolbarAction } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher } from "../../headless/index.ts";
+import { createMockDispatcher } from "../../testing.ts";
 import type { NavApi } from "../nav.tsx";
 import { buildProjectionToolbarActions } from "../row-actions.ts";
-import { createMockDispatcher } from "../../testing.ts";
 
 const nav: NavApi = {
   route: undefined,

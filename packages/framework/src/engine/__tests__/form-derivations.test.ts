@@ -170,10 +170,7 @@ describe("money units as the form holds them", () => {
   };
 
   test("1.234,56 EUR plus 234,57 EUR sums to 1.469,13 EUR without float drift", () => {
-    const result = applyFormDerivations(
-      { netTotal: eur(123456), vatTotal: eur(23457) },
-      grossOnly,
-    );
+    const result = applyFormDerivations({ netTotal: eur(123456), vatTotal: eur(23457) }, grossOnly);
     expect(result).toMatchObject({ grossTotal: eur(146913) });
   });
 

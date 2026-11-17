@@ -23,7 +23,6 @@ import {
   insertOne,
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   createEntity,
   createTextField,
@@ -32,6 +31,7 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { reindexEntity } from "@cosmicdrift/kumiko-framework/search";
 import { createMeilisearchAdapter } from "@cosmicdrift/kumiko-framework/search/meilisearch";
 import { TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";

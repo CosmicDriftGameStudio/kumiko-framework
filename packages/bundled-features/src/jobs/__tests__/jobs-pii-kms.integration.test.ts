@@ -6,8 +6,6 @@
 // makes the payload unreadable ([[erased]]) without touching the row.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import * as z from "zod";
-
 import {
   configurePiiSubjectKms,
   decryptPiiFieldValues,
@@ -41,6 +39,7 @@ import {
   testRunQueueNamePrefix,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
+import * as z from "zod";
 import { markStaleJobRunsFailed, STALE_JOB_RUN_ERROR } from "../db/queries/stale-run-sweep.ts";
 import { createJobsFeature } from "../feature.ts";
 import { createJobRunLogger } from "../job-run-logger.ts";
@@ -675,16 +674,29 @@ describe("jobs:write:retry decrypts payload before dispatch", () => {
 
   const retryAppFeature = defineFeature("retryapp", (r) => {
     r.defineEvent("pinged", z.object({}), { piiFields: "none" });
-    r.job({ name: "captureImport", trigger: { manual: true }, handler: async (payload, ctx) => {
-      capturedPayloads.push(payload);
-      capturedTriggeredBy.push(ctx.triggeredBy?.id ?? null);
-    } });
-    r.job({ name: "fanOut", trigger: { manual: true }, perTenant: true, handler: async (payload) => {
-      fanOutRuns.push(payload);
-    } });
-    r.job({ name: "onPing", trigger: { on: "pinged" }, handler: async (payload) => {
-      eventRuns.push(payload);
-    } });
+    r.job({
+      name: "captureImport",
+      trigger: { manual: true },
+      handler: async (payload, ctx) => {
+        capturedPayloads.push(payload);
+        capturedTriggeredBy.push(ctx.triggeredBy?.id ?? null);
+      },
+    });
+    r.job({
+      name: "fanOut",
+      trigger: { manual: true },
+      perTenant: true,
+      handler: async (payload) => {
+        fanOutRuns.push(payload);
+      },
+    });
+    r.job({
+      name: "onPing",
+      trigger: { on: "pinged" },
+      handler: async (payload) => {
+        eventRuns.push(payload);
+      },
+    });
   });
 
   beforeAll(async () => {

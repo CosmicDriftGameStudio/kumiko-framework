@@ -14,7 +14,8 @@ export type PendingChange = {
 };
 
 const BLOCK_RE = /<!--\s*kumiko-changes\s*\n([\s\S]*?)\n\s*-->/g;
-const KEY_RE = /^(feature|type|title|detail|migration|codemod|manualAfterCodemod|affects):(?:\s(.*))?$/;
+const KEY_RE =
+  /^(feature|type|title|detail|migration|codemod|manualAfterCodemod|affects):(?:\s(.*))?$/;
 
 function requiredField(fields: ReadonlyMap<string, string>, field: string, source: string): string {
   const value = fields.get(field)?.trim();

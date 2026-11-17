@@ -33,9 +33,7 @@ const globalEntity = createEntity({
   systemStream: true,
   fields: { label: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
-const { table: globalTable, executor: globalExecutor } = createEntityExecutor(
-  globalEntity,
-);
+const { table: globalTable, executor: globalExecutor } = createEntityExecutor(globalEntity);
 
 const crossTenantSchema = z.object({ label: z.string(), tenantId: z.uuid() });
 

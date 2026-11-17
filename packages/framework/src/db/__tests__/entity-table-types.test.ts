@@ -208,7 +208,11 @@ describe("createEntity — inline field literals without `as const`", () => {
   });
 
   test("a non-field value in fields still collapses to never", () => {
-    const broken = createEntity({ name: "broken", table: "broken", fields: { x: { type: "nonsense" } } });
+    const broken = createEntity({
+      name: "broken",
+      table: "broken",
+      fields: { x: { type: "nonsense" } },
+    });
     expectTypeOf(broken).toBeNever();
   });
 });

@@ -52,7 +52,11 @@ for (const t of await ctx.findTemplateResources({ kind: "mail", status: "active"
 Need data the read helpers don't cover? Call the app's query handler instead of querying `read_*` tables through `ctx.db`:
 
 ```ts
-const events = await ctx.systemQueryAs("events:query:event:list", { filter: { slug: "spring-meetup" } }, tenantId);
+const events = await ctx.systemQueryAs(
+  "events:query:event:list",
+  { filter: { slug: "spring-meetup" } },
+  tenantId,
+);
 ```
 
 `systemQueryAs` picks the system user like `systemWriteAs` (pass the tenant for tenant-scoped data), throws when the query fails, and the dry run checks the QN before any seed runs.

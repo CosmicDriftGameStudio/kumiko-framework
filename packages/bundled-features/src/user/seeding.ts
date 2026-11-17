@@ -15,13 +15,13 @@ import {
   type DbRunner,
   fetchOne,
 } from "@cosmicdrift/kumiko-framework/db";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   createSystemUser,
   type SessionUser,
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { VERSION_CONFLICT_CODE } from "@cosmicdrift/kumiko-framework/errors";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { normalizeEmail } from "../shared/index.ts";
 // kumiko-lint-ignore cross-feature-import shares the postSave-hooks fixture contract with tenant/seeding
 import { fireEntityPostSave, type SeedTenantHooks } from "../tenant/seeding.ts";

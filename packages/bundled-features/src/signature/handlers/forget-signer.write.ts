@@ -19,7 +19,11 @@ export function createForgetSignerHandler(requestExecutor: SignatureRequestExecu
       const signer = await signerExecutor.detail({ id: event.payload.signerId }, user, ctx.db);
       const request =
         signer === null ? null : await loadRequestOfSigner(requestExecutor, ctx, user, signer);
-      if (signer === null || request === null || !(await requestHostIsVisible(ctx, user, request))) {
+      if (
+        signer === null ||
+        request === null ||
+        !(await requestHostIsVisible(ctx, user, request))
+      ) {
         return writeFailure(new NotFoundError("signer", event.payload.signerId));
       }
       await eraseSignerRows(signerEraseContext(ctx, user), [signer], "delete");

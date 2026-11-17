@@ -94,7 +94,8 @@ let folderId: string;
 beforeAll(async () => {
   stack = await setupTestStack({
     features: [
-      createFoldersFeature({ parents: ["project"],
+      createFoldersFeature({
+        parents: ["project"],
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       }),
       hostFixturesFeature,

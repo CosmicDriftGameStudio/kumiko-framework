@@ -2,7 +2,11 @@ import { afterEach, describe, expect, jest, test } from "bun:test";
 import { act, cleanup, render, renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
-import { LIVE_RESYNC_EVENT_TYPE, type LiveEventSubscriber, LiveEventsProvider } from "../../index.ts";
+import {
+  LIVE_RESYNC_EVENT_TYPE,
+  type LiveEventSubscriber,
+  LiveEventsProvider,
+} from "../../index.ts";
 import { createLiveDispatcher } from "../../live/index.ts";
 import { LIVE_REFETCH_COALESCE_MS } from "../live-refetch-scheduler.ts";
 import { useQuery } from "../use-query.ts";

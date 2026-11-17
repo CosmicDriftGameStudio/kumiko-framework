@@ -32,7 +32,13 @@ function check(
   opts: { requests?: readonly string[] | undefined } = { requests: ["contact"] },
 ): void {
   const fa = defineFeature("fa", (r) => {
-    r.entity(createEntity({ name: "contact", table: "read_fa_boot_contacts", fields: { iban: ibanField } }));
+    r.entity(
+      createEntity({
+        name: "contact",
+        table: "read_fa_boot_contacts",
+        fields: { iban: ibanField },
+      }),
+    );
     if (opts.requests !== undefined) {
       r.entity(requestEntity(opts.requests));
     }
@@ -108,8 +114,8 @@ describe("validateFieldApproval", () => {
   });
 
   test("rejects approve when the host is not among the parents", () => {
-    expect(() => check(gatedText({ approve: ["Accountant"], write: ["Accountant"] }), { requests: ["other"] })).toThrow(
-      "field-approval/needs-feature",
-    );
+    expect(() =>
+      check(gatedText({ approve: ["Accountant"], write: ["Accountant"] }), { requests: ["other"] }),
+    ).toThrow("field-approval/needs-feature");
   });
 });

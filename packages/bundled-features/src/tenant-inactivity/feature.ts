@@ -45,7 +45,11 @@ export function createTenantInactivityFeature<TTier extends string = string>(
       }),
       { reason: "read_side.tenant_inactivity_state_direct_write" },
     );
-    r.applyExtension({ name: EXT_TENANT_DATA, entity: TENANT_INACTIVITY_STATE_ENTITY, destroy: tenantInactivityStateDestroyHook });
+    r.applyExtension({
+      name: EXT_TENANT_DATA,
+      entity: TENANT_INACTIVITY_STATE_ENTITY,
+      destroy: tenantInactivityStateDestroyHook,
+    });
 
     registerInactivityMails(r);
 

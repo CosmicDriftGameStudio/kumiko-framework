@@ -63,7 +63,6 @@
 
 import { type EntityDefinition, isDeclaredEntityVerb } from "@cosmicdrift/kumiko-types/fields";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
-import { quoteIdent } from "../sql-identifier.ts";
 import { configuredEventPiiCatalog } from "../../crypto/event-pii.ts";
 import {
   isLocalKeyKmsAdapter,
@@ -92,11 +91,11 @@ import {
   usableOwnerId,
 } from "../../crypto/subject-resolver.ts";
 import type { Registry, TenantId } from "../../engine/types/index.ts";
-
 import type { DbRunner } from "../connection.ts";
 import { resolveTableName } from "../entity-table-meta.ts";
 import { asRawClient } from "../query.ts";
 import { tableExists } from "../schema-inspection.ts";
+import { quoteIdent } from "../sql-identifier.ts";
 import { withoutStatementTimeout } from "../statement-timeout.ts";
 import { toSnakeCase } from "../table-builder.ts";
 import { toPostgresArrayLiteral } from "./postgres-array-literal.ts";

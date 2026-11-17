@@ -19,10 +19,12 @@ function ruleIdsOf(features: Parameters<typeof validateBootRaw>[0]): readonly st
 
 function entityListFeature(screen: Record<string, unknown>) {
   return defineFeature("shop", (r) => {
-    r.entity(createEntity({
+    r.entity(
+      createEntity({
         name: "item",
         fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-      }));
+      }),
+    );
     r.screen({
       id: "item-list",
       type: "entityList",

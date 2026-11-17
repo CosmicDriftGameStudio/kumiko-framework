@@ -10,13 +10,13 @@ import {
   type WhereObject,
   WritePurposes,
 } from "@cosmicdrift/kumiko-framework/db";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   createSystemUser,
   type EntityDefinition,
   type Registry,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { collectFileRefIds, planFileFields } from "../shared/index.ts";
 import { computeCutoff, type Instant } from "./keep-for.ts";

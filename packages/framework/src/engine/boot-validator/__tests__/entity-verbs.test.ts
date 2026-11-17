@@ -26,7 +26,9 @@ const archiveTransition = { field: "status", from: ["open", "closed"], to: "arch
 
 describe("validateEntityVerbs", () => {
   test("accepts a verb with a valid transition", () => {
-    expect(() => validate({ verbs: { archived: { transition: archiveTransition } } })).not.toThrow();
+    expect(() =>
+      validate({ verbs: { archived: { transition: archiveTransition } } }),
+    ).not.toThrow();
   });
 
   test("accepts a verb without a transition", () => {

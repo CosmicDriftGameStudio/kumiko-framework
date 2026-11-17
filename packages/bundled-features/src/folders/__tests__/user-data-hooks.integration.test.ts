@@ -47,7 +47,9 @@ let stack: TestStack;
 const admin = createTestUser({ roles: ["TenantAdmin"] });
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [createFoldersFeature({ parents: ["credit"] }), hostFixturesFeature] });
+  stack = await setupTestStack({
+    features: [createFoldersFeature({ parents: ["credit"] }), hostFixturesFeature],
+  });
   await unsafeCreateEntityTable(stack.db, folderEntity);
   await unsafeCreateEntityTable(stack.db, folderAssignmentEntity);
   await unsafeCreateEntityTable(stack.db, creditEntity);

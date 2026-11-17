@@ -114,12 +114,16 @@ describe("ledger integration — report:subject-totals", () => {
     const { bank, rent } = await seedTwoLeases();
 
     const merged = await totals({ subjectIds: ["l1", "l2"] });
-    expect(merged).toEqual([
-      { subjectId: "l1", period: null, accountId: bank, amount: 2000 },
-      { subjectId: "l1", period: null, accountId: rent, amount: -2000 },
-      { subjectId: "l2", period: null, accountId: bank, amount: 500 },
-      { subjectId: "l2", period: null, accountId: rent, amount: -500 },
-    ].sort((a, b) => a.subjectId.localeCompare(b.subjectId) || a.accountId.localeCompare(b.accountId)));
+    expect(merged).toEqual(
+      [
+        { subjectId: "l1", period: null, accountId: bank, amount: 2000 },
+        { subjectId: "l1", period: null, accountId: rent, amount: -2000 },
+        { subjectId: "l2", period: null, accountId: bank, amount: 500 },
+        { subjectId: "l2", period: null, accountId: rent, amount: -500 },
+      ].sort(
+        (a, b) => a.subjectId.localeCompare(b.subjectId) || a.accountId.localeCompare(b.accountId),
+      ),
+    );
 
     const perPeriod = await totals({ subjectIds: ["l1"], byPeriod: true });
     expect(perPeriod.filter((r) => r.accountId === bank).map((r) => [r.period, r.amount])).toEqual([

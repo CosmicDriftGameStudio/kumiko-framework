@@ -8,7 +8,6 @@ import {
   PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   createEntity,
   createTextField,
@@ -16,6 +15,7 @@ import {
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { resetPiiSubjectKmsForTests, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
@@ -64,7 +64,13 @@ let now: ReturnType<ReturnType<typeof getTemporal>["Now"]["instant"]>;
 
 beforeAll(async () => {
   stack = await setupTestStack({
-    features: [createDataRetentionFeature(), createNotesHistoryFeature({ parents: ["notes-retention-scoped-doc", "notes-retention-global-doc"] }), fixtureFeature],
+    features: [
+      createDataRetentionFeature(),
+      createNotesHistoryFeature({
+        parents: ["notes-retention-scoped-doc", "notes-retention-global-doc"],
+      }),
+      fixtureFeature,
+    ],
   });
   for (const entity of [tenantRetentionOverrideEntity, scopedEntity, globalEntity]) {
     await unsafeCreateEntityTable(stack.db, entity);

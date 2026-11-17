@@ -3,12 +3,12 @@ import type { Meter, Tracer } from "@cosmicdrift/kumiko-types/observability";
 import { BUN_SQL_CONNECTION_ERROR_CODES } from "../db/bun-sql-connection-codes.ts";
 import type { DbTx, PgListenClient, PgListenSubscription } from "../db/connection.ts";
 import { extractPgError } from "../db/pg-error.ts";
-import { selectEventsHeadId } from "../db/queries/event-store.ts";
 import {
   recordConsumerPassFailure,
   selectSnapshotXmax,
   selectSnapshotXmin,
 } from "../db/queries/event-consumer.ts";
+import { selectEventsHeadId } from "../db/queries/event-store.ts";
 import {
   assertNoActiveRowLevelSecurityScope,
   runInSystemRowLevelSecurityScope,

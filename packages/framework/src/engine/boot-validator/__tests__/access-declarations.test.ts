@@ -245,9 +245,15 @@ describe("validateAccessDeclarations", () => {
   test("stream handler escapeHatch with an empty reason throws, naming the handler", () => {
     const feature = defineFeature("notes", (r) => {
       r.entity(noteEntity);
-      r.streamHandler({ name: "note:tail", schema: z.object({}), handler: async function* () {
+      r.streamHandler({
+        name: "note:tail",
+        schema: z.object({}),
+        handler: async function* () {
           yield {};
-        }, access: { roles: ["Admin"] }, escapeHatch: { reason: "", grants: ["systemIdentity"] } });
+        },
+        access: { roles: ["Admin"] },
+        escapeHatch: { reason: "", grants: ["systemIdentity"] },
+      });
     });
     expect(() => validateAccessDeclarations(feature)).toThrow(/Feature notes/);
     expect(() => validateAccessDeclarations(feature)).toThrow(/"note:tail"/);
@@ -256,10 +262,15 @@ describe("validateAccessDeclarations", () => {
   test("stream handler escapeHatch with a non-empty reason boots fine", () => {
     const feature = defineFeature("notes", (r) => {
       r.entity(noteEntity);
-      r.streamHandler({ name: "note:tail", schema: z.object({}), handler: async function* () {
+      r.streamHandler({
+        name: "note:tail",
+        schema: z.object({}),
+        handler: async function* () {
           yield {};
-        }, access: { roles: ["Admin"] },
-          escapeHatch: { reason: "cross-tenant note tail for auth", grants: ["systemIdentity"] } });
+        },
+        access: { roles: ["Admin"] },
+        escapeHatch: { reason: "cross-tenant note tail for auth", grants: ["systemIdentity"] },
+      });
     });
     expect(() => validateAccessDeclarations(feature)).not.toThrow();
   });
@@ -373,7 +384,12 @@ describe("validateAccessDeclarations", () => {
   test("personalData on a stream handler throws", () => {
     const feature = defineFeature("notes", (r) => {
       r.entity(noteEntity);
-      r.streamHandler({ name: "note:watch", schema: z.object({}), handler: async function* () {}, access: { openToAll: { reason: "member stream", personalData: "tenant-members" } } });
+      r.streamHandler({
+        name: "note:watch",
+        schema: z.object({}),
+        handler: async function* () {},
+        access: { openToAll: { reason: "member stream", personalData: "tenant-members" } },
+      });
     });
     expect(() => validateAccessDeclarations(feature)).toThrow(/Feature notes/);
     expect(() => validateAccessDeclarations(feature)).toThrow(/"note:watch"/);
@@ -382,8 +398,13 @@ describe("validateAccessDeclarations", () => {
   test('personalData: "public-intake" on the roles form of a stream handler throws', () => {
     const feature = defineFeature("notes", (r) => {
       r.entity(noteEntity);
-      r.streamHandler({ name: "note:watch", schema: z.object({}), handler: async function* () {}, access: { roles: ["anonymous"], personalData: "public-intake" },
-        rateLimit: { per: "ip", limit: 5, windowSeconds: 60 } });
+      r.streamHandler({
+        name: "note:watch",
+        schema: z.object({}),
+        handler: async function* () {},
+        access: { roles: ["anonymous"], personalData: "public-intake" },
+        rateLimit: { per: "ip", limit: 5, windowSeconds: 60 },
+      });
     });
     expect(() => validateAccessDeclarations(feature)).toThrow(/stream handler "note:watch"/);
   });
@@ -391,7 +412,12 @@ describe("validateAccessDeclarations", () => {
   test("stream handler without personalData boots fine", () => {
     const feature = defineFeature("notes", (r) => {
       r.entity(noteEntity);
-      r.streamHandler({ name: "note:watch", schema: z.object({}), handler: async function* () {}, access: { openToAll: { reason: "member stream" } } });
+      r.streamHandler({
+        name: "note:watch",
+        schema: z.object({}),
+        handler: async function* () {},
+        access: { openToAll: { reason: "member stream" } },
+      });
     });
     expect(() => validateAccessDeclarations(feature)).not.toThrow();
   });
@@ -661,7 +687,8 @@ describe("validateAccessDeclarations — self-bound personal-data fields", () =>
         displayName: createTextField({ personal: "self", find: "none" }),
         bio: createTextField({ personal: { of: "id" }, find: "none" }),
       },
-      ...(write && { access: { write } }), name: "note",
+      ...(write && { access: { write } }),
+      name: "note",
     });
   }
 

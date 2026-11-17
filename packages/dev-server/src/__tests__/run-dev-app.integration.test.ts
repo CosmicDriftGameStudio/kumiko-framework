@@ -31,7 +31,6 @@ import {
   createTextField,
   defineFeature,
   defineQueryHandler,
-  type FeatureDefinition,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
@@ -48,10 +47,12 @@ import { runDevApp } from "../run-dev-app.ts";
 
 function validFeature() {
   return defineFeature("shop", (r) => {
-    r.entity(createEntity({
+    r.entity(
+      createEntity({
         name: "product",
         fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-      }));
+      }),
+    );
   });
 }
 
@@ -141,13 +142,15 @@ describe("runDevApp — auth allowedOrigins forwarding", () => {
 describe("runDevApp — masterKey satisfies the encrypted-field boot gate", () => {
   function encryptedFeature() {
     return defineFeature("dev-master-key-probe", (r) => {
-      r.entity(createEntity({
+      r.entity(
+        createEntity({
           name: "note",
           table: "dev_master_key_probe_note",
           fields: {
             body: createTextField({ personal: false, reason: "test_fixture", encrypted: true }),
           },
-        }));
+        }),
+      );
     });
   }
 

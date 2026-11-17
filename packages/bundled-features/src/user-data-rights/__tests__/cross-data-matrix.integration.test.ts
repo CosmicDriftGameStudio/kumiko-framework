@@ -98,8 +98,12 @@ const deleteNotes: UserDataDeleteHook = async (ctx, _strategy) => {
 };
 
 const testNotesFeature = defineFeature("test-notes", (r) => {
-  r.applyExtension({ name: EXT_USER_DATA, entity: "note", export: exportNotes,
-    delete: deleteNotes });
+  r.applyExtension({
+    name: EXT_USER_DATA,
+    entity: "note",
+    export: exportNotes,
+    delete: deleteNotes,
+  });
 });
 
 beforeAll(async () => {

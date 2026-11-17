@@ -6,7 +6,11 @@ const idOf = (row: Row): string => row.id;
 
 describe("appendUnseenRows", () => {
   test("appends only rows with unknown ids", () => {
-    const result = appendUnseenRows<Row>([{ id: "a" }, { id: "b" }], [{ id: "b" }, { id: "c" }], idOf);
+    const result = appendUnseenRows<Row>(
+      [{ id: "a" }, { id: "b" }],
+      [{ id: "b" }, { id: "c" }],
+      idOf,
+    );
     expect(result.map(idOf)).toEqual(["a", "b", "c"]);
   });
 });

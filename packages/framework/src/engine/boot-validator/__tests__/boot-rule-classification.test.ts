@@ -50,11 +50,13 @@ describe("pii rules", () => {
 
   test("two different rules on one field are both reported", () => {
     const feature = defineFeature("demo", (r) => {
-      r.entity(createEntity({
+      r.entity(
+        createEntity({
           name: "vault",
           table: "Vaults",
           fields: { token: { ...plaintextText, sensitive: true, lookupable: true } },
-        }));
+        }),
+      );
     });
     const ruleIds = ruleIdsOf(() => validateBoot([feature]));
     expect(ruleIds).toContain("pii/sensitive-without-ciphertext");
@@ -74,13 +76,15 @@ describe("pii rules", () => {
 describe("entity-list rules", () => {
   test("searchable:false without defaultSort on a filterable field reports both rules", () => {
     const feature = defineFeature("demo", (r) => {
-      r.entity(createEntity({
+      r.entity(
+        createEntity({
           name: "item",
           table: "Items",
           fields: {
             name: createTextField({ filterable: true, personal: false, reason: "test_fixture" }),
           },
-        }));
+        }),
+      );
       r.screen({
         id: "item-list",
         type: "entityList",
@@ -172,10 +176,12 @@ describe("api and extension rules", () => {
 describe("list and action rules", () => {
   test("card meta overflow is one classified violation", () => {
     const feature = defineFeature("cards", (r) => {
-      r.entity(createEntity({
+      r.entity(
+        createEntity({
           name: "item",
           fields: { name: text(), a: text(), b: text(), c: text(), d: text() },
-        }));
+        }),
+      );
       r.screen({
         id: "item-list",
         type: "entityList",

@@ -52,10 +52,7 @@ import {
 import { createInboundMailFoundationFeature } from "../feature.ts";
 import { createInboundMailSupervisor, type RawInboundMessage } from "../index.ts";
 import { ingestFailureEntity } from "../ingest-failures.ts";
-import {
-  inboundMessagesProjectionTable,
-  mailAccountsProjectionTable,
-} from "../projection.ts";
+import { inboundMessagesProjectionTable, mailAccountsProjectionTable } from "../projection.ts";
 import { quarantineEntity } from "../quarantine-entities.ts";
 
 let stack: TestStack;

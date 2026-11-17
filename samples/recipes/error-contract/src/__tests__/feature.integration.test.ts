@@ -8,10 +8,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { updateRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
-import {
-  setupTestStack,
-  type TestStack,
-} from "@cosmicdrift/kumiko-testing/stack";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { orderEntity, ordersLiteFailures, ordersLiteFeature } from "../feature";
 
 let stack: TestStack;

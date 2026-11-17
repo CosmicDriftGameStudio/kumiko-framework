@@ -70,7 +70,8 @@ export function createDocumentEntity(options: DocumentEntityOptions) {
         name: "read_filed_documents_file_unique",
         where: sql`"is_deleted" = false`,
       },
-    ], name: "filed-document",
+    ],
+    name: "filed-document",
   });
 }
 

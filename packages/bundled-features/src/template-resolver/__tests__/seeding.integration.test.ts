@@ -159,7 +159,10 @@ describe("parallel seeds", () => {
       content: "x",
       ifExists: "skip" as const,
     };
-    const [a, b] = await Promise.all([seedTextBlock(stack.db, opts), seedTextBlock(stack.db, opts)]);
+    const [a, b] = await Promise.all([
+      seedTextBlock(stack.db, opts),
+      seedTextBlock(stack.db, opts),
+    ]);
     expect(a.id).toBe(b.id);
     const rows = await selectMany(stack.db, templateResourcesTable, {
       tenantId: TENANT_ID,

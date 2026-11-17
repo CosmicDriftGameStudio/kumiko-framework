@@ -389,13 +389,7 @@ async function settleSuccessfulWrite(
     if (lifecycleFailure) return lifecycleFailure;
   }
 
-  scheduleWriteAfterCommit(
-    ctx,
-    args.type,
-    args.user,
-    args.result,
-    args.afterCommitHooks,
-  );
+  scheduleWriteAfterCommit(ctx, args.type, args.user, args.result, args.afterCommitHooks);
   return undefined;
 }
 

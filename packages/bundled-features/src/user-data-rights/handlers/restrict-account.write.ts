@@ -107,7 +107,9 @@ export const restrictAccountWrite = defineWriteHandler({
       );
     }
 
-    await updateUserLifecycle(ctx.db.unsafeRawAllTenants(), targetUserId, { status: USER_STATUS.Restricted });
+    await updateUserLifecycle(ctx.db.unsafeRawAllTenants(), targetUserId, {
+      status: USER_STATUS.Restricted,
+    });
 
     // Cross-feature: all live sessions are revoked; otherwise the user could
     // continue writing with an existing JWT until token expiry.

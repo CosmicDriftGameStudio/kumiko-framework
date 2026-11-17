@@ -52,7 +52,7 @@ export type MockDispatcher = Dispatcher & {
 export function createMockDispatcher(options: MockDispatcherOptions = {}): MockDispatcher {
   const writeHandler: MockWriteHandler = options.write ?? (() => ({ isSuccess: true, data: {} }));
   const queryHandler: MockQueryHandler = options.query ?? (() => ({ isSuccess: true, data: {} }));
-  const streamHandler: MockStreamHandler = options.stream ?? (async function* () {});
+  const streamHandler: MockStreamHandler = options.stream ?? async function* () {};
 
   // TData/TChunk exist only at the type level: the handler decides the payload, the
   // test asserts on it. The overload states the generic contract without a cast.

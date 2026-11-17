@@ -540,49 +540,52 @@ function KumikoAppRoot(props: KumikoAppRootProps): ReactNode {
             <AppFeaturesProvider features={app?.features ?? EMPTY_FEATURES}>
               <DispatcherProvider dispatcher={props.dispatcher}>
                 <PageVisibilityProvider value={documentVisibility}>
-                <DraftStorageProvider value={props.draftStorage}>
-                  <LiveEventsProvider value={props.liveEvents}>
-                    <DashboardBodyProvider value={WebDashboardBody}>
-                      <CustomScreensProvider value={props.customScreens}>
-                        <ColumnRenderersProvider value={props.columnRenderers}>
-                          <ContentEditorsProvider value={props.contentEditors}>
-                            <ContentPreviewsProvider value={props.contentPreviews}>
-                              <ExtensionSectionsProvider value={props.extensionSectionComponents}>
-                                <ClientActionsProvider value={props.clientActions}>
-                                  <NavProvidersProvider value={navProviders} entities={navEntities}>
-                                    <ResolversProvider resolvers={props.resolvers}>
-                                      <ToastProvider>
-                                        <ToastActionNotifier>
-                                          <UpdateChecker />
-                                          <OfflineBanner />
-                                          <PwaSupport />
-                                          <LeaveGuardDialog />
-                                          <SessionEndedSignalProvider
-                                            signal={props.sessionEndedSignal}
-                                          >
-                                            {stackWrappers(
-                                              props.providers,
-                                              stackWrappers(
-                                                props.gates,
-                                                <ListStateStoreBoot>
-                                                  {screenNode}
-                                                </ListStateStoreBoot>,
-                                              ),
-                                            )}
-                                          </SessionEndedSignalProvider>
-                                        </ToastActionNotifier>
-                                      </ToastProvider>
-                                    </ResolversProvider>
-                                  </NavProvidersProvider>
-                                </ClientActionsProvider>
-                              </ExtensionSectionsProvider>
-                            </ContentPreviewsProvider>
-                          </ContentEditorsProvider>
-                        </ColumnRenderersProvider>
-                      </CustomScreensProvider>
-                    </DashboardBodyProvider>
-                  </LiveEventsProvider>
-                </DraftStorageProvider>
+                  <DraftStorageProvider value={props.draftStorage}>
+                    <LiveEventsProvider value={props.liveEvents}>
+                      <DashboardBodyProvider value={WebDashboardBody}>
+                        <CustomScreensProvider value={props.customScreens}>
+                          <ColumnRenderersProvider value={props.columnRenderers}>
+                            <ContentEditorsProvider value={props.contentEditors}>
+                              <ContentPreviewsProvider value={props.contentPreviews}>
+                                <ExtensionSectionsProvider value={props.extensionSectionComponents}>
+                                  <ClientActionsProvider value={props.clientActions}>
+                                    <NavProvidersProvider
+                                      value={navProviders}
+                                      entities={navEntities}
+                                    >
+                                      <ResolversProvider resolvers={props.resolvers}>
+                                        <ToastProvider>
+                                          <ToastActionNotifier>
+                                            <UpdateChecker />
+                                            <OfflineBanner />
+                                            <PwaSupport />
+                                            <LeaveGuardDialog />
+                                            <SessionEndedSignalProvider
+                                              signal={props.sessionEndedSignal}
+                                            >
+                                              {stackWrappers(
+                                                props.providers,
+                                                stackWrappers(
+                                                  props.gates,
+                                                  <ListStateStoreBoot>
+                                                    {screenNode}
+                                                  </ListStateStoreBoot>,
+                                                ),
+                                              )}
+                                            </SessionEndedSignalProvider>
+                                          </ToastActionNotifier>
+                                        </ToastProvider>
+                                      </ResolversProvider>
+                                    </NavProvidersProvider>
+                                  </ClientActionsProvider>
+                                </ExtensionSectionsProvider>
+                              </ContentPreviewsProvider>
+                            </ContentEditorsProvider>
+                          </ColumnRenderersProvider>
+                        </CustomScreensProvider>
+                      </DashboardBodyProvider>
+                    </LiveEventsProvider>
+                  </DraftStorageProvider>
                 </PageVisibilityProvider>
               </DispatcherProvider>
             </AppFeaturesProvider>

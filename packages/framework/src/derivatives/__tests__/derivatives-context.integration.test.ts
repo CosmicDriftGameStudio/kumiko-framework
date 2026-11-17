@@ -77,14 +77,19 @@ const derivativesTestFeature = defineFeature("derivativestest", (r) => {
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
 
-  r.job({ name: "record", trigger: { manual: true }, runIn: "worker", handler: async (payload, ctx) => {
-    const fileRefId = (payload as { fileRefId: string }).fileRefId;
-    if (!ctx.services.derivatives) {
-      throw new Error("no ctx.derivatives on job ctx");
-    }
-    const result = await ctx.services.derivatives.variant(fileRefId, { maxEdge: 200 }, "card");
-    jobResults.push(result);
-  } });
+  r.job({
+    name: "record",
+    trigger: { manual: true },
+    runIn: "worker",
+    handler: async (payload, ctx) => {
+      const fileRefId = (payload as { fileRefId: string }).fileRefId;
+      if (!ctx.services.derivatives) {
+        throw new Error("no ctx.derivatives on job ctx");
+      }
+      const result = await ctx.services.derivatives.variant(fileRefId, { maxEdge: 200 }, "card");
+      jobResults.push(result);
+    },
+  });
 });
 
 let stack: TestStack;

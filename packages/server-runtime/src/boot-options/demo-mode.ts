@@ -8,8 +8,8 @@ import {
   type DemoModePayload,
 } from "@cosmicdrift/kumiko-types/demo-mode-types";
 
-export { DEMO_MODE_PATH };
 export type { DemoAccountRole, DemoModePayload };
+export { DEMO_MODE_PATH };
 
 /** A role alone, or a role with the label the banner shows next to the login. */
 export type DemoAccountEntry =

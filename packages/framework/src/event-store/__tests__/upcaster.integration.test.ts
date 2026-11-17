@@ -30,8 +30,8 @@ import {
 import type { StoredEvent } from "../../event-store/index.ts";
 import { rebuildProjection } from "../../pipeline/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
-import { append } from "../index.ts";
 import { EventVersionAheadError } from "../errors.ts";
+import { append } from "../index.ts";
 import { type EventUpcasters, upcastStoredEvent } from "../upcaster.ts";
 
 // --- Fixture entity + projection table ---
@@ -253,9 +253,9 @@ describe("upcaster: in-memory transform chain", () => {
       createdBy: admin.id,
     };
 
-    await expect(upcastStoredEvent(raw, upcasters, { db: testDb.db, tenantId: admin.tenantId })).rejects.toThrow(
-      EventVersionAheadError,
-    );
+    await expect(
+      upcastStoredEvent(raw, upcasters, { db: testDb.db, tenantId: admin.tenantId }),
+    ).rejects.toThrow(EventVersionAheadError);
   });
 
   test("an unregistered event type above version 1 is rejected", async () => {
@@ -274,9 +274,9 @@ describe("upcaster: in-memory transform chain", () => {
       createdBy: admin.id,
     };
 
-    await expect(upcastStoredEvent(raw, upcasters, { db: testDb.db, tenantId: admin.tenantId })).rejects.toThrow(
-      EventVersionAheadError,
-    );
+    await expect(
+      upcastStoredEvent(raw, upcasters, { db: testDb.db, tenantId: admin.tenantId }),
+    ).rejects.toThrow(EventVersionAheadError);
   });
 
   test("a failing transform propagates its error", async () => {
@@ -310,7 +310,9 @@ describe("upcaster: in-memory transform chain", () => {
       createdBy: admin.id,
     };
 
-    await expect(upcastStoredEvent(raw, failing, { db: testDb.db, tenantId: admin.tenantId })).rejects.toThrow(/payload malformed/);
+    await expect(
+      upcastStoredEvent(raw, failing, { db: testDb.db, tenantId: admin.tenantId }),
+    ).rejects.toThrow(/payload malformed/);
   });
 });
 

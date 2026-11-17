@@ -1,16 +1,9 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
-import {
-  setupTestStack,
-  type TestStack,
-} from "@cosmicdrift/kumiko-testing/stack";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { z } from "zod";
-import {
-  accessControlFeature,
-  projectTable,
-  taskTable,
-} from "../feature";
+import { accessControlFeature, projectTable, taskTable } from "../feature";
 
 let stack: TestStack;
 const admin = TestUsers.admin; // { id: 1, tenantId: 1, roles: ["Admin"] }

@@ -16,7 +16,7 @@ import {
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import {
-  CHANNEL_WHATSAPP_FEATURE,
+  type CHANNEL_WHATSAPP_FEATURE,
   WHATSAPP_EVENT_RETENTION_DAYS,
   WHATSAPP_RETENTION_CURSOR_ENTITY,
 } from "./constants.ts";
@@ -48,13 +48,14 @@ export const whatsappRetentionCursorEntity = createEntity({
       reason: "technical_reference",
     }),
   },
-  indexes: [{ unique: true, columns: ["tenantId"], name: "store_whatsapp_retention_cursors_tenant" }],
+  indexes: [
+    { unique: true, columns: ["tenantId"], name: "store_whatsapp_retention_cursors_tenant" },
+  ],
 });
 
-export const whatsappRetentionCursorTable = deriveEntityTableMeta(
-  whatsappRetentionCursorEntity,
-  { source: "unmanaged" },
-);
+export const whatsappRetentionCursorTable = deriveEntityTableMeta(whatsappRetentionCursorEntity, {
+  source: "unmanaged",
+});
 
 type WhatsappStreamType =
   | typeof WHATSAPP_MESSAGE_AGGREGATE_TYPE
@@ -79,7 +80,11 @@ async function eraseWhatsappStreamKeys(
 ): Promise<number> {
   const kms = configuredPiiSubjectKms();
   const cursorRow = (
-    await db.selectMany<WhatsappRetentionCursorRow>(whatsappRetentionCursorTable, { tenantId: db.tenantId }, { limit: 1 })
+    await db.selectMany<WhatsappRetentionCursorRow>(
+      whatsappRetentionCursorTable,
+      { tenantId: db.tenantId },
+      { limit: 1 },
+    )
   )[0];
   let cursor = cursorRow === undefined ? undefined : BigInt(cursorRow.lastEventId);
   let cursorStored = cursorRow !== undefined;
@@ -108,10 +113,7 @@ async function eraseWhatsappStreamKeys(
     let lastProcessedId: bigint | undefined;
     let stoppedAtCutoff = false;
     for (const row of page) {
-      if (
-        args.cutoff !== undefined &&
-        Temporal.Instant.compare(row.createdAt, args.cutoff) >= 0
-      ) {
+      if (args.cutoff !== undefined && Temporal.Instant.compare(row.createdAt, args.cutoff) >= 0) {
         stoppedAtCutoff = true;
         break;
       }
@@ -173,7 +175,11 @@ export function registerWhatsappRetention(
   r.storeTable(whatsappRetentionCursorTable, {
     reason: "read_side.whatsapp_retention_cursors_direct_write",
   });
-  r.applyExtension({ name: EXT_TENANT_DATA, entity: WHATSAPP_RETENTION_CURSOR_ENTITY, destroy: whatsappTenantDestroyHook });
+  r.applyExtension({
+    name: EXT_TENANT_DATA,
+    entity: WHATSAPP_RETENTION_CURSOR_ENTITY,
+    destroy: whatsappTenantDestroyHook,
+  });
   r.job({
     name: "whatsapp-event-retention",
     trigger: { maintenance: true },

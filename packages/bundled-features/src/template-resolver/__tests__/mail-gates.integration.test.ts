@@ -21,13 +21,16 @@ const mailer = defineFeature("gate-mailer", (r) => {
     access: { roles: ["TenantAdmin"] },
     handler: async () => ({ isSuccess: true as const, data: {} }),
   });
-  r.notification({ name: "hello", trigger: { on: "create" },
+  r.notification({
+    name: "hello",
+    trigger: { on: "create" },
     recipient: () => null,
     data: () => ({}),
     variables: {
       name: templateVariable.text({ required: true }),
       total: templateVariable.money(),
-    } });
+    },
+  });
 });
 
 const SLUG = "gate-mailer:notify:hello";

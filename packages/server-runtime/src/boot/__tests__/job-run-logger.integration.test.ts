@@ -47,9 +47,13 @@ const jobRuns: Array<{ readonly note: string }> = [];
 
 // No `runIn` — the exact case the lane-default regression hits.
 const probeFeature = defineFeature("probe", (r) => {
-  r.job({ name: "noteIt", trigger: { manual: true }, handler: async (payload) => {
-    jobRuns.push({ note: (payload as { note: string }).note });
-  } });
+  r.job({
+    name: "noteIt",
+    trigger: { manual: true },
+    handler: async (payload) => {
+      jobRuns.push({ note: (payload as { note: string }).note });
+    },
+  });
 });
 
 beforeAll(async () => {
@@ -141,9 +145,15 @@ const attachDispatcherFeature = defineFeature("jobattach", (r) => {
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
 
-  r.job({ name: "record", trigger: { manual: true },
-      retries: 0,
-      escapeHatch: { reason: "test job reads the note list as a signed-in user", grants: ["systemIdentity"] }, handler: async (payload, ctx) => {
+  r.job({
+    name: "record",
+    trigger: { manual: true },
+    retries: 0,
+    escapeHatch: {
+      reason: "test job reads the note list as a signed-in user",
+      grants: ["systemIdentity"],
+    },
+    handler: async (payload, ctx) => {
       try {
         const { text } = attachJobPayload.parse(payload);
         const writeResult = await ctx.dispatch.write("jobattach:write:create", { text });
@@ -156,7 +166,8 @@ const attachDispatcherFeature = defineFeature("jobattach", (r) => {
         attachFailures.push(error instanceof Error ? error.message : String(error));
         throw error;
       }
-    } });
+    },
+  });
 });
 
 describe("startDevJobRunners attaches the dispatcher", () => {
@@ -221,14 +232,22 @@ describe("startDevJobRunners isolates queues by queueNamePrefix", () => {
     const runsB: string[] = [];
 
     const isoFeatureA = defineFeature("iso", (r) => {
-      r.job({ name: "mark", trigger: { manual: true }, handler: async (payload) => {
-        runsA.push((payload as { note: string }).note);
-      } });
+      r.job({
+        name: "mark",
+        trigger: { manual: true },
+        handler: async (payload) => {
+          runsA.push((payload as { note: string }).note);
+        },
+      });
     });
     const isoFeatureB = defineFeature("iso", (r) => {
-      r.job({ name: "mark", trigger: { manual: true }, handler: async (payload) => {
-        runsB.push((payload as { note: string }).note);
-      } });
+      r.job({
+        name: "mark",
+        trigger: { manual: true },
+        handler: async (payload) => {
+          runsB.push((payload as { note: string }).note);
+        },
+      });
     });
 
     const registryA = createRegistry([isoFeatureA, createJobsFeature()]);

@@ -510,7 +510,9 @@ defineFeature("f", (r) => {
     const reparsed = parse(rendered);
     expect(reparsed.errors).toEqual([]);
     const reparsedPattern = findPattern(reparsed.patterns, "streamHandler");
-    expect(reparsedPattern).toMatchObject({ escapeHatch: { reason: "r", grants: ["systemIdentity"] } });
+    expect(reparsedPattern).toMatchObject({
+      escapeHatch: { reason: "r", grants: ["systemIdentity"] },
+    });
   });
 });
 

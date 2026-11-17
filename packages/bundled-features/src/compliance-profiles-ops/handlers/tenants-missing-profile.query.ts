@@ -1,8 +1,8 @@
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import { defineQueryHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { requireSystemDb } from "../../shared/index.ts";
 import { tenantComplianceProfileTable } from "../../compliance-profiles/index.ts";
+import { requireSystemDb } from "../../shared/index.ts";
 import { decryptTenantNames, tenantTable } from "../../tenant/index.ts";
 
 // SystemAdmin platform-wide counterpart to needs-profile.

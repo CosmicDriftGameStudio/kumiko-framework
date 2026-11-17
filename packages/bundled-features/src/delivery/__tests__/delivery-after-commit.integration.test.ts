@@ -56,11 +56,15 @@ const queuedSends: string[] = [];
 
 const queuedChannelFeature = defineFeature("queued-probe", (r) => {
   r.requires({ features: ["delivery"] });
-  r.applyExtension({ name: DELIVERY_CHANNEL_EXTENSION, entity: "queuedProbe", mode: "queued",
+  r.applyExtension({
+    name: DELIVERY_CHANNEL_EXTENSION,
+    entity: "queuedProbe",
+    mode: "queued",
     send: async (address) => {
       queuedSends.push(address);
       return { status: "sent" };
-    } });
+    },
+  });
 });
 
 const probeFeature = defineFeature("after-commit-probe", (r) => {

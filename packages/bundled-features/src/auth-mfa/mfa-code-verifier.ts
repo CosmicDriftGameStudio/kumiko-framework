@@ -1,9 +1,9 @@
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   declareEscapeHatch,
   type HandlerContext,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { findUserMfaRow } from "./db/queries.ts";
 import { verifyTotpFactor } from "./verify-factor.ts";
 

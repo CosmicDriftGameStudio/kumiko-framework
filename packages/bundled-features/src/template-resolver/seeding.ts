@@ -15,7 +15,6 @@ import {
   selectMany,
   type TenantDb,
 } from "@cosmicdrift/kumiko-framework/db";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   createSystemUser,
   type Registry,
@@ -29,6 +28,7 @@ import {
   getStreamVersion,
   getUnscopedStreamMaxVersionForSeed,
 } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import type { Dispatcher } from "@cosmicdrift/kumiko-framework/pipeline";
 import { runEventStoreSeed, type SeedIfExists } from "@cosmicdrift/kumiko-framework/seeding";

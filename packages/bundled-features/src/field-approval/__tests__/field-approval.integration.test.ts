@@ -8,11 +8,7 @@ import {
   isPiiCiphertext,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
-import {
-  createEntity,
-  createTextField,
-  defineFeature,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
@@ -119,11 +115,7 @@ async function seedContact(): Promise<string> {
 }
 
 async function currentIban(contactId: string): Promise<unknown> {
-  const detail = await stack.http.queryOk<Record<string, unknown>>(
-    DETAIL,
-    { id: contactId },
-    accA,
-  );
+  const detail = await stack.http.queryOk<Record<string, unknown>>(DETAIL, { id: contactId }, accA);
   return detail["iban"];
 }
 

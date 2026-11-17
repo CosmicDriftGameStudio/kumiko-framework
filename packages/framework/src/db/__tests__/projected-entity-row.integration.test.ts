@@ -94,7 +94,9 @@ const peFeature = defineFeature("pe", (r) => {
     apply: receiptApply,
   });
 
-  r.writeHandler(defineEntityCreateHandler("pe-order", orderEntity, { access: { roles: ["Admin"] } }));
+  r.writeHandler(
+    defineEntityCreateHandler("pe-order", orderEntity, { access: { roles: ["Admin"] } }),
+  );
 
   const eventWrites = [
     ["order:pay", paid],
@@ -110,7 +112,8 @@ const peFeature = defineFeature("pe", (r) => {
             aggregateId: event.payload.id,
             aggregateType: "pe-order",
             payload: { note: event.payload.note },
-            blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
+            blindAppendReason:
+              "test fixture appends an independent fact; ordering is not under test",
           });
           return { isSuccess: true as const, data: { id: event.payload.id } };
         },

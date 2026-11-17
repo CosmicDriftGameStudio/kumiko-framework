@@ -20,7 +20,11 @@ export const check: RepoCheck = {
         doc.problems.map((message) => ({ file: doc.relPath, line: 1, message })),
       ),
       warnings: docs.flatMap((doc) =>
-        statusDocHygieneWarnings(doc, today).map((message) => ({ file: doc.relPath, line: 1, message })),
+        statusDocHygieneWarnings(doc, today).map((message) => ({
+          file: doc.relPath,
+          line: 1,
+          message,
+        })),
       ),
       matchedFiles: docs.length,
       notApplicable: docs.length === 0,

@@ -15,7 +15,13 @@ import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-feature
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { type SessionUser, SYSTEM_USER_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import { createFilesFeature, createInMemoryFileProvider, fileRefsTable, type FileStorageProvider, type InMemoryFileProvider } from "@cosmicdrift/kumiko-framework/files";
+import {
+  createFilesFeature,
+  createInMemoryFileProvider,
+  type FileStorageProvider,
+  fileRefsTable,
+  type InMemoryFileProvider,
+} from "@cosmicdrift/kumiko-framework/files";
 import {
   buildMultipartBody,
   patchFileInstanceofForBunTest,

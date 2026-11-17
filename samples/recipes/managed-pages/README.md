@@ -146,7 +146,7 @@ container so the tenant CSS stays contained. The default skeleton
 | Draft leak to anonymous visitors                          | published-only; drafts → 404                                        |
 | `@import`/`url()`/`expression()`/`</style>` in custom CSS | allowlist-by-construction sanitizer (rebuilt from validated tokens) |
 | Scope-escape / overlay onto host chrome                   | scope-prefix + `position`/`isolation`/`overflow` containment        |
-| Untrusted tenant abusing CSS                              | tier-gate (`branding-css`) + `allowCustomCss` opt-in           |
+| Untrusted tenant abusing CSS                              | tier-gate (`branding-css`) + `allowCustomCss` opt-in                |
 
 Custom-CSS sanitization for untrusted tenants is **best-effort defense-in-depth**:
 a tenant can still restyle its **own** page area within the clip. Keep it

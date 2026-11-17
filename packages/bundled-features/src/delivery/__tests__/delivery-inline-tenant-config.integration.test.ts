@@ -10,19 +10,19 @@ import {
   templateVariable,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { createRendererMailHtmlFeature } from "../../renderer-mail-html/index.ts";
 import {
   setupTestStack,
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
+import { BRANDING_QN, createBrandingFeature } from "../../branding/index.ts";
 import { createChannelEmailFeature } from "../../channel-email/feature.ts";
 import { createInMemoryTransport } from "../../channel-email/types.ts";
 import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.ts";
 import { createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";
-import { BRANDING_QN, createBrandingFeature } from "../../branding/index.ts";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature.ts";
+import { createRendererMailHtmlFeature } from "../../renderer-mail-html/index.ts";
 import { createTemplateResolverFeature } from "../../template-resolver/feature.ts";
 import { seedNotificationTemplates } from "../../template-resolver/seeding.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
@@ -36,9 +36,12 @@ const transport = createInMemoryTransport();
 
 const probe = defineFeature("inline-config-probe", (r) => {
   r.requires({ features: ["delivery"] });
-  r.notification({ name: "hello", variables: { name: templateVariable.text({ required: true }) },
+  r.notification({
+    name: "hello",
+    variables: { name: templateVariable.text({ required: true }) },
     template: { en: { body: '<p>Hello <span data-variable="name"></span></p>' } },
-    meta: { en: { subject: "Hello" } } });
+    meta: { en: { subject: "Hello" } },
+  });
 });
 
 const NOTIFICATION_TYPE = "inline-config-probe:notify:hello";

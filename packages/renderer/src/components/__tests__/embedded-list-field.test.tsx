@@ -21,9 +21,9 @@ import {
   type EmbeddedListInputProps,
   PrimitivesProvider,
 } from "../../primitives.tsx";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 import { EmbeddedListField } from "../embedded-list-field.tsx";
 import { RenderField, type RenderFieldProps } from "../render-field.tsx";
-import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 
 let captured: EmbeddedListInputProps | undefined;
 const captureEmbeddedListInput: ComponentType<EmbeddedListInputProps> = (props) => {

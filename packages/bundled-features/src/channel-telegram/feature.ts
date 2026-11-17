@@ -22,17 +22,24 @@ export function createChannelTelegramFeature(
     r.requires({ features: ["delivery"] });
     r.requires({ features: ["secrets"] });
 
-    const botToken = r.secret({ name: "botToken", label: { en: "Telegram bot token" },
+    const botToken = r.secret({
+      name: "botToken",
+      label: { en: "Telegram bot token" },
       hint: {
         en: 'Token from @BotFather. Used for every Telegram chat the tenant addresses via route: { telegram: "<chat id>" }.',
       },
       redact: () => "••••••••",
       scope: "tenant",
-      valueSchema: z.string().refine(isTelegramBotToken, "invalid bot token") });
+      valueSchema: z.string().refine(isTelegramBotToken, "invalid bot token"),
+    });
 
     const channel = createTelegramChannel(options, botToken.name);
     r.translations({ keys: { "delivery.channel.telegram": { en: "Telegram" } } });
-    r.applyExtension({ name: DELIVERY_CHANNEL_EXTENSION, entity: "telegram", mode: channel.mode,
-      send: channel.send });
+    r.applyExtension({
+      name: DELIVERY_CHANNEL_EXTENSION,
+      entity: "telegram",
+      mode: channel.mode,
+      send: channel.send,
+    });
   });
 }

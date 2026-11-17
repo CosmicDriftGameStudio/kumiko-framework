@@ -12,7 +12,6 @@ import { bootRuleError } from "./boot-rule.ts";
 import type { BootWarningSink } from "./boot-warning.ts";
 import { NAV_RULES } from "./nav-rules.ts";
 
-
 export function collectWriteHandlerQns(features: readonly FeatureDefinition[]): Set<string> {
   const set = new Set<string>();
   for (const f of features) {
@@ -181,7 +180,7 @@ export function warnOnNavAccessInversion(
       kind: "nav/access-inversion",
       feature: navDef.featureName,
       message:
-      `Nav entry "${qn}" requires roles [${leafRoles.join(", ")}] but its parent ` +
+        `Nav entry "${qn}" requires roles [${leafRoles.join(", ")}] but its parent ` +
         `"${navDef.parent}" only allows [${parentRoles.join(", ")}] — no user who can see the ` +
         `parent section could ever see this entry. If this is intentional, ignore this warning; ` +
         `otherwise align the role sets.`,
@@ -228,7 +227,7 @@ export function warnOnUnreachableNavScreens(
       kind: "nav/screen-unreachable",
       feature: navDef.featureName,
       message:
-      `Nav entry "${qn}" declared by feature "${navDef.featureName}" points at ` +
+        `Nav entry "${qn}" declared by feature "${navDef.featureName}" points at ` +
         `screen "${screenQn}", which no allowlisted nav entry reaches — it is unreachable via ` +
         `the sidebar. If this is intentional (e.g. reachable through a generated hub), add ` +
         `"${qn}" to navAllowlistExempt; otherwise ${remedy}.`,

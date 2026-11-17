@@ -21,7 +21,6 @@ import {
   buildEntityTable,
   createEventStoreExecutor,
 } from "@cosmicdrift/kumiko-framework/db";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   createEntity,
   createEntityExecutor,
@@ -31,6 +30,7 @@ import {
   type UserDataDeleteHook,
   type UserDataExportHook,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
@@ -118,9 +118,13 @@ const propertyFeature = defineFeature("property-t15c", (r) => {
     entityTable: propertyTable,
     userIdColumn: "inserted_by_id",
   });
-  r.applyExtension({ name: EXT_USER_DATA, entity: "property", export: hostExportHook,
+  r.applyExtension({
+    name: EXT_USER_DATA,
+    entity: "property",
+    export: hostExportHook,
     delete: hostDeleteHook,
-    escapeHatch: { reason: HOST_HOOK_REASON } });
+    escapeHatch: { reason: HOST_HOOK_REASON },
+  });
 
   const { executor } = createEntityExecutor(propertyEntity);
   r.writeHandler({

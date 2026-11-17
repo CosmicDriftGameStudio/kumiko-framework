@@ -251,10 +251,15 @@ const gateFeature = defineFeature("gatetest", (r) => {
     access: { roles: ["Admin"] },
   });
 
-  r.streamHandler({ name: "delete-hard", schema: z.object({ id: z.uuid() }), handler: async function* (query, ctx) {
+  r.streamHandler({
+    name: "delete-hard",
+    schema: z.object({ id: z.uuid() }),
+    handler: async function* (query, ctx) {
       await hardExecutor.delete({ id: query.payload.id }, query.user, ctx.db);
       yield "deleted";
-    }, access: { roles: ["Admin"] } });
+    },
+    access: { roles: ["Admin"] },
+  });
 
   r.entity(promptEntity);
   r.crud(promptEntity, {
@@ -284,12 +289,16 @@ const gateFeature = defineFeature("gatetest", (r) => {
   });
 
   for (const [name, probe] of Object.entries(jobProbes)) {
-    r.job({ name, trigger: { manual: true },
-        retries: 0,
-        ...(probe.exemption && { irreversibleWithoutEntryHandler: probe.exemption }), handler: async (payload, ctx) => {
+    r.job({
+      name,
+      trigger: { manual: true },
+      retries: 0,
+      ...(probe.exemption && { irreversibleWithoutEntryHandler: probe.exemption }),
+      handler: async (payload, ctx) => {
         const { id } = jobPayloadSchema.parse(payload);
         jobOutcomes.set(name, await probe.act(id, ctx));
-      } });
+      },
+    });
   }
 
   for (const [label, exemption] of [

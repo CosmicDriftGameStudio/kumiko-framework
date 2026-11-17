@@ -60,7 +60,9 @@ export async function setupReadinessStack(options: {
 
 // Marks the current end of the event log; the returned reader lists only events appended after it.
 export async function markEvents(stack: TestStack) {
-  const known = new Set((await selectMany<StoredEvent>(stack.db, eventsTable, {})).map((event) => event.id));
+  const known = new Set(
+    (await selectMany<StoredEvent>(stack.db, eventsTable, {})).map((event) => event.id),
+  );
   return async () =>
     (await selectMany<StoredEvent>(stack.db, eventsTable, {}))
       .filter((event) => !known.has(event.id))

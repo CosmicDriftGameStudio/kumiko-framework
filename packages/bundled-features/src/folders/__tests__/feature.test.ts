@@ -90,7 +90,8 @@ describe("createFoldersFeature access-options", () => {
   });
 
   test("access:{openToAll} applies to every write- and query-path", () => {
-    const feature = createFoldersFeature({ parents: ["credit"],
+    const feature = createFoldersFeature({
+      parents: ["credit"],
       access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
     });
     for (const path of [
@@ -107,7 +108,8 @@ describe("createFoldersFeature access-options", () => {
   });
 
   test("access takes precedence over the roles shorthand", () => {
-    const feature = createFoldersFeature({ parents: ["credit"],
+    const feature = createFoldersFeature({
+      parents: ["credit"],
       access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       roles: ["Admin"],
     });
@@ -123,7 +125,8 @@ describe("createFoldersFeature toggleable-option (tier-gating)", () => {
   });
 
   test("toggleable:{default:false} makes the feature tier-gatable, fail-closed", () => {
-    const feature = createFoldersFeature({ parents: ["credit"],
+    const feature = createFoldersFeature({
+      parents: ["credit"],
       access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       toggleable: { default: false },
     });

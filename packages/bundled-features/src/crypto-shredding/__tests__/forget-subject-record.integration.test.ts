@@ -24,7 +24,6 @@ import {
   createEventStoreExecutor,
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   createEntity,
   createTextField,
@@ -33,6 +32,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { FrameworkReasons } from "@cosmicdrift/kumiko-framework/errors";
 import { append, eventsTable, loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetPiiSubjectKmsForTests, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -79,10 +79,13 @@ const recordProbeEntity = createEntity({
 });
 const recordProbeTable = buildEntityTable(recordProbeEntity);
 const recordProbeFeature = defineFeature("forget-subject-record-probe", (r) => {
-  r.crud({ ...recordProbeEntity, name: RECORD_PROBE_ENTITY_NAME }, {
-    verbs: { create: false, delete: false, detail: false, list: false },
-    write: { access: { roles: ["DataProtectionOfficer"] } },
-  });
+  r.crud(
+    { ...recordProbeEntity, name: RECORD_PROBE_ENTITY_NAME },
+    {
+      verbs: { create: false, delete: false, detail: false, list: false },
+      write: { access: { roles: ["DataProtectionOfficer"] } },
+    },
+  );
 });
 
 function recordProbeExecutor() {
@@ -480,9 +483,7 @@ const blockDeleteProbeEntity = createEntity({
     }),
   },
 });
-const blockDeleteProbeTable = buildEntityTable(
-  blockDeleteProbeEntity,
-);
+const blockDeleteProbeTable = buildEntityTable(blockDeleteProbeEntity);
 const blockDeleteProbeFeature = defineFeature("forget-subject-blockdelete-probe", (r) => {
   r.entity({ ...blockDeleteProbeEntity, name: BLOCK_DELETE_PROBE_ENTITY_NAME });
 });

@@ -7,7 +7,6 @@ import {
   tryWithSessionAdvisoryLock,
   WritePurposes,
 } from "@cosmicdrift/kumiko-framework/db";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   createSystemUser,
   type EscapeHatchAuditSink,
@@ -22,6 +21,7 @@ import {
   VersionConflictError,
 } from "@cosmicdrift/kumiko-framework/event-store";
 import type { FileProviderResolver } from "@cosmicdrift/kumiko-framework/files";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
 import type { SearchAdapter } from "@cosmicdrift/kumiko-framework/search";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";

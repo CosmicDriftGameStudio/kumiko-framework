@@ -25,8 +25,16 @@ export function createFilesTenantDataFeature(): FeatureDefinition {
     r.requires({ features: ["tenant-lifecycle"] });
     r.optionalRequires({ features: ["files"] });
 
-    r.applyExtension({ name: EXT_TENANT_DATA, entity: "fileRef", destroy: fileRefTenantDestroyHook });
-    r.applyExtension({ name: EXT_STORAGE_PROVIDER, entity: "fileRef", destroyTenant: fileRefStorageDestroyHook });
+    r.applyExtension({
+      name: EXT_TENANT_DATA,
+      entity: "fileRef",
+      destroy: fileRefTenantDestroyHook,
+    });
+    r.applyExtension({
+      name: EXT_STORAGE_PROVIDER,
+      entity: "fileRef",
+      destroyTenant: fileRefStorageDestroyHook,
+    });
   });
 }
 

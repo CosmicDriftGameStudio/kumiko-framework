@@ -1,5 +1,9 @@
 import type { EventDef, JobContext } from "@cosmicdrift/kumiko-types/handlers";
-import { configuredPiiSubjectKms, decryptPiiFieldValues, isPiiCiphertext } from "../crypto/index.ts";
+import {
+  configuredPiiSubjectKms,
+  decryptPiiFieldValues,
+  isPiiCiphertext,
+} from "../crypto/index.ts";
 import { InternalError } from "../errors/index.ts";
 
 export type TriggeredEvent<TEvents extends readonly EventDef[]> = {

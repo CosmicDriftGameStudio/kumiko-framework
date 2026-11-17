@@ -1,8 +1,8 @@
 import { describe, expect, mock, test } from "bun:test";
 import { act, renderHook } from "@testing-library/react";
 import type { Dispatcher, WriteResult } from "../../headless/index.ts";
-import { useForm } from "../use-form.ts";
 import { createMockDispatcher, type MockWriteHandler } from "../../testing.ts";
+import { useForm } from "../use-form.ts";
 
 function makeDispatcher(response?: WriteResult): Dispatcher & {
   readonly writeSpy: ReturnType<typeof mock>;

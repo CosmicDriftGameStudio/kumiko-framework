@@ -32,9 +32,9 @@ import {
 } from "./upgrade-cli-internals.ts";
 import {
   dedupeManualById,
+  MAX_RESOLVE_REASON_LENGTH,
   type ManualResolution,
   type MarkerCarry,
-  MAX_RESOLVE_REASON_LENGTH,
   manualEntryId,
   parseStoredMarker,
   SEMVER_RE,

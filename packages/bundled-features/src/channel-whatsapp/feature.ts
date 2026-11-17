@@ -31,25 +31,34 @@ export function createChannelWhatsappFeature(
     });
     r.requires({ features: ["secrets", "tenant-lifecycle"] });
 
-    r.secret({ name: "accessToken", label: { en: "WhatsApp access token" },
+    r.secret({
+      name: "accessToken",
+      label: { en: "WhatsApp access token" },
       hint: {
         en: "System-user access token of the Meta app. Used to send messages and to download media.",
       },
       redact: () => "••••••••",
       scope: "tenant",
-      valueSchema: secretValueSchema });
-    r.secret({ name: "appSecret", label: { en: "WhatsApp app secret" },
+      valueSchema: secretValueSchema,
+    });
+    r.secret({
+      name: "appSecret",
+      label: { en: "WhatsApp app secret" },
       hint: { en: "App secret of the Meta app. Verifies the signature of every incoming webhook." },
       redact: () => "••••••••",
       scope: "tenant",
-      valueSchema: secretValueSchema });
-    r.secret({ name: "verifyToken", label: { en: "WhatsApp verify token" },
+      valueSchema: secretValueSchema,
+    });
+    r.secret({
+      name: "verifyToken",
+      label: { en: "WhatsApp verify token" },
       hint: {
         en: "Any string you also enter in the Meta webhook settings; answers Meta's subscription handshake.",
       },
       redact: () => "••••••••",
       scope: "tenant",
-      valueSchema: secretValueSchema });
+      valueSchema: secretValueSchema,
+    });
 
     r.defineEvent(WHATSAPP_MESSAGE_RECEIVED_EVENT_SHORT, messageReceivedPayloadSchema, {
       piiFields: "none",

@@ -21,9 +21,10 @@ export const defineSystemFieldHandler: WriteHandlerDef = {
   handler: async (event, ctx) => {
     const payload = event.payload as DefineFieldPayload; // @cast-boundary engine-payload
     if (!isCustomFieldsHost(ctx.registry, payload.entityName)) {
-      return failUnprocessable("custom_fields_entity_not_wired", { entityName: payload.entityName });
+      return failUnprocessable("custom_fields_entity_not_wired", {
+        entityName: payload.entityName,
+      });
     }
-
 
     const aggregateId = fieldDefinitionAggregateId(
       SYSTEM_TENANT_ID,

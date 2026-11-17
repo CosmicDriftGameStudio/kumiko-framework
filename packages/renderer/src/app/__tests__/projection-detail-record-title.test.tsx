@@ -8,10 +8,7 @@ import { UserRolesProvider } from "../../context/user-roles-context.tsx";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import { PageHeaderSlotAvailableProvider } from "../../page-header-slot.ts";
-import {  type FormProps,
-  type PageHeaderProps,
-  PrimitivesProvider,
-} from "../../primitives.tsx";
+import { type FormProps, type PageHeaderProps, PrimitivesProvider } from "../../primitives.tsx";
 import { createStubPrimitives } from "../../testing.ts";
 import { AppFeaturesProvider } from "../app-features-context.tsx";
 import type { FeatureSchema } from "../feature-schema.ts";

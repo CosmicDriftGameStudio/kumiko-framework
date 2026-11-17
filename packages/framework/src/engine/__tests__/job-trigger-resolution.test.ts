@@ -26,7 +26,11 @@ describe("job trigger resolution", () => {
       r.defineEvent("order-shipped", z.object({ orderId: z.string() }), { piiFields: "none" });
       r.job({ name: "on-event", trigger: { on: "order-shipped" }, handler: async () => {} });
       r.job({ name: "on-entity", trigger: { on: "order.created" }, handler: async () => {} });
-      r.job({ name: "on-many", trigger: { on: ["order.created", "shop:event:order-shipped"] }, handler: async () => {} });
+      r.job({
+        name: "on-many",
+        trigger: { on: ["order.created", "shop:event:order-shipped"] },
+        handler: async () => {},
+      });
     });
 
     const registry = createRegistry([feature]);
@@ -47,7 +51,11 @@ describe("job trigger resolution", () => {
         handler: async () => ({ isSuccess: true as const, data: null }),
         access: signedInAccess,
       });
-      r.job({ name: "on-write", trigger: { on: "shop:write:place-order" }, handler: async () => {} });
+      r.job({
+        name: "on-write",
+        trigger: { on: "shop:write:place-order" },
+        handler: async () => {},
+      });
     });
 
     expect(() => createRegistry([feature])).toThrow("Jobs trigger on events only");
@@ -78,7 +86,10 @@ describe("job trigger resolution", () => {
     "an unknown entity event %p fails boot",
     (trigger) => {
       const feature = defineFeature("shop", (r) => {
-        r.crud(orderEntity, { write: { access: signedInAccess }, read: { access: signedInAccess } });
+        r.crud(orderEntity, {
+          write: { access: signedInAccess },
+          read: { access: signedInAccess },
+        });
         r.job({ name: "on-unknown", trigger: { on: trigger }, handler: async () => {} });
       });
 
@@ -89,7 +100,11 @@ describe("job trigger resolution", () => {
   test("catchUp on an entity event fails boot", () => {
     const feature = defineFeature("shop", (r) => {
       r.crud(orderEntity, { write: { access: signedInAccess }, read: { access: signedInAccess } });
-      r.job({ name: "replay", trigger: { on: "order.created", catchUp: true }, handler: async () => {} });
+      r.job({
+        name: "replay",
+        trigger: { on: "order.created", catchUp: true },
+        handler: async () => {},
+      });
     });
 
     expect(() => createRegistry([feature])).toThrow(/catchUp/);

@@ -46,8 +46,7 @@ async function runAnonymousMfaWrite<TData>(
   body: unknown,
   statusMap: Readonly<Record<string, number>>,
 ): Promise<
-  | { readonly ok: true; readonly data: TData }
-  | { readonly ok: false; readonly response: Response }
+  { readonly ok: true; readonly data: TData } | { readonly ok: false; readonly response: Response }
 > {
   const result = await dispatcher.write(contract, body, createAnonymousUser(SYSTEM_TENANT_ID));
   if (result.isSuccess) return { ok: true, data: result.data };

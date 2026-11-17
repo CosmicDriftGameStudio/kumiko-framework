@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { allocateMinorUnits, currencyDecimals, toMajorUnits, toMinorUnits } from "../minor-units.ts";
+import {
+  allocateMinorUnits,
+  currencyDecimals,
+  toMajorUnits,
+  toMinorUnits,
+} from "../minor-units.ts";
 
 describe("currency-aware conversion", () => {
   test("toMinorUnits scales by the currency decimals", () => {

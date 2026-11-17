@@ -239,10 +239,9 @@ function renderMainToolbarRow(c: TiptapContext): ReactNode {
   const { t, id, canvas, compact, ActionOverflowMenu } = c;
   const blockButtons = blockButtonsOf(c);
   // The canvas toolbar never scrolls sideways: the rarer blocks and the HTML view sit in the menu.
-  const menuBlocks =
-    canvas
-      ? c.blocks.filter((block) => !CANVAS_INLINE_BLOCKS.includes(block))
-      : [];
+  const menuBlocks = canvas
+    ? c.blocks.filter((block) => !CANVAS_INLINE_BLOCKS.includes(block))
+    : [];
   const inlineBlocks = c.blocks.filter((block) => !menuBlocks.includes(block));
   const overflowItems = overflowItemsOf(c, menuBlocks, blockButtons);
 

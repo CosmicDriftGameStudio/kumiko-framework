@@ -146,7 +146,9 @@ export const readinessQuery = defineQueryHandler({
       "per-tenant bucket would throttle the whole tenant, L1 IP limit still applies",
   },
   handler: async (query, ctx) => {
-    const db = requireSystemDb(ctx, "config:query:readiness").assertTenantMatch(query.user.tenantId);
+    const db = requireSystemDb(ctx, "config:query:readiness").assertTenantMatch(
+      query.user.tenantId,
+    );
     const missing = await collectMissingRequiredConfig(
       ctx,
       "config:query:readiness",

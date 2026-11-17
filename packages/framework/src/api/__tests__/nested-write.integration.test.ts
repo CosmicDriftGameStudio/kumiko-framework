@@ -38,10 +38,14 @@ const nestedFeature = defineFeature("nested", (r) => {
   r.entity(projectEntity);
   r.entity(taskEntity);
 
-  r.relation({ entity: "project", name: "tasks", type: "hasMany",
+  r.relation({
+    entity: "project",
+    name: "tasks",
+    type: "hasMany",
     target: "task",
     foreignKey: "projectId",
-    nestedWrite: true });
+    nestedWrite: true,
+  });
 
   r.writeHandler({
     name: "project:create",

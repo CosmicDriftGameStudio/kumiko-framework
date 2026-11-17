@@ -52,7 +52,8 @@ const feature = defineFeature("avc", (r) => {
         aggregateType: AGGREGATE_TYPE,
         type: appended.name,
         payload: { note: event.payload.note },
-        blindAppendReason: "both writers append an independent note; the unique index alone orders them",
+        blindAppendReason:
+          "both writers append an independent note; the unique index alone orders them",
       });
       if (event.payload.role === "first") {
         await firstAppended.arrive();

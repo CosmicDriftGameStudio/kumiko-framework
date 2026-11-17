@@ -11,7 +11,6 @@ export {
   tenantStyleBlock,
 } from "../page-render/index.ts";
 export { MANAGED_PAGES_FEATURE } from "./constants.ts";
-export { PAGE_UPDATE_HANDLER } from "./web/constants.ts";
 export {
   type ApexTenantResolver,
   createManagedPagesFeature,
@@ -19,3 +18,4 @@ export {
   type ManagedPagesWrapLayout,
 } from "./feature.ts";
 export { type PageRow, pageEntity, pagesTable } from "./table.ts";
+export { PAGE_UPDATE_HANDLER } from "./web/constants.ts";

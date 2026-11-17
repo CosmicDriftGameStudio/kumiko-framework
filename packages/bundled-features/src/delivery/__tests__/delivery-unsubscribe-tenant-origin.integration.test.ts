@@ -102,12 +102,17 @@ const rawOptOutJobPayloads: unknown[] = [];
 const appFeature = defineFeature("unsub-origin", (r) => {
   r.requires({ features: ["delivery"] });
   r.notification({ name: "news", unsubscribe: true });
-  r.job({ name: "drop-subscriber", trigger: { on: DELIVERY_ADDRESS_UNSUBSCRIBED_EVENT }, runIn: "worker", handler: async (payload, ctx) => {
+  r.job({
+    name: "drop-subscriber",
+    trigger: { on: DELIVERY_ADDRESS_UNSUBSCRIBED_EVENT },
+    runIn: "worker",
+    handler: async (payload, ctx) => {
       const tenantId = ctx.triggeredBy?.tenantId;
       if (tenantId === undefined) throw new Error("opt-out job without a tenant");
       rawOptOutJobPayloads.push(payload);
       optOutsSeenByApp.push({ payload: unsubscribeAddressPayloadSchema.parse(payload), tenantId });
-    } });
+    },
+  });
 });
 
 let stack: TestStack;

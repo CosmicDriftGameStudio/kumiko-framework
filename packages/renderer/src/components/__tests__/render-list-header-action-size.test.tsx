@@ -9,7 +9,8 @@ import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import { PageHeaderSlotAvailableProvider } from "../../page-header-slot.ts";
 import {
-  type ButtonProps,  type DataTableProps,
+  type ButtonProps,
+  type DataTableProps,
   type PageHeaderProps,
   PrimitivesProvider,
 } from "../../primitives.tsx";

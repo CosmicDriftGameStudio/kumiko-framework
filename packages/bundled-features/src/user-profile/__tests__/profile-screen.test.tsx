@@ -20,13 +20,13 @@ import {
   PrimitivesProvider,
   TokensProvider,
 } from "@cosmicdrift/kumiko-renderer";
-import { type Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
+import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
+import { createMockDispatcher, type MockWriteHandler } from "@cosmicdrift/kumiko-renderer/testing";
 import { defaultPrimitives, defaultTokens } from "@cosmicdrift/kumiko-renderer/web";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { defaultTranslations } from "../web/i18n.ts";
 import { ChangeEmailSection, ChangePasswordSection } from "../web/profile-screen.tsx";
-import { createMockDispatcher, type MockWriteHandler } from "@cosmicdrift/kumiko-renderer/testing";
 
 const stubLiveEvents: LiveEventSubscriber = () => () => {};
 const stubTokens = {

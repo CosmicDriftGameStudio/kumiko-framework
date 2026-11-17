@@ -3,7 +3,6 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
-import { createTenantDb } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createFilesFeature,
   createInMemoryFileProvider,
@@ -11,6 +10,7 @@ import {
   fileRefsTable,
 } from "@cosmicdrift/kumiko-framework/files";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { createTenantDb } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -20,13 +20,13 @@ import {
 import { PDFDocument } from "pdf-lib";
 import { createAuthFoundationFeature } from "../../auth-foundation/index.ts";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
-import { createDataRetentionFeature } from "../../data-retention/index.ts";
 import {
   configValuesTable,
   createConfigAccessorFactory,
   createConfigFeature,
   createConfigResolver,
 } from "../../config/index.ts";
+import { createDataRetentionFeature } from "../../data-retention/index.ts";
 import { createRendererFoundationFeature } from "../../renderer-foundation/index.ts";
 import { renderedPdfEntity } from "../../renderer-puppeteer-client/entity.ts";
 import { createRendererPuppeteerClientFeature } from "../../renderer-puppeteer-client/feature.ts";

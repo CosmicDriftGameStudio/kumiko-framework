@@ -152,11 +152,7 @@ async function priorityOf(listQuery: string, id: string): Promise<unknown> {
 async function seedValuesOnBothHosts() {
   await defineField("property", "priority");
   await defineField("unit", "priority");
-  await stack.http.writeOk(
-    "estate-hv:write:property:create",
-    { id: PROP_ID, name: "Prop" },
-    admin,
-  );
+  await stack.http.writeOk("estate-hv:write:property:create", { id: PROP_ID, name: "Prop" }, admin);
   await stack.http.writeOk("estate-hv:write:unit:create", { id: UNIT_ID, name: "Unit" }, admin);
   await setCustomField("property", PROP_ID, "high");
   await setCustomField("unit", UNIT_ID, "low");
@@ -165,9 +161,9 @@ async function seedValuesOnBothHosts() {
 
 describe("custom-fields host-values projection", () => {
   test("one values projection serves every wired host", () => {
-    const customFieldsProjections = [...stack.registry.getAllMultiStreamProjections().keys()].filter(
-      (name) => name.includes("custom-fields"),
-    );
+    const customFieldsProjections = [
+      ...stack.registry.getAllMultiStreamProjections().keys(),
+    ].filter((name) => name.includes("custom-fields"));
 
     expect(customFieldsProjections).toEqual(["custom-fields:projection:host-values"]);
     expect(

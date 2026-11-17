@@ -73,7 +73,8 @@ function buildFolderAssignmentEntity(
     indexes: [
       { columns: ["tenantId", "entityType", "entityId"] },
       { columns: ["tenantId", "folderId"] },
-    ], name: "folder-assignment",
+    ],
+    name: "folder-assignment",
   });
 }
 

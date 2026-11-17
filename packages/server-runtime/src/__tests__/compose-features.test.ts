@@ -9,6 +9,7 @@
 import { describe, expect, spyOn, test } from "bun:test";
 import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
+import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-mail-html";
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import {
@@ -16,7 +17,6 @@ import {
   EXT_ASSIGNABLE_ROLE,
   validateBoot,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-mail-html";
 import { composeFeatures } from "../compose-features.ts";
 
 const noopFeature = defineFeature("noop-app", () => {});
@@ -81,7 +81,11 @@ describe("composeFeatures", () => {
     const appWithRole = defineFeature("role-app", (r) => {
       r.requires({ features: ["tenant"] });
       r.applyExtension({ name: EXT_ASSIGNABLE_ROLE, entity: "PropertyManager" });
-      r.applyExtension({ name: EXT_ASSIGNABLE_ROLE, entity: "Auditor", assignableFrom: "TenantAdmin" });
+      r.applyExtension({
+        name: EXT_ASSIGNABLE_ROLE,
+        entity: "Auditor",
+        assignableFrom: "TenantAdmin",
+      });
     });
     const features = composeFeatures([appWithRole], {
       includeBundled: true,

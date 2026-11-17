@@ -59,8 +59,8 @@ import { templateResourceEntity } from "./table.ts";
 import type { TemplateDeliveryPolicy } from "./template-delivery-policy.ts";
 import type { TenantEditableTemplate } from "./template-edit-policy.ts";
 import { VARIANT_KIND } from "./template-variants.ts";
-import { userContentDeleteHook, userContentExportHook } from "./user-data-hooks.ts";
 import { userContentEntryEntity } from "./user-content-table.ts";
+import { userContentDeleteHook, userContentExportHook } from "./user-data-hooks.ts";
 import { DEFAULT_COLLECTION_ACCESS, isCollectionRefusedKind } from "./web/constants.ts";
 
 // template-resolver — structured template storage with tenant-override
@@ -194,8 +194,12 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
     // would impose subject data on every app.
     if (hasUserOwned) {
       r.entity(userContentEntryEntity);
-      r.applyExtension({ name: EXT_USER_DATA, entity: "user-content-entry", export: userContentExportHook,
-        delete: userContentDeleteHook });
+      r.applyExtension({
+        name: EXT_USER_DATA,
+        entity: "user-content-entry",
+        export: userContentExportHook,
+        delete: userContentDeleteHook,
+      });
     }
 
     const handlers = {

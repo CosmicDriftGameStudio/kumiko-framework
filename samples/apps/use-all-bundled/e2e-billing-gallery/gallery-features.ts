@@ -201,8 +201,16 @@ export const galleryProviderFeature: FeatureDefinition = defineFeature(
   (r) => {
     r.describe("E2E-only mock subscription provider for the consent/termination gallery.");
     r.requires({ features: ["billing-foundation"] });
-    r.applyExtension({ name: "subscriptionProvider", entity: GALLERY_PROVIDER, ...galleryProviderPlugin });
-    r.applyExtension({ name: "subscriptionProvider", entity: GALLERY_MOR_PROVIDER, ...galleryMorProviderPlugin });
+    r.applyExtension({
+      name: "subscriptionProvider",
+      entity: GALLERY_PROVIDER,
+      ...galleryProviderPlugin,
+    });
+    r.applyExtension({
+      name: "subscriptionProvider",
+      entity: GALLERY_MOR_PROVIDER,
+      ...galleryMorProviderPlugin,
+    });
   },
 );
 

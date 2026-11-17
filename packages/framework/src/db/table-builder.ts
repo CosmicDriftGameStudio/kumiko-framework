@@ -478,7 +478,9 @@ type ColumnRowForFields<F extends FieldsMap> = UnionToIntersection<
 export type EntityColumnRow<E extends EntityDefinition = EntityDefinition> =
   string extends keyof E["fields"]
     ? Record<string, unknown>
-    : Flatten<RowOfColumns<BaseColumnsType<E>> & SoftDeleteRow<E> & ColumnRowForFields<E["fields"]>>;
+    : Flatten<
+        RowOfColumns<BaseColumnsType<E>> & SoftDeleteRow<E> & ColumnRowForFields<E["fields"]>
+      >;
 
 // ── ES-write brand ──────────────────────────────────────────────────────
 export type {

@@ -21,12 +21,7 @@ export type IdempotencyGuard = {
   ): Promise<void>;
   release(tenantId: string, userId: string, requestId: string, token: string): Promise<void>;
   // Keeps the pending lock alive while the owner's handler runs; returns an idempotent stop function.
-  keepPendingAlive(
-    tenantId: string,
-    userId: string,
-    requestId: string,
-    token: string,
-  ): () => void;
+  keepPendingAlive(tenantId: string, userId: string, requestId: string, token: string): () => void;
 };
 
 // Sentinel prefix stored under the key while the handler is running. Each

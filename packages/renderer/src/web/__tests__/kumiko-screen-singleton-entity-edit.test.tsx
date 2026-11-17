@@ -5,7 +5,16 @@ import {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { FeatureSchema } from "../../index.ts";
 import { DispatcherProvider, KumikoScreen, kumikoDefaultTranslations } from "../../index.ts";
-import { fireEvent, makeDispatcher, type MockQueryHandler, type MockWriteHandler, render, screen, taskEntity, waitFor } from "./test-utils.tsx";
+import {
+  fireEvent,
+  type MockQueryHandler,
+  type MockWriteHandler,
+  makeDispatcher,
+  render,
+  screen,
+  taskEntity,
+  waitFor,
+} from "./test-utils.tsx";
 
 // Split out of kumiko-screen.test.tsx: the create->update submit
 // test below fires fireEvent.change immediately followed by fireEvent.click

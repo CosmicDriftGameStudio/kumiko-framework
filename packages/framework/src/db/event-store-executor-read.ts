@@ -99,7 +99,8 @@ export function createReadVerbs(
       } else {
         columnList = listColumnsExcluding(excludedFields, sort, table);
       }
-      const derivedProjection = fields === undefined ? (derived?.projections(where.params) ?? "") : "";
+      const derivedProjection =
+        fields === undefined ? (derived?.projections(where.params) ?? "") : "";
       const selectList = `${columnList}${sortLabelProjection}${derivedProjection}`;
       const listSql = `SELECT ${selectList} FROM ${quoteIdent(tableName)}${whereClauseSqlText}${orderByClause} LIMIT ${limit}${offsetClause}`;
 

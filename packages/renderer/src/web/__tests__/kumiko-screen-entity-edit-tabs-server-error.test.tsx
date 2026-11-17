@@ -6,7 +6,15 @@ import type {
 import type { Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
-import { act, createMockDispatcher, fireEvent, type MockDispatcherOptions, render, screen, waitFor } from "./test-utils.tsx";
+import {
+  act,
+  createMockDispatcher,
+  fireEvent,
+  type MockDispatcherOptions,
+  render,
+  screen,
+  waitFor,
+} from "./test-utils.tsx";
 
 const taskEntity = {
   fields: {

@@ -2,7 +2,11 @@
 // export / Art. 17 erasure), registered by the folders feature itself. Standard
 // tenant-scoped pattern, no name-stripping (a folder name is tenant data, not per-user PII).
 
-import { type EntityTableMeta, type EventStoreExecutor, WritePurposes } from "@cosmicdrift/kumiko-framework/db";
+import {
+  type EntityTableMeta,
+  type EventStoreExecutor,
+  WritePurposes,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntityExecutor,
   createSystemUser,
@@ -11,12 +15,9 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { folderAssignmentEntity, folderEntity } from "./entity.ts";
 
-const { table: folderTable, executor: folderExecutor } = createEntityExecutor(
-  folderEntity,
-);
-const { table: folderAssignmentTable, executor: folderAssignmentExecutor } = createEntityExecutor(
-  folderAssignmentEntity,
-);
+const { table: folderTable, executor: folderExecutor } = createEntityExecutor(folderEntity);
+const { table: folderAssignmentTable, executor: folderAssignmentExecutor } =
+  createEntityExecutor(folderAssignmentEntity);
 
 // Folders are tenant-scoped (no per-user owner column). Every tenant user reads
 // all tenant folders in-app, so bundling them into the user's export is no new

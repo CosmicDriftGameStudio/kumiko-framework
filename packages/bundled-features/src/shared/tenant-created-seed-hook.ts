@@ -1,5 +1,4 @@
 import { type DbRunner, requireSystemDb, type TenantDb } from "@cosmicdrift/kumiko-framework/db";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   createSystemUser,
   type FeatureRegistrar,
@@ -8,6 +7,7 @@ import {
   type SessionUser,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 
 export type TenantCreatedSeedArgs = {
   readonly tenantId: TenantId;

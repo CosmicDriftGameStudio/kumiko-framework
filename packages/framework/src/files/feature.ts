@@ -1,6 +1,6 @@
 import { defineFeature, type FeatureDefinition } from "../engine/index.ts";
 import { bindReferencedFilesWrite } from "./bind-referenced-files.write.ts";
-import { FILE_REF_ENTITY_NAME, fileRefEntity } from "./file-ref-entity.ts";
+import { fileRefEntity } from "./file-ref-entity.ts";
 import type { FileAccessGuard } from "./file-routes.ts";
 import {
   DEFAULT_UPLOAD_SWEEP_GRACE_HOURS,

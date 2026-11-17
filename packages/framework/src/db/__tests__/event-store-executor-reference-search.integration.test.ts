@@ -119,9 +119,7 @@ const ownedPlainCustomerEntity = createEntity({
     read: { Admin: "all", User: from("user:id", "ownerId") },
   },
 });
-const ownedPlainCustomerTable = buildEntityTable(
-  ownedPlainCustomerEntity,
-);
+const ownedPlainCustomerTable = buildEntityTable(ownedPlainCustomerEntity);
 
 const labelRestrictedCustomerEntity = createEntity({
   name: "refSearchLabelRestrictedCustomer",
@@ -138,9 +136,7 @@ const labelRestrictedCustomerEntity = createEntity({
     read: { Admin: "all", User: "all" },
   },
 });
-const labelRestrictedCustomerTable = buildEntityTable(
-  labelRestrictedCustomerEntity,
-);
+const labelRestrictedCustomerTable = buildEntityTable(labelRestrictedCustomerEntity);
 
 const guardedTargets: Readonly<Record<string, EntityDefinition>> = {
   refSearchOwnedCustomer: ownedPlainCustomerEntity,

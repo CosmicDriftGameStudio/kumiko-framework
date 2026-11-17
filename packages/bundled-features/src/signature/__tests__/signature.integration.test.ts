@@ -3,10 +3,7 @@
 // real PDF and records the HTML it was given.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import {
-  createEventStoreExecutor,
-  selectMany,
-} from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createEntityExecutor,
@@ -42,19 +39,22 @@ import { PDFDocument } from "pdf-lib";
 import * as z from "zod";
 import { createAuthFoundationFeature } from "../../auth-foundation/index.ts";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
-import { createDataRetentionFeature } from "../../data-retention/index.ts";
 import {
   configValuesTable,
   createConfigAccessorFactory,
   createConfigFeature,
   createConfigResolver,
 } from "../../config/index.ts";
+import { createDataRetentionFeature } from "../../data-retention/index.ts";
 import { createRendererFoundationFeature } from "../../renderer-foundation/index.ts";
 import { renderedPdfEntity } from "../../renderer-puppeteer-client/entity.ts";
 import { createRendererPuppeteerClientFeature } from "../../renderer-puppeteer-client/feature.ts";
-import { createTemplateResolverFeature, templateResourceEntity } from "../../template-resolver/index.ts";
-import { createTenantFeature, tenantEntity, tenantMembershipsTable } from "../../tenant/index.ts";
 import { createSessionsFeature } from "../../sessions/index.ts";
+import {
+  createTemplateResolverFeature,
+  templateResourceEntity,
+} from "../../template-resolver/index.ts";
+import { createTenantFeature, tenantEntity, tenantMembershipsTable } from "../../tenant/index.ts";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.ts";
 import { createUserDataRightsFeature } from "../../user-data-rights/feature.ts";
 import {
@@ -100,7 +100,11 @@ const deliveredBy = new Map<string, { readonly issuerId: string }>();
 const failDeliveryFor = new Set<string>();
 const stubRequests: Array<{ html: string }> = [];
 const SERVICE_TOKEN = "signature-test-service-token";
-const ENV_KEYS = ["PUPPETEER_SERVICE_URL", "PUPPETEER_AUTH_TOKEN", "PUPPETEER_CLIENT_MAX_RETRIES"] as const;
+const ENV_KEYS = [
+  "PUPPETEER_SERVICE_URL",
+  "PUPPETEER_AUTH_TOKEN",
+  "PUPPETEER_CLIENT_MAX_RETRIES",
+] as const;
 const savedEnv = new Map<string, string | undefined>();
 let ipCounter = 0;
 
@@ -115,9 +119,8 @@ const deliveryOutboxEntity = createEntity({
     signerId: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
-const { executor: deliveryOutboxExecutor, table: deliveryOutboxTable } = createEntityExecutor(
-  deliveryOutboxEntity,
-);
+const { executor: deliveryOutboxExecutor, table: deliveryOutboxTable } =
+  createEntityExecutor(deliveryOutboxEntity);
 const DELIVERY_OUTBOX_ENQUEUE = "delivery-outbox-test:write:enqueue";
 
 // Stands in for the app's own mail write that deliverLink dispatches.
@@ -161,7 +164,9 @@ const stubService = Bun.serve({
     const body: { html: string } = await request.json();
     stubRequests.push({ html: body.html });
     await whilePrinting?.();
-    return new Response((await onePagePdf()).slice(), { headers: { "Content-Type": "application/pdf" } });
+    return new Response((await onePagePdf()).slice(), {
+      headers: { "Content-Type": "application/pdf" },
+    });
   },
 });
 const STUB_URL = `http://127.0.0.1:${stubService.port}`;

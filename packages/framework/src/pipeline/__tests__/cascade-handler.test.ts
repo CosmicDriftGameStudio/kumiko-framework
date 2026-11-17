@@ -8,30 +8,44 @@ import {
 
 describe("getIncomingRelations", () => {
   const feature = defineFeature("core", (r) => {
-    r.entity(createEntity({
+    r.entity(
+      createEntity({
         name: "department",
         table: "Departments",
         fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-      }));
-    r.entity(createEntity({
+      }),
+    );
+    r.entity(
+      createEntity({
         name: "user",
         table: "Users",
         fields: { departmentId: createTextField({ personal: false, reason: "test_fixture" }) },
-      }));
-    r.entity(createEntity({
+      }),
+    );
+    r.entity(
+      createEntity({
         name: "session",
         table: "Sessions",
         fields: { userId: createTextField({ personal: false, reason: "test_fixture" }) },
-      }));
+      }),
+    );
 
-    r.relation({ entity: "department", name: "users", type: "hasMany",
+    r.relation({
+      entity: "department",
+      name: "users",
+      type: "hasMany",
       target: "user",
       foreignKey: "departmentId",
-      onDelete: "restrict" });
-    r.relation({ entity: "user", name: "sessions", type: "hasMany",
+      onDelete: "restrict",
+    });
+    r.relation({
+      entity: "user",
+      name: "sessions",
+      type: "hasMany",
       target: "session",
       foreignKey: "userId",
-      onDelete: "cascade" });
+      onDelete: "cascade",
+    });
   });
 
   const registry = createRegistry([feature]);

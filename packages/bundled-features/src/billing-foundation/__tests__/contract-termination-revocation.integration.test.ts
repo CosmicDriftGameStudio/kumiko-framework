@@ -13,7 +13,6 @@ import {
 import { loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
-import { createRendererMailHtmlFeature } from "../../renderer-mail-html/index.ts";
 import { expectSuccess, seedRowViaEventStore, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -31,6 +30,7 @@ import { createConfigFeature } from "../../config/index.ts";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.ts";
 import { notificationPreferenceEntity } from "../../delivery/tables.ts";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature.ts";
+import { createRendererMailHtmlFeature } from "../../renderer-mail-html/index.ts";
 import { createTemplateResolverApi } from "../../template-resolver/api.ts";
 import { createTemplateResolverFeature } from "../../template-resolver/feature.ts";
 import { seedNotificationTemplates } from "../../template-resolver/seeding.ts";
@@ -130,7 +130,11 @@ function mockPlugin(withResume: boolean): SubscriptionProviderPlugin {
 const mockProviderFeature = defineFeature("test-mock-revocation-provider", (r) => {
   r.requires({ features: ["billing-foundation"] });
   r.applyExtension({ name: "subscriptionProvider", entity: PROVIDER, ...mockPlugin(true) });
-  r.applyExtension({ name: "subscriptionProvider", entity: PROVIDER_WITHOUT_RESUME, ...mockPlugin(false) });
+  r.applyExtension({
+    name: "subscriptionProvider",
+    entity: PROVIDER_WITHOUT_RESUME,
+    ...mockPlugin(false),
+  });
 });
 
 let stack: TestStack;

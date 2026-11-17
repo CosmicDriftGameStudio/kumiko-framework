@@ -207,9 +207,17 @@ describe("jobs:query:list keyset paging", () => {
     extra: Record<string, unknown>;
     expectedLength: number;
   }[] = [
-    { title: "startedAt desc", extra: { sort: "startedAt", sortDirection: "desc" }, expectedLength: 5 },
+    {
+      title: "startedAt desc",
+      extra: { sort: "startedAt", sortDirection: "desc" },
+      expectedLength: 5,
+    },
     { title: "duration asc", extra: { sort: "duration", sortDirection: "asc" }, expectedLength: 5 },
-    { title: "duration desc", extra: { sort: "duration", sortDirection: "desc" }, expectedLength: 5 },
+    {
+      title: "duration desc",
+      extra: { sort: "duration", sortDirection: "desc" },
+      expectedLength: 5,
+    },
     { title: "jobName asc", extra: { sort: "jobName", sortDirection: "asc" }, expectedLength: 5 },
     {
       title: "status asc with a status filter",

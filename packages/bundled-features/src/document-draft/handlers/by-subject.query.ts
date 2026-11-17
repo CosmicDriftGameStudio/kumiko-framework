@@ -8,7 +8,10 @@ import { DOCUMENT_DRAFT_ENTITY, DOCUMENT_DRAFT_STATUS } from "../web/constants.t
 // Equals the executor's MAX_LIST_LIMIT; one object never has more live drafts.
 const LIST_LIMIT = 200;
 
-export function createBySubjectQuery(access: AccessRule, documentDraftExecutor: DocumentDraftExecutor) {
+export function createBySubjectQuery(
+  access: AccessRule,
+  documentDraftExecutor: DocumentDraftExecutor,
+) {
   return defineQueryHandler({
     name: "by-subject",
     schema: BySubjectSchema,

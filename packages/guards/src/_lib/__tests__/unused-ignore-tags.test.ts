@@ -108,7 +108,8 @@ describe("unused-ignore-tags", () => {
       },
     };
     const results = runWith([throwing], {
-      "/repo/src/a.ts": "// kumiko-lint-ignore demo-slug a reason with several words\nexport const x = 1;\n",
+      "/repo/src/a.ts":
+        "// kumiko-lint-ignore demo-slug a reason with several words\nexport const x = 1;\n",
     });
     expect(results.find((r) => r.name === "throwing")?.ok).toBe(false);
     expect(unusedResult(results)?.outcome?.violations).toHaveLength(0);
@@ -116,7 +117,8 @@ describe("unused-ignore-tags", () => {
 
   test("a placeholder marker in a doc comment is skipped", () => {
     const results = runWith([demoGuard], {
-      "/repo/src/a.ts": "/** Use `kumiko-lint-ignore demo-slug <reason>` to allow a call. */\nexport const x = 1;\n",
+      "/repo/src/a.ts":
+        "/** Use `kumiko-lint-ignore demo-slug <reason>` to allow a call. */\nexport const x = 1;\n",
     });
     expect(unusedResult(results)?.outcome?.violations).toHaveLength(0);
   });
@@ -142,7 +144,9 @@ describe("unused-ignore-tags", () => {
         ");",
       ].join("\n"),
     });
-    expect(results.find((r) => r.name === i18nUiStringsGuard.name)?.outcome?.violations).toHaveLength(0);
+    expect(
+      results.find((r) => r.name === i18nUiStringsGuard.name)?.outcome?.violations,
+    ).toHaveLength(0);
     const violations = unusedResult(results)?.outcome?.violations ?? [];
     expect(violations).toHaveLength(1);
     expect(violations[0]?.line).toBe(2);

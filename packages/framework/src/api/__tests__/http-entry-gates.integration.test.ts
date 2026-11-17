@@ -84,17 +84,18 @@ async function postAnonymous(path: string, body: unknown): Promise<Response> {
 describe("dispatchOnly handlers behind the HTTP entry", () => {
   test("/api/write answers a dispatchOnly handler like an unknown one", async () => {
     const hidden = await stack.http.writeErr(RECORD_STEP, { note: "x" }, user);
-    const unknown = await stack.http.writeErr("entry-gates:write:does-not-exist", { note: "x" }, user);
+    const unknown = await stack.http.writeErr(
+      "entry-gates:write:does-not-exist",
+      { note: "x" },
+      user,
+    );
     expect(hidden.code).toBe("not_found");
     expect(hidden.httpStatus).toBe(404);
     expect(hidden.code).toBe(unknown.code);
   });
 
   test("/api/batch answers 404", async () => {
-    const res = await stack.http.batch(
-      [{ type: RECORD_STEP, payload: { note: "x" } }],
-      user,
-    );
+    const res = await stack.http.batch([{ type: RECORD_STEP, payload: { note: "x" } }], user);
     expect(res.status).toBe(404);
   });
 

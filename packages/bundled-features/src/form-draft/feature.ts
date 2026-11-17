@@ -38,8 +38,12 @@ function registerFormDraft(r: FeatureRegistrar<typeof FORM_DRAFT_FEATURE_NAME>):
   // change no minor/patch release should introduce silently.
   r.optionalRequires({ features: ["config"] });
   r.entity(formDraftEntity);
-  r.applyExtension({ name: EXT_USER_DATA, entity: "form-draft", export: formDraftExportHook,
-    delete: formDraftDeleteHook });
+  r.applyExtension({
+    name: EXT_USER_DATA,
+    entity: "form-draft",
+    export: formDraftExportHook,
+    delete: formDraftDeleteHook,
+  });
 
   r.writeHandler(saveDraftWrite);
   r.writeHandler(discardDraftWrite);
@@ -53,12 +57,7 @@ function registerFormDraft(r: FeatureRegistrar<typeof FORM_DRAFT_FEATURE_NAME>):
     irreversibleWithoutEntryHandler: "high-risk-or-cron-pipeline",
     concurrency: "skip",
     escapeHatch: { reason: CLEANUP_ESCAPE_HATCH_REASON, grants: ["unsafeRaw"] },
-    handler: (payload, ctx) =>
-      cleanupDraftsJob(
-        payload,
-        ctx,
-        ctx.db.unsafeRawAllTenants(),
-      ),
+    handler: (payload, ctx) => cleanupDraftsJob(payload, ctx, ctx.db.unsafeRawAllTenants()),
   });
 }
 

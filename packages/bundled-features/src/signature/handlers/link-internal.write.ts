@@ -77,7 +77,10 @@ function viewChanges(signer: SignerRow, now: Temporal.Instant): Record<string, u
   };
 }
 
-export function createLinkInternalHandlers(linkSecret: string, requestExecutor: SignatureRequestExecutor) {
+export function createLinkInternalHandlers(
+  linkSecret: string,
+  requestExecutor: SignatureRequestExecutor,
+) {
   const linkOpen = defineWriteHandler<"link-open", typeof OpenByLinkSchema, LinkOpenData>({
     name: "link-open",
     schema: OpenByLinkSchema,

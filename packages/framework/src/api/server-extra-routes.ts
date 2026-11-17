@@ -1,7 +1,10 @@
 import type { ContractQuery, ContractWrite } from "@cosmicdrift/kumiko-types/handler-contract";
 import type { WriteResult } from "@cosmicdrift/kumiko-types/handlers";
 import { isValidHttpRouteRateLimit } from "@cosmicdrift/kumiko-types/http-route";
-import type { RateLimitDecision, RateLimitResolver } from "@cosmicdrift/kumiko-types/rate-limit-types";
+import type {
+  RateLimitDecision,
+  RateLimitResolver,
+} from "@cosmicdrift/kumiko-types/rate-limit-types";
 import type { Context, Hono } from "hono";
 import { ROLES } from "../auth/roles.ts";
 import { createSystemUser } from "../engine/system-user.ts";
@@ -111,19 +114,10 @@ export function mountExtraRoutes(
         rateLimitResolver: wiring.rateLimitResolver,
         onVerifiedRateLimitFailOpen: verifiedRateLimitFailOpen,
       });
-      mountHonoRoute(
-        app,
-        route.method,
-        route.path,
-        honoHandler,
-        [
-          ...buildRouteRateLimitGuards(route, wiring),
-          ...bodyLimitForRoutePath(
-            route.path,
-            options.maxRequestBytes ?? DEFAULT_MAX_REQUEST_BYTES,
-          ),
-        ],
-      );
+      mountHonoRoute(app, route.method, route.path, honoHandler, [
+        ...buildRouteRateLimitGuards(route, wiring),
+        ...bodyLimitForRoutePath(route.path, options.maxRequestBytes ?? DEFAULT_MAX_REQUEST_BYTES),
+      ]);
     }
   }
 }
@@ -206,7 +200,8 @@ function assertSignatureRoutesDoNotOverlapMountedRoutes(
     const overlapped = guardedRoutes.find(
       (route) =>
         route.method === signatureMethod &&
-        (signaturePattern.test(route.path) || honoPathToRegex(route.path).test(signatureRoute.path)),
+        (signaturePattern.test(route.path) ||
+          honoPathToRegex(route.path).test(signatureRoute.path)),
     );
     if (overlapped !== undefined) {
       throw new Error(

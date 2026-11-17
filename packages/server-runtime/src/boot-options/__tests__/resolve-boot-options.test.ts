@@ -115,7 +115,11 @@ describe("fileStorage option", () => {
     expect(() =>
       resolveFileStorageOption(
         { provider: "s3-env" },
-        { ...base, isProduction: true, envSource: { ...S3_ENV, FILE_STORAGE_PROVIDER: "inmemory" } },
+        {
+          ...base,
+          isProduction: true,
+          envSource: { ...S3_ENV, FILE_STORAGE_PROVIDER: "inmemory" },
+        },
       ),
     ).toThrow(/FILE_STORAGE_PROVIDER=inmemory/);
   });
@@ -124,7 +128,11 @@ describe("fileStorage option", () => {
     expect(
       resolveFileStorageOption(
         { provider: "s3-env" },
-        { ...base, isProduction: false, envSource: { ...S3_ENV, FILE_STORAGE_PROVIDER: "inmemory" } },
+        {
+          ...base,
+          isProduction: false,
+          envSource: { ...S3_ENV, FILE_STORAGE_PROVIDER: "inmemory" },
+        },
       ).provider,
     ).toBe("s3-env");
   });

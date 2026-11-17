@@ -3,15 +3,12 @@
 // and a different Accountant applies it.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import {
-  configurePiiSubjectKms,
-  InMemoryKmsAdapter,
-} from "@cosmicdrift/kumiko-framework/crypto";
+import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
-import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { contactFeature, fieldApprovalFeature } from "../feature";
 
 let stack: TestStack;

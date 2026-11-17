@@ -4,7 +4,13 @@ import { describe, expect, test } from "bun:test";
 import type { ProjectionDetailScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
 import { PageHeaderSlotAvailableProvider } from "../../page-header-slot.ts";
-import { createMockDispatcher, type MockQueryHandler, render, screen, waitFor } from "./test-utils.tsx";
+import {
+  createMockDispatcher,
+  type MockQueryHandler,
+  render,
+  screen,
+  waitFor,
+} from "./test-utils.tsx";
 
 const baseScreen: ProjectionDetailScreenDefinition = {
   id: "order-detail",

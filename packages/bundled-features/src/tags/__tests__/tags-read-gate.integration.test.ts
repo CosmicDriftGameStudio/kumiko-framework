@@ -100,7 +100,8 @@ beforeAll(async () => {
   stack = await setupTestStack({
     // Deliberately no `ownership` — the gate must hold on a bare mount.
     features: [
-      createTagsFeature({ parents: ["project"],
+      createTagsFeature({
+        parents: ["project"],
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       }),
       hostFixturesFeature,
@@ -307,7 +308,8 @@ describe("tags read-gate — ownership narrows further, it does not replace the 
   beforeAll(async () => {
     ownedStack = await setupTestStack({
       features: [
-        createTagsFeature({ parents: ["project"],
+        createTagsFeature({
+          parents: ["project"],
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           // An extra row rule on the assignment row itself, unrelated to who
           // may see the host: the caller's claim must name the row's host type.

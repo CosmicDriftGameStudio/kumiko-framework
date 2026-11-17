@@ -17,9 +17,7 @@ export const resolveUserIdsQuery = defineQueryHandler({
   agent: { expose: false },
   handler: async (query, ctx) => {
     const systemDb = requireSystemDb(ctx, "tenant:query:resolveUserIds");
-    const db = systemDb.acknowledgeCrossTenant(
-      "cross-feature lookup by arbitrary tenantId/userId",
-    );
+    const db = systemDb.acknowledgeCrossTenant("cross-feature lookup by arbitrary tenantId/userId");
     const { tenantId, userId } = query.payload;
 
     if (tenantId !== undefined) {

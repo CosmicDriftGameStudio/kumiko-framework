@@ -46,8 +46,10 @@ import {
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
 import { resolveRetentionPolicyForTenant } from "../../data-retention/index.ts";
-import { NOTES_HISTORY_FEATURE_NAME } from "../../notes-history/index.ts";
-import { eraseNoteBodiesReachingSubject } from "../../notes-history/index.ts";
+import {
+  eraseNoteBodiesReachingSubject,
+  NOTES_HISTORY_FEATURE_NAME,
+} from "../../notes-history/index.ts";
 import { revokeAllPatTokensForUser } from "../../personal-access-tokens/index.ts";
 import { eraseSubjectData, requireForTenant } from "../../shared/index.ts";
 import { USER_STATUS, userTable } from "../../user/index.ts";
@@ -433,7 +435,9 @@ export const forgetSubjectWrite = defineWriteHandler({
     // Runs after the tenant gate but before any key is touched: a retention
     // check ahead of the tenant gate would leak a foreign entity's retention
     // posture to a cross-tenant prober.
-    const retentionDenial = await resolveRetentionDenial(ctx, raw, () => ctx.db.unsafeRawAllTenants());
+    const retentionDenial = await resolveRetentionDenial(ctx, raw, () =>
+      ctx.db.unsafeRawAllTenants(),
+    );
     if (retentionDenial) {
       const auditFailure = await appendDenialAuditEvent(
         ctx,

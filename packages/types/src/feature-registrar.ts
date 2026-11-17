@@ -77,8 +77,8 @@ import type { RelationDefinition } from "./relations.ts";
 import type { ScreenDefinition } from "./screen.ts";
 import type { TreeActionDef, TreeActionsHandle } from "./tree-node.ts";
 import type { WebSocketRouteDefinition } from "./websocket-route.ts";
-import type { WriteFailure } from "./write-error-info-types.ts";
 import type { WorkspaceDefinition } from "./workspace.ts";
+import type { WriteFailure } from "./write-error-info-types.ts";
 
 // --- Feature Registrar (the "r" object in defineFeature) ---
 

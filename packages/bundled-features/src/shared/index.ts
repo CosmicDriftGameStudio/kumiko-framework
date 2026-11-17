@@ -26,8 +26,8 @@ export {
   KMS_POOL_CONCURRENCY,
 } from "./decrypt-stored-pii.ts";
 export { encryptForDirectWrite } from "./encrypt-for-direct-write.ts";
-export { eraseSubjectData } from "./erase-subject-data.ts";
 export { entitiesOf } from "./entities-of.ts";
+export { eraseSubjectData } from "./erase-subject-data.ts";
 export { isWithinGracePeriod } from "./grace-period.ts";
 export { hmacSignatureMatches, signHmacSha256Base64Url } from "./hmac-signature.ts";
 export { isTenantDb } from "./is-tenant-db.ts";
@@ -119,7 +119,10 @@ export {
 } from "./signup-handover.ts";
 export { createSingleUseTokenStore, hashSingleUseToken } from "./single-use-token-store.ts";
 export type { SystemQueryFn } from "./system-query.ts";
-export { registerTenantCreatedSeedHook, type TenantCreatedSeedArgs } from "./tenant-created-seed-hook.ts";
+export {
+  registerTenantCreatedSeedHook,
+  type TenantCreatedSeedArgs,
+} from "./tenant-created-seed-hook.ts";
 export { createTenantDbCache } from "./tenant-db-cache.ts";
 export {
   EXT_TENANT_DESTRUCTION_HOLD,

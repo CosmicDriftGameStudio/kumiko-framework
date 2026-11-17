@@ -145,9 +145,12 @@ describe("validateTokenVerifierMultiplicity", () => {
 
   test("malformed shape (build present, prefix missing) → throws a malformed-plugin error", () => {
     const broken = defineFeature("mock-broken-shape", (r) => {
-      r.applyExtension({ name: EXT_TOKEN_VERIFIER, entity: "broken-shape", // @ts-expect-error malformed shape (prefix missing) — proves the runtime guard rejects it too.
+      r.applyExtension({
+        name: EXT_TOKEN_VERIFIER,
+        entity: "broken-shape", // @ts-expect-error malformed shape (prefix missing) — proves the runtime guard rejects it too.
         shape: { kind: "prefix" },
-        build: () => async () => null });
+        build: () => async () => null,
+      });
     });
     const registry = createRegistry([createAuthFoundationFeature(), broken]);
     expect(() => validateTokenVerifierMultiplicity([...registry.features.values()])).toThrow(

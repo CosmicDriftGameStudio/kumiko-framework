@@ -68,9 +68,7 @@ export function deriveLayoutFlags<TValues extends FormValues, TCtx>({
   const isScreenForm =
     fillScreenHeight === true && hideSectionTitles !== true && !state.insideDrawer;
   const titleInShell =
-    state.pageHeaderSlotAvailable &&
-    hideSectionTitles !== true &&
-    headerRegion === undefined;
+    state.pageHeaderSlotAvailable && hideSectionTitles !== true && headerRegion === undefined;
   const menuPageHeaderActions = titleInShell && isScreenForm;
   const cancelInHeaderMenu = menuPageHeaderActions && state.isWizard && onCancel !== undefined;
   return {

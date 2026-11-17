@@ -4,11 +4,13 @@ import { createEntity, createTextField } from "../factories.ts";
 import { findEntity } from "../find-entity.ts";
 
 const shop = defineFeature("shop", (r) => {
-  r.entity(createEntity({
+  r.entity(
+    createEntity({
       name: "product",
       table: "products",
       fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-    }));
+    }),
+  );
 });
 const features = new Map([[shop.name, shop]]);
 

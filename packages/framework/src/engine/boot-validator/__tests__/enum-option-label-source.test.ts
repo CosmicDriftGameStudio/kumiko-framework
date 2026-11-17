@@ -25,13 +25,15 @@ function ruleIdsOf(fn: () => void): readonly string[] {
 // arrives as an untyped object.
 function screenFeature(renderer: object) {
   return defineFeature("shop", (r) => {
-    r.entity(createEntity({
+    r.entity(
+      createEntity({
         name: "order",
         fields: {
           status: createSelectField({ options: ["open", "done"] as const, default: "open" }),
           note: createTextField({ personal: false, reason: "test_fixture" }),
         },
-      }));
+      }),
+    );
     r.screen({
       id: "order-list",
       type: "entityList",

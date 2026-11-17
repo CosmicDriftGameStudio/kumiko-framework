@@ -59,7 +59,6 @@ import {
   type WhereObject,
   WritePurposes,
 } from "@cosmicdrift/kumiko-framework/db";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { deleteFileRefBytes } from "@cosmicdrift/kumiko-framework/derivatives";
 import {
   createSystemUser,
@@ -77,6 +76,7 @@ import {
   fileRefEntity,
   fileRefsTable,
 } from "@cosmicdrift/kumiko-framework/files";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import {

@@ -47,7 +47,9 @@ export function createClearCustomFieldHandler(
     handler: async (event, ctx) => {
       const payload = event.payload as ClearCustomFieldPayload; // @cast-boundary engine-payload
       if (!isCustomFieldsHost(ctx.registry, payload.entityName)) {
-        return failUnprocessable("custom_fields_entity_not_wired", { entityName: payload.entityName });
+        return failUnprocessable("custom_fields_entity_not_wired", {
+          entityName: payload.entityName,
+        });
       }
 
       const hostStreamVersion = await ctx.events.streamVersion(payload.entityId);

@@ -25,9 +25,13 @@ const jobTriggerFixtureFeature = defineFeature("jobtriggerfixture", (r) => {
     read: { access: { roles: ["Admin"] } },
     verbs: { update: false },
   });
-  r.job({ name: "onItemWritten", trigger: { on: ["item.created", "item.deleted"] }, handler: async (_payload, ctx) => {
+  r.job({
+    name: "onItemWritten",
+    trigger: { on: ["item.created", "item.deleted"] },
+    handler: async (_payload, ctx) => {
       seen.push({ triggerName: ctx.triggerName, triggerEvent: ctx.triggerEvent });
-    } });
+    },
+  });
 });
 
 let stack: TestStack;

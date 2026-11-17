@@ -50,7 +50,12 @@ export type AccentScopeProps = {
   readonly children: ReactNode;
 };
 
-export function AccentScope({ color, className, testId, children }: AccentScopeProps): ReactElement {
+export function AccentScope({
+  color,
+  className,
+  testId,
+  children,
+}: AccentScopeProps): ReactElement {
   return (
     <div className={className} data-testid={testId} style={accentColorVars(color)}>
       {children}

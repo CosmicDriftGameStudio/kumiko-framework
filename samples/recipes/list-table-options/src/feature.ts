@@ -145,13 +145,9 @@ export function createTaskBoardFeature(
 
     // A hand-written list query keeps grouping and totals when it accepts
     // `aggregate` (entityListSchema carries it) and answers it on the server.
-    const taskExecutor = createEventStoreExecutor(
-      buildEntityTable(taskEntity),
-      taskEntity,
-      {
-        entityName: "task",
-      },
-    );
+    const taskExecutor = createEventStoreExecutor(buildEntityTable(taskEntity), taskEntity, {
+      entityName: "task",
+    });
     r.queryHandler({
       name: "task:workload",
       schema: entityListSchema,

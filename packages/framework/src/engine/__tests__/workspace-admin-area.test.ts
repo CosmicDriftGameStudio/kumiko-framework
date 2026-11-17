@@ -86,11 +86,20 @@ describe("collectAdminArea", () => {
       ],
       [
         "beta:nav:b-platform",
-        { id: "b-platform", label: "x", screen: "x:screen:x", adminArea: "platform", featureName: "x" },
+        {
+          id: "b-platform",
+          label: "x",
+          screen: "x:screen:x",
+          adminArea: "platform",
+          featureName: "x",
+        },
       ],
     ]);
     const workspaces = new Map<string, WorkspaceDefinition & { readonly featureName: string }>([
-      ["host:workspace:main", { id: "main", label: "x", collectAdminArea: "tenant", featureName: "host" }],
+      [
+        "host:workspace:main",
+        { id: "main", label: "x", collectAdminArea: "tenant", featureName: "host" },
+      ],
     ]);
     const allowlist = deriveNavAllowlistFromWorkspaces(navDefs, workspaces);
     expect(allowlist.has("alpha:nav:a-same")).toBe(true);

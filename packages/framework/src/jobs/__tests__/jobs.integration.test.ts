@@ -62,174 +62,281 @@ const skipJobGate = createReleaseGate();
 
 const testFeature = defineFeature("test", (r) => {
   // Scenario 1: Boot job
-  r.job({ name: "bootSync", trigger: { manual: true }, runOnBoot: true, handler: async (payload) => {
-    jobLog.push({ name: "test:job:boot-sync", payload, timestamp: Date.now() });
-  } });
+  r.job({
+    name: "bootSync",
+    trigger: { manual: true },
+    runOnBoot: true,
+    handler: async (payload) => {
+      jobLog.push({ name: "test:job:boot-sync", payload, timestamp: Date.now() });
+    },
+  });
 
   // Scenario 2: Scheduled job (cron every second for testing)
-  r.job({ name: "scheduled", trigger: { cron: "* * * * * *" }, handler: async (payload) => {
-    jobLog.push({ name: "test:job:scheduled", payload, timestamp: Date.now() });
-  } });
+  r.job({
+    name: "scheduled",
+    trigger: { cron: "* * * * * *" },
+    handler: async (payload) => {
+      jobLog.push({ name: "test:job:scheduled", payload, timestamp: Date.now() });
+    },
+  });
 
   // Scenario 3: Manual trigger
-  r.job({ name: "manualReport", trigger: { manual: true }, handler: async (payload) => {
-    jobLog.push({ name: "test:job:manual-report", payload, timestamp: Date.now() });
-  } });
+  r.job({
+    name: "manualReport",
+    trigger: { manual: true },
+    handler: async (payload) => {
+      jobLog.push({ name: "test:job:manual-report", payload, timestamp: Date.now() });
+    },
+  });
 
   // Concurrency: skip — if running, skip new
-  r.job({ name: "skipJob", trigger: { manual: true }, concurrency: "skip", handler: async (payload) => {
-    jobLog.push({ name: "test:job:skip-job", payload, timestamp: Date.now() });
-    await skipJobGate.wait();
-  } });
+  r.job({
+    name: "skipJob",
+    trigger: { manual: true },
+    concurrency: "skip",
+    handler: async (payload) => {
+      jobLog.push({ name: "test:job:skip-job", payload, timestamp: Date.now() });
+      await skipJobGate.wait();
+    },
+  });
 
   // Concurrency: parallel — multiple can run
-  r.job({ name: "parallelJob", trigger: { manual: true }, concurrency: "parallel", handler: async (payload) => {
-    jobLog.push({ name: "test:job:parallel-job", payload, timestamp: Date.now() });
-  } });
+  r.job({
+    name: "parallelJob",
+    trigger: { manual: true },
+    concurrency: "parallel",
+    handler: async (payload) => {
+      jobLog.push({ name: "test:job:parallel-job", payload, timestamp: Date.now() });
+    },
+  });
 
   // Concurrency: replace — cancel old, start new
-  r.job({ name: "replaceJob", trigger: { manual: true }, concurrency: "replace", handler: async (payload) => {
-    jobLog.push({ name: "test:job:replace-job", payload, timestamp: Date.now() });
-  } });
+  r.job({
+    name: "replaceJob",
+    trigger: { manual: true },
+    concurrency: "replace",
+    handler: async (payload) => {
+      jobLog.push({ name: "test:job:replace-job", payload, timestamp: Date.now() });
+    },
+  });
 
   // Concurrency: debounce — wait until quiet, then run once
-  r.job({ name: "debounceJob", trigger: { manual: true }, concurrency: "debounce", debounceMs: 300, handler: async (payload) => {
+  r.job({
+    name: "debounceJob",
+    trigger: { manual: true },
+    concurrency: "debounce",
+    debounceMs: 300,
+    handler: async (payload) => {
       jobLog.push({ name: "test:job:debounce-job", payload, timestamp: Date.now() });
-    } });
+    },
+  });
 
   // Concurrency: sequential — same-name dispatches must serialise via the
   // per-name Redis SETNX-lock. Sleep duration sets the gap the assertions
   // measure: parallel mode lands all entries within ~50ms; sequential
   // spaces them by ≥sleep-duration each. If you tweak the sleep here,
   // bump the timestamp deltas in the assertion to match.
-  r.job({ name: "sequentialJob", trigger: { manual: true }, concurrency: "sequential", handler: async (payload) => {
+  r.job({
+    name: "sequentialJob",
+    trigger: { manual: true },
+    concurrency: "sequential",
+    handler: async (payload) => {
       jobLog.push({ name: "test:job:sequential-job", payload, timestamp: Date.now() });
       await sleep(300);
-    } });
+    },
+  });
 
   // Sequential variant that throws. Used to assert the lock is released in
   // the finally-path (next dispatch must still acquire it). retries=0 so
   // the failure doesn't replay and pollute the log.
-  r.job({ name: "sequentialFailJob", trigger: { manual: true }, concurrency: "sequential", retries: 0, handler: async (payload) => {
+  r.job({
+    name: "sequentialFailJob",
+    trigger: { manual: true },
+    concurrency: "sequential",
+    retries: 0,
+    handler: async (payload) => {
       jobLog.push({ name: "test:job:sequential-fail-job", payload, timestamp: Date.now() });
       throw new Error("sequential boom");
-    } });
+    },
+  });
 
   // maxPerTenant: cap concurrent + waiting jobs per tenant. The handler blocks on the
   // gate so the dispatcher counts active and waiting jobs regardless of CI speed.
-  r.job({ name: "perTenantLimited", trigger: { manual: true }, concurrency: "parallel", maxPerTenant: 2, handler: async (payload) => {
+  r.job({
+    name: "perTenantLimited",
+    trigger: { manual: true },
+    concurrency: "parallel",
+    maxPerTenant: 2,
+    handler: async (payload) => {
       jobLog.push({ name: "test:job:per-tenant-limited", payload, timestamp: Date.now() });
       await perTenantJobs.wait();
-    } });
+    },
+  });
   r.defineEvent("capped-event", z.object({ n: z.number() }), { piiFields: "none" });
   // Event-triggered twin — exercises handleEvent's maxPerTenant guard
   // (dispatch and handleEvent share isOverPerTenantLimit).
-  r.job({ name: "perTenantLimitedEvent", trigger: { on: "test:event:capped-event" },
-      concurrency: "parallel",
-      maxPerTenant: 2, handler: async (payload) => {
+  r.job({
+    name: "perTenantLimitedEvent",
+    trigger: { on: "test:event:capped-event" },
+    concurrency: "parallel",
+    maxPerTenant: 2,
+    handler: async (payload) => {
       jobLog.push({
         name: "test:job:per-tenant-limited-event",
         payload,
         timestamp: Date.now(),
       });
       await perTenantJobs.wait();
-    } });
+    },
+  });
 
   r.defineEvent("retry-event-trigger", z.object({ n: z.number() }), { piiFields: "none" });
   // Event-triggered job with retries — proves handleEvent passes
   // retries/backoff to the queue the same way dispatch() does (fw
   // job-runner retries regression, solon).
-  r.job({ name: "eventRetrySucceeds", trigger: { on: "test:event:retry-event-trigger" }, retries: 2, handler: async (payload) => {
+  r.job({
+    name: "eventRetrySucceeds",
+    trigger: { on: "test:event:retry-event-trigger" },
+    retries: 2,
+    handler: async (payload) => {
       eventRetryAttemptCount += 1;
       jobLog.push({ name: "test:job:event-retry-succeeds", payload, timestamp: Date.now() });
       if (eventRetryAttemptCount === 1) throw new Error("fails on first attempt");
-    } });
+    },
+  });
 
   // Job that fails
-  r.job({ name: "failingJob", trigger: { manual: true }, retries: 1, handler: async () => {
-    throw new Error("intentional failure");
-  } });
+  r.job({
+    name: "failingJob",
+    trigger: { manual: true },
+    retries: 1,
+    handler: async () => {
+      throw new Error("intentional failure");
+    },
+  });
 
   // perTenant fan-out — used to assert missing getActiveTenantIds fails
   // the wrapper job without killing the worker.
-  r.job({ name: "perTenantFanout", trigger: { manual: true }, perTenant: true, handler: async (payload) => {
-    jobLog.push({ name: "test:job:per-tenant-fanout", payload, timestamp: Date.now() });
-  } });
+  r.job({
+    name: "perTenantFanout",
+    trigger: { manual: true },
+    perTenant: true,
+    handler: async (payload) => {
+      jobLog.push({ name: "test:job:per-tenant-fanout", payload, timestamp: Date.now() });
+    },
+  });
 
-  r.job({ name: "perTenantWithSystem", trigger: { manual: true }, perTenant: true, includeSystemTenant: true, handler: async (payload, ctx) => {
+  r.job({
+    name: "perTenantWithSystem",
+    trigger: { manual: true },
+    perTenant: true,
+    includeSystemTenant: true,
+    handler: async (payload, ctx) => {
       jobLog.push({
         name: "test:job:per-tenant-with-system",
         payload: { ...payload, ranFor: String(ctx.systemUser.tenantId) },
         timestamp: Date.now(),
       });
-    } });
+    },
+  });
 
-  r.job({ name: "perTenantOnlyOne", trigger: { manual: true }, perTenant: true, onlyTenants: [ONLY_TENANT_ID], handler: async (payload, ctx) => {
+  r.job({
+    name: "perTenantOnlyOne",
+    trigger: { manual: true },
+    perTenant: true,
+    onlyTenants: [ONLY_TENANT_ID],
+    handler: async (payload, ctx) => {
       jobLog.push({
         name: "test:job:per-tenant-only-one",
         payload: { ...payload, ranFor: String(ctx.systemUser.tenantId) },
         timestamp: Date.now(),
       });
-    } });
+    },
+  });
 
   // Correlation propagation probe — records the requestContext it sees at
   // handler-time so tests can assert the scheduling request's correlationId
   // made it through BullMQ into the worker process.
-  r.job({ name: "correlationProbe", trigger: { manual: true }, handler: async (payload) => {
-    const seen = requestContext.get();
-    jobLog.push({
-      name: "test:job:correlation-probe",
-      payload: {
-        ...payload,
-        observedCorrelationId: seen?.correlationId ?? null,
-        observedRequestId: seen?.requestId ?? null,
-      },
-      timestamp: Date.now(),
-    });
-  } });
+  r.job({
+    name: "correlationProbe",
+    trigger: { manual: true },
+    handler: async (payload) => {
+      const seen = requestContext.get();
+      jobLog.push({
+        name: "test:job:correlation-probe",
+        payload: {
+          ...payload,
+          observedCorrelationId: seen?.correlationId ?? null,
+          observedRequestId: seen?.requestId ?? null,
+        },
+        timestamp: Date.now(),
+      });
+    },
+  });
   // Exercises createJobLogger (info/warn/error/debug/child) — otherwise those
   // one-liners stay uncovered even though every job builds a logger.
-  r.job({ name: "logProbe", trigger: { manual: true }, handler: async (payload, ctx) => {
-    expect(ctx.obs.log).toBeDefined();
-    const log = ctx.obs.log!;
-    log.info("log-probe-info", { n: payload["n"] });
-    log.warn("log-probe-warn");
-    log.error("log-probe-error", { ok: false });
-    log.debug("log-probe-debug");
-    log.child({ probe: true }).info("log-probe-child");
-    jobLog.push({ name: "test:job:log-probe", payload, timestamp: Date.now() });
-  } });
+  r.job({
+    name: "logProbe",
+    trigger: { manual: true },
+    handler: async (payload, ctx) => {
+      expect(ctx.obs.log).toBeDefined();
+      const log = ctx.obs.log!;
+      log.info("log-probe-info", { n: payload["n"] });
+      log.warn("log-probe-warn");
+      log.error("log-probe-error", { ok: false });
+      log.debug("log-probe-debug");
+      log.child({ probe: true }).info("log-probe-child");
+      jobLog.push({ name: "test:job:log-probe", payload, timestamp: Date.now() });
+    },
+  });
   // job-runner must build ctx.services.files the same way dispatch-shared.ts does for
   // write-handlers/MSPs — regression guard (ctx.services.files was never
   // materialized for jobs, so ctx.services.files.ref(...).read() threw for every job).
-  r.job({ name: "filesProbe", trigger: { manual: true }, handler: async (payload, ctx) => {
-    const content = await ctx.services.files!.ref(payload["key"] as string).read();
-    jobLog.push({
-      name: "test:job:files-probe",
-      payload: { text: new TextDecoder().decode(content) },
-      timestamp: Date.now(),
-    });
-  } });
+  r.job({
+    name: "filesProbe",
+    trigger: { manual: true },
+    handler: async (payload, ctx) => {
+      const content = await ctx.services.files!.ref(payload["key"] as string).read();
+      jobLog.push({
+        name: "test:job:files-probe",
+        payload: { text: new TextDecoder().decode(content) },
+        timestamp: Date.now(),
+      });
+    },
+  });
 
   // job-runner must build ctx.notify/ctx.config the same way dispatch-shared.ts
   // does for write-handlers — regression guard (only ctx.services.files got
   // the same fix; ctx.notify/ctx.config stayed undefined for every job).
-  r.job({ name: "notifyProbe", trigger: { manual: true }, handler: async (payload, ctx) => {
-    await ctx.notify!("test-notification", { to: payload["toUserId"] as string });
-    jobLog.push({ name: "test:job:notify-probe", payload, timestamp: Date.now() });
-  } });
+  r.job({
+    name: "notifyProbe",
+    trigger: { manual: true },
+    handler: async (payload, ctx) => {
+      await ctx.notify!("test-notification", { to: payload["toUserId"] as string });
+      jobLog.push({ name: "test:job:notify-probe", payload, timestamp: Date.now() });
+    },
+  });
 
-  r.job({ name: "configProbe", trigger: { manual: true }, handler: async (_payload, ctx) => {
-    const value = await ctx.config!("test:config:probe-key");
-    jobLog.push({ name: "test:job:config-probe", payload: { value }, timestamp: Date.now() });
-  } });
+  r.job({
+    name: "configProbe",
+    trigger: { manual: true },
+    handler: async (_payload, ctx) => {
+      const value = await ctx.config!("test:config:probe-key");
+      jobLog.push({ name: "test:job:config-probe", payload: { value }, timestamp: Date.now() });
+    },
+  });
 
   // ctx.dispatch.write/queryAs throw until JobRunner.attachDispatcher() has run —
   // regression guard. No test runner here ever calls
   // attachDispatcher(), so this always hits the stub.
-  r.job({ name: "writeProbe", trigger: { manual: true }, retries: 0, handler: async (_payload, ctx) => {
-    await ctx.dispatch.write("test:write:probe", {});
-  } });
+  r.job({
+    name: "writeProbe",
+    trigger: { manual: true },
+    retries: 0,
+    handler: async (_payload, ctx) => {
+      await ctx.dispatch.write("test:write:probe", {});
+    },
+  });
 });
 
 beforeAll(async () => {
@@ -1080,14 +1187,19 @@ describe("perTenant across multiple runner instances", () => {
   test("a cron tick fires the perTenant wrapper exactly once, not once per runner instance", async () => {
     const log: Array<{ tenantId: string; runnerTag: string }> = [];
     const cronFeature = defineFeature("multicron", (r) => {
-      r.job({ name: "fanout", trigger: { cron: "* * * * * *" }, perTenant: true, handler: async (_payload, ctx) => {
+      r.job({
+        name: "fanout",
+        trigger: { cron: "* * * * * *" },
+        perTenant: true,
+        handler: async (_payload, ctx) => {
           log.push({
             tenantId: String(ctx.systemUser.tenantId),
             runnerTag: (
               unscopedRunnerOf(tenantDbRunner(ctx.db)) as unknown as { runnerTag: string }
             ).runnerTag, // @cast-boundary test fixture: stub runner carries a tag
           });
-        } });
+        },
+      });
     });
 
     const tenants = ["multi-cron-a", "multi-cron-b"] as TenantId[];
@@ -1179,18 +1291,24 @@ describe("perTenant across multiple runner instances", () => {
   test("manual per-tenant fan-out distributes children across both worker instances", async () => {
     const log: Array<{ tenantId: string; runnerTag: string }> = [];
     const manualFeature = defineFeature("multiworker", (r) => {
-      r.job({ name: "fanout", trigger: { manual: true }, perTenant: true, handler: async (_payload, ctx) => {
-        // Widen the window both worker instances are actively racing for
-        // children in — without it, a fast single worker could drain a
-        // small batch before the other instance's blocking queue-pop even
-        // wakes up, which would prove nothing either way.
-        await sleep(80);
-        log.push({
-          tenantId: String(ctx.systemUser.tenantId),
-          runnerTag: (unscopedRunnerOf(tenantDbRunner(ctx.db)) as unknown as { runnerTag: string })
-            .runnerTag, // @cast-boundary test fixture: stub runner carries a tag
-        });
-      } });
+      r.job({
+        name: "fanout",
+        trigger: { manual: true },
+        perTenant: true,
+        handler: async (_payload, ctx) => {
+          // Widen the window both worker instances are actively racing for
+          // children in — without it, a fast single worker could drain a
+          // small batch before the other instance's blocking queue-pop even
+          // wakes up, which would prove nothing either way.
+          await sleep(80);
+          log.push({
+            tenantId: String(ctx.systemUser.tenantId),
+            runnerTag: (
+              unscopedRunnerOf(tenantDbRunner(ctx.db)) as unknown as { runnerTag: string }
+            ).runnerTag, // @cast-boundary test fixture: stub runner carries a tag
+          });
+        },
+      });
     });
 
     // 12 > a single worker's hardcoded concurrency (5) — with both
@@ -1251,9 +1369,14 @@ describe("perTenant wrapper re-run for the same trigger", () => {
   test("a wrapper that fires twice for the same trigger still enqueues exactly one child per tenant", async () => {
     const log: Array<{ tenantId: string }> = [];
     const dedupFeature = defineFeature("multidedup", (r) => {
-      r.job({ name: "fanout", trigger: { manual: true }, perTenant: true, handler: async (_payload, ctx) => {
-        log.push({ tenantId: String(ctx.systemUser.tenantId) });
-      } });
+      r.job({
+        name: "fanout",
+        trigger: { manual: true },
+        perTenant: true,
+        handler: async (_payload, ctx) => {
+          log.push({ tenantId: String(ctx.systemUser.tenantId) });
+        },
+      });
     });
 
     const tenants = ["dedup-a", "dedup-b", "dedup-c"] as TenantId[];
@@ -1312,9 +1435,14 @@ describe("perTenant wrapper re-run for the same trigger", () => {
   test("two consecutive cron ticks each still enqueue one child per tenant", async () => {
     const log: Array<{ tenantId: string }> = [];
     const cronFeature = defineFeature("multidedupcron", (r) => {
-      r.job({ name: "fanout", trigger: { cron: "* * * * * *" }, perTenant: true, handler: async (_payload, ctx) => {
+      r.job({
+        name: "fanout",
+        trigger: { cron: "* * * * * *" },
+        perTenant: true,
+        handler: async (_payload, ctx) => {
           log.push({ tenantId: String(ctx.systemUser.tenantId) });
-        } });
+        },
+      });
     });
 
     const tenants = ["dedup-cron-a", "dedup-cron-b"] as TenantId[];
@@ -1469,12 +1597,22 @@ describe("boot gates", () => {
 
   test("a throwing gate rejects start() and stops the remaining boot wiring", async () => {
     const feature = defineFeature("failgate", (r) => {
-      r.job({ name: "check", trigger: { manual: true }, bootGate: true, handler: async () => {
-        throw new Error(GATE_FAILURE);
-      } });
-      r.job({ name: "afterGate", trigger: { manual: true }, runOnBoot: true, handler: async () => {
-        gateLog.push("after-gate");
-      } });
+      r.job({
+        name: "check",
+        trigger: { manual: true },
+        bootGate: true,
+        handler: async () => {
+          throw new Error(GATE_FAILURE);
+        },
+      });
+      r.job({
+        name: "afterGate",
+        trigger: { manual: true },
+        runOnBoot: true,
+        handler: async () => {
+          gateLog.push("after-gate");
+        },
+      });
     });
     const prefix = uniquePrefix();
     const runner = createGateRunner(feature, prefix);
@@ -1511,13 +1649,22 @@ describe("boot gates", () => {
   test("a job queued before boot is not consumed while the gate fails", async () => {
     const executed: string[] = [];
     const feature = defineFeature("queuedgate", (r) => {
-      r.job({ name: "check", trigger: { manual: true }, bootGate: true, handler: async () => {
-        await sleep(300);
-        throw new Error(GATE_FAILURE);
-      } });
-      r.job({ name: "pending", trigger: { manual: true }, handler: async () => {
-        executed.push("pending");
-      } });
+      r.job({
+        name: "check",
+        trigger: { manual: true },
+        bootGate: true,
+        handler: async () => {
+          await sleep(300);
+          throw new Error(GATE_FAILURE);
+        },
+      });
+      r.job({
+        name: "pending",
+        trigger: { manual: true },
+        handler: async () => {
+          executed.push("pending");
+        },
+      });
     });
     const prefix = uniquePrefix();
     const runner = createGateRunner(feature, prefix);
@@ -1543,9 +1690,15 @@ describe("boot gates", () => {
       releaseGate = resolve;
     });
     const feature = defineFeature("hunggate", (r) => {
-      r.job({ name: "check", trigger: { manual: true }, bootGate: true, timeout: 150, handler: async () => {
-        await gateHang;
-      } });
+      r.job({
+        name: "check",
+        trigger: { manual: true },
+        bootGate: true,
+        timeout: 150,
+        handler: async () => {
+          await gateHang;
+        },
+      });
     });
     const prefix = uniquePrefix();
     const runner = createGateRunner(feature, prefix);
@@ -1563,10 +1716,16 @@ describe("boot gates", () => {
   test("stop() waits for a timed-out gate so it cannot write after shutdown", async () => {
     const gateLifecycle: string[] = [];
     const feature = defineFeature("abandonedgate", (r) => {
-      r.job({ name: "check", trigger: { manual: true }, bootGate: true, timeout: 100, handler: async () => {
-        await sleep(400);
-        gateLifecycle.push("gate-finished");
-      } });
+      r.job({
+        name: "check",
+        trigger: { manual: true },
+        bootGate: true,
+        timeout: 100,
+        handler: async () => {
+          await sleep(400);
+          gateLifecycle.push("gate-finished");
+        },
+      });
     });
     const prefix = uniquePrefix();
     const runner = createGateRunner(feature, prefix);
@@ -1583,10 +1742,16 @@ describe("boot gates", () => {
   test("a failed start() settles the timed-out gate without a stop() call", async () => {
     const gateLifecycle: string[] = [];
     const feature = defineFeature("settledgate", (r) => {
-      r.job({ name: "check", trigger: { manual: true }, bootGate: true, timeout: 100, handler: async () => {
-        await sleep(400);
-        gateLifecycle.push("gate-finished");
-      } });
+      r.job({
+        name: "check",
+        trigger: { manual: true },
+        bootGate: true,
+        timeout: 100,
+        handler: async () => {
+          await sleep(400);
+          gateLifecycle.push("gate-finished");
+        },
+      });
     });
     const prefix = uniquePrefix();
     const runner = createGateRunner(feature, prefix);
@@ -1602,10 +1767,16 @@ describe("boot gates", () => {
   test("a gate with retries still sees finalAttempt on its only run", async () => {
     const seen: boolean[] = [];
     const feature = defineFeature("retrygate", (r) => {
-      r.job({ name: "check", trigger: { manual: true }, bootGate: true, retries: 2, handler: async (_payload, ctx) => {
+      r.job({
+        name: "check",
+        trigger: { manual: true },
+        bootGate: true,
+        retries: 2,
+        handler: async (_payload, ctx) => {
           seen.push(ctx.finalAttempt);
           throw new Error(GATE_FAILURE);
-        } });
+        },
+      });
     });
     const prefix = uniquePrefix();
     const runner = createGateRunner(feature, prefix);
@@ -1620,12 +1791,22 @@ describe("boot gates", () => {
 
   test("a gate runs on every start, unlike a deduped runOnBoot job", async () => {
     const feature = defineFeature("everygate", (r) => {
-      r.job({ name: "check", trigger: { manual: true }, bootGate: true, handler: async () => {
-        gateLog.push("gate");
-      } });
-      r.job({ name: "once", trigger: { manual: true }, runOnBoot: true, handler: async () => {
-        gateLog.push("boot");
-      } });
+      r.job({
+        name: "check",
+        trigger: { manual: true },
+        bootGate: true,
+        handler: async () => {
+          gateLog.push("gate");
+        },
+      });
+      r.job({
+        name: "once",
+        trigger: { manual: true },
+        runOnBoot: true,
+        handler: async () => {
+          gateLog.push("boot");
+        },
+      });
     });
     const prefix = uniquePrefix();
     gateLog.length = 0;
@@ -1669,7 +1850,12 @@ describe("boot gates", () => {
 
   test("includeSystemTenant without perTenant is rejected at boot", () => {
     const flagOnly = defineFeature("sysflag", (r) => {
-      r.job({ name: "sweep", trigger: { manual: true }, includeSystemTenant: true, handler: async () => {} });
+      r.job({
+        name: "sweep",
+        trigger: { manual: true },
+        includeSystemTenant: true,
+        handler: async () => {},
+      });
     });
     expect(() => createRegistry([flagOnly])).toThrow(
       'Job "sysflag:job:sweep" sets includeSystemTenant without perTenant',
@@ -1677,50 +1863,80 @@ describe("boot gates", () => {
   });
 
   test("onlyTenants is rejected at boot when it cannot narrow a fan-out", () => {
-    const rejects = (
-      feature: ReturnType<typeof defineFeature>,
-      message: string,
-    ): void => {
+    const rejects = (feature: ReturnType<typeof defineFeature>, message: string): void => {
       expect(() => createRegistry([feature])).toThrow(message);
     };
 
     rejects(
       defineFeature("onlyten1", (r) => {
-        r.job({ name: "sweep", trigger: { manual: true }, onlyTenants: [ONLY_TENANT_ID], handler: async () => {} });
+        r.job({
+          name: "sweep",
+          trigger: { manual: true },
+          onlyTenants: [ONLY_TENANT_ID],
+          handler: async () => {},
+        });
       }),
       'Job "onlyten1:job:sweep" sets onlyTenants without perTenant',
     );
     rejects(
       defineFeature("onlyten2", (r) => {
         r.defineEvent("ping", z.object({}), { piiFields: "none" });
-        r.job({ name: "sweep", trigger: { on: "onlyten2:event:ping" }, perTenant: true, onlyTenants: [ONLY_TENANT_ID], handler: async () => {} });
+        r.job({
+          name: "sweep",
+          trigger: { on: "onlyten2:event:ping" },
+          perTenant: true,
+          onlyTenants: [ONLY_TENANT_ID],
+          handler: async () => {},
+        });
       }),
-      "Job \"onlyten2:job:sweep\" sets onlyTenants on an event trigger; event-triggered runs take the event's tenant",
+      'Job "onlyten2:job:sweep" sets onlyTenants on an event trigger; event-triggered runs take the event\'s tenant',
     );
     rejects(
       defineFeature("onlyten3", (r) => {
-        r.job({ name: "sweep", trigger: { manual: true }, perTenant: true, onlyTenants: [], handler: async () => {} });
+        r.job({
+          name: "sweep",
+          trigger: { manual: true },
+          perTenant: true,
+          onlyTenants: [],
+          handler: async () => {},
+        });
       }),
       'Job "onlyten3:job:sweep" sets an empty onlyTenants list',
     );
     rejects(
       defineFeature("onlyten4", (r) => {
-        r.job({ name: "sweep", trigger: { manual: true },
-            perTenant: true,
-            includeSystemTenant: true,
-            onlyTenants: [ONLY_TENANT_ID], handler: async () => {} });
+        r.job({
+          name: "sweep",
+          trigger: { manual: true },
+          perTenant: true,
+          includeSystemTenant: true,
+          onlyTenants: [ONLY_TENANT_ID],
+          handler: async () => {},
+        });
       }),
       'Job "onlyten4:job:sweep" cannot combine onlyTenants with includeSystemTenant',
     );
     rejects(
       defineFeature("onlyten5", (r) => {
-        r.job({ name: "sweep", trigger: { manual: true }, perTenant: true, onlyTenants: ["not-a-uuid"], handler: async () => {} });
+        r.job({
+          name: "sweep",
+          trigger: { manual: true },
+          perTenant: true,
+          onlyTenants: ["not-a-uuid"],
+          handler: async () => {},
+        });
       }),
       'Job "onlyten5:job:sweep" lists "not-a-uuid" in onlyTenants, which is not a tenant id',
     );
     rejects(
       defineFeature("onlyten6", (r) => {
-        r.job({ name: "sweep", trigger: { manual: true }, perTenant: true, onlyTenants: [SYSTEM_TENANT_ID], handler: async () => {} });
+        r.job({
+          name: "sweep",
+          trigger: { manual: true },
+          perTenant: true,
+          onlyTenants: [SYSTEM_TENANT_ID],
+          handler: async () => {},
+        });
       }),
       'Job "onlyten6:job:sweep" lists the system tenant in onlyTenants; a job without perTenant already runs for it',
     );
@@ -1728,23 +1944,41 @@ describe("boot gates", () => {
 
   test("bootGate is rejected for perTenant and sequential jobs", () => {
     const perTenantGate = defineFeature("pergate", (r) => {
-      r.job({ name: "check", trigger: { manual: true }, bootGate: true, perTenant: true, handler: async () => {
-        gateLog.push("never");
-      } });
+      r.job({
+        name: "check",
+        trigger: { manual: true },
+        bootGate: true,
+        perTenant: true,
+        handler: async () => {
+          gateLog.push("never");
+        },
+      });
     });
     expect(() => createRegistry([perTenantGate])).toThrow(/bootGate with perTenant/);
 
     const sequentialGate = defineFeature("seqgate", (r) => {
-      r.job({ name: "check", trigger: { manual: true }, bootGate: true, concurrency: "sequential", handler: async () => {
+      r.job({
+        name: "check",
+        trigger: { manual: true },
+        bootGate: true,
+        concurrency: "sequential",
+        handler: async () => {
           gateLog.push("never");
-        } });
+        },
+      });
     });
     expect(() => createRegistry([sequentialGate])).toThrow(/bootGate with concurrency/);
 
     const runOnBootGate = defineFeature("bootgate", (r) => {
-      r.job({ name: "check", trigger: { manual: true }, bootGate: true, runOnBoot: true, handler: async () => {
-        gateLog.push("never");
-      } });
+      r.job({
+        name: "check",
+        trigger: { manual: true },
+        bootGate: true,
+        runOnBoot: true,
+        handler: async () => {
+          gateLog.push("never");
+        },
+      });
     });
     expect(() => createRegistry([runOnBootGate])).toThrow(/bootGate with runOnBoot/);
   });
@@ -1756,9 +1990,15 @@ describe("boot gates", () => {
     ) =>
       createRegistry([
         defineFeature("badcap", (r) => {
-          r.job({ name: "check", trigger: { manual: true }, maxPerTenant, ...extra, handler: async () => {
-            gateLog.push("never");
-          } });
+          r.job({
+            name: "check",
+            trigger: { manual: true },
+            maxPerTenant,
+            ...extra,
+            handler: async () => {
+              gateLog.push("never");
+            },
+          });
         }),
       ]);
 
@@ -1783,9 +2023,14 @@ describe("boot gates", () => {
   test("object-form backoff.delayMs must be a positive integer", () => {
     for (const badDelayMs of [0, -5, 1.5]) {
       const feature = defineFeature("badbackoff", (r) => {
-        r.job({ name: "check", trigger: { manual: true }, backoff: { type: "fixed", delayMs: badDelayMs }, handler: async () => {
+        r.job({
+          name: "check",
+          trigger: { manual: true },
+          backoff: { type: "fixed", delayMs: badDelayMs },
+          handler: async () => {
             gateLog.push("never");
-          } });
+          },
+        });
       });
       expect(() => createRegistry([feature])).toThrow(
         /backoff\.delayMs must be a positive integer/,
@@ -1793,16 +2038,26 @@ describe("boot gates", () => {
     }
 
     const validObjectForm = defineFeature("goodbackoffobject", (r) => {
-      r.job({ name: "check", trigger: { manual: true }, backoff: { type: "exponential", delayMs: 100 }, handler: async () => {
+      r.job({
+        name: "check",
+        trigger: { manual: true },
+        backoff: { type: "exponential", delayMs: 100 },
+        handler: async () => {
           gateLog.push("never");
-        } });
+        },
+      });
     });
     expect(() => createRegistry([validObjectForm])).not.toThrow();
 
     const validStringForm = defineFeature("goodbackoffstring", (r) => {
-      r.job({ name: "check", trigger: { manual: true }, backoff: "fixed", handler: async () => {
-        gateLog.push("never");
-      } });
+      r.job({
+        name: "check",
+        trigger: { manual: true },
+        backoff: "fixed",
+        handler: async () => {
+          gateLog.push("never");
+        },
+      });
     });
     expect(() => createRegistry([validStringForm])).not.toThrow();
   });
@@ -1856,9 +2111,12 @@ describe("maxPerTenant defer", () => {
     });
 
     const deferFeature = defineFeature("deferfx", (r) => {
-      r.job({ name: "capped", trigger: { manual: true },
-          maxPerTenant: { limit: LIMIT, onLimit: "defer", deferMs: 50 },
-          retries: 0, handler: async (_payload, ctx) => {
+      r.job({
+        name: "capped",
+        trigger: { manual: true },
+        maxPerTenant: { limit: LIMIT, onLimit: "defer", deferMs: 50 },
+        retries: 0,
+        handler: async (_payload, ctx) => {
           const tenant = String(ctx.systemUser.tenantId);
           const now = (running.get(tenant) ?? 0) + 1;
           running.set(tenant, now);
@@ -1867,7 +2125,8 @@ describe("maxPerTenant defer", () => {
           await gate;
           running.set(tenant, (running.get(tenant) ?? 1) - 1);
           completedTenants.push(tenant);
-        } });
+        },
+      });
     });
 
     const runStarts: string[] = [];

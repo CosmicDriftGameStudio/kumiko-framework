@@ -99,8 +99,11 @@ export function createApiWorkerSplitFeature() {
 
     // Heavy follow-up work, pinned to the worker lane: the API process only
     // enqueues (its BullMQ client, no consumer), the worker executes.
-    r.job({ name: "process-order", trigger: { on: "order.created" },
-        runIn: "worker", handler: async (_payload, context) => {
+    r.job({
+      name: "process-order",
+      trigger: { on: "order.created" },
+      runIn: "worker",
+      handler: async (_payload, context) => {
         if (fulfillWrite === undefined) {
           throw new Error(
             "process-order: no fulfill-write bridge wired — bin/worker.ts must call setOrderFulfillWrite at boot",
@@ -142,7 +145,8 @@ export function createApiWorkerSplitFeature() {
             `process-order: fulfillment create failed for order "${orderId}": ${result.error?.code ?? "unknown"}`,
           );
         }
-      } });
+      },
+    });
 
     // Async read model, applied by the WORKER's event-dispatcher. The job and
     // the projection both route on the stored entity event "order.created"; the

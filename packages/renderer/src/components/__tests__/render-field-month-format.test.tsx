@@ -10,7 +10,7 @@ import { render } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { computeEditViewModel, type EditFieldViewModel } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
-import {type InputProps, PrimitivesProvider } from "../../primitives.tsx";
+import { type InputProps, PrimitivesProvider } from "../../primitives.tsx";
 import { createStubPrimitives } from "../../testing.ts";
 import { RenderField } from "../render-field.tsx";
 

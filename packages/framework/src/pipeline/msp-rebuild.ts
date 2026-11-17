@@ -7,6 +7,7 @@ import {
   selectSnapshotXmax,
   updateConsumerRebuildCursor,
 } from "../db/queries/event-consumer.ts";
+import { selectEventsForMultiStreamRebuild } from "../db/queries/projection-rebuild.ts";
 import { assertRebuildableRowLevelSecurity } from "../db/queries/rebuild-rls-guard.ts";
 import {
   assertLiveColumnsMatchMeta,
@@ -17,7 +18,6 @@ import {
   rebuildMetaOrThrow,
   swapShadowIntoLive,
 } from "../db/queries/shadow-swap.ts";
-import { selectEventsForMultiStreamRebuild } from "../db/queries/projection-rebuild.ts";
 import { coerceRow, runInSavepoint } from "../db/query.ts";
 import { runInSystemRowLevelSecurityScope } from "../db/row-level-security-scope.ts";
 import { withoutStatementTimeout } from "../db/statement-timeout.ts";

@@ -28,7 +28,9 @@ export function allocateMinorUnits(
   shares: readonly MinorUnitShare[],
 ): ReadonlyMap<string, number> {
   if (!Number.isSafeInteger(totalMinor)) {
-    throw new RangeError(`allocateMinorUnits: totalMinor must be a safe integer, got ${totalMinor}`);
+    throw new RangeError(
+      `allocateMinorUnits: totalMinor must be a safe integer, got ${totalMinor}`,
+    );
   }
   const seenKeys = new Set<string>();
   for (const { key, weight } of shares) {

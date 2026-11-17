@@ -23,7 +23,10 @@
       "!samples/recipes/api-docs/api-docs",
       "!**/CHANGELOG.md",
       "!packages/framework/agents",
-      "!**/renderer/src/web/ui"
+      "!**/renderer/src/web/ui",
+      "!**/__tests__/fixtures/entity-name",
+      "!**/__tests__/fixtures/escape-hatch-grants",
+      "!**/__tests__/fixtures/registrar-single-form"
     ]
   },
   "assist": {

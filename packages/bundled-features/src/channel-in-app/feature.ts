@@ -26,9 +26,13 @@ export function createChannelInAppFeature(): FeatureDefinition {
 
     // Register as delivery channel via extension system
     r.translations({ keys: { "delivery.channel.inApp": { en: "In-app" } } });
-    r.applyExtension({ name: DELIVERY_CHANNEL_EXTENSION, entity: "inApp", mode: inAppChannel.mode,
+    r.applyExtension({
+      name: DELIVERY_CHANNEL_EXTENSION,
+      entity: "inApp",
+      mode: inAppChannel.mode,
       resolve: inAppChannel.resolve,
-      send: inAppChannel.send });
+      send: inAppChannel.send,
+    });
 
     const handlers = {
       markRead: r.writeHandler(markReadWrite),

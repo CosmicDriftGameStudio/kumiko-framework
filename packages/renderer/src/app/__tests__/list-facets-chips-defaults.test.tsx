@@ -11,12 +11,12 @@ import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import type { Dispatcher } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
-import {type DataTableProps, PrimitivesProvider } from "../../primitives.tsx";
+import { type DataTableProps, PrimitivesProvider } from "../../primitives.tsx";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import type { NavApi } from "../nav.tsx";
 import { NavProvider } from "../nav.tsx";
-import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 
 let capturedProps: DataTableProps | undefined;
 const captureDataTable: ComponentType<DataTableProps> = (props) => {
@@ -219,17 +219,13 @@ describe("entityList facets config", () => {
       const chips = getCapturedProps()?.filterFacets?.[0]?.chips;
       expect(chips?.map((chip) => chip.count)).toEqual([10, 7, 3, 10]);
     });
-    const groupCalls = queryCalls.filter(
-      (call) => aggregateOf(call.payload)?.groupBy === "status",
-    );
+    const groupCalls = queryCalls.filter((call) => aggregateOf(call.payload)?.groupBy === "status");
     expect(groupCalls.length).toBeGreaterThan(0);
     for (const call of groupCalls) {
       expect(aggregateOf(call.payload)).toEqual({ groupBy: "status", measures: [] });
       expect((call.payload as { limit?: number }).limit).toBeUndefined();
     }
-    expect(
-      queryCalls.some((call) => (call.payload as { limit?: number }).limit === 1),
-    ).toBe(false);
+    expect(queryCalls.some((call) => (call.payload as { limit?: number }).limit === 1)).toBe(false);
   });
 
   test("the counted facet's own selection is left out, the other facets stay", async () => {
@@ -253,9 +249,7 @@ describe("entityList facets config", () => {
       "tasks:screen:task-list",
     );
     await waitFor(() => {
-      expect(
-        queryCalls.some((call) => aggregateOf(call.payload)?.groupBy === "status"),
-      ).toBe(true);
+      expect(queryCalls.some((call) => aggregateOf(call.payload)?.groupBy === "status")).toBe(true);
     });
     const groupCall = queryCalls.find((call) => aggregateOf(call.payload)?.groupBy === "status");
     expect(filtersOf(groupCall?.payload)).toEqual([
@@ -284,9 +278,7 @@ describe("entityList facets config", () => {
       dispatcher,
     );
     await waitFor(() => {
-      expect(
-        queryCalls.some((call) => aggregateOf(call.payload)?.groupBy === "status"),
-      ).toBe(true);
+      expect(queryCalls.some((call) => aggregateOf(call.payload)?.groupBy === "status")).toBe(true);
     });
     const chips = getCapturedProps()?.filterFacets?.[0]?.chips;
     expect(chips?.map((chip) => chip.count)).toEqual([undefined, undefined]);

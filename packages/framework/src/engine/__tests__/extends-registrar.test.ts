@@ -10,6 +10,7 @@ import {
   createGatedIdentitySwitch,
   type QueryAsFn,
 } from "../../pipeline/system-identity-switch.ts";
+import { validateBoot as validateBootRaw } from "../boot-validator.ts";
 import {
   createEntity,
   createRegistry,
@@ -18,7 +19,6 @@ import {
   defineFeature,
   EXT_USER_DATA,
 } from "../index.ts";
-import { validateBoot as validateBootRaw } from "../boot-validator.ts";
 import type { TenantId } from "../types/identifiers.ts";
 
 import { stubHandlerContext, stubHandlerContextWith } from "./handler-context-stub.ts";
@@ -120,11 +120,13 @@ describe("extendsRegistrar", () => {
       });
     });
     const consumer = defineFeature("fleet", (r) => {
-      r.entity(createEntity({
+      r.entity(
+        createEntity({
           name: "vehicle",
           table: "Vehicles",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-        }));
+        }),
+      );
       r.applyExtension({ name: "customFields", entity: "vehicle" });
     });
 
@@ -145,11 +147,13 @@ describe("extendsRegistrar", () => {
     });
     const consumer = defineFeature("credit", (r) => {
       r.requires({ features: ["audit"] });
-      r.entity(createEntity({
+      r.entity(
+        createEntity({
           name: "credit",
           table: "Credits",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-        }));
+        }),
+      );
       r.writeHandler({
         name: "create",
         schema: z.object({ name: z.string() }),
@@ -178,12 +182,14 @@ describe("extendsRegistrar", () => {
       });
     });
     const consumer = defineFeature("fleet", (r) => {
-      r.entity(createEntity({
+      r.entity(
+        createEntity({
           name: "vehicle",
           table: "Vehicles",
           idType: "uuid",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-        }));
+        }),
+      );
       // Explicit handlers — the entity mapping is inferred from the
       // "vehicle:" prefix via tryMapEntity, so the extension's preSave
       // wires onto every entity-scoped handler automatically.
@@ -294,7 +300,12 @@ describe("framework-owned EXT_USER_DATA", () => {
   test("a feature registers hooks without requiring a provider feature", () => {
     const owner = defineFeature("owner", (r) => {
       r.entity(createEntity({ name: "item", table: "Items", fields: {} }));
-      r.applyExtension({ name: EXT_USER_DATA, entity: "item", export: async () => null, delete: async () => {} });
+      r.applyExtension({
+        name: EXT_USER_DATA,
+        entity: "item",
+        export: async () => null,
+        delete: async () => {},
+      });
     });
 
     expect(() => validateBoot([owner])).not.toThrow();

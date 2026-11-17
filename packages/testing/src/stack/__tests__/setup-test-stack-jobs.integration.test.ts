@@ -43,9 +43,14 @@ const manualDispatchFeature = defineFeature("manualdispatch", (r) => {
     },
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
-  r.job({ name: "record", trigger: { manual: true }, runIn: "worker", handler: async (payload) => {
-    jobRuns.push({ name: "manualdispatch:job:record", payload });
-  } });
+  r.job({
+    name: "record",
+    trigger: { manual: true },
+    runIn: "worker",
+    handler: async (payload) => {
+      jobRuns.push({ name: "manualdispatch:job:record", payload });
+    },
+  });
 });
 
 // setupTestStack used to hand jobs a bare
@@ -60,36 +65,51 @@ const jobContextFields: Array<{
 }> = [];
 
 const jobContextFeature = defineFeature("jobcontextcheck", (r) => {
-  r.job({ name: "record", trigger: { manual: true }, runIn: "worker", handler: async (_payload, context) => {
-    jobContextFields.push({
-      hasMetricsFor: context.obs.metricsFor !== undefined,
-      hasSearchAdapter: context.services.searchAdapter !== undefined,
-      hasEffectiveFeatures: context.services.effectiveFeatures !== undefined,
-    });
-  } });
+  r.job({
+    name: "record",
+    trigger: { manual: true },
+    runIn: "worker",
+    handler: async (_payload, context) => {
+      jobContextFields.push({
+        hasMetricsFor: context.obs.metricsFor !== undefined,
+        hasSearchAdapter: context.services.searchAdapter !== undefined,
+        hasEffectiveFeatures: context.services.effectiveFeatures !== undefined,
+      });
+    },
+  });
 });
 
 const jobFileReads: string[] = [];
 
 const jobFilesFeature = defineFeature("jobfilescheck", (r) => {
-  r.job({ name: "roundtrip", trigger: { manual: true }, runIn: "worker", handler: async (_payload, context) => {
-    const files = context.services.files;
-    if (!files) {
-      jobFileReads.push("no ctx.services.files");
-      return;
-    }
-    const handle = files.ref(`${context.systemUser.tenantId}/job-roundtrip.txt`);
-    await handle.write(new TextEncoder().encode("stored by the job"), "text/plain");
-    jobFileReads.push(new TextDecoder().decode(await handle.read()));
-  } });
+  r.job({
+    name: "roundtrip",
+    trigger: { manual: true },
+    runIn: "worker",
+    handler: async (_payload, context) => {
+      const files = context.services.files;
+      if (!files) {
+        jobFileReads.push("no ctx.services.files");
+        return;
+      }
+      const handle = files.ref(`${context.systemUser.tenantId}/job-roundtrip.txt`);
+      await handle.write(new TextEncoder().encode("stored by the job"), "text/plain");
+      jobFileReads.push(new TextDecoder().decode(await handle.read()));
+    },
+  });
 });
 
 const laneIsolationRuns: Array<{ from: unknown }> = [];
 
 const laneIsolationFeature = defineFeature("laneisolation", (r) => {
-  r.job({ name: "record", trigger: { manual: true }, runIn: "worker", handler: async (payload) => {
-    laneIsolationRuns.push({ from: payload["from"] });
-  } });
+  r.job({
+    name: "record",
+    trigger: { manual: true },
+    runIn: "worker",
+    handler: async (payload) => {
+      laneIsolationRuns.push({ from: payload["from"] });
+    },
+  });
 });
 
 let stack: TestStack | undefined;
@@ -366,10 +386,20 @@ describe("setupTestStack({ jobs }) attaches the job dispatcher before the runner
         handler: async () => ({ isSuccess: true as const, data: {} }),
         access: { openToAll: { reason: "test handler the boot job writes through" } },
       });
-      r.job({ name: "gate", trigger: { manual: true }, bootGate: true, handler: async () => {
-        runnerStarted = true;
-      } });
-      r.job({ name: "write-on-boot", trigger: { manual: true }, runOnBoot: true, retries: 0, handler: async (_payload, ctx) => {
+      r.job({
+        name: "gate",
+        trigger: { manual: true },
+        bootGate: true,
+        handler: async () => {
+          runnerStarted = true;
+        },
+      });
+      r.job({
+        name: "write-on-boot",
+        trigger: { manual: true },
+        runOnBoot: true,
+        retries: 0,
+        handler: async (_payload, ctx) => {
           try {
             await ctx.dispatch.write("bootdispatch:write:mark", {});
             bootWriteOutcomes.push("written");
@@ -379,7 +409,8 @@ describe("setupTestStack({ jobs }) attaches the job dispatcher before the runner
           } finally {
             markBootWriteSettled();
           }
-        } });
+        },
+      });
     });
 
     stack = await setupTestStack({

@@ -4,7 +4,7 @@ import { createRegistry } from "../registry.ts";
 
 function mailer(feature: string, name: string, renamedFrom?: readonly string[]) {
   return defineFeature(feature, (r) => {
-    r.notification({ name, ...renamedFrom === undefined ? {} : { renamedFrom } });
+    r.notification({ name, ...(renamedFrom === undefined ? {} : { renamedFrom }) });
   });
 }
 

@@ -15,13 +15,13 @@ import {
   PrimitivesProvider,
   TokensProvider,
 } from "@cosmicdrift/kumiko-renderer";
-import { type Dispatcher, type DispatcherError } from "@cosmicdrift/kumiko-renderer/headless";
+import type { Dispatcher, DispatcherError } from "@cosmicdrift/kumiko-renderer/headless";
+import { createMockDispatcher } from "@cosmicdrift/kumiko-renderer/testing";
 import { defaultPrimitives, defaultTokens } from "@cosmicdrift/kumiko-renderer/web";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { AUTH_MFA_FEATURE_I18N } from "../i18n.ts";
 import { mfaDisableScreen } from "../screens.ts";
 import { AuthMfaHandlers, MFA_DISABLE_SCREEN_ID } from "../web/constants.ts";
-import { createMockDispatcher } from "@cosmicdrift/kumiko-renderer/testing";
 
 const SCREEN_QN = `auth-mfa:screen:${MFA_DISABLE_SCREEN_ID}`;
 const stubLiveEvents: LiveEventSubscriber = () => () => {};

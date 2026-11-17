@@ -6,7 +6,6 @@ import {
   createTextField,
   createTimestampField,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { TENANT_INACTIVITY_STATE_ENTITY } from "./constants.ts";
 
 // One row per tenant. Direct-write store: the daily job and the keep-account handler mutate
 // columns, there is no aggregate or event stream behind it.
@@ -44,7 +43,6 @@ export const tenantInactivityStateEntity = createEntity({
   indexes: [{ unique: true, columns: ["tenantId"], name: "store_tenant_inactivity_state_tenant" }],
 });
 
-export const tenantInactivityStateTable = deriveEntityTableMeta(
-  tenantInactivityStateEntity,
-  { source: "unmanaged" },
-);
+export const tenantInactivityStateTable = deriveEntityTableMeta(tenantInactivityStateEntity, {
+  source: "unmanaged",
+});

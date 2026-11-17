@@ -29,11 +29,7 @@ import {
   writeFailure,
 } from "../errors/index.ts";
 import { ArchivedStreamError } from "../event-store/errors.ts";
-import {
-  type EventMetadata,
-  getStreamVersion,
-  isStreamArchived,
-} from "../event-store/index.ts";
+import { type EventMetadata, getStreamVersion, isStreamArchived } from "../event-store/index.ts";
 
 import type { SearchAdapter } from "../search/types.ts";
 import type { EnvelopeCipher } from "../secrets/envelope-cipher.ts";
@@ -712,7 +708,9 @@ export function buildExecutorContext(
       streamVersion = await getStreamVersion(runner, String(id), options.streamTenant);
       archived = await isStreamArchived(runner, options.streamTenant, String(id));
     }
-    const row = await decryptForRead(coerceAndRehydrateRow(rawRow, extractTableInfo(table), entity));
+    const row = await decryptForRead(
+      coerceAndRehydrateRow(rawRow, extractTableInfo(table), entity),
+    );
     return { row, rawRow, streamVersion, archived };
   }
 

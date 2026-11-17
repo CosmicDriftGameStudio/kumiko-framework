@@ -44,6 +44,11 @@ import { createMailTransportInMemoryFeature } from "@cosmicdrift/kumiko-bundled-
 import { createMailTransportSmtpFeature } from "@cosmicdrift/kumiko-bundled-features/mail-transport-smtp";
 import { createRateLimitingFeature } from "@cosmicdrift/kumiko-bundled-features/rate-limiting";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
+import {
+  createRendererMailHtmlFeature,
+  type MailBrandSuffixResolver,
+  type MailFooterResolver,
+} from "@cosmicdrift/kumiko-bundled-features/renderer-mail-html";
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import {
   createSubscriptionMollieFeature,
@@ -70,11 +75,6 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/waitlist";
 import type { BootOptionName, FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { createFilesFeature } from "@cosmicdrift/kumiko-framework/files";
-import {
-  createRendererMailHtmlFeature,
-  type MailBrandSuffixResolver,
-  type MailFooterResolver,
-} from "@cosmicdrift/kumiko-bundled-features/renderer-mail-html";
 
 export type FileProviderKind = "inmemory" | "s3" | "s3-env";
 export type MailTransportKind = "inmemory" | "smtp";

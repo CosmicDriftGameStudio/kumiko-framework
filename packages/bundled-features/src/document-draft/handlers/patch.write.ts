@@ -24,7 +24,10 @@ const REFUSED_DRAFT_OPS: ReadonlySet<DocumentOp["op"]> = new Set([
   "setResource",
 ]);
 
-export function createPatchHandler(access: AccessRule, documentDraftExecutor: DocumentDraftExecutor) {
+export function createPatchHandler(
+  access: AccessRule,
+  documentDraftExecutor: DocumentDraftExecutor,
+) {
   return defineWriteHandler<"patch", typeof PatchDraftSchema, PatchData>({
     name: "patch",
     schema: PatchDraftSchema,

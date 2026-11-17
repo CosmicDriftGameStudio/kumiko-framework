@@ -28,7 +28,10 @@ const pubdbFeature = defineFeature("pubdb", (r) => {
       reason: "test: public createTenantDb refuses an unsafeRaw runner",
     },
     handler: async ({ payload }, ctx) => {
-      createTenantDb({ db: ctx.db.unsafeRawAllTenants(), tenantId: tenantIdOrThrow(payload.tenantId) });
+      createTenantDb({
+        db: ctx.db.unsafeRawAllTenants(),
+        tenantId: tenantIdOrThrow(payload.tenantId),
+      });
       return { ok: true };
     },
   });
@@ -74,7 +77,11 @@ describe("public tenant db", () => {
   });
 
   test("scopeTenantDbToTenant refuses moving a tenant handle to another tenant", async () => {
-    const error = await stack.http.queryErr("pubdb:query:scope-foreign", { tenantId: other }, admin);
+    const error = await stack.http.queryErr(
+      "pubdb:query:scope-foreign",
+      { tenantId: other },
+      admin,
+    );
     expect(error.httpStatus).toBe(403);
   });
 

@@ -215,7 +215,6 @@ export type {
 } from "./hooks/use-ai-text.ts";
 export { AI_TEXT_RUN_QN, useAiTextAction, useCompletion } from "./hooks/use-ai-text.ts";
 export { useDebouncedValue } from "./hooks/use-debounced-value.ts";
-export { useNow } from "./hooks/use-now.ts";
 export type { UseDisclosureResult } from "./hooks/use-disclosure.ts";
 export { useDisclosure } from "./hooks/use-disclosure.ts";
 export type { UseFormOptions, UseFormResult } from "./hooks/use-form.ts";
@@ -231,6 +230,7 @@ export type { UseLiveRefetchOptions } from "./hooks/use-live-refetch.ts";
 export { useLiveRefetch } from "./hooks/use-live-refetch.ts";
 export type { UseMutationResult } from "./hooks/use-mutation.ts";
 export { useMutation } from "./hooks/use-mutation.ts";
+export { useNow } from "./hooks/use-now.ts";
 export type { UseQueryOptions, UseQueryResult } from "./hooks/use-query.ts";
 export { entityFromQueryType, useQuery } from "./hooks/use-query.ts";
 export { useReportStepComplete } from "./hooks/use-report-step-complete.ts";

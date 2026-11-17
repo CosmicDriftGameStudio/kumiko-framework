@@ -94,7 +94,8 @@ function buildTagAssignmentEntity(
     indexes: [
       { columns: ["tenantId", "entityType", "entityId"] },
       { columns: ["tenantId", "tagId"] },
-    ], name: "tag-assignment",
+    ],
+    name: "tag-assignment",
   });
 }
 

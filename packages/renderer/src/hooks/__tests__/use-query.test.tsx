@@ -8,8 +8,8 @@ import {
   type PageVisibilityState,
 } from "../../context/page-visibility-context.tsx";
 import { createStore, type Dispatcher, type QueryResult } from "../../headless/index.ts";
-import { useQuery } from "../use-query.ts";
 import { createMockDispatcher, type MockQueryHandler } from "../../testing.ts";
+import { useQuery } from "../use-query.ts";
 
 function wrapperFor(dispatcher: Dispatcher) {
   return ({ children }: { readonly children: ReactNode }) => (
@@ -532,8 +532,7 @@ describe("useQuery with a handler contract", () => {
       },
     });
     const { result, rerender } = renderHook(
-      () =>
-        useQuery(queryContract<{ id: string }, { n: number }>(QUERY_TYPE), { id: "a" }),
+      () => useQuery(queryContract<{ id: string }, { n: number }>(QUERY_TYPE), { id: "a" }),
       { wrapper: wrapperFor(dispatcher) },
     );
     await waitFor(() => expect(result.current.data).toEqual({ n: 1 }));

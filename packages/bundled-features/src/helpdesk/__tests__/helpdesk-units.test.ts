@@ -195,7 +195,10 @@ describe("helpdeskWebsiteClient", () => {
   });
 
   test("submit maps an unknown result to failed", async () => {
-    const client = scopeClient({ load: async () => ({}), submit: async () => ({ kind: "queued" }) });
+    const client = scopeClient({
+      load: async () => ({}),
+      submit: async () => ({ kind: "queued" }),
+    });
     expect(await client.submit(WEBSITE_FIELDS)).toEqual({
       kind: HELPDESK_WEBSITE_SUBMIT_OUTCOME.Failed,
     });

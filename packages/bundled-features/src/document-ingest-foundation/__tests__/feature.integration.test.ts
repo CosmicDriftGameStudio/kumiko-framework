@@ -35,7 +35,12 @@ import {
   defineFeature,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { append, eventsTable, getStreamVersion, type StoredEvent } from "@cosmicdrift/kumiko-framework/event-store";
+import {
+  append,
+  eventsTable,
+  getStreamVersion,
+  type StoredEvent,
+} from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createFilesFeature,
   createInMemoryFileProvider,
@@ -93,9 +98,17 @@ const providerBProcessed: Array<{ readonly fileRefId: string }> = [];
 
 const testProviderAFeature = defineFeature("test-document-ingest-provider-a", (r) => {
   r.requires({ features: ["document-ingest-foundation"] });
-  r.applyExtension({ name: EXT_DOCUMENT_INGEST_PROVIDER, entity: PROVIDER_A_NAME, mimeTypes: ["application/pdf", "image/png"],
-    maxFileBytes: PROVIDER_A_MAX_BYTES });
-  r.job({ name: "test-provider-a-worker", trigger: documentIngestProviderTrigger(PROVIDER_A_NAME), runIn: "worker", handler: async (rawPayload, ctx) => {
+  r.applyExtension({
+    name: EXT_DOCUMENT_INGEST_PROVIDER,
+    entity: PROVIDER_A_NAME,
+    mimeTypes: ["application/pdf", "image/png"],
+    maxFileBytes: PROVIDER_A_MAX_BYTES,
+  });
+  r.job({
+    name: "test-provider-a-worker",
+    trigger: documentIngestProviderTrigger(PROVIDER_A_NAME),
+    runIn: "worker",
+    handler: async (rawPayload, ctx) => {
       const payload = documentIngestRequestedPayloadSchema.parse(rawPayload);
       // No own existence check on purpose: idempotency under redelivery and the
       // delete→restore race is the helper's job.
@@ -114,25 +127,44 @@ const testProviderAFeature = defineFeature("test-document-ingest-provider-a", (r
         },
       });
       providerAProcessed.push({ fileRefId: payload.fileRefId });
-    } });
+    },
+  });
 });
 
 const testProviderBFeature = defineFeature("test-document-ingest-provider-b", (r) => {
   r.requires({ features: ["document-ingest-foundation"] });
-  r.applyExtension({ name: EXT_DOCUMENT_INGEST_PROVIDER, entity: PROVIDER_B_NAME, mimeTypes: [DOCX_MIME_TYPE],
-    maxFileBytes: PROVIDER_B_MAX_BYTES });
-  r.job({ name: "test-provider-b-worker", trigger: documentIngestProviderTrigger(PROVIDER_B_NAME), runIn: "worker", handler: async (payload) => {
+  r.applyExtension({
+    name: EXT_DOCUMENT_INGEST_PROVIDER,
+    entity: PROVIDER_B_NAME,
+    mimeTypes: [DOCX_MIME_TYPE],
+    maxFileBytes: PROVIDER_B_MAX_BYTES,
+  });
+  r.job({
+    name: "test-provider-b-worker",
+    trigger: documentIngestProviderTrigger(PROVIDER_B_NAME),
+    runIn: "worker",
+    handler: async (payload) => {
       providerBProcessed.push({ fileRefId: payload["fileRefId"] as string });
-    } });
+    },
+  });
 });
 
 const PROVIDER_XML_NAME = "test-provider-xml";
 
 const testProviderXmlFeature = defineFeature("test-document-ingest-provider-xml", (r) => {
   r.requires({ features: ["document-ingest-foundation"] });
-  r.applyExtension({ name: EXT_DOCUMENT_INGEST_PROVIDER, entity: PROVIDER_XML_NAME, mimeTypes: ["application/xml", "text/xml"],
-    maxFileBytes: PROVIDER_B_MAX_BYTES });
-  r.job({ name: "test-provider-xml-worker", trigger: documentIngestProviderTrigger(PROVIDER_XML_NAME), runIn: "worker", handler: async () => {} });
+  r.applyExtension({
+    name: EXT_DOCUMENT_INGEST_PROVIDER,
+    entity: PROVIDER_XML_NAME,
+    mimeTypes: ["application/xml", "text/xml"],
+    maxFileBytes: PROVIDER_B_MAX_BYTES,
+  });
+  r.job({
+    name: "test-provider-xml-worker",
+    trigger: documentIngestProviderTrigger(PROVIDER_XML_NAME),
+    runIn: "worker",
+    handler: async () => {},
+  });
 });
 
 const attachmentNoteEntity = createEntity({
@@ -463,7 +495,9 @@ describe("ingest events live on their own stream", () => {
 
     await stack.eventDispatcher?.runOnce();
 
-    const onFileRefStream = await selectMany<StoredEvent>(stack.db, eventsTable, { aggregateId: id });
+    const onFileRefStream = await selectMany<StoredEvent>(stack.db, eventsTable, {
+      aggregateId: id,
+    });
     expect([...new Set(onFileRefStream.map((row) => row.aggregateType))]).toEqual(["fileRef"]);
 
     const requested = (
@@ -492,7 +526,9 @@ describe("ingest events live on their own stream", () => {
 
     const requestedFor = async (fileRefId: string) =>
       (
-        await selectMany<StoredEvent>(stack.db, eventsTable, { type: DOCUMENT_INGEST_REQUESTED_EVENT_QN })
+        await selectMany<StoredEvent>(stack.db, eventsTable, {
+          type: DOCUMENT_INGEST_REQUESTED_EVENT_QN,
+        })
       ).filter((row) => row.payload["fileRefId"] === fileRefId);
 
     const [derived] = await requestedFor(id);

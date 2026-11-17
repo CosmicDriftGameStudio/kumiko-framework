@@ -30,12 +30,14 @@ describe("validateBoot — column sortable only applies to relatedList columns",
 
   test("entityList column with sortable → Throw naming the entity-field flag", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity(createEntity({
+      r.entity(
+        createEntity({
           name: "product",
           fields: {
             name: createTextField({ personal: false, reason: "test_fixture", sortable: true }),
           },
-        }));
+        }),
+      );
       r.screen({
         id: "product-list",
         type: "entityList",

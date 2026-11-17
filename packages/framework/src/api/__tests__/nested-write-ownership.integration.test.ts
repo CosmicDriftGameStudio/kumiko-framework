@@ -81,17 +81,25 @@ const task3Table = buildEntityTable(task3Entity);
 const nestedOwnershipFeature = defineFeature("nested-own", (r) => {
   r.entity(project2Entity);
   r.entity(task2Entity);
-  r.relation({ entity: "project2", name: "tasks", type: "hasMany",
+  r.relation({
+    entity: "project2",
+    name: "tasks",
+    type: "hasMany",
     target: "task2",
     foreignKey: "projectId",
-    nestedWrite: true });
+    nestedWrite: true,
+  });
 
   r.entity(project3Entity);
   r.entity(task3Entity);
-  r.relation({ entity: "project3", name: "tasks", type: "hasMany",
+  r.relation({
+    entity: "project3",
+    name: "tasks",
+    type: "hasMany",
     target: "task3",
     foreignKey: "projectId",
-    nestedWrite: true });
+    nestedWrite: true,
+  });
 
   // Custom (non-executor-entry) find-or-create: same-tenant only (tenant-
   // scoped fetchOne), simulating a handler that doesn't strictly insert a
@@ -171,7 +179,10 @@ const nestedOwnershipFeature = defineFeature("nested-own", (r) => {
       return crud.create({ name: event.payload.name }, event.user, ctx.db);
     },
     access: { roles: ["Admin", "User"] },
-    escapeHatch: { reason: "fw#2861 test fixture — simulate cross-tenant find-or-create bug", grants: ["unsafeRaw"] },
+    escapeHatch: {
+      reason: "fw#2861 test fixture — simulate cross-tenant find-or-create bug",
+      grants: ["unsafeRaw"],
+    },
   });
 
   r.writeHandler({

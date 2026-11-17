@@ -26,9 +26,13 @@ let redisUrl: string;
 
 const livenessFeature = defineFeature("liveness", (r) => {
   r.job({ name: "succeeds", trigger: { manual: true }, handler: async () => {} });
-  r.job({ name: "failsAlways", trigger: { manual: true }, handler: async () => {
-    throw new Error("intentional failure");
-  } });
+  r.job({
+    name: "failsAlways",
+    trigger: { manual: true },
+    handler: async () => {
+      throw new Error("intentional failure");
+    },
+  });
   r.job({ name: "fansOut", trigger: { manual: true }, perTenant: true, handler: async () => {} });
   r.job({ name: "completeHookThrows", trigger: { manual: true }, handler: async () => {} });
 });

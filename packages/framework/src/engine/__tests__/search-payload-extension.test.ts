@@ -145,13 +145,15 @@ describe("buildSearchDocument — contributor precedence (base fields win)", () 
 
   function registryWith(contributor: SearchPayloadContributorFn) {
     const feature = defineFeature("test", (r) => {
-      const thing = r.entity(createEntity({
+      const thing = r.entity(
+        createEntity({
           name: "thing",
           table: "things",
           fields: {
             title: createTextField({ searchable: true, personal: false, reason: "test_fixture" }),
           },
-        }));
+        }),
+      );
       r.searchPayloadExtension(thing, contributor);
     });
     return createRegistry([feature]);
@@ -159,7 +161,13 @@ describe("buildSearchDocument — contributor precedence (base fields win)", () 
 
   test("a contributor cannot overwrite an indexed Stammfield value", async () => {
     const registry = registryWith(() => ({ title: "from-contributor" }));
-    const doc = await buildSearchDocument("thing", "t1", { title: "real-value" }, registry, searchDb);
+    const doc = await buildSearchDocument(
+      "thing",
+      "t1",
+      { title: "real-value" },
+      registry,
+      searchDb,
+    );
     expect(doc?.fields["title"]).toBe("real-value");
     expect(consoleCallsMentioning(warnSpy, "[kumiko:search] searchPayloadExtension")).toHaveLength(
       1,
@@ -178,7 +186,13 @@ describe("buildSearchDocument — contributor precedence (base fields win)", () 
 
   test("a non-colliding contributor key is still merged in", async () => {
     const registry = registryWith(() => ({ flatTags: "a,b" }));
-    const doc = await buildSearchDocument("thing", "t1", { title: "real-value" }, registry, searchDb);
+    const doc = await buildSearchDocument(
+      "thing",
+      "t1",
+      { title: "real-value" },
+      registry,
+      searchDb,
+    );
     expect(doc?.fields).toMatchObject({ title: "real-value", flatTags: "a,b" });
     expect(consoleCallsMentioning(warnSpy, "[kumiko:search] searchPayloadExtension")).toHaveLength(
       0,
@@ -187,13 +201,15 @@ describe("buildSearchDocument — contributor precedence (base fields win)", () 
 
   test("collision dedup — same collision warns exactly once across calls", async () => {
     const feature = defineFeature("test", (r) => {
-      const thing = r.entity(createEntity({
+      const thing = r.entity(
+        createEntity({
           name: "thing-dedup",
           table: "things_dedup",
           fields: {
             title: createTextField({ searchable: true, personal: false, reason: "test_fixture" }),
           },
-        }));
+        }),
+      );
       r.searchPayloadExtension(thing, () => ({ title: "from-contributor" }));
     });
     const registry = createRegistry([feature]);
@@ -219,19 +235,27 @@ describe("buildSearchDocument — contributor precedence (base fields win)", () 
 
   test("contributor-vs-contributor collision warns with the right message", async () => {
     const feature = defineFeature("test", (r) => {
-      const thing = r.entity(createEntity({
+      const thing = r.entity(
+        createEntity({
           name: "thing",
           table: "things",
           fields: {
             title: createTextField({ searchable: true, personal: false, reason: "test_fixture" }),
           },
-        }));
+        }),
+      );
       r.searchPayloadExtension(thing, () => ({ overlap: "first" }));
       r.searchPayloadExtension(thing, () => ({ overlap: "second" }));
     });
     const registry = createRegistry([feature]);
 
-    const doc = await buildSearchDocument("thing", "t1", { title: "real-value" }, registry, searchDb);
+    const doc = await buildSearchDocument(
+      "thing",
+      "t1",
+      { title: "real-value" },
+      registry,
+      searchDb,
+    );
     // Stammfield title → no collision. overlap is NOT a Stammfield, so the
     // second contributor's "overlap" collides with the first one's → "earlier contributor key".
     expect(doc?.fields["title"]).toBe("real-value");
@@ -245,7 +269,8 @@ describe("buildSearchDocument — contributor precedence (base fields win)", () 
 describe("buildSearchDocument — searchable embedded sub-fields", () => {
   function registryWithLines(multiple: boolean) {
     const feature = defineFeature("test", (r) => {
-      r.entity(createEntity({
+      r.entity(
+        createEntity({
           name: "invoice",
           table: "invoices",
           fields: {
@@ -255,7 +280,8 @@ describe("buildSearchDocument — searchable embedded sub-fields", () => {
               schema: { description: { type: "text", searchable: true } },
             },
           },
-        }));
+        }),
+      );
     });
     return createRegistry([feature]);
   }
@@ -272,7 +298,13 @@ describe("buildSearchDocument — searchable embedded sub-fields", () => {
   });
 
   test("an empty list contributes no indexed value", async () => {
-    const doc = await buildSearchDocument("invoice", "i1", { lines: [] }, registryWithLines(true), searchDb);
+    const doc = await buildSearchDocument(
+      "invoice",
+      "i1",
+      { lines: [] },
+      registryWithLines(true),
+      searchDb,
+    );
     expect(doc?.fields["lines_description"]).toBeUndefined();
   });
 

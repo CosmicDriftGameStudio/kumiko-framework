@@ -46,26 +46,30 @@ function labelsOf(rows: readonly { label: string }[]): string[] {
 }
 
 const jobsFeature = defineFeature("jobtenantdb", (r) => {
-  r.job({ name: "undeclared", trigger: { manual: true }, handler: async (_payload, ctx) => {
-    const own = await selectMany<{ label: string }>(ctx.db, itemsTable);
-    const foreignWhere = await selectMany<{ label: string }>(ctx.db, itemsTable, {
-      tenantId: foreignTenant,
-    });
-    let unsafeRawDenied = false;
-    try {
-      ctx.db.unsafeRawAllTenants();
-    } catch (err) {
-      unsafeRawDenied = err instanceof AccessDeniedError;
-    }
-    outcomes.push({
-      job: "undeclared",
-      mode: ctx.db.mode,
-      tenantId: ctx.db.tenantId,
-      labels: labelsOf(own),
-      foreignWhereLabels: labelsOf(foreignWhere),
-      unsafeRawDenied,
-    });
-  } });
+  r.job({
+    name: "undeclared",
+    trigger: { manual: true },
+    handler: async (_payload, ctx) => {
+      const own = await selectMany<{ label: string }>(ctx.db, itemsTable);
+      const foreignWhere = await selectMany<{ label: string }>(ctx.db, itemsTable, {
+        tenantId: foreignTenant,
+      });
+      let unsafeRawDenied = false;
+      try {
+        ctx.db.unsafeRawAllTenants();
+      } catch (err) {
+        unsafeRawDenied = err instanceof AccessDeniedError;
+      }
+      outcomes.push({
+        job: "undeclared",
+        mode: ctx.db.mode,
+        tenantId: ctx.db.tenantId,
+        labels: labelsOf(own),
+        foreignWhereLabels: labelsOf(foreignWhere),
+        unsafeRawDenied,
+      });
+    },
+  });
 
   r.job({
     name: "declared",
@@ -154,7 +158,12 @@ describe("JobContext.db", () => {
   test("r.job rejects an escapeHatch with an empty reason at registration", () => {
     const register = () =>
       defineFeature("jobtenantdb-empty", (r) => {
-        r.job({ name: "bad", trigger: { manual: true }, escapeHatch: { reason: "   ", grants: ["unsafeRaw"] }, handler: async () => {} });
+        r.job({
+          name: "bad",
+          trigger: { manual: true },
+          escapeHatch: { reason: "   ", grants: ["unsafeRaw"] },
+          handler: async () => {},
+        });
       });
     expect(register).toThrow(/r\.job\("bad"\) declares an invalid escapeHatch — .*non-empty/);
   });

@@ -7,7 +7,13 @@ import userEvent from "@testing-library/user-event";
 import type { Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
-import { createMockDispatcher, type MockBatchHandler, render, screen, waitFor } from "./test-utils.tsx";
+import {
+  createMockDispatcher,
+  type MockBatchHandler,
+  render,
+  screen,
+  waitFor,
+} from "./test-utils.tsx";
 
 const OPTIONS_QUERY = "catalog:query:model-options";
 
@@ -28,10 +34,12 @@ const schema: FeatureSchema = { featureName: "demo", entities: {}, screens: [scr
 
 describe("optionsQuery default row on a configEdit screen", () => {
   test("a never-set key stays empty and saving another field writes nothing for it", async () => {
-    const batchSpy = mock<MockBatchHandler>(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
-      isSuccess: true as const,
-      results: [],
-    }));
+    const batchSpy = mock<MockBatchHandler>(
+      async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
+        isSuccess: true as const,
+        results: [],
+      }),
+    );
     const dispatcher: Dispatcher = createMockDispatcher({
       query: async (qn: string) => {
         if (qn === OPTIONS_QUERY) {

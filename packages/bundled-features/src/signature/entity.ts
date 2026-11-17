@@ -1,4 +1,3 @@
-import type { ParentRefDef } from "@cosmicdrift/kumiko-types/fields";
 import {
   createEntity,
   createEntityExecutor,
@@ -8,6 +7,7 @@ import {
   createTextField,
   createTimestampField,
 } from "@cosmicdrift/kumiko-framework/engine";
+import type { ParentRefDef } from "@cosmicdrift/kumiko-types/fields";
 import {
   SIGNATURE_LEVEL,
   SIGNATURE_METHOD,
@@ -141,7 +141,8 @@ function buildSignatureRequestEntity(
       { columns: ["tenantId", "status"] },
       { columns: ["tenantId", "subjectType", "subjectId"] },
       { columns: ["tenantId", "hostType", "hostId"] },
-    ], name: SIGNATURE_REQUEST_ENTITY,
+    ],
+    name: SIGNATURE_REQUEST_ENTITY,
   });
 }
 
@@ -158,7 +159,9 @@ export function createSignatureRequestEntity(
 }
 
 export function createSignatureSignerEntity(
-  retention: Pick<SignatureRetention, "keepFor"> = { keepFor: DEFAULT_SIGNATURE_RETENTION_KEEP_FOR },
+  retention: Pick<SignatureRetention, "keepFor"> = {
+    keepFor: DEFAULT_SIGNATURE_RETENTION_KEEP_FOR,
+  },
 ) {
   return createEntity({
     name: SIGNATURE_SIGNER_ENTITY,
@@ -233,6 +236,5 @@ export function createSignatureRequestExecutor(hostEntities: readonly string[]) 
 }
 
 export type SignatureRequestExecutor = ReturnType<typeof createSignatureRequestExecutor>;
-export const { executor: signerExecutor, table: signatureSignerTable } = createEntityExecutor(
-  signatureSignerEntity,
-);
+export const { executor: signerExecutor, table: signatureSignerTable } =
+  createEntityExecutor(signatureSignerEntity);

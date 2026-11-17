@@ -16,6 +16,7 @@ import {
   UserRolesProvider,
 } from "@cosmicdrift/kumiko-renderer";
 import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
+import { createMockDispatcher } from "@cosmicdrift/kumiko-renderer/testing";
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
@@ -24,7 +25,6 @@ import { BODY_REJECTED_I18N_KEY, sanitizePageBody } from "../../handlers/page-bo
 import { PAGE_CREATE_HANDLER, PAGE_UPDATE_HANDLER } from "../constants.ts";
 import { defaultTranslations } from "../default-translations.ts";
 import { PageEditScreen } from "../page-edit-screen.tsx";
-import { createMockDispatcher } from "@cosmicdrift/kumiko-renderer/testing";
 
 type Write = { type: string; payload: Record<string, unknown> };
 let writes: Write[] = [];

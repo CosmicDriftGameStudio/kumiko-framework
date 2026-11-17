@@ -33,7 +33,6 @@ import {
   type DbRunner,
   fetchOne,
 } from "@cosmicdrift/kumiko-framework/db";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   attachOutsideTransaction,
   createSystemUser,
@@ -47,6 +46,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { VERSION_CONFLICT_CODE } from "@cosmicdrift/kumiko-framework/errors";
 import { getUnscopedAggregateStreamMaxVersion } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   createDeferringNotify,
   createLifecycleHooks,

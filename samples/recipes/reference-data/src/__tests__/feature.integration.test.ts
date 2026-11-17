@@ -6,10 +6,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { seedReferenceData, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { ReferenceDataDef } from "@cosmicdrift/kumiko-framework/engine";
 import { rebuildProjection } from "@cosmicdrift/kumiko-framework/pipeline";
-import {
-  setupTestStack,
-  type TestStack,
-} from "@cosmicdrift/kumiko-testing/stack";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { categoryFeature, categoryTable } from "../feature";
 
 let stack: TestStack;

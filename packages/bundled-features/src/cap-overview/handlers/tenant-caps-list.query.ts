@@ -10,8 +10,8 @@ import {
 import { UnprocessableError, ValidationError } from "@cosmicdrift/kumiko-framework/errors";
 import type { SearchAdapter } from "@cosmicdrift/kumiko-framework/search";
 import * as z from "zod";
-import { requireSystemDb } from "../../shared/index.ts";
 import { subscriptionsProjectionTable } from "../../billing-foundation/index.ts";
+import { requireSystemDb } from "../../shared/index.ts";
 import { decryptTenantNames, tenantTable } from "../../tenant/index.ts";
 import { tierAssignmentTable } from "../../tier-engine/index.ts";
 import type { CapSpec, CapSpecLimitContext, CapSpecLimitTenant, CapUsage } from "../types.ts";

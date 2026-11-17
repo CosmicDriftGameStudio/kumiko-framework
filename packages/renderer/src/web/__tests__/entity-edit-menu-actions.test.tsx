@@ -10,7 +10,15 @@ import type { Dispatcher } from "../../headless/index.ts";
 import type { NavTarget } from "../../index.ts";
 import { DispatcherProvider, KumikoScreen, NavProvider } from "../../index.ts";
 import { PageHeaderSlotProvider, usePageHeaderSlot } from "../layout/page-header-slot.tsx";
-import { createMockDispatcher, fireEvent, type MockWriteHandler, render, screen, waitFor, within } from "./test-utils.tsx";
+import {
+  createMockDispatcher,
+  fireEvent,
+  type MockWriteHandler,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "./test-utils.tsx";
 
 const productEntity: EntityDefinition = {
   name: "product",

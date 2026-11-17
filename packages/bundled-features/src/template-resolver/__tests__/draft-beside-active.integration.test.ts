@@ -12,7 +12,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { rebuildProjection } from "@cosmicdrift/kumiko-framework/pipeline";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { createRendererMailHtmlFeature } from "../../renderer-mail-html/index.ts";
 import {
   setupTestStack,
   type TestStack,
@@ -21,6 +20,7 @@ import {
 import { isPlainObject, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature.ts";
+import { createRendererMailHtmlFeature } from "../../renderer-mail-html/index.ts";
 import { createTemplateResolverApi } from "../api.ts";
 import { createTemplateResolverFeature } from "../feature.ts";
 import type { LayoutSourceResponse, OverviewResponse } from "../index.ts";
@@ -66,14 +66,15 @@ const mailer = defineFeature("dd-mailer", (r) => {
     access: { roles: ["TenantAdmin"] },
     handler: async () => ({ isSuccess: true as const, data: {} }),
   });
-  r.notification({ name: "gated", trigger: { on: "create" },
+  r.notification({
+    name: "gated",
+    trigger: { on: "create" },
     recipient: () => null,
     data: () => ({}),
-    variables: { name: templateVariable.text({ required: true }) } });
+    variables: { name: templateVariable.text({ required: true }) },
+  });
   for (const name of PLAIN_NAMES) {
-    r.notification({ name, trigger: { on: "create" },
-      recipient: () => null,
-      data: () => ({}) });
+    r.notification({ name, trigger: { on: "create" }, recipient: () => null, data: () => ({}) });
   }
 });
 

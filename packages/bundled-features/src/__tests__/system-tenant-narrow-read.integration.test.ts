@@ -1,7 +1,12 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createTenantDb, defineUnmanagedTable } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
-import { createFilesFeature, createInMemoryFileProvider, createTenantFileContext, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
+import {
+  createFilesFeature,
+  createInMemoryFileProvider,
+  createTenantFileContext,
+  fileRefsTable,
+} from "@cosmicdrift/kumiko-framework/files";
 import { systemTenantReadDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";

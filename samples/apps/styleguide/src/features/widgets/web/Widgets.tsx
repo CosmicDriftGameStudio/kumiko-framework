@@ -342,7 +342,10 @@ export function Widgets(): ReactNode {
 }
 
 const WEALTH_YEARS = Array.from({ length: 21 }, (_, year) => year);
-const PROPERTY_WEALTH = WEALTH_YEARS.map((x) => ({ x, y: Math.round(60_000 + x * 14_000 + x * x * 450) }));
+const PROPERTY_WEALTH = WEALTH_YEARS.map((x) => ({
+  x,
+  y: Math.round(60_000 + x * 14_000 + x * x * 450),
+}));
 const ETF_WEALTH = WEALTH_YEARS.map((x) => ({ x, y: Math.round(60_000 * 1.065 ** x + x * 3_600) }));
 const CASHFLOW_YEARS = Array.from({ length: 10 }, (_, i) => 2026 + i);
 const CASHFLOW_BUCKETS = CASHFLOW_YEARS.map((x, i) => ({

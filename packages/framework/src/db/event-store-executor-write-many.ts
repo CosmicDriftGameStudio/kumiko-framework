@@ -9,8 +9,8 @@ import type { EntityId } from "@cosmicdrift/kumiko-types/identifiers";
 import type { TenantDb } from "@cosmicdrift/kumiko-types/tenant-db-types";
 import type { SessionUser, TenantId } from "../engine/types/index.ts";
 import { InternalError, type WriteFailure, writeFailure } from "../errors/index.ts";
-import { VersionConflictError } from "../event-store/errors.ts";
 import { appendMany } from "../event-store/append-many.ts";
+import { VersionConflictError } from "../event-store/errors.ts";
 import type { EventToAppend } from "../event-store/event-store.ts";
 import type { StoredEvent } from "../event-store/index.ts";
 import { applyCreatedEntityEvents, applyEntityEvent } from "./apply-entity-event.ts";
@@ -135,14 +135,17 @@ export function createBatchWriteVerbs(
 
       let committed: { events: readonly StoredEvent[]; rows: readonly DbRow[] };
       try {
-        committed = await runInSavepointIfSupported(withExecutorManagedWrites(runner), async (sp) => {
-          const events = await appendMany(
-            sp,
-            prepared.map((item) => item.toAppend),
-          );
-          const rows = await applyCreatedEntityEvents(events, table, entity, sp);
-          return { events, rows };
-        });
+        committed = await runInSavepointIfSupported(
+          withExecutorManagedWrites(runner),
+          async (sp) => {
+            const events = await appendMany(
+              sp,
+              prepared.map((item) => item.toAppend),
+            );
+            const rows = await applyCreatedEntityEvents(events, table, entity, sp);
+            return { events, rows };
+          },
+        );
       } catch (e) {
         return await batchFailure(
           e,

@@ -98,7 +98,10 @@ const nestedFeature = defineFeature("nws", (r) => {
       return { isSuccess: true as const, data: {} };
     },
     access: { roles: ["Admin"] },
-    escapeHatch: { reason: "test fixture: provoke a SQL error inside a nested write", grants: ["unsafeRaw"] },
+    escapeHatch: {
+      reason: "test fixture: provoke a SQL error inside a nested write",
+      grants: ["unsafeRaw"],
+    },
   });
 
   r.writeHandler({
@@ -132,7 +135,10 @@ const nestedFeature = defineFeature("nws", (r) => {
       return crud.create({ label: event.payload.label }, event.user, ctx.db);
     },
     access: { roles: ["Admin"] },
-    escapeHatch: { reason: "test fixture: write as system inside a nested savepoint", grants: ["systemIdentity"] },
+    escapeHatch: {
+      reason: "test fixture: write as system inside a nested savepoint",
+      grants: ["systemIdentity"],
+    },
   });
 
   // The workflow step variant: callFeature throws on a failed inner write.

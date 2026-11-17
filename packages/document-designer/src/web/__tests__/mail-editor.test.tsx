@@ -18,6 +18,7 @@ import {
   UserRolesProvider,
 } from "@cosmicdrift/kumiko-renderer";
 import { type Dispatcher, formatMoney } from "@cosmicdrift/kumiko-renderer/headless";
+import { createMockDispatcher } from "@cosmicdrift/kumiko-renderer/testing";
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
 import { TENANT_CURRENCY_CONFIG_KEY } from "@cosmicdrift/kumiko-types/fields";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -26,7 +27,6 @@ import { documentDesignerClient } from "../client-plugin.tsx";
 import { TENANT_MAIL_SENDING_SCREEN_ID } from "../constants.ts";
 import { MailEditor } from "../mail-editor.tsx";
 import { PreviewRecordPickerProvider } from "../preview-record-picker.tsx";
-import { createMockDispatcher } from "@cosmicdrift/kumiko-renderer/testing";
 
 const SLUG = "billing:notify:invoice-issued";
 

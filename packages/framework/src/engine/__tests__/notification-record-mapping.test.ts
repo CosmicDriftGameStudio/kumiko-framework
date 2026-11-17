@@ -27,10 +27,13 @@ function contactMailer(
       access: { roles: ["TenantAdmin"] },
       handler: async () => ({ isSuccess: true as const, data: {} }),
     });
-    r.notification({ name: "hello", ...(options.withVariables === false
+    r.notification({
+      name: "hello",
+      ...(options.withVariables === false
         ? {}
         : { variables: { name: templateVariable.text(), city: templateVariable.text() } }),
-      ...(record === undefined ? {} : { record }) });
+      ...(record === undefined ? {} : { record }),
+    });
   });
 }
 

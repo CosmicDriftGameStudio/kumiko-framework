@@ -171,8 +171,12 @@ export const todosFeature = defineFeature(FEATURE_NAME, (r) => {
     }
   };
 
-  r.applyExtension({ name: EXT_USER_DATA, entity: "todo", export: exportTodos,
-    delete: deleteTodos });
+  r.applyExtension({
+    name: EXT_USER_DATA,
+    entity: "todo",
+    export: exportTodos,
+    delete: deleteTodos,
+  });
 
   // Wire-proof for the read-only GDPR inspector screens: an app opts in by
   // navigating the (otherwise inert) bundled screens. SystemAdmin-gated, so

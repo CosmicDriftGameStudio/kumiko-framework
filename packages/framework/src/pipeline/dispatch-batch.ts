@@ -220,7 +220,14 @@ async function runBatchBody(
       ? idempotency.keepPendingAlive(user.tenantId, user.id, requestId, idempotencyToken)
       : undefined;
   try {
-    return await runAcquiredBatch(ctx, commands, user, requestId, inheritedOrigin, idempotencyToken);
+    return await runAcquiredBatch(
+      ctx,
+      commands,
+      user,
+      requestId,
+      inheritedOrigin,
+      idempotencyToken,
+    );
   } finally {
     stopPendingRenewal?.();
   }

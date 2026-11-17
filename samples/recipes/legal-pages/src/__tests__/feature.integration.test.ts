@@ -1,15 +1,10 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { legalContentSeed } from "@cosmicdrift/kumiko-bundled-features/legal-pages";
-import {
-  createTemplateResolverApi,
-} from "@cosmicdrift/kumiko-bundled-features/template-resolver";
+import { createTemplateResolverApi } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { seedTextBlock } from "@cosmicdrift/kumiko-bundled-features/template-resolver/seeding";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  setupTestStack,
-  type TestStack,
-} from "@cosmicdrift/kumiko-testing/stack";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import {
   LEGAL_ROUTES,
   LEGAL_TERMS_ROUTES,

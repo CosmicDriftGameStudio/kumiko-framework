@@ -94,12 +94,21 @@ const fileJobFeature = defineFeature("fileJob", (r) => {
   });
   // Stands in for file-foundation, which this package cannot import.
   r.extendsRegistrar("fileProvider", { onRegister: () => undefined });
-  r.applyExtension({ name: "fileProvider", entity: "spy", build: async () => {
+  r.applyExtension({
+    name: "fileProvider",
+    entity: "spy",
+    build: async () => {
       throw new Error("no provider is built in this test — presence of the resolver is the point");
-    } });
-  r.job({ name: "read-bytes", trigger: { on: requested.name }, runIn: "worker", handler: async (_payload, ctx) => {
+    },
+  });
+  r.job({
+    name: "read-bytes",
+    trigger: { on: requested.name },
+    runIn: "worker",
+    handler: async (_payload, ctx) => {
       jobSawFilesRef.push(typeof ctx.services.files?.ref);
-    } });
+    },
+  });
   // Worker mode refuses to boot without a consumer to drain.
   r.multiStreamProjection({ name: "noop", apply: { [requested.name]: async () => {} } });
 });
@@ -426,7 +435,12 @@ describe("runIn lane-filtering (Welle 2.6.b)", () => {
 // enqueue fine, nothing runs".
 
 const apiJobFeature = defineFeature("api-jobs", (r) => {
-  r.job({ name: "local-cleanup", trigger: { manual: true }, runIn: "api", handler: async () => {} });
+  r.job({
+    name: "local-cleanup",
+    trigger: { manual: true },
+    runIn: "api",
+    handler: async () => {},
+  });
 });
 
 const workerJobFeature = defineFeature("worker-jobs", (r) => {

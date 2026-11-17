@@ -25,7 +25,11 @@ function fakeRunner(): DbRunner {
 describe("withSystemDbUnsafeRawGrant", () => {
   test("passes through a value not built by createUncheckedSystemDb, unchanged", () => {
     const notBuilt = { unsafeRaw: () => fakeRunner() } as unknown as UncheckedSystemDb;
-    const rebound = withSystemDbUnsafeRawGrant(notBuilt, { reason: "x", grants: ["unsafeRaw"] }, "some hook");
+    const rebound = withSystemDbUnsafeRawGrant(
+      notBuilt,
+      { reason: "x", grants: ["unsafeRaw"] },
+      "some hook",
+    );
     expect(rebound).toBe(notBuilt);
   });
 
@@ -52,7 +56,11 @@ describe("withSystemDbUnsafeRawGrant", () => {
       reason: "test builds the system-mode source of a system db view",
     });
     const systemDb = createUncheckedSystemDb(tdb);
-    const gated = withSystemDbUnsafeRawGrant(systemDb, { reason: "hook reason", grants: ["unsafeRaw"] }, "hook");
+    const gated = withSystemDbUnsafeRawGrant(
+      systemDb,
+      { reason: "hook reason", grants: ["unsafeRaw"] },
+      "hook",
+    );
     expect(unscopedRunner(gated.unsafeRaw("hook reason"))).toBe(runner);
   });
 
@@ -65,11 +73,19 @@ describe("withSystemDbUnsafeRawGrant", () => {
       reason: "test builds the system-mode source of a system db view",
     });
     const systemDb = createUncheckedSystemDb(tdb);
-    const grantedFirst = withSystemDbUnsafeRawGrant(systemDb, { reason: "first", grants: ["unsafeRaw"] }, "hook-1");
+    const grantedFirst = withSystemDbUnsafeRawGrant(
+      systemDb,
+      { reason: "first", grants: ["unsafeRaw"] },
+      "hook-1",
+    );
     const deniedSecond = withSystemDbUnsafeRawGrant(grantedFirst, undefined, "hook-2");
     expect(() => deniedSecond.unsafeRaw("first")).toThrow(AccessDeniedError);
     // Re-granting from the ORIGINAL systemDb (not stacked through grantedFirst) still works.
-    const grantedThird = withSystemDbUnsafeRawGrant(systemDb, { reason: "third", grants: ["unsafeRaw"] }, "hook-3");
+    const grantedThird = withSystemDbUnsafeRawGrant(
+      systemDb,
+      { reason: "third", grants: ["unsafeRaw"] },
+      "hook-3",
+    );
     expect(unscopedRunner(grantedThird.unsafeRaw("third"))).toBe(runner);
   });
 
@@ -82,7 +98,11 @@ describe("withSystemDbUnsafeRawGrant", () => {
       reason: "test builds the system-mode source of a system db view",
     });
     const systemDb = createUncheckedSystemDb(tdb);
-    const gated = withSystemDbUnsafeRawGrant(systemDb, { reason: "hook reason", grants: ["unsafeRaw"] }, "hook");
+    const gated = withSystemDbUnsafeRawGrant(
+      systemDb,
+      { reason: "hook reason", grants: ["unsafeRaw"] },
+      "hook",
+    );
     expect(unscopedRunner(unsafeRawForDeclaredStep(gated, "hook reason"))).toBe(runner);
   });
 });

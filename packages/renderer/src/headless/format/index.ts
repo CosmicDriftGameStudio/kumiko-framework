@@ -173,8 +173,8 @@ export { escapeHtml, escapeHtmlAttr, escapeXml, isSafeHref, stripControlChars } 
 export { type HtmlValue, html, RawHtml, raw } from "./html-template.ts";
 export {
   currencyDecimals,
-  formatMoney,
   type FormatMoneyOptions,
+  formatMoney,
   formatMoneyValue,
   resolveSafeMoneyLocale,
 } from "./money.ts";

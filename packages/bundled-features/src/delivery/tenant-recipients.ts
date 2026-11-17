@@ -1,6 +1,5 @@
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemDbView } from "@cosmicdrift/kumiko-framework/db";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import type {
   EscapeHatchAuditSink,
   Registry,
@@ -11,6 +10,7 @@ import {
   bridgeStub,
   createSystemUser,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
 import { createEscapeHatchReporter } from "@cosmicdrift/kumiko-framework/pipeline";
 
@@ -69,7 +69,10 @@ export async function resolveUserIdsForTenant(
         reason: "delivery fan-out of a systemScope handler resolves recipients across tenants",
         grants: {
           report,
-          unsafeRaw: { reason: `r.systemScope() handler "${tenantUserIdsQuery}"`, grants: ["unsafeRaw"] },
+          unsafeRaw: {
+            reason: `r.systemScope() handler "${tenantUserIdsQuery}"`,
+            grants: ["unsafeRaw"],
+          },
         },
       })
     : undefined;

@@ -16,7 +16,10 @@ let stack: TestStack;
 function createTestPluginFeature(name: string, kinds: ReadonlyArray<RenderKind>) {
   return defineFeature(`renderer-${name}`, (r) => {
     r.requires({ features: ["renderer-foundation"] });
-    r.applyExtension({ name: RENDERER_EXTENSION, entity: name, kinds,
+    r.applyExtension({
+      name: RENDERER_EXTENSION,
+      entity: name,
+      kinds,
       render: async (req: RenderRequest): Promise<RenderResponse> => {
         if (req.kind === "mail")
           return { kind: "mail", subject: name, html: `via:${name}`, text: `via:${name}` };
@@ -35,7 +38,8 @@ function createTestPluginFeature(name: string, kinds: ReadonlyArray<RenderKind>)
           width: 1,
           height: 1,
         };
-      } });
+      },
+    });
   });
 }
 

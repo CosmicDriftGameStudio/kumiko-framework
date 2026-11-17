@@ -209,9 +209,7 @@ export function sessionMintingOriginMiddleware(
 ) {
   const allowlist: ReadonlySet<string> = new Set(allowedOrigins.map(normalizeOrigin));
   return async (c: Context, next: Next) =>
-    isRejectedOrigin(c, allowlist, options.allowRequestHost === true)
-      ? rejectOrigin(c)
-      : next();
+    isRejectedOrigin(c, allowlist, options.allowRequestHost === true) ? rejectOrigin(c) : next();
 }
 
 export function resolveSessionMintingOriginGuard(

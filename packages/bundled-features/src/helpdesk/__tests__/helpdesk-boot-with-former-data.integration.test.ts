@@ -41,7 +41,11 @@ const FORMER_REQUEST_TYPE = `${FORMER_REQUEST_ENTITY}.created`;
 const FORMER_REPLY_TYPE = `${FORMER_REPLY_ENTITY}.created`;
 
 const dbName = `kumiko_helpdesk_former_${generateId().slice(-8)}`;
-const formerRequestEntity = { ...helpdeskRequestEntity, table: FORMER_REQUEST_TABLE, name: FORMER_REQUEST_ENTITY };
+const formerRequestEntity = {
+  ...helpdeskRequestEntity,
+  table: FORMER_REQUEST_TABLE,
+  name: FORMER_REQUEST_ENTITY,
+};
 const formerRequestTable = buildEntityTable(formerRequestEntity);
 
 let ctx: HelpdeskTestStack;

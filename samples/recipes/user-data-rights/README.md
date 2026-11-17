@@ -14,7 +14,9 @@ defineFeature("notes", (r) => {
   r.requires({ features: ["user-data-rights"] });
   r.entity({ name: "note", ...noteEntity });
 
-  r.applyExtension({ name: EXT_USER_DATA, entity: "note",
+  r.applyExtension({
+    name: EXT_USER_DATA,
+    entity: "note",
     export: async (ctx) => ({
       entity: "note",
       rows: await ctx.db

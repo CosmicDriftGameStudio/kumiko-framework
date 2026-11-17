@@ -23,7 +23,6 @@ import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
 import { addDurationSpec } from "@cosmicdrift/kumiko-framework/compliance";
 import type { DbConnection, DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import { createEventStoreExecutor, fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import type {
   EscapeHatchAuditSink,
   Registry,
@@ -36,6 +35,7 @@ import {
   tenantExportPrefix,
   type ZipEntry,
 } from "@cosmicdrift/kumiko-framework/files";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import type { MetricsHandle } from "@cosmicdrift/kumiko-framework/observability";
 import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { resolveProfileForTenant } from "../compliance-profiles/index.ts";
@@ -604,8 +604,7 @@ async function storageCleanupPass(args: {
           continue;
         }
         overdueDoneCleanupAfterMs.set(c.id, cleanupAfter);
-      }
-      else {
+      } else {
         const failedAt = c.completedAt ?? c.startedAt;
         if (failedAt) overdueDoneCleanupAfterMs.set(c.id, failedAt.epochMilliseconds);
       }

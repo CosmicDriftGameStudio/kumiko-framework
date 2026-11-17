@@ -3,7 +3,10 @@ import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import * as z from "zod";
 import { USER_STATUS, userTable } from "../../user/index.ts";
 import { signDeletionToken } from "../deletion-token.ts";
-import { type GdprMailDefaults, sendDefaultDeletionVerificationEmail } from "../lib/default-mailers.ts";
+import {
+  type GdprMailDefaults,
+  sendDefaultDeletionVerificationEmail,
+} from "../lib/default-mailers.ts";
 import { updateUserLifecycle } from "../lib/update-user-lifecycle.ts";
 
 // Verification-link TTL: 60 minutes — long enough for an email round trip,

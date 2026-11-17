@@ -60,7 +60,13 @@ export function deliverableTextBlockContent(
   const contentFormat = row.contentFormat;
   if (!isOneOf(CONTENT_FORMATS, contentFormat)) return null;
   return checkedStoredBody(
-    { id: row.id, version: row.version, kind: TEXT_BLOCK_KIND, contentFormat, content: row.content },
+    {
+      id: row.id,
+      version: row.version,
+      kind: TEXT_BLOCK_KIND,
+      contentFormat,
+      content: row.content,
+    },
     true,
   );
 }

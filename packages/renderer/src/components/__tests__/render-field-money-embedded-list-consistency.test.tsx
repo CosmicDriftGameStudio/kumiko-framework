@@ -27,7 +27,8 @@ import { render } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { computeEditViewModel, type EditFieldViewModel } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
-import {  type EmbeddedListInputProps,
+import {
+  type EmbeddedListInputProps,
   type InputProps,
   PrimitivesProvider,
 } from "../../primitives.tsx";

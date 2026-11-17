@@ -112,9 +112,7 @@ const entityWithSoftDeleteAndIndexes = createEntity({
 });
 
 describe("lock-step — softDelete + explizite Indexes", () => {
-  const fromBuilder = asEntityTableMeta(
-    buildEntityTable(entityWithSoftDeleteAndIndexes),
-  );
+  const fromBuilder = asEntityTableMeta(buildEntityTable(entityWithSoftDeleteAndIndexes));
   const fromMeta = deriveEntityTableMeta(entityWithSoftDeleteAndIndexes);
 
   test("identical columns inkl. softDelete-Spalten", () => {
@@ -163,9 +161,7 @@ const entityWithLookupable = createEntity({
 });
 
 describe("lock-step — lookupable / blind-index", () => {
-  const fromBuilder = asEntityTableMeta(
-    buildEntityTable(entityWithLookupable),
-  );
+  const fromBuilder = asEntityTableMeta(buildEntityTable(entityWithLookupable));
   const fromMeta = deriveEntityTableMeta(entityWithLookupable);
 
   test("identical columns inkl. nullable bidx-Spalte", () => {
@@ -213,9 +209,7 @@ const entityWithSoftDeleteAndLookupable = createEntity({
 });
 
 describe("lock-step — softDelete + lookupable/blind-index", () => {
-  const fromBuilder = asEntityTableMeta(
-    buildEntityTable(entityWithSoftDeleteAndLookupable),
-  );
+  const fromBuilder = asEntityTableMeta(buildEntityTable(entityWithSoftDeleteAndLookupable));
   const fromMeta = deriveEntityTableMeta(entityWithSoftDeleteAndLookupable);
 
   test("identical indexes incl. soft-delete-aware bidx partial where", () => {

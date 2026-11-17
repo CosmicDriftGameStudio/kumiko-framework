@@ -6,7 +6,7 @@ import {
   SYSTEM_USER_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError } from "@cosmicdrift/kumiko-framework/errors";
-import { FILE_REF_ENTITY_NAME, fileRefEntity } from "@cosmicdrift/kumiko-framework/files";
+import { fileRefEntity } from "@cosmicdrift/kumiko-framework/files";
 import { DOCUMENT_ENTITY } from "./constants.ts";
 
 const fileRefs = createEntityExecutor(fileRefEntity).executor;

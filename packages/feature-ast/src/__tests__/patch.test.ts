@@ -702,7 +702,9 @@ defineFeature("hooks", (r) => {
 });
 `);
     removePattern(sf, { kind: "hook", hookType: "preDelete", target: { allOf: "note" } });
-    expect(sf.getFullText()).toContain('r.hook({ type: "preDelete", target: { allOf: "task" }, handler: () => {} });');
+    expect(sf.getFullText()).toContain(
+      'r.hook({ type: "preDelete", target: { allOf: "task" }, handler: () => {} });',
+    );
     expect(sf.getFullText()).not.toContain('"note"');
   });
 

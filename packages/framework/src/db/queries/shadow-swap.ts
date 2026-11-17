@@ -31,10 +31,10 @@ import { type AnyDb, asEntityTableMeta, asRawClient } from "../query.ts";
 import { renderTableDdl } from "../render-ddl.ts";
 import { runInSystemRowLevelSecurityScope } from "../row-level-security-scope.ts";
 import { columnNamesOf, tableExists } from "../schema-inspection.ts";
+import { quoteIdent } from "../sql-identifier.ts";
 import { toPostgresArrayLiteral } from "./postgres-array-literal.ts";
 import { executeRawQuery, executeRawQueryRead } from "./raw-sql.ts";
 import { readRowLevelSecurityState, restoreRowLevelSecurityState } from "./rls-catalog.ts";
-import { quoteIdent } from "../sql-identifier.ts";
 
 export const PROJECTION_REBUILD_SCHEMA = "kumiko_rebuild";
 
@@ -500,8 +500,7 @@ export async function countColumnDrift(
      CROSS JOIN LATERAL (
        VALUES ${comparable
          .map(
-           (c) =>
-             `('${c.name}', l.${quoteIdent(c.name)} IS DISTINCT FROM s.${quoteIdent(c.name)})`,
+           (c) => `('${c.name}', l.${quoteIdent(c.name)} IS DISTINCT FROM s.${quoteIdent(c.name)})`,
          )
          .join(", ")}
      ) AS diff(col, differs)

@@ -27,7 +27,10 @@ type AssignmentRow = {
   readonly entityType: string;
   readonly entityId: string;
 };
-type FolderListResponse = { readonly rows: readonly FolderRow[]; readonly nextCursor?: string | null };
+type FolderListResponse = {
+  readonly rows: readonly FolderRow[];
+  readonly nextCursor?: string | null;
+};
 type AssignmentListResponse = { readonly rows: readonly AssignmentRow[] };
 
 // Sentinel for the "no folder" combobox option — selecting it clears the

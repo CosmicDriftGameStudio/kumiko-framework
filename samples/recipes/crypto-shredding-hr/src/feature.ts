@@ -49,13 +49,17 @@ export const hrFeature = defineFeature("hr", (r) => {
 
   // A job runs without a write-handler entry, so the irreversible-operation gate refuses
   // `forget` here unless the job declares why it may. Remove the declaration and the run fails.
-  r.job({ name: "purge-archived-comments", trigger: { manual: true },
-      runIn: "worker",
-      irreversibleWithoutEntryHandler: "high-risk-or-cron-pipeline", handler: async (payload, ctx) => {
+  r.job({
+    name: "purge-archived-comments",
+    trigger: { manual: true },
+    runIn: "worker",
+    irreversibleWithoutEntryHandler: "high-risk-or-cron-pipeline",
+    handler: async (payload, ctx) => {
       const { commentIds } = purgeArchivedCommentsPayload.parse(payload);
       for (const id of commentIds) {
         const result = await hrCommentExecutor.forget({ id }, ctx.systemUser, ctx.db);
         if (!result.isSuccess) throw new Error(`purge of hr-comment ${id} failed`);
       }
-    } });
+    },
+  });
 });

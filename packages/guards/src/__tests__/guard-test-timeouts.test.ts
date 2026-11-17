@@ -143,7 +143,9 @@ describe("test-timeouts guard — timeout argument on declarations", () => {
       expect.stringContaining("raises the timeout"),
     ]);
     expect(
-      found("declare const body: any;\ntest('a', body);\ntest('a', { tag: '@x', retry: 2 }, () => {});"),
+      found(
+        "declare const body: any;\ntest('a', body);\ntest('a', { tag: '@x', retry: 2 }, () => {});",
+      ),
     ).toEqual([]);
   });
 
@@ -189,7 +191,9 @@ describe("test-timeouts guard — timeout argument on declarations", () => {
 
   test("a complete test-timeouts ignore marker suppresses a timeout argument", () => {
     expect(
-      found('// kumiko-lint-ignore test-timeouts #1 sidecar cold start\ntest("a", () => {}, 60_000);'),
+      found(
+        '// kumiko-lint-ignore test-timeouts #1 sidecar cold start\ntest("a", () => {}, 60_000);',
+      ),
     ).toEqual([]);
   });
 });
@@ -221,9 +225,9 @@ describe("test-timeouts guard — Playwright files", () => {
   });
 
   test("flags a literal timeout, not an E2E_TIMEOUT_MS class", () => {
-    expect(
-      pw('await expect(page.getByText("x")).toBeVisible({ timeout: 30_000 });'),
-    ).toEqual([expect.stringContaining("literal Playwright timeout")]);
+    expect(pw('await expect(page.getByText("x")).toBeVisible({ timeout: 30_000 });')).toEqual([
+      expect.stringContaining("literal Playwright timeout"),
+    ]);
     expect(pw("await expect(page).toBeVisible({ timeout: E2E_TIMEOUT_MS.poll });")).toEqual([]);
   });
 

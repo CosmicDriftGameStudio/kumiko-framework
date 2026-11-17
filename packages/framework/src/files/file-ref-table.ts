@@ -1,5 +1,5 @@
 import { buildEntityTable } from "../db/table-builder.ts";
-import { FILE_REF_ENTITY_NAME, fileRefEntity } from "./file-ref-entity.ts";
+import { fileRefEntity } from "./file-ref-entity.ts";
 
 // `file_refs` is the read table for the `fileRef` entity. It is built from the entity
 // definition rather than a manually maintained `pgTable`, so the implicit entity

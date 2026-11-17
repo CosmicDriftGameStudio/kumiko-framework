@@ -54,9 +54,7 @@ function featureWith(noteSearchable: boolean) {
   const entity = noteEntityWith(noteSearchable);
   return defineFeature("bootreindex", (r) => {
     r.entity(entity);
-    r.writeHandler(
-      defineEntityCreateHandler("note", entity, { access: { roles: ["Admin"] } }),
-    );
+    r.writeHandler(defineEntityCreateHandler("note", entity, { access: { roles: ["Admin"] } }));
   });
 }
 

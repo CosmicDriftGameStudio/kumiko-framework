@@ -264,7 +264,11 @@ export function createInboundProviderInMemoryFeature() {
         recommended: false,
       });
       r.requires({ features: ["inbound-mail-foundation"] });
-      r.applyExtension({ name: "inboundMailProvider", entity: INMEMORY_PROVIDER_KEY, ...inMemoryInboundMailPlugin });
+      r.applyExtension({
+        name: "inboundMailProvider",
+        entity: INMEMORY_PROVIDER_KEY,
+        ...inMemoryInboundMailPlugin,
+      });
     },
     { dedupeOptions: {} },
   );

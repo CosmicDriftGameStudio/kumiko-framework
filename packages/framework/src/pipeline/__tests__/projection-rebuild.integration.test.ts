@@ -169,7 +169,9 @@ async function appendCreatedEvent(groupId: string, name: string): Promise<void> 
 }
 
 async function getCount(groupId: string): Promise<number | undefined> {
-  const [row] = await selectMany<{ itemCount: number }>(testDb.db, itemsPerGroupTable, { groupId: groupId });
+  const [row] = await selectMany<{ itemCount: number }>(testDb.db, itemsPerGroupTable, {
+    groupId: groupId,
+  });
   return row?.itemCount;
 }
 
@@ -425,7 +427,9 @@ describe("listProjectionsWithState", () => {
     const implicitName = "rebuildtest:projection:rebuild-item-entity";
     // Before any rebuild: state field indicates never-rebuilt.
     const before = await listProjectionsWithState(testDb.db, registry);
-    expect(before.map((p) => p.name).sort()).toEqual([qualifiedProjectionName, implicitName].sort());
+    expect(before.map((p) => p.name).sort()).toEqual(
+      [qualifiedProjectionName, implicitName].sort(),
+    );
     const explicitBefore = before.find((p) => p.name === qualifiedProjectionName);
     expect(explicitBefore?.status).toBe("never-rebuilt");
     expect(explicitBefore?.sources).toEqual(["rebuild-item"]);

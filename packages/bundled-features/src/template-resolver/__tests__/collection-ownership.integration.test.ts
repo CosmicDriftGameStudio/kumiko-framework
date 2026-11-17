@@ -13,8 +13,8 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
-  configurePiiSubjectKms,
   configuredPiiSubjectKms,
+  configurePiiSubjectKms,
   InMemoryKmsAdapter,
   PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";

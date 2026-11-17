@@ -148,13 +148,18 @@ const probeFeature = defineFeature("rebind-probe", (r) => {
       return { isSuccess: true as const, data: { outcome } };
     },
   });
-  r.job({ name: "rebind-as-system", trigger: { manual: true }, retries: 0, handler: async (payload, ctx) => {
-    const outcome = await rebindFileRef(
-      { db: ctx.db, registry: ctx.registry, user: ctx.systemUser },
-      ownersOf(rebindPayload.parse(payload)),
-    );
-    if (outcome !== "rebound") throw new Error(`rebind outcome: ${outcome}`);
-  } });
+  r.job({
+    name: "rebind-as-system",
+    trigger: { manual: true },
+    retries: 0,
+    handler: async (payload, ctx) => {
+      const outcome = await rebindFileRef(
+        { db: ctx.db, registry: ctx.registry, user: ctx.systemUser },
+        ownersOf(rebindPayload.parse(payload)),
+      );
+      if (outcome !== "rebound") throw new Error(`rebind outcome: ${outcome}`);
+    },
+  });
 });
 
 export const tenant = testTenantId(1);

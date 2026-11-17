@@ -9,9 +9,9 @@ import {
   type LiveEventSubscriber,
   LiveEventsProvider,
 } from "../../index.ts";
+import { createMockDispatcher } from "../../testing.ts";
 import { LIVE_REFETCH_COALESCE_MS } from "../live-refetch-scheduler.ts";
 import { useQuery } from "../use-query.ts";
-import { createMockDispatcher } from "../../testing.ts";
 
 const QUERY = "content:query:banner:overview";
 

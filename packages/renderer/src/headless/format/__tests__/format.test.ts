@@ -196,10 +196,7 @@ describe("applyFormatSpec — boolean/currency", () => {
 describe("applyFormatSpec — money", () => {
   test("formats a money value in its own currency and the given locale", () => {
     expect(
-      applyFormatSpec(
-        { format: "money", locale: "de-DE" },
-        { amount: 123450, currency: "EUR" },
-      ),
+      applyFormatSpec({ format: "money", locale: "de-DE" }, { amount: 123450, currency: "EUR" }),
     ).toBe("1.234,50\u00a0€");
     expect(
       applyFormatSpec({ format: "money", locale: "en-US" }, { amount: 1234, currency: "jpy" }),
@@ -474,7 +471,11 @@ describe("applyFormatSpec — enumOption", () => {
     const translate = (key: string) =>
       key === "contact:entity:contact:field:status:option:active" ? "Aktiv" : key;
     expect(
-      applyFormatSpec({ format: "enumOption", optionsOf: "contact:contact.status" }, "active", translate),
+      applyFormatSpec(
+        { format: "enumOption", optionsOf: "contact:contact.status" },
+        "active",
+        translate,
+      ),
     ).toBe("Aktiv");
   });
 

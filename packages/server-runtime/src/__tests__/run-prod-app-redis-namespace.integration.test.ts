@@ -67,15 +67,31 @@ const nsProbeFeature = defineFeature("nsprobe", (r) => {
     defineEntityListHandler("note", noteEntity, { access: { roles: ["TenantAdmin"] } }),
   );
   // Sequential: takes the Redis lock held by the runner's lockRedis.
-  r.job({ name: "held", trigger: { manual: true }, retries: 0, concurrency: "sequential", handler: async () => {
-    gate?.started.resolve();
-    await gate?.release.promise;
-    heldJobFinished = true;
-  } });
-  r.job({ name: "extra", trigger: { manual: true }, retries: 0, handler: async () => {
-    extraJobRuns += 1;
-  } });
-  r.job({ name: "scheduled", trigger: { cron: "0 0 1 1 *" }, runIn: "worker", handler: async () => {} });
+  r.job({
+    name: "held",
+    trigger: { manual: true },
+    retries: 0,
+    concurrency: "sequential",
+    handler: async () => {
+      gate?.started.resolve();
+      await gate?.release.promise;
+      heldJobFinished = true;
+    },
+  });
+  r.job({
+    name: "extra",
+    trigger: { manual: true },
+    retries: 0,
+    handler: async () => {
+      extraJobRuns += 1;
+    },
+  });
+  r.job({
+    name: "scheduled",
+    trigger: { cron: "0 0 1 1 *" },
+    runIn: "worker",
+    handler: async () => {},
+  });
 });
 
 let admin: Redis;

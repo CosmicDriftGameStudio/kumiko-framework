@@ -7,7 +7,6 @@
 // of sessions/handlers/cleanup.job.ts.
 
 import { createEventStoreExecutor, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   type AppContext,
   access,
@@ -20,6 +19,7 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { fileRefEntity, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   isDraftStillStale,
   type StaleDraftRow,

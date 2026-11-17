@@ -31,7 +31,9 @@ const itemsTable = defineUnmanagedTable({
 const tenantA = testTenantId(321);
 const tenantB = testTenantId(322);
 const SELECT_LABELS = `SELECT label FROM "store_unsafe_raw_scope_items" ORDER BY label`;
-const grants: TenantDbGrants = { unsafeRaw: { reason: "unsafe raw scope test", grants: ["unsafeRaw"] } };
+const grants: TenantDbGrants = {
+  unsafeRaw: { reason: "unsafe raw scope test", grants: ["unsafeRaw"] },
+};
 
 let testDb: TestDb;
 

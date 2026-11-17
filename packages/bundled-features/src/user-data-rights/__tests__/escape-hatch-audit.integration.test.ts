@@ -11,7 +11,6 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 
 import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   createSystemUser,
   defineFeature,
@@ -20,6 +19,7 @@ import {
   type JobContext,
   type UserDataDeleteHook,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createTzContext } from "@cosmicdrift/kumiko-framework/time";
 import {
   setupTestStack,
@@ -52,9 +52,13 @@ const auditedHook: UserDataDeleteHook = async (ctx) => {
 };
 
 const auditedFeature = defineFeature("test-audited-entity", (r) => {
-  r.applyExtension({ name: EXT_USER_DATA, entity: "audited-entity", export: async () => null,
+  r.applyExtension({
+    name: EXT_USER_DATA,
+    entity: "audited-entity",
+    export: async () => null,
     delete: auditedHook,
-    escapeHatch: { reason: AUDITED_REASON } });
+    escapeHatch: { reason: AUDITED_REASON },
+  });
 });
 
 const seed = (db: unknown) =>
@@ -116,7 +120,10 @@ describe("escape-hatch audit :: real run-forget-cleanup job forwards _escapeHatc
         tenantId: TENANT_A,
         mode: "tenant",
         grants: {
-          unsafeRaw: { reason: "executes overdue Art.17 forget requests across every tenant", grants: ["unsafeRaw"] },
+          unsafeRaw: {
+            reason: "executes overdue Art.17 forget requests across every tenant",
+            grants: ["unsafeRaw"],
+          },
         },
       }),
       registry: stack.registry,

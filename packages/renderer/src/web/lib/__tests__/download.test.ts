@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import type { Dispatcher, DispatcherError, QueryResult } from "../../../headless/index.ts";
-import { postWithDownload } from "../download.ts";
 import { createMockDispatcher } from "../../../testing.ts";
+import { postWithDownload } from "../download.ts";
 
 function stubDispatcher(result: QueryResult<{ url?: string }>): Dispatcher {
   return createMockDispatcher({ query: async () => result });

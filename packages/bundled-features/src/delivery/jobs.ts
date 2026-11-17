@@ -170,12 +170,7 @@ async function failAttempt(
     notificationType: p.notificationType,
     channel: p.channelName,
   });
-  await appendAttemptEvent(
-    db,
-    registry,
-    p.deliveryAttemptId,
-    entryFor(p, "failed", code, address),
-  );
+  await appendAttemptEvent(db, registry, p.deliveryAttemptId, entryFor(p, "failed", code, address));
   throw new Error(code);
 }
 

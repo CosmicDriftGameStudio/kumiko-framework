@@ -23,7 +23,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/files";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { resetPiiSubjectKmsForTests, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -31,6 +30,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { simpleParser } from "mailparser";
 import * as z from "zod";
 import {
@@ -44,11 +44,11 @@ import {
   InboundMailFoundationHandlers,
   inboundCredentialSecretKey,
   ingestFailureEntity,
-  outboundMailSendEntity,
-  outboundMailSendsTable,
   MAIL_SEND_ERRORS,
   type OutboundMailSent,
   outboundMailMessageSchema,
+  outboundMailSendEntity,
+  outboundMailSendsTable,
   quarantineEntity,
   seenMessageEntity,
   sendMailFromAccount,
@@ -571,31 +571,34 @@ describe("sendMailFromAccount", () => {
     expect(error.i18nKey).toBe(MAIL_SEND_ERRORS.notConfigured.i18nKey);
   });
 
-  greenmailTest("the same idempotency key sends one mail and returns the stored result", async () => {
-    const admin = freshAdmin();
-    const accountId = await connectMailbox(admin);
-    const subject = `Keyed ${crypto.randomUUID()}`;
-    const payload = {
-      accountId,
-      idempotencyKey: "reply-4711",
-      message: { to: [RECIPIENT], subject, text: "Einmal." },
-    };
+  greenmailTest(
+    "the same idempotency key sends one mail and returns the stored result",
+    async () => {
+      const admin = freshAdmin();
+      const accountId = await connectMailbox(admin);
+      const subject = `Keyed ${crypto.randomUUID()}`;
+      const payload = {
+        accountId,
+        idempotencyKey: "reply-4711",
+        message: { to: [RECIPIENT], subject, text: "Einmal." },
+      };
 
-    const first = await stack.http.writeOk<OutboundMailSent>(
-      SEND_BEFORE_TRANSACTION_HANDLER,
-      payload,
-      admin,
-    );
-    const second = await stack.http.writeOk<OutboundMailSent>(
-      SEND_BEFORE_TRANSACTION_HANDLER,
-      payload,
-      admin,
-    );
+      const first = await stack.http.writeOk<OutboundMailSent>(
+        SEND_BEFORE_TRANSACTION_HANDLER,
+        payload,
+        admin,
+      );
+      const second = await stack.http.writeOk<OutboundMailSent>(
+        SEND_BEFORE_TRANSACTION_HANDLER,
+        payload,
+        admin,
+      );
 
-    expect(second.messageIdHeader).toBe(first.messageIdHeader);
-    const subjects = await recipientSubjects();
-    expect(subjects.filter((s) => s === subject)).toHaveLength(1);
-  });
+      expect(second.messageIdHeader).toBe(first.messageIdHeader);
+      const subjects = await recipientSubjects();
+      expect(subjects.filter((s) => s === subject)).toHaveLength(1);
+    },
+  );
 
   test("a recorded key for a mailbox the caller cannot see answers not found", async () => {
     const admin = freshAdmin();

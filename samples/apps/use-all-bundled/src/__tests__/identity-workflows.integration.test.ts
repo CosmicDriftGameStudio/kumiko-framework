@@ -7,10 +7,7 @@ import {
   AuthHandlers,
   hashPassword,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
-import {
-  AuthMfaHandlers,
-  base32Decode,
-} from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
+import { AuthMfaHandlers, base32Decode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import { currentTotpCode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa/testing";
 import {
   configValuesTable,

@@ -70,8 +70,12 @@ const vaultExportHook: UserDataExportHook = async (ctx) => {
 
 const vaultFeature = defineFeature("vault", (r) => {
   const entity = r.entity(vaultNoteEntity);
-  r.applyExtension({ name: EXT_USER_DATA, entity, export: vaultExportHook,
-    delete: async () => undefined });
+  r.applyExtension({
+    name: EXT_USER_DATA,
+    entity,
+    export: vaultExportHook,
+    delete: async () => undefined,
+  });
 });
 
 let stack: TestStack;

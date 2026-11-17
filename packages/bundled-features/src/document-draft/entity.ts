@@ -116,7 +116,8 @@ function buildDocumentDraftEntity(
       finalizedAt: createTimestampField({ personal: false, reason: "is_business_timestamp" }),
       lastChange: createJsonbField(DRAFT_PERSONAL_JSON),
     },
-    indexes: [{ columns: ["tenantId", "subjectType", "subjectId"] }], name: DOCUMENT_DRAFT_ENTITY,
+    indexes: [{ columns: ["tenantId", "subjectType", "subjectId"] }],
+    name: DOCUMENT_DRAFT_ENTITY,
   });
 }
 
@@ -125,11 +126,14 @@ export function createDocumentDraftEntity(
   retention: DocumentDraftRetention | undefined,
   subjectTypes: readonly string[],
 ) {
-  return buildDocumentDraftEntity(retention ?? { keepFor: DEFAULT_DOCUMENT_DRAFT_RETENTION_KEEP_FOR }, {
-    entityTypeField: "subjectType",
-    entityIdField: "subjectId",
-    allowedTypes: subjectTypes,
-  });
+  return buildDocumentDraftEntity(
+    retention ?? { keepFor: DEFAULT_DOCUMENT_DRAFT_RETENTION_KEEP_FOR },
+    {
+      entityTypeField: "subjectType",
+      entityIdField: "subjectId",
+      allowedTypes: subjectTypes,
+    },
+  );
 }
 
 // Table shape without the subject gate; the mounted entity and its handler executors carry parentRef with the mount's subject types.
@@ -143,9 +147,7 @@ export const { executor: ungatedDocumentDraftExecutor, table: documentDraftTable
   createEntityExecutor(documentDraftEntity);
 
 export function createDocumentDraftExecutor(subjectTypes: readonly string[]) {
-  return createEntityExecutor(
-    createDocumentDraftEntity(undefined, subjectTypes),
-  ).executor;
+  return createEntityExecutor(createDocumentDraftEntity(undefined, subjectTypes)).executor;
 }
 
 export type DocumentDraftExecutor = ReturnType<typeof createDocumentDraftExecutor>;

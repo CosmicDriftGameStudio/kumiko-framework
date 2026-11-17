@@ -5,10 +5,7 @@ import { createTestDb, type TestDb } from "@cosmicdrift/kumiko-testing/stack";
 import { createEventsTable } from "../../event-store/index.ts";
 import { testTenantId } from "../../seeding/seed-users.ts";
 import { defineUnmanagedTable } from "../entity-table-meta.ts";
-import {
-  ensureIdempotencyKeyIndex,
-  ensureSecondaryEventIndexes,
-} from "../queries/event-store.ts";
+import { ensureIdempotencyKeyIndex, ensureSecondaryEventIndexes } from "../queries/event-store.ts";
 import { asRawClient } from "../query.ts";
 import {
   runInRowLevelSecurityScope,

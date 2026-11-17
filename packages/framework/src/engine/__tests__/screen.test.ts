@@ -361,11 +361,13 @@ describe("r.screen() — registration", () => {
         });
       }),
       defineFeature("billing", (r) => {
-        r.entity(createEntity({
+        r.entity(
+          createEntity({
             name: "invoice",
             table: "invoices",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-          }));
+          }),
+        );
         r.screen({
           id: "invoice-detail",
           type: "custom",
@@ -953,11 +955,13 @@ describe("r.screen() — registration", () => {
   test("validateBoot rejects a relatedList section with both rowClick and a rowActions rowClick:true entry (fw editable-detail-screens)", () => {
     const features = [
       defineFeature("billing", (r) => {
-        r.entity(createEntity({
+        r.entity(
+          createEntity({
             name: "invoice",
             table: "invoices",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-          }));
+          }),
+        );
         r.screen({
           id: "invoice-detail",
           type: "custom",

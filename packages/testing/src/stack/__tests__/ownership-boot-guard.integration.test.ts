@@ -40,7 +40,8 @@ function memoEntity(access: Parameters<typeof createEntity>[0]["access"]) {
       ownerId: createTextField({ personal: false, reason: "test_fixture", required: true }),
       title: createTextField({ personal: false, reason: "test_fixture", required: true }),
     },
-    ...(access ? { access } : {}), name: "memo",
+    ...(access ? { access } : {}),
+    name: "memo",
   });
 }
 
@@ -48,9 +49,7 @@ function featureWith(access: Parameters<typeof createEntity>[0]["access"]) {
   const entity = memoEntity(access);
   return defineFeature("fwbootguard", (r) => {
     r.entity(entity);
-    r.queryHandler(
-      defineEntityDetailHandler("memo", entity, { access: { roles: ["Member"] } }),
-    );
+    r.queryHandler(defineEntityDetailHandler("memo", entity, { access: { roles: ["Member"] } }));
   });
 }
 

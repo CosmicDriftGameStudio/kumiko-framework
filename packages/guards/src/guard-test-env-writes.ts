@@ -74,7 +74,8 @@ function countEnvWrites(sf: SourceFile): number {
   const assignments = sf
     .getDescendantsOfKind(SyntaxKind.BinaryExpression)
     .filter(
-      (expr) => WRITE_OPERATORS.has(expr.getOperatorToken().getKind()) && targetsEnv(expr.getLeft()),
+      (expr) =>
+        WRITE_OPERATORS.has(expr.getOperatorToken().getKind()) && targetsEnv(expr.getLeft()),
     ).length;
   const deletes = sf
     .getDescendantsOfKind(SyntaxKind.DeleteExpression)

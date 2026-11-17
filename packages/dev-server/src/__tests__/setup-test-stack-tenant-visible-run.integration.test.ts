@@ -37,8 +37,12 @@ const appFeature = defineFeature("app", (r) => {
       },
     }),
   );
-  r.job({ name: "generateTexts", trigger: { on: "generation-requested" },
-      tenantVisibleRun: { subjectFields: ["campaignId"] }, handler: async () => {} });
+  r.job({
+    name: "generateTexts",
+    trigger: { on: "generation-requested" },
+    tenantVisibleRun: { subjectFields: ["campaignId"] },
+    handler: async () => {},
+  });
 });
 
 type RunRow = {

@@ -7,7 +7,6 @@ import type { BootCheckFn, StoreTableOptions } from "@cosmicdrift/kumiko-types/f
 import type { HookDefinition } from "@cosmicdrift/kumiko-types/feature-registrar";
 import type { EscapeHatchDeclaration, NameOrRef } from "@cosmicdrift/kumiko-types/handlers";
 import { escapeHatchGrantsProblem } from "@cosmicdrift/kumiko-types/handlers";
-import { isValidHttpRouteRateLimit } from "@cosmicdrift/kumiko-types/http-route";
 import type {
   HookPhase,
   LifecycleHookFn,
@@ -18,6 +17,7 @@ import type {
   SearchPayloadContributorFn,
   ValidationHookFn,
 } from "@cosmicdrift/kumiko-types/hooks";
+import { isValidHttpRouteRateLimit } from "@cosmicdrift/kumiko-types/http-route";
 import type {
   EntityProjectionExtension,
   MultiStreamProjectionDefinition,

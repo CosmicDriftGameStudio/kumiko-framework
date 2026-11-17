@@ -12,12 +12,12 @@ import {
   type TenantExistenceProvider,
   type TenantResolverProvider,
 } from "../auth-foundation/index.ts";
+import { requireSystemDb } from "../shared/index.ts";
 import {
   HOST_HEADER_MAX_LENGTH,
   HOST_ROUTING_FEATURE,
   TENANT_KEY_MAX_LENGTH,
 } from "./constants.ts";
-import { requireSystemDb } from "../shared/index.ts";
 import { classifyHost, normalizeHostname } from "./host.ts";
 import type { HostRoutingOptions } from "./options.ts";
 import {

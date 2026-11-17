@@ -118,8 +118,12 @@ const testInvoiceFeature: FeatureDefinition = defineFeature("test-invoice", (r) 
         invoiceCrud.create({ amount: event.payload.amount }, event.user, ctx.db),
     }),
   };
-  r.applyExtension({ name: EXT_USER_DATA, entity: "invoice", export: async () => null,
-    delete: invoiceDeleteHook });
+  r.applyExtension({
+    name: EXT_USER_DATA,
+    entity: "invoice",
+    export: async () => null,
+    delete: invoiceDeleteHook,
+  });
   return { handlers };
 });
 

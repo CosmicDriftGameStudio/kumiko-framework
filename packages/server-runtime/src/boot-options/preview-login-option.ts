@@ -1,4 +1,7 @@
-import { isPrincipalBlockedForNewAuth, UserQueries } from "@cosmicdrift/kumiko-bundled-features/user";
+import {
+  isPrincipalBlockedForNewAuth,
+  UserQueries,
+} from "@cosmicdrift/kumiko-bundled-features/user";
 import type { AuthRoutesConfig } from "@cosmicdrift/kumiko-framework/api";
 import {
   buildSessionRoles,

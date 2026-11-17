@@ -4,12 +4,9 @@ import {
   requireConfigResolver,
 } from "@cosmicdrift/kumiko-bundled-features/config";
 import { requireSecretsContext } from "@cosmicdrift/kumiko-bundled-features/secrets";
-import {
-  type ConfigKeyDefinition,
-  defineQueryHandler,
-} from "@cosmicdrift/kumiko-framework/engine";
-import * as z from "zod";
+import { type ConfigKeyDefinition, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { mapWithConcurrency } from "@cosmicdrift/kumiko-framework/utils";
+import * as z from "zod";
 import { ReadinessQueries, SECRET_PRESENCE_CONCURRENCY } from "../constants.ts";
 
 export type ReadinessMissingSecret = { readonly key: string };

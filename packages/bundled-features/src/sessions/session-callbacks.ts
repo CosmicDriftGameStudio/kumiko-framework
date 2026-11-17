@@ -19,8 +19,8 @@ import {
   LAST_SEEN_REFRESH_MS,
   USER_SESSION_ENTITY_NAME,
 } from "./constants.ts";
-import { userSessionEntity, userSessionTable } from "./schema/user-session.ts";
 import { revokeSessionsAndAnnounce } from "./revoke-sessions.ts";
+import { userSessionEntity, userSessionTable } from "./schema/user-session.ts";
 
 const realClock: Clock = { now: () => Temporal.Now.instant() };
 

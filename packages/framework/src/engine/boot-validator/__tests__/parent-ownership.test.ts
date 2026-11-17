@@ -47,7 +47,11 @@ describe("validateParentOwnershipRules", () => {
   test("accepts the chain site -> room -> fixture", () => {
     const feature = featureWith({
       site: siteEntity,
-      room: childEntity("read_rooms", { siteId: referenceTo("site") }, fromParent("siteId", "site")),
+      room: childEntity(
+        "read_rooms",
+        { siteId: referenceTo("site") },
+        fromParent("siteId", "site"),
+      ),
       fixture: childEntity(
         "read_fixtures",
         { roomId: referenceTo("room") },
@@ -88,7 +92,11 @@ describe("validateParentOwnershipRules", () => {
 
   test("rejects an unknown parent entity", () => {
     const feature = featureWith({
-      room: childEntity("read_rooms", { siteId: referenceTo("site") }, fromParent("siteId", "site")),
+      room: childEntity(
+        "read_rooms",
+        { siteId: referenceTo("site") },
+        fromParent("siteId", "site"),
+      ),
     });
     expect(() => validate(feature)).toThrow(/no entity "site" is registered/);
   });
@@ -101,14 +109,22 @@ describe("validateParentOwnershipRules", () => {
         tenancy: "global",
         fields: { name: textField() },
       }),
-      room: childEntity("read_rooms", { siteId: referenceTo("site") }, fromParent("siteId", "site")),
+      room: childEntity(
+        "read_rooms",
+        { siteId: referenceTo("site") },
+        fromParent("siteId", "site"),
+      ),
     });
     expect(() => validate(feature)).toThrow(/has tenancy "global"/);
   });
 
   test("rejects a cycle between two entities", () => {
     const feature = featureWith({
-      alpha: childEntity("read_alphas", { betaId: referenceTo("beta") }, fromParent("betaId", "beta")),
+      alpha: childEntity(
+        "read_alphas",
+        { betaId: referenceTo("beta") },
+        fromParent("betaId", "beta"),
+      ),
       beta: childEntity(
         "read_betas",
         { alphaId: referenceTo("alpha") },
@@ -120,7 +136,11 @@ describe("validateParentOwnershipRules", () => {
 
   test("rejects a self reference", () => {
     const feature = featureWith({
-      node: childEntity("read_nodes", { parentId: referenceTo("node") }, fromParent("parentId", "node")),
+      node: childEntity(
+        "read_nodes",
+        { parentId: referenceTo("node") },
+        fromParent("parentId", "node"),
+      ),
     });
     expect(() => validate(feature)).toThrow(/node -> node/);
   });

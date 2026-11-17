@@ -265,7 +265,13 @@ describe("sessions feature — admin list", () => {
           createdAt: now,
           expiresAt: now.add({ hours: 1 }),
           revokedAt: null,
-          ip: await encryptPiiValueForSubject(kms, subject, `10.0.0.${n}`, { requestId: "test" }, "ip"),
+          ip: await encryptPiiValueForSubject(
+            kms,
+            subject,
+            `10.0.0.${n}`,
+            { requestId: "test" },
+            "ip",
+          ),
           userAgent: await encryptPiiValueForSubject(
             kms,
             subject,

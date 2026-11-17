@@ -30,7 +30,9 @@ import { createAllInOneEntrypoint } from "../index.ts";
 const jobRuns: Array<{ name: string; payload: Record<string, unknown> }> = [];
 
 const wiringFeature = defineFeature("wiring", (r) => {
-  const orderPlaced = r.defineEvent("order-placed", z.object({ sku: z.string() }), { piiFields: "none" });
+  const orderPlaced = r.defineEvent("order-placed", z.object({ sku: z.string() }), {
+    piiFields: "none",
+  });
   r.writeHandler({
     name: "order:create",
     schema: z.object({ sku: z.string() }),
@@ -45,9 +47,14 @@ const wiringFeature = defineFeature("wiring", (r) => {
     },
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
-  r.job({ name: "record-order", trigger: { on: "order-placed" }, runIn: "worker", handler: async (payload) => {
+  r.job({
+    name: "record-order",
+    trigger: { on: "order-placed" },
+    runIn: "worker",
+    handler: async (payload) => {
       jobRuns.push({ name: "wiring:job:record-order", payload });
-    } });
+    },
+  });
 });
 
 // Mixed-lane feature: one worker-lane + one api-lane job triggered on the
@@ -71,12 +78,22 @@ const mixedLaneFeature = defineFeature("mixed", (r) => {
     },
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
-  r.job({ name: "handle-on-worker", trigger: { on: "pinged" }, runIn: "worker", handler: async (payload) => {
+  r.job({
+    name: "handle-on-worker",
+    trigger: { on: "pinged" },
+    runIn: "worker",
+    handler: async (payload) => {
       jobRuns.push({ name: "mixed:job:handle-on-worker", payload });
-    } });
-  r.job({ name: "handle-on-api", trigger: { on: "pinged" }, runIn: "api", handler: async (payload) => {
-    jobRuns.push({ name: "mixed:job:handle-on-api", payload });
-  } });
+    },
+  });
+  r.job({
+    name: "handle-on-api",
+    trigger: { on: "pinged" },
+    runIn: "api",
+    handler: async (payload) => {
+      jobRuns.push({ name: "mixed:job:handle-on-api", payload });
+    },
+  });
 });
 
 const JWT = "entrypoint-wiring-test-secret-must-be-32-chars!";
@@ -258,9 +275,14 @@ const featureGateJobFeature = defineFeature("featuregate", (r) => {
     },
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
-  r.job({ name: "record-features", trigger: { on: "pinged" }, runIn: "worker", handler: async (_payload, context) => {
+  r.job({
+    name: "record-features",
+    trigger: { on: "pinged" },
+    runIn: "worker",
+    handler: async (_payload, context) => {
       featuresSeenByJob.push(context.services.effectiveFeatures?.(adminUser.tenantId));
-    } });
+    },
+  });
 });
 
 describe("createAllInOneEntrypoint — job context sees dispatcherOptions.effectiveFeatures", () => {

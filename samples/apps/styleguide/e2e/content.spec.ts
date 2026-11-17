@@ -4,7 +4,11 @@
 // new page appears LIVE in the sidebar tree (SSE via treeEntities ["page"]) —
 // without a reload. Exactly the "Content + → pricing" flow.
 
-import { E2E_TIMEOUT_MS, expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
+import {
+  E2E_TIMEOUT_MS,
+  expect,
+  boundaryGuardedTest as test,
+} from "@cosmicdrift/kumiko-testing/e2e";
 
 test("Content +: create a new page → appears live in the Nav-Tree", async ({ page }) => {
   await page.goto("/item-list");

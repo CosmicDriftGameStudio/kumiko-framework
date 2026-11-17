@@ -15,7 +15,11 @@ import type { JobContext } from "../types/handlers.ts";
 
 function featureWith(softDelete: boolean | undefined) {
   return defineFeature("probe-sd", (r) => {
-    r.entity({ ...(softDelete !== undefined && { softDelete }), name: "thing", fields: { label: { type: "text", allowPlaintext: "test fixture value, not personal data" } } });
+    r.entity({
+      ...(softDelete !== undefined && { softDelete }),
+      name: "thing",
+      fields: { label: { type: "text", allowPlaintext: "test fixture value, not personal data" } },
+    });
   });
 }
 

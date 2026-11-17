@@ -5,10 +5,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
-import {
-  setupTestStack,
-  type TestStack,
-} from "@cosmicdrift/kumiko-testing/stack";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { invoicedOrderIds, pubsubOrderFeature } from "../feature";
 
 let stack: TestStack;

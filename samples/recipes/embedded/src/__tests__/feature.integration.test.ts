@@ -6,10 +6,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { EntityId, SaveContext } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
-import {
-  setupTestStack,
-  type TestStack,
-} from "@cosmicdrift/kumiko-testing/stack";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { embeddedFeature } from "../feature";
 
 let stack: TestStack;
@@ -232,7 +229,9 @@ describe("embedded list of like-shaped rows", () => {
     expect(error).toMatchObject({
       code: "validation_error",
       details: {
-        fields: expect.arrayContaining([expect.objectContaining({ path: "phoneNumbers.1.number" })]),
+        fields: expect.arrayContaining([
+          expect.objectContaining({ path: "phoneNumbers.1.number" }),
+        ]),
       },
     });
   });

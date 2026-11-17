@@ -90,8 +90,18 @@ const workerProbeFeature = defineFeature("worker-probe", (r) => {
   // The job's only purpose: prove Temporal is already defined by the time
   // the handler runs. Before, there was no framework-side boot path for this
   // — apps had to rebuild the polyfill call by hand and forgot it.
-  r.job({ name: "boot-probe", trigger: { manual: true }, runIn: "worker", runOnBoot: true, handler: async () => {} });
-  r.job({ name: "record-ping", trigger: { on: "pinged" }, runIn: "worker", handler: async (payload) => {
+  r.job({
+    name: "boot-probe",
+    trigger: { manual: true },
+    runIn: "worker",
+    runOnBoot: true,
+    handler: async () => {},
+  });
+  r.job({
+    name: "record-ping",
+    trigger: { on: "pinged" },
+    runIn: "worker",
+    handler: async (payload) => {
       const temporalWasDefined =
         typeof (globalThis as { Temporal?: unknown }).Temporal === "object";
       // Touches the global directly — throws "Temporal is not defined" if the
@@ -101,7 +111,8 @@ const workerProbeFeature = defineFeature("worker-probe", (r) => {
         note: (payload as { note: string }).note,
         temporalWasDefined,
       });
-    } });
+    },
+  });
 });
 
 // A per-instance MSP keys its cursor row by the dispatcher's instance id, which makes

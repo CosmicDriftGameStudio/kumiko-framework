@@ -69,14 +69,23 @@ const probeFeature = defineFeature("readiness-probe", (r) => {
     },
   });
 
-  r.secret({ name: "probe.apiToken", label: { de: "API-Token", en: "API token" },
+  r.secret({
+    name: "probe.apiToken",
+    label: { de: "API-Token", en: "API token" },
     scope: "tenant",
-    required: true });
-  r.secret({ name: "probe.optionalToken", label: { de: "Optionales Token", en: "Optional token" },
-    scope: "tenant" });
-  r.secret({ name: "probe.authPassword", label: { de: "Auth-Passwort", en: "Auth password" },
+    required: true,
+  });
+  r.secret({
+    name: "probe.optionalToken",
+    label: { de: "Optionales Token", en: "Optional token" },
     scope: "tenant",
-    requiredWhenConfigSet: AUTH_USER_CONFIG_KEY });
+  });
+  r.secret({
+    name: "probe.authPassword",
+    label: { de: "Auth-Passwort", en: "Auth password" },
+    scope: "tenant",
+    requiredWhenConfigSet: AUTH_USER_CONFIG_KEY,
+  });
 });
 
 // Provider-gating fixture: foundation declares the selector, two providers
@@ -111,9 +120,12 @@ const probeSmtpProvider = defineFeature("probe-smtp", (r) => {
       }),
     },
   });
-  r.secret({ name: "smtp.password", label: { de: "SMTP-Passwort", en: "SMTP password" },
+  r.secret({
+    name: "smtp.password",
+    label: { de: "SMTP-Passwort", en: "SMTP password" },
     scope: "tenant",
-    required: true });
+    required: true,
+  });
 });
 
 const probeInMemoryProvider = defineFeature("probe-inmemory", (r) => {

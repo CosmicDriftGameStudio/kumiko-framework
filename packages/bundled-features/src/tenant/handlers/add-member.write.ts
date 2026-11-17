@@ -38,9 +38,7 @@ export const addMemberWrite = defineWriteHandler({
     "Grants an existing user membership in a tenant with the given roles, refusing reserved role names and a user who is already a member; use it to add someone to a workspace without going through an invitation.",
   handler: async (event, ctx) => {
     const systemDb = requireSystemDb(ctx, "tenant:write:addMember");
-    const db = systemDb.acknowledgeCrossTenant(
-      "SystemAdmin manages memberships across tenants",
-    );
+    const db = systemDb.acknowledgeCrossTenant("SystemAdmin manages memberships across tenants");
     if (!isFrameworkSystemUser(event.user) && event.payload.tenantId !== event.user.tenantId) {
       return writeFailure(
         new AccessDeniedError({

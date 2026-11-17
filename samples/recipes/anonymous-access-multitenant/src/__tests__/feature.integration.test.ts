@@ -6,10 +6,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { setTenantCookie } from "@cosmicdrift/kumiko-framework/api";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
-import {
-  setupTestStack,
-  type TestStack,
-} from "@cosmicdrift/kumiko-testing/stack";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { multiTenantShopFeature } from "../feature";
 import { createSubdomainResolver, extractSubdomain } from "../subdomain-resolver";
 

@@ -62,9 +62,9 @@ describe("unmanaged builders reject read_ prefix", () => {
         userId: createTextField({ required: true, personal: false, reason: "test_fixture" }),
       },
     });
-    expect(() =>
-      deriveEntityTableMeta(readEntity, { source: "unmanaged" }),
-    ).toThrow(/the "read_" prefix is reserved/);
+    expect(() => deriveEntityTableMeta(readEntity, { source: "unmanaged" })).toThrow(
+      /the "read_" prefix is reserved/,
+    );
   });
 
   test("default toTableName (read_*) + unmanaged throws", () => {

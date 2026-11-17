@@ -6,7 +6,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { TenantId } from "@cosmicdrift/kumiko-types/identifiers";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
-import { WHATSAPP_MESSAGE_AGGREGATE_TYPE, WHATSAPP_STATUS_AGGREGATE_TYPE } from "./events.ts";
+import type { WHATSAPP_MESSAGE_AGGREGATE_TYPE, WHATSAPP_STATUS_AGGREGATE_TYPE } from "./events.ts";
 
 // Each stream (message or status) has its own record key: the retention job erases it after
 // WHATSAPP_EVENT_RETENTION_DAYS, tenant destroy erases all of them. The field name is part of the

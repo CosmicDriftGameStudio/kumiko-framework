@@ -9,9 +9,9 @@ import {
   type LiveEventSubscriber,
   LiveEventsProvider,
 } from "../../index.ts";
+import { createMockDispatcher, type MockQueryHandler } from "../../testing.ts";
 import type { NavApi } from "../nav.tsx";
 import { useProjectionDetailData } from "../use-projection-detail-data.ts";
-import { createMockDispatcher, type MockQueryHandler } from "../../testing.ts";
 
 type QueryFn = MockQueryHandler;
 type QueryResult = Awaited<ReturnType<QueryFn>>;
@@ -61,10 +61,12 @@ async function advance(ms: number): Promise<void> {
 
 function renderDetail(live: boolean) {
   let calls = 0;
-  const dispatcher = createMockDispatcher({ query: (async () => {
-    calls += 1;
-    return { isSuccess: true, data: { id: "r1", okCount: calls } } as unknown as QueryResult;
-  }) as unknown as QueryFn });
+  const dispatcher = createMockDispatcher({
+    query: (async () => {
+      calls += 1;
+      return { isSuccess: true, data: { id: "r1", okCount: calls } } as unknown as QueryResult;
+    }) as unknown as QueryFn,
+  });
   const feed = createLiveFeed();
   const wrapper = ({ children }: { readonly children: ReactNode }) => (
     <DispatcherProvider dispatcher={dispatcher}>

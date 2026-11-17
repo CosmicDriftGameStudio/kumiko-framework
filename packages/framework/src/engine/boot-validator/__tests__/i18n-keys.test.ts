@@ -74,11 +74,13 @@ describe("validateI18nSurfaceKeys — generated dot-form label for the Settings 
 
   test("a missing feature key does not hide a missing settings-hub key", () => {
     const billing = defineFeature("billing", (r) => {
-      r.entity(createEntity({
+      r.entity(
+        createEntity({
           name: "invoice",
           table: "Invoices",
           fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
-        }));
+        }),
+      );
       r.screen({
         id: "invoice-list",
         type: "entityList",

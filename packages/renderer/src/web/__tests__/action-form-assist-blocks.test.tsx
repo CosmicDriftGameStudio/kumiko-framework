@@ -17,7 +17,13 @@ import {
   REFERENCE_SEARCH_DEBOUNCE_MS,
   RenderEdit,
 } from "../../index.ts";
-import { createMockDispatcher, type MockQueryHandler, render, screen, waitFor } from "./test-utils.tsx";
+import {
+  createMockDispatcher,
+  type MockQueryHandler,
+  render,
+  screen,
+  waitFor,
+} from "./test-utils.tsx";
 
 const FORM: ActionFormScreenDefinition = {
   id: "reply",

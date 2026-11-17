@@ -103,24 +103,40 @@ const helpdeskFeature = defineFeature("helpdesk", (r) => {
   const ticket = r.entity(ticketEntity);
   r.entity(replyEntity);
   r.entity(secretReplyEntity);
-  r.relation({ entity: ticket, name: "replies", type: "hasMany",
+  r.relation({
+    entity: ticket,
+    name: "replies",
+    type: "hasMany",
     target: "reply",
     foreignKey: "ticketId",
-    searchable: true });
-  r.relation({ entity: ticket, name: "secretReplies", type: "hasMany",
+    searchable: true,
+  });
+  r.relation({
+    entity: ticket,
+    name: "secretReplies",
+    type: "hasMany",
     target: "secretReply",
     foreignKey: "ticketId",
-    searchable: true });
+    searchable: true,
+  });
   r.entity(internalNoteEntity);
-  r.relation({ entity: ticket, name: "internalNotes", type: "hasMany",
+  r.relation({
+    entity: ticket,
+    name: "internalNotes",
+    type: "hasMany",
     target: "internalNote",
     foreignKey: "ticketId",
-    searchable: true });
+    searchable: true,
+  });
   r.entity(draftNoteEntity);
-  r.relation({ entity: ticket, name: "draftNotes", type: "hasMany",
+  r.relation({
+    entity: ticket,
+    name: "draftNotes",
+    type: "hasMany",
     target: "draftNote",
     foreignKey: "ticketId",
-    searchable: true });
+    searchable: true,
+  });
   const access = { access: { roles: [...roles] } };
   const writeAccess = { access: { roles: ["Admin"] } };
   r.writeHandler(defineEntityWriteHandler("ticket:create", ticketEntity, writeAccess));

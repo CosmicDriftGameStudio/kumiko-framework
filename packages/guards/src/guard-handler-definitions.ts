@@ -160,10 +160,7 @@ function featureRelativePath(repoRel: string): string | undefined {
   return FEATURE_LOCATION.exec(repoRel)?.[1];
 }
 
-function layoutFindingCount(
-  definitions: readonly HandlerDefinition[],
-  featureRel: string,
-): number {
+function layoutFindingCount(definitions: readonly HandlerDefinition[], featureRel: string): number {
   let count = 0;
   const underHandlers = featureRel.startsWith(HANDLERS_DIR_PREFIX);
   const isWriteFile = WRITE_FILE.test(featureRel);

@@ -34,7 +34,6 @@ import {
   tenantMembershipsTable,
 } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { createEventStoreExecutor, selectMany } from "@cosmicdrift/kumiko-framework/db";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   defineFeature,
   defineWriteHandler,
@@ -47,8 +46,8 @@ import {
   createInMemoryFileProvider,
   fileRefsTable,
 } from "@cosmicdrift/kumiko-framework/files";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { createRendererMailHtmlFeature } from "../../renderer-mail-html/index.ts";
 import {
   buildMultipartBody,
   patchFileInstanceofForBunTest,
@@ -61,6 +60,7 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import { PDFDocument } from "pdf-lib";
 import * as z from "zod";
+import { createRendererMailHtmlFeature } from "../../renderer-mail-html/index.ts";
 import { renderedPdfEntity, renderedPdfsTable } from "../entity";
 import { createRendererPuppeteerClientFeature } from "../feature";
 import { RendererPuppeteerClientQueries } from "../qualified-names";
@@ -156,13 +156,16 @@ const ITEMS = [
 
 const invoiceFeature = defineFeature(FEATURE, (r) => {
   r.requires({ features: ["delivery"] });
-  r.notification({ name: "invoice", variables: {},
+  r.notification({
+    name: "invoice",
+    variables: {},
     localizedTemplate: () => ({
       de: {
         body: "<p>Rechnung</p>",
         meta: { subject: "Rechnung", category: "transactional" as const },
       },
-    }) });
+    }),
+  });
   r.writeHandler(
     defineWriteHandler({
       name: "generate",

@@ -10,10 +10,10 @@ type StoredPiiFieldSchema<TField extends z.core.$ZodType> =
       ? z.ZodNullable<z.ZodString>
       : z.ZodString;
 
-export type StoredEventPayloadShape<TShape extends z.ZodRawShape, TPiiKey extends keyof TShape> = Omit<
-  TShape,
-  TPiiKey
-> & { [K in TPiiKey]: StoredPiiFieldSchema<TShape[K]> };
+export type StoredEventPayloadShape<
+  TShape extends z.ZodRawShape,
+  TPiiKey extends keyof TShape,
+> = Omit<TShape, TPiiKey> & { [K in TPiiKey]: StoredPiiFieldSchema<TShape[K]> };
 
 // Personal fields arrive in a projection apply as ciphertext, which the write-side schema rejects (format, length, enum).
 export function storedEventPayloadSchema<

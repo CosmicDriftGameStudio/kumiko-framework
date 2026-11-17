@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
 import { fileURLToPath } from "node:url";
-import { mockModuleForFile } from "@cosmicdrift/kumiko-testing/helpers/mock-module";
 import { createMockDispatcher } from "@cosmicdrift/kumiko-renderer/testing";
+import { mockModuleForFile } from "@cosmicdrift/kumiko-testing/helpers/mock-module";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { LoginScreen } from "../login-screen.tsx";
 import type { SessionApi } from "../session.tsx";

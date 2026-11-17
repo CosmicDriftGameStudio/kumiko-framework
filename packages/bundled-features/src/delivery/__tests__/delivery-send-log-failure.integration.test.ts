@@ -14,12 +14,16 @@ let sendCompleted = false;
 
 const sendProbeFeature = defineFeature("send-log-probe", (r) => {
   r.requires({ features: ["delivery"] });
-  r.applyExtension({ name: DELIVERY_CHANNEL_EXTENSION, entity: "send-log-probe", mode: "queued",
+  r.applyExtension({
+    name: DELIVERY_CHANNEL_EXTENSION,
+    entity: "send-log-probe",
+    mode: "queued",
     send: async (): Promise<ChannelResult> => {
       sendCount++;
       sendCompleted = true;
       return { status: "sent" };
-    } });
+    },
+  });
 });
 
 beforeAll(async () => {

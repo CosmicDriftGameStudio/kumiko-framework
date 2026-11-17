@@ -5,6 +5,7 @@
 
 import type { ClientActionHandler, TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 import type { ComponentType, ReactNode } from "react";
+import { type AuthShellRenderer, makeAuthShellProvider } from "./auth-form-primitives.tsx";
 import {
   type AuthGateOptions,
   type MfaSetupComponentProps,
@@ -12,7 +13,6 @@ import {
   makeSessionAuthGate,
 } from "./auth-gate.tsx";
 import { emailPasswordClientActions } from "./client-actions.ts";
-import { type AuthShellRenderer, makeAuthShellProvider } from "./auth-form-primitives.tsx";
 import {
   type DefaultAuthPagesOptions,
   makeDefaultAuthPagesGate,

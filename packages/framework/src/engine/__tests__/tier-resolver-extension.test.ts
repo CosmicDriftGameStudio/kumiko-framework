@@ -15,7 +15,11 @@ function tierResolverFeature(name: string) {
   return defineFeature(name, (r) => {
     r.extendsRegistrar(TENANT_TIER_RESOLVER_EXT, { onRegister: () => {} });
     r.entity(createEntity({ name: "dummy", table: "Dummies", fields: {} }));
-    r.applyExtension({ name: TENANT_TIER_RESOLVER_EXT, entity: "dummy", build: async () => () => new Set<string>() });
+    r.applyExtension({
+      name: TENANT_TIER_RESOLVER_EXT,
+      entity: "dummy",
+      build: async () => () => new Set<string>(),
+    });
   });
 }
 

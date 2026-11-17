@@ -13,7 +13,12 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { brandingCssFeature, brandingFeature, configFeature, managedPagesFeature } from "../feature";
+import {
+  brandingCssFeature,
+  brandingFeature,
+  configFeature,
+  managedPagesFeature,
+} from "../feature";
 
 // Branding writes are tenant-scoped — the admin's tenantId must equal the
 // rendered tenant (SYSTEM_TENANT_ID here), or the config row lands in the wrong

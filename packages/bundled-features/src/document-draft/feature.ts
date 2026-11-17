@@ -18,9 +18,7 @@ import type { DocumentDraftOptions } from "./options.ts";
 import { createDocumentDraftEditorScreen } from "./screens/editor-screen.ts";
 import { DOCUMENT_DRAFT_ENTITY, DOCUMENT_DRAFT_FEATURE } from "./web/constants.ts";
 
-export function createDocumentDraftFeature(
-  opts: DocumentDraftOptions,
-): FeatureDefinition {
+export function createDocumentDraftFeature(opts: DocumentDraftOptions): FeatureDefinition {
   const access = opts.access ?? DEFAULT_DOCUMENT_DRAFT_ACCESS;
   const entity = createDocumentDraftEntity(opts.retention, opts.subjectTypes);
   const documentDraftExecutor = createDocumentDraftExecutor(opts.subjectTypes);
@@ -49,7 +47,11 @@ export function createDocumentDraftFeature(
 
     // A draft belongs to the object it was made for, not to the acting user: the app erases it
     // with forgetDocumentDraftsOfSubject when that object is erased, so the user pipeline has nothing to do.
-    r.applyExtension({ name: EXT_USER_DATA, entity: DOCUMENT_DRAFT_ENTITY, export: async () => null,
-      delete: async () => {} });
+    r.applyExtension({
+      name: EXT_USER_DATA,
+      entity: DOCUMENT_DRAFT_ENTITY,
+      export: async () => null,
+      delete: async () => {},
+    });
   });
 }

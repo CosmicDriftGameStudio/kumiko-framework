@@ -89,7 +89,8 @@ function buildNoteEntryEntity(
       }),
     },
     // Every host detail screen reads its notes by tenant + host entity.
-    indexes: [{ columns: ["tenantId", "entityType", "entityId"] }], name: "note-entry",
+    indexes: [{ columns: ["tenantId", "entityType", "entityId"] }],
+    name: "note-entry",
   });
 }
 

@@ -386,7 +386,9 @@ export function BillingPlansPanel(_props: ExtensionSectionProps): ReactNode {
           }}
           planName={t(consentPlan.labelKey)}
           price={{
-            amount: formatMoney(consentPlan.price.unitAmount, consentPlan.price.currency, { locale }),
+            amount: formatMoney(consentPlan.price.unitAmount, consentPlan.price.currency, {
+              locale,
+            }),
             renewalKey: renewalKey(consentPlan.price),
             count: new Intl.NumberFormat(locale).format(consentPlan.price.intervalCount ?? 1),
           }}

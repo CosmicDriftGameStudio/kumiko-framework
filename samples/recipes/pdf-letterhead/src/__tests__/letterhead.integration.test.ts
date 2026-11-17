@@ -11,6 +11,10 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/config";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import {
+  createRendererPuppeteerClientFeature,
+  RendererPuppeteerClientQueries,
+} from "@cosmicdrift/kumiko-bundled-features/renderer-puppeteer-client";
+import {
   createTemplateResolverFeature,
   DEFAULT_PDF_LAYOUT_SLUG_CONFIG_KEY,
   TemplateResolverHandlers,
@@ -26,10 +30,6 @@ import {
   createInMemoryFileProvider,
 } from "@cosmicdrift/kumiko-framework/files";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import {
-  createRendererPuppeteerClientFeature,
-  RendererPuppeteerClientQueries,
-} from "@cosmicdrift/kumiko-bundled-features/renderer-puppeteer-client";
 import {
   setupTestStack,
   type TestStack,

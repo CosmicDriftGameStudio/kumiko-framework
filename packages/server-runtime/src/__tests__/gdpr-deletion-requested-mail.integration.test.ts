@@ -21,6 +21,7 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { createMailFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/mail-foundation";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
+import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-mail-html";
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { seedNotificationTemplates } from "@cosmicdrift/kumiko-bundled-features/template-resolver/seeding";
@@ -41,7 +42,6 @@ import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createFilesFeature } from "@cosmicdrift/kumiko-framework/files";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
-import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-mail-html";
 import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,

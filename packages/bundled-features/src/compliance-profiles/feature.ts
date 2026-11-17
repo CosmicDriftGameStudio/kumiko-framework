@@ -4,7 +4,10 @@ import {
   defineFeature,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { type DefaultComplianceProfileKey, registerDefaultProfileHook } from "./default-profile-hook.ts";
+import {
+  type DefaultComplianceProfileKey,
+  registerDefaultProfileHook,
+} from "./default-profile-hook.ts";
 import { forTenantQuery } from "./handlers/for-tenant.query.ts";
 import { listProfilesQuery } from "./handlers/list-profiles.query.ts";
 import { createNeedsProfileQuery } from "./handlers/needs-profile.query.ts";

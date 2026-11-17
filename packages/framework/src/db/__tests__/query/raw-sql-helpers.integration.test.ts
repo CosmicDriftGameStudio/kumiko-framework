@@ -312,7 +312,11 @@ describe("where jsonText", () => {
     });
   }
 
-  async function labelsFor(db: DbRunner, table: WritableTable, payload: unknown): Promise<string[]> {
+  async function labelsFor(
+    db: DbRunner,
+    table: WritableTable,
+    payload: unknown,
+  ): Promise<string[]> {
     const rows = await selectMany<{ label: string }>(db, table, { payload });
     return rows.map((r) => r.label).sort();
   }

@@ -375,8 +375,8 @@ export {
   MAX_BULK_SELECTION,
 } from "./screen-list-bulk.ts";
 export type {
-  ListDefaultsOptions,
   ListColumnPin,
+  ListDefaultsOptions,
   ListNarrowFacets,
   ListPayloadCapabilities,
   ListTableDensity,

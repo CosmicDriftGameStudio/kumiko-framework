@@ -24,7 +24,10 @@ import { SIGNATURE_METHOD, SIGNATURE_REQUEST_STATUS } from "../web/constants.ts"
 
 export type SignInPersonData = { readonly requestStatus: string };
 
-export function createSignInPersonHandler(access: AccessRule, requestExecutor: SignatureRequestExecutor) {
+export function createSignInPersonHandler(
+  access: AccessRule,
+  requestExecutor: SignatureRequestExecutor,
+) {
   return defineWriteHandler<"sign-in-person", typeof SignInPersonSchema, SignInPersonData>({
     name: "sign-in-person",
     schema: SignInPersonSchema,

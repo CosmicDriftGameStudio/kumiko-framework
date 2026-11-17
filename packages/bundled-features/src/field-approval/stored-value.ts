@@ -39,7 +39,9 @@ export async function sealRequestedValue(
   }
 }
 
-export type OpenedRequestedValue = { readonly ok: true; readonly value: unknown } | { readonly ok: false };
+export type OpenedRequestedValue =
+  | { readonly ok: true; readonly value: unknown }
+  | { readonly ok: false };
 
 export async function openRequestedValue(
   stored: unknown,

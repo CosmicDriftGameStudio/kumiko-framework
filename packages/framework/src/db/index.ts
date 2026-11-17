@@ -1,11 +1,5 @@
 export { isTimestamptzType } from "./aggregate-sql.ts";
 export { applyEntityEvent } from "./apply-entity-event.ts";
-export {
-  insertProjectedEntityRow,
-  patchProjectedEntityRow,
-  type ProjectedEntityTarget,
-  type ProjectedEntityValues,
-} from "./projected-entity-row.ts";
 export { assertExistsIn } from "./assert-exists-in.ts";
 export {
   nullBlindIndexesForSubject,
@@ -35,9 +29,9 @@ export {
 export { decodeCursor, decodeKeysetCursor, encodeCursor, encodeKeysetCursor } from "./cursor.ts";
 export type { SchemaTable } from "./dialect.ts";
 export {
+  bigint,
   boolean,
   extractTableName,
-  bigint,
   index,
   instant,
   integer,
@@ -91,6 +85,13 @@ export {
   isUndefinedTable,
   isUniqueViolation,
 } from "./pg-error.ts";
+export {
+  insertProjectedEntityRow,
+  type ProjectedEntityTarget,
+  type ProjectedEntityValues,
+  patchProjectedEntityRow,
+} from "./projected-entity-row.ts";
+export { createTenantDb, type PublicCreateTenantDbOptions } from "./public-tenant-db.ts";
 export { acquireNamespacedAdvisoryLock } from "./queries/advisory-lock.ts";
 export { queryDatabaseNow, readDatabaseNow } from "./queries/database-now.ts";
 export { listEventTenantIds } from "./queries/event-tenants.ts";
@@ -174,5 +175,4 @@ export {
   requireSystemDb,
   scopeTenantDbToTenant,
 } from "./tenant-db.ts";
-export { createTenantDb, type PublicCreateTenantDbOptions } from "./public-tenant-db.ts";
 export { runInOwnTransaction } from "./tenant-db-scoped-rebind.ts";

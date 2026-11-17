@@ -15,9 +15,7 @@ import {
   configValuesTable,
   createConfigFeature,
 } from "@cosmicdrift/kumiko-bundled-features/config";
-import {
-  type SessionCallbacks,
-} from "@cosmicdrift/kumiko-bundled-features/sessions";
+import type { SessionCallbacks } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import {
   sessionCallbacksFromLateBound,
   withMintedSession,
@@ -27,10 +25,7 @@ import {
   tenantMembershipsTable,
 } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { seedTenantMembership } from "@cosmicdrift/kumiko-bundled-features/tenant/seeding";
-import {
-  createUserFeature,
-  UserHandlers,
-} from "@cosmicdrift/kumiko-bundled-features/user";
+import { createUserFeature, UserHandlers } from "@cosmicdrift/kumiko-bundled-features/user";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { createLateBoundHolder } from "@cosmicdrift/kumiko-testing/helpers";

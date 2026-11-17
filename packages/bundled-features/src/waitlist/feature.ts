@@ -40,11 +40,17 @@ export function createWaitlistFeature(opts: WaitlistOptions = {}): FeatureDefini
     r.requires({ features: ["tenant", "auth-email-password", "user-data-rights"] });
     r.translations({ keys: WAITLIST_I18N });
 
-    r.notification({ name: "confirmation", variables: WAITLIST_CONFIRMATION_VARIABLES,
-      localizedTemplate: waitlistConfirmationTemplate });
-    r.notification({ name: "admin-notice", variables: WAITLIST_ADMIN_NOTICE_VARIABLES,
+    r.notification({
+      name: "confirmation",
+      variables: WAITLIST_CONFIRMATION_VARIABLES,
+      localizedTemplate: waitlistConfirmationTemplate,
+    });
+    r.notification({
+      name: "admin-notice",
+      variables: WAITLIST_ADMIN_NOTICE_VARIABLES,
       record: WAITLIST_ADMIN_NOTICE_RECORD,
-      localizedTemplate: waitlistAdminNoticeTemplate });
+      localizedTemplate: waitlistAdminNoticeTemplate,
+    });
 
     r.entity(waitlistEntryEntity);
     r.writeHandler(createSubmitHandler(opts));
@@ -76,7 +82,11 @@ export function createWaitlistFeature(opts: WaitlistOptions = {}): FeatureDefini
       access: adminAccess,
     });
 
-    r.applyExtension({ name: EXT_USER_DATA, entity: "waitlistEntry", export: waitlistEntryExportHook,
-      delete: waitlistEntryDeleteHook });
+    r.applyExtension({
+      name: EXT_USER_DATA,
+      entity: "waitlistEntry",
+      export: waitlistEntryExportHook,
+      delete: waitlistEntryDeleteHook,
+    });
   });
 }

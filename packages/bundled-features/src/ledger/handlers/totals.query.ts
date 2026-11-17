@@ -25,7 +25,10 @@ const scheduleActualsSchema = z.object({
   periodTo: periodSchema.optional(),
 });
 
-type PeriodRange = { readonly periodFrom?: string | undefined; readonly periodTo?: string | undefined };
+type PeriodRange = {
+  readonly periodFrom?: string | undefined;
+  readonly periodTo?: string | undefined;
+};
 
 function addPeriodBounds(where: WhereObject, range: PeriodRange): void {
   const bounds: { gte?: string; lte?: string } = {};
@@ -86,7 +89,8 @@ export function createSubjectTotalsHandler(
           const key = JSON.stringify([subjectId, period, line.accountId]);
           const entry = totals.get(key);
           if (entry) entry.amount += line.amount;
-          else totals.set(key, { subjectId, period, accountId: line.accountId, amount: line.amount });
+          else
+            totals.set(key, { subjectId, period, accountId: line.accountId, amount: line.amount });
         }
       }
       const rows = [...totals.values()]

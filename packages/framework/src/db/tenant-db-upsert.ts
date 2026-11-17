@@ -3,9 +3,8 @@ import type {
   TenantDbMode,
   TenantDbUpsertOptions,
 } from "@cosmicdrift/kumiko-types/tenant-db-types";
-import { isNumericColumnType } from "./aggregate-sql.ts";
-import { quoteIdent } from "./sql-identifier.ts";
 import { AccessDeniedError } from "../errors/index.ts";
+import { isNumericColumnType } from "./aggregate-sql.ts";
 import { isExecutorManagedTable } from "./executor-managed-tables.ts";
 import {
   type AnyDb,
@@ -16,6 +15,7 @@ import {
   type TableLike,
   unsafeLoggingClosedConnection,
 } from "./query.ts";
+import { quoteIdent } from "./sql-identifier.ts";
 import { extractTableInfo, type TableInfo } from "./table-info.ts";
 import { asEntityTableMeta, tableNameOf } from "./table-introspection.ts";
 

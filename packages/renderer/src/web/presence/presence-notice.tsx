@@ -1,7 +1,7 @@
 import type { PresenceEntry } from "@cosmicdrift/kumiko-types/presence-types";
 import type { ReactNode } from "react";
-import { useNow } from "../../hooks/use-now.ts";
 import { pluralKey } from "../../headless/plural-key.ts";
+import { useNow } from "../../hooks/use-now.ts";
 import { useTranslation } from "../../index.ts";
 import { Avatar } from "../layout/avatar.tsx";
 

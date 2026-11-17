@@ -164,7 +164,9 @@ describe("memberReadOnly grant", () => {
       reports.push({ kind, reason });
     });
 
-    expect(deniedReason(() => tdb.unsafeRawAllTenants())).toBe(FrameworkReasons.memberResolutionReadOnly);
+    expect(deniedReason(() => tdb.unsafeRawAllTenants())).toBe(
+      FrameworkReasons.memberResolutionReadOnly,
+    );
     expect(reports).toEqual([]);
   });
 

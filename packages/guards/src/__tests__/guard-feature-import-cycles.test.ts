@@ -56,10 +56,16 @@ describe("Feature Import Cycles guard", () => {
   test("a type-only way back does not close the cycle", () => {
     const base = `import { v } from "../b/y.ts";\nexport const u = v;\nexport type T = number;\n`;
     expect(
-      findingsFor({ [A]: base, [B]: `import type { T } from "../a/x.ts";\nexport const v: T = 1;\n` }),
+      findingsFor({
+        [A]: base,
+        [B]: `import type { T } from "../a/x.ts";\nexport const v: T = 1;\n`,
+      }),
     ).toEqual({});
     expect(
-      findingsFor({ [A]: base, [B]: `import { type T } from "../a/x.ts";\nexport const v: T = 1;\n` }),
+      findingsFor({
+        [A]: base,
+        [B]: `import { type T } from "../a/x.ts";\nexport const v: T = 1;\n`,
+      }),
     ).toEqual({});
   });
 

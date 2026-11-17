@@ -204,86 +204,106 @@ export const hostFeature = defineFeature("doc-fixtures", (r) => {
       return { isSuccess: true as const, data: {} };
     },
   });
-  r.job({ name: "archive-document", trigger: { manual: true }, retries: 0, handler: async (payload, ctx) => {
-    const archived = await ctx.dispatch.write("doc-fixtures:write:archive-document", {
-      id: z.uuid().parse(payload["id"]),
-    });
-    if (!archived.isSuccess) throw new Error(archived.error.message);
-  } });
-  r.job({ name: "import-document", trigger: { manual: true }, retries: 0, handler: async (payload, ctx) => {
-    const id = z.uuid().parse(payload["id"]);
-    const stored = await createFileRefFromBytes(
-      { ...ctx, user: ctx.systemUser },
-      {
-        fileName: "imported.pdf",
-        mimeType: "application/pdf",
-        data: PDF,
-        attachTo: { entityType: "filed-document", entityId: id, fieldName: "file" },
-      },
-    );
-    if (!stored.isSuccess) throw new Error(stored.error.message);
-    const imported = await ctx.dispatch.write("documents:write:import", {
-      id,
-      title: "Imported",
-      category: "contract",
-      ...(typeof payload["validUntil"] === "string" && { validUntil: payload["validUntil"] }),
-      fileRefId: stored.data.id,
-      links: [{ entityType: "property", entityId: z.string().parse(payload["propertyId"]) }],
-      ...(payload["deleted"] === true && { deleted: true }),
-    });
-    if (!imported.isSuccess) throw new Error(imported.error.message);
-  } });
+  r.job({
+    name: "archive-document",
+    trigger: { manual: true },
+    retries: 0,
+    handler: async (payload, ctx) => {
+      const archived = await ctx.dispatch.write("doc-fixtures:write:archive-document", {
+        id: z.uuid().parse(payload["id"]),
+      });
+      if (!archived.isSuccess) throw new Error(archived.error.message);
+    },
+  });
+  r.job({
+    name: "import-document",
+    trigger: { manual: true },
+    retries: 0,
+    handler: async (payload, ctx) => {
+      const id = z.uuid().parse(payload["id"]);
+      const stored = await createFileRefFromBytes(
+        { ...ctx, user: ctx.systemUser },
+        {
+          fileName: "imported.pdf",
+          mimeType: "application/pdf",
+          data: PDF,
+          attachTo: { entityType: "filed-document", entityId: id, fieldName: "file" },
+        },
+      );
+      if (!stored.isSuccess) throw new Error(stored.error.message);
+      const imported = await ctx.dispatch.write("documents:write:import", {
+        id,
+        title: "Imported",
+        category: "contract",
+        ...(typeof payload["validUntil"] === "string" && { validUntil: payload["validUntil"] }),
+        fileRefId: stored.data.id,
+        links: [{ entityType: "property", entityId: z.string().parse(payload["propertyId"]) }],
+        ...(payload["deleted"] === true && { deleted: true }),
+      });
+      if (!imported.isSuccess) throw new Error(imported.error.message);
+    },
+  });
   // A generated file bound to a record without any save: the lease field never names it, so only
   // the explicit import brings it in as a document.
-  r.job({ name: "bind-and-import", trigger: { manual: true }, retries: 0, handler: async (payload, ctx) => {
-    const leaseId = z.uuid().parse(payload["leaseId"]);
-    const stored = await createFileRefFromBytes(
-      { ...ctx, user: ctx.systemUser },
-      {
-        fileName: "bound.pdf",
-        mimeType: "application/pdf",
-        data: PDF,
-        attachTo: { entityType: "lease", fieldName: "file" },
-      },
-    );
-    if (!stored.isSuccess) throw new Error(stored.error.message);
-    const outcome = await bindPendingFileRef({
-      fileRefId: stored.data.id,
-      entityName: "lease",
-      fieldName: "file",
-      entityId: leaseId,
-      user: ctx.systemUser,
-      db: ctx.db,
-    });
-    if (outcome !== "bound") throw new Error(`bind outcome: ${outcome}`);
-    const imported = await ctx.dispatch.write("documents:write:import", {
-      id: documentIdForFile(ctx.systemUser.tenantId, stored.data.id),
-      title: "Bound",
-      category: "contract",
-      fileRefId: stored.data.id,
-      links: [{ entityType: "lease", entityId: leaseId }],
-    });
-    if (!imported.isSuccess) throw new Error(imported.error.message);
-  } });
-  r.job({ name: "render-lease-pdf", trigger: { manual: true }, retries: 0, handler: async (payload, ctx) => {
-    const leaseId = z.uuid().parse(payload["leaseId"]);
-    const stored = await createFileRefFromBytes(
-      { ...ctx, user: ctx.systemUser },
-      {
-        fileName: "rendered.pdf",
-        mimeType: "application/pdf",
-        data: PDF,
-        attachTo: { entityType: "lease", entityId: leaseId, fieldName: "file" },
-      },
-    );
-    if (!stored.isSuccess) throw new Error(stored.error.message);
-    const written = await ctx.dispatch.write("doc-fixtures:write:lease:set-file", {
-      id: leaseId,
-      version: z.number().parse(payload["version"]),
-      file: stored.data.id,
-    });
-    if (!written.isSuccess) throw new Error(written.error.message);
-  } });
+  r.job({
+    name: "bind-and-import",
+    trigger: { manual: true },
+    retries: 0,
+    handler: async (payload, ctx) => {
+      const leaseId = z.uuid().parse(payload["leaseId"]);
+      const stored = await createFileRefFromBytes(
+        { ...ctx, user: ctx.systemUser },
+        {
+          fileName: "bound.pdf",
+          mimeType: "application/pdf",
+          data: PDF,
+          attachTo: { entityType: "lease", fieldName: "file" },
+        },
+      );
+      if (!stored.isSuccess) throw new Error(stored.error.message);
+      const outcome = await bindPendingFileRef({
+        fileRefId: stored.data.id,
+        entityName: "lease",
+        fieldName: "file",
+        entityId: leaseId,
+        user: ctx.systemUser,
+        db: ctx.db,
+      });
+      if (outcome !== "bound") throw new Error(`bind outcome: ${outcome}`);
+      const imported = await ctx.dispatch.write("documents:write:import", {
+        id: documentIdForFile(ctx.systemUser.tenantId, stored.data.id),
+        title: "Bound",
+        category: "contract",
+        fileRefId: stored.data.id,
+        links: [{ entityType: "lease", entityId: leaseId }],
+      });
+      if (!imported.isSuccess) throw new Error(imported.error.message);
+    },
+  });
+  r.job({
+    name: "render-lease-pdf",
+    trigger: { manual: true },
+    retries: 0,
+    handler: async (payload, ctx) => {
+      const leaseId = z.uuid().parse(payload["leaseId"]);
+      const stored = await createFileRefFromBytes(
+        { ...ctx, user: ctx.systemUser },
+        {
+          fileName: "rendered.pdf",
+          mimeType: "application/pdf",
+          data: PDF,
+          attachTo: { entityType: "lease", entityId: leaseId, fieldName: "file" },
+        },
+      );
+      if (!stored.isSuccess) throw new Error(stored.error.message);
+      const written = await ctx.dispatch.write("doc-fixtures:write:lease:set-file", {
+        id: leaseId,
+        version: z.number().parse(payload["version"]),
+        file: stored.data.id,
+      });
+      if (!written.isSuccess) throw new Error(written.error.message);
+    },
+  });
 });
 
 export const documentsFeature = createFixtureDocumentsFeature();

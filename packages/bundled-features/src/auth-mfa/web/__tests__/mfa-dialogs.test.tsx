@@ -6,13 +6,13 @@ import {
   PrimitivesProvider,
 } from "@cosmicdrift/kumiko-renderer";
 import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
+import { createMockDispatcher } from "@cosmicdrift/kumiko-renderer/testing";
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement, type ReactNode, useState } from "react";
 import { defaultTranslations } from "../i18n.ts";
 import { MfaDisableDialog } from "../mfa-disable-dialog.tsx";
 import { MfaRegenerateRecoveryDialog } from "../mfa-regenerate-recovery-dialog.tsx";
-import { createMockDispatcher } from "@cosmicdrift/kumiko-renderer/testing";
 
 type WriteCall = { readonly type: string; readonly payload: unknown };
 

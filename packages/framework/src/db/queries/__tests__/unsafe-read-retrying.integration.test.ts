@@ -76,12 +76,13 @@ describe("framework db/queries — closed-connection retry", () => {
   });
 
   test("gives up after exhausting pool-bounded retries (max: 1 → 3 total calls)", async () => {
-    const db = fakePooledClientFailingWith([closedConnectionError, closedConnectionError, closedConnectionError], {
-      v: 5,
-    });
-    await expect(selectStreamMaxVersion(db, "agg1", "t1")).rejects.toBe(
-      closedConnectionError,
+    const db = fakePooledClientFailingWith(
+      [closedConnectionError, closedConnectionError, closedConnectionError],
+      {
+        v: 5,
+      },
     );
+    await expect(selectStreamMaxVersion(db, "agg1", "t1")).rejects.toBe(closedConnectionError);
     expect(db.calls).toHaveLength(3);
   });
 });

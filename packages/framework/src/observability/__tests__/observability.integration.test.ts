@@ -27,8 +27,7 @@ import { createLogger } from "../../logging/pino-logger.ts";
 // pipeline hooks) plus the feature-level r.metric() path.
 
 const productFeature = defineFeature("product", (r) => {
-  r.metric({ name: "tracked_total", type: "counter",
-    labels: ["kind"] });
+  r.metric({ name: "tracked_total", type: "counter", labels: ["kind"] });
 
   r.writeHandler({
     name: "track",
@@ -447,9 +446,13 @@ describe("Observability (integration) — Jobs cross-process trace", () => {
   let jobRanWith: Record<string, unknown> | undefined;
 
   const jobFeature = defineFeature("jobs-trace", (r) => {
-    r.job({ name: "record", trigger: { manual: true }, handler: async (payload) => {
-      jobRanWith = payload;
-    } });
+    r.job({
+      name: "record",
+      trigger: { manual: true },
+      handler: async (payload) => {
+        jobRanWith = payload;
+      },
+    });
   });
 
   beforeAll(async () => {
@@ -659,11 +662,15 @@ describe("Observability (integration) — job ctx.obs.metricsFor", () => {
   });
 
   const jobMetricsConsumerFeature = defineFeature("job-metrics-consumer", (r) => {
-    r.job({ name: "record", trigger: { manual: true }, handler: async (_payload, ctx) => {
-      ctx.obs.metricsFor("job-metrics-lib").inc("job_call_total");
-      ctx.obs.metricsFor("unregistered-lib").inc("never_total");
-      jobDone = true;
-    } });
+    r.job({
+      name: "record",
+      trigger: { manual: true },
+      handler: async (_payload, ctx) => {
+        ctx.obs.metricsFor("job-metrics-lib").inc("job_call_total");
+        ctx.obs.metricsFor("unregistered-lib").inc("never_total");
+        jobDone = true;
+      },
+    });
   });
 
   beforeEach(async () => {

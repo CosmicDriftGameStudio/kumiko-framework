@@ -40,7 +40,11 @@ import { whatsappMessageAggregateId, whatsappStatusAggregateId } from "../aggreg
 import { WhatsappHandlers } from "../constants.ts";
 import { createChannelWhatsappFeature } from "../feature.ts";
 import { readWhatsappMessagePii, readWhatsappStatusPii } from "../pii.ts";
-import { runWhatsappRetention, whatsappRetentionCursorEntity, whatsappRetentionCursorTable } from "../retention.ts";
+import {
+  runWhatsappRetention,
+  whatsappRetentionCursorEntity,
+  whatsappRetentionCursorTable,
+} from "../retention.ts";
 import { createInMemoryMeta } from "../testing.ts";
 
 const PHONE_NUMBER_ID = "109876543210";

@@ -8,12 +8,12 @@ import {
   selectMany,
   type WhereObject,
 } from "@cosmicdrift/kumiko-framework/db";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   createSystemUser,
   SYSTEM_TENANT_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { executorManagedEntitySourceOf } from "@cosmicdrift/kumiko-framework/internal/testing";
 
 type ExecutorArgs = Parameters<typeof createEventStoreExecutor>;

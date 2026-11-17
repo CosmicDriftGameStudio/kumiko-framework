@@ -6,10 +6,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import type { TenantId } from "../../engine/types/identifiers.ts";
 import { encryptEventPayloadPii } from "../event-pii.ts";
 import { InMemoryKmsAdapter } from "../in-memory-kms-adapter.ts";
-import {
-  configurePiiSubjectKms,
-  resetPiiSubjectKmsForTests,
-} from "../pii-field-encryption.ts";
+import { configurePiiSubjectKms, resetPiiSubjectKmsForTests } from "../pii-field-encryption.ts";
 import type { EventSubjectEnvelope } from "../subject-resolver.ts";
 import {
   AGGREGATE_TRANSFERRED_EVENT_TYPE,
@@ -30,10 +27,7 @@ afterEach(() => {
 
 describe("system event PII stances", () => {
   test("every system event type constant has a declared stance", () => {
-    const declaredTypes = [
-      AGGREGATE_TRANSFERRED_EVENT_TYPE,
-      APP_STARTED_EVENT_TYPE,
-    ];
+    const declaredTypes = [AGGREGATE_TRANSFERRED_EVENT_TYPE, APP_STARTED_EVENT_TYPE];
     for (const type of declaredTypes) {
       expect(SYSTEM_EVENT_PII_STANCES.has(type)).toBe(true);
     }
@@ -48,8 +42,6 @@ describe("system event PII stances", () => {
   test('a "none" stance passes the payload through untouched', async () => {
     configurePiiSubjectKms(new InMemoryKmsAdapter());
     const payload = { version: "1.0.0", pod: "app-0" };
-    expect(
-      await encryptEventPayloadPii(APP_STARTED_EVENT_TYPE, payload, ENVELOPE),
-    ).toBe(payload);
+    expect(await encryptEventPayloadPii(APP_STARTED_EVENT_TYPE, payload, ENVELOPE)).toBe(payload);
   });
 });

@@ -88,7 +88,9 @@ describe("jobRun direct writes", () => {
     expect(runs[0]?.status).toBe("completed");
     expect(runs[0]?.duration).toBe(123);
 
-    const logs = await selectMany<JobRunLogRow>(testDb.db, jobRunLogsTable, { runId: runs[0]?.id ?? "" });
+    const logs = await selectMany<JobRunLogRow>(testDb.db, jobRunLogsTable, {
+      runId: runs[0]?.id ?? "",
+    });
     expect(logs).toHaveLength(2);
     expect(logs[0]?.level).toBe("info");
   });
@@ -104,7 +106,9 @@ describe("jobRun direct writes", () => {
     expect(runs[0]?.status).toBe("failed");
     expect(runs[0]?.error).toBe("boom");
 
-    const logs = await selectMany<JobRunLogRow>(testDb.db, jobRunLogsTable, { runId: runs[0]?.id ?? "" });
+    const logs = await selectMany<JobRunLogRow>(testDb.db, jobRunLogsTable, {
+      runId: runs[0]?.id ?? "",
+    });
     expect(logs).toHaveLength(1);
   });
 
@@ -147,7 +151,9 @@ describe("jobRun direct writes", () => {
     // gone, but the run-started row still has bull_job_id. A fresh logger
     // must DB-lookup and update the original row — not insert a second one.
     await logger.onJobStart?.("example:job:restart", "bull-restart-1", {});
-    const started = await selectMany<JobRunRow>(testDb.db, jobRunsTable, { bullJobId: "bull-restart-1" });
+    const started = await selectMany<JobRunRow>(testDb.db, jobRunsTable, {
+      bullJobId: "bull-restart-1",
+    });
     expect(started).toHaveLength(1);
     const originalId = started[0]?.id;
     expect(originalId).toBeTruthy();
@@ -155,7 +161,9 @@ describe("jobRun direct writes", () => {
     const coldLogger = createJobRunLogger({ db: testDb.db, registry });
     await coldLogger.onJobComplete?.("example:job:restart", "bull-restart-1", 42, []);
 
-    const all = await selectMany<JobRunRow>(testDb.db, jobRunsTable, { bullJobId: "bull-restart-1" });
+    const all = await selectMany<JobRunRow>(testDb.db, jobRunsTable, {
+      bullJobId: "bull-restart-1",
+    });
     expect(all).toHaveLength(1);
     expect(all[0]?.id).toBe(originalId);
     expect(all[0]?.status).toBe("completed");

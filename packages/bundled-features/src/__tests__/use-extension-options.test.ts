@@ -23,16 +23,23 @@ import {
 
 test("useExtension accepts a well-typed tenantData destroy hook", () => {
   defineFeature("probe-tenant-data-ok", (r) => {
-    r.applyExtension({ name: EXT_TENANT_DATA, entity: "x", destroy: async (ctx: TenantDataHookCtx) => {
+    r.applyExtension({
+      name: EXT_TENANT_DATA,
+      entity: "x",
+      destroy: async (ctx: TenantDataHookCtx) => {
         expectTypeOf(ctx.db).not.toBeAny();
-      } });
+      },
+    });
   });
 });
 
 test("useExtension rejects a tenantData destroy hook with the wrong ctx shape", () => {
   defineFeature("probe-tenant-data-wrong-ctx", (r) => {
-    r.applyExtension({ name: EXT_TENANT_DATA, entity: "x", // @ts-expect-error destroy ctx must be TenantDataHookCtx, not a hand-rolled { db: DbRunner; tenantId } — TenantDb is not a DbRunner.
-      destroy: async (_ctx: { readonly db: DbRunner; readonly tenantId: TenantId }) => {} });
+    r.applyExtension({
+      name: EXT_TENANT_DATA,
+      entity: "x", // @ts-expect-error destroy ctx must be TenantDataHookCtx, not a hand-rolled { db: DbRunner; tenantId } — TenantDb is not a DbRunner.
+      destroy: async (_ctx: { readonly db: DbRunner; readonly tenantId: TenantId }) => {},
+    });
   });
   expectTypeOf<
     (ctx: { readonly db: DbRunner; readonly tenantId: TenantId }) => Promise<void>
@@ -49,9 +56,13 @@ test("useExtension requires options for a known extension name — omitting them
 
 test("useExtension infers the destroy hook's ctx type from context (positional form, no annotation)", () => {
   defineFeature("probe-tenant-data-contextual", (r) => {
-    r.applyExtension({ name: EXT_TENANT_DATA, entity: "x", destroy: async (ctx) => {
+    r.applyExtension({
+      name: EXT_TENANT_DATA,
+      entity: "x",
+      destroy: async (ctx) => {
         expectTypeOf(ctx).toEqualTypeOf<TenantDataHookCtx>();
-      } });
+      },
+    });
   });
 });
 
@@ -95,8 +106,12 @@ test("useExtension's object form infers the destroy hook's ctx type from context
 
 test("useExtension accepts a tenantData registration with escapeHatch", () => {
   const feature = defineFeature("probe-tenant-data-escape-hatch", (r) => {
-    r.applyExtension({ name: EXT_TENANT_DATA, entity: "x", destroy: async (_ctx: TenantDataHookCtx) => {},
-      escapeHatch: { reason: "needs raw SQL for a batch delete" } });
+    r.applyExtension({
+      name: EXT_TENANT_DATA,
+      entity: "x",
+      destroy: async (_ctx: TenantDataHookCtx) => {},
+      escapeHatch: { reason: "needs raw SQL for a batch delete" },
+    });
   });
   expect(feature.extensionUsages).toContainEqual(
     expect.objectContaining({
@@ -125,8 +140,11 @@ test("useExtension accepts export-only userData registration", () => {
 
 test("useExtension rejects a userData export hook with the wrong ctx shape", () => {
   defineFeature("probe-user-data-wrong-ctx", (r) => {
-    r.applyExtension({ name: EXT_USER_DATA, entity: "x", // @ts-expect-error export ctx must be UserDataHookCtx (ctx.db: TenantDb), not a hand-rolled { db: DbRunner; userId }.
-      export: async (_ctx: { readonly db: DbRunner; readonly userId: string }) => null });
+    r.applyExtension({
+      name: EXT_USER_DATA,
+      entity: "x", // @ts-expect-error export ctx must be UserDataHookCtx (ctx.db: TenantDb), not a hand-rolled { db: DbRunner; userId }.
+      export: async (_ctx: { readonly db: DbRunner; readonly userId: string }) => null,
+    });
   });
   expectTypeOf<
     (ctx: { readonly db: DbRunner; readonly userId: string }) => Promise<null>
@@ -149,11 +167,15 @@ test("useExtension accepts delete-only userData registration with order", () => 
 
 test("useExtension infers the delete hook's ctx/strategy types from context (no annotation)", () => {
   defineFeature("probe-user-data-delete-contextual", (r) => {
-    r.applyExtension({ name: EXT_USER_DATA, entity: "x", delete: async (ctx, strategy) => {
+    r.applyExtension({
+      name: EXT_USER_DATA,
+      entity: "x",
+      delete: async (ctx, strategy) => {
         expectTypeOf(ctx).toEqualTypeOf<UserDataHookCtx>();
         expectTypeOf(strategy).toEqualTypeOf<UserDataDeleteStrategy>();
         return undefined;
-      } });
+      },
+    });
   });
 });
 
@@ -213,26 +235,37 @@ test("useExtension accepts a string-typed extension name with an arbitrary optio
 
 test("useExtension accepts a well-typed storageProvider destroyTenant hook", () => {
   defineFeature("probe-storage-provider-ok", (r) => {
-    r.applyExtension({ name: EXT_STORAGE_PROVIDER, entity: "x", destroyTenant: async (tenantId: TenantId, ctx: TenantResourceHookCtx) => {
+    r.applyExtension({
+      name: EXT_STORAGE_PROVIDER,
+      entity: "x",
+      destroyTenant: async (tenantId: TenantId, ctx: TenantResourceHookCtx) => {
         expectTypeOf(tenantId).toBeString();
         expectTypeOf(ctx.db).not.toBeAny();
-      } });
+      },
+    });
   });
 });
 
 test("useExtension infers the storageProvider destroyTenant hook's arg types from context", () => {
   defineFeature("probe-storage-provider-contextual", (r) => {
-    r.applyExtension({ name: EXT_STORAGE_PROVIDER, entity: "x", destroyTenant: async (tenantId, ctx) => {
+    r.applyExtension({
+      name: EXT_STORAGE_PROVIDER,
+      entity: "x",
+      destroyTenant: async (tenantId, ctx) => {
         expectTypeOf(tenantId).toEqualTypeOf<TenantId>();
         expectTypeOf(ctx).toEqualTypeOf<TenantResourceHookCtx>();
-      } });
+      },
+    });
   });
 });
 
 test("useExtension rejects a storageProvider destroyTenant hook shaped like the tenantData (ctx)-only hook", () => {
   defineFeature("probe-storage-provider-wrong-shape", (r) => {
-    r.applyExtension({ name: EXT_STORAGE_PROVIDER, entity: "x", // @ts-expect-error storageProvider's destroyTenant takes (tenantId, ctx) — a tenantData-style (ctx)-only hook is missing the tenantId arg.
-      destroyTenant: async (_ctx: TenantDataHookCtx) => {} });
+    r.applyExtension({
+      name: EXT_STORAGE_PROVIDER,
+      entity: "x", // @ts-expect-error storageProvider's destroyTenant takes (tenantId, ctx) — a tenantData-style (ctx)-only hook is missing the tenantId arg.
+      destroyTenant: async (_ctx: TenantDataHookCtx) => {},
+    });
   });
   expectTypeOf<
     (ctx: TenantDataHookCtx) => Promise<void>

@@ -8,11 +8,7 @@ import * as z from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
 import { selectMany } from "../../db/query.ts";
 import { buildEntityTable } from "../../db/table-builder.ts";
-import {
-  createEntity,
-  createTextField,
-  defineFeature,
-} from "../../engine/index.ts";
+import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { rebuildProjection } from "../index.ts";
 
@@ -46,14 +42,22 @@ const feature = defineFeature("cascaderb", (r) => {
   r.entity(cascadeChildEntity);
   r.entity(setNullChildEntity);
 
-  r.relation({ entity: "rb-parent", name: "cascadeChildren", type: "hasMany",
+  r.relation({
+    entity: "rb-parent",
+    name: "cascadeChildren",
+    type: "hasMany",
     target: "rb-cascade-child",
     foreignKey: "parentId",
-    onDelete: "cascade" });
-  r.relation({ entity: "rb-parent", name: "setNullChildren", type: "hasMany",
+    onDelete: "cascade",
+  });
+  r.relation({
+    entity: "rb-parent",
+    name: "setNullChildren",
+    type: "hasMany",
     target: "rb-setnull-child",
     foreignKey: "parentId",
-    onDelete: "setNull" });
+    onDelete: "setNull",
+  });
 
   const parentExecutor = createEventStoreExecutor(parentTable, parentEntity, {
     entityName: "rb-parent",

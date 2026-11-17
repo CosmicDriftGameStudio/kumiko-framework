@@ -101,7 +101,10 @@ export function renderTableView(m: DataTableModel): ReactNode {
     >
       <TableRoot
         data-testid={testId}
-        className={cn(fillsHeight && FILL_TABLE_CLASS, m.headerTone === "muted" && MUTED_HEADER_CELLS_CLASS)}
+        className={cn(
+          fillsHeight && FILL_TABLE_CLASS,
+          m.headerTone === "muted" && MUTED_HEADER_CELLS_CLASS,
+        )}
         {...(sizing?.tableStyle !== undefined && { style: sizing.tableStyle })}
       >
         {renderColumnWidths(m)}

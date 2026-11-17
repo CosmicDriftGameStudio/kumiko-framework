@@ -57,11 +57,15 @@ const sentMessages: ChannelMessage[] = [];
 
 const captureEmailChannelFeature = defineFeature("channel-email", (r) => {
   r.requires({ features: ["delivery"] });
-  r.applyExtension({ name: DELIVERY_CHANNEL_EXTENSION, entity: "email", mode: "inline",
+  r.applyExtension({
+    name: DELIVERY_CHANNEL_EXTENSION,
+    entity: "email",
+    mode: "inline",
     send: async (address, message) => {
       sentMessages.push(message);
       return { status: "sent", address };
-    } });
+    },
+  });
 });
 
 const digestFeature = defineFeature("digest-probe", (r) => {
@@ -84,14 +88,19 @@ const digestFeature = defineFeature("digest-probe", (r) => {
       },
     }),
   );
-  r.job({ name: "send-digest", trigger: { on: "triggered" }, runIn: "worker", handler: async (_payload, ctx) => {
+  r.job({
+    name: "send-digest",
+    trigger: { on: "triggered" },
+    runIn: "worker",
+    handler: async (_payload, ctx) => {
       const notify = ctx.notify as NotifyFn;
       await notify("digest-probe:notify:digest", {
         route: { email: "reader@external.test" },
         data: { title: "Digest" },
         immediate: true,
       });
-    } });
+    },
+  });
 });
 
 let handles: WorkerAppHandle[] = [];

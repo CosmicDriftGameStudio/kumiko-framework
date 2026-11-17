@@ -36,8 +36,6 @@ describe("requireSystemDb", () => {
 
 describe("acknowledgedSystemDb", () => {
   test("throws InternalError when ctx.systemDb is missing", () => {
-    expect(() => acknowledgedSystemDb({}, "feat", "cross-tenant test read")).toThrow(
-      InternalError,
-    );
+    expect(() => acknowledgedSystemDb({}, "feat", "cross-tenant test read")).toThrow(InternalError);
   });
 });

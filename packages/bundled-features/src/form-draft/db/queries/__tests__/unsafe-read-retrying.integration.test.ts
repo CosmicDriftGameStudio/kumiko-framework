@@ -27,7 +27,10 @@ describe("form-draft db/queries — closed-connection retry", () => {
   });
 
   test("filterOwnedFileRefs retries once and returns rows", async () => {
-    const db = fakePooledClientFailingWith([closedConnectionError], { id: "ref1", storage_key: "key1" });
+    const db = fakePooledClientFailingWith([closedConnectionError], {
+      id: "ref1",
+      storage_key: "key1",
+    });
     const rows = await filterOwnedFileRefs(
       db,
       "t1",

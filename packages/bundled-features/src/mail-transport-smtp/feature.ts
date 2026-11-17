@@ -96,7 +96,9 @@ export function createMailTransportSmtpFeature() {
       r.envSchema(mailTransportSmtpEnvSchema);
 
       // Provider-secret. Sensitive: redact-helper for admin-UI display.
-      const password = r.secret({ name: "smtp.password", label: { en: "SMTP password" },
+      const password = r.secret({
+        name: "smtp.password",
+        label: { en: "SMTP password" },
         hint: {
           en: "Login password at the SMTP server. Brevo/Postmark/SES call it 'API key' or 'SMTP credentials'.",
         },
@@ -105,7 +107,8 @@ export function createMailTransportSmtpFeature() {
           return `${plaintext.slice(0, 3)}...${plaintext.slice(-2)}`;
         },
         scope: "tenant",
-        requiredWhenConfigSet: SMTP_AUTH_USER_CONFIG_QN });
+        requiredWhenConfigSet: SMTP_AUTH_USER_CONFIG_QN,
+      });
 
       const configKeys = r.config({ keys: SMTP_CONFIG_KEYS });
 

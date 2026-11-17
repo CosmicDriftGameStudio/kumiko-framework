@@ -40,8 +40,8 @@
 
 import * as path from "node:path";
 import { type CallExpression, Node, type SourceFile, SyntaxKind } from "ts-morph";
-import { ALL_REPO_KINDS, type AstGuard, runStandalone, type ScanSpec } from "./_lib/guard-kit";
 import { scanCommentTrivia } from "./_lib/comment-trivia";
+import { ALL_REPO_KINDS, type AstGuard, runStandalone, type ScanSpec } from "./_lib/guard-kit";
 import { literalStringOf, mentionsAsWord, nameForms } from "./_lib/handler-name-forms";
 import { TEST_FILE_RE } from "./_lib/test-file";
 

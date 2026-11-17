@@ -5,10 +5,10 @@
 
 import {
   isTierAssignmentSource,
+  TIER_ENGINE_FEATURE,
   type TierAssignmentSource,
   TierAssignmentSources,
   TierEngineHandlers,
-  TIER_ENGINE_FEATURE,
   TierEngineQueries,
   tierAssignmentAggregateId,
 } from "@cosmicdrift/kumiko-bundled-features/tier-engine";

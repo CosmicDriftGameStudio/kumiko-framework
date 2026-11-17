@@ -17,9 +17,13 @@ const udr = () => defineFeature("user-data-rights", () => {});
 const fileProvider = (name: string) =>
   defineFeature(`file-provider-${name}`, (r) => {
     // build is never invoked here — the boot check only cares that a provider is mounted.
-    r.applyExtension({ name: "fileProvider", entity: name, build: async () => {
+    r.applyExtension({
+      name: "fileProvider",
+      entity: name,
+      build: async () => {
         throw new Error("test stub — never invoked");
-      } });
+      },
+    });
   });
 
 const S3_ENV = ["S3_BUCKET", "S3_REGION", "S3_ACCESS_KEY", "S3_SECRET_KEY"] as const;
@@ -52,7 +56,10 @@ describe("validateGdprStoragePersistence (V1)", () => {
   test("user-data-rights + only inmemory → ephemeral-store warn", () => {
     validateGdprStoragePersistence([udr(), fileProvider("inmemory")], warn);
     expect(warnings).toHaveLength(1);
-    expect(warnings[0]).toMatchObject({ kind: "gdpr/ephemeral-store", feature: "user-data-rights" });
+    expect(warnings[0]).toMatchObject({
+      kind: "gdpr/ephemeral-store",
+      feature: "user-data-rights",
+    });
     expect(warnings[0]?.message).toContain("LOST on restart");
   });
 

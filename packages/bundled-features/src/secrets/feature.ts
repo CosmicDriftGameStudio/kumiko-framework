@@ -207,12 +207,7 @@ export function createSecretsFeature(
         reason: ROTATE_ESCAPE_HATCH_REASON,
         grants: ["unsafeRaw"],
       },
-      handler: (payload, ctx) =>
-        rotateJob(
-          payload,
-          ctx,
-          ctx.db.unsafeRawAllTenants(),
-        ),
+      handler: (payload, ctx) => rotateJob(payload, ctx, ctx.db.unsafeRawAllTenants()),
     });
 
     // Pre-ES had a separate `retention-cleanup` job scrubbing the audit

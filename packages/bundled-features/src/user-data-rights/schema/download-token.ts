@@ -112,6 +112,4 @@ export const exportDownloadTokenEntity = createEntity({
   ],
 });
 
-export const exportDownloadTokensTable = buildEntityTable(
-  exportDownloadTokenEntity,
-);
+export const exportDownloadTokensTable = buildEntityTable(exportDownloadTokenEntity);

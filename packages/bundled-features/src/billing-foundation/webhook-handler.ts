@@ -4,7 +4,11 @@
 // signature check needs the exact bytes. No JWT/cookie auth: the provider's
 // webhook signature in verify() IS the auth, so no c.get("user") here.
 
-import { ExtraRouteRejection, type SignatureExtraRouteDeps, signatureRoute } from "@cosmicdrift/kumiko-framework/api";
+import {
+  ExtraRouteRejection,
+  type SignatureExtraRouteDeps,
+  signatureRoute,
+} from "@cosmicdrift/kumiko-framework/api";
 import type { Registry, TenantId, WriteResult } from "@cosmicdrift/kumiko-framework/engine";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { isPlainObject, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
@@ -197,9 +201,7 @@ function retryLater(c: Context, reason: string): Response {
 
 /** The handler refused the event (not in the checkout ledger, foreign subscription):
  *  nothing was stored, so no side-effect (credits, tier sync) may follow. */
-function wasIgnored(
-  dispatched: WriteResult,
-): boolean {
+function wasIgnored(dispatched: WriteResult): boolean {
   return dispatched.isSuccess && propertyOf(dispatched.data, "ignored") === true;
 }
 

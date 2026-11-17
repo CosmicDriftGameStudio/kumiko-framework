@@ -3,7 +3,6 @@ import {
   type DbRunner,
   fetchOne,
 } from "@cosmicdrift/kumiko-framework/db";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   createSystemUser,
   declareEscapeHatch,
@@ -12,6 +11,7 @@ import {
   type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { decryptStoredPii } from "../shared/index.ts";
 // kumiko-lint-ignore cross-feature-import the handler loads the pending invitation and marks it accepted

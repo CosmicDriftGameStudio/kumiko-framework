@@ -82,11 +82,9 @@ async function seedLease(): Promise<string> {
     db: stack.db,
     tenantId: TENANT,
   });
-  const created = await createEventStoreExecutor(
-    buildEntityTable(leaseEntity),
-    leaseEntity,
-    { entityName: "lease" },
-  ).create({ name: "Lease 1" }, admin, db);
+  const created = await createEventStoreExecutor(buildEntityTable(leaseEntity), leaseEntity, {
+    entityName: "lease",
+  }).create({ name: "Lease 1" }, admin, db);
   if (!created.isSuccess) throw new Error(created.error.message);
   return String(created.data.id);
 }

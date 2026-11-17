@@ -5,9 +5,7 @@ import { inspectionPlanEntity } from "../entities/inspection-plan";
 import { inspectionProtocolEntity } from "../entities/inspection-protocol";
 
 const { executor: planExecutor } = createEntityExecutor(inspectionPlanEntity);
-const { executor: protocolExecutor } = createEntityExecutor(
-  inspectionProtocolEntity,
-);
+const { executor: protocolExecutor } = createEntityExecutor(inspectionProtocolEntity);
 
 const planRows = z.array(
   z.object({

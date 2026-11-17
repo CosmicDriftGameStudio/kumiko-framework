@@ -26,12 +26,7 @@ import { buildReturnStep } from "./steps/return.ts";
 import { buildUnsafeProjectionDeleteStep } from "./steps/unsafe-projection-delete.ts";
 import { buildUnsafeProjectionUpsertStep } from "./steps/unsafe-projection-upsert.ts";
 import type { WriteEvent } from "./types/handlers.ts";
-import type {
-  PipelineBuildCtx,
-  PipelineDef,
-  StepBuilder,
-  StepInstance,
-} from "./types/step.ts";
+import type { PipelineBuildCtx, PipelineDef, StepBuilder, StepInstance } from "./types/step.ts";
 
 const stepBuilder: StepBuilder = {
   step: {

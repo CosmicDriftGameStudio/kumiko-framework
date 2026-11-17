@@ -6,7 +6,8 @@ export const feature = defineFeature("sync", (r) => {
     schema,
     access,
     escapeHatch: { reason: "writes as the system user", grants: ["systemIdentity"] },
-    handler: async (event, ctx) => ctx.dispatch.writeAs(systemUser, "sync:write:apply", event.payload),
+    handler: async (event, ctx) =>
+      ctx.dispatch.writeAs(systemUser, "sync:write:apply", event.payload),
   });
   r.hook({
     type: "postSave",

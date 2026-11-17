@@ -237,8 +237,8 @@ describe("marketingLoginUrl", () => {
 describe("static-login import surface", () => {
   test("imports only pure sibling modules", () => {
     const dir = new URL("..", import.meta.url);
-    const sources = ["static-login.ts", "static-client.ts", "login-failure.ts", "login-url.ts"].map((file) =>
-      readFileSync(new URL(file, dir), "utf8"),
+    const sources = ["static-login.ts", "static-client.ts", "login-failure.ts", "login-url.ts"].map(
+      (file) => readFileSync(new URL(file, dir), "utf8"),
     );
     const specifiers = sources.flatMap((source) =>
       [...source.matchAll(/^(?:import|export)[^;]*?from\s+"([^"]+)"/gms)].map((m) => m[1]),

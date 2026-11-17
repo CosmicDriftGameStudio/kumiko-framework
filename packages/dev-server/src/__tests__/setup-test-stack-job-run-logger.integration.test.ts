@@ -41,11 +41,15 @@ const appFeature = defineFeature("app", (r) => {
       },
     }),
   );
-  r.job({ name: "generateTexts", trigger: { on: "generation-requested" },
-      retries: 0,
-      tenantVisibleFailure: { messageKey: FAILURE_KEY, subjectFields: ["campaignId"] }, handler: async () => {
+  r.job({
+    name: "generateTexts",
+    trigger: { on: "generation-requested" },
+    retries: 0,
+    tenantVisibleFailure: { messageKey: FAILURE_KEY, subjectFields: ["campaignId"] },
+    handler: async () => {
       throw new Error(PROVIDER_MESSAGE);
-    } });
+    },
+  });
 });
 
 type FailureRow = { readonly jobName: string; readonly messageKey: string };

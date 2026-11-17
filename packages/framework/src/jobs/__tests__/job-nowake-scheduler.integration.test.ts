@@ -27,7 +27,11 @@ afterAll(async () => {
 });
 
 const feature = defineFeature("sleepy", (r) => {
-  r.job({ name: "sweep", trigger: { cron: "0 * * * *", wakesSleepingApp: false }, handler: async () => {} });
+  r.job({
+    name: "sweep",
+    trigger: { cron: "0 * * * *", wakesSleepingApp: false },
+    handler: async () => {},
+  });
   r.job({ name: "tidy", trigger: { maintenance: true }, handler: async () => {} });
 });
 

@@ -192,7 +192,9 @@ describe("generateApiDocs", () => {
       fixtureInput({
         config: {
           ...fixtureConfig,
-          translations: { "ticketing:write:ticket:create:description": { de: "Legt ein Ticket an." } },
+          translations: {
+            "ticketing:write:ticket:create:description": { de: "Legt ein Ticket an." },
+          },
         },
       }),
     );

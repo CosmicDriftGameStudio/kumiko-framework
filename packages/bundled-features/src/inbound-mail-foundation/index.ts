@@ -124,6 +124,12 @@ export {
   outboundMailMessageSchema,
   type ProviderSentMail,
 } from "./outbound-mail.ts";
+export {
+  OUTBOUND_SEND_STATUSES,
+  type OutboundSendStatus,
+  outboundMailSendEntity,
+  outboundMailSendsTable,
+} from "./outbound-send-entities.ts";
 export { type ParsedSenderAddress, parseSenderAddress } from "./parse-sender-address.ts";
 export { isOwnLoginAddress } from "./personal-address.ts";
 export {
@@ -146,12 +152,6 @@ export {
   resolveInboundProviderForAccount,
   resolveInboundProviderForKey,
 } from "./provider-factory.ts";
-export {
-  OUTBOUND_SEND_STATUSES,
-  type OutboundSendStatus,
-  outboundMailSendEntity,
-  outboundMailSendsTable,
-} from "./outbound-send-entities.ts";
 export {
   QUARANTINE_REASON_CODES,
   type QuarantineReasonCode,

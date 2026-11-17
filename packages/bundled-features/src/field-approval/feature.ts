@@ -2,7 +2,6 @@ import {
   type AccessRule,
   bootRuleError,
   defineFeature,
-  FIELD_CHANGE_REQUEST_ENTITY_NAME,
   type FeatureDefinition,
   type FeatureRegistrar,
 } from "@cosmicdrift/kumiko-framework/engine";

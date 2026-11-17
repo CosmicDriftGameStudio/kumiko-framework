@@ -6,8 +6,8 @@ import { afterEach, beforeEach, expect, spyOn, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 
 import { createSystemDbView, selectMany } from "@cosmicdrift/kumiko-framework/db";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import type { FeatureDefinition, JobContext } from "@cosmicdrift/kumiko-framework/engine";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import type { JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
 import {
@@ -204,7 +204,10 @@ export async function setupChatHarness(
           mode: "system",
           reason: "test harness reads delivery rows of any tenant",
           grants: {
-            unsafeRaw: { reason: "test: job context mirrors systemScope() grant", grants: ["unsafeRaw"] },
+            unsafeRaw: {
+              reason: "test: job context mirrors systemScope() grant",
+              grants: ["unsafeRaw"],
+            },
           },
         }),
       ),

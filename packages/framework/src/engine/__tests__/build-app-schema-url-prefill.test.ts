@@ -233,7 +233,7 @@ const leasesFeature = defineFeature("leases", (r) => {
 });
 
 const billingFeature = defineFeature("billing", (r) => {
-  r.entity(({ name: "invoice", fields: { payee: { type: "text" } } } as unknown as EntityDefinition));
+  r.entity({ name: "invoice", fields: { payee: { type: "text" } } } as unknown as EntityDefinition);
   r.screen({
     id: "invoice-list",
     type: "entityList",

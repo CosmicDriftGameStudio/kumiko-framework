@@ -17,7 +17,6 @@ import {
   createSystemDbView,
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   access,
   createSystemUser,
@@ -25,6 +24,7 @@ import {
   defineFeature,
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { ESCAPE_HATCH_USED_SIGNAL } from "@cosmicdrift/kumiko-framework/pipeline";
 import {
   createEnvelopeCipher,

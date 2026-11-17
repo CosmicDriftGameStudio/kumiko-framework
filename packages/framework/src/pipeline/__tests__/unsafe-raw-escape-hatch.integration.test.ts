@@ -15,7 +15,10 @@ const unsafeRawFeature = defineFeature("unsafe-raw-probe", (r) => {
     name: "write-with-hatch",
     schema: z.object({}),
     access: { roles: ["User"] },
-    escapeHatch: { reason: "fw#2858 integration test — declared unsafeRaw write", grants: ["unsafeRaw"] },
+    escapeHatch: {
+      reason: "fw#2858 integration test — declared unsafeRaw write",
+      grants: ["unsafeRaw"],
+    },
     handler: async (_event, ctx) => {
       const runner = ctx.db.unsafeRawAllTenants();
       const rows = await executeRawQuery<{ one: number }>(runner, "SELECT 1 AS one");
@@ -38,7 +41,10 @@ const unsafeRawFeature = defineFeature("unsafe-raw-probe", (r) => {
     name: "query-with-hatch",
     schema: z.object({}),
     access: { roles: ["User"] },
-    escapeHatch: { reason: "fw#2858 integration test — declared unsafeRaw query", grants: ["unsafeRaw"] },
+    escapeHatch: {
+      reason: "fw#2858 integration test — declared unsafeRaw query",
+      grants: ["unsafeRaw"],
+    },
     handler: async (_query, ctx) => {
       const runner = ctx.db.unsafeRawAllTenants();
       const rows = await executeRawQuery<{ one: number }>(runner, "SELECT 1 AS one");

@@ -103,14 +103,14 @@ describe("assertNoSecretLeak — walks the response tree for branded values", ()
   });
 
   test("reports the path of the hit, not of earlier siblings", () => {
-    expect(() =>
-      assertNoSecretLeak({ a: [1, { x: 2 }], b: { c: createSecret("s") } }),
-    ).toThrow(/leaked.*at \$\.b\.c\. /);
+    expect(() => assertNoSecretLeak({ a: [1, { x: 2 }], b: { c: createSecret("s") } })).toThrow(
+      /leaked.*at \$\.b\.c\. /,
+    );
   });
 
   test("walks Map keys and reports the key path", () => {
-    expect(() =>
-      assertNoSecretLeak({ registry: new Map([[createSecret("k"), "v"]]) }),
-    ).toThrow(/leaked.*at \$\.registry\.<map\[0\]\.key>/);
+    expect(() => assertNoSecretLeak({ registry: new Map([[createSecret("k"), "v"]]) })).toThrow(
+      /leaked.*at \$\.registry\.<map\[0\]\.key>/,
+    );
   });
 });

@@ -20,12 +20,12 @@ The feature prints through the print client directly; mount `renderer-puppeteer-
 
 ## Options
 
-| Option             | Default                                      | Effect                                                                                                               |
-| ------------------ | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `subjectTypes`     | required                                     | Entity names a draft belongs to; `create` refuses any other (400), a subject row the user cannot read answers 404 everywhere                                           |
-| `retention`        | `{ keepFor: "10y" }`                         | How long drafts are kept, counted from creation, hard delete                                                         |
-| `access`           | `{ roles: ["TenantAdmin", "TenantMember"] }` | `AccessRule` of all handlers and queries                                                                             |
-| `subjectScreens`   | none                                         | Screen id per subject type that the editor returns to after finalize or discard, opened with the subject id          |
+| Option           | Default                                      | Effect                                                                                                                       |
+| ---------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `subjectTypes`   | required                                     | Entity names a draft belongs to; `create` refuses any other (400), a subject row the user cannot read answers 404 everywhere |
+| `retention`      | `{ keepFor: "10y" }`                         | How long drafts are kept, counted from creation, hard delete                                                                 |
+| `access`         | `{ roles: ["TenantAdmin", "TenantMember"] }` | `AccessRule` of all handlers and queries                                                                                     |
+| `subjectScreens` | none                                         | Screen id per subject type that the editor returns to after finalize or discard, opened with the subject id                  |
 
 ## Handlers and queries
 

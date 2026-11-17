@@ -145,7 +145,10 @@ const bridgeFeature = defineFeature("ctxbridge", (r) => {
       return created;
     },
     access: { roles: ["Admin"] },
-    escapeHatch: { reason: "test fixture: writeAs(SYSTEM) creates the secret for the caller", grants: ["systemIdentity"] },
+    escapeHatch: {
+      reason: "test fixture: writeAs(SYSTEM) creates the secret for the caller",
+      grants: ["systemIdentity"],
+    },
   });
 
   // Two inserts, one via ctx.db (tx-bound) and one via ctx.db.outsideTransaction
@@ -199,7 +202,10 @@ const bridgeFeature = defineFeature("ctxbridge", (r) => {
       );
     },
     access: { roles: ["Admin"] },
-    escapeHatch: { reason: "test fixture: queryAs(SYSTEM) reads the privileged token field", grants: ["systemIdentity"] },
+    escapeHatch: {
+      reason: "test fixture: queryAs(SYSTEM) reads the privileged token field",
+      grants: ["systemIdentity"],
+    },
   });
 
   // Proves runBatch strips the request signal: both inserts land and

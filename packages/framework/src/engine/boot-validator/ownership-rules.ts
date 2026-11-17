@@ -29,7 +29,8 @@ export const OWNERSHIP_RULES = {
   },
   parentOnFieldAccess: {
     id: "ownership/parent-on-field-access",
-    summary: "A fromParent(...) rule appears only in an entity-level access map, not in field access.",
+    summary:
+      "A fromParent(...) rule appears only in an entity-level access map, not in field access.",
     fix: "Move the rule to the entity access map or use a from rule on the field.",
   },
   parentFieldNotReference: {

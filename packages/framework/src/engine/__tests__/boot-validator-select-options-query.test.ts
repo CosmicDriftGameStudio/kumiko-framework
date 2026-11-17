@@ -216,7 +216,9 @@ describe("validateBoot — multiSelect optionsQuery on form fields", () => {
   const kindField = { type: "select", options: ["staff", "owner"] };
 
   test("a registered optionsQuery with empty options boots", () => {
-    const shop = featureWithActionForm({ scopes: { type: "multiSelect", options: [], optionsQuery: query } });
+    const shop = featureWithActionForm({
+      scopes: { type: "multiSelect", options: [], optionsQuery: query },
+    });
     expect(() => validateBoot([catalog, shop])).not.toThrow();
   });
 
@@ -230,18 +232,27 @@ describe("validateBoot — multiSelect optionsQuery on form fields", () => {
   });
 
   test("an empty optionsQuery string throws", () => {
-    const shop = featureWithActionForm({ scopes: { type: "multiSelect", options: [], optionsQuery: "" } });
+    const shop = featureWithActionForm({
+      scopes: { type: "multiSelect", options: [], optionsQuery: "" },
+    });
     expect(() => validateBoot([catalog, shop])).toThrow(/empty optionsQuery/);
   });
 
   test("non-empty options together with optionsQuery throws", () => {
-    const shop = featureWithActionForm({ scopes: { type: "multiSelect", options: ["a"], optionsQuery: query } });
+    const shop = featureWithActionForm({
+      scopes: { type: "multiSelect", options: ["a"], optionsQuery: query },
+    });
     expect(() => validateBoot([catalog, shop])).toThrow(/both options and optionsQuery/);
   });
 
   test("optionsQuery together with optionsAvailabilityQuery throws", () => {
     const shop = featureWithActionForm({
-      scopes: { type: "multiSelect", options: [], optionsQuery: query, optionsAvailabilityQuery: query },
+      scopes: {
+        type: "multiSelect",
+        options: [],
+        optionsQuery: query,
+        optionsAvailabilityQuery: query,
+      },
     });
     expect(() => validateBoot([catalog, shop])).toThrow(
       /declares both optionsQuery and optionsAvailabilityQuery/,

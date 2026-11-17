@@ -53,26 +53,38 @@ const mailer = defineFeature("lifecycle-mailer", (r) => {
     access: { roles: ["TenantAdmin"] },
     handler: async () => ({ isSuccess: true as const, data: {} }),
   });
-  r.notification({ name: "hello", trigger: { on: "create" },
+  r.notification({
+    name: "hello",
+    trigger: { on: "create" },
     recipient: () => null,
     data: () => ({}),
     variables: { name: templateVariable.text({ required: true }) },
     template: { de: { body: '<p>Hi <span data-variable="name"></span></p>' } },
-    meta: { de: { subject: "Hallo {{name}}", layoutSlug: "fancy" } } });
-  r.notification({ name: "plain", trigger: { on: "create" },
+    meta: { de: { subject: "Hallo {{name}}", layoutSlug: "fancy" } },
+  });
+  r.notification({
+    name: "plain",
+    trigger: { on: "create" },
     recipient: () => null,
     data: () => ({}),
     template: { de: { body: "<p>Plain</p>" } },
-    meta: { de: { subject: "Plain" } } });
-  r.notification({ name: "branded", trigger: { on: "create" },
+    meta: { de: { subject: "Plain" } },
+  });
+  r.notification({
+    name: "branded",
+    trigger: { on: "create" },
     recipient: () => null,
     data: () => ({}),
     template: { de: { body: "<p>Branded</p>" } },
-    meta: { de: { subject: "Branded", layoutSlug: "fancy" } } });
+    meta: { de: { subject: "Branded", layoutSlug: "fancy" } },
+  });
   // No code template: the email channel never renders it through the resolver.
-  r.notification({ name: "bare", trigger: { on: "create" },
+  r.notification({
+    name: "bare",
+    trigger: { on: "create" },
     recipient: () => null,
-    data: () => ({}) });
+    data: () => ({}),
+  });
 });
 
 const systemAdmin = TestUsers.systemAdmin;

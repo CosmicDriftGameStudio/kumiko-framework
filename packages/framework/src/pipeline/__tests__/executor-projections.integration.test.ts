@@ -153,7 +153,10 @@ const exprojFeature = defineFeature("exproj", (r) => {
     target: { allOf: "memo" },
     handler: async (result, ctx) => {
       if (!isTenantDb(ctx.db)) throw new Error("hook ctx.db is not a TenantDb");
-      const ownTenantDb = createTenantDb({ db: ctx.db.unsafeRawAllTenants(), tenantId: admin.tenantId });
+      const ownTenantDb = createTenantDb({
+        db: ctx.db.unsafeRawAllTenants(),
+        tenantId: admin.tenantId,
+      });
       const outcome = await auditExecutor.create(
         { label: String(result.data["text"]) },
         createSystemUser(admin.tenantId),
@@ -162,14 +165,23 @@ const exprojFeature = defineFeature("exproj", (r) => {
       if (!outcome.isSuccess) throw new Error("hook audit write via unsafeRaw failed");
     },
     phase: HookPhases.inTransaction,
-    escapeHatch: { reason: "test: TenantDb rebuilt from unsafeRaw", grants: ["systemIdentity", "unsafeRaw"] },
+    escapeHatch: {
+      reason: "test: TenantDb rebuilt from unsafeRaw",
+      grants: ["systemIdentity", "unsafeRaw"],
+    },
   });
 
   // A job dispatched without a write origin builds its TenantDb without a personal-data gate;
   // a TenantDb rebuilt from its unsafeRaw() grant must still run the custom projections.
-  r.job({ name: "make-audit-via-unsafe-raw", trigger: { manual: true },
-      retries: 0,
-      escapeHatch: { reason: "test: TenantDb rebuilt from unsafeRaw inside a job", grants: ["unsafeRaw"] }, handler: async (payload, ctx) => {
+  r.job({
+    name: "make-audit-via-unsafe-raw",
+    trigger: { manual: true },
+    retries: 0,
+    escapeHatch: {
+      reason: "test: TenantDb rebuilt from unsafeRaw inside a job",
+      grants: ["unsafeRaw"],
+    },
+    handler: async (payload, ctx) => {
       const label = payload["label"];
       if (typeof label !== "string") throw new Error("make-audit-via-unsafe-raw needs a label");
       const ownTenantDb = createTenantDb({
@@ -178,14 +190,20 @@ const exprojFeature = defineFeature("exproj", (r) => {
       });
       const outcome = await auditExecutor.create({ label }, ctx.systemUser, ownTenantDb);
       if (!outcome.isSuccess) throw new Error("job audit write via unsafeRaw failed");
-    } });
+    },
+  });
 
-  r.job({ name: "make-audit", trigger: { manual: true }, retries: 0, handler: async (payload, ctx) => {
-    const label = payload["label"];
-    if (typeof label !== "string") throw new Error("make-audit needs a label");
-    const outcome = await auditExecutor.create({ label }, ctx.systemUser, ctx.db);
-    if (!outcome.isSuccess) throw new Error("job audit write failed");
-  } });
+  r.job({
+    name: "make-audit",
+    trigger: { manual: true },
+    retries: 0,
+    handler: async (payload, ctx) => {
+      const label = payload["label"];
+      if (typeof label !== "string") throw new Error("make-audit needs a label");
+      const outcome = await auditExecutor.create({ label }, ctx.systemUser, ctx.db);
+      if (!outcome.isSuccess) throw new Error("job audit write failed");
+    },
+  });
 });
 
 let stack: TestStack;

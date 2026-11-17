@@ -23,12 +23,7 @@ import { revokeAllPatTokensForUser } from "./revoke-for-user.ts";
 import { apiTokenEntity } from "./schema/api-token.ts";
 import { validateScopeEventContracts } from "./scope-events-check.ts";
 import { createPatMintScreen, patListScreen } from "./screens.ts";
-import {
-  API_TOKEN_ENTITY_NAME,
-  PAT_DEFAULT_RATE_LIMIT,
-  PAT_FEATURE,
-  type PatRateLimit,
-} from "./web/constants.ts";
+import { PAT_DEFAULT_RATE_LIMIT, PAT_FEATURE, type PatRateLimit } from "./web/constants.ts";
 import type { PatScopeConfig } from "./web/scopes.ts";
 
 export type PersonalAccessTokensOptions = {
@@ -88,24 +83,29 @@ export function createPersonalAccessTokensFeature(
     // Self-registers as a bearer-auth provider instead of the app wiring a
     // dedicated patResolver callback — the middleware finds it generically
     // via resolveTokenVerifier(), shape-matched by the PAT token prefix.
-    r.applyExtension({ name: EXT_TOKEN_VERIFIER, entity: "pat", ...{
-      shape: { kind: "prefix", prefix: PAT_TOKEN_PREFIX },
-      build: (deps) => createPatResolver({ db: deps.db, scopes }),
-    } satisfies AuthProviderPlugin });
-    r.applyExtension({ name: EXT_CREDENTIAL_REVOKER, entity: "personal-access-tokens", ...{
-      revokeAllForUser: (runner, userId) => revokeAllPatTokensForUser(runner, userId),
-    } satisfies CredentialRevoker });
+    r.applyExtension({
+      name: EXT_TOKEN_VERIFIER,
+      entity: "pat",
+      ...({
+        shape: { kind: "prefix", prefix: PAT_TOKEN_PREFIX },
+        build: (deps) => createPatResolver({ db: deps.db, scopes }),
+      } satisfies AuthProviderPlugin),
+    });
+    r.applyExtension({
+      name: EXT_CREDENTIAL_REVOKER,
+      entity: "personal-access-tokens",
+      ...({
+        revokeAllForUser: (runner, userId) => revokeAllPatTokensForUser(runner, userId),
+      } satisfies CredentialRevoker),
+    });
     // Direct-write store like store_user_sessions: create/revoke write it, the
     // resolver point-reads it. r.entity would make it a rebuildable projection
     // whose replay (no token events) would wipe every live token.
-    r.storeTable(
-      deriveEntityTableMeta(apiTokenEntity, { source: "unmanaged" }),
-      {
-        reason: "read_side.api_tokens_direct_write",
-        // create.write encrypts `name` via encryptForDirectWrite.
-        piiEncryptedOnWrite: true,
-      },
-    );
+    r.storeTable(deriveEntityTableMeta(apiTokenEntity, { source: "unmanaged" }), {
+      reason: "read_side.api_tokens_direct_write",
+      // create.write encrypts `name` via encryptForDirectWrite.
+      piiEncryptedOnWrite: true,
+    });
 
     // Custom domain-event for cross-instance access-invalidation,
     // mirroring sessions' SESSION_REVOKED_EVENT_SHORT. r.defineEvent

@@ -537,13 +537,7 @@ describe("encryptPiiValuesForSubject / decryptPiiValues", () => {
 
   test("decrypts ciphertexts of two subjects with one lookup per subject", async () => {
     const kms = new CountingKmsAdapter();
-    const [a1, a2] = await encryptPiiValuesForSubject(
-      kms,
-      subjectA,
-      ["a1", "a2"],
-      KMS_CTX,
-      "note",
-    );
+    const [a1, a2] = await encryptPiiValuesForSubject(kms, subjectA, ["a1", "a2"], KMS_CTX, "note");
     const [b1] = await encryptPiiValuesForSubject(kms, subjectB, ["b1"], KMS_CTX, "note");
     kms.getKeyCalls = 0;
 

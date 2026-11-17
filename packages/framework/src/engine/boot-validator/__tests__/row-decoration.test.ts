@@ -106,10 +106,12 @@ describe("projectionList rowDecoration", () => {
 describe("entityList rowDecoration", () => {
   const entityFeature = (screen: Record<string, unknown>, withDecoration = true) =>
     defineFeature("shop", (r) => {
-      r.entity(createEntity({
+      r.entity(
+        createEntity({
           name: "product",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-        }));
+        }),
+      );
       decorationQuery(r, { outputFields: ["id", "stage", "tone"] });
       r.writeHandler({
         name: "close",

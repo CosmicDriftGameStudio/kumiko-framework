@@ -113,7 +113,11 @@ export const guard: AstGuard = {
       for (const ref of runtimeReferences(sf)) {
         const message = messageFor(ref, sf.getFilePath());
         if (message !== undefined) {
-          violations.push({ file, line: ref.node.getStartLineNumber(), message: `${message}. ${HINT}.` });
+          violations.push({
+            file,
+            line: ref.node.getStartLineNumber(),
+            message: `${message}. ${HINT}.`,
+          });
         }
       }
     }

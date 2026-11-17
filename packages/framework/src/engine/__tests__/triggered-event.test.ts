@@ -77,7 +77,13 @@ describe("triggeredEventOf", () => {
   test("decrypts catalogued personal fields with the subject KMS", async () => {
     const kms = new InMemoryKmsAdapter();
     configurePiiSubjectKms(kms);
-    const cipher = await encryptPiiValueForSubject(kms, subject, "ada@example.com", kmsCtx, "email");
+    const cipher = await encryptPiiValueForSubject(
+      kms,
+      subject,
+      "ada@example.com",
+      kmsCtx,
+      "email",
+    );
     expect(cipher).not.toBe("ada@example.com");
     const result = await triggeredEventOf(
       [contacted],
@@ -90,7 +96,13 @@ describe("triggeredEventOf", () => {
   test("an erased subject yields the erased sentinel", async () => {
     const kms = new InMemoryKmsAdapter();
     configurePiiSubjectKms(kms);
-    const cipher = await encryptPiiValueForSubject(kms, subject, "ada@example.com", kmsCtx, "email");
+    const cipher = await encryptPiiValueForSubject(
+      kms,
+      subject,
+      "ada@example.com",
+      kmsCtx,
+      "email",
+    );
     await kms.eraseKey(subject);
     const result = await triggeredEventOf(
       [contacted],
@@ -102,7 +114,13 @@ describe("triggeredEventOf", () => {
 
   test("ciphertext without a subject KMS throws", async () => {
     const kms = new InMemoryKmsAdapter();
-    const cipher = await encryptPiiValueForSubject(kms, subject, "ada@example.com", kmsCtx, "email");
+    const cipher = await encryptPiiValueForSubject(
+      kms,
+      subject,
+      "ada@example.com",
+      kmsCtx,
+      "email",
+    );
     resetPiiSubjectKmsForTests();
     await expect(
       triggeredEventOf([contacted], { email: cipher, ownerId: "u-1" }, contactedCtx),

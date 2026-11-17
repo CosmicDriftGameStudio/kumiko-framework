@@ -62,7 +62,9 @@ const mailConfigDemo = defineFeature("mail-config-demo", (r) => {
     access: { roles: ["TenantAdmin"] },
     handler: async () => ({ isSuccess: true as const, data: {} }),
   });
-  r.notification({ name: "invoice", trigger: { on: "create" },
+  r.notification({
+    name: "invoice",
+    trigger: { on: "create" },
     recipient: () => null,
     data: () => ({}),
     variables: {
@@ -74,7 +76,8 @@ const mailConfigDemo = defineFeature("mail-config-demo", (r) => {
         body: '<p>Summe <span data-variable="total"></span> fällig <span data-variable="due"></span> bei <span data-variable="tenantName"></span></p>',
       },
     },
-    meta: { de: { subject: "Rechnung" } } });
+    meta: { de: { subject: "Rechnung" } },
+  });
 });
 
 const configuredAdmin = createTestUser({

@@ -1,10 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { signRowBoundGrant, verifyRowBoundGrant } from "./row-bound-grant.ts";
-import {
-  parseTenantScopedSubject,
-  tenantScopedSubject,
-} from "./tenant-scoped-subject.ts";
+import { parseTenantScopedSubject, tenantScopedSubject } from "./tenant-scoped-subject.ts";
 
 const TENANT_ID = "11111111-1111-4111-8111-111111111111";
 const ROW_ID = "22222222-2222-4222-8222-222222222222";

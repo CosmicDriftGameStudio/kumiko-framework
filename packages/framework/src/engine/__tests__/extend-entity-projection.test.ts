@@ -298,9 +298,8 @@ describe("explicit r.projection on the entity table", () => {
         },
       });
     });
-    const merged = createRegistry([feature])
-      .getAllProjections()
-      .get("test:projection:unit-entity")?.apply["test:event:unit-closed"];
+    const merged = createRegistry([feature]).getAllProjections().get("test:projection:unit-entity")
+      ?.apply["test:event:unit-closed"];
     expect(merged).toBeDefined();
     // The test applies ignore their arguments, so no event or transaction is needed.
     await Reflect.apply(merged ?? noopApply, undefined, []);

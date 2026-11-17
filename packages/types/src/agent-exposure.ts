@@ -14,7 +14,8 @@ export function resolveAgentExposure(
   const effect = def.agent?.effect;
   return {
     // A dispatch-only handler is a sub-step of a server flow, never a tool on its own.
-    expose: def.dispatchOnly === true ? false : (def.agent?.expose ?? def.description !== undefined),
+    expose:
+      def.dispatchOnly === true ? false : (def.agent?.expose ?? def.description !== undefined),
     risk: def.agent?.risk ?? (kind === "query" ? "low" : "mid"),
     ...(effect !== undefined && { effect }),
   };

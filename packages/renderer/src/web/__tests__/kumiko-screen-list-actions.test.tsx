@@ -10,7 +10,14 @@ import type { Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema, NavApi, NavTarget } from "../../index.ts";
 import { DispatcherProvider, KumikoScreen, NavProvider, UserRolesProvider } from "../../index.ts";
 import { clickSubmitOnceEnabled, schema } from "./_kumiko-screen-helpers.tsx";
-import { fireEvent, makeDispatcher, type MockWriteHandler, render, screen, waitFor } from "./test-utils.tsx";
+import {
+  fireEvent,
+  type MockWriteHandler,
+  makeDispatcher,
+  render,
+  screen,
+  waitFor,
+} from "./test-utils.tsx";
 
 describe("KumikoScreen", () => {
   // toolbarActions kind:"drawer": mounts the referenced actionForm
@@ -295,13 +302,12 @@ describe("KumikoScreen", () => {
         ],
       };
       const writeCalls: { type: string; payload: unknown }[] = [];
-      const { dispatcher, getQueryCallCount } = makeRowDrawerDispatcher(async (
-        type: string,
-        payload: unknown,
-      ) => {
-        writeCalls.push({ type, payload });
-        return { isSuccess: true, data: {} };
-      });
+      const { dispatcher, getQueryCallCount } = makeRowDrawerDispatcher(
+        async (type: string, payload: unknown) => {
+          writeCalls.push({ type, payload });
+          return { isSuccess: true, data: {} };
+        },
+      );
       const navigateCalls: unknown[] = [];
       const memoryNav = {
         route: { screenId: "task-list" },

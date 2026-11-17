@@ -16,8 +16,8 @@ import { DELIVERY_CHANNEL_EXTENSION, DeliveryJobs } from "../constants.ts";
 import { collectChannels, createDeliveryService } from "../delivery-service.ts";
 import { sealJobContent } from "../job-content-seal.ts";
 import { deliverySendJob } from "../jobs.ts";
-import type { ChannelResult } from "../types.ts";
 import { deliveryAttemptsTable } from "../tables.ts";
+import type { ChannelResult } from "../types.ts";
 import { type ChatHarness, setupChatHarness, tenantAdmin } from "./chat-channel-harness.ts";
 
 const CHANNEL = "sealed-probe";
@@ -32,12 +32,16 @@ const sentTo: string[] = [];
 
 const sealedProbeFeature = defineFeature("sealed-probe", (r) => {
   r.requires({ features: ["delivery"] });
-  r.applyExtension({ name: DELIVERY_CHANNEL_EXTENSION, entity: CHANNEL, mode: "queued",
+  r.applyExtension({
+    name: DELIVERY_CHANNEL_EXTENSION,
+    entity: CHANNEL,
+    mode: "queued",
     render: async () => ({ html: "<p>x</p>", subject: "x" }),
     send: async (address: string): Promise<ChannelResult> => {
       sentTo.push(address);
       return { status: "sent" };
-    } });
+    },
+  });
 });
 
 type Dispatched = { name: string; payload: Record<string, unknown> };
@@ -259,9 +263,7 @@ describe("delivery job payload shape", () => {
       priority: "normal",
     };
     const { ctx } = jobContext(recordingRunner([]), cipher);
-    await expect(
-      deliverySendJob({ ...base, content, sealedContent: "x" }, ctx),
-    ).rejects.toThrow();
+    await expect(deliverySendJob({ ...base, content, sealedContent: "x" }, ctx)).rejects.toThrow();
     await expect(deliverySendJob(base, ctx)).rejects.toThrow();
   });
 });

@@ -9,8 +9,8 @@ import {
   TENANT_ISOLATION_POLICY,
   tenantRowLevelSecurityFor,
 } from "../render-rls-ddl.ts";
-import { isFrameworkIsolationIntact, readRowLevelSecurityShape } from "./rls-shape.ts";
 import { quoteIdent } from "../sql-identifier.ts";
+import { isFrameworkIsolationIntact, readRowLevelSecurityShape } from "./rls-shape.ts";
 
 type PolicyExpressions = { using: string | null; withCheck: string | null };
 

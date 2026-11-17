@@ -36,7 +36,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { muteEntity, mutesTable, notesFeature, type NoteRow, notesTable } from "../feature";
+import { muteEntity, mutesTable, type NoteRow, notesFeature, notesTable } from "../feature";
 
 let stack: TestStack;
 

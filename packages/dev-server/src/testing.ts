@@ -9,7 +9,10 @@ import {
 import { TenantHandlers, TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { UserHandlers } from "@cosmicdrift/kumiko-bundled-features/user";
 import type { ExtraRouteDefinition } from "@cosmicdrift/kumiko-framework/api";
-import { type FeatureDefinition, findTierResolverUsage } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  type FeatureDefinition,
+  findTierResolverUsage,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { resolveFeatureTogglesOption } from "@cosmicdrift/kumiko-server-runtime";
 import { buildEffectiveFeaturesResolver } from "@cosmicdrift/kumiko-server-runtime/boot/shared-boot-steps";
 import {

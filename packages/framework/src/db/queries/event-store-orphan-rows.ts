@@ -1,9 +1,9 @@
 import type { TenantId } from "../../engine/types/index.ts";
 import { type AnyDb, asRawClient } from "../query.ts";
+import { quoteIdent } from "../sql-identifier.ts";
 import { tableNameOf } from "../table-introspection.ts";
 import { isBoundTenantDb, tenantDbWriteRunner } from "../tenant-db-runner.ts";
 import { toPostgresArrayLiteral } from "./postgres-array-literal.ts";
-import { quoteIdent } from "../sql-identifier.ts";
 
 export type DeleteRowsWithoutReplayableStreamArgs = {
   readonly table: unknown;

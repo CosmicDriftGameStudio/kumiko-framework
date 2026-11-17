@@ -45,7 +45,10 @@ const recordingLogger: Logger = {
 function leakyChannelFeature(name: string, behavior: "send" | "render", mode: "inline" | "queued") {
   return defineFeature(name, (r) => {
     r.requires({ features: ["delivery"] });
-    r.applyExtension({ name: DELIVERY_CHANNEL_EXTENSION, entity: name, mode,
+    r.applyExtension({
+      name: DELIVERY_CHANNEL_EXTENSION,
+      entity: name,
+      mode,
       render: async () => {
         if (behavior === "render") throw new Error(LEAKY_MESSAGE);
         return { html: "<p>x</p>", subject: "x" };
@@ -53,7 +56,8 @@ function leakyChannelFeature(name: string, behavior: "send" | "render", mode: "i
       send: async (): Promise<ChannelResult> => {
         if (behavior === "send") throw new Error(LEAKY_MESSAGE);
         return { status: "sent" };
-      } });
+      },
+    });
   });
 }
 

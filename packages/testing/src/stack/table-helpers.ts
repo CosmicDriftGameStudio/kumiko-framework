@@ -1,9 +1,10 @@
 // @runtime dev
+
+import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   schemaTableName,
   truncateTablesRestartIdentity,
 } from "@cosmicdrift/kumiko-framework/internal/stack-support";
-import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { EventDispatcher } from "@cosmicdrift/kumiko-framework/pipeline";
 
 function tableNameOf(table: unknown): string {

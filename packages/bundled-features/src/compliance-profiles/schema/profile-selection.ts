@@ -43,6 +43,4 @@ export const tenantComplianceProfileEntity = createEntity({
   ],
 });
 
-export const tenantComplianceProfileTable = buildEntityTable(
-  tenantComplianceProfileEntity,
-);
+export const tenantComplianceProfileTable = buildEntityTable(tenantComplianceProfileEntity);

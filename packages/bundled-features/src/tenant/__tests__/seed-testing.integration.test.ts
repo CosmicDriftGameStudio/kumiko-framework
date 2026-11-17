@@ -163,7 +163,9 @@ describe("seedTenantMembership", () => {
       roles: ["User"],
     });
 
-    const events = await selectMany<EventRow>(stack.db, eventsTable, { aggregateType: "tenant-membership" });
+    const events = await selectMany<EventRow>(stack.db, eventsTable, {
+      aggregateType: "tenant-membership",
+    });
     const createdEvents = events.filter((e) => e.type === "tenant-membership.created");
     expect(createdEvents).toHaveLength(1);
     // Payload should carry the seeded data — MSPs/audit rely on this.
@@ -197,7 +199,9 @@ describe("seedTenantMembership", () => {
     const projectionRows = await selectMany(stack.db, tenantMembershipsTable, { userId: ALICE_ID });
     expect(projectionRows).toHaveLength(1);
 
-    const events = await selectMany<EventRow>(stack.db, eventsTable, { aggregateType: "tenant-membership" });
+    const events = await selectMany<EventRow>(stack.db, eventsTable, {
+      aggregateType: "tenant-membership",
+    });
     expect(events.filter((e) => e.type === "tenant-membership.created")).toHaveLength(1);
   });
 
@@ -252,7 +256,9 @@ describe("seedTenantMembership", () => {
     const [row] = await selectMany(stack.db, tenantMembershipsTable, { userId: ALICE_ID });
     expect(row?.["insertedById"]).toBe(SYSTEM_USER_ID);
 
-    const events = await selectMany<EventRow>(stack.db, eventsTable, { aggregateType: "tenant-membership" });
+    const events = await selectMany<EventRow>(stack.db, eventsTable, {
+      aggregateType: "tenant-membership",
+    });
     const created = events.filter((e) => e.type === "tenant-membership.created");
     expect(created).toHaveLength(1);
     expect(created[0]?.tenantId).toBe(TENANT_A);

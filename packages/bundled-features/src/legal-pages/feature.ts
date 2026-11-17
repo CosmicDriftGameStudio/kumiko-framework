@@ -238,12 +238,16 @@ export function createLegalPagesFeature(opts: LegalPagesOptions = {}): FeatureDe
     // the logic can be unit-tested directly instead of only indirectly through
     // routes. Pattern: a thin job shell calls a testable function, avoiding
     // coupling tests to the JobRunner.
-    r.job({ name: "legal-pages-boot-check", trigger: { manual: true },
-        // bootGate, not runOnBoot: only an inline gate can actually abort the
-        // boot. runOnBoot merely enqueues, so a missing imprint would fail a
-        // queue job while the pod goes ready anyway.
-        bootGate: true,
-        runIn: "api", handler: async (_payload, ctx) => runLegalPagesBootCheck(ctx, requiredBlocks) });
+    r.job({
+      name: "legal-pages-boot-check",
+      trigger: { manual: true },
+      // bootGate, not runOnBoot: only an inline gate can actually abort the
+      // boot. runOnBoot merely enqueues, so a missing imprint would fail a
+      // queue job while the pod goes ready anyway.
+      bootGate: true,
+      runIn: "api",
+      handler: async (_payload, ctx) => runLegalPagesBootCheck(ctx, requiredBlocks),
+    });
 
     return {};
   });

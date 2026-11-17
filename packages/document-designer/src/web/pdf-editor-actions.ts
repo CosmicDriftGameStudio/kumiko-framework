@@ -1,8 +1,8 @@
+import { RendererPuppeteerClientQueries } from "@cosmicdrift/kumiko-bundled-features/renderer-puppeteer-client/qualified-names";
 import { TemplateResolverHandlers } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import type { useDispatcher } from "@cosmicdrift/kumiko-renderer";
 import type { Translate } from "@cosmicdrift/kumiko-renderer/headless";
 import { uploadFileRef } from "@cosmicdrift/kumiko-renderer/web";
-import { RendererPuppeteerClientQueries } from "@cosmicdrift/kumiko-bundled-features/renderer-puppeteer-client/qualified-names";
 import { describeError, isAlreadyActive } from "./errors.ts";
 import {
   type Draft,

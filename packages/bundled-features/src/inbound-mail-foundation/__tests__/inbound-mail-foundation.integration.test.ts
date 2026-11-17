@@ -21,11 +21,7 @@ import {
   isPiiCiphertext,
   PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import {
-  type DbConnection,
-  insertOne,
-  selectMany,
-} from "@cosmicdrift/kumiko-framework/db";
+import { type DbConnection, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import { rebuildProjection } from "@cosmicdrift/kumiko-framework/pipeline";
@@ -534,9 +530,7 @@ describe("scenario 5: Projection-Rebuild reproduziert die Read-Models (Plan §3.
     expect(after).toHaveLength(2);
     const key = (rows: readonly Record<string, unknown>[]) =>
       rows.map((r) => `${r["id"]}|${r["threadKey"]}|${r["from"]}|${r["subject"]}`).sort();
-    expect(key(after)).toEqual(
-      key(before),
-    );
+    expect(key(after)).toEqual(key(before));
   });
 });
 

@@ -35,7 +35,8 @@ function makeDispatcher() {
   const dispatcher = createMockDispatcher({
     query: async (qn: string, payload: unknown) => {
       if (qn !== SCOPES_QUERY) return { isSuccess: true, data: {} };
-      const asked: Record<string, unknown> = typeof payload === "object" && payload !== null ? { ...payload } : {};
+      const asked: Record<string, unknown> =
+        typeof payload === "object" && payload !== null ? { ...payload } : {};
       queryPayloads.push(asked);
       const rows =
         asked["kind"] === "owner"
@@ -79,9 +80,7 @@ describe("multiSelect optionsQuery on an actionForm", () => {
     const { user, queryPayloads } = await renderGrant();
     await chooseKind(user, "staff");
 
-    await waitFor(() =>
-      expect(queryPayloads.at(-1)).toEqual({ kind: "staff", portal: "tenant" }),
-    );
+    await waitFor(() => expect(queryPayloads.at(-1)).toEqual({ kind: "staff", portal: "tenant" }));
     expect(await screen.findByRole("checkbox", { name: "Lease 1" })).toBeDefined();
     expect(await screen.findByRole("checkbox", { name: "Lease 2" })).toBeDefined();
   });

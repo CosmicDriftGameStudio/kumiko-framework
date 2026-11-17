@@ -33,8 +33,7 @@ export async function createDatabase(
   templateDbName?: string,
   owner?: string,
 ): Promise<void> {
-  const template =
-    templateDbName === undefined ? "" : ` TEMPLATE ${quoteIdent(templateDbName)}`;
+  const template = templateDbName === undefined ? "" : ` TEMPLATE ${quoteIdent(templateDbName)}`;
   const ownerClause = owner === undefined ? "" : ` OWNER ${quoteIdent(owner)}`;
   // CREATE/ALTER DATABASE cannot run inside the transaction an enforced pool wraps statements in.
   await outsideRowLevelSecurityScope(() =>
@@ -96,9 +95,7 @@ export async function transferDatabaseOwnership(
   owner: string,
 ): Promise<void> {
   await outsideRowLevelSecurityScope(() =>
-    asRawClient(admin).unsafe(
-      `ALTER DATABASE ${quoteIdent(dbName)} OWNER TO ${quoteIdent(owner)}`,
-    ),
+    asRawClient(admin).unsafe(`ALTER DATABASE ${quoteIdent(dbName)} OWNER TO ${quoteIdent(owner)}`),
   );
 }
 

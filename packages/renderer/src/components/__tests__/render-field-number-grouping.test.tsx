@@ -8,7 +8,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import type { EditFieldViewModel } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
-import {PrimitivesProvider, type TextProps } from "../../primitives.tsx";
+import { PrimitivesProvider, type TextProps } from "../../primitives.tsx";
 import { createStubPrimitives } from "../../testing.ts";
 import { RenderField } from "../render-field.tsx";
 

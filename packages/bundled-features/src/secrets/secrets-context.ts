@@ -19,10 +19,10 @@ import {
   fetchOne,
   transaction,
 } from "@cosmicdrift/kumiko-framework/db";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, type WriteErrorInfo } from "@cosmicdrift/kumiko-framework/errors";
 import { append, type EventMetadata } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   createDekCache,
   createSecret,

@@ -22,7 +22,10 @@ const feature = defineFeature("mspup", (r) => {
       {
         fromVersion: 1,
         toVersion: 2,
-        transform: (payload) => ({ ...z.object({ label: z.string() }).parse(payload), source: "upcast" }),
+        transform: (payload) => ({
+          ...z.object({ label: z.string() }).parse(payload),
+          source: "upcast",
+        }),
       },
     ],
   });

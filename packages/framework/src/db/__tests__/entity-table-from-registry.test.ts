@@ -39,9 +39,7 @@ describe("entityTableFromRegistry", () => {
 
     const derived = entityTableFromRegistry(registry, "unit", unitEntity());
 
-    expect(extractTableName(derived)).toBe(
-      extractTableName(buildEntityTable(unitEntity())),
-    );
+    expect(extractTableName(derived)).toBe(extractTableName(buildEntityTable(unitEntity())));
   });
 
   // A projection for a different entity must not be handed back: both are

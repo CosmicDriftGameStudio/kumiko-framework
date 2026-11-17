@@ -41,7 +41,9 @@ const srFeature = defineFeature("sr-fixtures", (r) => {
   r.writeHandler(
     defineEntityCreateHandler("sr-preview", previewEntity, { access: { roles: ["Admin"] } }),
   );
-  r.writeHandler(defineEntityCreateHandler("sr-kept", keptEntity, { access: { roles: ["Admin"] } }));
+  r.writeHandler(
+    defineEntityCreateHandler("sr-kept", keptEntity, { access: { roles: ["Admin"] } }),
+  );
 });
 
 const previewTable = buildEntityTable(previewEntity);

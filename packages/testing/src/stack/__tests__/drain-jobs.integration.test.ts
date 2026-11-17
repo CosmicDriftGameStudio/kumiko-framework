@@ -83,34 +83,61 @@ const chainFeature = defineFeature("draintestchain", (r) => {
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
 
-  r.job({ name: "job-a", trigger: { on: "draintestchain:event:started" }, retries: 0, handler: async (payload, ctx) => {
+  r.job({
+    name: "job-a",
+    trigger: { on: "draintestchain:event:started" },
+    retries: 0,
+    handler: async (payload, ctx) => {
       await ctx.dispatch.write("draintestchain:write:emit-relayed", { value: payload["value"] });
-    } });
+    },
+  });
 
-  r.job({ name: "job-b", trigger: { on: relayed.name }, retries: 0, handler: async (payload) => {
-    chainResults.push({ value: payload["value"] as string }); // @cast-boundary test-fixture
-  } });
+  r.job({
+    name: "job-b",
+    trigger: { on: relayed.name },
+    retries: 0,
+    handler: async (payload) => {
+      chainResults.push({ value: payload["value"] as string }); // @cast-boundary test-fixture
+    },
+  });
 });
 
 const alwaysFailsRuns: string[] = [];
 const retrySucceedsAttempts: number[] = [];
 
 const failureFeature = defineFeature("draintestfailure", (r) => {
-  r.job({ name: "always-fails", trigger: { manual: true }, retries: 0, handler: async () => {
-    alwaysFailsRuns.push("ran");
-    throw new Error("job-c always fails");
-  } });
+  r.job({
+    name: "always-fails",
+    trigger: { manual: true },
+    retries: 0,
+    handler: async () => {
+      alwaysFailsRuns.push("ran");
+      throw new Error("job-c always fails");
+    },
+  });
 
-  r.job({ name: "retry-succeeds", trigger: { manual: true }, retries: 1, backoff: { type: "fixed", delayMs: 10 }, handler: async () => {
+  r.job({
+    name: "retry-succeeds",
+    trigger: { manual: true },
+    retries: 1,
+    backoff: { type: "fixed", delayMs: 10 },
+    handler: async () => {
       retrySucceedsAttempts.push(Date.now());
       if (retrySucceedsAttempts.length === 1) throw new Error("first attempt fails on purpose");
-    } });
+    },
+  });
 });
 
 // No tenant feature mounted, so the fan-out wrapper cannot resolve tenants and
 // throws before the job's own run starts.
 const fanOutFeature = defineFeature("draintestfanout", (r) => {
-  r.job({ name: "fan-out", trigger: { manual: true }, perTenant: true, retries: 0, handler: async () => {} });
+  r.job({
+    name: "fan-out",
+    trigger: { manual: true },
+    perTenant: true,
+    retries: 0,
+    handler: async () => {},
+  });
 });
 
 let stack: TestStack | undefined;

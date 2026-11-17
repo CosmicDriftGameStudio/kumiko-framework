@@ -189,7 +189,10 @@ beforeAll(async () => {
     ],
   });
   await unsafeCreateEntityTable(openStack.db, guardedProjectEntity);
-  await unsafeCreateEntityTable(openStack.db, createNoteEntryEntity(undefined, ["project", "contact", "ticket", "budget"]));
+  await unsafeCreateEntityTable(
+    openStack.db,
+    createNoteEntryEntity(undefined, ["project", "contact", "ticket", "budget"]),
+  );
   await unsafeCreateEntityTable(openStack.db, noteMentionEntity);
   await asRawClient(openStack.db).unsafe(
     `INSERT INTO ${PROJECT_TABLE} (id, tenant_id, team_id, name) VALUES ($1, $2, 'team-a', 'Project Open')`,

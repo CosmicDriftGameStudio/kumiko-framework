@@ -30,9 +30,7 @@ export const ticketEntity = createEntity({
 const ticketAccess = { roles: ["Admin", "User"] } as const;
 
 export const ticketingFeature = defineFeature("ticketing", (r) => {
-  const { table: ticketTable, executor: ticketExecutor } = createEntityExecutor(
-    ticketEntity,
-  );
+  const { table: ticketTable, executor: ticketExecutor } = createEntityExecutor(ticketEntity);
 
   r.crud(ticketEntity, {
     write: { access: ticketAccess },

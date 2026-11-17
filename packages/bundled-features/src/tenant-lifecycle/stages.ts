@@ -11,7 +11,6 @@ import {
   selectMany,
   WritePurposes,
 } from "@cosmicdrift/kumiko-framework/db";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   createSystemUser,
   type EscapeHatchAuditSink,
@@ -31,6 +30,7 @@ import {
   type TenantResourceExtensionName,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { FileProviderResolver } from "@cosmicdrift/kumiko-framework/files";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createFallbackLogger, type Logger } from "@cosmicdrift/kumiko-framework/logging";
 import {
   createEscapeHatchReporter,

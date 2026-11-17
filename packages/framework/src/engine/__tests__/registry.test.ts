@@ -114,10 +114,20 @@ describe("getAllQueryHandlers", () => {
 describe("getAllStreamHandlers", () => {
   test("returns every registered stream handler, qualified, across multiple features", () => {
     const aiFeature = defineFeature("registry-test-ai", (r) => {
-      r.streamHandler({ name: "chat:complete", schema: z.object({ prompt: z.string() }), handler: async function* () {}, access: { openToAll: { reason: "test handler callable by any signed-in test user" } } });
+      r.streamHandler({
+        name: "chat:complete",
+        schema: z.object({ prompt: z.string() }),
+        handler: async function* () {},
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
     });
     const otherFeature = defineFeature("registry-test-other", (r) => {
-      r.streamHandler({ name: "chat:complete", schema: z.object({ prompt: z.string() }), handler: async function* () {}, access: { openToAll: { reason: "test handler callable by any signed-in test user" } } });
+      r.streamHandler({
+        name: "chat:complete",
+        schema: z.object({ prompt: z.string() }),
+        handler: async function* () {},
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
     });
 
     const registry = createRegistry([aiFeature, otherFeature]);
@@ -138,10 +148,20 @@ describe("getAllStreamHandlers", () => {
 
   test("duplicate stream-handler short-name across features qualifies independently, no collision", () => {
     const aiFeature = defineFeature("registry-test-dup-a", (r) => {
-      r.streamHandler({ name: "chat:complete", schema: z.object({}), handler: async function* () {}, access: { openToAll: { reason: "test handler callable by any signed-in test user" } } });
+      r.streamHandler({
+        name: "chat:complete",
+        schema: z.object({}),
+        handler: async function* () {},
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
     });
     const otherFeature = defineFeature("registry-test-dup-b", (r) => {
-      r.streamHandler({ name: "chat:complete", schema: z.object({}), handler: async function* () {}, access: { openToAll: { reason: "test handler callable by any signed-in test user" } } });
+      r.streamHandler({
+        name: "chat:complete",
+        schema: z.object({}),
+        handler: async function* () {},
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
     });
     expect(() => createRegistry([aiFeature, otherFeature])).not.toThrow();
   });
@@ -151,10 +171,20 @@ describe("getAllStreamHandlers", () => {
     // feature.name values (so the earlier Duplicate-feature guard doesn't
     // fire) but toKebab() collapses both to the same qualified name.
     const featureA = defineFeature("registry-test-kebab-dup", (r) => {
-      r.streamHandler({ name: "chat:complete", schema: z.object({}), handler: async function* () {}, access: { openToAll: { reason: "test handler callable by any signed-in test user" } } });
+      r.streamHandler({
+        name: "chat:complete",
+        schema: z.object({}),
+        handler: async function* () {},
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
     });
     const featureB = defineFeature("registryTestKebabDup", (r) => {
-      r.streamHandler({ name: "chat:complete", schema: z.object({}), handler: async function* () {}, access: { openToAll: { reason: "test handler callable by any signed-in test user" } } });
+      r.streamHandler({
+        name: "chat:complete",
+        schema: z.object({}),
+        handler: async function* () {},
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
     });
     expect(() => createRegistry([featureA, featureB])).toThrow(/Duplicate stream handler/);
   });
@@ -297,11 +327,13 @@ describe("extensionSelector boot-validation", () => {
     });
     const consumer = defineFeature("money-horse", (r) => {
       r.requires({ features: ["cap-ext"] });
-      r.entity(createEntity({
+      r.entity(
+        createEntity({
           name: "credit",
           table: "Credits",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-        }));
+        }),
+      );
       r.writeHandler({
         name: "doSomething",
         schema: z.object({}),

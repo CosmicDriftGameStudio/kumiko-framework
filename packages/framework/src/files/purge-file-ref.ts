@@ -2,8 +2,8 @@ import type { TenantDb } from "../db/tenant-db.ts";
 import { deleteFileRefBytes } from "../derivatives/delete-stored-file.ts";
 import type { SessionUser } from "../engine/types/index.ts";
 import { getFileRefExecutor } from "./create-file-ref.ts";
-import { fileRefsTable } from "./file-ref-table.ts";
 import type { FileContext } from "./file-handle.ts";
+import { fileRefsTable } from "./file-ref-table.ts";
 
 export type PurgeFileRefOutcome =
   | { readonly kind: "purged" }

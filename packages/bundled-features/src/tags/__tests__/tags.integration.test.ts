@@ -506,7 +506,8 @@ describe("tags integration — openToAll access model", () => {
   beforeAll(async () => {
     openStack = await setupTestStack({
       features: [
-        createTagsFeature({ parents: ["credit", "note"],
+        createTagsFeature({
+          parents: ["credit", "note"],
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         }),
         hostFixturesFeature,

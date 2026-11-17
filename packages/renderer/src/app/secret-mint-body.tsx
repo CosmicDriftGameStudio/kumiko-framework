@@ -71,16 +71,7 @@ function isBlank(value: unknown): boolean {
 export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProps): ReactNode {
   const nav = useNav();
   const returnTarget = useReturnTarget(screen.id);
-  const {
-    Card,
-    Heading,
-    Banner,
-    Button,
-    Section,
-    SecretReveal,
-    Field,
-    Input,
-  } = usePrimitives();
+  const { Card, Heading, Banner, Button, Section, SecretReveal, Field, Input } = usePrimitives();
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
   const synthEntity = useMemo(() => synthesizeActionFormEntity(screen.fields), [screen.fields]);

@@ -103,26 +103,44 @@ export function createHelpdeskFeature(opts: HelpdeskOptions): FeatureDefinition 
     }
 
     // renamedFrom: preferences and opt-outs stored under the former contact feature keep applying.
-    r.notification({ name: "new-request", renamedFrom: ["contact:notify:new-request"],
+    r.notification({
+      name: "new-request",
+      renamedFrom: ["contact:notify:new-request"],
       variables: HELPDESK_NEW_REQUEST_VARIABLES,
       localizedTemplate: helpdeskNewRequestTemplate,
-      ...(telegram && { templates: { telegram: telegramTemplate } }) });
-    r.notification({ name: "confirmation", renamedFrom: ["contact:notify:confirmation"],
+      ...(telegram && { templates: { telegram: telegramTemplate } }),
+    });
+    r.notification({
+      name: "confirmation",
+      renamedFrom: ["contact:notify:confirmation"],
       variables: HELPDESK_CONFIRMATION_VARIABLES,
-      localizedTemplate: helpdeskConfirmationTemplate });
-    r.notification({ name: "acknowledgement", renamedFrom: ["contact:notify:acknowledgement"],
+      localizedTemplate: helpdeskConfirmationTemplate,
+    });
+    r.notification({
+      name: "acknowledgement",
+      renamedFrom: ["contact:notify:acknowledgement"],
       variables: HELPDESK_ACKNOWLEDGEMENT_VARIABLES,
-      localizedTemplate: helpdeskAcknowledgementTemplate });
-    r.notification({ name: "reply", renamedFrom: ["contact:notify:reply"],
+      localizedTemplate: helpdeskAcknowledgementTemplate,
+    });
+    r.notification({
+      name: "reply",
+      renamedFrom: ["contact:notify:reply"],
       variables: HELPDESK_REPLY_VARIABLES,
-      localizedTemplate: helpdeskReplyTemplate });
-    r.notification({ name: "reply-in-app", renamedFrom: ["contact:notify:reply-in-app"],
-      templates: { inApp: inAppTemplate } });
+      localizedTemplate: helpdeskReplyTemplate,
+    });
+    r.notification({
+      name: "reply-in-app",
+      renamedFrom: ["contact:notify:reply-in-app"],
+      templates: { inApp: inAppTemplate },
+    });
     if (telegram) {
-      r.notification({ name: "test", renamedFrom: ["contact:notify:test"],
+      r.notification({
+        name: "test",
+        renamedFrom: ["contact:notify:test"],
         variables: HELPDESK_TEST_VARIABLES,
         localizedTemplate: helpdeskTestTemplate,
-        templates: { telegram: telegramTemplate } });
+        templates: { telegram: telegramTemplate },
+      });
     }
 
     r.entity({ ...requestEntity, name: "helpdesk-request" });
@@ -159,10 +177,18 @@ export function createHelpdeskFeature(opts: HelpdeskOptions): FeatureDefinition 
         }),
     });
 
-    r.applyExtension({ name: EXT_USER_DATA, entity: "helpdesk-request", export: helpdeskExportHook,
-      delete: helpdeskDeleteHook });
+    r.applyExtension({
+      name: EXT_USER_DATA,
+      entity: "helpdesk-request",
+      export: helpdeskExportHook,
+      delete: helpdeskDeleteHook,
+    });
     // Replies are exported nested under their request and erased with it (helpdeskDeleteHook).
-    r.applyExtension({ name: EXT_USER_DATA, entity: "helpdesk-reply", export: async () => null,
-      delete: async () => {} });
+    r.applyExtension({
+      name: EXT_USER_DATA,
+      entity: "helpdesk-reply",
+      export: async () => null,
+      delete: async () => {},
+    });
   });
 }

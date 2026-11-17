@@ -1,6 +1,6 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { defineQueryHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import * as z from "zod";
 import type { TierAssignmentRow } from "../entity.ts";
 import { tierAssignmentTable } from "../table.ts";

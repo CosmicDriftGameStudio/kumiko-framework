@@ -55,21 +55,29 @@ const knownRoles = collectKnownRoles([roleSource]);
 
 describe("job runAs", () => {
   test("an empty role list is rejected at r.job", () => {
-    expect(ruleIdOfThrown(() => featureWithJob({ runAs: { roles: [] } }))).toBe("job/run-as-invalid");
+    expect(ruleIdOfThrown(() => featureWithJob({ runAs: { roles: [] } }))).toBe(
+      "job/run-as-invalid",
+    );
   });
 
   test.each(["system", "anonymous"])("the reserved role %s is rejected at r.job", (role) => {
-    expect(ruleIdOfThrown(() => featureWithJob({ runAs: { roles: [role] } }))).toBe("job/run-as-invalid");
+    expect(ruleIdOfThrown(() => featureWithJob({ runAs: { roles: [role] } }))).toBe(
+      "job/run-as-invalid",
+    );
   });
 
   test("a role no handler declares is an unknown role", () => {
     const feature = featureWithJob({ runAs: { roles: ["TenantAdmn"] } });
-    expect(ruleIdOfThrown(() => validateJobRunAs(feature, knownRoles))).toBe("ownership/unknown-role");
+    expect(ruleIdOfThrown(() => validateJobRunAs(feature, knownRoles))).toBe(
+      "ownership/unknown-role",
+    );
   });
 
   test("SystemAdmin without a systemIdentity grant is rejected", () => {
     const feature = featureWithJob({ runAs: { roles: [ROLES.SystemAdmin] } });
-    expect(ruleIdOfThrown(() => validateJobRunAs(feature, knownRoles))).toBe("job/run-as-system-admin-ungranted");
+    expect(ruleIdOfThrown(() => validateJobRunAs(feature, knownRoles))).toBe(
+      "job/run-as-system-admin-ungranted",
+    );
   });
 
   test("SystemAdmin with a systemIdentity escapeHatch passes", () => {

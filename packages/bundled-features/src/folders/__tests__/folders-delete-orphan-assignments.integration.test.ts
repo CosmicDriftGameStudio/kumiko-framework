@@ -63,7 +63,8 @@ let docCounter = 0;
 beforeAll(async () => {
   stack = await setupTestStack({
     features: [
-      createFoldersFeature({ parents: ["doc"],
+      createFoldersFeature({
+        parents: ["doc"],
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       }),
       hostFixturesFeature,

@@ -118,7 +118,11 @@ function isSkippedPath(file: string): boolean {
 
 if (import.meta.main) {
   await runCodemodCli(
-    { name: "unsafe-raw-all-tenants", transform: transformUnsafeRawAllTenantsSource, isSkippedPath },
+    {
+      name: "unsafe-raw-all-tenants",
+      transform: transformUnsafeRawAllTenantsSource,
+      isSkippedPath,
+    },
     process.argv.slice(2),
   );
 }

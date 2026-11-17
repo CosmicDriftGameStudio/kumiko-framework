@@ -38,7 +38,10 @@ import { useDispatchedWrites } from "../../shared/web/index.ts";
 import { FOLDER_LIST_LIMIT, FoldersHandlers, FoldersQueries } from "./constants.ts";
 import { buildFolderTree, type FolderNode, type FolderRow } from "./tree.ts";
 
-type FolderListResponse = { readonly rows: readonly FolderRow[]; readonly nextCursor?: string | null };
+type FolderListResponse = {
+  readonly rows: readonly FolderRow[];
+  readonly nextCursor?: string | null;
+};
 
 // One filed entity, rendered as a draggable leaf under its folder. The host maps
 // its rows into these (label + an optional trailing slot for a KPI/amount).
@@ -98,7 +101,9 @@ export function FolderManager({
 }): ReactNode {
   const { Banner, Button, Dialog, Input, Text } = usePrimitives();
   const t = useTranslation();
-  const catalog = useQuery<FolderListResponse>(FoldersQueries.folderList, { limit: FOLDER_LIST_LIMIT });
+  const catalog = useQuery<FolderListResponse>(FoldersQueries.folderList, {
+    limit: FOLDER_LIST_LIMIT,
+  });
   const [pending, setPending] = useState<Pending>(null);
   const [draftName, setDraftName] = useState("");
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(loadCollapsed);

@@ -8,7 +8,6 @@ import {
   createEventStoreExecutor,
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   createEntity,
   createTextField,
@@ -20,6 +19,7 @@ import {
   createFilesFeature,
   createInMemoryFileProvider,
 } from "@cosmicdrift/kumiko-framework/files";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -121,11 +121,9 @@ const leaseHostFeature = defineFeature("document-draft-test-lease-host", (r) => 
   r.entity(leaseEntity);
 });
 
-const leaseExecutor = createEventStoreExecutor(
-  buildEntityTable(leaseEntity),
-  leaseEntity,
-  { entityName: SUBJECT_TYPE },
-);
+const leaseExecutor = createEventStoreExecutor(buildEntityTable(leaseEntity), leaseEntity, {
+  entityName: SUBJECT_TYPE,
+});
 
 async function seedLease(teamId: string): Promise<string> {
   const created = await leaseExecutor.create(

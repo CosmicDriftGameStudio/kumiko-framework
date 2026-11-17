@@ -56,7 +56,11 @@ export const saveDraftWrite = defineWriteHandler({
     // keep saving their existing drafts.
     // Parallel creates with different draftKeys would each pass the count and overshoot the cap.
     await ctx.db.advisoryXactLock(FORM_DRAFT_OWNER_LOCK_NAMESPACE, ownerId);
-    const draftCount = await countDraftsByOwner(ctx.db.unsafeRawAllTenants(), event.user.tenantId, ownerId);
+    const draftCount = await countDraftsByOwner(
+      ctx.db.unsafeRawAllTenants(),
+      event.user.tenantId,
+      ownerId,
+    );
     if (draftCount >= FORM_DRAFT_MAX_PER_OWNER) {
       return failUnprocessable("draft_limit_reached", { limit: FORM_DRAFT_MAX_PER_OWNER });
     }

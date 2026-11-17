@@ -20,10 +20,7 @@ import {
   resolveCapCounterScope,
 } from "./book-cap-usage.ts";
 import { capSubjectHash } from "./cap-subject.ts";
-import {
-  CAP_RESERVATION_TTL_MINUTES,
-  CAP_SETTLED_TOMBSTONE_TTL_MINUTES,
-} from "./constants.ts";
+import { CAP_RESERVATION_TTL_MINUTES, CAP_SETTLED_TOMBSTONE_TTL_MINUTES } from "./constants.ts";
 import { capReservationsTable } from "./tables.ts";
 
 type CapReservationRow = {
@@ -167,11 +164,7 @@ async function giveBackCalendar(
   );
 }
 
-async function giveBackReservation(
-  txDb: TenantDb,
-  user: SessionUser,
-  id: string,
-): Promise<void> {
+async function giveBackReservation(txDb: TenantDb, user: SessionUser, id: string): Promise<void> {
   const ownRow = { id, tenantId: user.tenantId };
   const row = await txDb.fetchOne<CapReservationRow>(capReservationsTable, {
     ...ownRow,

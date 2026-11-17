@@ -75,9 +75,13 @@ describe("escape-hatch declaration :: declared hook gets a real unfiltered DbRun
   };
 
   const declaredFeature = defineFeature("test-leaky-declared", (r) => {
-    r.applyExtension({ name: EXT_USER_DATA, entity: "leaky-declared", export: async () => null,
+    r.applyExtension({
+      name: EXT_USER_DATA,
+      entity: "leaky-declared",
+      export: async () => null,
       delete: declaredLeakHook,
-      escapeHatch: { reason: DECLARED_REASON } });
+      escapeHatch: { reason: DECLARED_REASON },
+    });
   });
 
   let stack: TestStack;
@@ -130,10 +134,13 @@ describe("escape-hatch declaration :: undeclared hook is denied, not silently un
   };
 
   const undeclaredFeature = defineFeature("test-leaky-undeclared", (r) => {
-    r.applyExtension({ name: EXT_USER_DATA, entity: "leaky-undeclared", export: async () => null,
+    r.applyExtension({
+      name: EXT_USER_DATA,
+      entity: "leaky-undeclared",
+      export: async () => null,
       delete: undeclaredLeakHook,
       // Deliberately NOT declared: this is the case under test.
-});
+    });
   });
 
   let stack: TestStack;

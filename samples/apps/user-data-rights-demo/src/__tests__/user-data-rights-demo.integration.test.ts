@@ -15,12 +15,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createAuthEmailPasswordFeature } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
-import {
-  createConfigFeature,
-} from "@cosmicdrift/kumiko-bundled-features/config";
-import {
-  createSessionsFeature,
-} from "@cosmicdrift/kumiko-bundled-features/sessions";
+import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
+import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import {
   createTenantFeature,
   tenantMembershipsTable,
@@ -36,7 +32,6 @@ import {
   UserDataRightsJobs,
 } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import { asRawClient, extractTableName } from "@cosmicdrift/kumiko-framework/db";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import type { JobContext } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createSystemUser,
@@ -44,13 +39,11 @@ import {
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
-import {
-  setupTestStack,
-  type TestStack,
-} from "@cosmicdrift/kumiko-testing/stack";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { TODO_CREATE_QN, TODO_LIST_QN } from "../feature";
 import { APP_FEATURES } from "../run-config";
 

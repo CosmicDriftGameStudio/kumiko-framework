@@ -14,7 +14,6 @@ import {
   TemplateNotFoundError,
   VARIANT_UNKNOWN_REASON,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
-import type { ReservationRelease } from "@cosmicdrift/kumiko-types/handlers";
 import type {
   BeforeTransactionContext,
   BeforeTransactionResult,
@@ -34,6 +33,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/files";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
+import type { ReservationRelease } from "@cosmicdrift/kumiko-types/handlers";
 import { buildDocumentDraftPdfRequest } from "./document-pdf.ts";
 import { printDocumentPdf } from "./document-pdf-print.ts";
 import { PuppeteerUnavailableError } from "./errors.ts";

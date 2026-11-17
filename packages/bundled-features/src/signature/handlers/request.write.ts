@@ -56,7 +56,10 @@ async function isReadableTenantFile(ctx: HandlerContext, fileRefId: string): Pro
   return fileRef !== undefined && (await canCallerReadFileRef(ctx, fileRef));
 }
 
-export function createRequestHandler(access: AccessRule, requestExecutor: SignatureRequestExecutor) {
+export function createRequestHandler(
+  access: AccessRule,
+  requestExecutor: SignatureRequestExecutor,
+) {
   return defineWriteHandler<"request", typeof RequestSignatureSchema, RequestSignatureData>({
     name: "request",
     schema: RequestSignatureSchema,
@@ -67,7 +70,15 @@ export function createRequestHandler(access: AccessRule, requestExecutor: Signat
     handler: async (event, ctx) => {
       const payload = event.payload;
       const user = event.user;
-      if (!(await joinRowParentIsVisible(ctx.registry, SIGNATURE_REQUEST_ENTITY, payload, user, ctx.db))) {
+      if (
+        !(await joinRowParentIsVisible(
+          ctx.registry,
+          SIGNATURE_REQUEST_ENTITY,
+          payload,
+          user,
+          ctx.db,
+        ))
+      ) {
         return writeFailure(new NotFoundError(SIGNATURE_REQUEST_ENTITY));
       }
       if (!(await isReadableTenantFile(ctx, payload.documentFileId))) {

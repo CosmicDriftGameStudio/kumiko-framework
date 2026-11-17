@@ -34,10 +34,15 @@ const jobLoadFeature = defineFeature("jobload", (r) => {
     ],
   });
 
-  r.job({ name: "load-stream", trigger: { manual: true }, retries: 0, handler: async (payload, ctx) => {
-    const events = await ctx.events.load(String(payload["noteId"]));
-    loaded.push(events.map(({ type, version, payload: p }) => ({ type, version, payload: p })));
-  } });
+  r.job({
+    name: "load-stream",
+    trigger: { manual: true },
+    retries: 0,
+    handler: async (payload, ctx) => {
+      const events = await ctx.events.load(String(payload["noteId"]));
+      loaded.push(events.map(({ type, version, payload: p }) => ({ type, version, payload: p })));
+    },
+  });
 });
 
 let stack: TestStack;

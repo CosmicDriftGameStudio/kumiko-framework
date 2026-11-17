@@ -21,7 +21,6 @@ import type { WriteFailure } from "@cosmicdrift/kumiko-types/write-error-info-ty
 import type * as z from "zod";
 import type { ZodType } from "zod";
 import { toTableName } from "../db/table-builder.ts";
-import { assertReason } from "./escape-hatch-reason.ts";
 import { bootRuleError } from "./boot-validator/boot-rule.ts";
 import { DEFINITION_HANDLER_RULES } from "./boot-validator/definition-handlers-rules.ts";
 import { HANDLER_ACCESS_RULES } from "./boot-validator/entity-handler-access-rules.ts";
@@ -39,6 +38,7 @@ import {
   assertEscapeHatchAccessIsSystemAdminOnly,
   registerCrudHandlers,
 } from "./entity-handlers.ts";
+import { assertReason } from "./escape-hatch-reason.ts";
 import type { FeatureBuilderState } from "./feature-builder-state.ts";
 import { agentSlots, transactionPhaseSlots } from "./handler-definition-slots.ts";
 import { resolveName } from "./handler-helpers.ts";

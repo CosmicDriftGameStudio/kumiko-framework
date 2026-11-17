@@ -16,18 +16,13 @@ import {
   configValuesTable,
   createConfigFeature,
 } from "@cosmicdrift/kumiko-bundled-features/config";
-import {
-  PatHandlers,
-} from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
+import { PatHandlers } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
 import {
   createTenantFeature,
   tenantMembershipsTable,
 } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { seedTenantMembership } from "@cosmicdrift/kumiko-bundled-features/tenant/seeding";
-import {
-  createUserFeature,
-  UserHandlers,
-} from "@cosmicdrift/kumiko-bundled-features/user";
+import { createUserFeature, UserHandlers } from "@cosmicdrift/kumiko-bundled-features/user";
 import { entityEventName, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   formatWebhookPayloadIssues,

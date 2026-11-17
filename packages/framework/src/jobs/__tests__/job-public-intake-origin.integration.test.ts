@@ -92,34 +92,53 @@ const jobsFeature = defineFeature("jobsx", (r) => {
   r.defineEvent("sourced-no-declare", z.object({ value: z.string() }), { piiFields: "none" });
   r.defineEvent("sourced-declare", z.object({ value: z.string() }), { piiFields: "none" });
 
-  r.job({ name: "write-direct", trigger: { manual: true }, retries: 0, handler: async (payload, ctx) => {
-    try {
-      await ctx.db.insertOne(secretDirectTable, {
-        // @cast-boundary test-fixture
+  r.job({
+    name: "write-direct",
+    trigger: { manual: true },
+    retries: 0,
+    handler: async (payload, ctx) => {
+      try {
+        await ctx.db.insertOne(secretDirectTable, {
+          // @cast-boundary test-fixture
+          value: payload["value"] as string, // @cast-boundary test-fixture
+        });
+      } catch (err) {
+        recordGatedFailure("jobsx:job:write-direct", err);
+      }
+    },
+  });
+
+  r.job({
+    name: "write-foreign",
+    trigger: { manual: true },
+    retries: 0,
+    handler: async (payload, ctx) => {
+      const result = await ctx.dispatch.write("secrets:write:create", {
         value: payload["value"] as string, // @cast-boundary test-fixture
       });
-    } catch (err) {
-      recordGatedFailure("jobsx:job:write-direct", err);
-    }
-  } });
+      if (!result.isSuccess) {
+        recordGatedFailure(
+          "jobsx:job:write-foreign",
+          new AccessDeniedError({ message: result.error.message, details: result.error.details }),
+        );
+      }
+    },
+  });
 
-  r.job({ name: "write-foreign", trigger: { manual: true }, retries: 0, handler: async (payload, ctx) => {
-    const result = await ctx.dispatch.write("secrets:write:create", {
-      value: payload["value"] as string, // @cast-boundary test-fixture
-    });
-    if (!result.isSuccess) {
-      recordGatedFailure(
-        "jobsx:job:write-foreign",
-        new AccessDeniedError({ message: result.error.message, details: result.error.details }),
-      );
-    }
-  } });
+  r.job({
+    name: "chain-dispatch",
+    trigger: { manual: true },
+    retries: 0,
+    handler: async (payload, ctx) => {
+      await manualDispatch(ctx)?.dispatch("jobsx:job:write-direct", { value: payload["value"] });
+    },
+  });
 
-  r.job({ name: "chain-dispatch", trigger: { manual: true }, retries: 0, handler: async (payload, ctx) => {
-    await manualDispatch(ctx)?.dispatch("jobsx:job:write-direct", { value: payload["value"] });
-  } });
-
-  r.job({ name: "on-trigger-no-declare", trigger: { on: "jobsx:event:sourced-no-declare" }, retries: 0, handler: async (payload, ctx) => {
+  r.job({
+    name: "on-trigger-no-declare",
+    trigger: { on: "jobsx:event:sourced-no-declare" },
+    retries: 0,
+    handler: async (payload, ctx) => {
       try {
         await ctx.db.insertOne(secretDirectTable, {
           // @cast-boundary test-fixture
@@ -128,8 +147,13 @@ const jobsFeature = defineFeature("jobsx", (r) => {
       } catch (err) {
         recordGatedFailure("jobsx:job:on-trigger-no-declare", err);
       }
-    } });
-  r.job({ name: "on-trigger-declare", trigger: { on: "jobsx:event:sourced-declare" }, retries: 0, handler: async (payload, ctx) => {
+    },
+  });
+  r.job({
+    name: "on-trigger-declare",
+    trigger: { on: "jobsx:event:sourced-declare" },
+    retries: 0,
+    handler: async (payload, ctx) => {
       try {
         await ctx.db.insertOne(secretDirectTable, {
           // @cast-boundary test-fixture
@@ -138,8 +162,13 @@ const jobsFeature = defineFeature("jobsx", (r) => {
       } catch (err) {
         recordGatedFailure("jobsx:job:on-trigger-declare", err);
       }
-    } });
-  r.job({ name: "on-defined-event", trigger: { on: "jobsx:event:leaked" }, retries: 0, handler: async (payload, ctx) => {
+    },
+  });
+  r.job({
+    name: "on-defined-event",
+    trigger: { on: "jobsx:event:leaked" },
+    retries: 0,
+    handler: async (payload, ctx) => {
       try {
         await ctx.db.insertOne(secretDirectTable, {
           // @cast-boundary test-fixture
@@ -148,7 +177,8 @@ const jobsFeature = defineFeature("jobsx", (r) => {
       } catch (err) {
         recordGatedFailure("jobsx:job:on-defined-event", err);
       }
-    } });
+    },
+  });
 
   r.writeHandler({
     name: "dispatch-no-declare",
@@ -315,20 +345,25 @@ const jobsFeature = defineFeature("jobsx", (r) => {
 
 const systemJobFeature = defineFeature("systemjob", (r) => {
   r.systemScope();
-  r.job({ name: "write-systemdb", trigger: { manual: true }, retries: 0, handler: async (payload, ctx) => {
-    const raw = ctx.systemDb?.unsafeRaw(UNSAFE_RAW_REASON);
-    if (!raw) throw new Error("test setup error: ctx.systemDb missing on a systemScope() job");
-    try {
-      await createTenantDb({
-        db: raw,
-        tenantId: ctx.systemUser.tenantId,
-        mode: "system",
-        reason: "test reads rows written by a public-intake job in any tenant",
-      }).insertOne(secretDirectTable, { value: payload["value"] as string });
-    } catch (err) {
-      recordGatedFailure("systemjob:job:write-systemdb", err);
-    }
-  } });
+  r.job({
+    name: "write-systemdb",
+    trigger: { manual: true },
+    retries: 0,
+    handler: async (payload, ctx) => {
+      const raw = ctx.systemDb?.unsafeRaw(UNSAFE_RAW_REASON);
+      if (!raw) throw new Error("test setup error: ctx.systemDb missing on a systemScope() job");
+      try {
+        await createTenantDb({
+          db: raw,
+          tenantId: ctx.systemUser.tenantId,
+          mode: "system",
+          reason: "test reads rows written by a public-intake job in any tenant",
+        }).insertOne(secretDirectTable, { value: payload["value"] as string });
+      } catch (err) {
+        recordGatedFailure("systemjob:job:write-systemdb", err);
+      }
+    },
+  });
 });
 
 const dispatchSystemDbFeature = defineFeature("systemjobdispatch", (r) => {

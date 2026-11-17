@@ -45,14 +45,20 @@ export function registerUserDataRightsJobs(
 ): void {
   // Gauges keep their last value, so a dead cleanup cron does not clear the backlog gauge;
   // the last-run timestamp gauge is the liveness signal.
-  r.metric({ name: EXPORT_CLEANUP_BACKLOG_AGE_METRIC, type: "gauge",
+  r.metric({
+    name: EXPORT_CLEANUP_BACKLOG_AGE_METRIC,
+    type: "gauge",
     unit: "seconds",
     description:
-      "Age in seconds of the oldest export bundle (done: expiresAt+grace passed; failed: orphaned ZIP since completedAt or startedAt) whose downloadStorageKey is still set. 0 when the storage-cleanup pass has no backlog." });
-  r.metric({ name: EXPORT_CLEANUP_LAST_RUN_TIMESTAMP_METRIC, type: "gauge",
+      "Age in seconds of the oldest export bundle (done: expiresAt+grace passed; failed: orphaned ZIP since completedAt or startedAt) whose downloadStorageKey is still set. 0 when the storage-cleanup pass has no backlog.",
+  });
+  r.metric({
+    name: EXPORT_CLEANUP_LAST_RUN_TIMESTAMP_METRIC,
+    type: "gauge",
     unit: "seconds",
     description:
-      "Unix timestamp of the last export storage-cleanup pass that completed. Alert on time() minus this value exceeding one day plus a buffer; the backlog-age gauge alone stays at its last value when the cron stops." });
+      "Unix timestamp of the last export storage-cleanup pass that completed. Alert on time() minus this value exceeding one day plus a buffer; the backlog-age gauge alone stays at its last value when the cron stops.",
+  });
 
   const runExport: JobHandlerFn = async (_payload, ctx) => {
     if (!ctx.registry) {

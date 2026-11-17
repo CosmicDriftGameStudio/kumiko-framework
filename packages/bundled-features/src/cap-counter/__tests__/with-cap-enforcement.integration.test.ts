@@ -179,9 +179,8 @@ const commitProbeEntity = createEntity({
     label: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
-const { table: commitProbeTable, executor: commitProbeExecutor } = createEntityExecutor(
-  commitProbeEntity,
-);
+const { table: commitProbeTable, executor: commitProbeExecutor } =
+  createEntityExecutor(commitProbeEntity);
 // The handler succeeds; the deferred trigger created in beforeAll rejects the row only at COMMIT.
 const commitFailingHandler: WriteHandlerDef = {
   name: "atomic-commit-fails",
@@ -273,13 +272,16 @@ const markCapSoftWarnedHandler: WriteHandlerDef = {
 // Burstable limit 100: soft at 110, hard at 120, so both racing requests stay below the hard cap.
 const SOFT_RACE_CAP_NAME = "soft-race-cap";
 const SOFT_RACE_SEED = 110;
-const wrappedSoftRace = withCapEnforcement({ ...tenantOnlyInnerHandler, name: "send-soft-race" }, () => ({
-  capName: SOFT_RACE_CAP_NAME,
-  periodStartIso: TENANT_ONLY_PERIOD,
-  limit: 100,
-  profile: "burstable",
-  notify: recordingNotifier,
-}));
+const wrappedSoftRace = withCapEnforcement(
+  { ...tenantOnlyInnerHandler, name: "send-soft-race" },
+  () => ({
+    capName: SOFT_RACE_CAP_NAME,
+    periodStartIso: TENANT_ONLY_PERIOD,
+    limit: 100,
+    profile: "burstable",
+    notify: recordingNotifier,
+  }),
+);
 const SOFT_RACE_QN = "newsletter:write:send-soft-race";
 
 const BOOK_CAP_USAGE_IN_TX_QN = "newsletter:write:book-cap-usage-in-tx";

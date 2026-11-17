@@ -5,7 +5,20 @@
 // barrel is where consumers of the published package have always found
 // hashPassword/verifyPassword; removing it is a breaking change that needs
 // its own changeset + deliberate deprecation window, not a silent drop.
-export { hashPassword, normalizeEmail, verifyPassword } from "../shared/index.ts";
+// Generic HMAC-signed single-purpose token helpers. Re-exported so
+// app-specific out-of-band flows (subscriber-confirm, magic-links,
+// invite-tokens) can use the same battle-tested signer/verifier
+// instead of duplicating HMAC logic. The purpose string prevents
+// cross-replay between flows.
+export {
+  hashPassword,
+  normalizeEmail,
+  signToken,
+  TokenPurpose,
+  type VerifyResult,
+  verifyPassword,
+  verifyToken,
+} from "../shared/index.ts";
 export type { AuthMailLocale } from "./email-templates.ts";
 export type {
   AccountLockoutOptions,
@@ -22,12 +35,6 @@ export {
   AUTH_SELF_REGISTRATION_FEATURE,
   createAuthSelfRegistrationToggleFeature,
 } from "./self-registration-toggle.ts";
-// Generic HMAC-signed single-purpose token helpers. Re-exported so
-// app-specific out-of-band flows (subscriber-confirm, magic-links,
-// invite-tokens) can use the same battle-tested signer/verifier
-// instead of duplicating HMAC logic. The purpose string prevents
-// cross-replay between flows.
-export { signToken, TokenPurpose, type VerifyResult, verifyToken } from "../shared/index.ts";
 export {
   type IssuedSignupActivation,
   type IssueSignupActivationArgs,

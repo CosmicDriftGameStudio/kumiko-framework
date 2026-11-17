@@ -4,7 +4,10 @@ import { draftNotFound, loadScopedDraft, notInStatus } from "../lib.ts";
 import { DraftBaseSchema } from "../payloads.ts";
 import { DOCUMENT_DRAFT_STATUS } from "../web/constants.ts";
 
-export function createDiscardHandler(access: AccessRule, documentDraftExecutor: DocumentDraftExecutor) {
+export function createDiscardHandler(
+  access: AccessRule,
+  documentDraftExecutor: DocumentDraftExecutor,
+) {
   return defineWriteHandler<"discard", typeof DraftBaseSchema, { readonly id: string }>({
     name: "discard",
     schema: DraftBaseSchema,

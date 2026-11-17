@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { createEntity, createTextField } from "../../engine/index.ts";
-import { extractTableInfo } from "../table-info.ts";
 import { buildEntityTable, declareSystemRowsReadable } from "../table-builder.ts";
+import { extractTableInfo } from "../table-info.ts";
 
 const entity = createEntity({
   name: "tableInfoProbe",

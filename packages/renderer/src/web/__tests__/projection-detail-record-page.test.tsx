@@ -6,7 +6,15 @@ import type { ProjectionDetailScreenDefinition } from "@cosmicdrift/kumiko-frame
 import type { ReactNode } from "react";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
 import { PageHeaderSlotProvider, usePageHeaderSlot } from "../layout/page-header-slot.tsx";
-import { createMockDispatcher, fireEvent, type MockQueryHandler, type MockWriteHandler, render, screen, waitFor } from "./test-utils.tsx";
+import {
+  createMockDispatcher,
+  fireEvent,
+  type MockQueryHandler,
+  type MockWriteHandler,
+  render,
+  screen,
+  waitFor,
+} from "./test-utils.tsx";
 
 function renderScreen(
   definition: ProjectionDetailScreenDefinition,
@@ -217,8 +225,7 @@ describe("narrowTabs: false with a hideOnNarrow section of another tab", () => {
 });
 
 describe("writeForm submitWith with a form that is not usable", () => {
-  const write = () =>
-    mock<MockWriteHandler>(async () => ({ isSuccess: true, data: {} }));
+  const write = () => mock<MockWriteHandler>(async () => ({ isSuccess: true, data: {} }));
 
   test("a form hidden for the phone still blocks the write with a named field", async () => {
     const hidden: ProjectionDetailScreenDefinition = {

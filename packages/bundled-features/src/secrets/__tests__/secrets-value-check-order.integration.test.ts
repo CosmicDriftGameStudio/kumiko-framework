@@ -30,10 +30,13 @@ const INVALID_VALUE = "not-a-url";
 
 let urlKey: SecretKeyHandle | undefined;
 const urlKeyFeature = defineFeature("secrets-url-test", (r) => {
-  urlKey = r.secret({ name: "webhook.url", label: { en: "Webhook URL" },
+  urlKey = r.secret({
+    name: "webhook.url",
+    label: { en: "Webhook URL" },
     scope: "tenant",
     writeRoles: ["SystemAdmin"],
-    valueSchema: z.string().url() });
+    valueSchema: z.string().url(),
+  });
 });
 
 const tenantAdmin = createTestUser({ roles: ["TenantAdmin"] });

@@ -9,7 +9,13 @@ import userEvent from "@testing-library/user-event";
 import type { Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
-import { createMockDispatcher, type MockBatchHandler, render, screen, waitFor } from "./test-utils.tsx";
+import {
+  createMockDispatcher,
+  type MockBatchHandler,
+  render,
+  screen,
+  waitFor,
+} from "./test-utils.tsx";
 
 const OPTIONS_QUERY = "catalog:query:model-options";
 const OPTIONS_PAYLOAD = { modality: "text", provider: "anthropic" } as const;
@@ -39,10 +45,12 @@ const schema: FeatureSchema = {
 
 function makeDispatcher(storedModel: string) {
   const optionCalls: unknown[] = [];
-  const batchSpy = mock<MockBatchHandler>(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
-    isSuccess: true as const,
-    results: [],
-  }));
+  const batchSpy = mock<MockBatchHandler>(
+    async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
+      isSuccess: true as const,
+      results: [],
+    }),
+  );
   const dispatcher: Dispatcher = createMockDispatcher({
     query: async (qn: string, payload: unknown) => {
       if (qn === OPTIONS_QUERY) {
@@ -162,10 +170,12 @@ describe("select optionsQuery depending on a sibling field", () => {
 
   function makeDependentDispatcher(stored: { provider: string; model: string }) {
     const optionCalls: Record<string, unknown>[] = [];
-    const batchSpy = mock<MockBatchHandler>(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
-      isSuccess: true as const,
-      results: [],
-    }));
+    const batchSpy = mock<MockBatchHandler>(
+      async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
+        isSuccess: true as const,
+        results: [],
+      }),
+    );
     const dispatcher: Dispatcher = createMockDispatcher({
       query: async (qn: string, payload: unknown) => {
         if (qn === OPTIONS_QUERY) {

@@ -14,7 +14,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { Clock } from "@cosmicdrift/kumiko-types/tz-context";
-import { USER_SESSION_ENTITY_NAME } from "./constants.ts";
 import { cleanupJob } from "./handlers/cleanup.job.ts";
 import { createDetailQuery } from "./handlers/detail.query.ts";
 import {
@@ -101,45 +100,51 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
       // r.storeTable keeps the migration DDL but opts the
       // table out of implicit rebuild, like jobs/channel-in-app/feature-toggles
       // which are direct-write stores too.
-      r.storeTable(
-        deriveEntityTableMeta(userSessionEntity, { source: "unmanaged" }),
-        {
-          reason: "read_side.user_sessions_direct_write",
-          // sessionCreator encrypts ip/userAgent via encryptForDirectWrite.
-          piiEncryptedOnWrite: true,
-        },
-      );
+      r.storeTable(deriveEntityTableMeta(userSessionEntity, { source: "unmanaged" }), {
+        reason: "read_side.user_sessions_direct_write",
+        // sessionCreator encrypts ip/userAgent via encryptForDirectWrite.
+        piiEncryptedOnWrite: true,
+      });
 
       // Self-registers as auth-foundation's sessionStore provider —
       // wraps the same createSessionCallbacks() used by the manual
       // buildServer({ auth: { ... } }) wiring above; removes that manual
       // wiring once the middleware resolves generically
       // via resolveSessionStore().
-      r.applyExtension({ name: EXT_SESSION_STORE, entity: "default", ...{
-        build: (deps): SessionStore => {
-          const callbacks = createSessionCallbacks({
-            db: deps.db,
-            ...(options?.expiresInMs !== undefined && { expiresInMs: options.expiresInMs }),
-            ...(options?.clock !== undefined && { clock: options.clock }),
-          });
-          return {
-            creator: callbacks.sessionCreator,
-            revoker: callbacks.sessionRevoker,
-            checker: callbacks.sessionChecker,
-          };
-        },
-      } satisfies SessionStoreProvider });
+      r.applyExtension({
+        name: EXT_SESSION_STORE,
+        entity: "default",
+        ...({
+          build: (deps): SessionStore => {
+            const callbacks = createSessionCallbacks({
+              db: deps.db,
+              ...(options?.expiresInMs !== undefined && { expiresInMs: options.expiresInMs }),
+              ...(options?.clock !== undefined && { clock: options.clock }),
+            });
+            return {
+              creator: callbacks.sessionCreator,
+              revoker: callbacks.sessionRevoker,
+              checker: callbacks.sessionChecker,
+            };
+          },
+        } satisfies SessionStoreProvider),
+      });
 
-      r.applyExtension({ name: EXT_CREDENTIAL_REVOKER, entity: "sessions", ...{
-        revokeAllForUser: async (runner, userId, { keepSessionId }) =>
-          (
-            await revokeSessionsAndAnnounce(runner, {
-              where: keepSessionId !== undefined ? { userId, id: { ne: keepSessionId } } : { userId },
-              revokedAt: options?.clock?.now() ?? Temporal.Now.instant(),
-              ...(keepSessionId !== undefined && { keptSessionId: keepSessionId }),
-            })
-          ).length,
-      } satisfies CredentialRevoker });
+      r.applyExtension({
+        name: EXT_CREDENTIAL_REVOKER,
+        entity: "sessions",
+        ...({
+          revokeAllForUser: async (runner, userId, { keepSessionId }) =>
+            (
+              await revokeSessionsAndAnnounce(runner, {
+                where:
+                  keepSessionId !== undefined ? { userId, id: { ne: keepSessionId } } : { userId },
+                revokedAt: options?.clock?.now() ?? Temporal.Now.instant(),
+                ...(keepSessionId !== undefined && { keptSessionId: keepSessionId }),
+              })
+            ).length,
+        } satisfies CredentialRevoker),
+      });
 
       // Custom domain-event for cross-instance access-invalidation.
       // r.defineEvent registers the schema so ctx.events.unsafeAppend (revoke,
@@ -172,12 +177,7 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
         trigger: { maintenance: true },
         concurrency: "skip",
         escapeHatch: { reason: CLEANUP_ESCAPE_HATCH_REASON, grants: ["unsafeRaw"] },
-        handler: (payload, ctx) =>
-          cleanupJob(
-            payload,
-            ctx,
-            ctx.db.unsafeRawAllTenants(),
-          ),
+        handler: (payload, ctx) => cleanupJob(payload, ctx, ctx.db.unsafeRawAllTenants()),
       });
 
       const probeSecret = options?.lastActivityProbeSecret ?? readProbeSecretFromEnv();

@@ -1,7 +1,7 @@
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-types/feature";
 import { buildDocumentPreview } from "./document-pdf.ts";
-import { RENDERED_PDF_ENTITY_NAME, renderedPdfEntity } from "./entity.ts";
+import { renderedPdfEntity } from "./entity.ts";
 import { previewPdfQuery } from "./preview-pdf.query.ts";
 import { previewPngQuery } from "./preview-png.query.ts";
 import { PDF_PROBE_I18N, registerPdfServiceProbe } from "./probe.ts";
@@ -29,9 +29,13 @@ export function createRendererPuppeteerClientFeature(): FeatureDefinition {
     );
     r.requires({ features: ["renderer-foundation"] });
 
-    r.applyExtension({ name: "renderer", entity: "puppeteer", kinds: ["document-pdf", "image-snapshot"] as const,
+    r.applyExtension({
+      name: "renderer",
+      entity: "puppeteer",
+      kinds: ["document-pdf", "image-snapshot"] as const,
       render: puppeteerRender,
-      previewDocument: buildDocumentPreview });
+      previewDocument: buildDocumentPreview,
+    });
 
     r.entity(renderedPdfEntity);
     r.queryHandler(puppeteerStatusQuery);

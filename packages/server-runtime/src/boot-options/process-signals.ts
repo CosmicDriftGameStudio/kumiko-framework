@@ -44,7 +44,10 @@ export function shutdownBudgetsMs(totalBudgetMs: number): ShutdownBudgets {
   const serverGraceMs = Math.min(SERVER_STOP_GRACE_MS, Math.floor(totalBudgetMs / 5));
   return {
     serverGraceMs,
-    jobDrainMs: Math.max(MIN_JOB_DRAIN_MS, totalBudgetMs - serverGraceMs - SHUTDOWN_TAIL_RESERVE_MS),
+    jobDrainMs: Math.max(
+      MIN_JOB_DRAIN_MS,
+      totalBudgetMs - serverGraceMs - SHUTDOWN_TAIL_RESERVE_MS,
+    ),
   };
 }
 

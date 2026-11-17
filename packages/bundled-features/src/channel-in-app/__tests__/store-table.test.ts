@@ -8,7 +8,9 @@ describe("channel-in-app — store_in_app_messages store table", () => {
   test("registers store_in_app_messages via r.storeTable", () => {
     const feature = createChannelInAppFeature();
     expect(feature.storeTables).toHaveProperty("store_in_app_messages");
-    expect(feature.storeTables["store_in_app_messages"]?.meta.tableName).toBe("store_in_app_messages");
+    expect(feature.storeTables["store_in_app_messages"]?.meta.tableName).toBe(
+      "store_in_app_messages",
+    );
   });
 
   test("store_in_app_messages is part of collectTableMetas() so a migration is generated for it", () => {

@@ -14,7 +14,13 @@ import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { asRawClient, fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_USER_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import { createFilesFeature, createInMemoryFileProvider, fileRefsTable, type FileStorageProvider, type InMemoryFileProvider } from "@cosmicdrift/kumiko-framework/files";
+import {
+  createFilesFeature,
+  createInMemoryFileProvider,
+  type FileStorageProvider,
+  fileRefsTable,
+  type InMemoryFileProvider,
+} from "@cosmicdrift/kumiko-framework/files";
 import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,

@@ -34,7 +34,9 @@ function createTenantConfigFileProviderS3Feature() {
       r.requires({ features: ["secrets"] });
       r.requires({ features: ["file-foundation"] });
 
-      const secretAccessKey = r.secret({ name: "s3.secretAccessKey", label: { en: "S3 secret access key" },
+      const secretAccessKey = r.secret({
+        name: "s3.secretAccessKey",
+        label: { en: "S3 secret access key" },
         hint: {
           en: "Private half of the S3 key pair. Hetzner calls it 'Secret Key', AWS calls it 'Secret Access Key'.",
         },
@@ -44,7 +46,8 @@ function createTenantConfigFileProviderS3Feature() {
         },
         scope: "tenant",
         // required: true ↔ the missing-secret throw in readSecretAccessKey — keep in sync.
-        required: true });
+        required: true,
+      });
 
       // required: true ↔ the requireNonEmpty calls in buildS3Provider — keep in sync.
       const configKeys = r.config({

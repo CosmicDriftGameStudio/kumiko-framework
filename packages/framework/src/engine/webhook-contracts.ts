@@ -223,7 +223,9 @@ export function createWebhookContractResolver(
             declaredVerb === undefined ? undefined : entities.get(declaredVerb.entity);
           derived.set(
             qualifiedName,
-            declaredVerb === undefined || verbEntity === undefined || verbEntity.webhookEvents !== true
+            declaredVerb === undefined ||
+              verbEntity === undefined ||
+              verbEntity.webhookEvents !== true
               ? undefined
               : {
                   ...entityContract(

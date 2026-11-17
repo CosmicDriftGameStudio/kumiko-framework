@@ -59,15 +59,23 @@ export const relationsFeature = defineFeature("org", (r) => {
   const team = r.entity(teamEntity);
   const member = r.entity(memberEntity);
 
-  r.relation({ entity: team, name: "members", type: "hasMany",
+  r.relation({
+    entity: team,
+    name: "members",
+    type: "hasMany",
     target: "member",
     foreignKey: "teamId",
-    onDelete: "restrict" });
+    onDelete: "restrict",
+  });
 
-  r.relation({ entity: member, name: "tasks", type: "hasMany",
+  r.relation({
+    entity: member,
+    name: "tasks",
+    type: "hasMany",
     target: "task",
     foreignKey: "memberId",
-    onDelete: "cascade" });
+    onDelete: "cascade",
+  });
 
   // onDelete runs automatically in the delete lifecycle: deleting a team is refused while
   // members exist, deleting a member removes its tasks.

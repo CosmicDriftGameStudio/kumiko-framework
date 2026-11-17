@@ -141,8 +141,7 @@ function citationProblem(tagLine: string, testFiles: readonly SourceFile[]): str
     return "cites no test file: name the covering test, e.g. integration-covered via src/__tests__/<name>.integration.test.ts";
   }
   const missing = refs.find(
-    (ref) =>
-      !testFiles.some((t) => t.getFilePath() === ref || t.getFilePath().endsWith(`/${ref}`)),
+    (ref) => !testFiles.some((t) => t.getFilePath() === ref || t.getFilePath().endsWith(`/${ref}`)),
   );
   return missing === undefined
     ? undefined

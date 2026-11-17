@@ -152,7 +152,13 @@ function renderBandWithNarrowMetrics(
       {wrapNarrowOrder(
         model,
         NARROW_METRICS_ORDER,
-        renderMetricsBlock(model, metricItems, undefined, undefined, splitsBand ? "tiles" : undefined),
+        renderMetricsBlock(
+          model,
+          metricItems,
+          undefined,
+          undefined,
+          splitsBand ? "tiles" : undefined,
+        ),
       )}
     </>
   );

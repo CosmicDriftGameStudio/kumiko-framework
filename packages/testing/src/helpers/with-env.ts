@@ -2,10 +2,7 @@ import { afterAll, afterEach, beforeAll, beforeEach } from "bun:test";
 
 type EnvOverrides = Readonly<Record<string, string | undefined>>;
 
-export async function withEnv<T>(
-  overrides: EnvOverrides,
-  run: () => T | Promise<T>,
-): Promise<T> {
+export async function withEnv<T>(overrides: EnvOverrides, run: () => T | Promise<T>): Promise<T> {
   const restore = applyEnvOverrides(overrides);
   try {
     return await run();

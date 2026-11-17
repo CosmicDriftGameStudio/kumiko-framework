@@ -7,9 +7,9 @@
 //   3. DDL consistency: fileRefsTable (buildEntityTable) and fileRefEntity
 //      point to the same PostgreSQL structure (drift guard)
 
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { defineFeature, EXT_USER_DATA } from "../../engine/index.ts";
 import { fileRefsTable } from "../file-ref-table.ts";
-import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 
 // Native dialect exposes column metadata on the `columns` array (EntityTableMeta)
 // and on the Symbol.for("kumiko:schema:Columns") map (compat shape). Tests use the
@@ -54,11 +54,14 @@ describe("files :: cross-feature behavior (F1, S1.7)", () => {
     // EXT_USER_DATA is framework-owned, so the consumer needs no provider feature.
     const consumer = defineFeature("test-files-consumer", (r) => {
       r.requires({ features: ["files"] });
-      r.applyExtension({ name: EXT_USER_DATA, entity: "fileRef", // Stub hooks: these will carry the actual forget/export logic later. For this
+      r.applyExtension({
+        name: EXT_USER_DATA,
+        entity: "fileRef", // Stub hooks: these will carry the actual forget/export logic later. For this
         // test, it is enough that useExtension finds the fileRef entity in the
         // registry without a boot error.
         export: async () => null,
-        delete: async () => undefined });
+        delete: async () => undefined,
+      });
     });
 
     // Use a separate test stack so this sub-test runs in isolation from the outer

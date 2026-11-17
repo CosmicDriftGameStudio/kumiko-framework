@@ -14,6 +14,7 @@ import { fallbackEscapeHatchReporter } from "../observability/escape-hatch-repor
 import type { DbRunner } from "./connection.ts";
 import { projectionRegistryOf } from "./projection-registry-binding.ts";
 import { unsafeRawScopedRunner } from "./row-level-security-scope.ts";
+import { tenantDbRunner } from "./tenant-db-runner.ts";
 import {
   boundRunner,
   declaredUnsafeRawRunners,
@@ -23,7 +24,6 @@ import {
   withoutExecutorManagedWrites,
   withUnsafeRawGrant,
 } from "./tenant-db-runner-binding.ts";
-import { tenantDbRunner } from "./tenant-db-runner.ts";
 
 const systemDbRebinders = new WeakMap<
   object,

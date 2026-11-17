@@ -20,7 +20,14 @@ import {
 import { PageHeaderSlotProvider } from "../layout/page-header-slot.tsx";
 import { ShellHeader } from "../layout/shell-header.tsx";
 import { defaultPrimitives } from "../primitives/index.tsx";
-import { createMockDispatcher, type MockQueryHandler, render, renderWithSidebar, screen, waitFor } from "./test-utils.tsx";
+import {
+  createMockDispatcher,
+  type MockQueryHandler,
+  render,
+  renderWithSidebar,
+  screen,
+  waitFor,
+} from "./test-utils.tsx";
 
 const baseScreen: ProjectionDetailScreenDefinition = {
   id: "rent-detail",

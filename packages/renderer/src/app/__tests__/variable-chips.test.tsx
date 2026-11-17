@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
-import { type ButtonProps,PrimitivesProvider } from "../../primitives.tsx";
+import { type ButtonProps, PrimitivesProvider } from "../../primitives.tsx";
 import { createStubPrimitives } from "../../testing.ts";
 import { VariableChips } from "../variable-chips.tsx";
 

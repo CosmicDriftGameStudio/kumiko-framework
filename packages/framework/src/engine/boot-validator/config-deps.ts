@@ -6,7 +6,6 @@ import { bootRuleError } from "./boot-rule.ts";
 import type { BootWarningSink } from "./boot-warning.ts";
 import { CONFIG_KEY_RULES } from "./config-key-rules.ts";
 
-
 // --- Toggleable-dependency warnings ---
 //
 // When feature A declares r.requires({ features: ["B"] }) and B is toggleable with
@@ -29,7 +28,7 @@ export function warnOnToggleableDependencies(
           kind: "config/toggleable-dependency",
           feature: f.name,
           message:
-          `Feature "${f.name}" requires "${dep}", which is toggleable(default=false). ` +
+            `Feature "${f.name}" requires "${dep}", which is toggleable(default=false). ` +
             `"${f.name}" will be effectively disabled until "${dep}" is enabled globally via the feature-toggles feature. ` +
             `If this is intentional, ignore this warning; otherwise consider r.optionalRequires() or default=true.`,
         });

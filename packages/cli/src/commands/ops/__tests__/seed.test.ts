@@ -16,7 +16,11 @@ function makeCwd(): string {
   return dir;
 }
 
-function capture(): { out: { log: (s: string) => void; err: (s: string) => void }; logs: string[]; errs: string[] } {
+function capture(): {
+  out: { log: (s: string) => void; err: (s: string) => void };
+  logs: string[];
+  errs: string[];
+} {
   const logs: string[] = [];
   const errs: string[] = [];
   return { logs, errs, out: { log: (s) => logs.push(s), err: (s) => errs.push(s) } };

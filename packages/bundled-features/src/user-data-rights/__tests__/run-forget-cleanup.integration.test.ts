@@ -24,10 +24,10 @@ import {
   PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/db";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createSystemUser, type JobContext } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createFilesFeature, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { createTzContext, getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
@@ -328,7 +328,10 @@ describe("run-forget-cleanup :: registered cron (autonomous Art.17)", () => {
         tenantId: TENANT_A,
         mode: "tenant",
         grants: {
-          unsafeRaw: { reason: "executes overdue Art.17 forget requests across every tenant", grants: ["unsafeRaw"] },
+          unsafeRaw: {
+            reason: "executes overdue Art.17 forget requests across every tenant",
+            grants: ["unsafeRaw"],
+          },
         },
       }),
       registry: stack.registry,
@@ -405,7 +408,10 @@ describe("run-forget-cleanup :: registered cron (autonomous Art.17)", () => {
           tenantId: TENANT_A,
           mode: "tenant",
           grants: {
-            unsafeRaw: { reason: "executes overdue Art.17 forget requests across every tenant", grants: ["unsafeRaw"] },
+            unsafeRaw: {
+              reason: "executes overdue Art.17 forget requests across every tenant",
+              grants: ["unsafeRaw"],
+            },
           },
         }),
         registry: stack.registry,

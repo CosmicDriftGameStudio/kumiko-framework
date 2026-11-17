@@ -217,16 +217,18 @@ export type StepNamespace = {
         readonly skipOptimisticLock?: boolean;
       },
     ) => StepInstance;
-    readonly appendEvent: (args: {
-      readonly aggregateId: StepResolver<string>;
-      readonly aggregateType: string;
-      readonly type: string;
-      readonly payload: StepResolver<unknown>;
-      readonly headers?: StepResolver<Readonly<Record<string, string | number | boolean>>>;
-    } & (
-      | { readonly expectedVersion: StepResolver<number>; readonly blindAppendReason?: never }
-      | { readonly blindAppendReason: string; readonly expectedVersion?: never }
-    )) => StepInstance;
+    readonly appendEvent: (
+      args: {
+        readonly aggregateId: StepResolver<string>;
+        readonly aggregateType: string;
+        readonly type: string;
+        readonly payload: StepResolver<unknown>;
+        readonly headers?: StepResolver<Readonly<Record<string, string | number | boolean>>>;
+      } & (
+        | { readonly expectedVersion: StepResolver<number>; readonly blindAppendReason?: never }
+        | { readonly blindAppendReason: string; readonly expectedVersion?: never }
+      ),
+    ) => StepInstance;
   };
   // Conditional sub-pipeline. `onTrue` (required) and `onFalse`
   // (optional) are static StepInstance arrays; `r` for sub-step builders

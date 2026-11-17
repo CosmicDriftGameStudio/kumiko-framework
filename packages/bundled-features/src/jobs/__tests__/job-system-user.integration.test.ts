@@ -1,7 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { createSystemDbView, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   access,
   attachOutsideTransaction,
@@ -13,6 +12,7 @@ import {
   type SessionUser,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createArchivedStreamsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { createTestEnvelopeCipher, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
@@ -59,8 +59,14 @@ const billingFeature = defineFeature("billing", (r) => {
   // resolver.set escape hatch is gone. checkWriteAccess grants a
   // SYSTEM_ROLE caller the right to write system-only keys that Admin
   // cannot touch, so the security invariant (see Admin test below) holds.
-  r.job({ name: "calculateTotal", trigger: { manual: true },
-      escapeHatch: { reason: "test job builds a system-mode handler context for config:write:set", grants: ["unsafeRaw"] }, handler: async (_payload, ctx) => {
+  r.job({
+    name: "calculateTotal",
+    trigger: { manual: true },
+    escapeHatch: {
+      reason: "test job builds a system-mode handler context for config:write:set",
+      grants: ["unsafeRaw"],
+    },
+    handler: async (_payload, ctx) => {
       const systemUser = ctx["systemUser"] as SessionUser;
       const jobDb = ctx.db.unsafeRawAllTenants() as DbConnection;
       const reg = ctx["registry"] as Registry;
@@ -92,7 +98,8 @@ const billingFeature = defineFeature("billing", (r) => {
       }
 
       ctx.obs.log?.info(`Set monthlyTotal to ${total}`);
-    } });
+    },
+  });
 });
 
 const configFeature = createConfigFeature();

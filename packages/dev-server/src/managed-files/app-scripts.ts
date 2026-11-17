@@ -77,7 +77,9 @@ export function testCommandErrors(scripts: Readonly<Record<string, string>>): st
       const variant = variantOfSegment(segment);
       if (variant === undefined) continue;
       if (variant === "integration") {
-        errors.push(`${name}: run integration tests through \`bun ${INTEGRATION_DELEGATE}\`, not \`bun test\``);
+        errors.push(
+          `${name}: run integration tests through \`bun ${INTEGRATION_DELEGATE}\`, not \`bun test\``,
+        );
         continue;
       }
       const timeoutFlag = TIMEOUT_FLAG.exec(segment)?.[1];

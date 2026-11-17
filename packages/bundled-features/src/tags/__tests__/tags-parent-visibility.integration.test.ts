@@ -20,12 +20,12 @@ import {
   type EntityDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
-import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { tagAssignmentEntity, tagEntity } from "../entity.ts";
 import { createTagsFeature } from "../feature.ts";
 import { TagsHandlers } from "../web/constants.ts";
@@ -100,7 +100,8 @@ let tagId: string;
 beforeAll(async () => {
   stack = await setupTestStack({
     features: [
-      createTagsFeature({ parents: ["project"],
+      createTagsFeature({
+        parents: ["project"],
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       }),
       hostFixturesFeature,

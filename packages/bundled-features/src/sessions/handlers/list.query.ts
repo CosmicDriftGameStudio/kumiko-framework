@@ -4,9 +4,9 @@ import {
   definePagedQueryHandler,
   MAX_LIST_LIMIT,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { mapWithConcurrency } from "@cosmicdrift/kumiko-framework/utils";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
-import { mapWithConcurrency } from "@cosmicdrift/kumiko-framework/utils";
 import { decryptStoredPii, KMS_POOL_CONCURRENCY } from "../../shared/index.ts";
 import { userSessionTable } from "../schema/user-session.ts";
 import { formatDeviceLabel, parsedDeviceSchema, parseUserAgent } from "../web/user-agent.ts";
@@ -83,21 +83,21 @@ export const createListQuery = (adminRoles: readonly string[] = access.admin) =>
         ...(query.payload.limit !== undefined && { limit: query.payload.limit }),
       });
       const decryptedRows = await mapWithConcurrency(rows, KMS_POOL_CONCURRENCY, async (r) => {
-          const userAgent = r.userAgent
-            ? await decryptStoredPii(r.userAgent, "userAgent", "sessions:list")
-            : r.userAgent;
-          const device = parseUserAgent(userAgent);
-          return {
-            id: r.id,
-            userId: r.userId,
-            createdAt: r.createdAt,
-            expiresAt: r.expiresAt,
-            revokedAt: r.revokedAt,
-            ip: r.ip ? await decryptStoredPii(r.ip, "ip", "sessions:list") : r.ip,
-            userAgent,
-            device,
-            deviceLabel: formatDeviceLabel(device),
-          };
+        const userAgent = r.userAgent
+          ? await decryptStoredPii(r.userAgent, "userAgent", "sessions:list")
+          : r.userAgent;
+        const device = parseUserAgent(userAgent);
+        return {
+          id: r.id,
+          userId: r.userId,
+          createdAt: r.createdAt,
+          expiresAt: r.expiresAt,
+          revokedAt: r.revokedAt,
+          ip: r.ip ? await decryptStoredPii(r.ip, "ip", "sessions:list") : r.ip,
+          userAgent,
+          device,
+          deviceLabel: formatDeviceLabel(device),
+        };
       });
       return { rows: decryptedRows, nextCursor: null };
     },

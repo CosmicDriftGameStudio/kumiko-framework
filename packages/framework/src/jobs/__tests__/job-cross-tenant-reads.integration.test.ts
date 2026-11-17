@@ -60,8 +60,11 @@ async function probe(
 }
 
 const jobsFeature = defineFeature("crosstenant", (r) => {
-  r.job({ name: "plain", trigger: { manual: true }, handler: (_payload, ctx) =>
-    probe("plain", ctx.crossTenantReads) });
+  r.job({
+    name: "plain",
+    trigger: { manual: true },
+    handler: (_payload, ctx) => probe("plain", ctx.crossTenantReads),
+  });
   r.job({
     name: "declared",
     trigger: { manual: true },

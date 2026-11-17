@@ -3,8 +3,8 @@ import {
   type EntityDefinition,
   hostRoleAllowsRead,
   isUuid,
-  registeredEntityExecutor,
   type Registry,
+  registeredEntityExecutor,
   type SessionUser,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -98,7 +98,10 @@ export async function liveHostRowIds(
 
   let table = hostTablesByEntity.get(entity);
   if (!table) {
-    table = buildEntityTable({ ...entity, name: entityType }, { relations: registry.getRelations(entityType) });
+    table = buildEntityTable(
+      { ...entity, name: entityType },
+      { relations: registry.getRelations(entityType) },
+    );
     hostTablesByEntity.set(entity, table);
   }
   const rows = await db.selectMany<Record<string, unknown>>(table, { id: wellFormed });

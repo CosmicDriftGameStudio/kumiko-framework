@@ -2,10 +2,7 @@
 // own `access.read`; everything else answers like a missing record.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import {
-  buildEntityTable,
-  createEventStoreExecutor,
-} from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
@@ -260,9 +257,7 @@ describe("signature :: host gate on queries", () => {
     expect(forB.total).toBe(1);
 
     const forAdmin = await listRequests(ADMIN, { totalCount: true, limit: 200 });
-    expect(forAdmin.rows.map((row) => row.id).sort()).toEqual(
-      [...idsOfA, onB.requestId].sort(),
-    );
+    expect(forAdmin.rows.map((row) => row.id).sort()).toEqual([...idsOfA, onB.requestId].sort());
     expect(forAdmin.total).toBe(3);
   });
 

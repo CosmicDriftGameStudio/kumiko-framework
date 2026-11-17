@@ -4,14 +4,15 @@ import { deleteCookie, setCookie } from "hono/cookie";
 import { buildSessionRoles } from "../engine/membership-roles.ts";
 import { createSystemUser } from "../engine/system-user.ts";
 import type { SessionUser, TenantId } from "../engine/types/index.ts";
+import { toClientWriteErrorInfo } from "../errors/write-error-info.ts";
 import type { Dispatcher } from "../pipeline/dispatcher.ts";
 import { parseRoles } from "../utils/serialization.ts";
 import type { PendingMfaStep } from "./auth-routes-shared.ts";
-import { toContentfulStatus } from "./contentful-status.ts";
 import { isUnknownHandlerError, pendingMfaStepResponse } from "./auth-routes-shared.ts";
 import type { AuthRoutesConfig, SessionMetadata } from "./auth-routes-types.ts";
 import type { ClientIpResolver } from "./client-ip.ts";
 import { clientIpSourceFromHonoContext, createClientIpResolver } from "./client-ip.ts";
+import { toContentfulStatus } from "./contentful-status.ts";
 import type { JwtHelper } from "./jwt.ts";
 import type { PostAuthLandingArgs } from "./post-auth-landing.ts";
 import { resolvePostAuthLandingPath } from "./post-auth-landing.ts";
@@ -24,7 +25,6 @@ import {
   resolveSessionCookies,
 } from "./session-cookies.ts";
 import { generateToken } from "./tokens.ts";
-import { toClientWriteErrorInfo } from "../errors/write-error-info.ts";
 
 // Double-entry cookie write used at login and switch-tenant. The auth cookie is
 // the HttpOnly carrier of the JWT; the csrf cookie is the JS-readable token the

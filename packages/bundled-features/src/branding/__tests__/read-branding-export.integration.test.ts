@@ -1,17 +1,16 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
-import { setupTestStack, type TestStack, unsafePushTables } from "@cosmicdrift/kumiko-testing/stack";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafePushTables,
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.ts";
 import { createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";
-import {
-  BRANDING_QN,
-  type BrandingTokens,
-  createBrandingFeature,
-  readBranding,
-} from "../index.ts";
+import { BRANDING_QN, type BrandingTokens, createBrandingFeature, readBranding } from "../index.ts";
 
 const TENANT_A = "11111111-1111-4111-8111-111111111111";
 const TENANT_B = "22222222-2222-4222-8222-222222222222";
@@ -34,11 +33,7 @@ let stack: TestStack;
 beforeAll(async () => {
   const resolver = createConfigResolver();
   stack = await setupTestStack({
-    features: [
-      createConfigFeature(),
-      createBrandingFeature(),
-      brandingConsumer,
-    ],
+    features: [createConfigFeature(), createBrandingFeature(), brandingConsumer],
     extraContext: ({ registry }) => ({
       configResolver: resolver,
       configAccessorFactory: createConfigAccessorFactory(registry, resolver),

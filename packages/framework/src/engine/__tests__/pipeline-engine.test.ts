@@ -209,9 +209,7 @@ describe("pipeline engine (return / compute / registry guards)", () => {
 
     defineStep({ kind, run: () => undefined });
 
-    expect(() =>
-      defineStep({ kind, run: () => "different" }),
-    ).toThrow(/already registered/);
+    expect(() => defineStep({ kind, run: () => "different" })).toThrow(/already registered/);
   });
 
   it("rejects a return step whose resolver yields something that is not a WriteResult", async () => {

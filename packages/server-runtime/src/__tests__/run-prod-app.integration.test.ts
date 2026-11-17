@@ -16,6 +16,7 @@ import { dirname, join } from "node:path";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { createPersonalAccessTokensFeature } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
+import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-mail-html";
 import {
   createSessionsFeature,
   userSessionEntity,
@@ -34,7 +35,6 @@ import {
   type SseEvent,
   signatureRoute,
 } from "@cosmicdrift/kumiko-framework/api";
-
 import { InMemoryKmsAdapter, type KmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import { asRawClient, createDbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -61,7 +61,6 @@ import {
   APEX_LIGHTBOX_SCRIPT_CSP_HASH,
   renderApexPage,
 } from "@cosmicdrift/kumiko-renderer/headless/apex";
-import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-mail-html";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { testRunQueueNamePrefix, unsafeEnsureEntityTable } from "@cosmicdrift/kumiko-testing/stack";
 import { AUTH_COOKIE_BASE, sessionCookieName } from "@cosmicdrift/kumiko-types/session-cookies";
@@ -182,7 +181,12 @@ const widgetFeature = defineFeature("prod-probe", (r) => {
 // runProdApp must schedule it (single-instance runs both lanes); on the old
 // createApiEntrypoint path it was silently never registered → exports hung.
 const cronProbeFeature = defineFeature("cron-probe", (r) => {
-  r.job({ name: "worker-lane-cron", trigger: { cron: "0 0 1 1 *" }, runIn: "worker", handler: async () => {} });
+  r.job({
+    name: "worker-lane-cron",
+    trigger: { cron: "0 0 1 1 *" },
+    runIn: "worker",
+    handler: async () => {},
+  });
 });
 
 async function workerLaneSchedulers(prefix: string): Promise<{ name?: string; key?: string }[]> {
@@ -1643,11 +1647,13 @@ describe("rate-limit defaults", () => {
 
 describe("hard PII boot gate", () => {
   const gatePiiFeature = defineFeature("gate-pii", (r) => {
-    r.entity(createEntity({
+    r.entity(
+      createEntity({
         name: "gate-person",
         table: "read_gate_persons",
         fields: { email: createTextField({ required: true, personal: "self", find: "none" }) },
-      }));
+      }),
+    );
   });
 
   test("PII entities without a kms abort the boot", async () => {

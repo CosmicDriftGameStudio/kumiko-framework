@@ -2,10 +2,7 @@
 // event of an aborted delivery and skips files that are gone; the readers return what it wrote.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import {
-  configurePiiSubjectKms,
-  InMemoryKmsAdapter,
-} from "@cosmicdrift/kumiko-framework/crypto";
+import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import { createTenantDb, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,

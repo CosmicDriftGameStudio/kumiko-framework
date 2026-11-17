@@ -4,7 +4,7 @@ import { render, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
-import {type FieldProps, PrimitivesProvider } from "../../primitives.tsx";
+import { type FieldProps, PrimitivesProvider } from "../../primitives.tsx";
 import { createStubPrimitives } from "../../testing.ts";
 import { createMockDispatcher } from "../../web/__tests__/test-utils.tsx";
 import type { FeatureSchema } from "../feature-schema.ts";

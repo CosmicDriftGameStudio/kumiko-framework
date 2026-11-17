@@ -746,11 +746,13 @@ describe("validateBoot — projectionList screens", () => {
 
     test("a reference facet targeting a known entity passes boot", () => {
       const feature = defineFeature("ledger", (r) => {
-        r.entity(createEntity({
+        r.entity(
+          createEntity({
             name: "tenant",
             table: "Tenants",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-          }));
+          }),
+        );
         r.queryHandler({
           name: "tenant:list",
           schema: z.object({}),
@@ -782,11 +784,13 @@ describe("validateBoot — projectionList screens", () => {
 
     test("a reference facet whose target entity has no list query handler throws", () => {
       const feature = defineFeature("ledger", (r) => {
-        r.entity(createEntity({
+        r.entity(
+          createEntity({
             name: "tenant",
             table: "Tenants",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-          }));
+          }),
+        );
         r.queryHandler({
           name: "schedule:list",
           schema: z.object({ filters: z.unknown().optional() }),
@@ -814,11 +818,13 @@ describe("validateBoot — projectionList screens", () => {
 
     test("a reference facet filtering by an id field with no same-named column boots (displays a different label column)", () => {
       const feature = defineFeature("ledger", (r) => {
-        r.entity(createEntity({
+        r.entity(
+          createEntity({
             name: "property",
             table: "Properties",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-          }));
+          }),
+        );
         r.queryHandler({
           name: "property:list",
           schema: z.object({}),

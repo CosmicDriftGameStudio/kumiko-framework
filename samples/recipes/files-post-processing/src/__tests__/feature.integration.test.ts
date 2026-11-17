@@ -27,10 +27,7 @@ import {
   buildMultipartBody,
   patchFileInstanceofForBunTest,
 } from "@cosmicdrift/kumiko-testing/helpers";
-import {
-  setupTestStack,
-  type TestStack,
-} from "@cosmicdrift/kumiko-testing/stack";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import sharp from "sharp";
 import { coverOrder, filesPostProcessingFeature, publishedPhotoIds } from "../feature";
 

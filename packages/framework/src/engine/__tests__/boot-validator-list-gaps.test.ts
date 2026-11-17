@@ -57,10 +57,12 @@ function featureWithDetail(
   withEdit = false,
 ) {
   return defineFeature("shop", (r) => {
-    r.entity(createEntity({
+    r.entity(
+      createEntity({
         name: "order",
         fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-      }));
+      }),
+    );
     registerHandlers(r, ["activate"]);
     if (withEdit) {
       r.screen({
@@ -150,10 +152,12 @@ describe("validateBoot — projectionDetail inlineActions", () => {
 describe("validateBoot — list emptyState", () => {
   function listWithEmptyAction(actionId: string) {
     return defineFeature("shop", (r) => {
-      r.entity(createEntity({
+      r.entity(
+        createEntity({
           name: "order",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-        }));
+        }),
+      );
       registerHandlers(r, ["sync"]);
       r.screen({
         id: "order-list",
@@ -184,10 +188,12 @@ describe("validateBoot — emptyState action targets", () => {
 
   function listWithEmptyAction(action: EmptyStateAction) {
     return defineFeature("shop", (r) => {
-      r.entity(createEntity({
+      r.entity(
+        createEntity({
           name: "order",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
-        }));
+        }),
+      );
       registerHandlers(r, ["sync"]);
       r.screen({
         id: "order-list",

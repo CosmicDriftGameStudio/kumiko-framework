@@ -11,7 +11,8 @@ import type { EditFieldViewModel } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import {
-  type ButtonProps,  type GridProps,
+  type ButtonProps,
+  type GridProps,
   type InputProps,
   PrimitivesProvider,
 } from "../../primitives.tsx";
