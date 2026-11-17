@@ -163,16 +163,13 @@ export function createInviteHandler(invite: WaitlistInviteOptions = DEFAULT_INVI
         return writeFailure(new UnprocessableError(WaitlistErrors.notInvitable));
       }
 
-      // inviteCreate is admin-only (no system role); the system variant with an
-      // empty globalRoles list is the only in-process path, and a waitlist
-      // invite must never grant a global role.
+      // inviteCreate is admin-only (no system role); the system variant is the only in-process path.
       const invited = await ctx.dispatch.writeAs(
         createSystemUser(target.tenantId),
         AuthHandlers.systemInviteCreate,
         {
           email: entry.email.toLowerCase(),
           role: target.role,
-          globalRoles: [],
           ...(entry.locale !== undefined && { locale: entry.locale }),
         },
       );

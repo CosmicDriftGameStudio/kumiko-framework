@@ -27,15 +27,11 @@ import {
   type SessionUser,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
 import { sessionLocaleField, sessionTimezoneField } from "../../shared/index.ts";
 // kumiko-lint-ignore cross-feature-import membership grant for a privileged cross-tenant add
 import { grantInvitedMembershipRole } from "../../tenant/invited-membership.ts";
-// kumiko-lint-ignore cross-feature-import global roles granted on invite accept live on the user row
-import {
-  grantInvitedGlobalRoles,
-  parseInvitedGlobalRoles,
-} from "../../user/invited-global-roles.ts";
 // kumiko-lint-ignore cross-feature-import the handler verifies the invited email password against the user row, like login
 import { userTable } from "../../user/schema/user.ts";
 import { invalidCredentials, inviteEmailMismatch } from "../errors.ts";
@@ -87,6 +83,7 @@ type UserAuthRow = {
   readonly locale?: string | null;
   readonly emailVerified?: boolean | null;
   readonly status?: string | null;
+  readonly roles?: readonly string[] | string | null;
 };
 
 export function createInviteAcceptWithLoginHandler(opts: InviteAcceptWithLoginOptions = {}) {
@@ -169,18 +166,12 @@ export function createInviteAcceptWithLoginHandler(opts: InviteAcceptWithLoginOp
           });
           if (!grant.isSuccess) return grant;
 
-          const globalGrant = await grantInvitedGlobalRoles(dbConn, {
-            userId,
-            globalRoles: parseInvitedGlobalRoles(invitation.globalRoles),
-          });
-          if (!globalGrant.isSuccess) return globalGrant;
-
           const updateResult = await markInvitationAccepted(dbConn, invitation);
           if (!updateResult.isSuccess) return updateResult;
 
           // buildSessionRoles calls stripForbiddenMembershipRoles internally —
           // a reserved role on an existing membership must never reach the session.
-          const mergedRoles = buildSessionRoles(globalGrant.data.roles, grant.data.roles);
+          const mergedRoles = buildSessionRoles(parseRoles(userRow.roles ?? null), grant.data.roles);
 
           // The MFA gate runs before the token is deleted, so a throwing check
           // leaves the link usable again; a challenge halts the session mint,

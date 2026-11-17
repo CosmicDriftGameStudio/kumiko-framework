@@ -112,13 +112,12 @@ function buildDeliveryContextFactories(opts: {
   readonly redis?: Redis;
   readonly tenantUserIdsQuery?: string;
   readonly configResolver: ConfigResolver | undefined;
-  readonly deliverQueuedInline: boolean | undefined;
   readonly unsubscribeLinks: UnsubscribeLinkConfig | undefined;
 }): {
   readonly _notifyFactory: NotifyFactory;
   readonly _deliveryAttemptLogFactory: DeliveryAttemptLogFactory;
 } {
-  if (!opts.addressCipher && opts.deliverQueuedInline !== true) {
+  if (!opts.addressCipher) {
     createFallbackLogger("delivery", opts.log).warn(
       "No master key configured: queued delivery jobs carry recipient addresses in plaintext " +
         "(Redis, job runs). Set KUMIKO_SECRETS_MASTER_KEY_V1 (and KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION) " +
@@ -151,9 +150,7 @@ function buildDeliveryContextFactories(opts: {
     }),
   });
   return {
-    _notifyFactory: createDeliveryNotifyFactory(deliveryService, {
-      deliverQueuedInline: opts.deliverQueuedInline === true,
-    }),
+    _notifyFactory: createDeliveryNotifyFactory(deliveryService),
     _deliveryAttemptLogFactory: createDeliveryAttemptLogFactory(deliveryService),
   };
 }
@@ -271,9 +268,6 @@ type BootExtraContextOptions = {
   /** Backs notify's idempotencyKey dedup; without it such a notify throws. */
   readonly redis?: Redis;
   readonly kms?: KmsAdapter;
-  /** One-shot process (runBootstrap): nothing drains its job queue once it
-   *  exits, so queued channels must send inline instead of enqueueing. */
-  readonly deliverQueuedInline?: boolean;
   /** Receives redacted delivery failures; without it they go to the console. */
   readonly log?: Logger;
   /** Signs `unsubscribe: true` notifications' mail links; see runProdApp `unsubscribe`. */
@@ -306,7 +300,6 @@ function bootDeliveryContext(
       ...(opts.log && { log: opts.log }),
       ...(hasTenantFeature && { tenantUserIdsQuery: TenantQueries.resolveUserIds }),
       configResolver: parts.configResolver,
-      deliverQueuedInline: opts.deliverQueuedInline,
       unsubscribeLinks: opts.unsubscribeLinks,
     }),
   };

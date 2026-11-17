@@ -21,6 +21,7 @@ describe("serializeAuditEvent", () => {
         createdBy: "u",
       },
       createEntityNounKeyResolver(undefined),
+      (_aggregateType, _type, payload) => payload,
     );
 
     expect(event.payload).toEqual({ name: REDACTED_PII_PLACEHOLDER });

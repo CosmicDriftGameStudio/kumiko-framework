@@ -36,8 +36,7 @@ export const AuthHandlers = {
   //   inviteAcceptWithLogin: anon user with existing email → POST token + email + password
   //   inviteSignupComplete: anon user with new email → POST token + password
   inviteCreate: "auth-email-password:write:invite-create",
-  // System-only variant (access.system) that may carry global roles — see
-  // invite-create.write.ts. Dispatched in-process by runBootstrap.
+  // System-only variant (access.system) for in-process callers (waitlist), see invite-create.write.ts.
   systemInviteCreate: "auth-email-password:write:system-invite-create",
   inviteAccept: "auth-email-password:write:invite-accept",
   inviteAcceptWithLogin: "auth-email-password:write:invite-accept-with-login",

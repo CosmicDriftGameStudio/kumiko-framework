@@ -53,7 +53,6 @@ import { tenantInvitationEntity, tenantInvitationsTable } from "../invitation-ta
 import { tenantMembershipsTable } from "../membership-table.ts";
 import { tenantEntity, tenantTable } from "../schema/tenant.ts";
 import { seedTenant, seedTenantMembership } from "../seeding.ts";
-import { updateInvitationViaEventStore } from "../testing.ts";
 import { MEMBERS_SCREEN_ID, TenantHandlers, TenantQueries } from "../web/constants.ts";
 
 const emailTransport = createInMemoryTransport();
@@ -243,17 +242,11 @@ describe("TenantAdmin can use members-admin HTTP surface", () => {
     expect(invitations[0]?.email).toBe("pending@example.com");
   });
 
-  test("invitations expose an explicit field allowlist; globalRoles only for a SystemAdmin", async () => {
+  test("invitations expose an explicit field allowlist to every caller", async () => {
     await stack.http.writeOk(
       AuthHandlers.inviteCreate,
       { email: "allowlist@example.com", role: "Editor" },
       tenantAdminA(),
-    );
-    await updateInvitationViaEventStore(
-      stack.db,
-      "allowlist@example.com",
-      { globalRoles: ["SystemAdmin"] },
-      TENANT_A_ID,
     );
 
     const [asTenantAdmin] = await stack.http.queryOk<readonly Record<string, unknown>[]>(
@@ -261,19 +254,18 @@ describe("TenantAdmin can use members-admin HTTP surface", () => {
       {},
       tenantAdminA(),
     );
-    expect(Object.keys(asTenantAdmin ?? {}).sort()).toEqual(
-      [
-        "email",
-        "expiresAt",
-        "id",
-        "insertedAt",
-        "invitedBy",
-        "role",
-        "status",
-        "tenantId",
-        "version",
-      ].sort(),
-    );
+    const allowlist = [
+      "email",
+      "expiresAt",
+      "id",
+      "insertedAt",
+      "invitedBy",
+      "role",
+      "status",
+      "tenantId",
+      "version",
+    ].sort();
+    expect(Object.keys(asTenantAdmin ?? {}).sort()).toEqual(allowlist);
 
     const systemAdminInTenantA: SessionUser = {
       id: tenantAdminAId,
@@ -285,7 +277,8 @@ describe("TenantAdmin can use members-admin HTTP surface", () => {
       {},
       systemAdminInTenantA,
     );
-    expect(asSystemAdmin?.["globalRoles"]).toEqual(["SystemAdmin"]);
+    expect(Object.keys(asSystemAdmin ?? {}).sort()).toEqual(allowlist);
+    expect(asSystemAdmin?.["globalRoles"]).toBeUndefined();
     expect(asSystemAdmin?.["email"]).toBe("allowlist@example.com");
   });
 

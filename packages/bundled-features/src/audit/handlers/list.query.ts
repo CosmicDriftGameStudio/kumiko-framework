@@ -21,6 +21,7 @@ import {
   listAuditEvents,
   technicalEntriesFilterSchema,
 } from "./audit-events.ts";
+import { createAuditPayloadFilter } from "./audit-payload-visibility.ts";
 import { requireAuditSystemDb } from "./audit-system-db.ts";
 import { resolveAuditScopeFilter } from "./resolve-audit-tenant.ts";
 
@@ -53,6 +54,13 @@ export const listQuery = defineQueryHandler({
     const db = requireAuditSystemDb(ctx.systemDb, "audit:query:list").assertTenantMatch(
       query.user.tenantId,
     );
-    return listAuditEvents(db, where, p, direction, createEntityNounKeyResolver(ctx.registry));
+    return listAuditEvents(
+      db,
+      where,
+      p,
+      direction,
+      createEntityNounKeyResolver(ctx.registry),
+      createAuditPayloadFilter(ctx.registry, query.user),
+    );
   },
 });

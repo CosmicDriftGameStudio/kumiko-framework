@@ -12,6 +12,7 @@ import {
   createEntityNounKeyResolver,
   loadAuditEvent,
 } from "./audit-events.ts";
+import { createAuditPayloadFilter } from "./audit-payload-visibility.ts";
 import { requireAuditSystemDb } from "./audit-system-db.ts";
 import { resolveAuditScopeFilter } from "./resolve-audit-tenant.ts";
 
@@ -41,6 +42,7 @@ export const detailsQuery = defineQueryHandler({
         id: BigInt(query.payload.id),
       },
       createEntityNounKeyResolver(ctx.registry),
+      createAuditPayloadFilter(ctx.registry, query.user),
     );
   },
 });

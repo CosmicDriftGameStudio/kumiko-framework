@@ -296,8 +296,7 @@ export type AppRuntimeAuthOptions = {
 export type RunProdAppAuthOptions = AppRuntimeAuthOptions & {
   /** Initial admin user with a password, seeded once (idempotent — re-boots
    *  check first whether the email is already in the users table). Optional:
-   *  passwordless setups provision their first admins via `runBootstrap`
-   *  (invitation, global role granted on accept) instead. */
+   *  passwordless setups provision their first admin via `seeds.bootstrapAdminFromEnv` instead. */
   readonly admin?: SeedAdminOptions;
   /** Secure flag for the session cookies (see AuthRoutesConfig.secureCookies).
    *  Defaults to true; set false only for plain-HTTP runs on a non-localhost host. */

@@ -3,6 +3,7 @@
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { auditEventIdSchema, createEntityNounKeyResolver, loadAuditEvent } from "./audit-events.ts";
+import { createAuditPayloadFilter } from "./audit-payload-visibility.ts";
 import { requireAuditSystemDb } from "./audit-system-db.ts";
 import { allTenantsCondition, assertMayReadAllTenants } from "./resolve-audit-tenant.ts";
 
@@ -22,6 +23,7 @@ export const detailsAllTenantsQuery = defineQueryHandler({
       db,
       { tenantId: allTenantsCondition(undefined), id: BigInt(query.payload.id) },
       createEntityNounKeyResolver(ctx.registry),
+      createAuditPayloadFilter(ctx.registry, query.user),
     );
   },
 });

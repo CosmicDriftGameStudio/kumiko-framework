@@ -17,7 +17,7 @@ const RELEASABLE_FIELDS: Readonly<Record<string, string>> = {
   "tenant/tenant":
     "id key isEnabled status destroyRequestedAt destroyRequestedBy gracePeriodEnd destroyStartedAt destroyedAt",
   "tenant/tenant-membership": "id userId roles",
-  "tenant/tenant-invitation": "id role globalRoles status membershipVersion expiresAt",
+  "tenant/tenant-invitation": "id role status membershipVersion expiresAt",
   "secrets/tenant-secret": "id key kekVersion",
   "auth-mfa/user-mfa": "id userId enabledAt lastUsedAt",
   "readiness/probe-run":

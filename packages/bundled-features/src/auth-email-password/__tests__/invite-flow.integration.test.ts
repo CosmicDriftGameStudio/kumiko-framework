@@ -1164,6 +1164,28 @@ describe("privilege escalation via invite role", () => {
     }
   });
 
+  test("system-invite-create over HTTP is rejected with 403 for a tenant admin", async () => {
+    const err = await stack.http.writeErr(
+      AuthHandlers.systemInviteCreate,
+      { email: CAROL_EMAIL, role: "User" },
+      aliceSession(),
+    );
+    expect(err.httpStatus).toBe(403);
+    expect(await selectMany(stack.db, tenantInvitationsTable, { email: CAROL_EMAIL })).toEqual([]);
+    expect(emailTransport.sent).toHaveLength(0);
+  });
+
+  test("a SystemAdmin session cannot call system-invite-create either (403)", async () => {
+    const err = await stack.http.writeErr(
+      AuthHandlers.systemInviteCreate,
+      { email: CAROL_EMAIL, role: "User" },
+      { id: aliceId, tenantId: TENANT_A_ID, roles: ["SystemAdmin", "Admin"] },
+    );
+    expect(err.httpStatus).toBe(403);
+    expect(await selectMany(stack.db, tenantInvitationsTable, { email: CAROL_EMAIL })).toEqual([]);
+    expect(emailTransport.sent).toHaveLength(0);
+  });
+
   test("legitimate tenant role still issues an invitation", async () => {
     const result = (await stack.http.writeOk(
       AuthHandlers.inviteCreate,

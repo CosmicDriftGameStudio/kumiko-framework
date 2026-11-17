@@ -8,6 +8,7 @@ import {
   createEntity,
   createTextField,
   defineEntityCreateHandler,
+  defineEntityUpdateHandler,
   defineFeature,
   type SessionUser,
   type TenantId,
@@ -57,14 +58,50 @@ const widgetFeature = defineFeature("audit-sec-widgets", (r) => {
   );
 });
 
+const dossierEntity = createEntity({
+  table: "audit_sec_dossiers",
+  fields: {
+    name: createTextField({ required: true, personal: false, reason: "technical_reference" }),
+  },
+  access: { read: { HR: "all" } },
+});
+
+const memoEntity = createEntity({
+  table: "audit_sec_memos",
+  fields: {
+    name: createTextField({ required: true, personal: false, reason: "technical_reference" }),
+    salary: createTextField({
+      personal: false,
+      reason: "technical_reference",
+      access: { read: ["HR"] },
+    }),
+    pin: createTextField({ personal: "tenant", find: "secret", writeOnly: true }),
+  },
+});
+
+const restrictedHandlerAccess = { access: { roles: ["HR", "TenantAdmin"] } };
+
+const restrictedFeature = defineFeature("audit-sec-restricted", (r) => {
+  r.entity({ name: "dossier", ...dossierEntity });
+  r.entity({ name: "memo", ...memoEntity });
+  r.writeHandler(defineEntityCreateHandler("dossier", dossierEntity, restrictedHandlerAccess));
+  r.writeHandler(defineEntityCreateHandler("memo", memoEntity, restrictedHandlerAccess));
+  r.writeHandler(defineEntityUpdateHandler("memo", memoEntity, restrictedHandlerAccess));
+});
+
 let stack: TestStack;
 let TENANT_ID: TenantId;
 let tenantAdminId: string;
+let hrAdminId: string;
 
 const systemAdmin = TestUsers.systemAdmin;
 
 function tenantAdmin(): SessionUser {
   return { id: tenantAdminId, tenantId: TENANT_ID, roles: ["TenantAdmin"] };
+}
+
+function hrTenantAdmin(): SessionUser {
+  return { id: hrAdminId, tenantId: TENANT_ID, roles: ["TenantAdmin", "HR"] };
 }
 
 function regularUser(): SessionUser {
@@ -78,12 +115,15 @@ beforeAll(async () => {
       createUserFeature(),
       createTenantFeature(),
       widgetFeature,
+      restrictedFeature,
       createAuditFeature(),
     ],
   });
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, tenantEntity);
   await unsafeCreateEntityTable(stack.db, widgetEntity);
+  await unsafeCreateEntityTable(stack.db, dossierEntity);
+  await unsafeCreateEntityTable(stack.db, memoEntity);
   await unsafePushTables(stack.db, { tenantMembershipsTable });
 });
 
@@ -93,7 +133,9 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await resetEventStore(stack);
-  await asRawClient(stack.db).unsafe(`TRUNCATE audit_sec_widgets`);
+  await asRawClient(stack.db).unsafe(
+    `TRUNCATE audit_sec_widgets, audit_sec_dossiers, audit_sec_memos`,
+  );
   TENANT_ID = testTenantId(1);
   await seedTenant(stack.db, { id: TENANT_ID, key: "audit-sec", name: "Audit Sec" });
   ({ id: tenantAdminId } = await seedUser(stack.db, {
@@ -106,6 +148,17 @@ beforeEach(async () => {
     userId: tenantAdminId,
     tenantId: TENANT_ID,
     roles: ["TenantAdmin"],
+  });
+  ({ id: hrAdminId } = await seedUser(stack.db, {
+    email: "hraudit@example.com",
+    displayName: "HRAudit",
+    passwordHash: await hashPassword("pw-audit-1234"),
+    emailVerified: true,
+  }));
+  await seedTenantMembership(stack.db, {
+    userId: hrAdminId,
+    tenantId: TENANT_ID,
+    roles: ["TenantAdmin", "HR"],
   });
 });
 
@@ -203,6 +256,73 @@ describe("audit list filters", () => {
     );
     expect(res.rows.length).toBeGreaterThanOrEqual(1);
     expect(res.rows.every((r) => r.type === "widget.created")).toBe(true);
+  });
+});
+
+describe("audit payload follows entity read rules", () => {
+  type PayloadRow = {
+    id: string;
+    type: string;
+    aggregateId: string;
+    payload: Record<string, unknown> | null;
+  };
+  type PayloadList = { rows: readonly PayloadRow[] };
+
+  async function listFor(aggregateType: string, user: SessionUser): Promise<PayloadList> {
+    return stack.http.queryOk<PayloadList>(AuditQueries.list, { aggregateType }, user);
+  }
+
+  function rowOfType(list: PayloadList, type: string): PayloadRow {
+    const row = list.rows.find((r) => r.type === type);
+    if (!row) throw new Error(`no ${type} row in the audit list`);
+    return row;
+  }
+
+  test("a payload of an entity the caller may not read is null in list and details", async () => {
+    await stack.http.writeOk(
+      "audit-sec-restricted:write:dossier:create",
+      { name: "Confidential" },
+      hrTenantAdmin(),
+    );
+
+    const forTenantAdmin = rowOfType(await listFor("dossier", tenantAdmin()), "dossier.created");
+    expect(forTenantAdmin.payload).toBeNull();
+    const detailsForTenantAdmin = await stack.http.queryOk<PayloadRow>(
+      AuditQueries.details,
+      { id: forTenantAdmin.id },
+      tenantAdmin(),
+    );
+    expect(detailsForTenantAdmin.payload).toBeNull();
+
+    const forHr = rowOfType(await listFor("dossier", hrTenantAdmin()), "dossier.created");
+    expect(forHr.payload).toMatchObject({ name: "Confidential" });
+  });
+
+  test("restricted fields are removed from the snapshot, changes and previous", async () => {
+    const created = await stack.http.writeOk<{ id: string }>(
+      "audit-sec-restricted:write:memo:create",
+      { name: "Memo", salary: "100000", pin: "1234" },
+      hrTenantAdmin(),
+    );
+    await stack.http.writeOk(
+      "audit-sec-restricted:write:memo:update",
+      { id: created.id, version: 1, changes: { salary: "120000" } },
+      hrTenantAdmin(),
+    );
+
+    const forTenantAdmin = await listFor("memo", tenantAdmin());
+    const createdPayload = rowOfType(forTenantAdmin, "memo.created").payload;
+    expect(createdPayload).toMatchObject({ name: "Memo" });
+    expect(createdPayload).not.toHaveProperty("salary");
+    expect(createdPayload).not.toHaveProperty("pin");
+    const updatedPayload = rowOfType(forTenantAdmin, "memo.updated").payload;
+    expect(updatedPayload?.["changes"]).not.toHaveProperty("salary");
+    expect(updatedPayload?.["previous"]).not.toHaveProperty("salary");
+
+    const forHr = await listFor("memo", hrTenantAdmin());
+    const hrCreatedPayload = rowOfType(forHr, "memo.created").payload;
+    expect(hrCreatedPayload).toMatchObject({ name: "Memo", salary: "100000" });
+    expect(hrCreatedPayload).not.toHaveProperty("pin");
   });
 });
 

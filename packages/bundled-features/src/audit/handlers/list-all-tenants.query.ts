@@ -12,6 +12,7 @@ import {
   listAuditEvents,
   technicalEntriesFilterSchema,
 } from "./audit-events.ts";
+import { createAuditPayloadFilter } from "./audit-payload-visibility.ts";
 import { requireAuditSystemDb } from "./audit-system-db.ts";
 import { allTenantsCondition, assertMayReadAllTenants } from "./resolve-audit-tenant.ts";
 
@@ -50,6 +51,13 @@ export const listAllTenantsQuery = defineQueryHandler({
       ctx.systemDb,
       "audit:query:list-all-tenants",
     ).acknowledgeCrossTenant("SystemAdmin reads the audit trail of every tenant");
-    return listAuditEvents(db, where, p, direction, createEntityNounKeyResolver(ctx.registry));
+    return listAuditEvents(
+      db,
+      where,
+      p,
+      direction,
+      createEntityNounKeyResolver(ctx.registry),
+      createAuditPayloadFilter(ctx.registry, query.user),
+    );
   },
 });

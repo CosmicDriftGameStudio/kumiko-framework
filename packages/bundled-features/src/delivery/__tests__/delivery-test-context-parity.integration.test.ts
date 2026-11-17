@@ -222,14 +222,4 @@ describe("createDeliveryNotifyFactory", () => {
     await createDeliveryNotifyFactory(service)(user, user.tenantId, dispatcher)("x:notify:y", {});
     expect(dispatchersSeen).toEqual([dispatcher]);
   });
-
-  test("deliverQueuedInline drops the dispatcher", async () => {
-    const { service, dispatchersSeen } = recordingService();
-    await createDeliveryNotifyFactory(service, { deliverQueuedInline: true })(
-      user,
-      user.tenantId,
-      dispatcher,
-    )("x:notify:y", {});
-    expect(dispatchersSeen).toEqual([undefined]);
-  });
 });

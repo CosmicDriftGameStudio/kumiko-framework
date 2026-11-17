@@ -6,19 +6,6 @@
 // hashPassword/verifyPassword; removing it is a breaking change that needs
 // its own changeset + deliberate deprecation window, not a silent drop.
 export { hashPassword, normalizeEmail, verifyPassword } from "../shared/index.ts";
-export type {
-  BootstrapConfigValue,
-  BootstrapDeps,
-  BootstrapInvite,
-  BootstrapInviteOutcome,
-  BootstrapPlan,
-  BootstrapReport,
-  BootstrapSeedDeps,
-  BootstrapSystemAdmin,
-  BootstrapTenant,
-  BootstrapTenantOutcome,
-} from "./bootstrap.ts";
-export { BootstrapPlanError, BootstrapWriteError, bootstrapTenants } from "./bootstrap.ts";
 export type { AuthMailLocale } from "./email-templates.ts";
 export type {
   AccountLockoutOptions,

@@ -24,14 +24,11 @@
 import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
-  createMultiSelectField,
   createNumberField,
   createSelectField,
   createTextField,
   createTimestampField,
 } from "@cosmicdrift/kumiko-framework/engine";
-// kumiko-lint-ignore cross-feature-import global-role options are owned by the user feature
-import { GLOBAL_ROLE_OPTIONS } from "../user/web/constants.ts";
 
 // The status constant object prevents handler code from using magic strings.
 // If a value is renamed (for example, "cancelled" → "revoked"), every caller
@@ -68,13 +65,6 @@ export const tenantInvitationEntity = createEntity({
       maxLength: 50,
       personal: false,
       reason: "technical_reference",
-    }),
-    // Global (users.roles) roles granted on accept, on top of the membership
-    // role. Only the system-only invite variant sets them; every tenant-admin
-    // re-invite resets them to [] so a resend can never carry them over.
-    globalRoles: createMultiSelectField({
-      options: GLOBAL_ROLE_OPTIONS,
-      default: [],
     }),
     // Lifecycle-State. Default "pending"; transitions:
     //   pending → accepted | cancelled | expired
