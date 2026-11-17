@@ -1,6 +1,5 @@
 export { deletionTokenSecretEnvSchema } from "./env.ts";
 export { createUserDataRightsFeature } from "./feature.ts";
-export type { SendDeletionVerificationEmailFn } from "./handlers/request-deletion-by-email.write.ts";
 export {
   denyIfTargetBeyondAdminReach,
   resolveAdminReachOverUser,

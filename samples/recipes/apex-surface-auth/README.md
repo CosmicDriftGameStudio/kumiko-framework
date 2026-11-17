@@ -81,14 +81,14 @@ runProdApp({
   features: composeApexAccountApp({
     deletionTokenSecret: process.env.DELETION_TOKEN_SECRET!,
     deletionVerifyUrl: "https://app.example.com/delete-account/confirm",
-    sendDeletionVerificationEmail: async ({ email, verifyUrl }) => {
-      // Must be non-blocking (enqueue) — synchronous send enables timing oracle.
-      await delivery.notify("account.deletion.verify", { email, verifyUrl });
-    },
+    mailTransport: createSmtpTransport({ host: "smtp.example.com", from: "noreply@example.com" }),
   }),
   anonymousAccess: { defaultTenantId: APEX_TENANT_ID },
 });
 ```
+
+`user-data-rights` sends the verify mail itself through delivery after commit;
+the response does not wait for it.
 
 ## Why deletion is anonymous
 
@@ -107,7 +107,7 @@ bun test src/__tests__/feature.integration.test.ts
 
 Proves end-to-end over real `/api/write` without auth:
 
-1. `request-deletion-by-email` → verification email enqueued
+1. `request-deletion-by-email` → verification mail sent through delivery
 2. `confirm-deletion-by-token` → user status `DeletionRequested`
 3. Unknown email → same 200 response, no mail (enumeration-safe)
 

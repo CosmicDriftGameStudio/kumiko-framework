@@ -668,6 +668,13 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "gdpr.mail.deletionRequested.intro":
     "wir haben deinen Antrag zur Löschung deines {app}-Kontos erhalten. Dein Konto und die zugehörigen Daten werden am {when} endgültig gelöscht.",
   "gdpr.mail.deletionRequested.subject": "{app} — Löschung deines Kontos angefordert",
+  "gdpr.mail.deletionVerification.button": "Löschung bestätigen",
+  "gdpr.mail.deletionVerification.expiry": "Der Link ist bis {when} gültig.",
+  "gdpr.mail.deletionVerification.ignore":
+    "Falls du das nicht angefordert hast, ignoriere diese E-Mail. Dein Konto bleibt bestehen.",
+  "gdpr.mail.deletionVerification.intro":
+    "wir haben eine Anfrage erhalten, dein {app}-Konto zu löschen. Wenn sie von dir kommt, bestätige sie mit dem Button unten.",
+  "gdpr.mail.deletionVerification.subject": "{app} — Kontolöschung bestätigen",
   "gdpr.mail.exportFailed.intro":
     "dein angeforderter Datenexport für {app} konnte leider nicht erstellt werden. Bitte fordere den Export erneut an.",
   "gdpr.mail.exportFailed.subject": "{app} — Dein Datenexport ist fehlgeschlagen",

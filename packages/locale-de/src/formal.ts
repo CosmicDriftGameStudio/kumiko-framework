@@ -190,6 +190,10 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
   "gdpr.mail.deletionRequested.intro":
     "wir haben Ihren Antrag zur Löschung Ihres {app}-Kontos erhalten. Ihr Konto und die zugehörigen Daten werden am {when} endgültig gelöscht.",
   "gdpr.mail.deletionRequested.subject": "{app} — Löschung Ihres Kontos angefordert",
+  "gdpr.mail.deletionVerification.ignore":
+    "Falls Sie das nicht angefordert haben, ignorieren Sie diese E-Mail. Ihr Konto bleibt bestehen.",
+  "gdpr.mail.deletionVerification.intro":
+    "wir haben eine Anfrage erhalten, Ihr {app}-Konto zu löschen. Wenn sie von Ihnen kommt, bestätigen Sie sie mit dem Button unten.",
   "gdpr.mail.exportFailed.intro":
     "Ihr angeforderter Datenexport für {app} konnte leider nicht erstellt werden. Bitte fordern Sie den Export erneut an.",
   "gdpr.mail.exportFailed.subject": "{app} — Ihr Datenexport ist fehlgeschlagen",

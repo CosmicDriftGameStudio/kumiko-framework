@@ -641,6 +641,13 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "gdpr.mail.deletionRequested.intro":
     "we received your request to delete your {app} account. Your account and associated data will be permanently deleted on {when}.",
   "gdpr.mail.deletionRequested.subject": "{app} — Account deletion requested",
+  "gdpr.mail.deletionVerification.button": "Confirm deletion",
+  "gdpr.mail.deletionVerification.expiry": "The link expires on {when}.",
+  "gdpr.mail.deletionVerification.ignore":
+    "If you didn't request this, ignore this email. Your account stays as it is.",
+  "gdpr.mail.deletionVerification.intro":
+    "we received a request to delete your {app} account. If it came from you, confirm it with the button below.",
+  "gdpr.mail.deletionVerification.subject": "{app} — Confirm your account deletion",
   "gdpr.mail.exportFailed.intro":
     "your requested data export for {app} could not be created. Please request the export again.",
   "gdpr.mail.exportFailed.subject": "{app} — Your data export failed",

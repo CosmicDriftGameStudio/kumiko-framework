@@ -16,6 +16,8 @@ import {
   type TemplateStatus,
 } from "./web/constants.ts";
 
+export { seedNotificationTemplates } from "./seeding.ts";
+
 export type TemplateConsumer = {
   readonly resolve: (args: ResolveRequest) => Promise<TemplateResource>;
   readonly resolveResources?: (template: TemplateResource) => Promise<Record<string, string>>;

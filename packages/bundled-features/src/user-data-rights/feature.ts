@@ -70,7 +70,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
   return defineFeature("user-data-rights", (r) => {
     r.adoptsBundledLists();
     r.describe(
-      'Implements GDPR Art. 15 (access / `my-audit-log` query), Art. 17 (erasure / `request-deletion` + `cancel-deletion`, plus the anonymous email-verified `request-deletion-by-email` + `confirm-deletion-by-token` flow for lockout-safe self-service, + cron cleanup with grace period), Art. 18 (restriction / `restrict-account` + `lift-restriction`), and Art. 20 (portability / async `request-export` \u2192 ZIP via `file-foundation`, Magic-Link download) as first-class HTTP handlers and cron jobs. Each domain feature opts in by calling `r.useExtension(EXT_USER_DATA, "<entity>", { export, delete })` \u2014 the feature then orchestrates the export and forget pipelines across all registered hooks automatically. When `mail-foundation` and a `mail-transport-*` are mounted, it also sends the four GDPR notifications (export ready/failed, deletion requested/executed) itself with no app callback code, rendered in each recipient’s locale. Requires `user`, `data-retention`, `compliance-profiles`, and `sessions`.',
+      'Implements GDPR Art. 15 (access / `my-audit-log` query), Art. 17 (erasure / `request-deletion` + `cancel-deletion`, plus the anonymous email-verified `request-deletion-by-email` + `confirm-deletion-by-token` flow for lockout-safe self-service, + cron cleanup with grace period), Art. 18 (restriction / `restrict-account` + `lift-restriction`), and Art. 20 (portability / async `request-export` \u2192 ZIP via `file-foundation`, Magic-Link download) as first-class HTTP handlers and cron jobs. Each domain feature opts in by calling `r.useExtension(EXT_USER_DATA, "<entity>", { export, delete })` \u2014 the feature then orchestrates the export and forget pipelines across all registered hooks automatically. When `mail-foundation` and a `mail-transport-*` are mounted, it also sends the GDPR notifications (export ready/failed, deletion requested/executed) itself with no app callback code, rendered in each recipient’s locale. The anonymous deletion flow sends its verify mail itself through delivery. Requires `user`, `data-retention`, `compliance-profiles`, and `sessions`.',
     );
     r.uiHints({
       displayLabel: "User Data Rights \u00b7 GDPR",
@@ -78,6 +78,10 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
       recommended: false,
     });
     r.requires({ features: ["user", "data-retention", "compliance-profiles", "sessions"] });
+    // The anonymous deletion verify mail goes through ctx.notify.
+    if (opts.deletionTokenSecret !== undefined && opts.deletionVerifyUrl !== undefined) {
+      r.requires({ features: ["delivery", "channel-email"] });
+    }
     r.envSchema(deletionTokenSecretEnvSchema);
     r.usesApi("compliance.forTenant");
     r.usesApi("retention.policyFor");
@@ -155,9 +159,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
           deletionTokenSecret: opts.deletionTokenSecret,
         }),
         ...(opts.deletionVerifyUrl !== undefined && { deletionVerifyUrl: opts.deletionVerifyUrl }),
-        ...(opts.sendDeletionVerificationEmail !== undefined && {
-          sendDeletionVerificationEmail: opts.sendDeletionVerificationEmail,
-        }),
+        ...(opts.mailDefaults && { mailDefaults: opts.mailDefaults }),
       }),
     );
     r.writeHandler(

@@ -1,5 +1,6 @@
-// Default send*Email callbacks for the GDPR notifications. The app writes no
-// callback code: it mounts delivery + channel-email (+ the template stack) and
+// Default send*Email callbacks for the GDPR notifications, plus the anonymous
+// deletion verify mail, which has no callback and is always sent from here.
+// The app writes no callback code: it mounts delivery + channel-email (+ the template stack) and
 // sets appExportDownloadUrl for export mails. Own send*Email options win over
 // these defaults (opt-override in feature.ts).
 //
@@ -153,6 +154,34 @@ export function makeDefaultDeletionRequestedEmail(
     if (args.cancelUrl !== undefined) await notifyImmediately(notify, type, options);
     else await notify(type, options);
   };
+}
+
+export type DeletionVerificationMailArgs = {
+  readonly email: string;
+  readonly userLocale: string | null;
+  readonly verifyUrl: string;
+  readonly expiresAt: string;
+};
+
+export async function sendDefaultDeletionVerificationEmail(
+  notify: NotifyFn,
+  defaults: GdprMailDefaults,
+  args: DeletionVerificationMailArgs,
+): Promise<void> {
+  const type = GdprMailNotificationTypes.deletionVerification;
+  const locale = mailLocaleFor(type, args.userLocale, defaults);
+  // Deferred after commit like the auth magic links: an immediate send in the
+  // request is the enumeration timing oracle.
+  await notify(type, {
+    route: { email: args.email },
+    locale,
+    priority: "critical",
+    data: {
+      appName: appNameFor(locale, defaults),
+      actionUrl: args.verifyUrl,
+      validUntil: formatGdprMailTimestamp(args.expiresAt),
+    },
+  });
 }
 
 export type DeletionExecutedMailDeps = {

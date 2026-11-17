@@ -1,28 +1,23 @@
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import * as z from "zod";
 import { USER_STATUS, userTable } from "../../user/index.ts";
 import { signDeletionToken } from "../deletion-token.ts";
+import { type GdprMailDefaults, sendDefaultDeletionVerificationEmail } from "../lib/default-mailers.ts";
 import { updateUserLifecycle } from "../lib/update-user-lifecycle.ts";
 
 // Verification-link TTL: 60 minutes — long enough for an email round trip,
 // but short enough that an intercepted link does not remain valid indefinitely.
 const DELETION_VERIFY_TTL_MINUTES = 60;
 
+const log = createFallbackLogger("user-data-rights");
+
 // Sends the Apex magic link for an anonymous deletion request. The handler
-// does NOT return the link (content-enumeration safety); it invokes the
-// callback directly, analogous to sendDeletionRequestedEmail.
+// does NOT return the link (content-enumeration safety).
 //
-// IMPORTANT (timing oracle): The callback MUST be non-blocking (enqueue, e.g.
-// delivery.notify / Job), not send synchronously. It runs only for an
-// existing active user; a synchronous send makes response latency measurably
-// longer for real accounts than for nonexistent ones, enabling enumeration by
-// timing. A fast enqueue effectively equalizes this.
-// Complete timing equalization (always performing equivalent work) is deferred.
-export type SendDeletionVerificationEmailFn = (args: {
-  readonly email: string;
-  readonly verifyUrl: string;
-  readonly expiresAt: string;
-}) => Promise<void>;
+// The verify mail goes through ctx.notify without immediate, so it is delivered
+// after commit via the delivery queue; the response does not wait on the mail
+// transport (same timing as the auth magic links).
 
 export type RequestDeletionByEmailOptions = {
   /** HMAC secret used to sign the verification token. Without a secret, the flow
@@ -32,7 +27,7 @@ export type RequestDeletionByEmailOptions = {
    *  "https://app.example.com/delete-account/confirm". The handler appends the
    *  token as a URL fragment (`#token=<token>`). Without a URL, no link is sent. */
   readonly deletionVerifyUrl?: string;
-  readonly sendDeletionVerificationEmail?: SendDeletionVerificationEmailFn;
+  readonly mailDefaults?: GdprMailDefaults;
 };
 
 // Token goes in the URL fragment, not a query param — fragments never leave
@@ -56,7 +51,7 @@ export function buildDeletionVerifyUrl(base: string, token: string): string {
 // Enumeration-safe (content): always returns the same success shape,
 // regardless of whether the email exists, the user is active, or the flow is
 // configured. A link is generated only for an existing, active user.
-// Timing safety depends on the non-blocking callback (see the type doc above).
+// Timing safety: the mail is enqueued after commit, not sent in the request.
 export function createRequestDeletionByEmailHandler(opts: RequestDeletionByEmailOptions = {}) {
   return defineWriteHandler({
     name: "request-deletion-by-email",
@@ -84,7 +79,7 @@ export function createRequestDeletionByEmailHandler(opts: RequestDeletionByEmail
 
       const userRow = await ctx.db
         .global(userTable)
-        .fetchOne<{ id: string; status: string; email: string }>({
+        .fetchOne<{ id: string; status: string; email: string; locale: string | null }>({
           email: event.payload.email,
           isDeleted: false,
         });
@@ -108,21 +103,26 @@ export function createRequestDeletionByEmailHandler(opts: RequestDeletionByEmail
       );
       const verifyUrl = buildDeletionVerifyUrl(opts.deletionVerifyUrl, token);
 
-      if (opts.sendDeletionVerificationEmail) {
-        try {
-          await opts.sendDeletionVerificationEmail({
-            // Row value is ciphertext with an active KMS; the lookup above
-            // only matches byte-exact, so the payload IS the stored plaintext.
-            email: event.payload.email,
-            verifyUrl,
-            expiresAt: expiresAt.toString(),
-          });
-        } catch (err) {
-          // biome-ignore lint/suspicious/noConsole: operator-visibility for email-send-failure
-          console.warn(
-            `[user-data-rights:request-deletion-by-email] send failed err=${err instanceof Error ? err.message : String(err)}`,
-          );
-        }
+      // No throw: it would only hit existing users and bring the timing oracle back.
+      if (!ctx.notify) {
+        log.warn(
+          "[user-data-rights:request-deletion-by-email] ctx.notify unavailable, verify mail not sent",
+        );
+        return success;
+      }
+      try {
+        await sendDefaultDeletionVerificationEmail(ctx.notify, opts.mailDefaults ?? {}, {
+          // Row value is ciphertext with an active KMS; the lookup above
+          // only matches byte-exact, so the payload IS the stored plaintext.
+          email: event.payload.email,
+          userLocale: userRow["locale"] ?? null,
+          verifyUrl,
+          expiresAt: expiresAt.toString(),
+        });
+      } catch (err) {
+        log.warn(
+          `[user-data-rights:request-deletion-by-email] send failed err=${err instanceof Error ? err.message : String(err)}`,
+        );
       }
 
       return success;

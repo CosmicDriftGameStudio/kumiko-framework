@@ -2566,7 +2566,6 @@
         "EXPORT_JOB_STATUS",
         "ExportJobStatus",
         "SendDeletionExecutedEmailFn",
-        "SendDeletionVerificationEmailFn",
         "SendExportFailedEmailFn",
         "SendExportReadyEmailFn",
         "TARGET_USER_NOT_IN_ADMIN_TENANT",

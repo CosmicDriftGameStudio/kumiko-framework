@@ -26,6 +26,11 @@ export const DEFAULT_AUTH_PATHS = {
 /** Client page that requests a reset mail; no mail links to it, so it is not part of AuthPaths. */
 export const DEFAULT_FORGOT_PASSWORD_PATH = "/forgot-password";
 
+/** Client page of the self-signup form; not linked from a mail. */
+export const DEFAULT_SIGNUP_PATH = "/signup";
+
+export const DEFAULT_LOGIN_PATH = "/login";
+
 export function makeAuthPaths(overrides: Partial<AuthPaths> = {}): AuthPaths {
   return { ...DEFAULT_AUTH_PATHS, ...overrides };
 }

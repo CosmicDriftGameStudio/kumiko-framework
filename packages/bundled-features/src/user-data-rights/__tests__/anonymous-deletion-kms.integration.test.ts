@@ -24,19 +24,26 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
+import { createInMemoryTransport } from "../../channel-email/index.ts";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
 } from "../../compliance-profiles/index.ts";
 import { createDataRetentionFeature } from "../../data-retention/index.ts";
+import { createDeliveryTestContext } from "../../delivery/index.ts";
+import { deliveryAttemptsTable } from "../../delivery/tables.ts";
 import { createSessionsFeature } from "../../sessions/index.ts";
 import { tenantMembershipEntity } from "../../tenant/membership-table.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { USER_STATUS, userEntity, userTable } from "../../user/index.ts";
 import { seedUser } from "../../user/seeding.ts";
 import { createUserDataRightsFeature } from "../feature.ts";
-import type { SendDeletionVerificationEmailFn } from "../handlers/request-deletion-by-email.write.ts";
+import {
+  deletionMailFeatures,
+  prepareDeletionMailStack,
+  verifyTokenFromMail,
+} from "./deletion-mail-stack.ts";
 
 const REQUEST_BY_EMAIL = "user-data-rights:write:request-deletion-by-email";
 const CONFIRM_BY_TOKEN = "user-data-rights:write:confirm-deletion-by-token";
@@ -47,11 +54,7 @@ const BIDX_KEY = Buffer.alloc(32, 7).toString("base64");
 
 const tenantA = testTenantId(1);
 
-type VerifyArgs = Parameters<SendDeletionVerificationEmailFn>[0];
-const verifyCalls: VerifyArgs[] = [];
-const sendDeletionVerificationEmail: SendDeletionVerificationEmailFn = async (args) => {
-  verifyCalls.push(args);
-};
+const transport = createInMemoryTransport();
 
 let stack: TestStack;
 let aliceId: string;
@@ -67,14 +70,16 @@ beforeAll(async () => {
       createUserDataRightsFeature({
         deletionTokenSecret: DELETION_SECRET,
         deletionVerifyUrl: VERIFY_URL,
-        sendDeletionVerificationEmail,
       }),
+      ...deletionMailFeatures(transport),
     ],
+    extraContext: (deps) => createDeliveryTestContext(deps),
     anonymousAccess: { defaultTenantId: tenantA },
   });
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, tenantMembershipEntity);
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
+  await prepareDeletionMailStack(stack);
 });
 
 afterAll(async () => {
@@ -82,8 +87,13 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  verifyCalls.length = 0;
-  await resetTestTables(stack.db, [userTable, tenantComplianceProfileTable, eventsTable]);
+  transport.sent.length = 0;
+  await resetTestTables(stack.db, [
+    userTable,
+    tenantComplianceProfileTable,
+    eventsTable,
+    deliveryAttemptsTable,
+  ]);
 
   // Configure KMS and the blind-index key before seeding because seedUser runs
   // through the executor and the row must represent the encrypted production state.
@@ -103,8 +113,9 @@ afterEach(() => {
 });
 
 function tokenFromLastVerifyCall(): string {
-  const url = new URL(verifyCalls[0]?.verifyUrl ?? "");
-  return new URLSearchParams(url.hash.slice(1)).get("token") ?? "";
+  const mail = transport.sent.find((m) => m.to === ALICE_EMAIL);
+  if (!mail) throw new Error(`no verify mail sent to ${ALICE_EMAIL}`);
+  return verifyTokenFromMail(mail, VERIFY_URL);
 }
 
 describe("anonymous deletion flow with active KMS", () => {
@@ -122,9 +133,9 @@ describe("anonymous deletion flow with active KMS", () => {
     });
     expect(res.status).toBe(200);
 
-    expect(verifyCalls).toHaveLength(1);
-    expect(verifyCalls[0]?.email).toBe(ALICE_EMAIL);
-    expect(verifyCalls[0]?.verifyUrl).toContain("token=");
+    expect(transport.sent).toHaveLength(1);
+    expect(transport.sent[0]?.to).toBe(ALICE_EMAIL);
+    expect(tokenFromLastVerifyCall().length).toBeGreaterThan(0);
   });
 
   test("confirm-by-token flips to DeletionRequested; response carries no ciphertext", async () => {

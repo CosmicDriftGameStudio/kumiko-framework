@@ -1,5 +1,4 @@
 import type { SendDeletionRequestedEmailFn } from "./handlers/request-deletion.write.ts";
-import type { SendDeletionVerificationEmailFn } from "./handlers/request-deletion-by-email.write.ts";
 import type { GdprMailDefaults } from "./lib/default-mailers.ts";
 import type { SendExportFailedEmailFn, SendExportReadyEmailFn } from "./run-export-jobs.ts";
 import type { SendDeletionExecutedEmailFn } from "./run-forget-cleanup.ts";
@@ -50,7 +49,10 @@ export type UserDataRightsOptions = {
   /** Base URL of the apex confirmation screen, e.g.
    *  "https://app.example.com/delete-account/confirm". The handler appends
    *  the token as a URL fragment (`#token=<token>`). Required when
-   *  deletionTokenSecret is set. */
+   *  deletionTokenSecret is set. Setting deletionTokenSecret and
+   *  deletionVerifyUrl makes user-data-rights send the verify mail itself
+   *  (notification user-data-rights:notify:deletion-verification) and requires
+   *  the delivery and channel-email features. */
   readonly deletionVerifyUrl?: string;
   /** Base URL of the screen that cancels a pending deletion via token, e.g.
    *  "https://app.example.com/delete-account/cancel" (the token is appended as
@@ -59,13 +61,6 @@ export type UserDataRightsOptions = {
    *  it the user has no way back after closing the session. Use the same route
    *  as the `cancelPath` of makePublicDeletionGate. */
   readonly deletionCancelUrl?: string;
-  /** Sends the verification magic link (step 1 of the anonymous flow).
-   *  Best effort and wired by the app author. It MUST be non-blocking (enqueue,
-   *  e.g. via delivery.notify): a synchronous send would reintroduce a timing
-   *  oracle for account enumeration (see SendDeletionVerificationEmailFn-doc).
-   *  There is deliberately no mail-foundation default because a synchronous
-   *  default send would restore that enumeration oracle. */
-  readonly sendDeletionVerificationEmail?: SendDeletionVerificationEmailFn;
   /** Zero-callback GDPR mail: when mail-foundation and a mail-transport-* are
    *  mounted, user-data-rights sends export and deletion notifications itself
    *  (export-ready/-failed, deletion-requested/-executed) using the default

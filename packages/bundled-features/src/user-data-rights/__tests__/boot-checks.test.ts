@@ -349,3 +349,17 @@ describe("one validateBoot pass reports independent violations of different rule
     expect(ruleIds).toContain("user-data-rights/missing-hook");
   });
 });
+
+describe("anonymous deletion verify mail", () => {
+  test("deletion secret and verify URL require delivery and channel-email", () => {
+    const features = baseFeatures().map((feature) =>
+      feature.name === "user-data-rights"
+        ? createUserDataRightsFeature({
+            deletionTokenSecret: "x".repeat(32),
+            deletionVerifyUrl: "https://app.example.test/delete-account/confirm",
+          })
+        : feature,
+    );
+    expect(() => validateBoot(features)).toThrow(/delivery/);
+  });
+});

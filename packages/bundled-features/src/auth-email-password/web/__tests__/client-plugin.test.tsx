@@ -21,6 +21,8 @@ mockModuleForFile(fileURLToPath(new URL("../auth-gate.tsx", import.meta.url)), r
 });
 
 const { emailPasswordClient } = await import("../client-plugin.ts");
+const { ForgotPasswordScreen } = await import("../forgot-password-screen.tsx");
+const { renderWithProviders } = await import("./test-utils.tsx");
 
 function CustomMfaSetup() {
   return null;
@@ -36,5 +38,26 @@ describe("emailPasswordClient — mfaSetupScreen wiring", () => {
     expect((makeSessionAuthGateCalls[0]?.[0] as { mfaSetupScreen?: unknown })?.mfaSetupScreen).toBe(
       CustomMfaSetup,
     );
+  });
+});
+
+describe("emailPasswordClient — authShell", () => {
+  test("authShell mounts one provider that wraps the auth cards", () => {
+    const client = emailPasswordClient({
+      authShell: (card) => <div data-testid="brand-shell">{card}</div>,
+    });
+    expect(client.providers).toHaveLength(1);
+    const [Provider] = client.providers;
+    if (!Provider) throw new Error("expected a provider");
+    const ui = renderWithProviders(
+      <Provider>
+        <ForgotPasswordScreen />
+      </Provider>,
+    );
+    expect(ui.getByTestId("brand-shell")).toBeTruthy();
+  });
+
+  test("without authShell there is no provider", () => {
+    expect(emailPasswordClient().providers).toHaveLength(0);
   });
 });

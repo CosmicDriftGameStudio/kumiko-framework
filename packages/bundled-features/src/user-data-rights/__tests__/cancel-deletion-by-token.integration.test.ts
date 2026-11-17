@@ -1,6 +1,7 @@
 // A deletionRequested account fails the login gate, so the cancel link in the
 // deletion-requested mail is the only way back. Real /api/write calls without a
-// session (anonymousAccess); the mail is captured through the app callback.
+// session (anonymousAccess); the verify mail is captured at the in-memory
+// transport, the deletion-requested mail through the app callback.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
@@ -14,12 +15,15 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
+import { createInMemoryTransport } from "../../channel-email/index.ts";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
 } from "../../compliance-profiles/index.ts";
 import { createDataRetentionFeature } from "../../data-retention/index.ts";
+import { createDeliveryTestContext } from "../../delivery/index.ts";
+import { deliveryAttemptsTable } from "../../delivery/tables.ts";
 import { createSessionsFeature } from "../../sessions/index.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { USER_STATUS, userEntity, userTable } from "../../user/index.ts";
@@ -27,6 +31,11 @@ import { signDeletionCancelToken } from "../deletion-token.ts";
 import { createUserDataRightsFeature } from "../feature.ts";
 import type { SendDeletionRequestedEmailFn } from "../handlers/request-deletion.write.ts";
 import { UserDataRightsHandlers } from "../web/constants.ts";
+import {
+  deletionMailFeatures,
+  prepareDeletionMailStack,
+  verifyTokenFromMail,
+} from "./deletion-mail-stack.ts";
 
 const REQUEST_DELETION = UserDataRightsHandlers.requestDeletion;
 const REQUEST_BY_EMAIL = UserDataRightsHandlers.requestDeletionByEmail;
@@ -44,7 +53,7 @@ type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 
 type RequestedMailArgs = Parameters<SendDeletionRequestedEmailFn>[0];
 const requestedMails: RequestedMailArgs[] = [];
-const verifyUrls: string[] = [];
+const transport = createInMemoryTransport();
 
 let stack: TestStack;
 
@@ -60,18 +69,18 @@ beforeAll(async () => {
         deletionTokenSecret: DELETION_SECRET,
         deletionVerifyUrl: VERIFY_URL,
         deletionCancelUrl: CANCEL_URL,
-        sendDeletionVerificationEmail: async (args) => {
-          verifyUrls.push(args.verifyUrl);
-        },
         sendDeletionRequestedEmail: async (args) => {
           requestedMails.push(args);
         },
       }),
+      ...deletionMailFeatures(transport),
     ],
+    extraContext: (deps) => createDeliveryTestContext(deps),
     anonymousAccess: { defaultTenantId: tenantA },
   });
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
+  await prepareDeletionMailStack(stack);
 });
 
 afterAll(async () => {
@@ -80,8 +89,13 @@ afterAll(async () => {
 
 beforeEach(async () => {
   requestedMails.length = 0;
-  verifyUrls.length = 0;
-  await resetTestTables(stack.db, [userTable, tenantComplianceProfileTable, eventsTable]);
+  transport.sent.length = 0;
+  await resetTestTables(stack.db, [
+    userTable,
+    tenantComplianceProfileTable,
+    eventsTable,
+    deliveryAttemptsTable,
+  ]);
   // Anonymous calls via stack.http.raw share one "unknown" IP bucket per handler.
   await stack.redis.flushNamespace();
 });
@@ -115,6 +129,12 @@ async function aliceRow(): Promise<{ status: string; gracePeriodEnd: Instant | n
 
 function tokenOf(url: string): string {
   return new URLSearchParams(new URL(url).hash.slice(1)).get("token") ?? "";
+}
+
+function verifyTokenOfFirstMail(): string {
+  const mail = transport.sent.find((m) => m.to === ALICE_EMAIL);
+  if (!mail) throw new Error(`no verify mail sent to ${ALICE_EMAIL}`);
+  return verifyTokenFromMail(mail, VERIFY_URL);
 }
 
 function cancelUrlOfOnlyMail(): string {
@@ -165,7 +185,7 @@ describe("cancel-deletion-by-token", () => {
     });
     const confirm = await stack.http.raw("POST", "/api/write", {
       type: CONFIRM_BY_TOKEN,
-      payload: { token: tokenOf(verifyUrls[0] ?? "") },
+      payload: { token: verifyTokenOfFirstMail() },
     });
     expect(confirm.status).toBe(200);
     expect((await aliceRow()).status).toBe(USER_STATUS.DeletionRequested);
@@ -192,7 +212,7 @@ describe("cancel-deletion-by-token", () => {
       type: REQUEST_BY_EMAIL,
       payload: { email: ALICE_EMAIL },
     });
-    await expectGenericInvalid(await cancelByToken(tokenOf(verifyUrls[0] ?? "")));
+    await expectGenericInvalid(await cancelByToken(verifyTokenOfFirstMail()));
   });
 
   test("grace period already over → generic 422, nothing changes", async () => {

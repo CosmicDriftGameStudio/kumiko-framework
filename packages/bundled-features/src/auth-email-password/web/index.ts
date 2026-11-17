@@ -28,7 +28,13 @@ export {
   verifyEmail,
 } from "./auth-client.ts";
 export type { AuthCardProps, AuthShellRenderer } from "./auth-form-primitives.tsx";
-export { AuthCard, AuthShellProvider, useAuthShell } from "./auth-form-primitives.tsx";
+export {
+  AuthCard,
+  AuthShellProvider,
+  makeAuthShellProvider,
+  useAuthShell,
+} from "./auth-form-primitives.tsx";
+export type { DefaultAuthPagesOptions } from "./default-auth-pages-gate.tsx";
 export type {
   AuthGateOptions,
   LoginRouteOptions,
