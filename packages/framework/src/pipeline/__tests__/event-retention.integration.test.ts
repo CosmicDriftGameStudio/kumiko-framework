@@ -137,6 +137,34 @@ describe("E.2 — explicit-aggregateTypes pruning", () => {
     expect(ids).not.toContain(obsoleteId);
   });
 
+  // One stream can carry two aggregate types: the unique key is (tenant, aggregate id, version).
+  test("events of another type on the same aggregate id survive", async () => {
+    const tenDaysAgo = Temporal.Now.instant().subtract({ hours: 240 });
+    const sharedAggregateId = generateId();
+    const appendAged = (aggregateType: string, expectedVersion: number) =>
+      runSeedWritesAt(tenDaysAgo, () =>
+        append(stack.db, {
+          aggregateId: sharedAggregateId,
+          aggregateType,
+          tenantId: admin.tenantId,
+          expectedVersion,
+          type: `${aggregateType}.legacy`,
+          payload: {},
+          metadata: { userId: admin.id },
+        }),
+      );
+    const obsolete = await appendAged("obsolete", 0);
+    const widget = await appendAged("widget", 1);
+    await disableConsumer(stack.db, observerQn);
+
+    const result = await pruneEvents(stack.db, { olderThanDays: 7, aggregateTypes: ["obsolete"] });
+
+    expect(result.deletedCount).toBe(1);
+    const ids = (await selectMany<{ id: bigint }>(stack.db, eventsTable)).map((r) => r.id);
+    expect(ids).toContain(BigInt(widget.id));
+    expect(ids).not.toContain(BigInt(obsolete.id));
+  });
+
   test("named aggregate-type events older than the cutoff are deleted; fresh ones stay", async () => {
     const tenDaysAgo = Temporal.Now.instant().subtract({ hours: 240 });
     const freshId = await seedOldAggregateEvent(

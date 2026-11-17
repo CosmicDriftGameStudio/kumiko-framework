@@ -7,30 +7,34 @@
 // test pattern.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { type DbConnection, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
-  createTenantDb,
-  type DbConnection,
-  insertOne,
-  selectMany,
-} from "@cosmicdrift/kumiko-framework/db";
-import { defineFeature, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+  createEntityExecutor,
+  defineFeature,
+  type WriteHandlerDef,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
-import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
-import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { readRollingCapUsage, rollingBucketStart } from "../book-cap-usage.ts";
-import { CapCounterHandlers } from "../constants.ts";
+import { rollingCapAggregateId } from "../aggregate-id.ts";
+import { CapCounterHandlers, ROLLING_INCREMENTED_EVENT_QN } from "../constants.ts";
 import {
   CapExceededError,
   currentCalendarMonthStartIso,
   enforceCap,
   enforceCapAndMaybeNotify,
+  enforceRollingCap,
+  enforceRollingCapAndMaybeNotify,
   type SoftHitNotifier,
 } from "../enforce-cap.ts";
+import { capCounterEntity } from "../entity.ts";
 import { createCapCounterFeature } from "../feature.ts";
-import { capCountersTable, rollingCapUsageTable } from "../tables.ts";
 import { fetchCounterRow } from "./read-counter.ts";
 
 // --- Test-Probe-Feature: drives enforceCap from inside a real handler ---
@@ -52,6 +56,39 @@ const enforceHandler: WriteHandlerDef = {
   handler: async (event, ctx) => {
     try {
       const result = await enforceCap(ctx, event.payload as Parameters<typeof enforceCap>[1]);
+      return { isSuccess: true as const, data: { ok: true, ...result } };
+    } catch (e) {
+      if (e instanceof CapExceededError) {
+        return {
+          isSuccess: true as const,
+          data: { ok: false, code: e.code, currentValue: e.currentValue, limit: e.limit },
+        };
+      }
+      throw e;
+    }
+  },
+};
+
+// Sister probe for the rolling-window flavour. Same pattern as
+// `enforceHandler` above — drives `enforceRollingCap` through the
+// dispatcher so the test sees a real ctx with real db + real
+// tenant-scope.
+const ENFORCE_ROLLING_PROBE_QN = "cap-test:write:enforce-rolling";
+const enforceRollingHandler: WriteHandlerDef = {
+  name: "enforce-rolling",
+  schema: z.object({
+    capName: z.string(),
+    windowDays: z.number(),
+    limit: z.number(),
+    profile: z.enum(["burstable", "storage", "hardSlot", "egress"]),
+  }),
+  access: { roles: ["TenantAdmin", "SystemAdmin"] },
+  handler: async (event, ctx) => {
+    try {
+      const result = await enforceRollingCap(
+        ctx,
+        event.payload as Parameters<typeof enforceRollingCap>[1],
+      );
       return { isSuccess: true as const, data: { ok: true, ...result } };
     } catch (e) {
       if (e instanceof CapExceededError) {
@@ -111,9 +148,30 @@ const enforceAndNotifyHandler: WriteHandlerDef = {
   },
 };
 
+const ENFORCE_ROLLING_NOTIFY_PROBE_QN = "cap-test:write:enforce-rolling-and-notify";
+const enforceRollingAndNotifyHandler: WriteHandlerDef = {
+  name: "enforce-rolling-and-notify",
+  schema: z.object({
+    capName: z.string(),
+    windowDays: z.number(),
+    limit: z.number(),
+    profile: z.enum(["burstable", "storage", "hardSlot", "egress"]),
+  }),
+  access: { roles: ["TenantAdmin", "SystemAdmin"] },
+  handler: async (event, ctx) => {
+    const result = await enforceRollingCapAndMaybeNotify(ctx, {
+      ...(event.payload as Omit<Parameters<typeof enforceRollingCapAndMaybeNotify>[1], "notify">),
+      notify: recordingNotifier,
+    });
+    return { isSuccess: true as const, data: { ok: true, ...result } };
+  },
+};
+
 const enforceProbeFeature = defineFeature("cap-test", (r) => {
   r.writeHandler(enforceHandler);
+  r.writeHandler(enforceRollingHandler);
   r.writeHandler(enforceAndNotifyHandler);
+  r.writeHandler(enforceRollingAndNotifyHandler);
 });
 
 // --- Setup ---
@@ -126,6 +184,8 @@ beforeAll(async () => {
     features: [createCapCounterFeature(), enforceProbeFeature],
   });
   db = stack.db;
+
+  await unsafeCreateEntityTable(db, capCounterEntity);
 });
 
 afterAll(async () => {
@@ -136,9 +196,10 @@ afterAll(async () => {
 // which month — just need a stable iso-string so `increment` +
 // `readCounter` hit the same aggregate.
 const PERIOD = "2026-05-01T00:00:00Z";
+const { table: capCounterTable } = createEntityExecutor("cap-counter", capCounterEntity);
 
 beforeEach(async () => {
-  await resetTestTables(db, [capCountersTable, eventsTable, rollingCapUsageTable]);
+  await resetTestTables(db, [capCounterTable, eventsTable]);
 });
 
 const sysadmin = TestUsers.systemAdmin;
@@ -166,13 +227,6 @@ async function incrementRolling(
   amount: number,
 ) {
   await stack.http.writeOk(CapCounterHandlers.incrementRolling, { capName, amount }, user);
-}
-
-function rollingUsage(user: ReturnType<typeof adminFor>, capName: string, windowDays: number) {
-  return readRollingCapUsage(createTenantDb({ db, tenantId: user.tenantId }), user.tenantId, {
-    capName,
-    windowDays,
-  });
 }
 
 function readCounter(
@@ -302,108 +356,112 @@ describe("scenario 4: period transition", () => {
   });
 });
 
-// --- Scenario 5: Rolling-window buckets ---
+// --- Scenario 5: Rolling-window counter ---
 //
-// increment-rolling adds to the current hour's bucket row; readRollingCapUsage sums the buckets of
-// the window. Bookings go through real HTTP.
+// Proves the full wiring: incrementRollingCap appends a
+// rolling-incremented event to the event store, while enforceRollingCap
+// reads and sums events from the window. Both go through the dispatcher
+// with the real context.
 
-describe("scenario 5: rolling-window buckets through dispatcher", () => {
-  test("an increment books into the current hour's bucket and no calendar counter row", async () => {
+describe("scenario 5: rolling-window through dispatcher", () => {
+  test("incrementRolling appends a rolling-incremented-event without creating a projection-row", async () => {
     const admin = adminFor(901);
     await incrementRolling(admin, "ai-tokens-7d", 1500);
 
-    const rows = await selectMany(db, rollingCapUsageTable, { tenantId: admin.tenantId });
-    expect(rows).toHaveLength(1);
-    expect(rows[0]?.["capName"]).toBe("ai-tokens-7d");
-    expect(rows[0]?.["amount"]).toBe(1500);
-    const bucket = Temporal.Instant.from(String(rows[0]?.["bucketStart"]));
-    expect(bucket.equals(rollingBucketStart(bucket))).toBe(true);
-    expect(await readCounter(admin, "ai-tokens-7d")).toBeNull();
+    const events = await selectMany(db, eventsTable, {
+      aggregateId: rollingCapAggregateId(admin.tenantId, "ai-tokens-7d"),
+    });
+    expect(events.map((e) => e.type)).toEqual([ROLLING_INCREMENTED_EVENT_QN]);
+    expect(events[0]?.payload).toMatchObject({ capName: "ai-tokens-7d", amount: 1500 });
+
+    // Drift pin: The rolling counter MUST NOT touch the calendar counter.
+    // If a refactor mixes the paths, a row unrelated to the rolling stream
+    // will unexpectedly appear here.
+    const calendarRow = await readCounter(admin, "ai-tokens-7d");
+    expect(calendarRow).toBeNull();
   });
 
-  test("the window sums all increments", async () => {
+  test("enforceRollingCap sums multiple increment events within the window", async () => {
     const admin = adminFor(902);
     await incrementRolling(admin, "ai-tokens-7d", 1000);
     await incrementRolling(admin, "ai-tokens-7d", 2500);
     await incrementRolling(admin, "ai-tokens-7d", 500);
 
-    expect(await rollingUsage(admin, "ai-tokens-7d", 7)).toBe(4000);
+    const result = (await stack.http.writeOk(
+      ENFORCE_ROLLING_PROBE_QN,
+      { capName: "ai-tokens-7d", windowDays: 7, limit: 10000, profile: "burstable" },
+      admin,
+    )) as Record<string, unknown>;
+
+    expect(result["ok"]).toBe(true);
+    expect(result["state"]).toBe("ok");
+    expect(result["value"]).toBe(4000);
   });
 
-  test("caps are isolated", async () => {
+  test("at soft-threshold (11000, soft=1.1×10000) → soft-hit, crossed=false", async () => {
     const admin = adminFor(903);
+    await incrementRolling(admin, "ai-tokens-7d", 6000);
+    await incrementRolling(admin, "ai-tokens-7d", 5000);
+
+    const result = (await stack.http.writeOk(
+      ENFORCE_ROLLING_PROBE_QN,
+      { capName: "ai-tokens-7d", windowDays: 7, limit: 10000, profile: "burstable" },
+      admin,
+    )) as Record<string, unknown>;
+
+    expect(result["state"]).toBe("soft-hit");
+    expect(result["value"]).toBe(11000);
+    // The rolling counter has no projection row, so `crossed` is always false.
+    expect(result["crossed"]).toBe(false);
+  });
+
+  test("at hard-threshold (12000) → cap_exceeded code returned", async () => {
+    const admin = adminFor(904);
+    await incrementRolling(admin, "ai-tokens-7d", 6000);
+    await incrementRolling(admin, "ai-tokens-7d", 6000);
+
+    const result = (await stack.http.writeOk(
+      ENFORCE_ROLLING_PROBE_QN,
+      { capName: "ai-tokens-7d", windowDays: 7, limit: 10000, profile: "burstable" },
+      admin,
+    )) as Record<string, unknown>;
+
+    expect(result["ok"]).toBe(false);
+    expect(result["code"]).toBe("cap_exceeded");
+    expect(result["currentValue"]).toBe(12000);
+  });
+
+  test("rolling-counter stream is isolated per (tenant, capName) — a different cap does not count", async () => {
+    const admin = adminFor(905);
     await incrementRolling(admin, "ai-tokens-7d", 9999);
     await incrementRolling(admin, "egress-bytes-24h", 100);
 
-    expect(await rollingUsage(admin, "egress-bytes-24h", 1)).toBe(100);
+    const result = (await stack.http.writeOk(
+      ENFORCE_ROLLING_PROBE_QN,
+      { capName: "egress-bytes-24h", windowDays: 1, limit: 1000, profile: "egress" },
+      admin,
+    )) as Record<string, unknown>;
+
+    // The egress window sees ONLY the 100 from the egress cap; the 9999 from
+    // the ai-tokens cap belong to a different aggregate stream.
+    expect(result["state"]).toBe("ok");
+    expect(result["value"]).toBe(100);
   });
 
-  test("tenants are isolated", async () => {
-    const adminA = adminFor(904);
-    const adminB = adminFor(905);
+  test("rolling-counter is tenant-isolated — tenant A's increments do not leak to tenant B", async () => {
+    const adminA = adminFor(906);
+    const adminB = adminFor(907);
     await incrementRolling(adminA, "rolling-iso", 5000);
     await incrementRolling(adminB, "rolling-iso", 100);
 
-    expect(await rollingUsage(adminA, "rolling-iso", 7)).toBe(5000);
-    expect(await rollingUsage(adminB, "rolling-iso", 7)).toBe(100);
-  });
+    const resultB = (await stack.http.writeOk(
+      ENFORCE_ROLLING_PROBE_QN,
+      { capName: "rolling-iso", windowDays: 7, limit: 10000, profile: "burstable" },
+      adminB,
+    )) as Record<string, unknown>;
 
-  test("parallel increments all succeed and add up", async () => {
-    const admin = adminFor(906);
-    await Promise.all(
-      Array.from({ length: 10 }, () =>
-        stack.http.writeOk(
-          CapCounterHandlers.incrementRolling,
-          { capName: "rolling-parallel", amount: 1 },
-          admin,
-        ),
-      ),
-    );
-
-    expect(await rollingUsage(admin, "rolling-parallel", 1)).toBe(10);
-  });
-
-  test("the window starts at the full hour N×24h back", async () => {
-    const admin = adminFor(907);
-    const b = rollingBucketStart(Temporal.Now.instant());
-    await insertOne(db, rollingCapUsageTable, {
-      tenantId: admin.tenantId,
-      capName: "rolling-edge",
-      bucketStart: b.subtract({ hours: 23 }),
-      amount: 7,
-    });
-    await insertOne(db, rollingCapUsageTable, {
-      tenantId: admin.tenantId,
-      capName: "rolling-edge",
-      bucketStart: b.subtract({ hours: 25 }),
-      amount: 1000,
-    });
-    await incrementRolling(admin, "rolling-edge", 1);
-
-    expect(await rollingUsage(admin, "rolling-edge", 1)).toBe(8);
-  });
-
-  test("an increment deletes buckets older than the maximum window", async () => {
-    const admin = adminFor(908);
-    const b = rollingBucketStart(Temporal.Now.instant());
-    await insertOne(db, rollingCapUsageTable, {
-      tenantId: admin.tenantId,
-      capName: "rolling-prune",
-      bucketStart: b.subtract({ hours: 91 * 24 }),
-      amount: 50,
-    });
-    await incrementRolling(admin, "rolling-prune", 1);
-
-    const rows = await selectMany(db, rollingCapUsageTable, { tenantId: admin.tenantId });
-    expect(rows.some((row) => row["amount"] === 50)).toBe(false);
-    expect(await rollingUsage(admin, "rolling-prune", 90)).toBe(1);
-  });
-
-  test("readRollingCapUsage rejects windows outside 1..90 whole days", async () => {
-    const admin = adminFor(909);
-    await expect(rollingUsage(admin, "rolling-window", 0)).rejects.toThrow();
-    await expect(rollingUsage(admin, "rolling-window", 91)).rejects.toThrow();
-    await expect(rollingUsage(admin, "rolling-window", 1.5)).rejects.toThrow();
+    expect(resultB["state"]).toBe("ok");
+    expect(resultB["value"]).toBe(100);
   });
 });
 
@@ -489,5 +547,31 @@ describe("scenario 6: notification-wiring (calendar)", () => {
     expect(result["ok"]).toBe(false);
     expect(result["code"]).toBe("cap_exceeded");
     expect(recordedNotifications).toHaveLength(0);
+  });
+});
+
+describe("scenario 7: notification-wiring (rolling, no dedup)", () => {
+  test("rolling-soft-hit fires notifier on EVERY call — no lastSoftWarnedAt tracking", async () => {
+    recordedNotifications.length = 0;
+    const admin = adminFor(1101);
+    await incrementRolling(admin, "cap-notify-rolling", 6000);
+    await incrementRolling(admin, "cap-notify-rolling", 5000);
+    // sum=11000, limit=10000, soft=1.1×10000=11000 → soft-hit
+
+    await stack.http.writeOk(
+      ENFORCE_ROLLING_NOTIFY_PROBE_QN,
+      { capName: "cap-notify-rolling", windowDays: 7, limit: 10000, profile: "burstable" },
+      admin,
+    );
+    await stack.http.writeOk(
+      ENFORCE_ROLLING_NOTIFY_PROBE_QN,
+      { capName: "cap-notify-rolling", windowDays: 7, limit: 10000, profile: "burstable" },
+      admin,
+    );
+
+    // Drift pin: The rolling counter has NO `lastSoftWarnedAt` flag
+    // (no projection row). If deduplication is introduced without first
+    // resolving how it will be stored, this test will catch it.
+    expect(recordedNotifications).toHaveLength(2);
   });
 });

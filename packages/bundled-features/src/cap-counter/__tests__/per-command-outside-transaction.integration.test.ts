@@ -10,9 +10,14 @@ import {
   type WriteHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { bookCapUsage } from "../book-cap-usage.ts";
+import { capCounterEntity } from "../entity.ts";
 import { createCapCounterFeature } from "../feature.ts";
 import { fetchCounterRow } from "./read-counter.ts";
 
@@ -34,12 +39,11 @@ async function countIdleInTransactionBackends(): Promise<number> {
 
 async function externalCallThenBook(ctx: HandlerContext) {
   openTransactionsDuringExternalCall.push(await countIdleInTransactionBackends());
-  await bookCapUsage(ctx, {
+  return bookCapUsage(ctx, {
     capName: CAP_NAME,
     periodStartIso: PERIOD,
     outsideTransaction: ctx.db.outsideTransaction !== undefined,
   });
-  return { isSuccess: true as const, data: {} };
 }
 
 const perCommandHandler: WriteHandlerDef = {
@@ -65,6 +69,7 @@ const probeFeature = defineFeature("percommandprobe", (r) => {
 beforeAll(async () => {
   stack = await setupTestStack({ features: [createCapCounterFeature(), probeFeature] });
   db = stack.db;
+  await unsafeCreateEntityTable(db, capCounterEntity);
 });
 
 afterAll(async () => {

@@ -4,11 +4,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
-  createBigIntField,
-  createEntity,
   createEntityExecutor,
-  createTextField,
-  createTimestampField,
   defineFeature,
   type WriteHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -21,26 +17,10 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
+import { capCounterEntity } from "../entity.ts";
 import { createStockCapGuard } from "../stock-cap-guard.ts";
 
-// Any entity table serves as the counted stock; the cap-counter feature no longer owns an entity.
-const stockProbeEntity = createEntity({
-  name: "stock-probe",
-  table: "read_stock_cap_probe",
-  description: "Probe rows counted by the stock-cap guard tests.",
-  fields: {
-    capName: createTextField({
-      required: true,
-      maxLength: 100,
-      personal: false,
-      reason: "technical_reference",
-    }),
-    value: createBigIntField({ required: true, default: 0 }),
-    periodStart: createTimestampField({ required: true }),
-  },
-});
-
-const { executor, table: stockProbeTable } = createEntityExecutor(stockProbeEntity);
+const { executor, table: capCounterTable } = createEntityExecutor("cap-counter", capCounterEntity);
 
 const CAP_CODE = "stock_reservation_exceeded";
 const CAP_NAME = "reservation-item";
@@ -73,7 +53,7 @@ const createItemHandler: WriteHandlerDef = {
 const reservationFeature = defineFeature("stock-reservation", (r) => {
   r.writeHandler(
     guard.withStockCap(createItemHandler, {
-      table: stockProbeTable,
+      table: capCounterTable,
       limit: (caps: { maxItems: number }) => caps.maxItems,
       where: { capName: CAP_NAME },
       code: CAP_CODE,
@@ -90,7 +70,7 @@ describe("withStockCap reservation", () => {
 
   beforeAll(async () => {
     stack = await setupTestStack({ features: [reservationFeature] });
-    await unsafeCreateEntityTable(stack.db, stockProbeEntity, "stock-probe");
+    await unsafeCreateEntityTable(stack.db, capCounterEntity, "cap-counter");
   });
 
   afterAll(async () => {
@@ -98,7 +78,7 @@ describe("withStockCap reservation", () => {
   });
 
   beforeEach(async () => {
-    await resetTestTables(stack.db, [stockProbeTable, eventsTable]);
+    await resetTestTables(stack.db, [capCounterTable, eventsTable]);
   });
 
   const admin = (tenantNumber: number) =>
@@ -109,7 +89,7 @@ describe("withStockCap reservation", () => {
     });
 
   const rowCount = (tenantNumber: number) =>
-    createTenantDb({ db: stack.db, tenantId: testTenantId(tenantNumber) }).count(stockProbeTable, {
+    createTenantDb({ db: stack.db, tenantId: testTenantId(tenantNumber) }).count(capCounterTable, {
       capName: CAP_NAME,
     });
 

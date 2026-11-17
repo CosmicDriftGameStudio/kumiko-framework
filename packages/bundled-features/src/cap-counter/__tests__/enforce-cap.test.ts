@@ -1,13 +1,14 @@
-// Pure unit tests for the enforce-cap helpers. ctx.db is a stub that serves the counter row, so
-// every threshold branch runs without the test stack; the store-table path against Postgres is
-// exercised in cap-counter.integration.test.ts.
+// Pure unit tests for the enforce-cap helpers. Mocks ctx.db's
+// select-chains via tiny in-memory stubs so we hit every branch
+// without spinning up the test-stack — the real event-store +
+// dispatcher integration is exercised in cap-counter.integration.ts.
 
 import { describe, expect, mock, test } from "bun:test";
 // Temporal: rely on the global ambient declaration from temporal-spec.
 // The framework polyfill is loaded by setupTestStack, but pure unit
 // tests (no stack) need a manual polyfill — vitest.setup.ts does that.
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import type { CalendarCapCounter } from "../book-cap-usage.ts";
+import { ROLLING_INCREMENTED_EVENT_QN } from "../constants.ts";
 import {
   assertBelowHardCap,
   CAP_TOLERANCES,
@@ -16,19 +17,58 @@ import {
   currentCalendarMonthStartIso,
   enforceCap,
   enforceCapAndMaybeNotify,
+  enforceRollingCap,
+  enforceRollingCapAndMaybeNotify,
 } from "../enforce-cap.ts";
 
-// enforceCap reads the counter row through TenantDb.fetchOne; the stub serves the one seeded row.
-function makeMockDb(rows: readonly CalendarCapCounter[]) {
-  return { fetchOne: async () => rows[0] };
+// Test-mock: ctx.db exposes TenantDb-style selectMany (production path)
+// plus legacy drizzle .select().from().where() chain stubs.
+
+function makeMockDb(rows: unknown[]) {
+  // Honors the event `type` filter (rolling usage reads incremented and released events
+  // separately); every other filter is ignored, as before.
+  const selectMany = async (
+    _table: unknown,
+    where?: { type?: string },
+    options?: { limit?: number },
+  ) => {
+    const matching =
+      where?.type === undefined
+        ? rows
+        : rows.filter((row) => (row as { type?: string }).type === where.type);
+    return options?.limit !== undefined ? matching.slice(0, options.limit) : matching;
+  };
+  return {
+    unsafe: async () => rows,
+    selectMany,
+    begin: async <T>(fn: (tx: unknown) => Promise<T>) =>
+      fn({ unsafe: async () => rows, selectMany, begin: async () => undefined }),
+    select: () => ({
+      from: () => ({
+        where: Object.assign(async () => rows, {
+          // calendar path also chains .limit(1) after .where()
+          limit: async () => rows,
+        }),
+      }),
+    }),
+  };
 }
 
-function stubCalendarCtx(rows: readonly CalendarCapCounter[]) {
+function stubCalendarCtx(rows: { value: number; lastSoftWarnedAt: unknown }[]) {
   const ctx = {
     db: makeMockDb(rows),
     user: { tenantId: "tenant-test" },
   };
   return ctx as unknown as Parameters<typeof enforceCap>[0];
+}
+
+function stubRollingCtx(eventPayloads: { amount: number }[], omitUser = false) {
+  const rows = eventPayloads.map((p) => ({ payload: p, type: ROLLING_INCREMENTED_EVENT_QN }));
+  const ctx = {
+    db: makeMockDb(rows),
+    ...(omitUser ? {} : { user: { tenantId: "tenant-test" } }),
+  };
+  return ctx as unknown as Parameters<typeof enforceRollingCap>[0];
 }
 
 const PERIOD = "2026-05-01T00:00:00Z";
@@ -74,9 +114,7 @@ describe("enforceCap — burstable profile (mails / tokens)", () => {
   });
 
   test("value past soft, already warned → soft-hit, crossed=false (no re-notification)", async () => {
-    const ctx = stubCalendarCtx([
-      { value: 1150, lastSoftWarnedAt: Temporal.Instant.from("2026-05-15T12:00:00Z") },
-    ]);
+    const ctx = stubCalendarCtx([{ value: 1150, lastSoftWarnedAt: "2026-05-15T12:00:00Z" }]);
     const result = await enforceCap(ctx, opts);
     expect(result.state).toBe("soft-hit");
     if (result.state === "soft-hit") {
@@ -172,6 +210,98 @@ describe("enforceCap — egress profile", () => {
 });
 
 // =============================================================================
+// enforceRollingCap — window-based reads over increment events
+// =============================================================================
+
+describe("enforceRollingCap — burstable profile (KI-tokens-7d)", () => {
+  // `limit=10000` keeps 10000 × 1.1 = 11000 and × 1.2 = 12000 as
+  // exact integers in floating-point arithmetic (50000 × 1.1 would be
+  // 55000.00000000001).
+  const opts = {
+    capName: "ai-tokens-7d",
+    windowDays: 7,
+    limit: 10000,
+    profile: "burstable" as const,
+  };
+
+  test("no events in window → value=0, ok", async () => {
+    const ctx = stubRollingCtx([]);
+    const result = await enforceRollingCap(ctx, opts);
+    expect(result.state).toBe("ok");
+    if (result.state === "ok") {
+      expect(result.value).toBe(0);
+    }
+  });
+
+  test("sums amounts across multiple events", async () => {
+    const ctx = stubRollingCtx([{ amount: 1000 }, { amount: 2500 }, { amount: 500 }]);
+    const result = await enforceRollingCap(ctx, opts);
+    expect(result.state).toBe("ok");
+    if (result.state === "ok") {
+      expect(result.value).toBe(4000);
+    }
+  });
+
+  test("sum at soft-threshold (11000, soft=1.1×10000) → soft-hit, crossed=false", async () => {
+    const ctx = stubRollingCtx([{ amount: 6000 }, { amount: 5000 }]);
+    const result = await enforceRollingCap(ctx, opts);
+    expect(result.state).toBe("soft-hit");
+    if (result.state === "soft-hit") {
+      expect(result.value).toBe(11000);
+      // The rolling counter does not track lastSoftWarnedAt, so crossed is always false.
+      expect(result.crossed).toBe(false);
+    }
+  });
+
+  test("sum at hard-threshold (12000, hard=1.2×10000) → throws CapExceededError", async () => {
+    const ctx = stubRollingCtx([{ amount: 6000 }, { amount: 6000 }]);
+    await expect(enforceRollingCap(ctx, opts)).rejects.toThrow(CapExceededError);
+  });
+
+  test("ignores malformed payloads (no `amount` field) — defensive against schema-drift", async () => {
+    // Sums only the well-formed events. If a future event-shape lands
+    // with a different field name, we don't blow up — just under-count.
+    const ctx = stubRollingCtx([
+      { amount: 1000 },
+      // @ts-expect-error — testing defensive read
+      { other: 9999 },
+      { amount: 2000 },
+    ]);
+    const result = await enforceRollingCap(ctx, opts);
+    expect(result.state).toBe("ok");
+    if (result.state === "ok") {
+      expect(result.value).toBe(3000);
+    }
+  });
+});
+
+describe("enforceRollingCap — input validation", () => {
+  test("missing ctx.db → throws clear error", async () => {
+    const ctx = { user: { tenantId: "t" } } as unknown as Parameters<typeof enforceRollingCap>[0];
+    await expect(
+      enforceRollingCap(ctx, {
+        capName: "x",
+        windowDays: 7,
+        limit: 1,
+        profile: "burstable",
+      }),
+    ).rejects.toThrow(/ctx\.db missing/);
+  });
+
+  test("missing ctx.user.tenantId → throws clear error", async () => {
+    const ctx = stubRollingCtx([], true);
+    await expect(
+      enforceRollingCap(ctx, {
+        capName: "x",
+        windowDays: 7,
+        limit: 1,
+        profile: "burstable",
+      }),
+    ).rejects.toThrow(/tenantId missing/);
+  });
+});
+
+// =============================================================================
 // enforceCapAndMaybeNotify — Calendar + Notification-Wiring
 // =============================================================================
 
@@ -196,9 +326,7 @@ describe("enforceCapAndMaybeNotify — calendar", () => {
   // scenario 6 instead of a mock-ctx test here.
 
   test("soft-hit, crossed=false (already warned) → notifier not called again", async () => {
-    const ctx = stubCalendarCtx([
-      { value: 1150, lastSoftWarnedAt: Temporal.Instant.from("2026-05-15T12:00:00Z") },
-    ]);
+    const ctx = stubCalendarCtx([{ value: 1150, lastSoftWarnedAt: "2026-05-15T12:00:00Z" }]);
     const notify = mock();
     const result = await enforceCapAndMaybeNotify(ctx, { ...baseOpts, notify });
     expect(result.state).toBe("soft-hit");
@@ -216,6 +344,53 @@ describe("enforceCapAndMaybeNotify — calendar", () => {
 });
 
 // =============================================================================
+// enforceRollingCapAndMaybeNotify — Rolling + Notification (no dedup)
+// =============================================================================
+
+describe("enforceRollingCapAndMaybeNotify — rolling", () => {
+  const baseOpts = {
+    capName: "ai-tokens-7d",
+    windowDays: 7,
+    limit: 10000,
+    profile: "burstable" as const,
+  };
+
+  test("ok → notifier not called", async () => {
+    const ctx = stubRollingCtx([{ amount: 100 }]);
+    const notify = mock();
+    const result = await enforceRollingCapAndMaybeNotify(ctx, { ...baseOpts, notify });
+    expect(result.state).toBe("ok");
+    expect(notify).not.toHaveBeenCalled();
+  });
+
+  test("soft-hit → notifier fires (no deduplication, caller responsibility)", async () => {
+    const ctx = stubRollingCtx([{ amount: 6000 }, { amount: 5000 }]);
+    const notify = mock();
+    const result = await enforceRollingCapAndMaybeNotify(ctx, { ...baseOpts, notify });
+    expect(result.state).toBe("soft-hit");
+    expect(notify).toHaveBeenCalledTimes(1);
+    expect(notify).toHaveBeenCalledWith({
+      capName: "ai-tokens-7d",
+      value: 11000,
+      limit: 10000,
+      tenantId: "tenant-test",
+    });
+  });
+
+  test("two consecutive soft-hit calls → notifier 2× (no deduplication)", async () => {
+    // The rolling counter does not track lastSoftWarnedAt; the caller must
+    // deduplicate notifications itself (for example, with a cache entry or
+    // hourly cron). This detects a refactor that adds deduplication without
+    // a projection row.
+    const ctx = stubRollingCtx([{ amount: 11000 }]);
+    const notify = mock();
+    await enforceRollingCapAndMaybeNotify(ctx, { ...baseOpts, notify });
+    await enforceRollingCapAndMaybeNotify(ctx, { ...baseOpts, notify });
+    expect(notify).toHaveBeenCalledTimes(2);
+  });
+});
+
+// =============================================================================
 // Period-Helpers
 // =============================================================================
 
@@ -224,6 +399,40 @@ describe("currentCalendarMonthStartIso", () => {
     const midMay = Temporal.Instant.from("2026-05-15T14:32:11Z");
     const result = currentCalendarMonthStartIso(midMay);
     expect(result).toBe("2026-05-01T00:00:00Z");
+  });
+});
+
+// =============================================================================
+// Aggregate-ID drift pins — changing the namespace would completely re-key
+// tenant-stored counter history. These tests pin the UUIDs.
+// =============================================================================
+
+describe("aggregate-id namespaces — drift-pin", () => {
+  test("calendar capCounterAggregateId stable for (tenant, capName, period)", async () => {
+    const { capCounterAggregateId } = await import("../aggregate-id.ts");
+    expect(capCounterAggregateId("tenant-1", "cap-x", "2026-05-01T00:00:00Z")).toBe(
+      "2e74a706-7cc1-51ca-a1a7-89e5c5bccb7e",
+    );
+  });
+
+  test("rolling rollingCapAggregateId stable for (tenant, capName)", async () => {
+    const { rollingCapAggregateId } = await import("../aggregate-id.ts");
+    // Pin the exact UUID output. Changing the namespace UUID in
+    // aggregate-id.ts would invalidate the tenant's entire rolling-counter
+    // history, so this test catches the change before deployment.
+    expect(rollingCapAggregateId("tenant-1", "ai-tokens-7d")).toBe(
+      "7d3dc5df-561f-555f-96d7-e9542d0de679",
+    );
+  });
+
+  test("calendar and rolling produce DIFFERENT UUIDs for the same tuple", async () => {
+    const { capCounterAggregateId, rollingCapAggregateId } = await import("../aggregate-id.ts");
+    // Even if someone passes "1970-01-01..." as periodStart to the calendar
+    // path, its UUID must not collide with the rolling aggregate; otherwise
+    // the two streams would merge and counters would be incorrect.
+    const calendarId = capCounterAggregateId("tenant-1", "ai-tokens-7d", "1970-01-01T00:00:00Z");
+    const rollingId = rollingCapAggregateId("tenant-1", "ai-tokens-7d");
+    expect(calendarId).not.toBe(rollingId);
   });
 });
 
@@ -275,7 +484,7 @@ describe("CapExceededError reset info", () => {
     expect(err.i18nKey).toBe("x:errors.cap");
   });
 
-  test("without resetAt there is no retry info", () => {
+  test("without resetAt (rolling cap) there is no retry info", () => {
     const err = new CapExceededError("c", 1, 1, tolerance);
     expect(err.resetAt).toBeUndefined();
     expect(err.retryAfterSeconds).toBeUndefined();

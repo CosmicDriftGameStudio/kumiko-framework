@@ -1,12 +1,10 @@
 import {
-  bigint,
+  defineUnmanagedTable,
   type EntityTableMeta,
   index,
   instant,
   integer,
   table as pgTable,
-  primaryKey,
-  requireEntityTableMeta,
   text,
   uuid,
 } from "@cosmicdrift/kumiko-framework/db";
@@ -22,15 +20,14 @@ const CAP_RESERVATIONS_TENANT_CAP_EXPIRES_INDEX =
 // A settle keeps the row as a settled tombstone (settled_at set) the same way, so a repeated settle
 // or a late release finds it and does nothing.
 // Unmanaged: the rows are a coordination aid, not state with an event history.
-// kind only knows "calendar"; the column stays because existing tables have it NOT NULL without default.
 export const capReservationsTable = pgTable(
   "store_cap_reservations",
   {
     id: uuid("id").primaryKey(),
     tenantId: uuid("tenant_id").notNull(),
     capName: text("cap_name").notNull(),
-    kind: text("kind").notNull().$type<"calendar">(),
-    // Calendar only: the period start a give-back books against, kept as the raw string it was reserved with.
+    kind: text("kind").notNull().$type<"calendar" | "rolling">(),
+    // Calendar only: raw string the counter's aggregate id was derived from; a normalized instant could point at another counter.
     periodStartIso: text("period_start_iso"),
     amount: integer("amount").notNull(),
     expiresAt: instant("expires_at").notNull(),
@@ -38,65 +35,29 @@ export const capReservationsTable = pgTable(
     settledAt: instant("settled_at"),
     consumedAmount: integer("consumed_amount").notNull().default(0),
     releasedAt: instant("released_at"),
-    // The subject row the reservation booked on, so a give-back reaches it; nulled when the subject is forgotten.
-    subjectHash: text("subject_hash"),
   },
   (t) => [index(CAP_RESERVATIONS_TENANT_CAP_EXPIRES_INDEX).on(t.tenantId, t.capName, t.expiresAt)],
 );
 
-export const capReservationsTableMeta: EntityTableMeta = requireEntityTableMeta(
-  capReservationsTable,
-  "capReservationsTable",
-);
-
-// One row per tenant, cap and period, plus one row per subject when a booking names one. Atomic
-// increments, no event history, because a usage counter has no business history.
-export const capCountersTable = pgTable(
-  "store_cap_counters",
-  {
-    tenantId: uuid("tenant_id").notNull(),
-    capName: text("cap_name").notNull(),
-    periodStart: instant("period_start").notNull(),
-    subjectHash: text("subject_hash").notNull(),
-    value: bigint("value", { mode: "number" }).notNull(),
-    lastSoftWarnedAt: instant("last_soft_warned_at"),
-  },
-  (t) => [
-    primaryKey({
-      name: "store_cap_counters_pkey",
-      columns: [t.tenantId, t.capName, t.periodStart, t.subjectHash],
-    }),
-    // Forget deletes by hash across tenants.
-    index("store_cap_counters_subject_hash_idx").on(t.subjectHash),
+export const capReservationsTableMeta: EntityTableMeta = defineUnmanagedTable({
+  tableName: "store_cap_reservations",
+  indexes: [
+    {
+      name: CAP_RESERVATIONS_TENANT_CAP_EXPIRES_INDEX,
+      columns: ["tenant_id", "cap_name", "expires_at"],
+    },
   ],
-);
-
-export const capCountersTableMeta: EntityTableMeta = requireEntityTableMeta(
-  capCountersTable,
-  "capCountersTable",
-);
-
-// One row per (tenant, cap, UTC hour): increment-rolling adds to the row of the current hour,
-// readRollingCapUsage sums the rows of the window. Unmanaged coordination store, no event history.
-export const rollingCapUsageTable = pgTable(
-  "store_cap_rolling_usage",
-  {
-    tenantId: uuid("tenant_id").notNull(),
-    capName: text("cap_name").notNull(),
-    bucketStart: instant("bucket_start").notNull(),
-    amount: bigint("amount", { mode: "number" }).notNull(),
-  },
-  (t) => [
-    primaryKey({
-      name: "store_cap_rolling_usage_pkey",
-      columns: [t.tenantId, t.capName, t.bucketStart],
-    }),
-    // Retention delete on increment filters tenant + bucket_start only.
-    index("store_cap_rolling_usage_tenant_id_bucket_start_idx").on(t.tenantId, t.bucketStart),
+  columns: [
+    { name: "id", pgType: "uuid", notNull: true, primaryKey: true },
+    { name: "tenant_id", pgType: "uuid", notNull: true },
+    { name: "cap_name", pgType: "text", notNull: true },
+    { name: "kind", pgType: "text", notNull: true },
+    { name: "period_start_iso", pgType: "text", notNull: false },
+    { name: "amount", pgType: "integer", notNull: true },
+    { name: "expires_at", pgType: "timestamptz", notNull: true },
+    { name: "created_at", pgType: "timestamptz", notNull: true },
+    { name: "settled_at", pgType: "timestamptz", notNull: false },
+    { name: "consumed_amount", pgType: "integer", notNull: true, defaultSql: "0" },
+    { name: "released_at", pgType: "timestamptz", notNull: false },
   ],
-);
-
-export const rollingCapUsageTableMeta: EntityTableMeta = requireEntityTableMeta(
-  rollingCapUsageTable,
-  "rollingCapUsageTable",
-);
+});

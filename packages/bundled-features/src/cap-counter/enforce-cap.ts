@@ -1,12 +1,15 @@
-import { KumikoError } from "@cosmicdrift/kumiko-framework/errors";
+import { createEntityExecutor } from "@cosmicdrift/kumiko-framework/engine";
+import { KumikoError, reraiseAsKumikoError } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import {
   type CapCounterContext,
   markCapSoftWarned,
-  readCalendarCapCounter,
+  readRollingCapUsage,
   resolveCapCounterScope,
 } from "./book-cap-usage.ts";
-import { type CapSubject, capSubjectLimit, capSubjectSchema } from "./cap-subject.ts";
+import { capCounterEntity } from "./entity.ts";
+
+const { table } = createEntityExecutor("cap-counter", capCounterEntity);
 
 // =============================================================================
 // Cap-Toleranz-Multipliers
@@ -40,12 +43,6 @@ export const CAP_TOLERANCES = {
 
 export type CapToleranceProfileName = keyof typeof CAP_TOLERANCES;
 
-// Tolerances are decimal factors; limit * 1.1 is 110.00000000000001 in binary floating point,
-// which would keep a counter of exactly 110 below the soft threshold. Integer math stays exact.
-function capThreshold(limit: number, factor: number): number {
-  return (limit * Math.round(factor * 100)) / 100;
-}
-
 // =============================================================================
 // Enforcement-Result
 // =============================================================================
@@ -61,29 +58,25 @@ export type EnforceCapResult =
       readonly crossed: boolean;
     };
 
-export type CapLimitScope = "tenant" | "subject";
-
 export function assertBelowHardCap(
   valueSeenByLastUnit: number,
   cap: {
     readonly capName: string;
     readonly limit: number;
     readonly profile: CapToleranceProfileName;
-    // Both period fields are optional; without them the thrown error carries no reset instant.
+    // Rolling caps have no fixed period, so they pass neither period field.
     readonly periodStartIso?: string;
     readonly periodEndIso?: string;
     readonly i18nKey?: string;
   },
-  scope: CapLimitScope = "tenant",
 ): void {
   const tolerance = CAP_TOLERANCES[cap.profile];
   // Validated on every call so a misconfigured period fails deterministically, not only at the limit.
   const resetAt = resolvePeriodEndIso(cap.periodStartIso, cap.periodEndIso);
-  if (valueSeenByLastUnit >= capThreshold(cap.limit, tolerance.hard)) {
+  if (valueSeenByLastUnit >= cap.limit * tolerance.hard) {
     throw new CapExceededError(cap.capName, cap.limit, valueSeenByLastUnit, tolerance, {
       ...(resetAt !== undefined && { resetAt }),
       ...(cap.i18nKey !== undefined && { i18nKey: cap.i18nKey }),
-      scope,
     });
   }
 }
@@ -142,10 +135,8 @@ export async function enforceCap(
     // Default: end of the calendar month that starts at periodStartIso.
     readonly periodEndIso?: string;
     readonly i18nKey?: string;
-    readonly subject?: CapSubject;
   },
 ): Promise<EnforceCapResult> {
-  const subject = options.subject && capSubjectSchema.parse(options.subject);
   const { user, readDb } = resolveCapCounterScope(ctx, false);
 
   const amount = options.amount ?? 1;
@@ -156,33 +147,81 @@ export async function enforceCap(
   }
 
   const tolerance = CAP_TOLERANCES[options.profile];
-  const softThreshold = capThreshold(options.limit, tolerance.soft);
+  const softThreshold = options.limit * tolerance.soft;
 
-  const row = await readCalendarCapCounter(readDb, user.tenantId, {
-    capName: options.capName,
-    periodStartIso: options.periodStartIso,
-  });
-  const storedValue = row?.value ?? 0;
+  const rows = await readDb.selectMany(
+    table,
+    { tenantId: user.tenantId, capName: options.capName, periodStart: options.periodStartIso },
+    { limit: 1 },
+  );
+
+  const row = rows[0];
+  const storedValue = row ? (row["value"] as number) : 0; // @cast-boundary db-row
   // The last of `amount` units sees this value before its own increment.
   const value = storedValue + amount - 1;
 
   assertBelowHardCap(value, options);
 
-  if (subject?.share !== undefined) {
-    const subjectRow = await readCalendarCapCounter(readDb, user.tenantId, {
-      capName: options.capName,
-      periodStartIso: options.periodStartIso,
-      subjectKey: subject.key,
-    });
-    assertBelowHardCap(
-      (subjectRow?.value ?? 0) + amount - 1,
-      { ...options, limit: capSubjectLimit(options.limit, subject.share) },
-      "subject",
-    );
+  if (value >= softThreshold) {
+    const lastSoftWarnedAt = row ? row["lastSoftWarnedAt"] : null;
+    return { state: "soft-hit", value, crossed: lastSoftWarnedAt === null };
+  }
+
+  return { state: "ok", value };
+}
+
+// =============================================================================
+// Enforce-Rolling-Cap helper
+// =============================================================================
+
+/**
+ * Synchronous read-and-check of the calling tenant's rolling-window
+ * counter for `capName`. Reads increment events from the last
+ * `windowDays` in the event store and sums their `amount`. Returns:
+ *   - "ok" when sum < soft-threshold
+ *   - "soft-hit" when soft ≤ sum < hard.
+ *
+ * **Throws** `CapExceededError` when sum ≥ hard-threshold.
+ *
+ * **The `crossed` flag is intentionally absent:** Unlike the calendar
+ * counter, the rolling aggregate has no projection row with a
+ * `lastSoftWarnedAt` flag. The caller must deduplicate notification storms
+ * using its own mechanism, such as a cache-table key or request-lifetime
+ * memoization. The result shape still matches `EnforceCapResult` so the same
+ * caller code works with both functions; `crossed` is always `false` here
+ * (= "not tracked").
+ *
+ * **Performance note:** The read sums ALL events in the window for
+ * (tenant, capName). With 10k+ events per tenant in the window, this could
+ * become slow; migrate to a multi-stream projection with pre-aggregated
+ * daily buckets if needed.
+ */
+export async function enforceRollingCap(
+  ctx: CapCounterContext,
+  options: {
+    readonly capName: string;
+    readonly windowDays: number;
+    readonly limit: number;
+    readonly profile: CapToleranceProfileName;
+  },
+): Promise<EnforceCapResult> {
+  const { user, readDb } = resolveCapCounterScope(ctx, false);
+
+  const tolerance = CAP_TOLERANCES[options.profile];
+  const softThreshold = options.limit * tolerance.soft;
+  const hardThreshold = options.limit * tolerance.hard;
+
+  const value = await readRollingCapUsage(readDb, user.tenantId, {
+    capName: options.capName,
+    windowDays: options.windowDays,
+  });
+
+  if (value >= hardThreshold) {
+    throw new CapExceededError(options.capName, options.limit, value, tolerance);
   }
 
   if (value >= softThreshold) {
-    return { state: "soft-hit", value, crossed: (row?.lastSoftWarnedAt ?? null) === null };
+    return { state: "soft-hit", value, crossed: false };
   }
 
   return { state: "ok", value };
@@ -193,12 +232,12 @@ export async function enforceCap(
 // =============================================================================
 
 /**
- * Thrown by enforceCap when value ≥ hard-threshold.
+ * Thrown by enforceCap/enforceRollingCap when value ≥ hard-threshold.
  * Extends `KumikoError` — the dispatcher auto-maps this to HTTP 429
  * with `code: "cap_exceeded"`, no caller-side catch needed.
  *
  * Calendar caps carry `resetAt` (end of the period) and `retryAfterSeconds`, which the API
- * answers as Retry-After. Without a period both stay undefined.
+ * answers as Retry-After. Rolling caps have no fixed reset instant, so both stay undefined.
  */
 export class CapExceededError extends KumikoError {
   readonly code = "cap_exceeded" as const;
@@ -213,7 +252,6 @@ export class CapExceededError extends KumikoError {
     options?: {
       readonly resetAt?: string;
       readonly i18nKey?: string;
-      readonly scope?: CapLimitScope;
       readonly cause?: Error;
       // Deterministic tests only.
       readonly now?: Temporal.Instant;
@@ -231,7 +269,7 @@ export class CapExceededError extends KumikoError {
             ),
           );
     super({
-      message: `Cap "${capName}" exceeded: current=${currentValue}, limit=${limit}, hard-threshold=${capThreshold(limit, tolerance.hard)}. Upgrade tier or wait for next period reset.${resetAt === undefined ? "" : ` Resets at ${resetAt}.`}`,
+      message: `Cap "${capName}" exceeded: current=${currentValue}, limit=${limit}, hard-threshold=${limit * tolerance.hard}. Upgrade tier or wait for next period reset.${resetAt === undefined ? "" : ` Resets at ${resetAt}.`}`,
       i18nKey: options?.i18nKey ?? "errors.cap.exceeded",
       i18nParams: { capName, limit, currentValue, ...(resetAt !== undefined && { resetAt }) },
       details: {
@@ -239,7 +277,6 @@ export class CapExceededError extends KumikoError {
         limit,
         currentValue,
         tolerance,
-        ...(options?.scope === "subject" && { scope: "subject" }),
         ...(resetAt !== undefined && { resetAt, retryAfterSeconds }),
       },
       ...(retryAfterSeconds !== undefined && { retryAfterSeconds }),
@@ -284,9 +321,9 @@ export function calendarMonthPeriodEndIso(periodStartIso: string): string {
 }
 
 // =============================================================================
-// Notification-wiring helper — convenience wrapper for `enforceCap` that
-// executes a caller-supplied delivery emitter when a soft-hit threshold is
-// crossed. The cap counter does not know about the
+// Notification-wiring helpers — convenience wrappers for `enforceCap` and
+// `enforceRollingCap` that execute a caller-supplied delivery emitter when
+// a soft-hit threshold is crossed. The cap counter does not know about the
 // delivery feature directly; the caller injects the emitter.
 // =============================================================================
 
@@ -294,7 +331,10 @@ export function calendarMonthPeriodEndIso(periodStartIso: string): string {
  * Soft-hit notifier callback. The caller supplies the function that emits
  * a delivery event (for example, `delivery.send({to, template, payload})`).
  * It is called exactly once per period for the calendar counter
- * (`crossed === true`, deduplicated by the atomic soft-warned mark).
+ * (`crossed === true`, deduplicated via `markSoftWarnedHandler`).
+ *
+ * For the rolling counter, `crossed` is always `false`; the caller must
+ * deduplicate notifications itself or intentionally send one per request.
  */
 export type SoftHitNotifier = (info: {
   readonly capName: string;
@@ -305,9 +345,9 @@ export type SoftHitNotifier = (info: {
 
 /**
  * Calendar-period enforcement with automatic soft-hit notification.
- * Calls `enforceCap`; when `crossed: true`, it sets `lastSoftWarnedAt` and only
- * the call that set it runs the notifier, so the same period does not trigger
- * another notification.
+ * Calls `enforceCap`; when `crossed: true`, it calls the notifier and the
+ * `mark-soft-warned` handler, which flips `lastSoftWarnedAt` so that the
+ * same period does not trigger another notification.
  *
  * Returns the `EnforceCapResult` unchanged, allowing the caller to branch
  * on the result, such as showing a UI toast in addition to the email
@@ -325,7 +365,6 @@ export async function enforceCapAndMaybeNotify(
     readonly periodEndIso?: string;
     readonly i18nKey?: string;
     readonly markSoftWarnedOutsideTransaction?: boolean;
-    readonly subject?: CapSubject;
   },
 ): Promise<EnforceCapResult> {
   const result = await enforceCap(ctx, {
@@ -336,24 +375,61 @@ export async function enforceCapAndMaybeNotify(
     ...(options.amount !== undefined && { amount: options.amount }),
     ...(options.periodEndIso !== undefined && { periodEndIso: options.periodEndIso }),
     ...(options.i18nKey !== undefined && { i18nKey: options.i18nKey }),
-    ...(options.subject !== undefined && { subject: options.subject }),
   });
 
   if (result.state === "soft-hit" && result.crossed) {
-    // At most one notification per period; a notify failure after the mark is not retried.
+    await options.notify({
+      capName: options.capName,
+      value: result.value,
+      limit: options.limit,
+      tenantId: resolveCapCounterScope(ctx, false).user.tenantId,
+    });
+    // Flip the soft-warned flag so the same period doesn't re-notify.
     const marked = await markCapSoftWarned(ctx, {
       capName: options.capName,
       periodStartIso: options.periodStartIso,
       ...(options.markSoftWarnedOutsideTransaction && { outsideTransaction: true }),
     });
-    if (marked) {
-      await options.notify({
-        capName: options.capName,
-        value: result.value,
-        limit: options.limit,
-        tenantId: resolveCapCounterScope(ctx, false).user.tenantId,
-      });
-    }
+    if (!marked.isSuccess) throw reraiseAsKumikoError(marked.error);
+  }
+
+  return result;
+}
+
+/**
+ * Rolling-window enforcement that always sends a notification on a soft hit.
+ *
+ * **Storm risk:** The rolling counter does NOT track `lastSoftWarnedAt`
+ * (there is no projection row). On every call while the counter is in the
+ * soft range, the notifier fires. The caller must deduplicate, for example
+ * with a cache entry `lastNotified[capName]` and a TTL, or call
+ * `enforceRollingCapAndMaybeNotify` only once per day or hour
+ * (an hourly cron instead of per request).
+ */
+export async function enforceRollingCapAndMaybeNotify(
+  ctx: CapCounterContext,
+  options: {
+    readonly capName: string;
+    readonly windowDays: number;
+    readonly limit: number;
+    readonly profile: CapToleranceProfileName;
+    readonly notify: SoftHitNotifier;
+  },
+): Promise<EnforceCapResult> {
+  const result = await enforceRollingCap(ctx, {
+    capName: options.capName,
+    windowDays: options.windowDays,
+    limit: options.limit,
+    profile: options.profile,
+  });
+
+  if (result.state === "soft-hit") {
+    await options.notify({
+      capName: options.capName,
+      value: result.value,
+      limit: options.limit,
+      tenantId: resolveCapCounterScope(ctx, false).user.tenantId,
+    });
   }
 
   return result;
@@ -371,7 +447,7 @@ export type StockCapResult =
  * Stock cap: checks a cardinality counted LIVE by the caller (for example,
  * the number of existing components for a tenant) against a tier limit.
  *
- * Unlike {@link enforceCap}, there is NO stored
+ * Unlike {@link enforceCap}/{@link enforceRollingCap}, there is NO stored
  * counter: the caller counts the projection itself
  * (`count(*) WHERE tenant_id = …`) and passes `current`. This avoids drift
  * (a delete immediately frees the slot), requires no counter table or
@@ -393,7 +469,7 @@ export function enforceStockCap(options: {
   readonly limit: number;
   readonly profile: CapToleranceProfileName;
 }): StockCapResult {
-  const hardThreshold = capThreshold(options.limit, CAP_TOLERANCES[options.profile].hard);
+  const hardThreshold = options.limit * CAP_TOLERANCES[options.profile].hard;
   const state = options.current >= hardThreshold ? "exceeded" : "ok";
   return { state, current: options.current, limit: options.limit };
 }

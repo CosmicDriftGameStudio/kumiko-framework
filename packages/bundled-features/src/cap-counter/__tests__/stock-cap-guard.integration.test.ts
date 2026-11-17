@@ -10,12 +10,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { createTenantDb, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
-  createBigIntField,
-  createEntity,
   createEntityExecutor,
   createSystemConfig,
-  createTextField,
-  createTimestampField,
   defineFeature,
   type SessionUser,
   type WriteHandlerDef,
@@ -34,26 +30,10 @@ import { createConfigAccessorFactory, createConfigFeature } from "../../config/f
 import { createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";
 import { ConfigHandlers } from "../../config/web/constants.ts";
+import { capCounterEntity } from "../entity.ts";
 import { createStockCapGuard } from "../stock-cap-guard.ts";
 
-// Any entity table serves as the counted stock; the cap-counter feature no longer owns an entity.
-const stockProbeEntity = createEntity({
-  name: "stock-probe",
-  table: "read_stock_cap_probe",
-  description: "Probe rows counted by the stock-cap guard tests.",
-  fields: {
-    capName: createTextField({
-      required: true,
-      maxLength: 100,
-      personal: false,
-      reason: "technical_reference",
-    }),
-    value: createBigIntField({ required: true, default: 0 }),
-    periodStart: createTimestampField({ required: true }),
-  },
-});
-
-const { executor, table: stockProbeTable } = createEntityExecutor(stockProbeEntity);
+const { executor, table: capCounterTable } = createEntityExecutor("cap-counter", capCounterEntity);
 
 let stack: TestStack;
 let db: DbConnection;
@@ -61,7 +41,7 @@ let db: DbConnection;
 beforeAll(async () => {
   stack = await setupTestStack({ features: [] });
   db = stack.db;
-  await unsafeCreateEntityTable(db, stockProbeEntity, "stock-probe");
+  await unsafeCreateEntityTable(db, capCounterEntity, "cap-counter");
 });
 
 afterAll(async () => {
@@ -69,7 +49,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await resetTestTables(db, [stockProbeTable, eventsTable]);
+  await resetTestTables(db, [capCounterTable, eventsTable]);
 });
 
 function seedUser(tenantId: ReturnType<typeof testTenantId>): SessionUser {
@@ -97,7 +77,7 @@ describe("checkStockCap tenant scoping", () => {
 
     const guard = createStockCapGuard(async () => ({}));
     const failure = await guard.checkStockCap(createTenantDb({ db, tenantId: realTenant }), {
-      table: stockProbeTable,
+      table: capCounterTable,
       limit: () => 1,
       // A where object that (accidentally or maliciously) carries its own
       // tenantId must NOT be able to redirect the count to another tenant.
@@ -119,7 +99,7 @@ describe("checkStockCap tenant scoping", () => {
 
     const guard = createStockCapGuard(async () => ({}));
     const failure = await guard.checkStockCap(createTenantDb({ db, tenantId: tenant }), {
-      table: stockProbeTable,
+      table: capCounterTable,
       limit: () => 1,
       where: { capName: "x" },
       code: "cap-exceeded",
@@ -163,7 +143,7 @@ const createItemHandler: WriteHandlerDef = {
 };
 
 const guardedCreateItemHandler = stockGuard.withStockCap(createItemHandler, {
-  table: stockProbeTable,
+  table: capCounterTable,
   limit: (caps: { maxItems: number }) => caps.maxItems,
   where: { capName: "http-stock-item" },
   code: "stock_cap_exceeded",
@@ -173,7 +153,7 @@ const guardedCreateItemHandler = stockGuard.withStockCap(createItemHandler, {
 
 const importItemHandler: WriteHandlerDef = { ...createItemHandler, name: "import-item" };
 const guardedImportItemHandler = stockGuard.withStockCap(importItemHandler, {
-  table: stockProbeTable,
+  table: capCounterTable,
   limit: (caps: { maxItems: number }) => caps.maxItems,
   where: { capName: "http-stock-item" },
   code: "import_stock_cap_exceeded",
@@ -193,7 +173,7 @@ describe("withStockCap over HTTP — TenantAdmin-only caller, no escapeHatch", (
 
   beforeAll(async () => {
     httpStack = await setupTestStack({ features: [stockItemFeature] });
-    await unsafeCreateEntityTable(httpStack.db, stockProbeEntity, "stock-probe");
+    await unsafeCreateEntityTable(httpStack.db, capCounterEntity, "cap-counter");
   });
 
   afterAll(async () => {
@@ -201,7 +181,7 @@ describe("withStockCap over HTTP — TenantAdmin-only caller, no escapeHatch", (
   });
 
   beforeEach(async () => {
-    await resetTestTables(httpStack.db, [stockProbeTable, eventsTable]);
+    await resetTestTables(httpStack.db, [capCounterTable, eventsTable]);
   });
 
   function tenantAdminOnlyFor(tenantNumber: number) {
@@ -243,7 +223,7 @@ describe("withStockCap over HTTP — TenantAdmin-only caller, no escapeHatch", (
 
     expect(responses.filter((response) => response.status === 200)).toHaveLength(STOCK_LIMIT);
     expect(
-      await createTenantDb({ db: httpStack.db, tenantId: admin.tenantId }).count(stockProbeTable, {
+      await createTenantDb({ db: httpStack.db, tenantId: admin.tenantId }).count(capCounterTable, {
         capName: "http-stock-item",
       }),
     ).toBe(STOCK_LIMIT);
@@ -265,7 +245,7 @@ describe("withStockCap over HTTP — TenantAdmin-only caller, no escapeHatch", (
     expect(created["data"]).toMatchObject({ capName: "http-stock-item" });
 
     const otherCount = await createTenantDb({ db: httpStack.db, tenantId: other.tenantId }).count(
-      stockProbeTable,
+      capCounterTable,
       {
         capName: "http-stock-item",
       },
@@ -300,7 +280,7 @@ const stockLimitProbeFeature = defineFeature("stock-limit-probe", (r) => {
   });
   r.writeHandler(
     configuredStockGuard.withStockCap(createItemHandler, {
-      table: stockProbeTable,
+      table: capCounterTable,
       limit: (caps: { maxItems: number }) => caps.maxItems,
       where: { capName: "configured-stock-item" },
       code: "stock_cap_exceeded",
@@ -324,7 +304,7 @@ describe("withStockCap resolves the tier limit through ctx.config", () => {
         };
       },
     });
-    await unsafeCreateEntityTable(configStack.db, stockProbeEntity, "stock-probe");
+    await unsafeCreateEntityTable(configStack.db, capCounterEntity, "cap-counter");
     await unsafePushTables(configStack.db, { configValuesTable });
   });
 

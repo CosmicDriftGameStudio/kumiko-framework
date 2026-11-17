@@ -1,4 +1,4 @@
-import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { bookCapUsage } from "../book-cap-usage.ts";
 
@@ -14,14 +14,24 @@ const incrementSchema = z.object({
    *  rolling-window counters pass a fixed sentinel ("1970-01-01"). */
   periodStartIso: z.string().min(1),
 });
+type IncrementPayload = z.infer<typeof incrementSchema>;
 
-// increment-cap — one atomic upsert increment on the counter row of (tenant, cap, period); parallel
-// bookings serialize on the row lock, so no retry loop is needed.
+// increment-cap — atomic counter increment via the event-store's
+// optimistic-lock. Two parallel increments for the same (tenant, cap,
+// period) go to the same aggregate; parallel-safety comes from the
+// re-read-and-retry loop inside bookCapUsage, not from this handler.
 //
-// **Why no `r.systemScope`:** counters are tenant-scoped (one row per tenant per cap per period).
-// The dispatcher's tenant-filter on ctx.db ensures a tenant can only see/increment their own
-// counters.
-export const incrementCapHandler = defineWriteHandler({
+// **Two paths:**
+//   1. Aggregate doesn't exist yet (first increment of the period) →
+//      executor.create with deterministic id, value = amount.
+//   2. Aggregate exists → executor.update with current value + amount.
+//
+// **Why no `r.systemScope`:** counters are tenant-scoped (one row per
+// tenant per cap per period). The dispatcher's tenant-filter on ctx.db
+// ensures a tenant can only see/increment their own counters. Cross-
+// tenant cap-rebuild for ops uses raw DB-access at the framework layer,
+// not this handler.
+export const incrementCapHandler: WriteHandlerDef = {
   name: "increment",
   agent: { expose: false },
   schema: incrementSchema,
@@ -31,12 +41,11 @@ export const incrementCapHandler = defineWriteHandler({
   // which subsystem incremented.
   access: { roles: ["SystemAdmin"] },
   handler: async (event, ctx) => {
-    const payload = event.payload;
-    const { value } = await bookCapUsage(ctx, {
+    const payload = event.payload as IncrementPayload; // @cast-boundary engine-payload
+    return bookCapUsage(ctx, {
       capName: payload.capName,
       periodStartIso: payload.periodStartIso,
       amount: payload.amount,
     });
-    return { isSuccess: true as const, data: { value } };
   },
-});
+};

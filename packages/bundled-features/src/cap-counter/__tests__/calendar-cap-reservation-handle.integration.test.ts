@@ -11,24 +11,35 @@ import {
   test,
 } from "bun:test";
 import { updateMany } from "@cosmicdrift/kumiko-framework/db";
-import { defineFeature, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createEntityExecutor,
+  defineFeature,
+  type WriteHandlerDef,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { burst, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
-import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import {
   calendarCapReservationHandle,
   reserveCalendarCapUsage,
 } from "../calendar-cap-usage-reservation.ts";
-import { releaseExpiredCapReservations } from "../cap-reservation.ts";
+import { releaseExpiredCapReservations, settleCalendarCapReservation } from "../cap-reservation.ts";
 import { CAP_RESERVATION_TTL_MINUTES, CAP_SETTLED_TOMBSTONE_TTL_MINUTES } from "../constants.ts";
+import { capCounterEntity } from "../entity.ts";
 import { createCapCounterFeature } from "../feature.ts";
-import { capCountersTable, capReservationsTable } from "../tables.ts";
+import { capReservationsTable } from "../tables.ts";
 import { fetchCounterValue } from "./read-counter.ts";
 
 const PERIOD = "2026-09-01T00:00:00Z";
+
+const { table: capCounterTable } = createEntityExecutor("cap-counter", capCounterEntity);
 
 const reservePayload = z.object({
   capName: z.string(),
@@ -95,10 +106,11 @@ const capHandleFeature = defineFeature("caphandle", (r) => {
     access: { roles: ["TenantAdmin"] },
     handler: async (event, ctx) => {
       const payload = settlePayload.parse(event.payload);
-      await calendarCapReservationHandle(ctx, payload.reservationId, {
+      await settleCalendarCapReservation(ctx, payload.reservationId, {
         capName: payload.capName,
         periodStartIso: PERIOD,
-      }).settle(payload.actual);
+        actualAmount: payload.actual,
+      });
       return { isSuccess: true as const, data: {} };
     },
   } satisfies WriteHandlerDef);
@@ -124,6 +136,7 @@ let stack: TestStack;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [createCapCounterFeature(), capHandleFeature] });
+  await unsafeCreateEntityTable(stack.db, capCounterEntity);
 });
 
 afterAll(async () => {
@@ -135,7 +148,7 @@ afterEach(() => {
 });
 
 beforeEach(async () => {
-  await resetTestTables(stack.db, [capCountersTable, eventsTable, capReservationsTable]);
+  await resetTestTables(stack.db, [capCounterTable, eventsTable, capReservationsTable]);
 });
 
 function adminFor(tenantNumber: number) {
@@ -254,33 +267,6 @@ describe("calendarCapReservationHandle", () => {
 
     expect(rejected.httpStatus).toBe(422);
     expect(await readCounterValue(user, "settled-cap")).toBe(2);
-  });
-
-  test("settle above the reservation books the overflow, a repeated settle books nothing", async () => {
-    const user = adminFor(3217);
-    const reservationId = await reserve(user, "overflow-cap", 5);
-
-    await stack.http.writeOk(
-      SETTLE_QN,
-      { capName: "overflow-cap", reservationId, actual: 7 },
-      user,
-    );
-    expect(await readCounterValue(user, "overflow-cap")).toBe(7);
-
-    await stack.http.writeOk(
-      SETTLE_QN,
-      { capName: "overflow-cap", reservationId, actual: 7 },
-      user,
-    );
-    expect(await readCounterValue(user, "overflow-cap")).toBe(7);
-  });
-
-  test("settle below the reservation gives the rest back", async () => {
-    const user = adminFor(3218);
-    const reservationId = await reserve(user, "under-cap", 5);
-
-    await stack.http.writeOk(SETTLE_QN, { capName: "under-cap", reservationId, actual: 3 }, user);
-    expect(await readCounterValue(user, "under-cap")).toBe(3);
   });
 
   test("settle after a partial consume books the total once and rejects less than consumed", async () => {

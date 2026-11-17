@@ -1,30 +1,37 @@
-import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { createEntityExecutor, type QueryHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { readCalendarCapCounter } from "../book-cap-usage.ts";
+import { capCounterEntity } from "../entity.ts";
 
-// get-counter — return the tenant-wide counter of (calling tenant, capName, periodStartIso).
-// Returns null if no booking has happened in this period yet — caller treats that as
-// "value = 0, no warning flagged".
+const { table } = createEntityExecutor("cap-counter", capCounterEntity);
+
+// get-counter — return the current counter row for (calling tenant,
+// capName, periodStartIso). Returns null if no increment has happened
+// in this period yet — caller treats that as "value = 0, no warning
+// flagged".
+//
+// **Composition:** enforceCap-helper consumes this. UIs that show
+// remaining-quota call it directly.
 const getCounterSchema = z.object({
   capName: z.string().min(1).max(100),
-  periodStartIso: z.iso.datetime({ offset: true }),
+  periodStartIso: z.string().min(1),
 });
 
-export const getCounterQuery = defineQueryHandler({
+export const getCounterQuery: QueryHandlerDef = {
   name: "get-counter",
   description:
-    "Returns the calendar-period usage counter of the caller's tenant for one cap name and period start, or null when nothing was counted yet; use it to show remaining quota.",
+    "Returns the calendar-period usage counter row of the caller's tenant for one cap name and period start, or null when nothing was counted yet; use it to show remaining quota.",
   schema: getCounterSchema,
   access: { roles: ["TenantAdmin", "SystemAdmin"] },
   handler: async (query, ctx) => {
-    const payload = query.payload;
-    const counter = await readCalendarCapCounter(ctx.db, ctx.user.tenantId, payload);
-    if (!counter) return null;
-    return {
-      capName: payload.capName,
-      periodStartIso: payload.periodStartIso,
-      value: counter.value,
-      lastSoftWarnedAt: counter.lastSoftWarnedAt,
-    };
+    const { capName, periodStartIso } = query.payload as z.infer<typeof getCounterSchema>; // @cast-boundary engine-payload
+
+    // ctx.db is tenant-scoped; filter by capName + periodStart explicitly.
+    const rows = await ctx.db.selectMany(
+      table,
+      { capName, periodStart: periodStartIso },
+      { limit: 1 },
+    );
+
+    return rows[0] ?? null;
   },
-});
+};

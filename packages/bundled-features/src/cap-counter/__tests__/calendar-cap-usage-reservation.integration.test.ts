@@ -6,6 +6,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { insertOne, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   attachOutsideTransaction,
+  createEntityExecutor,
   createSystemUser,
   defineFeature,
   type HandlerContext,
@@ -16,7 +17,11 @@ import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { burst, createBarrier, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
-import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { bookCapUsage } from "../book-cap-usage.ts";
@@ -28,12 +33,15 @@ import {
 } from "../cap-reservation.ts";
 import { CapCounterQueries } from "../constants.ts";
 import { CAP_TOLERANCES, type SoftHitNotifier } from "../enforce-cap.ts";
+import { capCounterEntity } from "../entity.ts";
 import { createCapCounterFeature } from "../feature.ts";
-import { capCountersTable, capReservationsTable } from "../tables.ts";
+import { capReservationsTable } from "../tables.ts";
 import { withCapEnforcement } from "../with-cap-enforcement.ts";
 import { fetchCounterValue } from "./read-counter.ts";
 
 const PERIOD = "2026-09-01T00:00:00Z";
+
+const { table: capCounterTable } = createEntityExecutor("cap-counter", capCounterEntity);
 
 const reservePayload = z.object({
   capName: z.string(),
@@ -305,6 +313,7 @@ beforeAll(async () => {
     ],
     jobs: { consumerLane: "worker" },
   });
+  await unsafeCreateEntityTable(stack.db, capCounterEntity);
 });
 
 afterAll(async () => {
@@ -314,7 +323,7 @@ afterAll(async () => {
 beforeEach(async () => {
   betweenReserveAndSettle = undefined;
   softHits.length = 0;
-  await resetTestTables(stack.db, [capCountersTable, eventsTable, capReservationsTable]);
+  await resetTestTables(stack.db, [capCounterTable, eventsTable, capReservationsTable]);
 });
 
 function adminFor(tenantNumber: number) {
@@ -629,7 +638,7 @@ describe("systemScope handlers", () => {
     expect(rows.map((row) => row.tenantId)).toEqual([otherTenantId]);
     const counters = await selectMany<{ tenantId: string; value: number }>(
       stack.db,
-      capCountersTable,
+      capCounterTable,
       { capName: "stamped-cap" },
     );
     expect(counters.map((row) => row.tenantId)).toEqual([otherTenantId]);
@@ -643,13 +652,9 @@ describe("systemScope handlers", () => {
     await stack.http.writeOk(OTHER_TENANT_QN, body, caller);
 
     // The sweep of the other tenant gave the expired 2 back before booking the new 2.
-    const after = await selectMany<{ tenantId: string; value: number }>(
-      stack.db,
-      capCountersTable,
-      {
-        capName: "stamped-cap",
-      },
-    );
+    const after = await selectMany<{ tenantId: string; value: number }>(stack.db, capCounterTable, {
+      capName: "stamped-cap",
+    });
     expect(after.map((row) => row.value)).toEqual([2]);
     expect(
       await selectMany(stack.db, capReservationsTable, { capName: "stamped-cap" }),
