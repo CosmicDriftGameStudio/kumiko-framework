@@ -498,6 +498,55 @@ describe("signature :: host gate on aggregate, filters and cursor paging", () =>
     expect([...seen].sort()).toEqual([...own].sort());
     for (const id of foreign) expect(seen).not.toContain(id);
   });
+
+  test("no page and no cursor of a restricted user carries the id of a request on an unreadable host", async () => {
+    await Promise.all([
+      requestOnLease(USER_A, leaseA, "s1"),
+      requestOnLease(USER_A, leaseA, "s2"),
+      requestOnLease(USER_A, leaseA, "s3"),
+    ]);
+    const foreign = [
+      await requestOnLease(ADMIN, leaseB, "s4"),
+      await requestOnLease(ADMIN, leaseB, "s5"),
+      await requestOnLease(ADMIN, leaseB, "s6"),
+    ];
+    const cursors: string[] = [];
+    const pageBodies: string[] = [];
+    let cursor: string | null = null;
+    let pages = 0;
+    do {
+      const page: Page<RequestRow> = await listRequests(USER_A, {
+        limit: 1,
+        sort: "expiresAt",
+        sortDirection: "asc",
+        ...(cursor !== null && { cursor }),
+      });
+      pageBodies.push(JSON.stringify(page));
+      cursor = page.nextCursor;
+      if (cursor !== null) cursors.push(cursor);
+      pages += 1;
+    } while (cursor !== null && pages < 10);
+
+    expect(cursors.length).toBeGreaterThan(0);
+    for (const id of foreign) {
+      for (const body of pageBodies) expect(body).not.toContain(id);
+      for (const token of cursors) {
+        expect(token).not.toContain(id);
+        expect(Buffer.from(token, "base64url").toString("latin1")).not.toContain(id);
+      }
+    }
+  });
+
+  test("limit 0 answers an empty page without cursor for a restricted user, with the visible total", async () => {
+    await Promise.all([requestOnLeaseA(), requestOnLeaseA()]);
+    await requestOnLease(ADMIN, leaseB, "s4");
+
+    const page = await listRequests(USER_A, { limit: 0, totalCount: true });
+
+    expect(page.rows).toEqual([]);
+    expect(page.nextCursor).toBeNull();
+    expect(page.total).toBe(2);
+  });
 });
 
 describe("signature :: empty linkSecret", () => {

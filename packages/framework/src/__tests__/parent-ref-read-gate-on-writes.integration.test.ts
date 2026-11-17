@@ -58,6 +58,11 @@ const linkTable = buildEntityTable(linkEntity);
 const feature = defineFeature("prwrite", (r) => {
   r.entity(hostEntity);
   r.entity(linkEntity);
+  for (const verb of ["create", "delete"] as const) {
+    r.writeHandler(
+      defineEntityWriteHandler(`host:${verb}`, hostEntity, { access: { roles: ["TenantMember"] } }),
+    );
+  }
   for (const verb of ["create", "update", "delete", "restore"] as const) {
     r.writeHandler(
       defineEntityWriteHandler(`link:${verb}`, linkEntity, { access: { roles: ["TenantMember"] } }),
@@ -152,6 +157,24 @@ describe("parentRef read-gate on detail", () => {
 
   test("a join row on a soft-deleted host is not returned", async () => {
     expect(await labelSeenByA(DELETED_HOST_LINK_ID)).toBeUndefined();
+  });
+
+  test("a join row turns invisible once its host is soft-deleted after having been readable", async () => {
+    const host = await stack.http.writeOk<{ id: string }>(
+      "prwrite:write:host:create",
+      { teamId: "team-a" },
+      userA,
+    );
+    const link = await stack.http.writeOk<{ id: string }>(
+      "prwrite:write:link:create",
+      { entityType: "host", entityId: host.id, label: LABEL },
+      userA,
+    );
+    expect(await labelSeenByA(link.id)).toBe(LABEL);
+
+    await stack.http.writeOk("prwrite:write:host:delete", { id: host.id }, userA);
+
+    expect(await labelSeenByA(link.id)).toBeUndefined();
   });
 });
 

@@ -442,6 +442,21 @@ describe("auth, saas and security stacks", () => {
     expect(stackFeatureNames(composeSecurityStack())).toEqual([...SECURITY_BASELINE_FEATURE_NAMES]);
   });
 
+  test("standalone sessions + crypto-shredding mounted alongside composeSecurityStack boots (offlot case)", () => {
+    const registry = createRegistry([
+      createConfigFeature(),
+      createUserFeature(),
+      createTenantFeature(),
+      createAuthFoundationFeature(),
+      createSessionsFeature(),
+      createCryptoShreddingFeature(),
+      ...composeSecurityStack(),
+    ]);
+
+    expect(registry.getFeature("sessions")).toBeDefined();
+    expect(registry.getFeature("crypto-shredding")).toBeDefined();
+  });
+
   test("composeSecurityStack yields fresh feature instances on each call", () => {
     const a = composeSecurityStack();
     const b = composeSecurityStack();
