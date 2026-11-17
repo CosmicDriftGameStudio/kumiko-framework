@@ -33,6 +33,8 @@ import { collectSourceFiles } from "./collect-source-files.ts";
 const MARKER_HEAD_LINES = 8;
 const MARKER_LINE = /^\s*\/\/\s*@runtime(?:\s+(\w+))?\s*$/;
 const WEB_DIR = "web";
+const HANDLERS_DIR = "handlers";
+const ROOT_HANDLER_FILE = /^[^/]+\.(?:write|query)\.tsx?$/;
 const IMPLICIT_FEATURE_PATTERNS: readonly RegExp[] = [
   /^(.*\/src\/features\/[^/]+)\/(.+)$/,
   /^(.*\/bundled-features\/src\/[^/]+)\/(.+)$/,
@@ -298,8 +300,23 @@ export function applyFeatureLayout(
 
   for (const [file, source] of files) {
     const location = splitFeaturePath(file, options);
-    const marker = location === undefined ? undefined : findMarker(source);
-    if (location === undefined || marker === undefined) continue;
+    if (location === undefined) continue;
+    const marker = findMarker(source);
+    if (marker === undefined) {
+      if (!ROOT_HANDLER_FILE.test(location.rel) || TEST_PATH.test(file)) continue;
+      const target = join(location.featureDir, HANDLERS_DIR, location.rel);
+      if (isTaken(target)) {
+        manual.push({
+          file,
+          line: 1,
+          description: `cannot move to ${HANDLERS_DIR}/${location.rel}: target exists`,
+        });
+        continue;
+      }
+      claimedTargets.add(target);
+      moved.set(file, target);
+      continue;
+    }
     const decision = actionForMarker(marker, location, isTaken);
     if (decision.action === "manual") {
       manual.push({ file, line: marker.line + 1, description: decision.description });

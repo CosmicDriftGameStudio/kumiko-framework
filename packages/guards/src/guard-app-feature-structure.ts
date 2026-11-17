@@ -10,10 +10,7 @@
 //   3. r.screen({ type: "custom" }) without an allowlist tag — declarative
 //      screen types (entityList/dashboard/data-table) are the default.
 //   4. a runtime-client marker instead of the web/ path.
-//
-// ponytail: the handler file convention (*.query.ts/*.write.ts under handlers/)
-// is not enforced yet — add it once the registration API shapes are
-// inventoried and stable.
+// The handler file convention (handlers/<topic>.write.ts|.query.ts) is enforced by guard-handler-definitions.ts.
 
 import * as path from "node:path";
 import { type SourceFile, SyntaxKind } from "ts-morph";

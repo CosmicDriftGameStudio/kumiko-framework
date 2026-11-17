@@ -85,7 +85,7 @@ type FeatureLocation = {
 // Identifies the feature a file belongs to. Returns null for files that
 // live outside any feature boundary (single-feature sample roots,
 // framework-internal helpers reached via the same scan).
-function locateFeature(absPath: string): FeatureLocation | null {
+export function locateFeature(absPath: string): FeatureLocation | null {
   const rel = path.relative(ROOT, absPath);
 
   const coreMatch = rel.match(/^(packages\/bundled-features\/src\/([^/]+))\//);

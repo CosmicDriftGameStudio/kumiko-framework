@@ -141,6 +141,37 @@ describe("feature-layout codemod: moves", () => {
   });
 });
 
+describe("feature-layout codemod: root handler files", () => {
+  it("moves <name>.write.ts into handlers/ and rewrites the importer", () => {
+    const result = run({
+      [`${ROOT}/archive.write.ts`]: `export const archive = 1;\n`,
+      [`${ROOT}/feature.ts`]: `import { archive } from "./archive.write.ts";\nexport const f = archive;\n`,
+    });
+    expect(result.moves).toEqual([
+      { from: `${ROOT}/archive.write.ts`, to: `${ROOT}/handlers/archive.write.ts` },
+    ]);
+    expect(result.writes.get(`${ROOT}/feature.ts`)).toContain("./handlers/archive.write.ts");
+  });
+
+  it("reports manual when the handlers/ target exists", () => {
+    const result = run({
+      [`${ROOT}/x.write.ts`]: `export const x = 1;\n`,
+      [`${ROOT}/handlers/x.write.ts`]: `export const y = 1;\n`,
+    });
+    expect(result.moves).toEqual([]);
+    expect(result.manual).toHaveLength(1);
+    expect(result.manual[0]?.description).toContain("target exists");
+  });
+
+  it("leaves a bare write.ts and test files alone", () => {
+    const result = run({
+      [`${ROOT}/write.ts`]: `export const w = 1;\n`,
+      [`${ROOT}/__tests__/a.write.test.ts`]: `export const t = 1;\n`,
+    });
+    expect(result.moves).toEqual([]);
+  });
+});
+
 describe("feature-layout codemod: markers the path already implies", () => {
   it("only strips the marker in web/ and in __tests__/, nothing moves", () => {
     const result = run({

@@ -28,7 +28,7 @@ isomorphic. Every file that carries a runtime-client marker outside `web/` moves
 `<feature>/web/` (sub-structure kept), the relative imports, re-exports, `import()` calls and
 `mock.module` strings that point at it or out of it are rewritten, `package.json` export
 targets follow, and the marker is dropped. A marker the path already implies (client in
-`web/`, test in `__tests__/`) is only removed. Idempotent.
+`web/`, test in `__tests__/`) is only removed. A `<name>.write.ts` or `<name>.query.ts` directly in the feature root moves to `<feature>/handlers/`; a bare `write.ts` with several handlers is left for a manual split. Idempotent.
 
 ```bash
 bun node_modules/@cosmicdrift/kumiko-feature-ast/src/scripts/codemod/feature-layout.ts <dir> [--check | --dry-run | --write] [--no-format]

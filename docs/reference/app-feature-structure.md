@@ -40,6 +40,8 @@ dem Pfad, ein `// @runtime client`-Marker ist unnötig und wird von
 `bun kumiko-upgrade --apply` oder `bun kumiko codemod feature-layout . --write` um
 (`--check` listet Reste).
 
+`guard-handler-definitions` friert Handler-Definitionen außerhalb von `handlers/`, mehrere Handler in einer Datei, falsche `.write`/`.query`-Endungen und als `WriteHandlerDef`/`QueryHandlerDef` getypte Literale pro Datei in einer Baseline ein; neue Funde scheitern. `bun kumiko codemod feature-layout . --write` verschiebt `<name>.write.ts`/`<name>.query.ts` aus dem Feature-Root nach `handlers/`. `guard-feature-import-cycles` friert Laufzeit-Import-Zyklen zwischen Features ein; `import type` zählt nicht.
+
 ## Regeln
 
 - **Screens deklarativ zuerst**: `entityList` (CRUD über die Entity),

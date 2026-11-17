@@ -7,7 +7,7 @@ const LINT_SUBCOMMAND = "lint";
 export const agentCommand: CliCommand = {
   id: "agent",
   description: "AI-agent tooling (lint)",
-  help: "Reads kumiko.config.ts in cwd and reports handler definitions the AI\nagent can't describe (exposed to the agent without a usable description).\n\nSubcommands:\n  lint                  Report AI-agent-doc gaps in the current config\n",
+  help: "Reads kumiko.config.ts in cwd and reports handler definitions the AI\nagent can't describe (exposed to the agent without a usable description) or whose\ntitle or field labels lack translations; either fails the command.\n\nSubcommands:\n  lint                  Report AI-agent-doc gaps in the current config\n",
   run: async (ctx) => {
     const sub = ctx.argv[0];
     if (sub !== LINT_SUBCOMMAND) {
@@ -47,7 +47,7 @@ export const agentCommand: CliCommand = {
     if (translationGaps.length > 0) {
       ctx.out.log("");
       ctx.out.log(
-        `  ${translationGaps.length} warning${translationGaps.length === 1 ? "" : "s"} (handler translations, do not affect the exit code):`,
+        `  ${translationGaps.length} handler translation gap${translationGaps.length === 1 ? "" : "s"} found:`,
       );
       ctx.out.log("");
       for (const gap of translationGaps) {
@@ -55,6 +55,6 @@ export const agentCommand: CliCommand = {
       }
     }
     ctx.out.log("");
-    return gaps.length === 0 ? 0 : 1;
+    return gaps.length === 0 && translationGaps.length === 0 ? 0 : 1;
   },
 };

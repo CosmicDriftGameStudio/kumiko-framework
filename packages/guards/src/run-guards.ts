@@ -28,7 +28,9 @@ import { guard as crossFeatureImports } from "./guard-cross-feature-imports";
 import { guard as dataTestid } from "./guard-data-testid";
 import { guard as directEntityWrites } from "./guard-direct-entity-writes";
 import { guard as fakeTests } from "./guard-fake-tests";
+import { guard as featureImportCycles } from "./guard-feature-import-cycles";
 import { guard as fileSize } from "./guard-file-size";
+import { guard as handlerDefinitions } from "./guard-handler-definitions";
 import { guard as htmlEscape } from "./guard-html-escape";
 import { guard as i18nKeys } from "./guard-i18n-keys";
 import { guard as i18nLocaleMount } from "./guard-i18n-locale-mount";
@@ -72,6 +74,8 @@ export const GUARDS = [
   commentIssueRefOnly,
   ignoreTagReason,
   securityPluginSuppression,
+  handlerDefinitions,
+  featureImportCycles,
 ];
 
 export const GUARD_FLAGS = [

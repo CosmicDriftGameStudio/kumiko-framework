@@ -42,11 +42,12 @@ async function runLint(
 }
 
 describe("kumiko agent lint exit code", () => {
-  test("only warning gaps (missing translations) -> exit 0 and still listed", async () => {
+  test("translation gaps only -> exit 1 and listed", async () => {
     const { code, lines } = await runLint(
       `r.writeHandler({ name: "do-x", schema: z.object({}), handler, access, description: "Does X." });`,
     );
-    expect(code).toBe(0);
+    expect(code).toBe(1);
+    expect(lines.join("\n")).toContain("handler translation gap");
     expect(lines.join("\n")).toContain("cli-demo:write:do-x");
   });
 

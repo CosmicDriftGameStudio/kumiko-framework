@@ -6,7 +6,10 @@
 // never sees them. These tests fail instead.
 
 import { describe, expect, test } from "bun:test";
-import { findAgentDocGaps } from "@cosmicdrift/kumiko-bundled-features/agent-tools";
+import {
+  findAgentDocGaps,
+  findHandlerTranslationGaps,
+} from "@cosmicdrift/kumiko-bundled-features/agent-tools";
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import config from "../../kumiko.config";
 
@@ -81,6 +84,10 @@ function undocumentConditionalHandlers(
 describe("use-all-bundled agent-doc coverage", () => {
   test("the linted feature list is what `kumiko agent lint` reports clean", () => {
     expect(findAgentDocGaps(config.features)).toEqual([]);
+  });
+
+  test("every agent-exposed handler has its title and field-label translations", () => {
+    expect(findHandlerTranslationGaps(config.features)).toEqual([]);
   });
 
   test("every conditionally registered handler is inside the linted set", () => {

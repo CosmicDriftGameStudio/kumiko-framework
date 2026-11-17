@@ -252,8 +252,7 @@ export function findApiDocHandlerGaps(
   return [...gaps].sort((a, b) => compareByCodePoint(a.qn, b.qn));
 }
 
-// Kept out of findAgentDocGaps on purpose: the published agent-manifest guard
-// fails on every gap that function returns, and these are advisory.
+// Kept out of findAgentDocGaps because the agent-manifest guard reports those gaps separately; `kumiko agent lint` fails on both.
 export function findHandlerTranslationGaps(
   features: readonly FeatureDefinition[],
 ): readonly AgentDocGap[] {
