@@ -99,36 +99,4 @@ describe("sessionRevoker atomicity", () => {
     expect(await revokedAtOfSession()).not.toBeNull();
     expect(await revokedEventCount()).toBe(1);
   });
-
-  test("sessionMassRevoker: a failing event append leaves sessions live so a retry still revokes and emits", async () => {
-    const { sessionMassRevoker } = createSessionCallbacks({ db: testDb.db });
-
-    await withRejectingEventAppend(async () => {
-      await expect(sessionMassRevoker(USER_ID)).rejects.toThrow();
-    });
-
-    expect(await revokedAtOfSession()).toBeNull();
-    expect(await revokedEventCount()).toBe(0);
-
-    expect(await sessionMassRevoker(USER_ID)).toBe(1);
-
-    expect(await revokedAtOfSession()).not.toBeNull();
-    expect(await revokedEventCount()).toBe(1);
-  });
-
-  test("sessionRevokeAllOthers: a failing event append leaves sessions live so a retry still revokes and emits", async () => {
-    const { sessionRevokeAllOthers } = createSessionCallbacks({ db: testDb.db });
-
-    await withRejectingEventAppend(async () => {
-      await expect(sessionRevokeAllOthers(USER_ID, undefined)).rejects.toThrow();
-    });
-
-    expect(await revokedAtOfSession()).toBeNull();
-    expect(await revokedEventCount()).toBe(0);
-
-    expect(await sessionRevokeAllOthers(USER_ID, undefined)).toBe(1);
-
-    expect(await revokedAtOfSession()).not.toBeNull();
-    expect(await revokedEventCount()).toBe(1);
-  });
 });

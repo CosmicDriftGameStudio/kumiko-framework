@@ -1,7 +1,7 @@
 // Session-scoped SSE revocation (kumiko-framework "session-scoped-revoke").
 //
 // enable-confirm (and disable/regenerate-recovery) call
-// sessionRevokeAllOthers, which appends sessions:event:session-revoked with
+// the credentialRevoker, which appends sessions:event:session-revoked with
 // an optional `keptSessionId` set to the caller's own sid — the ONE sid this
 // write deliberately does NOT revoke. Before this fix,
 // createAccessInvalidationEventConsumer ignored that and called
@@ -63,7 +63,6 @@ import { createUserFeature } from "../../user/feature.ts";
 import { userEntity, userTable } from "../../user/schema/user.ts";
 import { base32Decode } from "../base32.ts";
 import { createAuthMfaFeature } from "../feature.ts";
-import { bindMfaRevokeAllOtherSessionsFromFeature } from "../feature-exports.ts";
 import { userMfaEntity } from "../schema/user-mfa.ts";
 import { currentTotpCode } from "../totp.ts";
 import { AuthMfaHandlers } from "../web/constants.ts";
@@ -157,7 +156,7 @@ beforeAll(async () => {
       createTenantFeature(),
       createAuthEmailPasswordFeature(),
       createAuthFoundationFeature(),
-      createSessionsFeature({ autoRevokeOnPasswordChange: bound.asMassRevoker() }),
+      createSessionsFeature(),
       mfaFeature,
       streamProbeFeature,
     ],
@@ -169,7 +168,6 @@ beforeAll(async () => {
     },
   });
   callbacks.set(createSessionCallbacks({ db: stack.db }));
-  bindMfaRevokeAllOtherSessionsFromFeature(mfaFeature)?.(callbacks.get().sessionRevokeAllOthers);
 
   h = makeSessionHelpers(stack, TENANT, bound.asAuthConfig().sessionCreator);
   const boundSessionCreator = bound.asAuthConfig().sessionCreator;

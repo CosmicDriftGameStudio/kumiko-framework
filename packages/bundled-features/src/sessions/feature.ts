@@ -1,4 +1,6 @@
 import {
+  type CredentialRevoker,
+  EXT_CREDENTIAL_REVOKER,
   EXT_SESSION_STORE,
   type SessionStore,
   type SessionStoreProvider,
@@ -9,8 +11,8 @@ import {
   defineFeature,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { Clock } from "@cosmicdrift/kumiko-types/tz-context";
-import { createLateBoundSlot, readFeatureExportFn } from "../shared/index.ts";
 import { USER_SESSION_ENTITY_NAME } from "./constants.ts";
 import { cleanupJob } from "./handlers/cleanup.job.ts";
 import { createDetailQuery } from "./handlers/detail.query.ts";
@@ -23,39 +25,20 @@ import { mineQuery } from "./handlers/mine.query.ts";
 import { revokeWrite } from "./handlers/revoke.write.ts";
 import { revokeAllForUserWrite } from "./handlers/revoke-all-for-user.write.ts";
 import { revokeAllOthersWrite } from "./handlers/revoke-all-others.write.ts";
+import { revokeSessionsAndAnnounce } from "./revoke-sessions.ts";
 import { userSessionEntity } from "./schema/user-session.ts";
 import {
   createSessionDetailScreen,
   createSessionListScreen,
   sessionMineScreen,
 } from "./screens.ts";
-import {
-  createSessionCallbacks,
-  type SessionAllOthersRevoker,
-  type SessionMassRevoker,
-} from "./session-callbacks.ts";
+import { createSessionCallbacks } from "./session-callbacks.ts";
 import { SESSION_REVOKED_EVENT_SHORT, sessionRevokedSchema } from "./session-revoked-event.ts";
 import { SESSIONS_I18N } from "./web/i18n.ts";
 
 const CLEANUP_ESCAPE_HATCH_REASON = "deletes expired session rows of every tenant";
 
 export type SessionsFeatureOptions = {
-  // A successful update on the `user` entity that changes `passwordHash`
-  // triggers a mass-revoke of every live session for that user.
-  // Industry-standard "password-change signs you out everywhere" flow,
-  // including the session that did the change itself — the client has
-  // to re-login after a password change.
-  //
-  // Runs as an afterCommit postSave hook: the password-change commits first,
-  // then the sessions are revoked. Best-effort — if the mass-revoker throws,
-  // the password change is NOT rolled back (a password change with a stale
-  // session still wins over a user-visible error on the change itself).
-  //
-  // Default: run{Prod,Dev}App bind their own sessionMassRevoker via
-  // `bindAutoRevokeOnPasswordChange` (secure-by-default). Set this option
-  // only to supply a custom revoker — an explicit value wins over the
-  // runtime binding.
-  readonly autoRevokeOnPasswordChange?: SessionMassRevoker;
   // Session JWT / store_user_sessions TTL. Was previously auth.sessions.expiresInMs
   // — lives on the sessions feature now that sessionStore is the wiring.
   readonly expiresInMs?: number;
@@ -70,24 +53,6 @@ export type SessionsFeatureOptions = {
   // Unset: falls back to the SESSIONS_LAST_ACTIVITY_PROBE_SECRET env (min. 32 characters).
   readonly lastActivityProbeSecret?: string;
 };
-
-// The returned unbind only clears the binding while it is still this revoker, so a stack that
-// stops later cannot unbind a newer stack sharing the same feature instance.
-export type BindAutoRevokeOnPasswordChange = (revoker: SessionMassRevoker) => () => void;
-export type BindRevokeAllOtherSessions = (revoker: SessionAllOthersRevoker) => () => void;
-
-// Reads the late-bind setter off a mounted sessions feature's exports.
-// run{Prod,Dev}App call it once the DB connection is concrete — the feature
-// itself is constructed in app run-config long before a db exists, so the
-// revoker can't be a constructor argument.
-export function bindAutoRevokeFromFeature(
-  feature: FeatureDefinition,
-): BindAutoRevokeOnPasswordChange | undefined {
-  return readFeatureExportFn<BindAutoRevokeOnPasswordChange>(
-    feature,
-    "bindAutoRevokeOnPasswordChange",
-  );
-}
 
 // The sessions feature registers the store_user_sessions table (as an
 // unmanaged direct-write store, NOT an r.entity — see below) and the three
@@ -111,7 +76,7 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
       const adminRoles = access[options?.adminAccess ?? "admin"];
       r.adoptsBundledLists();
       r.describe(
-        "Tracks signed-in clients in the `store_user_sessions` table (one row per JWT, keyed by the `sid`/`jti` claim) and exposes handlers for `mine` (list your sessions), `revoke`, and `revokeAllOthers`. Session creation and revocation on the hot auth path are handled by `createSessionCallbacks()`, wired into `buildServer({ auth: { ... } })` outside the dispatcher; the same callbacks are also registered as an auth-foundation sessionStore provider, resolvable generically via `resolveSessionStore()`. The feature also ships a daily maintenance-window cleanup job that prunes expired and revoked rows and an optional `autoRevokeOnPasswordChange` hook that mass-revokes all sessions for a user whenever their `passwordHash` changes.",
+        "Tracks signed-in clients in the `store_user_sessions` table (one row per JWT, keyed by the `sid`/`jti` claim) and exposes handlers for `mine` (list your sessions), `revoke`, and `revokeAllOthers`. Session creation and revocation on the hot auth path are handled by `createSessionCallbacks()`, wired into `buildServer({ auth: { ... } })` outside the dispatcher; the same callbacks are also registered as an auth-foundation sessionStore provider, resolvable generically via `resolveSessionStore()`. The feature also ships a daily maintenance-window cleanup job that prunes expired and revoked rows, and registers as an auth-foundation credentialRevoker, so a password change or MFA state change revokes the user's sessions in the same transaction.",
       );
       r.uiHints({
         displayLabel: "Sessions · Server-side Logout",
@@ -158,11 +123,20 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
             creator: callbacks.sessionCreator,
             revoker: callbacks.sessionRevoker,
             checker: callbacks.sessionChecker,
-            massRevoker: callbacks.sessionMassRevoker,
-            revokeAllOthers: callbacks.sessionRevokeAllOthers,
           };
         },
       } satisfies SessionStoreProvider);
+
+      r.useExtension(EXT_CREDENTIAL_REVOKER, "sessions", {
+        revokeAllForUser: async (runner, userId, { keepSessionId }) =>
+          (
+            await revokeSessionsAndAnnounce(runner, {
+              where: keepSessionId !== undefined ? { userId, id: { ne: keepSessionId } } : { userId },
+              revokedAt: options?.clock?.now() ?? Temporal.Now.instant(),
+              ...(keepSessionId !== undefined && { keptSessionId: keepSessionId }),
+            })
+          ).length,
+      } satisfies CredentialRevoker);
 
       // Custom domain-event for cross-instance access-invalidation.
       // r.defineEvent registers the schema so ctx.events.unsafeAppend (revoke,
@@ -206,50 +180,6 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
       const probeSecret = options?.lastActivityProbeSecret ?? readProbeSecretFromEnv();
       if (probeSecret !== undefined) registerLastActivityProbe(r, probeSecret);
 
-      // Cross-feature entity hook on "user". `r.entityHook` (NOT `r.hook`) is
-      // the supported cross-feature path: entity-keyed, not prefixed by the
-      // registering feature. Fires after every successful write on any
-      // user-entity handler; we only act when one of REVOKE_TRIGGERING_FIELDS
-      // is part of the changes-delta the handler was given.
-      //
-      // Checking `changes[field] !== undefined` is cheaper and more correct
-      // than diffing data vs previous — "undefined in changes" means "the
-      // handler didn't touch this column", which is exactly the signal we
-      // want to skip on. Works for both direct user:update calls and any
-      // other handler that happens to write the column.
-      //
-      // Only `passwordHash` here: `status` changes go through
-      // updateUserLifecycle(), which writes via the event-store executor
-      // directly and never runs this postSave hook. restrict-account.write.ts
-      // already revokes sessions explicitly for that transition, and
-      // sessionChecker blocks a status-locked principal on its next request
-      // regardless.
-      const REVOKE_TRIGGERING_FIELDS = ["passwordHash"] as const;
-      // Explicit option wins; the runtime binding is replaceable so a second boot of the same
-      // feature instance (a new app or test stack in one process) binds its own database.
-      const explicitAutoRevoke = options?.autoRevokeOnPasswordChange;
-      const autoRevokeSlot = createLateBoundSlot<SessionMassRevoker>();
-      r.hook({
-        type: "postSave",
-        target: { allOf: "user" },
-        handler: async (ctx) => {
-          const autoRevoke = explicitAutoRevoke ?? autoRevokeSlot.current();
-          // skip: nothing bound — stateless-JWT deployments without a runtime
-          // that calls bindAutoRevokeOnPasswordChange keep the old behavior.
-          if (!autoRevoke) return;
-          // skip: brand-new user, no sessions can possibly exist yet. The
-          // initial passwordHash on a user:create would trip the second guard
-          // otherwise — every registration would do a mass-revoke roundtrip
-          // for a user who literally has no rows in user_sessions.
-          if (ctx.isNew) return;
-          // skip: handler didn't touch any revoke-triggering field
-          if (!REVOKE_TRIGGERING_FIELDS.some((field) => ctx.changes[field] !== undefined)) return;
-          await autoRevoke(String(ctx.id));
-        },
-      });
-
-      const bindAutoRevokeOnPasswordChange: BindAutoRevokeOnPasswordChange = autoRevokeSlot.bind;
-
       r.translations({ keys: SESSIONS_I18N });
 
       r.screen(createSessionListScreen(adminRoles));
@@ -263,7 +193,7 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
         order: 10,
       });
 
-      return { handlers, queries, bindAutoRevokeOnPasswordChange };
+      return { handlers, queries };
     },
     // A clock object is not a comparable dedupe option; a stack that injects one never dedupes.
     options?.clock === undefined ? { dedupeOptions: options ?? {} } : undefined,

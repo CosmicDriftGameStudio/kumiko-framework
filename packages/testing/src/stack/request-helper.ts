@@ -125,7 +125,7 @@ export function createRequestHelper(
   // sid per (user.id, tenantId), not one mint per authHeader() call:
   // sessionCreator opens a live session row, so an unmemoized call mints a
   // fresh one on every request a test makes for the same user — tests
-  // asserting on session counts / massRevoker / revokeAllOthers behavior
+  // asserting on session counts / revocation behavior
   // then see extra live sids that have nothing to do with what they're
   // testing. Keyed on tenantId too — the same user.id can hold sessions in
   // more than one tenant, and sessionCreator writes the row scoped to

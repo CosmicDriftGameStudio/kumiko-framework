@@ -1,5 +1,7 @@
 import {
   type AuthProviderPlugin,
+  type CredentialRevoker,
+  EXT_CREDENTIAL_REVOKER,
   EXT_TOKEN_VERIFIER,
 } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { PAT_TOKEN_PREFIX } from "@cosmicdrift/kumiko-framework/api";
@@ -9,7 +11,6 @@ import {
   type FeatureDefinition,
   type ProjectionListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createLateBoundSlot, readFeatureExportFn } from "../shared/index.ts";
 import { availabilityQuery } from "./handlers/availability.query.ts";
 import { buildAvailableScopesQuery } from "./handlers/available-scopes.query.ts";
 import { type CreatePatOptions, createPatCreateHandler } from "./handlers/create.write.ts";
@@ -18,6 +19,7 @@ import { revokePatWrite } from "./handlers/revoke.write.ts";
 import { PAT_FEATURE_I18N, patScopeOptionTranslations } from "./i18n.ts";
 import { PAT_REVOKED_EVENT_SHORT, patRevokedSchema } from "./pat-revoked-event.ts";
 import { createPatResolver } from "./resolver.ts";
+import { revokeAllPatTokensForUser } from "./revoke-for-user.ts";
 import { apiTokenEntity } from "./schema/api-token.ts";
 import { validateScopeEventContracts } from "./scope-events-check.ts";
 import { createPatMintScreen, patListScreen } from "./screens.ts";
@@ -28,29 +30,6 @@ import {
   type PatRateLimit,
 } from "./web/constants.ts";
 import type { PatScopeConfig } from "./web/scopes.ts";
-
-// Password-change is the only field-level trigger — see the postSave hook
-// below. MFA-enable/disable is wired separately (auth-mfa's
-// revokeAllPatTokens callback, late-bound at app-composition time) since
-// that's a different entity ("user-mfa") this feature doesn't own or
-// require.
-const PAT_REVOKE_TRIGGERING_FIELDS = ["passwordHash"] as const;
-
-export type BindPatAutoRevokeOnPasswordChange = (
-  revoker: (userId: string) => Promise<number>,
-) => () => void;
-
-// Reads the late-bind setter off a mounted personal-access-tokens feature's
-// exports — run{Prod,Dev}App call this once a concrete db is available,
-// mirrors sessions' own bindAutoRevokeFromFeature/bindAutoRevokeOnPasswordChange.
-export function bindPatAutoRevokeOnPasswordChangeFromFeature(
-  feature: FeatureDefinition,
-): BindPatAutoRevokeOnPasswordChange | undefined {
-  return readFeatureExportFn<BindPatAutoRevokeOnPasswordChange>(
-    feature,
-    "bindAutoRevokeOnPasswordChange",
-  );
-}
 
 export type PersonalAccessTokensOptions = {
   // The scopes this deployment offers. Each is a named bundle of QN globs a PAT
@@ -76,17 +55,11 @@ export type PersonalAccessTokensOptions = {
   // mfaVerifierFromFeature (auth-mfa/feature-exports.ts) at app-composition time. No
   // hard dependency on the optional auth-mfa feature.
   readonly mfaVerifier?: CreatePatOptions["mfaVerifier"];
-  // Password-change revoker — same constructor-option-or-late-bind duality as
-  // sessions' own autoRevokeOnPasswordChange (bindAutoRevokeOnPasswordChange
-  // below wins only if this is unset). Lets tests pass a revoker directly
-  // instead of needing a post-setupTestStack bind call.
-  readonly autoRevokeOnPasswordChange?: (userId: string) => Promise<number>;
 };
 
 export type PatFeatureExports = {
   readonly rateLimit: PatRateLimit;
   readonly scopes: PatScopeConfig;
-  readonly bindAutoRevokeOnPasswordChange: BindPatAutoRevokeOnPasswordChange;
 };
 
 // Personal Access Tokens — long-lived, revocable bearer credentials for the
@@ -120,6 +93,9 @@ export function createPersonalAccessTokensFeature(
       shape: { kind: "prefix", prefix: PAT_TOKEN_PREFIX },
       build: (deps) => createPatResolver({ db: deps.db, scopes }),
     } satisfies AuthProviderPlugin);
+    r.useExtension(EXT_CREDENTIAL_REVOKER, "personal-access-tokens", {
+      revokeAllForUser: (runner, userId) => revokeAllPatTokensForUser(runner, userId),
+    } satisfies CredentialRevoker);
     // Direct-write store like store_user_sessions: create/revoke write it, the
     // resolver point-reads it. r.entity would make it a rebuildable projection
     // whose replay (no token events) would wipe every live token.
@@ -141,34 +117,6 @@ export function createPersonalAccessTokensFeature(
     // directly off the event-store NOTIFY.
     r.defineEvent(PAT_REVOKED_EVENT_SHORT, patRevokedSchema, { piiFields: "none" });
     r.bootCheck(({ features }) => validateScopeEventContracts(scopes, features));
-
-    // Password-change auto-revoke — mirrors sessions' own
-    // autoRevokeOnPasswordChange postSave hook, including WHY it's a
-    // late-bind callback rather than direct ctx.db use: user:write:user:update
-    // is r.systemScope()'d (the user aggregate is a systemStream), so a postSave hook
-    // on "user" gets a poisoned ctx.db here. The concrete revoker is bound once
-    // run{Prod,Dev}App has a real db handle.
-    // Explicit option wins; the runtime binding is replaceable so a second boot of the same
-    // feature instance binds its own database.
-    const autoRevokeSlot = createLateBoundSlot<(userId: string) => Promise<number>>();
-    r.hook({
-      type: "postSave",
-      target: { allOf: "user" },
-      handler: async (result) => {
-        const autoRevokeOnPasswordChange =
-          options.autoRevokeOnPasswordChange ?? autoRevokeSlot.current();
-        // skip: nothing bound — same late-bind pattern as sessions/feature.ts
-        if (!autoRevokeOnPasswordChange) return;
-        // skip: brand-new user, no PATs can exist yet
-        if (result.isNew) return;
-        // skip: handler didn't touch any revoke-triggering field
-        if (!PAT_REVOKE_TRIGGERING_FIELDS.some((field) => result.changes[field] !== undefined)) {
-          return;
-        }
-        await autoRevokeOnPasswordChange(String(result.id));
-      },
-    });
-    const bindAutoRevokeOnPasswordChange: BindPatAutoRevokeOnPasswordChange = autoRevokeSlot.bind;
 
     const handlers = {
       create: r.writeHandler(createPatCreateHandler({ mfaVerifier: options.mfaVerifier })),
@@ -202,7 +150,6 @@ export function createPersonalAccessTokensFeature(
     return {
       handlers,
       queries,
-      bindAutoRevokeOnPasswordChange,
       scopes,
       rateLimit: options.rateLimit ?? PAT_DEFAULT_RATE_LIMIT,
     } satisfies { handlers: unknown; queries: unknown } & PatFeatureExports;

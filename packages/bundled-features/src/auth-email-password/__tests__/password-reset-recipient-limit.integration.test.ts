@@ -64,7 +64,7 @@ beforeAll(async () => {
         },
       }),
       createAuthFoundationFeature(),
-      createSessionsFeature({ autoRevokeOnPasswordChange: async () => 0 }),
+      createSessionsFeature(),
     ],
     extraContext: (deps) => ({
       ...createDeliveryTestContext(deps),

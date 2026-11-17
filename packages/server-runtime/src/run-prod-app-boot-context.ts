@@ -10,10 +10,6 @@ import {
   type PasswordResetOptions,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
 import { resolveSessionStore } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
-import {
-  bindMfaRevokeAllOtherSessionsFromFeature,
-  bindRevokeAllPatTokensFromFeature,
-} from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import { createSmtpTransportFromEnv } from "@cosmicdrift/kumiko-bundled-features/channel-email";
 import {
   buildEnvConfigOverrides,
@@ -30,15 +26,10 @@ import {
   type UnsubscribeLinkConfig,
 } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import {
-  bindPatAutoRevokeOnPasswordChangeFromFeature,
-  revokeAllPatTokensForUser,
-} from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
-import {
   createSecretsContext,
   SECRETS_FEATURE_NAME,
   type SecretsContext,
 } from "@cosmicdrift/kumiko-bundled-features/secrets";
-import { bindAutoRevokeFromFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { createTemplateResolverApi } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { TENANT_FEATURE, TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import type { SseBroker } from "@cosmicdrift/kumiko-framework/api";
@@ -464,42 +455,15 @@ export function resolveAuthMail<T extends AuthMailNormalizable>(
 export async function buildProdSessionAuth(
   db: DbConnection,
   registry: Registry,
-  sessionsFeature: FeatureDefinition | undefined,
-  mfaFeature: FeatureDefinition | undefined,
-  patFeature: FeatureDefinition | undefined,
 ): Promise<{
   readonly sessionCreator: Awaited<ReturnType<typeof resolveSessionStore>>["creator"];
   readonly sessionRevoker: Awaited<ReturnType<typeof resolveSessionStore>>["revoker"];
   readonly sessionChecker: Awaited<ReturnType<typeof resolveSessionStore>>["checker"];
 }> {
-  // Resolve the sessions feature sessionStore provider.
   const store = await resolveSessionStore({ db, registry });
-  if (sessionsFeature) {
-    bindAutoRevokeFromFeature(sessionsFeature)?.(store.massRevoker);
-  }
-  if (mfaFeature) {
-    bindMfaRevokeAllOtherSessionsFromFeature(mfaFeature)?.(store.revokeAllOthers);
-  }
-  if (mfaFeature && patFeature) {
-    bindRevokeAllPatTokensFromFeature(mfaFeature)?.((userId) =>
-      revokeAllPatTokensForUser(db, userId),
-    );
-  }
   return {
     sessionCreator: store.creator,
     sessionRevoker: store.revoker,
     sessionChecker: store.checker,
   };
-}
-
-// Password-change → PAT-revoke, independent of sessions/MFA being mounted
-// (unlike buildProdSessionAuth, which only runs when a sessionStore provider
-// is registered). Call unconditionally whenever personal-access-tokens is
-// mounted — a no-op if it isn't (bindPatAutoRevokeOnPasswordChangeFromFeature
-// returns undefined for an unmounted feature.exports shape, but callers
-// should still gate on patFeature being defined at all).
-export function wireProdPatAutoRevoke(db: DbConnection, patFeature: FeatureDefinition): void {
-  bindPatAutoRevokeOnPasswordChangeFromFeature(patFeature)?.((userId) =>
-    revokeAllPatTokensForUser(db, userId),
-  );
 }

@@ -74,8 +74,6 @@ describe("wireDevAuth late-bound auth fragments", () => {
       revoker: () => Promise.resolve(),
       checker: (sid, userId) =>
         Promise.resolve({ status: "live", roles: [`${sid}/${userId}`] } as const),
-      massRevoker: () => Promise.resolve(0),
-      revokeAllOthers: () => Promise.resolve(0),
     };
   }
 

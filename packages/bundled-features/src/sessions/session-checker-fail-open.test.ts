@@ -7,37 +7,43 @@ import { USER_STATUS, userTable } from "../user/schema/user.ts";
 import { userSessionTable } from "./schema/user-session.ts";
 import { createSessionCallbacks } from "./session-callbacks.ts";
 
-// Unit-only: the fail-open-on-throw branch cannot be provoked through real
+// Unit-only: the fail-closed-on-throw branch cannot be provoked through real
 // Postgres without faking infrastructure failure. Integration tests forbid
 // mocks, so this lives next to the source as a plain *.test.ts.
+// resolveLiveTenantRoles reads user and membership in parallel, so every spy
+// that expects an answer must serve both tables.
 
 type FetchOne = typeof bunDb.fetchOne;
 
-describe("sessionChecker fail-open on user-lookup throw", () => {
-  test("read_users THROW → live (not 500 / not blocked)", async () => {
-    const db = {} as DbConnection;
-    const cbs = createSessionCallbacks({ db });
+const farFutureMs = () => Temporal.Now.instant().add({ hours: 1 }).epochMilliseconds;
+
+describe("sessionChecker fail-closed on lookup errors and missing membership", () => {
+  const tenantId = "00000000-0000-4000-8000-000000tenant";
+
+  function sessionRow(userId: string) {
+    return {
+      userId,
+      tenantId,
+      revokedAt: null,
+      expiresAt: { epochMilliseconds: farFutureMs() },
+    };
+  }
+
+  test("read_users THROW → rejects (not live with frozen JWT roles)", async () => {
+    const cbs = createSessionCallbacks({ db: {} as DbConnection });
     const sid = "00000000-0000-4000-8000-00000000sid1";
     const userId = "00000000-0000-4000-8000-00000000user";
-    const farFutureMs = Temporal.Now.instant().add({ hours: 1 }).epochMilliseconds;
 
     const originalFetchOne = bunDb.fetchOne;
     const spy = spyOn(bunDb, "fetchOne").mockImplementation((async (_db, table) => {
-      if (table === userSessionTable) {
-        return {
-          userId,
-          revokedAt: null,
-          expiresAt: { epochMilliseconds: farFutureMs },
-        };
-      }
-      if (table === userTable) {
-        throw new Error("simulated pool exhaustion");
-      }
+      if (table === userSessionTable) return sessionRow(userId);
+      if (table === userTable) throw new Error("simulated pool exhaustion");
+      if (table === tenantMembershipsTable) return { roles: null };
       throw new Error("unexpected table in sessionChecker spy");
     }) as FetchOne);
 
     try {
-      expect(await cbs.sessionChecker(sid, userId)).toBe("live");
+      await expect(cbs.sessionChecker(sid, userId)).rejects.toThrow("simulated pool exhaustion");
     } finally {
       spy.mockRestore();
       // Sanity: restore must put the real export back (guards against spy leak).
@@ -45,26 +51,15 @@ describe("sessionChecker fail-open on user-lookup throw", () => {
     }
   });
 
-  test("read_users row hard-gone (not soft-deleted) → live, fail-open on a miss", async () => {
-    // If `if (user && ...)` ever regressed to `if (!user || ...)`, a missing
-    // user row would turn this second layer into a global lockout.
-    const db = {} as DbConnection;
-    const cbs = createSessionCallbacks({ db });
+  test("read_users row hard-gone (not soft-deleted) → live (unknown principal keeps JWT roles)", async () => {
+    const cbs = createSessionCallbacks({ db: {} as DbConnection });
     const sid = "00000000-0000-4000-8000-00000000sid3";
     const userId = "00000000-0000-4000-8000-00000000usr3";
-    const farFutureMs = Temporal.Now.instant().add({ hours: 1 }).epochMilliseconds;
 
     const spy = spyOn(bunDb, "fetchOne").mockImplementation((async (_db, table) => {
-      if (table === userSessionTable) {
-        return {
-          userId,
-          revokedAt: null,
-          expiresAt: { epochMilliseconds: farFutureMs },
-        };
-      }
-      if (table === userTable) {
-        return undefined;
-      }
+      if (table === userSessionTable) return sessionRow(userId);
+      if (table === userTable) return undefined;
+      if (table === tenantMembershipsTable) return { roles: null };
       throw new Error("unexpected table in sessionChecker spy");
     }) as FetchOne);
 
@@ -76,26 +71,18 @@ describe("sessionChecker fail-open on user-lookup throw", () => {
   });
 
   test("control: Restricted user without throw → blocked (spy must hit userTable)", async () => {
-    // If the spy somehow skipped the userTable branch, Restricted would still
-    // be "live" via fail-open-on-null — this control pins that the throw path
-    // is what we exercise above, not an accidental miss.
-    const db = {} as DbConnection;
-    const cbs = createSessionCallbacks({ db });
+    // Pins that the spy really serves the user row, so the other tests exercise
+    // the paths they claim to.
+    const cbs = createSessionCallbacks({ db: {} as DbConnection });
     const sid = "00000000-0000-4000-8000-00000000sid2";
     const userId = "00000000-0000-4000-8000-00000000usr2";
-    const farFutureMs = Temporal.Now.instant().add({ hours: 1 }).epochMilliseconds;
 
     const spy = spyOn(bunDb, "fetchOne").mockImplementation((async (_db, table) => {
-      if (table === userSessionTable) {
-        return {
-          userId,
-          revokedAt: null,
-          expiresAt: { epochMilliseconds: farFutureMs },
-        };
-      }
+      if (table === userSessionTable) return sessionRow(userId);
       if (table === userTable) {
-        return { status: USER_STATUS.Restricted };
+        return { status: USER_STATUS.Restricted, isDeleted: false, roles: null };
       }
+      if (table === tenantMembershipsTable) return { roles: null };
       throw new Error("unexpected table in sessionChecker spy");
     }) as FetchOne);
 
@@ -106,61 +93,75 @@ describe("sessionChecker fail-open on user-lookup throw", () => {
     }
   });
 
-  test("membership lookup THROW → live (not 500)", async () => {
-    const db = {} as DbConnection;
-    const cbs = createSessionCallbacks({ db });
+  test("membership lookup THROW → rejects (not live)", async () => {
+    const cbs = createSessionCallbacks({ db: {} as DbConnection });
     const sid = "00000000-0000-4000-8000-00000000sid3";
     const userId = "00000000-0000-4000-8000-00000000usr3";
-    const tenantId = "00000000-0000-4000-8000-000000tenant";
-    const farFutureMs = Temporal.Now.instant().add({ hours: 1 }).epochMilliseconds;
 
     const spy = spyOn(bunDb, "fetchOne").mockImplementation((async (_db, table) => {
-      if (table === userSessionTable) {
-        return {
-          userId,
-          tenantId,
-          revokedAt: null,
-          expiresAt: { epochMilliseconds: farFutureMs },
-        };
-      }
+      if (table === userSessionTable) return sessionRow(userId);
       if (table === userTable) {
-        return { status: USER_STATUS.Active, roles: null };
+        return { status: USER_STATUS.Active, isDeleted: false, roles: null };
       }
-      if (table === tenantMembershipsTable) {
-        throw new Error("simulated pool exhaustion");
-      }
+      if (table === tenantMembershipsTable) throw new Error("simulated pool exhaustion");
       throw new Error("unexpected table in sessionChecker spy");
     }) as FetchOne);
 
     try {
-      expect(await cbs.sessionChecker(sid, userId)).toBe("live");
+      await expect(cbs.sessionChecker(sid, userId)).rejects.toThrow("simulated pool exhaustion");
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  test("active user without membership in the session's tenant → not_a_member", async () => {
+    const cbs = createSessionCallbacks({ db: {} as DbConnection });
+    const sid = "00000000-0000-4000-8000-00000000sid6";
+    const userId = "00000000-0000-4000-8000-00000000usr6";
+
+    const spy = spyOn(bunDb, "fetchOne").mockImplementation((async (_db, table) => {
+      if (table === userSessionTable) return sessionRow(userId);
+      if (table === userTable) {
+        return { status: USER_STATUS.Active, isDeleted: false, roles: null };
+      }
+      if (table === tenantMembershipsTable) return undefined;
+      throw new Error("unexpected table in sessionChecker spy");
+    }) as FetchOne);
+
+    try {
+      expect(await cbs.sessionChecker(sid, userId)).toBe("not_a_member");
     } finally {
       spy.mockRestore();
     }
   });
 });
 
-describe("sessionChecker fail-open on lastSeenAt refresh throw", () => {
-  test("updateMany THROW on refresh → live (not 500)", async () => {
-    const db = {} as DbConnection;
-    const cbs = createSessionCallbacks({ db });
+describe("sessionChecker lastSeenAt refresh stays fail-open", () => {
+  test("updateMany THROW on refresh → live with roles (not 500)", async () => {
+    const cbs = createSessionCallbacks({ db: {} as DbConnection });
     const sid = "00000000-0000-4000-8000-00000000sid5";
     const userId = "00000000-0000-4000-8000-00000000usr5";
-    const farFutureMs = Temporal.Now.instant().add({ hours: 1 }).epochMilliseconds;
+    const tenantId = "00000000-0000-4000-8000-000000tenan5";
 
     const originalUpdateMany = bunDb.updateMany;
     const fetchSpy = spyOn(bunDb, "fetchOne").mockImplementation((async (_db, table) => {
       if (table === userSessionTable) {
         return {
           userId,
+          tenantId,
           revokedAt: null,
-          expiresAt: { epochMilliseconds: farFutureMs },
+          expiresAt: { epochMilliseconds: farFutureMs() },
           lastSeenAt: null,
         };
       }
       if (table === userTable) {
-        throw new Error("simulated pool exhaustion");
+        return {
+          status: USER_STATUS.Active,
+          isDeleted: false,
+          roles: JSON.stringify(["Support"]),
+        };
       }
+      if (table === tenantMembershipsTable) return { roles: JSON.stringify(["User"]) };
       throw new Error("unexpected table in sessionChecker spy");
     }) as FetchOne);
     const updateSpy = spyOn(bunDb, "updateMany").mockImplementation(async () => {
@@ -168,7 +169,12 @@ describe("sessionChecker fail-open on lastSeenAt refresh throw", () => {
     });
 
     try {
-      expect(await cbs.sessionChecker(sid, userId)).toBe("live");
+      const result = await cbs.sessionChecker(sid, userId);
+      if (typeof result === "string") {
+        throw new Error(`expected object result, got bare string "${result}"`);
+      }
+      expect(result.status).toBe("live");
+      expect([...result.roles].sort()).toEqual(["Support", "User"]);
       expect(updateSpy).toHaveBeenCalledTimes(1);
     } finally {
       fetchSpy.mockRestore();
@@ -185,7 +191,6 @@ describe("sessionChecker role re-derivation", () => {
     const sid = "00000000-0000-4000-8000-00000000sid4";
     const userId = "00000000-0000-4000-8000-00000000usr4";
     const tenantId = "00000000-0000-4000-8000-000000tenan2";
-    const farFutureMs = Temporal.Now.instant().add({ hours: 1 }).epochMilliseconds;
 
     const spy = spyOn(bunDb, "fetchOne").mockImplementation((async (_db, table) => {
       if (table === userSessionTable) {
@@ -193,11 +198,15 @@ describe("sessionChecker role re-derivation", () => {
           userId,
           tenantId,
           revokedAt: null,
-          expiresAt: { epochMilliseconds: farFutureMs },
+          expiresAt: { epochMilliseconds: farFutureMs() },
         };
       }
       if (table === userTable) {
-        return { status: USER_STATUS.Active, roles: JSON.stringify(["Support"]) };
+        return {
+          status: USER_STATUS.Active,
+          isDeleted: false,
+          roles: JSON.stringify(["Support"]),
+        };
       }
       if (table === tenantMembershipsTable) {
         return { roles: JSON.stringify(["User"]) };
@@ -254,7 +263,7 @@ describe("sessionChecker lookup overlap", () => {
     throw new Error("unexpected table in sessionChecker spy");
   }
 
-  test("user lookup starts before the session read resolves, membership before user resolves", async () => {
+  test("user and membership lookups start together after the session read", async () => {
     const cbs = createSessionCallbacks({ db: {} as DbConnection });
     const started: unknown[] = [];
     const releases = new Map<unknown, () => void>();
@@ -268,11 +277,13 @@ describe("sessionChecker lookup overlap", () => {
 
     try {
       const pending = cbs.sessionChecker(sid, userId);
-      expect(started).toEqual([userTable, userSessionTable]);
+      expect(started).toEqual([userSessionTable]);
 
       releases.get(userSessionTable)?.();
       await Bun.sleep(0);
-      expect(started).toEqual([userTable, userSessionTable, tenantMembershipsTable]);
+      expect(started).toHaveLength(3);
+      expect(started).toContain(userTable);
+      expect(started).toContain(tenantMembershipsTable);
 
       releases.get(tenantMembershipsTable)?.();
       releases.get(userTable)?.();
@@ -287,19 +298,29 @@ describe("sessionChecker lookup overlap", () => {
   const outcomes: readonly Outcome[] = ["ok", "null", "throw"];
   for (const user of outcomes) {
     for (const membership of outcomes) {
-      const expectsLive = user !== "ok" || membership === "throw";
-      test(`user=${user} membership=${membership} → ${expectsLive ? "bare live" : "live with roles"}`, async () => {
+      const throws = user === "throw" || membership === "throw";
+      const expectation = throws
+        ? "rejects"
+        : user === "null"
+          ? "live (unknown principal)"
+          : membership === "null"
+            ? "not_a_member"
+            : "live with roles";
+      test(`user=${user} membership=${membership} → ${expectation}`, async () => {
         const cbs = createSessionCallbacks({ db: {} as DbConnection });
         const spy = spyOn(bunDb, "fetchOne").mockImplementation((async (_db, table) =>
           lookupFor(table, user, membership)) as FetchOne);
         try {
-          const result = await cbs.sessionChecker(sid, userId);
-          if (expectsLive) {
-            expect(result).toBe("live");
+          if (throws) {
+            await expect(cbs.sessionChecker(sid, userId)).rejects.toThrow("lookup failed");
+          } else if (user === "null") {
+            expect(await cbs.sessionChecker(sid, userId)).toBe("live");
+          } else if (membership === "null") {
+            expect(await cbs.sessionChecker(sid, userId)).toBe("not_a_member");
           } else {
+            const result = await cbs.sessionChecker(sid, userId);
             if (typeof result === "string") throw new Error(`expected object, got "${result}"`);
-            const expected = membership === "null" ? ["Support"] : ["Support", "User"];
-            expect([...result.roles].sort()).toEqual(expected);
+            expect([...result.roles].sort()).toEqual(["Support", "User"]);
           }
         } finally {
           spy.mockRestore();

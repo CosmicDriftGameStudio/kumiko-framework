@@ -10,6 +10,7 @@ export {
   tenantInvitationsTable,
 } from "./invitation-table.ts";
 export { isTenantServingPublicContent } from "./is-tenant-serving-public-content.ts";
+export { type LiveTenantRoles, resolveLiveTenantRoles } from "./live-tenant-roles.ts";
 export { tenantMembershipEntity, tenantMembershipsTable } from "./membership-table.ts";
 export {
   TENANT_LIFECYCLE_STATUSES,

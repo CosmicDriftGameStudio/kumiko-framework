@@ -39,16 +39,21 @@ export type AuthTransport = "cookie" | "bearer";
 // the DB-backed implementation; middleware just consults whatever function
 // the app wires in. "blocked" = sid is live but the user it belongs to is
 // locked (restricted/deleted) — defense-in-depth so a missed session-revoke
-// can't keep a locked account authenticated.
-export type AuthSessionStatus = "live" | "revoked" | "expired" | "missing" | "blocked";
+// can't keep a locked account authenticated. "not_a_member" = sid is live but
+// the user no longer holds a membership in the session's tenant.
+export type AuthSessionStatus =
+  | "live"
+  | "revoked"
+  | "expired"
+  | "missing"
+  | "blocked"
+  | "not_a_member";
 
-// A "live" result may additionally carry roles re-derived fresh from the DB
-// (global user roles + tenant-membership roles, composed via
-// buildSessionRoles) instead of trusting the JWT's roles claim, which was
-// frozen at login/mint time. Bare "live" (no roles) is the fail-open path —
-// a DB throw during role derivation must not turn into a lockout — and the
-// case where no sessionChecker is wired at all; the middleware falls back to
-// payload.roles in both.
+// A "live" result may carry roles re-derived from the DB instead of the JWT's
+// frozen roles claim. Bare "live" means the principal has no user row
+// (bootstrap/system actor) or no sessionChecker is wired; the middleware then
+// falls back to payload.roles. Lookup errors are not converted to "live": they
+// propagate and fail the request.
 export type AuthSessionCheckResult =
   | AuthSessionStatus
   | { readonly status: "live"; readonly roles: readonly string[] };

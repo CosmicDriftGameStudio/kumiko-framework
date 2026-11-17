@@ -3,8 +3,10 @@ import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
+import { revokeAllUserCredentials } from "../../auth-foundation/index.ts";
 import { burnToken } from "../../shared/index.ts";
 import { base32Decode } from "../base32.ts";
+import { MFA_CREDENTIAL_REVOKE_REASON } from "../credential-revoke-reason.ts";
 import { findUserMfaRow } from "../db/queries.ts";
 import { invalidSetupToken, invalidTotpCode, mfaAlreadyEnabled } from "../errors.ts";
 import { verifyMfaSetupToken } from "../mfa-setup-token.ts";
@@ -13,17 +15,6 @@ import { verifyTotp } from "../totp.ts";
 
 export type EnableConfirmOptions = {
   readonly setupTokenSecret: string;
-  // Wired late by run-prod-app once the sessions feature (if mounted) is
-  // concrete — see sessions/session-callbacks.ts. Absent when sessions
-  // isn't mounted: enabling MFA just doesn't revoke other sessions.
-  readonly revokeAllOtherSessions?: (
-    userId: string,
-    currentSid: string | undefined,
-  ) => Promise<number>;
-  // Wired late by run-prod-app once the personal-access-tokens feature (if
-  // mounted) is concrete. Absent when PAT isn't mounted: enabling MFA just
-  // doesn't revoke PAT tokens.
-  readonly revokeAllPatTokens?: (userId: string) => Promise<number>;
 };
 
 const executor = createEventStoreExecutor(userMfaTable, userMfaEntity, {
@@ -37,6 +28,7 @@ export function createEnableConfirmHandler(opts: EnableConfirmOptions) {
       setupToken: z.string().min(1),
       code: z.string().length(6),
     }),
+    escapeHatch: { grants: ["unsafeRaw"], reason: MFA_CREDENTIAL_REVOKE_REASON },
     access: {
       openToAll: {
         reason:
@@ -116,12 +108,9 @@ export function createEnableConfirmHandler(opts: EnableConfirmOptions) {
       // Confirming enable proves possession of a second factor — every
       // other session (a stolen-cookie attacker included) gets logged out.
       // The session that just did this confirm keeps running.
-      if (opts.revokeAllOtherSessions) {
-        await opts.revokeAllOtherSessions(event.user.id, event.user.sid);
-      }
-      if (opts.revokeAllPatTokens) {
-        await opts.revokeAllPatTokens(event.user.id);
-      }
+      await revokeAllUserCredentials(ctx.registry, ctx.db.unsafeRaw(), event.user.id, {
+        keepSessionId: event.user.sid,
+      });
 
       return { isSuccess: true, data: { enabled: true } };
     },

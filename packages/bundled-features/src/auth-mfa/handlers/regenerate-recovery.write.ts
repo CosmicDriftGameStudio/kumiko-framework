@@ -2,18 +2,13 @@ import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
+import { revokeAllUserCredentials } from "../../auth-foundation/index.ts";
+import { MFA_CREDENTIAL_REVOKE_REASON } from "../credential-revoke-reason.ts";
 import { findUserMfaRow } from "../db/queries.ts";
 import { invalidTotpCode, mfaNotEnabled } from "../errors.ts";
 import { generateRecoveryCodes, hashRecoveryCodes } from "../recovery-codes.ts";
 import { encodeRecoveryCodes, userMfaEntity, userMfaTable } from "../schema/user-mfa.ts";
 import { verifyMfaFactor } from "../verify-factor.ts";
-
-export type RegenerateRecoveryOptions = {
-  readonly revokeAllOtherSessions?: (
-    userId: string,
-    currentSid: string | undefined,
-  ) => Promise<number>;
-};
 
 const executor = createEventStoreExecutor(userMfaTable, userMfaEntity, {
   entityName: "user-mfa",
@@ -22,11 +17,12 @@ const executor = createEventStoreExecutor(userMfaTable, userMfaEntity, {
 // Invalidates ALL existing recovery codes (even unused ones) and issues a
 // fresh set of 8 — the standard response to "I think my recovery codes
 // leaked" without having to disable+re-enable TOTP itself.
-export function createRegenerateRecoveryHandler(opts: RegenerateRecoveryOptions) {
+export function createRegenerateRecoveryHandler() {
   return defineWriteHandler({
     name: "regenerate-recovery",
     schema: z.object({ code: z.string().min(6).max(9) }),
     rateLimit: { per: "user+handler", limit: 5, windowSeconds: 300 },
+    escapeHatch: { grants: ["unsafeRaw"], reason: MFA_CREDENTIAL_REVOKE_REASON },
     access: {
       openToAll: {
         reason:
@@ -79,9 +75,9 @@ export function createRegenerateRecoveryHandler(opts: RegenerateRecoveryOptions)
       );
       if (!result.isSuccess) return result;
 
-      if (opts.revokeAllOtherSessions) {
-        await opts.revokeAllOtherSessions(event.user.id, event.user.sid);
-      }
+      await revokeAllUserCredentials(ctx.registry, ctx.db.unsafeRaw(), event.user.id, {
+        keepSessionId: event.user.sid,
+      });
 
       // Plaintext — shown once, same as the initial enable-flow codes.
       return { isSuccess: true, data: { recoveryCodes: newCodes } };

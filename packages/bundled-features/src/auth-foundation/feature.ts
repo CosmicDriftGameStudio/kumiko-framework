@@ -5,6 +5,7 @@
 //   - sessionStore (single, required when foundation mounts)
 //   - tenantResolver (single, optional)
 //   - tenantExistence (single, optional)
+//   - credentialRevoker (multi, optional)
 //
 // Provider-features register via `r.useExtension(EXT_*, "<name>", plugin)`.
 // Middleware / runProdApp resolve providers from the registry at boot
@@ -21,6 +22,7 @@ import {
 } from "./boot-checks.ts";
 import {
   type AuthProviderBuildDeps,
+  EXT_CREDENTIAL_REVOKER,
   EXT_SESSION_STORE,
   EXT_TENANT_EXISTENCE,
   EXT_TENANT_RESOLVER,
@@ -37,6 +39,7 @@ import {
 } from "./types.ts";
 
 export {
+  EXT_CREDENTIAL_REVOKER,
   EXT_SESSION_STORE,
   EXT_TENANT_EXISTENCE,
   EXT_TENANT_RESOLVER,
@@ -50,7 +53,7 @@ export function createAuthFoundationFeature() {
     FEATURE_NAME,
     (r) => {
       r.describe(
-        "Declares auth-middleware extension points: `tokenVerifier` (Bearer), `sessionStore` (revocable JWT sid), optional `tenantResolver` + `tenantExistence` for anonymous multi-tenant. Provider-features register via r.useExtension; mount auth-foundation with the matching provider features.",
+        "Declares auth-middleware extension points: `tokenVerifier` (Bearer), `sessionStore` (revocable JWT sid), optional `tenantResolver` + `tenantExistence` for anonymous multi-tenant. Provider-features register via r.useExtension; mount auth-foundation with the matching provider features. The multi-provider `credentialRevoker` revokes every credential of a user (sessions, access tokens) on a password change or MFA state change.",
       );
       r.uiHints({
         displayLabel: "Auth Provider Foundation",
@@ -73,6 +76,9 @@ export function createAuthFoundationFeature() {
       // Optional — zero providers skips the existence check.
       r.extendsRegistrar(EXT_TENANT_EXISTENCE, {});
       r.bootCheck(({ features }) => validateTenantExistenceMultiplicity(features));
+
+      // Zero or more providers; revokeAllUserCredentials runs all of them.
+      r.extendsRegistrar(EXT_CREDENTIAL_REVOKER, {});
     },
     { dedupeOptions: {} },
   );

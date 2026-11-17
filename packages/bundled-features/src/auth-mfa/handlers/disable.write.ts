@@ -2,21 +2,12 @@ import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
+import { revokeAllUserCredentials } from "../../auth-foundation/index.ts";
+import { MFA_CREDENTIAL_REVOKE_REASON } from "../credential-revoke-reason.ts";
 import { findUserMfaRow } from "../db/queries.ts";
 import { invalidTotpCode, mfaNotEnabled } from "../errors.ts";
 import { userMfaEntity, userMfaTable } from "../schema/user-mfa.ts";
 import { verifyMfaFactor } from "../verify-factor.ts";
-
-export type DisableOptions = {
-  readonly revokeAllOtherSessions?: (
-    userId: string,
-    currentSid: string | undefined,
-  ) => Promise<number>;
-  // Wired late by run-prod-app once the personal-access-tokens feature (if
-  // mounted) is concrete. Absent when PAT isn't mounted: disabling MFA just
-  // doesn't revoke PAT tokens.
-  readonly revokeAllPatTokens?: (userId: string) => Promise<number>;
-};
 
 const executor = createEventStoreExecutor(userMfaTable, userMfaEntity, {
   entityName: "user-mfa",
@@ -26,11 +17,12 @@ const executor = createEventStoreExecutor(userMfaTable, userMfaEntity, {
 // factor — either is accepted to turn MFA back off. Password alone is NOT
 // enough: that would make MFA worthless against exactly the "stolen
 // password" scenario it exists to defend.
-export function createDisableHandler(opts: DisableOptions) {
+export function createDisableHandler() {
   return defineWriteHandler({
     name: "disable",
     schema: z.object({ code: z.string().min(6).max(9) }),
     rateLimit: { per: "user+handler", limit: 5, windowSeconds: 300 },
+    escapeHatch: { grants: ["unsafeRaw"], reason: MFA_CREDENTIAL_REVOKE_REASON },
     access: {
       openToAll: {
         reason:
@@ -71,12 +63,9 @@ export function createDisableHandler(opts: DisableOptions) {
       // legitimate account owner (attacker with a stolen-but-not-yet-
       // MFA-locked session, or a recovery code obtained via social
       // engineering).
-      if (opts.revokeAllOtherSessions) {
-        await opts.revokeAllOtherSessions(event.user.id, event.user.sid);
-      }
-      if (opts.revokeAllPatTokens) {
-        await opts.revokeAllPatTokens(event.user.id);
-      }
+      await revokeAllUserCredentials(ctx.registry, ctx.db.unsafeRaw(), event.user.id, {
+        keepSessionId: event.user.sid,
+      });
 
       return { isSuccess: true, data: { disabled: true } };
     },

@@ -1,5 +1,4 @@
 import { EXT_SESSION_STORE } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
-import { SESSIONS_FEATURE } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { loadJwtSecretOrKeyring, TRUSTED_PROXY_HOPS_ENV } from "@cosmicdrift/kumiko-framework/api";
 import type { RowLevelSecurityMode } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -83,7 +82,6 @@ export type ProdComposedFeatures = ReturnType<typeof resolveUnsubscribeWiring> &
   readonly authPublicOrigin: string | undefined;
   readonly features: readonly FeatureDefinition[];
   readonly bootCrypto: ReturnType<typeof resolveBootCrypto>;
-  readonly sessionsFeature: FeatureDefinition | undefined;
   readonly registry: Registry;
 };
 
@@ -216,7 +214,6 @@ export function composeProdFeatures(
     allowPlaintextPii: bootKms.allowPlaintextPii,
     mode: "prod",
   });
-  const sessionsFeature = features.find((f) => f.name === SESSIONS_FEATURE);
   const registry = createRegistry(features);
   assertSessionBootInvariants({
     hasAuth: Boolean(effectiveAuth),
@@ -231,7 +228,6 @@ export function composeProdFeatures(
     unsubscribeRoutes,
     features,
     bootCrypto,
-    sessionsFeature,
     registry,
   };
 }

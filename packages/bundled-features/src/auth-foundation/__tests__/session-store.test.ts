@@ -16,8 +16,6 @@ function mockStore(): SessionStore {
     creator: async () => "sid-1",
     revoker: async () => undefined,
     checker: async () => "live",
-    massRevoker: async () => 0,
-    revokeAllOthers: async () => 0,
   };
 }
 

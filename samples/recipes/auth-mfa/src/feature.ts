@@ -1,12 +1,12 @@
 // Auth MFA (TOTP/2FA) Sample
 //
 // Shows the production-wiring shape: mount `createAuthMfaFeature()` next to
-// `createAuthEmailPasswordFeature()`, thread its status-checker into the
-// login handler, and (if `sessions` is mounted) bind its revoke-all-other-
-// sessions callback. From there the framework handles the rest — login
+// `createAuthEmailPasswordFeature()` and thread its status-checker into the
+// login handler. From there the framework handles the rest — login
 // returns a challenge instead of a JWT when MFA is enabled, POST
 // /auth/mfa/verify completes it, and every OTHER live session gets signed
-// out whenever the account's MFA state changes (enable/disable/regenerate).
+// out whenever the account's MFA state changes (enable/disable/regenerate),
+// through the auth-foundation credentialRevoker when `sessions` is mounted.
 //
 // What to copy into your own app:
 //
@@ -16,18 +16,14 @@
 //     issuer: "Your App",
 //   });
 //   const sessionCallbacks = createSessionCallbacks({ db });
-//   bindMfaRevokeAllOtherSessionsFromFeature(mfaFeature)?.(
-//     sessionCallbacks.sessionRevokeAllOthers,
-//   );
 //
 //   const server = buildServer({
 //     registry: buildRegistry([
 //       createAuthEmailPasswordFeature({
 //         mfaStatusChecker: mfaStatusCheckerFromFeature(mfaFeature),
 //       }),
-//       createSessionsFeature({
-//         autoRevokeOnPasswordChange: sessionCallbacks.sessionMassRevoker,
-//       }),
+//       createAuthFoundationFeature(),
+//       createSessionsFeature(),
 //       mfaFeature,
 //       // ... other features
 //     ]),
@@ -47,7 +43,7 @@
 // Apps built via runDevApp/runProdApp (the dev-server bootstrap) get all of
 // this for free just by adding `createAuthMfaFeature(...)` to APP_FEATURES —
 // composeFeatures threads the status-checker and the bootstrap wraps the
-// session-revoke bind and the /auth/mfa/verify route automatically. This
+// /auth/mfa/verify route automatically. This
 // sample shows the raw wiring contract those helpers implement.
 //
 // Design rules the sample demonstrates:
@@ -72,7 +68,6 @@ export {
 export {
   AuthMfaHandlers,
   base32Decode,
-  bindMfaRevokeAllOtherSessionsFromFeature,
   createAuthMfaFeature,
   mfaStatusCheckerFromFeature,
   userMfaEntity,

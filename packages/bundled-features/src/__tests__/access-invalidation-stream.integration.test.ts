@@ -112,7 +112,7 @@ beforeAll(async () => {
       createTenantFeature(),
       createAuthEmailPasswordFeature(),
       createAuthFoundationFeature(),
-      createSessionsFeature({ autoRevokeOnPasswordChange: bound.asMassRevoker() }),
+      createSessionsFeature(),
       streamProbeFeature,
     ],
     extraContext: { configResolver: resolver, configEncryption: encryption },

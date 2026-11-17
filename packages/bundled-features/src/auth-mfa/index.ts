@@ -3,15 +3,9 @@ export { type MfaRequiredPolicy, mfaRequiredConfigHandle } from "./config.ts";
 export { authMfaEnvSchema, mfaTokenSecretsEnvSchema } from "./env.ts";
 export type { AuthMfaFeatureOptions } from "./feature.ts";
 export { createAuthMfaFeature } from "./feature.ts";
-export type {
-  BindMfaRevokeAllOtherSessions,
-  BindMfaTokenSecrets,
-  BindRevokeAllPatTokens,
-} from "./feature-exports.ts";
+export type { BindMfaTokenSecrets } from "./feature-exports.ts";
 export {
-  bindMfaRevokeAllOtherSessionsFromFeature,
   bindMfaTokenSecretsFromFeature,
-  bindRevokeAllPatTokensFromFeature,
   mfaStatusCheckerFromFeature,
   mfaVerifierFromFeature,
 } from "./feature-exports.ts";

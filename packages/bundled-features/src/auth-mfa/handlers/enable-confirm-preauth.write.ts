@@ -9,6 +9,7 @@ import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/error
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
+import { revokeAllUserCredentials } from "../../auth-foundation/index.ts";
 import { burnToken, mintAuthSession } from "../../shared/index.ts";
 import { isPrincipalBlockedForNewAuth, UserQueries } from "../../user/index.ts";
 import { base32Decode } from "../base32.ts";
@@ -35,16 +36,6 @@ export type EnableConfirmPreauthOptions = {
   readonly setupTokenSecret: string;
   readonly maxAttempts?: number;
   readonly lockoutMinutes?: number;
-  // Wired late by run-prod-app, same shared callback as enable-confirm and
-  // enable-start's session-authed siblings.
-  readonly revokeAllOtherSessions?: (
-    userId: string,
-    currentSid: string | undefined,
-  ) => Promise<number>;
-  // Wired late by run-prod-app once the personal-access-tokens feature (if
-  // mounted) is concrete. Absent when PAT isn't mounted: enabling MFA just
-  // doesn't revoke PAT tokens.
-  readonly revokeAllPatTokens?: (userId: string) => Promise<number>;
 };
 
 const executor = createEventStoreExecutor(userMfaTable, userMfaEntity, {
@@ -220,12 +211,7 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
       // means a rejected confirm never touches the user's other sessions.
       // No currentSid to exclude — this is the first session for this
       // login, not a follow-up on an already-running one.
-      if (opts.revokeAllOtherSessions) {
-        await opts.revokeAllOtherSessions(userId, undefined);
-      }
-      if (opts.revokeAllPatTokens) {
-        await opts.revokeAllPatTokens(userId);
-      }
+      await revokeAllUserCredentials(ctx.registry, ctx.db.unsafeRaw(), userId, {});
 
       return { isSuccess: true, data: { kind: "mfa-preauth-confirm-success", session } };
     },

@@ -163,11 +163,8 @@ beforeAll(async () => {
       createTenantFeature(),
       createAuthEmailPasswordFeature(),
       createAuthFoundationFeature(),
-      createSessionsFeature({ autoRevokeOnPasswordChange: bound.asMassRevoker() }),
-      createPersonalAccessTokensFeature({
-        scopes: SCOPES,
-        autoRevokeOnPasswordChange: (userId) => revokeAllPatTokensForUser(stack.db, userId),
-      }),
+      createSessionsFeature(),
+      createPersonalAccessTokensFeature({ scopes: SCOPES }),
       streamProbeFeature,
     ],
     extraContext: { configResolver: resolver, configEncryption: encryption },

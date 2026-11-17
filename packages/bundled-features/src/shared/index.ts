@@ -31,7 +31,6 @@ export { hmacSignatureMatches, signHmacSha256Base64Url } from "./hmac-signature.
 export { isIdentityV3Hash, verifyIdentityV3Hash } from "./identity-v3-hash.ts";
 export { isTenantDb } from "./is-tenant-db.ts";
 export { isUniqueConstraintFailure } from "./is-unique-constraint-failure.ts";
-export { createLateBoundSlot, type LateBoundSlot } from "./late-bound-slot.ts";
 export { createLockoutCounter, type LockoutCounterState } from "./lockout-counter.ts";
 export { createMailLocaleTemplates } from "./mail-locale-templates.ts";
 export {

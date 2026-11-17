@@ -15,10 +15,8 @@ import {
 } from "./pat-revoked-event.ts";
 import { apiTokenTable } from "./schema/api-token.ts";
 
-// Cross-tenant revoke: password-change and MFA-enable/disable are account-
-// level security events, not scoped to one tenant. Mirrors sessions'
-// sessionMassRevoker (session-callbacks.ts) which passes the boot-time
-// DbConnection directly — not ctx.db, which would be tenant-scoped in a hook.
+// Cross-tenant revoke: password change and MFA state change are account-level security events.
+// Called through the auth-foundation credentialRevoker (password change, MFA state change) and by crypto-shredding forget-subject; the runner is the caller's transaction or a pool.
 export async function revokeAllPatTokensForUser(db: DbRunner, userId: string): Promise<number> {
   // Update and event commit together: otherwise a failed append leaves the
   // tokens revoked with no event, and a retry matches no live row.
@@ -36,7 +34,7 @@ async function revokeAndAppend(db: DbRunner, userId: string): Promise<number> {
     { userId, revokedAt: null },
   );
 
-  // Same reasoning as sessionMassRevoker's append — this raw
+  // Same reasoning as the sessions revoke append — this raw
   // callback has no dispatcher ctx to call unsafeAppendEvent from, so it
   // uses the low-level append() directly, anchored on SYSTEM_TENANT_ID like
   // sessions' cross-tenant writes. Without it, the access-invalidation

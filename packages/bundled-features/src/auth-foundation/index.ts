@@ -1,5 +1,6 @@
 // Public API of the auth-foundation bundled-feature.
 
+export { revokeAllUserCredentials } from "./credential-revoker.ts";
 export { authEnvSchema } from "./env.ts";
 export {
   createAuthFoundationFeature,
@@ -14,17 +15,19 @@ export {
   type AuthProviderBuildDeps,
   type AuthProviderPlugin,
   type AuthVerifier,
+  type CredentialRevoker,
+  EXT_CREDENTIAL_REVOKER,
   EXT_SESSION_STORE,
   EXT_TENANT_EXISTENCE,
   EXT_TENANT_RESOLVER,
   EXT_TOKEN_VERIFIER,
   isAuthProviderPlugin,
+  isCredentialRevoker,
   isSessionStoreProvider,
   isTenantExistenceProvider,
   isTenantResolverProvider,
   isTenantResolverTrust,
   isValidTokenShape,
-  type SessionMassRevoker,
   type SessionStore,
   type SessionStoreProvider,
   type TenantExistenceProvider,

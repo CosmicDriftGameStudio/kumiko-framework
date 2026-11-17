@@ -15,7 +15,6 @@ import {
 import {
   AuthMfaHandlers,
   base32Decode,
-  bindMfaRevokeAllOtherSessionsFromFeature,
   createAuthMfaFeature,
   mfaRequiredConfigHandle,
   userMfaEntity,
@@ -25,10 +24,7 @@ import {
   configValuesTable,
   createConfigResolver,
 } from "@cosmicdrift/kumiko-bundled-features/config";
-import {
-  createSessionCallbacks,
-  userSessionEntity,
-} from "@cosmicdrift/kumiko-bundled-features/sessions";
+import { userSessionEntity } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { tenantEntity, tenantMembershipsTable } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { seedTenantMembership } from "@cosmicdrift/kumiko-bundled-features/tenant/testing";
 import { UserHandlers, userEntity, userTable } from "@cosmicdrift/kumiko-bundled-features/user";
@@ -78,9 +74,6 @@ async function bootStack(): Promise<TestStack> {
       switchTenantMfaGateHandler: AuthHandlers.switchTenantMfaGate,
     },
   });
-
-  const sessionCallbacks = createSessionCallbacks({ db: stack.db });
-  bindMfaRevokeAllOtherSessionsFromFeature(mfaFeature)?.(sessionCallbacks.sessionRevokeAllOthers);
 
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, tenantEntity);

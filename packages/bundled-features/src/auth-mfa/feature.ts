@@ -1,13 +1,8 @@
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { type FeatureWithEnvSchema, featureWithEnvSchema } from "@cosmicdrift/kumiko-framework/env";
-import { createLateBoundSlot } from "../shared/index.ts";
 import { type MfaRequiredPolicy, mfaRequiredConfigKey } from "./config.ts";
 import { authMfaEnvSchema } from "./env.ts";
-import type {
-  BindMfaRevokeAllOtherSessions,
-  BindMfaTokenSecrets,
-  BindRevokeAllPatTokens,
-} from "./feature-exports.ts";
+import type { BindMfaTokenSecrets } from "./feature-exports.ts";
 import { createDisableHandler } from "./handlers/disable.write.ts";
 import { createEnableConfirmHandler } from "./handlers/enable-confirm.write.ts";
 import { createEnableConfirmPreauthHandler } from "./handlers/enable-confirm-preauth.write.ts";
@@ -106,24 +101,6 @@ export function createAuthMfaFeature(
 
     r.entity({ name: "user-mfa", ...userMfaEntity });
 
-    // Late-bound by run-prod-app once the sessions feature (if mounted) has
-    // produced a concrete `sessionRevokeAllOthers` callback — mirrors
-    // sessions' own bindAutoRevokeOnPasswordChange. Shared by every handler
-    // that changes MFA state (enable/disable/regenerate), so each one's
-    // "log out every other session" behavior tracks the same wiring.
-    const otherSessionsRevokerSlot =
-      createLateBoundSlot<(userId: string, currentSid: string | undefined) => Promise<number>>();
-    const sharedRevoker = (userId: string, currentSid: string | undefined): Promise<number> =>
-      otherSessionsRevokerSlot.current()?.(userId, currentSid) ?? Promise.resolve(0);
-
-    // Same late-bind shape as sharedRevoker above, for the personal-access-
-    // tokens feature (if mounted). Wired to enable-confirm(-preauth)/disable
-    // only — regenerate-recovery doesn't change enrollment state, so it's
-    // out of scope for the "MFA-enable/disable" finding this mirrors.
-    const patTokensRevokerSlot = createLateBoundSlot<(userId: string) => Promise<number>>();
-    const sharedPatRevoker = (userId: string): Promise<number> =>
-      patTokensRevokerSlot.current()?.(userId) ?? Promise.resolve(0);
-
     // Handlers and the status checker read the secrets through these getters
     // on each call, so the boot can bind them after env validation. Never
     // spread these objects: a spread would read the getter eagerly.
@@ -167,8 +144,6 @@ export function createAuthMfaFeature(
           get setupTokenSecret() {
             return tokenSecrets().setupTokenSecret;
           },
-          revokeAllOtherSessions: sharedRevoker,
-          revokeAllPatTokens: sharedPatRevoker,
         }),
       ),
       enableConfirmPreauth: r.writeHandler(
@@ -176,19 +151,10 @@ export function createAuthMfaFeature(
           get setupTokenSecret() {
             return tokenSecrets().setupTokenSecret;
           },
-          revokeAllOtherSessions: sharedRevoker,
-          revokeAllPatTokens: sharedPatRevoker,
         }),
       ),
-      disable: r.writeHandler(
-        createDisableHandler({
-          revokeAllOtherSessions: sharedRevoker,
-          revokeAllPatTokens: sharedPatRevoker,
-        }),
-      ),
-      regenerateRecovery: r.writeHandler(
-        createRegenerateRecoveryHandler({ revokeAllOtherSessions: sharedRevoker }),
-      ),
+      disable: r.writeHandler(createDisableHandler()),
+      regenerateRecovery: r.writeHandler(createRegenerateRecoveryHandler()),
       verify: r.writeHandler(
         createMfaVerifyHandler({
           get challengeTokenSecret() {
@@ -202,7 +168,7 @@ export function createAuthMfaFeature(
       status: r.queryHandler(mfaStatusQuery),
     };
 
-    // No late-bind needed (unlike sharedRevoker) — this checker only needs
+    // No late-bind needed — this checker only needs
     // the HandlerContext the CALLER already has (login.write.ts runs it
     // from inside its own dispatcher call), not a raw db handle assembled
     // at app-boot time.
@@ -217,16 +183,11 @@ export function createAuthMfaFeature(
     // HandlerContext the caller already has.
     const verifyMfaCode = createMfaCodeVerifier();
 
-    const bindRevokeAllOtherSessions: BindMfaRevokeAllOtherSessions = otherSessionsRevokerSlot.bind;
-    const bindRevokeAllPatTokens: BindRevokeAllPatTokens = patTokensRevokerSlot.bind;
-
     return {
       handlers,
       queries,
-      bindRevokeAllOtherSessions,
       checkMfaStatus,
       verifyMfaCode,
-      bindRevokeAllPatTokens,
       bindTokenSecrets,
     };
   });

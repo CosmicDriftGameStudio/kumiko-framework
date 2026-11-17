@@ -2,11 +2,8 @@ import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { PAT_DEFAULT_RATE_LIMIT, type PatRateLimit } from "./web/constants.ts";
 import type { PatScopeConfig, PatScopeDef } from "./web/scopes.ts";
 
-export type { BindPatAutoRevokeOnPasswordChange, PersonalAccessTokensOptions } from "./feature.ts";
-export {
-  bindPatAutoRevokeOnPasswordChangeFromFeature,
-  createPersonalAccessTokensFeature,
-} from "./feature.ts";
+export type { PersonalAccessTokensOptions } from "./feature.ts";
+export { createPersonalAccessTokensFeature } from "./feature.ts";
 export type { CreatePatOptions, PatMfaVerifyResult } from "./handlers/create.write.ts";
 export { hashPatToken, mintPatToken } from "./hash.ts";
 export { patScopeOptionKey } from "./i18n.ts";

@@ -25,7 +25,7 @@ import {
   buildPreviewLoginConfig,
   type PreviewLoginOption,
 } from "./boot-options/preview-login-option.ts";
-import { buildProdSessionAuth, wireProdPatAutoRevoke } from "./run-prod-app-boot-context.ts";
+import { buildProdSessionAuth } from "./run-prod-app-boot-context.ts";
 import type { ProdBootConfig, ProdComposedFeatures } from "./run-prod-app-config.ts";
 import type { ProdConnections } from "./run-prod-app-connections.ts";
 import { shouldWireProdSessions } from "./session-wiring.ts";
@@ -44,39 +44,28 @@ export type ProdAuthWiring = {
 // Sessions are wired directly because db has already been created; unlike
 // runDevApp, no late binding is needed. Once a sessionChecker is wired, JWTs
 // without sid are rejected, so production sessions cannot be bypassed.
-// sessionMassRevoker (the fourth callback from createSessionCallbacks) is not
-// part of AuthRoutesConfig; bindAutoRevokeFromFeature hands it to the sessions
-// feature so password change and reset revoke all sessions. Secure by default: the sessionStore provider
-// goes through resolveSessionStore.
+// Credential revocation needs no boot wiring: sessions and PAT register as
+// auth-foundation credentialRevokers. The sessionStore provider goes through
+// resolveSessionStore.
 export async function wireProdAuth(
   config: ProdBootConfig,
   composed: ProdComposedFeatures,
   connections: ProdConnections,
 ): Promise<ProdAuthWiring> {
-  const { features, registry, effectiveAuth, sessionsFeature } = composed;
+  const { features, registry, effectiveAuth } = composed;
   const { db, redis } = connections;
   const mfaFeature = features.find((f) => f.name === AUTH_MFA_FEATURE);
   if (mfaFeature) {
     bindMfaTokenSecretsFromFeature(mfaFeature)?.(config.jwtSecret, config.envSource);
     assertMfaSwitchTenantGate(registry, "runProdApp");
   }
-  // Hoisted above buildProdSessionAuth: that call also wires MFA-enable/
-  // disable → PAT-revoke (bindRevokeAllPatTokensFromFeature), so it needs
-  // patFeature too.
   const patFeature = features.find((f) => f.name === PAT_FEATURE);
   const sessionAuthFragment = shouldWireProdSessions(
     Boolean(effectiveAuth),
     registry.getExtensionUsages(EXT_SESSION_STORE).length > 0,
   )
-    ? await buildProdSessionAuth(db, registry, sessionsFeature, mfaFeature, patFeature)
+    ? await buildProdSessionAuth(db, registry)
     : undefined;
-
-  // Password-change → PAT-revoke: independent of sessions/MFA being mounted
-  // (buildProdSessionAuth only runs when a sessionStore provider is
-  // registered), so wired unconditionally here whenever PAT itself is.
-  if (patFeature) {
-    wireProdPatAutoRevoke(db, patFeature);
-  }
 
   // Token-verifier opt-in: any provider feature (personal-access-tokens, a
   // future auth-provider-jwt, ...) self-registers via

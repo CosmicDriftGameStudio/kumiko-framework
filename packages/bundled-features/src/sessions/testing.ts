@@ -5,9 +5,7 @@
 //   const bound = sessionCallbacksFromLateBound(holder);
 //
 //   stack = await setupTestStack({
-//     features: [..., createSessionsFeature({
-//       autoRevokeOnPasswordChange: bound.asMassRevoker(),
-//     })],
+//     features: [..., createSessionsFeature()],
 //     authConfig: { ...bound.asAuthConfig(), membershipQuery, loginHandler },
 //   });
 //   holder.set(createSessionCallbacks({ db: stack.db }));
@@ -20,13 +18,11 @@
 import type { AuthRoutesConfig, SessionCreator } from "@cosmicdrift/kumiko-framework/api";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import type { LateBoundHolder } from "@cosmicdrift/kumiko-testing/helpers";
-import type { SessionCallbacks, SessionMassRevoker } from "./session-callbacks.ts";
+import type { SessionCallbacks } from "./session-callbacks.ts";
 
 export type BoundSessionCallbacks = {
   /** auth-config fragment: creator + revoker + checker, all late-bound. */
   asAuthConfig(): Pick<AuthRoutesConfig, "sessionCreator" | "sessionRevoker" | "sessionChecker">;
-  /** mass-revoker function for sessionsFeature({ autoRevokeOnPasswordChange }). */
-  asMassRevoker(): SessionMassRevoker;
 };
 
 export function sessionCallbacksFromLateBound(
@@ -38,7 +34,6 @@ export function sessionCallbacksFromLateBound(
       sessionRevoker: (sid) => holder.get().sessionRevoker(sid),
       sessionChecker: (sid, userId) => holder.get().sessionChecker(sid, userId),
     }),
-    asMassRevoker: () => (userId) => holder.get().sessionMassRevoker(userId),
   };
 }
 

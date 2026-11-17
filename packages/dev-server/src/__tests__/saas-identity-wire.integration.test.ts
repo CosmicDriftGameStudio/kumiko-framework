@@ -15,7 +15,6 @@ import {
 import {
   AuthMfaHandlers,
   base32Decode,
-  bindMfaRevokeAllOtherSessionsFromFeature,
   userMfaEntity,
   userMfaTable,
 } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
@@ -187,7 +186,6 @@ beforeAll(async () => {
 
   const sessionCallbacks = createSessionCallbacks({ db: stack.db });
   callbacks.set(sessionCallbacks);
-  bindMfaRevokeAllOtherSessionsFromFeature(mfaFeature)?.(sessionCallbacks.sessionRevokeAllOthers);
 
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, tenantEntity);
