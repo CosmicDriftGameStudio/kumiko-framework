@@ -206,7 +206,7 @@ r.screen({
 | `density.userChoice` | Shows the density choice in the view menu. |
 | `pinning` | The user pins columns left or right in the view menu. Columns may start pinned with `pinned: "left" \| "right"`. Pinned columns stay sticky while scrolling horizontally. |
 | `resizing` | Switches the table to `table-layout: fixed`; the user drags or uses the arrow keys on the header edge. `width` and `minWidth` (px) on a column are start values. Widths stay between `minWidth` and 2000 px and are remembered per session, like the column choice and density, whether or not `rememberState` is on. |
-| `keyboardNavigation` | Rows are one tab stop. ArrowUp and ArrowDown move, Home and End jump, Enter runs the row click. Space selects the focused row when the list has `bulkActions`. |
+| `keyboardNavigation` | Rows are one tab stop. ArrowUp and ArrowDown move, Home and End jump, Enter runs the row click. Space selects the focused row when the list has `bulkActions`. Default on for `entityList`, `projectionList` and `relatedList`; `keyboardNavigation: false` turns it off. |
 | `compactHeader` | Renders the header row in 12px semibold. Default off. |
 | `export.xlsx` | Shows an Export button that downloads the filtered list as an XLSX file. `entityList` and `projectionList` only. |
 | `export.maxRows` | Row limit of one export, default 10000, hard cap 100000. |
@@ -217,7 +217,7 @@ r.screen({
 
 `ResultTable` takes the same `compactHeader` prop (12px semibold header, default off).
 
-`pinning`, `resizing`, `keyboardNavigation` and `compactHeader` are opt-in. Without `resizing` the table keeps its auto layout and the column widths follow the content. All three have no effect in the card layout below `md`. `pinned` needs `pinning`; `width` and `minWidth` need `resizing` and must be finite numbers greater than 0, with `minWidth` not above `width`. Otherwise the boot validator rejects the screen.
+`pinning`, `resizing` and `compactHeader` are opt-in; `keyboardNavigation` is on unless set to `false`. Without `resizing` the table keeps its auto layout and the column widths follow the content. All three have no effect in the card layout below `md`. `pinned` needs `pinning`; `width` and `minWidth` need `resizing` and must be finite numbers greater than 0, with `minWidth` not above `width`. Otherwise the boot validator rejects the screen.
 
 **URL against store.** The URL stays the source of truth. The remembered parameters are copied into the URL once, when the list opens without any list parameter. A link that carries parameters always wins, and the remembered state follows the new URL. The page number alone does not count as a deviation. A `relatedList` keeps its state in the component and under the key `<route screenId>#<section id or query>`.
 

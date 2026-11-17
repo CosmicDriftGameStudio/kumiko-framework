@@ -98,7 +98,7 @@ export const DEFAULT_EXPORT_MAX_ROWS = 10000;
 export const MAX_EXPORT_MAX_ROWS = 100000;
 export const LIST_TABLE_DENSITY_KEYS = ["default", "userChoice"] as const;
 
-/** Opt-in table behaviour of a list. Without the block a list renders and behaves exactly as before. */
+/** Table behaviour of a list. Without the block a list keeps the default table, with keyboard row navigation on. */
 export type ListTableOptions = {
   /** Keeps search, sort, page size, facets and date range for the browser session and restores them when the screen is opened without list parameters in the URL. A link with parameters always wins. */
   readonly rememberState?: boolean;
@@ -110,7 +110,7 @@ export type ListTableOptions = {
   readonly pinning?: boolean;
   /** Switches the table to table-layout fixed; the user drags or uses the arrow keys on the header edge to resize. `width` and `minWidth` on a column are start values; widths are remembered per session. No effect in the card layout. */
   readonly resizing?: boolean;
-  /** Rows become one tab stop; ArrowUp/ArrowDown move, Home/End jump, Enter runs the row click. Space stays reserved for selection. */
+  /** Rows become one tab stop; ArrowUp/ArrowDown move, Home/End jump, Enter runs the row click. Space stays reserved for selection. Default on for list screens; `false` turns it off. */
   readonly keyboardNavigation?: boolean;
   /** Renders the header row smaller (12px) and semibold. */
   readonly compactHeader?: boolean;

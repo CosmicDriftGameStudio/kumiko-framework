@@ -197,6 +197,15 @@ describe("raw-ui-in-app plugin", () => {
       "export const OrderBadge = ({ a }: Props): ReactNode => null;",
       "export const OrderList = () => null;",
     ].join("\n"),
+    "stack.tsx": [
+      "export const S = () => (",
+      "  <div>",
+      '    <div className="flex flex-col gap-4">a</div>',
+      '    <div className="flex flex-col gap-3">b</div>',
+      '    <div className="flex flex-col gap-4 p-2">c</div>',
+      "  </div>",
+      ");",
+    ].join("\n"),
     "with-primitives.tsx": [
       'import { Button } from "@cosmicdrift/kumiko-renderer/web";',
       'export const A = () => <a href="/x">link</a>;',
@@ -215,6 +224,13 @@ describe("raw-ui-in-app plugin", () => {
   test("flags a, details and summary only in files that can reach the primitives", () => {
     expect(lineNumbers(findings, "with-primitives.tsx")).toEqual([2, 3, 3]);
     expect(lineNumbers(findings, "with-use-primitives.tsx")).toEqual([2]);
+  });
+
+  test("flags an exact vertical flex gap class as a warning pointing to Stack", () => {
+    expect(lineNumbers(findings, "stack.tsx")).toEqual([3]);
+    const finding = findings.find((f) => f.file === "stack.tsx");
+    expect(finding?.severity).toBe("warning");
+    expect(finding?.message).toContain("Stack");
   });
 
   test("raw interactive elements only warn, every other branch is an error", () => {
@@ -257,6 +273,11 @@ describe("no-raw-hooks plugin", () => {
 
   test("flags effect hook calls, bare and namespaced", () => {
     expect(lineNumbers(findings, "a.tsx")).toEqual([2, 3, 4, 5]);
+  });
+
+  test("the message points to useDebouncedValue", () => {
+    const finding = findings.find((f) => f.file === "a.tsx" && f.line === 2);
+    expect(finding?.message).toContain("useDebouncedValue");
   });
 });
 

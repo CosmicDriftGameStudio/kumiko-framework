@@ -4,8 +4,9 @@ import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
 import { flushEscapeHatchAudits } from "@cosmicdrift/kumiko-framework/pipeline";
 import {
   installShutdownSignals,
-  jobDrainBudgetMs,
   resolveDrainTimeoutMs,
+  SERVER_STOP_GRACE_MS,
+  shutdownBudgetsMs,
 } from "./boot-options/process-signals.ts";
 import { buildBunServeOptions, resolveDerivedMaxRequestBodySize } from "./bun-serve-options.ts";
 import { installFatalErrorHandlers } from "./fatal-error-handlers.ts";
@@ -23,13 +24,14 @@ import {
 import { withSecurityHeaders } from "./security-headers.ts";
 import { stripNoRouteMatchHeader } from "./try-hono-first.ts";
 
-const SERVER_GRACEFUL_STOP_MS = 10_000;
-
 // stop() without force waits for open connections (SSE never ends on its own); force-close after the grace period.
-async function stopServerGracefully(server: { stop(closeActiveConnections?: boolean): unknown }) {
+async function stopServerGracefully(
+  server: { stop(closeActiveConnections?: boolean): unknown },
+  graceMs: number,
+) {
   let graceTimer: ReturnType<typeof setTimeout> | undefined;
   const graceElapsed = new Promise<void>((resolve) => {
-    graceTimer = setTimeout(resolve, SERVER_GRACEFUL_STOP_MS);
+    graceTimer = setTimeout(resolve, graceMs);
   });
   try {
     await Promise.race([server.stop(), graceElapsed]);
@@ -124,12 +126,12 @@ export function createProdAppHandle(input: ProdAppHandleInput): ProdAppHandle {
     config.shutdownDrainTimeoutMs,
   );
   // With signals off and no configured budget nothing bounds stop(), so the lifecycle keeps its own default.
-  const jobDrainTimeoutMs =
+  const stopIsBudgeted = !(
     options.signals === false &&
     explicitDrainTimeoutMs === undefined &&
     config.shutdownDrainTimeoutMs === undefined
-      ? undefined
-      : jobDrainBudgetMs(drainTimeoutMs);
+  );
+  const budgets = stopIsBudgeted ? shutdownBudgetsMs(drainTimeoutMs) : undefined;
   let uninstallShutdownSignals: (() => void) | undefined;
   let uninstallFatalHandlers: (() => void) | undefined;
   const handle: ProdAppHandle = {
@@ -180,11 +182,11 @@ export function createProdAppHandle(input: ProdAppHandleInput): ProdAppHandle {
     stop: async () => {
       uninstallFatalHandlers?.();
       uninstallFatalHandlers = undefined;
-      // Jobs finish before the HTTP grace period, the DB and Redis close (all below this line).
-      await entrypoint.stop(
-        jobDrainTimeoutMs !== undefined ? { drainTimeoutMs: jobDrainTimeoutMs } : {},
-      );
-      if (handle.server) await stopServerGracefully(handle.server);
+      // HTTP closes first so no request reaches a draining broker or a closed DB; jobs drain after it, DB and Redis close last.
+      if (handle.server) {
+        await stopServerGracefully(handle.server, budgets?.serverGraceMs ?? SERVER_STOP_GRACE_MS);
+      }
+      await entrypoint.stop(budgets !== undefined ? { drainTimeoutMs: budgets.jobDrainMs } : {});
       await flushEscapeHatchAudits();
       await connections.closeDb();
       await connections.closeOutsideTransactionDb();

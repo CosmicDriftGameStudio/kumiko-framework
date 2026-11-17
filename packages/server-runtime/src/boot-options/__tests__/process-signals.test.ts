@@ -3,10 +3,11 @@ import { EventEmitter } from "node:events";
 import {
   DEFAULT_DRAIN_TIMEOUT_MS,
   installShutdownSignals,
-  jobDrainBudgetMs,
   readShutdownDrainTimeoutMs,
   resolveDrainTimeoutMs,
+  SERVER_STOP_GRACE_MS,
   SHUTDOWN_TAIL_RESERVE_MS,
+  shutdownBudgetsMs,
   type SignalProcess,
 } from "../process-signals.ts";
 
@@ -164,12 +165,22 @@ describe("shutdown drain timeout", () => {
   });
 });
 
-describe("jobDrainBudgetMs", () => {
-  test("leaves the tail reserve of the signal budget for the steps after the job drain", () => {
-    expect(jobDrainBudgetMs(290_000)).toBe(290_000 - SHUTDOWN_TAIL_RESERVE_MS);
+describe("shutdownBudgetsMs", () => {
+  test("the default budget fits HTTP grace, job drain and tail", () => {
+    const budgets = shutdownBudgetsMs(25_000);
+    expect(budgets).toEqual({ serverGraceMs: 5_000, jobDrainMs: 15_000 });
+    expect(budgets.serverGraceMs + budgets.jobDrainMs + SHUTDOWN_TAIL_RESERVE_MS).toBeLessThanOrEqual(
+      25_000,
+    );
   });
 
-  test("never drops below one second", () => {
-    expect(jobDrainBudgetMs(2_000)).toBe(1_000);
+  test("a long budget goes to the job drain", () => {
+    expect(shutdownBudgetsMs(290_000).jobDrainMs).toBe(
+      290_000 - SERVER_STOP_GRACE_MS - SHUTDOWN_TAIL_RESERVE_MS,
+    );
+  });
+
+  test("a small budget scales the HTTP grace and keeps the 1 s job floor", () => {
+    expect(shutdownBudgetsMs(2_000)).toEqual({ serverGraceMs: 400, jobDrainMs: 1_000 });
   });
 });

@@ -599,8 +599,9 @@ export type RunProdAppOptions = AppRuntimeOptions & {
    *  audit trail (for example, "kms rollout pending"). Without this flag and
    *  without `kms`, boot aborts. */
   readonly allowPlaintextPii?: string;
-  /** SIGTERM/SIGINT handling of `listen()`: drains via `stop()` (default
-   *  timeout 25 s), exits 0, or 1 when the drain fails or times out. `false`
+  /** SIGTERM/SIGINT handling of `listen()`: stops HTTP, then drains
+   *  jobs via `stop()` within one budget (default 25 s: 5 s HTTP grace, 15 s job
+   *  drain, 5 s for audit flush and connection close), exits 0, or 1 when the drain fails or times out. `false`
    *  leaves the signals to the app.
    *  @example
    *  signals: { drainTimeoutMs: 10_000 } */

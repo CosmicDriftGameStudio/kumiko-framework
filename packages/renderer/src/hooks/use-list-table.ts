@@ -14,7 +14,7 @@ const NO_TABLE_OPTIONS: ListTableOptions = {};
 
 type ListTableArgs = {
   readonly storeKey: string;
-  /** Undefined: the list has no `table` block and nothing below is active. */
+  /** Undefined: the list has no `table` block; only the default keyboard row navigation is active. */
   readonly table: ListTableOptions | undefined;
   /** Must be referentially stable across renders. */
   readonly schemaColumns: readonly ListViewSchemaColumn[];
@@ -90,12 +90,13 @@ export function useListTable({
         : undefined,
     [schemaColumns],
   );
+  const keyboardNavigation = options.keyboardNavigation !== false;
   const hasView =
     options.columnPicker === true ||
     options.density !== undefined ||
     options.pinning === true ||
     options.resizing === true ||
-    options.keyboardNavigation === true ||
+    keyboardNavigation ||
     viewState.groupByFields !== undefined ||
     fixedColumns !== undefined;
   const view = useMemo<DataTableViewOptions | undefined>(
@@ -117,7 +118,7 @@ export function useListTable({
                 minWidths: viewState.minWidths,
                 onWidthChange: viewState.setWidth,
               }),
-            ...(options.keyboardNavigation === true && { keyboardNavigation: true }),
+            ...(keyboardNavigation && { keyboardNavigation: true }),
             ...(viewState.groupByFields !== undefined && {
               groupBy: {
                 value: viewState.groupBy,
@@ -129,7 +130,7 @@ export function useListTable({
             onViewReset: viewState.resetView,
           }
         : undefined,
-    [hasView, viewState, fixedColumns, options.keyboardNavigation],
+    [hasView, viewState, fixedColumns, keyboardNavigation],
   );
 
   const exportEnabled = options.export?.xlsx === true;

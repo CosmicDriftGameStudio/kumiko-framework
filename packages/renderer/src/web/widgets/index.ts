@@ -43,7 +43,7 @@ export { CollapsibleSection } from "./collapsible-section.tsx";
 export { Composer, type ComposerProps } from "./composer.tsx";
 export { type DashboardListColumn, DashboardListTable } from "./dashboard-list.tsx";
 export { DetailList } from "./detail-list.tsx";
-export { Drawer, type DrawerProps } from "./drawer.tsx";
+export { Drawer, type DrawerPanelProps } from "./drawer.tsx";
 export { FeedList, type FeedRow } from "./feed-list.tsx";
 export { FilePickButton, type FilePickButtonProps } from "./file-pick-button.tsx";
 export {

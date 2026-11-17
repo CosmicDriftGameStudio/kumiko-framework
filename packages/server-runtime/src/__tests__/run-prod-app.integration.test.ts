@@ -1175,6 +1175,35 @@ describe("runProdApp — real Bun.serve socket resolves the client IP (addendum)
   });
 });
 
+describe("runProdApp — shutdown order over real HTTP", () => {
+  test("stop() closes HTTP before the job drain starts", async () => {
+    const handle = await boot(undefined, { autoListen: true, signals: false });
+    const port = handle.server?.port;
+    if (port === undefined) throw new Error("expected handle.server to be listening");
+    const url = `http://127.0.0.1:${port}/health`;
+    // connection: close keeps a pooled keep-alive socket from skewing the probe
+    expect((await fetch(url, { headers: { connection: "close" } })).status).toBe(200);
+
+    let probe: Promise<"accepted" | "refused"> | undefined;
+    handle.entrypoint.lifecycle.onStateChange((_from, to) => {
+      if (to === "draining") {
+        probe = fetch(url, { headers: { connection: "close" } }).then(
+          () => "accepted" as const,
+          () => "refused" as const,
+        );
+      }
+    });
+
+    await handle.stop();
+    // avoid a second stop()/close() from the module-level afterEach
+    const idx = prodAppHandles.indexOf(handle);
+    if (idx >= 0) prodAppHandles.splice(idx, 1);
+
+    if (probe === undefined) throw new Error("lifecycle never entered draining");
+    expect(await probe).toBe("refused");
+  });
+});
+
 describe("runProdApp — rejected WebSocket upgrades carry the security headers", () => {
   const wsProbeFeature = defineFeature("ws-probe", (r) => {
     r.webSocketRoute({ path: "/api/ws/probe", connect: () => ({}) });

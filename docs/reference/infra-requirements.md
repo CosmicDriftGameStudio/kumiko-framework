@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-11-16
+verified: 2026-11-17
 ---
 
 # Infrastructure requirements by feature
@@ -74,7 +74,7 @@ the app touches starts with `<P>:`; without it the key layout is unchanged.
 |---|---|
 | `KUMIKO_REDIS_PREFIX` | `^[A-Za-z0-9][A-Za-z0-9_-]{0,62}$`, no `:` and no glob characters, an invalid value aborts the boot. Prefixes every key (ioredis `keyPrefix`: locks, rate limit, idempotency, event dedup, cache), the BullMQ `prefix` (`<P>:bull`) and every Pub/Sub channel (`<P>:`). |
 | `KUMIKO_REDIS_CHANNEL_PREFIX` | Channels only, for apps that do not set `KUMIKO_REDIS_PREFIX` (parallel e2e stacks). Together with `KUMIKO_REDIS_PREFIX` it must be equal or unset, otherwise the boot aborts. |
-| `KUMIKO_SHUTDOWN_DRAIN_TIMEOUT_MS` | Positive integer. Drain budget after SIGTERM for `runProdApp` and `runWorkerApp`; `signals.drainTimeoutMs` wins, default 25000 for the signal path. The budget covers the job drain plus a 5 s tail for the HTTP shutdown, audit flush and connection close. Set it to the pod's `terminationGracePeriodSeconds` minus a margin (about 290000 for 300 s) so running jobs can finish. |
+| `KUMIKO_SHUTDOWN_DRAIN_TIMEOUT_MS` | Positive integer. Drain budget after SIGTERM for `runProdApp` and `runWorkerApp`; `signals.drainTimeoutMs` wins, default 25000 for the signal path. The budget covers, in this order, up to 5 s for the HTTP shutdown (new requests are refused at once, open SSE streams are closed after the grace), the job drain, and a 5 s tail for audit flush and connection close; at 25000 the job drain gets 15000. Set it to the pod's `terminationGracePeriodSeconds` minus a margin (about 290000 for 300 s) so running jobs can finish. |
 
 ACL user (the colon in `<P>:*` is required, otherwise `app-x*` also matches `app-x2:`):
 
