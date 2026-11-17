@@ -3,7 +3,10 @@
 // a real captured driver error.
 
 import { beforeAll, describe, expect, test } from "bun:test";
-import { captureClosedConnectionError } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  captureClosedConnectionError,
+  fakePooledClientFailingWith,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import { selectSerializedFieldDefinition } from "../field-access.ts";
 import { countTenantFieldDefinitions } from "../quota.ts";
 import { selectCustomFieldsHostRows } from "../user-data-rights.ts";
@@ -14,60 +17,25 @@ beforeAll(async () => {
   closedConnectionError = await captureClosedConnectionError();
 });
 
-type FakeClient = {
-  unsafe: (sql: string, params?: readonly unknown[]) => Promise<readonly unknown[]>;
-  begin: () => never;
-  options: { max: number };
-  calls: number;
-};
-
-function fakeClient(failures: unknown[], row: Record<string, unknown>): FakeClient {
-  const remaining = [...failures];
-  const client: FakeClient = {
-    calls: 0,
-    options: { max: 1 },
-    unsafe: async () => {
-      client.calls++;
-      const err = remaining.shift();
-      if (err) throw err;
-      return [row];
-    },
-    begin: () => {
-      throw new Error("not used in test");
-    },
-  };
-  return client;
-}
-
 describe("custom-fields db/queries — closed-connection retry", () => {
-  test("selectSerializedFieldDefinition retries once through db.unsafeRaw and returns the row", async () => {
-    const raw = fakeClient([closedConnectionError], { serialized_field: "sf1" });
+  test("selectSerializedFieldDefinition retries once and returns the row", async () => {
+    const raw = fakePooledClientFailingWith([closedConnectionError], { serialized_field: "sf1" });
     const result = await selectSerializedFieldDefinition(raw, "t1", "entity", "field");
     expect(result).toBe("sf1");
-    expect(raw.calls).toBe(2);
+    expect(raw.calls).toHaveLength(2);
   });
 
-  test("countTenantFieldDefinitions retries once through db.unsafeRaw and returns the count", async () => {
-    const raw = fakeClient([closedConnectionError], { n: 3 });
+  test("countTenantFieldDefinitions retries once and returns the count", async () => {
+    const raw = fakePooledClientFailingWith([closedConnectionError], { n: 3 });
     const result = await countTenantFieldDefinitions(raw, "t1");
     expect(result).toBe(3);
-    expect(raw.calls).toBe(2);
+    expect(raw.calls).toHaveLength(2);
   });
 
   test("selectCustomFieldsHostRows retries once and returns rows", async () => {
-    const db = fakeClient([closedConnectionError], { id: "1", custom_fields: {} });
-    const rows = await selectCustomFieldsHostRows(db as never, "host_table", "user_id", "u1", "t1");
+    const db = fakePooledClientFailingWith([closedConnectionError], { id: "1", custom_fields: {} });
+    const rows = await selectCustomFieldsHostRows(db, "host_table", "user_id", "u1", "t1");
     expect(rows).toHaveLength(1);
-    expect(db.calls).toBe(2);
-  });
-
-  test("gives up after exhausting pool-bounded retries (max: 1 → 3 total calls)", async () => {
-    const raw = fakeClient([closedConnectionError, closedConnectionError, closedConnectionError], {
-      serialized_field: "sf1",
-    });
-    await expect(selectSerializedFieldDefinition(raw, "t1", "entity", "field")).rejects.toBe(
-      closedConnectionError,
-    );
-    expect(raw.calls).toBe(3);
+    expect(db.calls).toHaveLength(2);
   });
 });

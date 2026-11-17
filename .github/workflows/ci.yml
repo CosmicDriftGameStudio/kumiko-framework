@@ -842,9 +842,7 @@ jobs:
     # github-hosted runners (HTTP 422 sonst). Public Repo → alle Jobs github-
     # hosted (gratis); cdgs-runner wird hier nicht mehr genutzt.
     runs-on: ubuntu-latest
-    # 20min reichte fuer Install+Publish allein; der neue Registry-Wait-Step
-    # unten kann bis zu 15min zusaetzlich blockieren (NPM_VISIBILITY_TIMEOUT_MS).
-    timeout-minutes: 40
+    timeout-minutes: 20
     permissions:
       contents: write
       pull-requests: write
@@ -962,7 +960,6 @@ jobs:
           bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Install (rescue-publish)" -- bun install --frozen-lockfile
           bash scripts/publish-with-oidc.sh
           new_tags="$(git tag --points-at "$GITHUB_SHA")"
-          if [ -n "$new_tags" ]; then echo "released=true" >> "$GITHUB_OUTPUT"; else echo "released=false" >> "$GITHUB_OUTPUT"; fi
           if [ -z "$new_tags" ]; then
             echo "no tags at this SHA"
           # Push only tags pointing at this run's SHA, not --tags (a single
@@ -975,74 +972,3 @@ jobs:
             echo "::error::npm publish for this release already succeeded — only the git tag push failed. Push the missing tags manually (see kumiko-framework#1788): $flat_tags"
             exit 1
           fi
-
-      # infra#540 (B2.8): Renovate soll per repository_dispatch statt Cron
-      # auf ein erfolgreiches Release reagieren. RENOVATE_DISPATCH_TOKEN als
-      # geteiltes Secret gibt es nicht — der Publisher-Job erzeugt sich
-      # stattdessen selbst ein App-Token. `repositories: infra` scoped dieses
-      # Token exakt auf `POST /repos/CosmicDriftGameStudio/infra/dispatches`:
-      # der Publisher-Job bekommt damit bewusst KEIN Schreibrecht auf die
-      # Consumer-Repos, das ist der eigentliche Zweck der Umstellung. Die
-      # App-Secrets (RENOVATE_APP_ID/RENOVATE_APP_PRIVATE_KEY) existieren
-      # evtl. noch nicht (Marc setzt sie separat, siehe
-      # infra/renovate/README.md) — deshalb auf BEIDEN Steps
-      # `continue-on-error: true`: ein fehlendes Secret oder ein
-      # fehlgeschlagener Dispatch-Call darf den Release-Job NIEMALS rot
-      # machen, ein ausgebliebener Renovate-Lauf ist harmlos (infra faengt es
-      # per 4h-Cron ohnehin auf), ein roter Release-Job blockiert den
-      # naechsten Publish. Deckt beide Publish-Pfade ab: den regulaeren
-      # changesets/action-Publish sowie den Rescue-Pfad oben (#1781) ueber
-      # dessen `released`-Output, das an Git-Tags am Release-SHA haengt.
-      # Der Secret-Guard im `run`-Block des Dispatch-Steps bleibt bestehen
-      # (nicht im `if`: Step-level `env` ist im `if` desselben Steps noch
-      # nicht gesetzt, Auswertungsreihenfolge) — er faengt jetzt zusaetzlich
-      # den Fall ab, dass der App-Token-Step wegen fehlender Secrets
-      # uebersprungen wurde oder fehlschlug (dann ist
-      # `steps.renovate-dispatch-token.outputs.token` leer).
-      # Renovate respektiert per Default `respectLatest: true` den npm
-      # `dist-tags.latest`-Tag, der nach einem Publish beliebig lange auf der
-      # alten Version haengen bleiben kann (nicht die `versions`-Liste, die
-      # sofort aktuell ist). Ein Dispatch direkt nach dem Publish laesst
-      # Renovate deshalb genau die Pakete ueberspringen, deren `latest` noch
-      # nicht nachgezogen ist (fw#2644-Release: bundled-features' `latest`
-      # blieb Stunden auf 0.236.0 haengen, waehrend alle anderen Pakete schon
-      # auf 0.236.1 standen) — Ergebnis war ein halber Lockstep-Bump mit zwei
-      # kumiko-types-Kopien und rotem Consumer-Typecheck.
-      - name: Wait for npm packuments to catch up
-        if: steps.changesets.outputs.published == 'true' || steps.rescue-publish.outputs.released == 'true'
-        continue-on-error: true
-        timeout-minutes: 16
-        id: npm-visibility
-        env:
-          # Only set when the changesets action published; the rescue path
-          # leaves it empty and the script falls back to the workspace scan.
-          PUBLISHED_PACKAGES: ${{ steps.changesets.outputs.published == 'true' && steps.changesets.outputs.publishedPackages || '' }}
-        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Wait for npm packuments to catch up" -- bun scripts/wait-for-npm-visibility.ts
-
-      - name: Create Renovate dispatch token
-        id: renovate-dispatch-token
-        if: (steps.changesets.outputs.published == 'true' || steps.rescue-publish.outputs.released == 'true') && steps.npm-visibility.outcome == 'success'
-        continue-on-error: true
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
-        with:
-          app-id: ${{ secrets.RENOVATE_APP_ID }}
-          private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
-          owner: CosmicDriftGameStudio
-          repositories: infra
-
-      # Bleiben die Packumente unvollstaendig (Timeout oben), wird bewusst NICHT
-      # dispatcht: der 4h-schedule-Cron im infra-Renovate-Workflow holt den Bump
-      # dann nach, sobald die Registry konsistent ist, statt wieder einen halben
-      # Lockstep-Bump zu triggern.
-      - name: Trigger Renovate in consumers
-        if: (steps.changesets.outputs.published == 'true' || steps.rescue-publish.outputs.released == 'true') && steps.npm-visibility.outcome == 'success'
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ steps.renovate-dispatch-token.outputs.token }}
-        run: |
-          if [ -z "$GH_TOKEN" ]; then
-            echo "Renovate dispatch token nicht verfuegbar — Dispatch uebersprungen."
-            exit 0
-          fi
-          gh api repos/CosmicDriftGameStudio/infra/dispatches \
-            -f event_type=publisher-released

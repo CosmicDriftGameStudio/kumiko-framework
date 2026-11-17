@@ -108,6 +108,9 @@ describe("test-timeouts guard — timeout argument on declarations", () => {
     ['test("a", () => {}, TIMEOUT);'],
     ['test("a", () => {}, 30 * 1000);'],
     ['test("a", () => {}, { timeout: 5000 });'],
+    ['test("a", { timeout: 15000 }, async () => {});'],
+    ['it.skip("a", { timeout: 5 }, () => {});'],
+    ['describe("a", { timeout: 5 }, () => {});'],
     ['test.skip("a", () => {}, 5000);'],
     ['test.only("a", () => {}, 5000);'],
     ['test.todo("a", () => {}, 5000);'],
@@ -136,6 +139,12 @@ describe("test-timeouts guard — timeout argument on declarations", () => {
     expect(found("const opts = { timeout: 5 };\ntest('a', () => {}, opts);")).toEqual([
       expect.stringContaining("raises the timeout"),
     ]);
+    expect(found("const slow = { timeout: 5 };\ntest('a', slow, () => {});")).toEqual([
+      expect.stringContaining("raises the timeout"),
+    ]);
+    expect(
+      found("declare const body: any;\ntest('a', body);\ntest('a', { tag: '@x', retry: 2 }, () => {});"),
+    ).toEqual([]);
   });
 
   test("reports the base callee, not a multi-line each() expression", () => {

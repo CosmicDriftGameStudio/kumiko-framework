@@ -105,7 +105,7 @@ async function runAdd(args: readonly string[], out: Output, cwd: string): Promis
     return 1;
   }
   try {
-    const { scaffoldAppFeature } = await import("@cosmicdrift/kumiko-dev-server");
+    const { scaffoldAppFeature } = await import("@cosmicdrift/kumiko-dev-server/scaffold-app-feature");
     const result = scaffoldAppFeature({ name, appRoot: cwd });
     out.log(`✓ Added feature ${result.featureName}:`);
     for (const f of result.files) out.log(`  ${f}`);

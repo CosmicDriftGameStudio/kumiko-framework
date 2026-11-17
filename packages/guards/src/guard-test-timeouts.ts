@@ -174,6 +174,16 @@ function isTimeoutArgument(arg: Node): boolean {
   );
 }
 
+// The second argument is the test body or Playwright's details object; only a `timeout`
+// on an options object raises the timeout there, so an untyped body is not flagged.
+function isTimeoutOptions(arg: Node | undefined): boolean {
+  if (arg === undefined) return false;
+  if (Node.isObjectLiteralExpression(arg)) return hasTimeoutProperty(arg);
+  if (!Node.isIdentifier(arg)) return false;
+  const type = arg.getType();
+  return !type.isAny() && !type.isUnknown() && type.getProperty("timeout") !== undefined;
+}
+
 function declarationTimeoutReason(
   call: CallExpression,
   aliases: ReadonlyMap<string, string>,
@@ -185,8 +195,8 @@ function declarationTimeoutReason(
     return `${base}(…, timeout) raises the timeout instead of fixing the cause`;
   }
   if (!TEST_DECLARATION_CALLEE.test(base)) return undefined;
-  const [, , ...extra] = call.getArguments();
-  if (!extra.some(isTimeoutArgument)) return undefined;
+  const [, options, ...extra] = call.getArguments();
+  if (!isTimeoutOptions(options) && !extra.some(isTimeoutArgument)) return undefined;
   return `${base}(…, timeout) raises the timeout instead of fixing the cause`;
 }
 

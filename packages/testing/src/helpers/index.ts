@@ -26,6 +26,8 @@ export { withBootValidatorFixture } from "./boot-validator-fixture.ts";
 export { type BurstResult, burst } from "./burst.ts";
 export {
   captureClosedConnectionError,
+  type FakePooledClient,
+  fakePooledClientFailingWith,
   terminateBackendsByApplicationName,
   testDatabaseUrl,
 } from "./closed-connection-error.ts";

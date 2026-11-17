@@ -46,16 +46,11 @@ export type MockDispatcherState = {
   /** Pre-seed data — e.g. to test list renderings without calling create
    *  first. Keys are entity names (as they appear in the QN). */
   readonly seed?: Readonly<Record<string, readonly Row[]>>;
-  /** Row ids whose writes answer with an access error, like a row the user may not change. */
-  readonly rejectWriteIds?: readonly string[];
-  /** Writes wait for `releaseWrites()` before they answer, so in-flight writes stay observable. */
-  readonly holdWrites?: boolean;
 };
 
 export type InMemoryDispatcher = MockDispatcher & {
   /** `<verb>:<id>` of every write in the order it started. */
   readonly writeLog: readonly string[];
-  readonly releaseWrites: () => void;
 };
 
 let nextId = 1;
@@ -91,14 +86,6 @@ function parseQn(qn: string): {
 export function createInMemoryDispatcher(state: MockDispatcherState = {}): InMemoryDispatcher {
   const tables = new Map<string, Map<string, Row>>();
   const writeLog: string[] = [];
-  const rejectWriteIds = new Set(state.rejectWriteIds ?? []);
-  let writesHeld = state.holdWrites === true;
-  const heldWrites: (() => void)[] = [];
-
-  function releaseWrites(): void {
-    writesHeld = false;
-    for (const resume of heldWrites.splice(0)) resume();
-  }
 
   // Seed laden
   for (const [entity, rows] of Object.entries(state.seed ?? {})) {
@@ -120,20 +107,7 @@ export function createInMemoryDispatcher(state: MockDispatcherState = {}): InMem
     const { entity, verb } = parseQn(type);
     const table = getTable(entity);
     const data = (payload ?? {}) as Record<string, unknown>; // @cast-boundary render-helper
-    const rowId = data["id"];
     writeLog.push(`${verb}:${logTargetOf(data)}`);
-    if (writesHeld) await new Promise<void>((resume) => heldWrites.push(resume));
-    if (typeof rowId === "string" && rejectWriteIds.has(rowId)) {
-      return {
-        isSuccess: false,
-        error: {
-          code: "access_denied",
-          httpStatus: 403,
-          i18nKey: "errors.access_denied",
-          message: `No access to ${rowId}.`,
-        },
-      };
-    }
 
     switch (verb) {
       case "fail":
@@ -231,5 +205,5 @@ export function createInMemoryDispatcher(state: MockDispatcherState = {}): InMem
     return { isSuccess: true, results };
   };
 
-  return { ...createMockDispatcher({ write, query, batch }), writeLog, releaseWrites };
+  return { ...createMockDispatcher({ write, query, batch }), writeLog };
 }

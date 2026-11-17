@@ -1,6 +1,6 @@
 ---
 status: in-progress
-verified: 2026-11-16
+verified: 2026-11-17
 next: Arbeitspakete A1 bis A6 im Dezember 2026 bauen; erster Zug in der ersten Januarwoche 2027
 ---
 
@@ -113,7 +113,7 @@ Kanal für die eigenen Apps bestehen.
 | # | Paket | Ort | Prüfung |
 | --- | --- | --- | --- |
 | A1 | `scripts/publish-with-oidc.sh` bekommt einen Tag-Parameter. Heute steht dort fest `--tag latest`, ein Canary-Lauf würde also `latest` verschieben. Default bleibt `latest`, der Canary übergibt `next`. | kumiko-framework | Test, dass ein Canary-Lauf `latest` nicht anfasst |
-| A2 | Canary-Job in `ci.yml` bei Push auf `main`: `changeset version --snapshot next` mit `snapshot.useCalculatedVersion` im CI-Checkout, Publish mit Tag `next`. Rescue-Publish, `publish-raced-version-pr.sh`, Renovate-Dispatch und das Warten auf npm laufen nur für den Zug. Nichts wird committet. | kumiko-framework | Probelauf, danach `npm view <paket> dist-tags` |
+| A2 | Canary-Job in `ci.yml` bei Push auf `main`: `changeset version --snapshot next` mit `snapshot.useCalculatedVersion` im CI-Checkout, Publish mit Tag `next`. Rescue-Publish und `publish-raced-version-pr.sh` laufen nur für den Zug; einen Renovate-Dispatch gibt es nicht mehr (decisions.md, 2026-11-17). Nichts wird committet. | kumiko-framework | Probelauf, danach `npm view <paket> dist-tags` |
 | A3 | Prerelease-Versionen in den Werkzeugen: `compareVersionsLocal` (`packages/guards/src/guard-public-exports-changelog.ts`) schneidet den Prerelease-Teil ab. `kumiko-upgrade` und der Upgrade-State-Guard müssen `0.X.0-next-<sha>` richtig einordnen, sonst gilt für Apps auf `next` ein Eintrag als erledigt oder offen, obwohl er es nicht ist. | kumiko-framework | Unit-Tests mit Canary-Versionen |
 | A4 | Guard Bump gegen Typ: `minor` nur mit einem `breaking`-Eintrag im `kumiko-changes`-Block, sonst `patch`. Erweiterung von `guard-changes-json.ts`. | kumiko-framework | Guard-Tests |
 | A5 | Hotfix-Ablauf: Release-Job auch auf `release/*`, Runbook mit Cherry-Pick und Rückführung des ganzen Versions-Commits auf `main`. | kumiko-framework | Probelauf mit einem Doku-Fix; danach berechnet der nächste Zug ohne Bruch `0.X.2` |
