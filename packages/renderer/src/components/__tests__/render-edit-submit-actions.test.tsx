@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import type {
-  EntityDefinition,
-  EntityEditScreenDefinition,
+import {
+  type EntityDefinition,
+  type EntityEditScreenDefinition,
+  translationValueOtherText,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { fireEvent, render, screen as rtlScreen, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
@@ -10,7 +11,11 @@ import { stubDispatcher } from "../../__tests__/stub-dispatcher.ts";
 import { buildFormSchema } from "../../app/form-schema.ts";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import type { Dispatcher, DispatcherError, SubmitResult } from "../../headless/index.ts";
-import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
+import {
+  createStaticLocaleResolver,
+  LocaleProvider,
+  type TranslationsByLocale,
+} from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import {
   type BannerProps,
@@ -136,11 +141,12 @@ function renderEdit(
   overrides: Partial<RenderEditProps<Values>> = {},
   entity: EntityDefinition = buildEntity(),
   dispatcher: Dispatcher = stubDispatcher().dispatcher,
+  extraBundles: readonly TranslationsByLocale[] = [],
 ) {
   return render(
     <LocaleProvider
       resolver={createStaticLocaleResolver({ locale: "en-US" })}
-      fallbackBundles={[kumikoDefaultTranslations]}
+      fallbackBundles={[...extraBundles, kumikoDefaultTranslations]}
     >
       <DispatcherProvider dispatcher={dispatcher}>
         <PrimitivesProvider value={testPrimitives()}>
@@ -234,6 +240,43 @@ describe("RenderEdit — submit path", () => {
       isSuccess: false,
       error: writeFailure,
     });
+  });
+
+  function unprocessableFailure(reason: string): DispatcherError {
+    return {
+      code: "unprocessable",
+      httpStatus: 422,
+      i18nKey: "errors.unprocessable",
+      message: `unprocessable: ${reason}`,
+      details: { reason },
+    };
+  }
+
+  async function submitFailing(error: DispatcherError): Promise<string | null> {
+    renderEdit(
+      oneFieldScreen,
+      { customSubmit: async () => ({ validationBlocked: false, isSuccess: false, error }) },
+      buildEntity(),
+      stubDispatcher().dispatcher,
+      [{ en: { "contacts.name_taken": "This name is already taken." } }],
+    );
+    fireEvent.change(rtlScreen.getByLabelText(/name/i), { target: { value: "Ferdinand" } });
+    fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
+    await waitFor(() => expect(rtlScreen.getByTestId("render-edit-form-error-key")).toBeTruthy());
+    return rtlScreen.getByTestId("render-edit-form-error-key").textContent;
+  }
+
+  test("failed submit with a known unprocessable reason shows the reason text", async () => {
+    expect(await submitFailing(unprocessableFailure("contacts.name_taken"))).toBe(
+      "This name is already taken.",
+    );
+  });
+
+  test("failed submit with an unknown unprocessable reason shows the generic text", async () => {
+    const generic = kumikoDefaultTranslations["en"]?.["errors.unprocessable"];
+    expect(await submitFailing(unprocessableFailure("contacts.other"))).toBe(
+      generic === undefined ? "" : translationValueOtherText(generic),
+    );
   });
 
   test("schema validation blocks customSubmit and notifies validationBlocked", async () => {

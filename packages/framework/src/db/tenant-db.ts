@@ -532,6 +532,18 @@ export function requireOutsideTransactionDb(ctx: OutsideTransactionContext): Ten
   return ctx.db.outsideTransaction;
 }
 
+export function requireSystemDb<TSystemDb>(
+  ctx: { readonly systemDb?: TSystemDb },
+  callerName: string,
+): NonNullable<TSystemDb> {
+  if (!ctx.systemDb) {
+    throw new InternalError({
+      message: `${callerName} requires ctx.systemDb — is r.systemScope() set on the feature?`,
+    });
+  }
+  return ctx.systemDb;
+}
+
 export type CreateTenantDbOptions = {
   readonly db: DbRunner;
   readonly tenantId: TenantId;

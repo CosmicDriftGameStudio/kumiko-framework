@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { ErrorReference } from "../app/error-reference.tsx";
+import { unprocessableReasonText } from "../app/write-failed-error.ts";
 import { formatWhen } from "../format-when.ts";
 import type { DispatcherError, FormValues } from "../headless/index.ts";
 import { tabIdAt } from "./render-edit-helpers.tsx";
@@ -158,7 +159,8 @@ export function renderFormErrorBanner<TValues extends FormValues, TCtx>({
         }
       >
         <Text testId="render-edit-form-error-key">
-          {translate(formError.i18nKey, formError.i18nParams)}
+          {unprocessableReasonText(formError, translate) ??
+            translate(formError.i18nKey, formError.i18nParams)}
         </Text>
         {layout.rootIssues.map((issue) => (
           <Text key={`${issue.path}:${issue.i18nKey}`} testId="render-edit-form-error-root">

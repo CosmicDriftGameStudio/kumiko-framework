@@ -4,6 +4,7 @@ import {
   defineFeature,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { type DefaultComplianceProfileKey, registerDefaultProfileHook } from "./default-profile-hook.ts";
 import { forTenantQuery } from "./handlers/for-tenant.query.ts";
 import { listProfilesQuery } from "./handlers/list-profiles.query.ts";
 import { createNeedsProfileQuery } from "./handlers/needs-profile.query.ts";
@@ -43,6 +44,8 @@ export type ComplianceProfilesFeatureOptions = {
   // platform — pass access.systemAdmin to keep this platform-only and out
   // of their nav.
   readonly access?: readonly string[];
+  // Written as the new tenant's profile in the tenant-create transaction, so every reader sees the same row.
+  readonly defaultProfile?: DefaultComplianceProfileKey;
 };
 
 export function createComplianceProfilesFeature(
@@ -58,11 +61,14 @@ export function createComplianceProfilesFeature(
       category: "compliance",
       recommended: false,
     });
-    // Standalone — r.requires is not needed: tenantId comes from the user
+    // Standalone unless defaultProfile is set: tenantId comes from the user
     // context, profile selection is a separate entity, and the sub-processor
-    // list consists of constants. Add r.requires if cross-feature reads are
-    // introduced.
+    // list consists of constants. Only the tenant-created hook needs `tenant`.
     r.entity({ name: "tenant-compliance-profile", ...tenantComplianceProfileEntity });
+    if (options?.defaultProfile !== undefined) {
+      r.requires({ features: ["tenant"] });
+      registerDefaultProfileHook(r, options.defaultProfile);
+    }
 
     r.exposesApi("compliance.forTenant");
 

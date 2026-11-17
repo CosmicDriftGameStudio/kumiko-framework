@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
-import { createSystemDbView } from "@cosmicdrift/kumiko-framework/db";
+import { createSystemDbView, requireSystemDb } from "@cosmicdrift/kumiko-framework/db";
 import type { AppContext, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { AccessDeniedError, InternalError } from "@cosmicdrift/kumiko-framework/errors";
-import { acknowledgedSystemDb, requireSystemDb } from "../acknowledged-system-db.ts";
+import { acknowledgedSystemDb } from "../acknowledged-system-db.ts";
 
 // Only .tenantId is read by assertTenantMatch / createSystemDbView.
 function fakeTenantDb(tenantId: TenantId): TenantDb {

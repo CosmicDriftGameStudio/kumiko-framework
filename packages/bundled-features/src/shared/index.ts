@@ -125,6 +125,7 @@ export {
   type SubjectScopeOptions,
 } from "./subject-scope.ts";
 export type { SystemQueryFn } from "./system-query.ts";
+export { registerTenantCreatedSeedHook, type TenantCreatedSeedArgs } from "./tenant-created-seed-hook.ts";
 export { createTenantDbCache } from "./tenant-db-cache.ts";
 export {
   EXT_TENANT_DESTRUCTION_HOLD,

@@ -417,6 +417,7 @@ export { buildPipelineSteps, stepsPipeline } from "./pipeline.ts";
 export { ProbeFailure } from "./probe-failure.ts";
 export { projectAppSchemaForRoles } from "./project-app-schema-for-roles.ts";
 export { defineApply, defineMspApply, setFields } from "./projection-helpers.ts";
+export { type StoredEventPayloadShape, storedEventPayloadSchema } from "./stored-event-payload-schema.ts";
 export { isValidQn, parseQn, QnTypes, qn, toKebab } from "./qualified-name.ts";
 export { readClaim } from "./read-claim.ts";
 export { registeredEntityExecutor } from "./registered-entity-executor.ts";

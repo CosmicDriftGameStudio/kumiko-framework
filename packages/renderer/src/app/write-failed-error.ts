@@ -1,5 +1,8 @@
 import type { DispatcherError } from "../headless/index.ts";
 
+const UNPROCESSABLE_CODE = "unprocessable";
+const GENERIC_UNPROCESSABLE_I18N_KEY = "errors.unprocessable";
+
 // dispatcher.write does NOT throw on server errors; it returns
 // { isSuccess: false, error }. Action wiring that discards the result
 // makes failures invisible ("click does nothing" in production).
@@ -15,13 +18,30 @@ export class WriteFailedError extends Error {
   }
 }
 
+// failUnprocessable(reason) carries the slug in details.reason under the generic i18nKey;
+// r.translations keys reach the client unprefixed, so the slug is a lookup key itself.
+export function unprocessableReasonText(
+  error: DispatcherError,
+  translate: (key: string, params?: Readonly<Record<string, unknown>>) => string,
+): string | undefined {
+  if (error.code !== UNPROCESSABLE_CODE || error.i18nKey !== GENERIC_UNPROCESSABLE_I18N_KEY) {
+    return undefined;
+  }
+  const reason = error.details?.["reason"];
+  if (typeof reason !== "string") return undefined;
+  const text = translate(reason, error.i18nParams);
+  return text !== reason ? text : undefined;
+}
+
 // i18nKey takes precedence when the bundle knows it (translate returns
 // the key unchanged when it does not, per the renderer convention),
-// followed by message and then code.
+// followed by message and then code. A known details.reason of a generic unprocessable error comes first.
 export function dispatcherErrorText(
   error: DispatcherError,
   translate: (key: string, params?: Readonly<Record<string, unknown>>) => string,
 ): string {
+  const reasonText = unprocessableReasonText(error, translate);
+  if (reasonText !== undefined) return reasonText;
   const translated = translate(error.i18nKey, error.i18nParams);
   if (translated !== error.i18nKey) return translated;
   return error.message !== "" ? error.message : error.code;

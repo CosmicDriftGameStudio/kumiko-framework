@@ -149,6 +149,7 @@ export { isSchemaTable } from "./table-introspection.ts";
 export type {
   ConnectionTenantDb,
   ExecutorManagedTenantDb,
+  OutsideTransactionContext,
   TenantDb,
   UncheckedSystemDb,
 } from "./tenant-db.ts";
@@ -157,5 +158,8 @@ export {
   createSystemDbView,
   createTenantDataDestroyDb,
   createTenantDb,
+  hasOutsideTransactionDb,
+  requireOutsideTransactionDb,
+  requireSystemDb,
 } from "./tenant-db.ts";
 export { runInOwnTransaction } from "./tenant-db-scoped-rebind.ts";
