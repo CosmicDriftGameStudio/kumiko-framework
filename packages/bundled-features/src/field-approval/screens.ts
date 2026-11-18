@@ -22,6 +22,7 @@ export function createFieldChangeRequestListScreen(
     // pending-changes returns every open request in one answer.
     pagination: false,
     pageSize: MAX_LIST_LIMIT,
+    emptyState: { title: i18nKey("field-approval.list.empty") },
     columns: [
       { field: "recordLabel", label: i18nKey("field-approval.list.col.record") },
       {

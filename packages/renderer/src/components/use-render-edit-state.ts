@@ -1,19 +1,20 @@
 import type { EntityEditScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAppFeatures } from "../app/app-features-context.tsx";
 import { useClientActionRuntime } from "../app/client-actions.tsx";
 import type { ErrorNotice } from "../app/error-reference.tsx";
 import { useExtensionFormHost } from "../app/extension-form-submit.tsx";
 import { useOptionalDispatcher } from "../context/dispatcher-context.tsx";
 import { useDraftStorage } from "../context/draft-storage-context.tsx";
-import type { DispatcherError, FieldIssue, Translate } from "../headless/index.ts";
+import { rendererWarn } from "../dev-console.ts";
+import type { Dispatcher, DispatcherError, FieldIssue, Translate } from "../headless/index.ts";
 import { useLocale, useTranslation } from "../i18n.tsx";
 import { useInsideDrawer } from "../inside-drawer.ts";
 import { usePageHeaderCompact, usePageHeaderSlotAvailable } from "../page-header-slot.ts";
 import { usePrimitives } from "../primitives.tsx";
 import { useFormPendingUploadsHost } from "./form-pending-uploads.tsx";
 import type { FormErrorSource } from "./render-edit-helpers.tsx";
-import { FIELD_APPROVAL_FEATURE } from "./render-edit-logic.ts";
+import { FIELD_APPROVAL_FEATURE, FIELD_APPROVAL_PENDING_CHANGES } from "./render-edit-logic.ts";
 import { useActionMenuItems } from "./use-action-menu-items.tsx";
 import { useWizardFormDraftState } from "./use-wizard-form-draft.ts";
 
@@ -118,6 +119,45 @@ function useExtensionComposition() {
   };
 }
 
+type OpenApprovalRequests = { readonly rows?: readonly { readonly fieldName?: unknown }[] };
+
+// The open requests live on the server, so the hint survives a reload and also shows a request
+// someone filed elsewhere. The query only returns requests the caller filed or may decide.
+function useOpenApprovalFields(
+  dispatcher: Dispatcher | undefined,
+  entityType: string,
+  entityId: string | null | undefined,
+  enabled: boolean,
+): readonly string[] {
+  const [fields, setFields] = useState<readonly string[]>([]);
+  useEffect(() => {
+    // skip: no field-approval, no saved record or no server to ask
+    if (!enabled || dispatcher === undefined || typeof entityId !== "string") return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const result = await dispatcher.query<OpenApprovalRequests>(
+          FIELD_APPROVAL_PENDING_CHANGES,
+          { entityType, entityId },
+        );
+        // skip: superseded, or the caller may not ask; the form works without the hint
+        if (cancelled || !result.isSuccess) return;
+        setFields(
+          (result.data.rows ?? []).flatMap((row) =>
+            typeof row.fieldName === "string" ? [row.fieldName] : [],
+          ),
+        );
+      } catch (err: unknown) {
+        rendererWarn("render-edit: open approval requests query failed", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [dispatcher, entityType, entityId, enabled]);
+  return fields;
+}
+
 export function isCreateModeEntityId(entityId: string | null | undefined): boolean {
   return entityId === undefined || entityId === null || entityId === "";
 }
@@ -155,6 +195,12 @@ export function useRenderEditState({
   const isCreateMode = isCreateModeEntityId(entityId);
   const draftStorage = useDraftStorage();
   const feedback = useSubmitFeedbackState();
+  const openApprovalFields = useOpenApprovalFields(
+    dispatcher,
+    screen.entity,
+    entityId,
+    fieldApprovalMounted && !isCreateMode,
+  );
   const stepState = useStepState();
   const draftState = useWizardFormDraftState({
     screenId: screen.id,
@@ -185,6 +231,7 @@ export function useRenderEditState({
     isCreateMode,
     draftStorage,
     ...feedback,
+    pendingApprovalFields: [...new Set([...feedback.pendingApprovalFields, ...openApprovalFields])],
     ...stepState,
     draftState,
     ...extensions,

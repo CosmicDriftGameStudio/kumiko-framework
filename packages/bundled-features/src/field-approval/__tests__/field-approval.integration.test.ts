@@ -217,6 +217,34 @@ describe("field-approval request flow", () => {
     expect((await pendingFor(pm, contactId)).map((row) => row.fieldName)).toContain("bic");
   });
 
+  test("a requester who may not read the field sees the open request but not its value", async () => {
+    const contactId = await seedContact();
+    await stack.http.writeOk(
+      FieldApprovalHandlers.requestChange,
+      { entityType: "contact", entityId: contactId, fieldName: "bic", value: "COBADEFFXXX" },
+      accA,
+    );
+
+    const row = (await pendingFor(accA, contactId)).find((r) => r.fieldName === "bic");
+    expect(row).toMatchObject({ filedByCaller: true });
+    expect(row?.value).toBeUndefined();
+    expect(JSON.stringify(row)).not.toContain("COBADEFFXXX");
+  });
+
+  test("a second request on the same field replaces the open one instead of adding a row", async () => {
+    const contactId = await seedContact();
+    const first = await fileRequest(contactId, NEW_IBAN, pm);
+    const second = await fileRequest(contactId, SECOND_IBAN, pm);
+    expect(second.id).toBe(first.id);
+
+    const rows = await pendingFor(accA, contactId);
+    expect(rows.map((row) => row.value)).toEqual([SECOND_IBAN]);
+    expect(rows[0]?.version).toBe(2);
+    expect((await pendingFor(pm, contactId)).map((row) => row.value)).toEqual([SECOND_IBAN]);
+    const raw = await selectMany(stack.db, fieldChangeRequestTable, { entityId: contactId });
+    expect(raw).toHaveLength(1);
+  });
+
   test("a request is stored encrypted and visible only to approvers and its requester", async () => {
     const contactId = await seedContact();
     const { id } = await fileRequest(contactId, NEW_IBAN, pm);

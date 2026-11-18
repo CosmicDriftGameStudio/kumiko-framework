@@ -832,6 +832,7 @@ export const featureNamespacedEnCatalog: Readonly<Record<string, string>> = {
   "field-approval.list.col.value": "New value",
   "field-approval.list.col.requestedBy": "Requested by",
   "field-approval.list.col.requestedAt": "Requested at",
+  "field-approval.list.empty": "No changes awaiting approval.",
   "field-approval.list.action.approve": "Approve",
   "field-approval.list.action.approve.confirm": "Apply this change to the record?",
   "field-approval.list.action.reject": "Reject",

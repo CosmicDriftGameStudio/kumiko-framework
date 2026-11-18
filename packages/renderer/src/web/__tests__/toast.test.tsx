@@ -112,6 +112,21 @@ describe("ToastProvider + useToast", () => {
     expect(node).not.toBeNull();
   });
 
+  test("on a phone the toast starts below the shell header on an opaque surface", () => {
+    render(
+      <ToastProvider>
+        <ToastTrigger options={[{ title: "Submitted", variant: "ok" }]} />
+      </ToastProvider>,
+    );
+    const item = screen.getByText("Submitted").closest("li");
+    const viewport = item?.closest("ol");
+    expect(viewport?.className).toContain("top-(--shell-header-height)");
+    expect(viewport?.className.split(" ")).not.toContain("top-0");
+    // A see-through tint lets the header text show through the toast.
+    expect(item?.className).toContain("bg-status-ok-surface");
+    expect(item?.className).not.toContain("bg-status-ok/10");
+  });
+
   test("two toasts: both entries are in the DOM (stacking)", () => {
     render(
       <ToastProvider>

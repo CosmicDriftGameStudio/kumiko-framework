@@ -92,6 +92,23 @@ function recordLabelOf(
   return readableValue(user, hostEntity.fields[labelField], hostRow, labelField);
 }
 
+// An approver who may not read the field does not see the request; a requester who may not
+// read it sees that it is open, never the value.
+async function visibleRequestedValue(
+  row: PendingRequestRow,
+  field: FieldDefinition,
+  user: SessionUser,
+  hostRow: Record<string, unknown>,
+  filedByCaller: boolean,
+): Promise<{ readonly value: unknown } | undefined> {
+  const readMap = normalizeAccessEntry(field.access?.read);
+  if (readMap !== undefined && !userCanReadFieldRow(user, readMap, hostRow)) {
+    return filedByCaller ? { value: undefined } : undefined;
+  }
+  const opened = await openRequestedValue(row["requestedValue"], String(row["fieldName"]));
+  return opened.ok ? { value: opened.value } : undefined;
+}
+
 async function toPendingChangeSummary(
   row: PendingRequestRow,
   visibleByType: ReadonlyMap<string, ReadonlySet<string>>,
@@ -114,13 +131,8 @@ async function toPendingChangeSummary(
     ctx.db,
   );
   if (!hostRow) return undefined;
-  const readMap = normalizeAccessEntry(field.access?.read);
-  // An approver who may not read the field does not see the requested value.
-  if (!filedByCaller && readMap !== undefined && !userCanReadFieldRow(user, readMap, hostRow)) {
-    return undefined;
-  }
-  const opened = await openRequestedValue(row["requestedValue"], fieldName);
-  if (!opened.ok) return undefined;
+  const requested = await visibleRequestedValue(row, field, user, hostRow, filedByCaller);
+  if (requested === undefined) return undefined;
   return {
     id: String(row["id"]),
     version: Number(row["version"]),
@@ -130,7 +142,7 @@ async function toPendingChangeSummary(
     fieldName,
     fieldLabel: fieldLabelKey(hostFeatureOf(ctx, entityType), entityType, fieldName),
     currentValue: readableValue(user, field, hostRow, fieldName),
-    value: opened.value,
+    value: requested.value,
     requestedBy: requesterIdOf(row),
     requestedAt: row["modifiedAt"] ?? row["insertedAt"],
     canApprove: mayApprove && !filedByCaller,

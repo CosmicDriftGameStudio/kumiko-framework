@@ -696,6 +696,44 @@ describe("DataTable cardLabel columns", () => {
     });
   });
 
+  test("a labelled date keeps date and time together when the card line runs out of room", () => {
+    atViewportWidth(500, () => {
+      render(
+        <DataTable
+          columns={[
+            ...columns,
+            {
+              field: "by",
+              label: "Requested by",
+              type: "string",
+              sortable: false,
+              cardLabel: true,
+              narrowInline: true,
+            },
+            {
+              field: "at",
+              label: "Requested at",
+              type: "string",
+              sortable: false,
+              cardLabel: true,
+              narrowInline: true,
+              renderer: { format: "timestamp" },
+            },
+          ]}
+          rows={[
+            { id: "r1", values: { ...rows[0]?.values, by: "Lukas", at: "2026-11-18T12:46:00Z" } },
+          ]}
+          testId="phone"
+        />,
+      );
+      const meta = screen.getByTestId("card-meta-r1");
+      const valueSpan = (field: string): Element | null =>
+        within(meta).getByTestId(`cell-r1-${field}`).querySelector("span.inline-block");
+      expect(valueSpan("at")?.className).toContain("whitespace-nowrap");
+      expect(valueSpan("by")?.className).not.toContain("whitespace-nowrap");
+    });
+  });
+
   test("the wide table keeps the label in the header only", () => {
     atViewportWidth(1280, () => {
       render(<DataTable columns={columns} rows={rows} testId="wide" />);

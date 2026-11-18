@@ -3302,6 +3302,7 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "field-approval.list.col.value": "Nuovo valore",
   "field-approval.list.col.requestedBy": "Richiesto da",
   "field-approval.list.col.requestedAt": "Richiesto il",
+  "field-approval.list.empty": "Nessuna modifica in attesa di approvazione.",
   "field-approval.list.action.approve": "Approva",
   "field-approval.list.action.approve.confirm": "Applicare questa modifica al record?",
   "field-approval.list.action.reject": "Rifiuta",

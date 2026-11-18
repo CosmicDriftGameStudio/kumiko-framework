@@ -18,6 +18,7 @@ import {
 } from "../data-table-cell.tsx";
 import { CardLeadingImage } from "../file-thumbnail.tsx";
 import { columnCellPresentationProps } from "./data-cell-props.ts";
+import { isDateColumn } from "./table-data-cell.tsx";
 import { showFullTextOnHover } from "./table-footer.tsx";
 import type { DataTableModel } from "./use-data-table-state.ts";
 
@@ -151,7 +152,13 @@ function renderMetaCell(
       ) : col.cardLabel === true ? (
         <>
           {`${col.label}: `}
-          <span className="inline-block max-w-full break-words align-top text-foreground">
+          {/* A date breaks below its label as one piece, never between date and time. */}
+          <span
+            className={cn(
+              "inline-block max-w-full break-words align-top text-foreground",
+              isDateColumn(col) && "whitespace-nowrap",
+            )}
+          >
             {cardCell(m, row, col)}
           </span>
         </>

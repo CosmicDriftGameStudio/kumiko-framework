@@ -95,6 +95,9 @@ describe("cast baseline file", () => {
     expect(violations).toHaveLength(1);
     expect(violations[0]?.file).toBe(file);
     expect(violations[0]?.message).toContain(`Cannot read cast baseline ${file}`);
+    expect(violations[0]?.message).toContain(
+      '`bun kumiko-guards guards --write-baseline --guard="As-Casts Audit"`',
+    );
   });
 
   test("a baseline with a wrongly shaped perFile is invalid", () => {
@@ -139,7 +142,10 @@ describe("cast baseline file", () => {
     expect(violations[0]?.message).toContain("as string");
     expect(violations[0]?.message).toContain("baseline=1, current=2");
     expect(violations[0]?.message).toContain("@cast-boundary");
-    expect(violations[0]?.message).toContain("--write-baseline");
+    expect(violations[0]?.message).toContain(
+      '`bun kumiko-guards guards --write-baseline --guard="As-Casts Audit"`',
+    );
+    expect(violations[0]?.message).not.toContain("packages/guards/src");
   });
 
   test("fewer suspect casts than the baseline is a stale-baseline violation", () => {
@@ -150,7 +156,10 @@ describe("cast baseline file", () => {
     expect(violations[0]?.line).toBe(5);
     expect(violations[0]?.message).toContain("under baseline");
     expect(violations[0]?.message).toContain("baseline=3 current=1");
-    expect(violations[0]?.message).toContain("--write-baseline");
+    expect(violations[0]?.message).toContain(
+      '`bun kumiko-guards guards --write-baseline --guard="As-Casts Audit"`',
+    );
+    expect(violations[0]?.message).not.toContain("packages/guards/src");
   });
 
   test("a baseline without generated and totalSuspect loads", () => {

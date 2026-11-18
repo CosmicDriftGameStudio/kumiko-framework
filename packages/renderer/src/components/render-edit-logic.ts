@@ -199,6 +199,7 @@ export function issuesAfterEdit<TIssue>(
 // Mirrors bundled-features/field-approval, which the renderer must not import.
 export const FIELD_APPROVAL_FEATURE = "field-approval";
 export const FIELD_APPROVAL_REQUEST_CHANGE = "field-approval:write:request-change";
+export const FIELD_APPROVAL_PENDING_CHANGES = "field-approval:query:pending-changes";
 
 export function isFieldApprovalRequired(error: DispatcherError | null): boolean {
   return error?.details?.["reason"] === "field_approval_required";

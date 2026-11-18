@@ -3298,6 +3298,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "field-approval.list.col.value": "Neuer Wert",
   "field-approval.list.col.requestedBy": "Beantragt von",
   "field-approval.list.col.requestedAt": "Beantragt am",
+  "field-approval.list.empty": "Keine offenen Änderungen zur Freigabe.",
   "field-approval.list.action.approve": "Freigeben",
   "field-approval.list.action.approve.confirm": "Diese Änderung in den Datensatz übernehmen?",
   "field-approval.list.action.reject": "Ablehnen",

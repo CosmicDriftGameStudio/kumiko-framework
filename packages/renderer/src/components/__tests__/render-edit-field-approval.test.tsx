@@ -32,6 +32,7 @@ const OLD_IBAN = "DE02120300000000202051";
 const NEW_IBAN = "DE89370400440532013000";
 const UPDATE = "contacts:write:contact:update";
 const REQUEST_CHANGE = "field-approval:write:request-change";
+const PENDING_CHANGES = "field-approval:query:pending-changes";
 
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 
@@ -116,12 +117,20 @@ const approvalDenied = mapServerError({
   details: { reason: "field_approval_required", entity: "contact", fields: ["iban"] },
 });
 
+type RecordedQuery = { readonly type: string; readonly payload: unknown };
+
 function renderContactEdit(
   features: readonly FeatureSchema[],
   notices: ActionNotice[] = [],
+  openRequests: readonly { readonly fieldName: string }[] = [],
+  queries: RecordedQuery[] = [],
 ): RecordedWrite[] {
   let updates = 0;
   const { dispatcher, writes } = stubDispatcher({
+    query: (type, payload) => {
+      queries.push({ type, payload });
+      return { isSuccess: true, data: type === PENDING_CHANGES ? { rows: openRequests } : {} };
+    },
     write: (type): WriteResult<unknown> => {
       if (type !== UPDATE) return { isSuccess: true, data: { id: "fcr-1" } };
       updates += 1;
@@ -251,5 +260,30 @@ describe("RenderEdit — field approval required", () => {
       "Changes to IBAN need approval.",
     );
     expect(rtlScreen.queryByTestId("render-edit-field-approval-submit")).toBeNull();
+  });
+});
+
+describe("RenderEdit — open approval request", () => {
+  test("a freshly loaded form shows the open request at its field without any edit", async () => {
+    const queries: RecordedQuery[] = [];
+    renderContactEdit([fieldApprovalSchema], [], [{ fieldName: "iban" }], queries);
+
+    const hint = await rtlScreen.findByText("Awaiting approval");
+    expect(rtlScreen.getByTestId("field-kumiko-edit-iban").contains(hint)).toBe(true);
+    expect(rtlScreen.getAllByText("Awaiting approval")).toHaveLength(1);
+    expect(input("iban").value).toBe(OLD_IBAN);
+    expect(queries).toContainEqual({
+      type: PENDING_CHANGES,
+      payload: { entityType: "contact", entityId: "c1" },
+    });
+  });
+
+  test("without the field-approval feature the form asks for no open requests", async () => {
+    const queries: RecordedQuery[] = [];
+    renderContactEdit([], [], [{ fieldName: "iban" }], queries);
+    await rtlScreen.findByLabelText("iban");
+
+    expect(queries.filter((q) => q.type === PENDING_CHANGES)).toEqual([]);
+    expect(rtlScreen.queryByText("Awaiting approval")).toBeNull();
   });
 });

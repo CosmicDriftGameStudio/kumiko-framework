@@ -15,6 +15,7 @@ export const FIELD_APPROVAL_I18N: Readonly<Record<string, { readonly en: string 
   "field-approval.list.col.value": { en: "New value" },
   "field-approval.list.col.requestedBy": { en: "Requested by" },
   "field-approval.list.col.requestedAt": { en: "Requested at" },
+  "field-approval.list.empty": { en: "No changes awaiting approval." },
   "field-approval.list.action.approve": { en: "Approve" },
   "field-approval.list.action.approve.confirm": { en: "Apply this change to the record?" },
   "field-approval.list.action.reject": { en: "Reject" },

@@ -16,6 +16,7 @@ import { createTenantFeature } from "../../tenant/feature.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { FIELD_APPROVAL_LIST_SCREEN_ID } from "../constants.ts";
 import { createFieldApprovalFeature } from "../feature.ts";
+import { FIELD_APPROVAL_I18N } from "../i18n.ts";
 
 const hostFeature = defineFeature("fa-host", (r) => {
   r.crud(
@@ -104,5 +105,18 @@ describe("field-approval list on the phone card", () => {
     const requester = columns.find((col) => col.field === "requestedByName");
     expect(requester?.refEntity).toBeUndefined();
     expect(columns.some((col) => col.field === "requestedBy")).toBe(false);
+  });
+});
+
+describe("field-approval list when nothing is open", () => {
+  test("an empty list says that no change awaits approval instead of the generic text", () => {
+    const screen = createFieldApprovalFeature({ parents: ["payee"] }).screens[
+      FIELD_APPROVAL_LIST_SCREEN_ID
+    ];
+    if (screen?.type !== "projectionList") throw new Error("expected the approval list screen");
+    expect(screen.emptyState?.title).toBe("field-approval.list.empty");
+    expect(FIELD_APPROVAL_I18N["field-approval.list.empty"]?.en).toBe(
+      "No changes awaiting approval.",
+    );
   });
 });

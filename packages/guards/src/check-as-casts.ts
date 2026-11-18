@@ -590,8 +590,10 @@ export function legitCountsByPackage(all: readonly Site[]): Record<string, numbe
   return counts;
 }
 
-const LEGIT_REMEDIATION =
-  'Avoid the cast (type guard, discriminated union, typing at the source). Only if it is a real system boundary or deliberate bridge: re-freeze with `bun packages/guards/src/cli.ts guards --write-baseline --guard="As-Casts Audit"` and justify it in the PR.';
+// The hint must run from any consumer repo, so it names the installed bin, not a source path.
+const WRITE_BASELINE_COMMAND = 'bun kumiko-guards guards --write-baseline --guard="As-Casts Audit"';
+
+const LEGIT_REMEDIATION = `Avoid the cast (type guard, discriminated union, typing at the source). Only if it is a real system boundary or deliberate bridge: re-freeze with \`${WRITE_BASELINE_COMMAND}\` and justify it in the PR.`;
 
 function writeBaseline(all: readonly Site[]): void {
   const repoLocalSuspects = repoLocal(suspectByFileAndTarget(all));
@@ -685,7 +687,7 @@ function compareCastsToBaseline(
 const CAST_OPTIONS_HINT =
   "New casts need a justification. Options: (1) avoid the cast (TypeGuard, Discriminated Union, typing at the source); " +
   "(2) a real system boundary: `// @cast-boundary <reason>` with a reason from KNOWN_BOUNDARY_REASONS; " +
-  "(3) re-freeze with `bun packages/guards/src/check-as-casts.ts --write-baseline`, only with a justification in the PR.";
+  `(3) re-freeze with \`${WRITE_BASELINE_COMMAND}\`, only with a justification in the PR.`;
 
 function printCastRegressions(regressions: readonly CastRegression[]): void {
   console.log(
@@ -727,7 +729,7 @@ function staleBaselineViolation(reduction: CastRegression, all: readonly Site[])
   return {
     file: reduction.file,
     line: firstRemaining?.line ?? 1,
-    message: `suspect casts \`as ${reduction.target}\` under baseline: baseline=${reduction.baseline} current=${reduction.current}. The baseline ${path.basename(baselinePath)} has headroom that would let new findings in unnoticed; tighten it with \`bun packages/guards/src/check-as-casts.ts --write-baseline\` and commit it.`,
+    message: `suspect casts \`as ${reduction.target}\` under baseline: baseline=${reduction.baseline} current=${reduction.current}. The baseline ${path.basename(baselinePath)} has headroom that would let new findings in unnoticed; tighten it with \`${WRITE_BASELINE_COMMAND}\` and commit it.`,
   };
 }
 
@@ -754,7 +756,7 @@ export function reportBaseline(
       {
         file: baselineFile,
         line: 1,
-        message: `Cannot read cast baseline ${baselineFile}: ${loaded.detail}. Fix the file (e.g. resolve merge-conflict markers) or regenerate it with \`bun packages/guards/src/check-as-casts.ts --write-baseline\`.`,
+        message: `Cannot read cast baseline ${baselineFile}: ${loaded.detail}. Fix the file (e.g. resolve merge-conflict markers) or regenerate it with \`${WRITE_BASELINE_COMMAND}\`.`,
       },
     ];
   }
@@ -764,7 +766,7 @@ export function reportBaseline(
       {
         file: baselineFile,
         line: 1,
-        message: `Cast baseline format drift: expected format=${BASELINE_FORMAT_VERSION}, read format=${String(loaded.format ?? "<missing>")}. Regenerate it with \`bun packages/guards/src/check-as-casts.ts --write-baseline\`.`,
+        message: `Cast baseline format drift: expected format=${BASELINE_FORMAT_VERSION}, read format=${String(loaded.format ?? "<missing>")}. Regenerate it with \`${WRITE_BASELINE_COMMAND}\`.`,
       },
     ];
   }

@@ -23,7 +23,7 @@ import type { DataTableModel } from "./use-data-table-state.ts";
 const ONE_LINE_COLUMN_TYPES: ReadonlySet<string> = new Set(["timestamp", "date"]);
 
 // Projection lists synthesize every column as type "text"; their dates carry a format spec.
-function isDateColumn(col: ListColumnViewModel): boolean {
+export function isDateColumn(col: ListColumnViewModel): boolean {
   if (ONE_LINE_COLUMN_TYPES.has(col.type)) return true;
   const renderer: unknown = col.renderer;
   return (
