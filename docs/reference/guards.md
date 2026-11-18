@@ -26,6 +26,7 @@ A marker that suppresses nothing in a run fails the `unused-ignore-tags` check; 
 | `guard-agent-docs-drift` | Guard: the generated agent docs under `packages/framework/agents/` must match what `bun run gen:agent-docs` renders from the current sources (feature manifest, public entry-point signatures, renderer web exports, sample recipes), and every `agents/<file>.md` path the hand-written `packages/framework/AGENTS.md` points at must exist in that generated set. | - |
 | `guard-app-dockerfile` | An app's `deploy/Dockerfile` must reach the private @cosmicdriftgamestudio registry through a BuildKit secret, never through an NPM_AUTH_TOKEN build-arg that lands in the image history. | - |
 | `guard-app-feature-structure` | App features follow the bundled-features convention (reference: tenant/): feature.ts = registration only, screens under web/, handlers under handlers/. | `kumiko-lint-ignore app-feature-structure` |
+| `guard-biome-preset` | - | - |
 | `guard-comment-issue-ref-only` | Comment Issue-Ref Guard: a comment that holds only an issue or PR reference or a planning label (`#1234`, `fw#1234`, `Phase 3`, `S2.H1`) and no explanatory word is a violation. | `kumiko-lint-ignore comment-issue-ref-only` |
 | `guard-comment-lang` | Comment-language ratchet: no new German comments in product code. | `kumiko-lint-ignore comment-lang` |
 | `guard-cross-feature-imports` | Guard: blocks cross-feature deep imports. | `kumiko-lint-ignore cross-feature-import` |
