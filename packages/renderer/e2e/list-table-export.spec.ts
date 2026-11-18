@@ -83,5 +83,5 @@ test("a refused export tells the user to narrow the filter", async ({ page }) =>
     }),
   );
   await page.getByRole("button", { name: "Export" }).click();
-  await expect(page.getByRole("status")).toContainText("More than 5 rows");
+  await expect(page.getByTestId("list-export-hint")).toContainText("More than 5 rows");
 });

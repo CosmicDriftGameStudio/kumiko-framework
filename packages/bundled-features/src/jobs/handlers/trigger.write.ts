@@ -8,7 +8,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/errors";
 import type { JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import * as z from "zod";
-import { isManualTrigger } from "../is-manual-trigger.ts";
+import { isOperatorStartableTrigger } from "../is-operator-startable-trigger.ts";
 import { JobErrors } from "../web/constants.ts";
 
 function invalidPayloadError(): UnprocessableError {
@@ -41,7 +41,7 @@ export const triggerWrite = defineWriteHandler({
       );
     }
 
-    if (!isManualTrigger(jobDef.trigger)) {
+    if (!isOperatorStartableTrigger(jobDef.trigger)) {
       return writeFailure(
         new UnprocessableError(JobErrors.notManual, {
           i18nKey: "jobs.errors.notManual",

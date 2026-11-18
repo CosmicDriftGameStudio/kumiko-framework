@@ -1,9 +1,9 @@
-// Catalog + trigger hardening — manual-only surface.
+// Catalog + trigger hardening — manual and maintenance jobs only.
 // Real HTTP via setupTestStack — no mocks, mirrors jobs-security.integration.test.ts.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
+import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   setupTestStack,
   type TestStack,
@@ -18,6 +18,7 @@ import { JobErrors, JobHandlers, JobQueries } from "../web/constants.ts";
 let stack: TestStack;
 
 const systemAdmin = TestUsers.systemAdmin;
+const tenantAdmin = createTestUser({ id: 3, roles: ["TenantAdmin"] });
 
 const appFeature = defineFeature("catalog-app", (r) => {
   r.job({
@@ -27,6 +28,7 @@ const appFeature = defineFeature("catalog-app", (r) => {
     handler: async () => {},
   });
   r.job({ name: "cronOnly", trigger: { cron: "0 * * * *" }, handler: async () => {} });
+  r.job({ name: "dailyCleanup", trigger: { maintenance: true }, handler: async () => {} });
 });
 
 beforeAll(async () => {
@@ -45,7 +47,7 @@ afterAll(async () => {
 });
 
 describe("jobs:query:catalog", () => {
-  test("lists only manual jobs including framework builtins", async () => {
+  test("lists manual and maintenance jobs including framework builtins", async () => {
     type CatalogRow = {
       readonly jobName: string;
       readonly perTenant: boolean;
@@ -60,6 +62,7 @@ describe("jobs:query:catalog", () => {
     expect(names).toContain("catalog-app:job:manual-echo");
     expect(names).toContain("jobs:job:reindex-entity");
     expect(names).toContain("jobs:job:projection-rebuild");
+    expect(names).toContain("catalog-app:job:daily-cleanup");
     expect(names).not.toContain("catalog-app:job:cron-only");
 
     const echo = result.rows.find((r) => r.jobName === "catalog-app:job:manual-echo");
@@ -80,6 +83,24 @@ describe("jobs:write:trigger hardening", () => {
     );
     expect(err.code).toBe("unprocessable");
     expect(err.details).toMatchObject({ reason: JobErrors.notManual });
+  });
+
+  test("starts a maintenance job on demand", async () => {
+    const result = await stack.http.writeOk<{ jobName: string; bullJobId: string }>(
+      JobHandlers.trigger,
+      { jobName: "catalog-app:job:daily-cleanup" },
+      systemAdmin,
+    );
+    expect(result.jobName).toBe("catalog-app:job:daily-cleanup");
+  });
+
+  test("a TenantAdmin cannot start a maintenance job", async () => {
+    const res = await stack.http.write(
+      JobHandlers.trigger,
+      { jobName: "catalog-app:job:daily-cleanup" },
+      tenantAdmin,
+    );
+    expect(res.status).toBe(403);
   });
 
   test.each([

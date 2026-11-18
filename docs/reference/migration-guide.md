@@ -2,7 +2,7 @@
 title: Migration Guide
 description: Breaking changes and migration hints for Kumiko upgrades
 status: reference
-verified: 2026-11-15
+verified: 2026-11-18
 ---
 
 # Migration Guide
@@ -887,14 +887,6 @@ TenantDb has a databaseNow() method returning Postgres now(); custom TenantDb im
 
 **Migration:** Add databaseNow(): Promise<Date> to hand-built TenantDb objects and mocks, returning the Postgres now().
 
-### presets
-
-**dsgvoSelfServiceFeatures removed**
-
-The deprecated preset dsgvoSelfServiceFeatures and its DsgvoSelfServiceOptions type are gone. composeGdprStack covers the same features.
-
-**Migration:** Use composeGdprStack({ selfService: { userDataRights } }), or mount createSessionsFeature, createDataRetentionFeature, createComplianceProfilesFeature, createUserDataRightsFeature and createUserProfileFeature yourself.
-
 ### template-resolver
 
 **Overrides of locked templates are no longer served**
@@ -1071,14 +1063,6 @@ authFoundationFeature was kept next to createAuthFoundationFeature() for one rel
 
 **Migration:** Run bun kumiko-upgrade --apply. It replaces authFoundationFeature with createAuthFoundationFeature().
 
-### auth-mfa-user-data
-
-**The deprecated authMfaUserDataFeature constant is removed**
-
-authMfaUserDataFeature was kept next to createAuthMfaUserDataFeature() for one release. Mount the feature by calling createAuthMfaUserDataFeature().
-
-**Migration:** Run bun kumiko-upgrade --apply. It replaces authMfaUserDataFeature with createAuthMfaUserDataFeature().
-
 ### billing-foundation
 
 **The deprecated billingFoundationFeature constant is removed**
@@ -1173,14 +1157,6 @@ foldersFeature was kept next to createFoldersFeature() for one release. Mount th
 
 **Migration:** Run bun kumiko-upgrade --apply. It replaces foldersFeature with createFoldersFeature().
 
-### folders-user-data
-
-**The deprecated foldersUserDataFeature constant is removed**
-
-foldersUserDataFeature was kept next to createFoldersUserDataFeature() for one release. Mount the feature by calling createFoldersUserDataFeature().
-
-**Migration:** Run bun kumiko-upgrade --apply. It replaces foldersUserDataFeature with createFoldersUserDataFeature().
-
 ### form-draft
 
 **The deprecated formDraftFeature constant is removed**
@@ -1188,14 +1164,6 @@ foldersUserDataFeature was kept next to createFoldersUserDataFeature() for one r
 formDraftFeature was kept next to createFormDraftFeature() for one release. Mount the feature by calling createFormDraftFeature().
 
 **Migration:** Run bun kumiko-upgrade --apply. It replaces formDraftFeature with createFormDraftFeature().
-
-### form-draft-user-data
-
-**The deprecated formDraftUserDataFeature constant is removed**
-
-formDraftUserDataFeature was kept next to createFormDraftUserDataFeature() for one release. Mount the feature by calling createFormDraftUserDataFeature().
-
-**Migration:** Run bun kumiko-upgrade --apply. It replaces formDraftUserDataFeature with createFormDraftUserDataFeature().
 
 ### framework-core
 
@@ -1299,14 +1267,6 @@ notesHistoryFeature was kept next to createNotesHistoryFeature() for one release
 
 **Migration:** Run bun kumiko-upgrade --apply. It replaces notesHistoryFeature with createNotesHistoryFeature().
 
-### notes-history-user-data
-
-**The deprecated notesHistoryUserDataFeature constant is removed**
-
-notesHistoryUserDataFeature was kept next to createNotesHistoryUserDataFeature() for one release. Mount the feature by calling createNotesHistoryUserDataFeature().
-
-**Migration:** Run bun kumiko-upgrade --apply. It replaces notesHistoryUserDataFeature with createNotesHistoryUserDataFeature().
-
 ### readiness
 
 **The deprecated readinessFeature constant is removed**
@@ -1322,14 +1282,6 @@ readinessFeature was kept next to createReadinessFeature() for one release. Moun
 tagsFeature was kept next to createTagsFeature() for one release. Mount the feature by calling createTagsFeature().
 
 **Migration:** Run bun kumiko-upgrade --apply. It replaces tagsFeature with createTagsFeature().
-
-### template-resolver-user-data
-
-**The deprecated templateResolverUserDataFeature constant is removed**
-
-templateResolverUserDataFeature was kept next to createTemplateResolverUserDataFeature() for one release. Mount the feature by calling createTemplateResolverUserDataFeature().
-
-**Migration:** Run bun kumiko-upgrade --apply. It replaces templateResolverUserDataFeature with createTemplateResolverUserDataFeature().
 
 ### tenant-settings
 
@@ -1354,14 +1306,6 @@ tierEngineFeature was kept next to createTierEngineFeature() for one release. Mo
 createWaitlistFeature({ linkOnSignup: true }) marks an invited entry provisioned, with linkedTenantId and provisionedAt, when its email becomes the first TenantAdmin member of a tenant; a multi-stream consumer on the membership event does this asynchronously. rateLimit replaces the default of 5 submits per IP per 10 minutes, or { disabled: true, reason } turns it off. waitlist:write:export and waitlist:write:purge are SystemAdmin-only (exportPurge: false leaves them out); purge needs confirmCount to match the current number of entries and shreds the personal-data keys only after every entry was forgotten. The entity gains the status provisioned and the column provisionedAt, so apps that mount the feature generate a schema migration. kumiko ops waitlist-migrate --from offlot|publicstatus [--dry-run] copies a legacy waitlist table into the entity idempotently. Details in docs/guides/waitlist.md.
 
 **Migration:** Apps that mount the waitlist feature run `kumiko schema generate <name>` and commit the migration: read_waitlist_entries gains the nullable column provisioned_at, and the status value provisioned is added. An app with its own waitlist (offlot-app, publicstatus, solon) mounts createWaitlistFeature() and copies the old rows with `kumiko ops waitlist-migrate --from offlot|publicstatus --dry-run` first. offlot-app keeps its legacy rows in the table read_waitlist_entries, the name the framework projection uses: copy or rename that table before the first boot and pass --source-table. The submit limit is keyed per IP and handler; behind a reverse proxy set trustedProxyHops, otherwise all visitors share one bucket of 5 submits per 10 minutes. With linkOnSignup the new consumer starts at the beginning of the event log and also provisions entries invited earlier.
-
-### workflow-runner
-
-**The deprecated workflowRunnerFeature constant is removed**
-
-workflowRunnerFeature was kept next to createWorkflowRunnerFeature() for one release. Mount the feature by calling createWorkflowRunnerFeature().
-
-**Migration:** Run bun kumiko-upgrade --apply. It replaces workflowRunnerFeature with createWorkflowRunnerFeature().
 
 ## 0.369.0
 
@@ -1457,7 +1401,7 @@ The dispatcher no longer sets _userId and _handlerType on the context of write h
 
 ## 0.367.0
 
-### @cosmicdrift/kumiko-renderer-mail-html
+### renderer-mail-html
 
 **Mail footer texts come from the i18n system**
 
@@ -1513,14 +1457,6 @@ kumiko-schema-check diffed APP_FEATURES against a hand-kept FEATURE_IMPORT_REGIS
 
 **Migration:** Apps with kumiko/schema.ts need nothing. Run kumiko-schema validate to check migrations against the mounted features, and remove kumiko-schema-check from package scripts and CI. Apps that keep a FEATURE_IMPORT_REGISTRY diff it against APP_FEATURES in their own coverage script.
 
-### @cosmicdrift/kumiko-renderer-puppeteer-client
-
-**image-snapshot HTML must embed every resource as a data URI**
-
-An earlier release note said image-snapshot requests were unchanged. Since the puppeteer-service egress guard, the service fetches no http(s) resources for any request kind, so external img, link and font references in an image-snapshot are dropped without an error.
-
-**Migration:** Embed images, fonts and stylesheets in image-snapshot HTML as data: URIs before sending payload.content.
-
 ### cap-counter
 
 **Handlers wrapped with withCapEnforcement or withRollingCapEnforcement are rejected when called through a nested ctx.write**
@@ -1566,6 +1502,14 @@ The column was always created with bigint mode, so the driver returned a bigint 
 
 **Migration:** Treat values read from a moneyAmount column as bigint (for example compare with 0n, or convert explicitly with Number() where the amount is known to fit). No schema change.
 
+### renderer-puppeteer-client
+
+**image-snapshot HTML must embed every resource as a data URI**
+
+An earlier release note said image-snapshot requests were unchanged. Since the puppeteer-service egress guard, the service fetches no http(s) resources for any request kind, so external img, link and font references in an image-snapshot are dropped without an error.
+
+**Migration:** Embed images, fonts and stylesheets in image-snapshot HTML as data: URIs before sending payload.content.
+
 ### template-resolver
 
 **copy-locale copies the system default's files in a beforeTransaction phase and can no longer run as a nested write**
@@ -1588,14 +1532,6 @@ The three handlers now validate and upload their files before the write transact
 
 ## 0.364.0
 
-### @cosmicdrift/kumiko-renderer-puppeteer-client
-
-**renderAndStorePdf is removed; render in beforeTransaction with renderPdfBeforeTransaction and store with storeRenderedPdf**
-
-renderAndStorePdf called the print service inside the write transaction and held a pool connection for the whole render. renderPdfBeforeTransaction(ctx, { slug, locale, variables, attachTo? }) now renders and uploads the PDF before the transaction opens, and storeRenderedPdf(ctx, event.prepared) writes the fileRef and rendered-pdf rows inside it. RenderAndStorePdfArgs is renamed RenderPdfArgs.
-
-**Migration:** Move the render into the handler's beforeTransaction phase and store in the handler: defineWriteHandler({ name, schema, access, beforeTransaction: (event, ctx) => renderPdfBeforeTransaction(ctx, { slug: "invoice", locale: "de", variables }), handler: (event, ctx) => storeRenderedPdf(ctx, event.prepared) }). The result of storeRenderedPdf has the same shape as the old renderAndStorePdf result (StoredRenderedPdf). Rename the RenderAndStorePdfArgs type to RenderPdfArgs. A handler with a beforeTransaction phase cannot be called through a nested ctx.write; call it as a top-level command.
-
 ### cap-counter
 
 **CapExceededError carries resetAt and retryAfterSeconds, API sets Retry-After**
@@ -1614,6 +1550,14 @@ Write handlers accept transaction "perCommand". Such a handler runs without a tr
 
 **Migration:** Stream and query code that writes through ctx.db or an executor bound to ctx.db calls a write handler through ctx.write or ctx.writeAs instead, or writes deliberately through ctx.dbOutsideTransaction. Check code that relied on afterCommit hooks of a write called from a stream or query handler not firing. bookCapUsage from a stream or query handler needs outsideTransaction true or a command. runInOwnTransaction(ctx.db, ...) stays locked in these contexts; runInOwnTransaction(ctx.dbOutsideTransaction, ...) is the way to a deliberate own transaction. Measured consumers: one stream handler (AI agent turn: conversation, activity and tool-call records through an executor on ctx.db, plus cap booking) and one query handler (AI text run: cap booking on ctx.db, log via ctx.write). No other consumer app has stream or query writes. The beforeTransaction/reserveBeforeTransaction lock affects no released code.
 
+### renderer-puppeteer-client
+
+**renderAndStorePdf is removed; render in beforeTransaction with renderPdfBeforeTransaction and store with storeRenderedPdf**
+
+renderAndStorePdf called the print service inside the write transaction and held a pool connection for the whole render. renderPdfBeforeTransaction(ctx, { slug, locale, variables, attachTo? }) now renders and uploads the PDF before the transaction opens, and storeRenderedPdf(ctx, event.prepared) writes the fileRef and rendered-pdf rows inside it. RenderAndStorePdfArgs is renamed RenderPdfArgs.
+
+**Migration:** Move the render into the handler's beforeTransaction phase and store in the handler: defineWriteHandler({ name, schema, access, beforeTransaction: (event, ctx) => renderPdfBeforeTransaction(ctx, { slug: "invoice", locale: "de", variables }), handler: (event, ctx) => storeRenderedPdf(ctx, event.prepared) }). The result of storeRenderedPdf has the same shape as the old renderAndStorePdf result (StoredRenderedPdf). Rename the RenderAndStorePdfArgs type to RenderPdfArgs. A handler with a beforeTransaction phase cannot be called through a nested ctx.write; call it as a top-level command.
+
 ### template-resolver
 
 **DocumentRepeatRow is removed, use DocumentTableRow**
@@ -1629,40 +1573,6 @@ Saving a draft (upsert-tenant default, copy-locale, import-bundle with status dr
 **Migration:** Run kumiko schema generate and apply the migration before deploying: it adds the nullable columns draft, active_version and active_since to read_template_resources. No rebuild needed.
 
 ## 0.363.0
-
-### @cosmicdrift/kumiko-renderer-mail-html
-
-**Documents format dates and numbers by the template locale, dates in the long style**
-
-readDocumentFormat used the tenant setting tenant-settings:config:locale ahead of the template locale, so a German invoice of a tenant set to English printed "Oct 1, 2026" and "€780.00". Mails, mail previews and document PDFs now format by the locale of the template that is rendered; the tenant settings still supply the currency. The date helper prints the long style ("1. Oktober 2026", "October 1, 2026") instead of the medium style ("01.10.2026", "Oct 1, 2026").
-
-**Migration:** Tests or snapshots that assert rendered dates change from "05.03.2026" to "5. März 2026" (de) and from "Mar 5, 2026" to "March 5, 2026" (en). A tenant that relied on tenant-settings:config:locale to change the number format of its documents now needs a template in that locale.
-
-**renders kind mail from document templates, Markdown path removed**
-
-The plugin serves kind mail. It resolves the template by slug (contentFormat html, meta.subject required), compiles the document body to Handlebars through template-resolver, renders it in an isolated Handlebars instance (helpers money, date and link, HTML escaping on) and places the result into the mail-layout named by meta.layoutSlug (default slug default, in-code DEFAULT_MAIL_LAYOUT_MJML as fallback). The layout only sees content, subject, previewText, tenantName, signature, imprint and unsubscribeUrl. The response carries subject and previewText; the subject has line breaks removed. Markdown rendering and the content/contentFormat payload are gone; DEFAULT_MAIL_LAYOUT_MJML uses tenantName instead of appName. seedSystemMailLayout writes kind mail-layout slug default through seedSystemTemplate and is idempotent. New dependency on @cosmicdrift/kumiko-headless.
-
-**Migration:** Send kind mail requests with { slug, locale, variables } and move mail texts into kind mail templates (html body plus meta.subject), for example through r.notification({ template, meta }). Custom mail layouts become kind mail-layout, contentFormat mjml, slug default and use {{tenantName}} instead of {{appName}}; the body is inserted with {{{content}}}.
-
-**Package moved to the framework under the @cosmicdrift scope**
-
-Renamed from @cosmicdriftgamestudio/kumiko-renderer-mail-html (GitHub Packages, kumiko-enterprise) to @cosmicdrift/kumiko-renderer-mail-html on npmjs. The rename itself changes no API; the other 0.363.0 entries list the API changes of this release.
-
-**Migration:** Replace @cosmicdriftgamestudio/kumiko-renderer-mail-html with @cosmicdrift/kumiko-renderer-mail-html in package.json and in every import; install from npmjs instead of GitHub Packages.
-
-### @cosmicdrift/kumiko-renderer-puppeteer-client
-
-**renders document-pdf from templates, adds renderAndStorePdf, the rendered-pdf entity and puppeteer-status**
-
-The plugin resolves the document-pdf template and its pdf-layout (header, signature, footer), embeds every image as a data URI and sends finished HTML to the puppeteer-service. renderAndStorePdf(ctx, { slug, locale, variables, attachTo? }) stores the PDF as a file and a rendered-pdf record with the template and layout version. The puppeteer-status query reports whether the service answers; while it does not, rendering fails with PuppeteerUnavailableError (HTTP 503, puppeteer_unavailable). The feature adds the table rendered_pdfs.
-
-**Migration:** Call renderAndStorePdf(ctx, { slug, locale, variables, attachTo? }) from a write handler; no escape hatch or rendererDb is needed because the tenant db also reads system templates and files. Apps that mount renderer-puppeteer-client need a schema migration for rendered_pdfs (`kumiko schema generate`). PUPPETEER_SERVICE_URL and PUPPETEER_AUTH_TOKEN stay as before. image-snapshot requests are unchanged.
-
-**Package moved to the framework under the @cosmicdrift scope**
-
-Renamed from @cosmicdriftgamestudio/kumiko-renderer-puppeteer-client (GitHub Packages, kumiko-enterprise) to @cosmicdrift/kumiko-renderer-puppeteer-client on npmjs. The rename itself changes no API; the other 0.363.0 entries list the API changes of this release.
-
-**Migration:** Replace @cosmicdriftgamestudio/kumiko-renderer-puppeteer-client with @cosmicdrift/kumiko-renderer-puppeteer-client in package.json and in every import; install from npmjs instead of GitHub Packages.
 
 ### auth-email-password
 
@@ -1735,6 +1645,40 @@ RenderRequest and RenderResponse use kind mail with a MailPayload ({ slug, local
 Every mail is a stored template rendered by renderer-mail-html now. renderer-simple (createRendererSimpleFeature, simpleRenderer, createSimpleRenderer, RendererSimpleOptions, mail blocks with LocalizedText, MailBadge, MailChip, MailStage, MailStageState and MailTone), the MailBranding type, the renderer kind "notification" and AuthMailContent are gone. NotificationRenderer and RendererInput are removed from delivery, and createChannelEmailFeature no longer takes a renderer option. The type NotificationPayload is removed from renderer-foundation. The template-resolver keeps "notification" only as a stored kind so legacy rows stay readable; RENDER_KINDS is mail, document-pdf and image-snapshot.
 
 **Migration:** Remove createRendererSimpleFeature() and any renderer or mailBranding option from your feature list and createChannelEmailFeature call. An r.notification that is sent by email needs template + meta (or localizedTemplate) and variables; the sections/header/footer data it carried is replaced by template variables. Branding (logo, footer) now comes from the tenant branding config and the mail layout of renderer-mail-html. Mount template-resolver, renderer-foundation and @cosmicdrift/kumiko-renderer-mail-html (composeRendererStack() mounts all of them) and run seedNotificationTemplates at boot. Existing template rows with kind "notification" are no longer rendered; re-create them as kind "mail" or archive them.
+
+### renderer-mail-html
+
+**Documents format dates and numbers by the template locale, dates in the long style**
+
+readDocumentFormat used the tenant setting tenant-settings:config:locale ahead of the template locale, so a German invoice of a tenant set to English printed "Oct 1, 2026" and "€780.00". Mails, mail previews and document PDFs now format by the locale of the template that is rendered; the tenant settings still supply the currency. The date helper prints the long style ("1. Oktober 2026", "October 1, 2026") instead of the medium style ("01.10.2026", "Oct 1, 2026").
+
+**Migration:** Tests or snapshots that assert rendered dates change from "05.03.2026" to "5. März 2026" (de) and from "Mar 5, 2026" to "March 5, 2026" (en). A tenant that relied on tenant-settings:config:locale to change the number format of its documents now needs a template in that locale.
+
+**renders kind mail from document templates, Markdown path removed**
+
+The plugin serves kind mail. It resolves the template by slug (contentFormat html, meta.subject required), compiles the document body to Handlebars through template-resolver, renders it in an isolated Handlebars instance (helpers money, date and link, HTML escaping on) and places the result into the mail-layout named by meta.layoutSlug (default slug default, in-code DEFAULT_MAIL_LAYOUT_MJML as fallback). The layout only sees content, subject, previewText, tenantName, signature, imprint and unsubscribeUrl. The response carries subject and previewText; the subject has line breaks removed. Markdown rendering and the content/contentFormat payload are gone; DEFAULT_MAIL_LAYOUT_MJML uses tenantName instead of appName. seedSystemMailLayout writes kind mail-layout slug default through seedSystemTemplate and is idempotent. New dependency on @cosmicdrift/kumiko-headless.
+
+**Migration:** Send kind mail requests with { slug, locale, variables } and move mail texts into kind mail templates (html body plus meta.subject), for example through r.notification({ template, meta }). Custom mail layouts become kind mail-layout, contentFormat mjml, slug default and use {{tenantName}} instead of {{appName}}; the body is inserted with {{{content}}}.
+
+**Package moved to the framework under the @cosmicdrift scope**
+
+Renamed from @cosmicdriftgamestudio/kumiko-renderer-mail-html (GitHub Packages, kumiko-enterprise) to @cosmicdrift/kumiko-renderer-mail-html on npmjs. The rename itself changes no API; the other 0.363.0 entries list the API changes of this release.
+
+**Migration:** Replace @cosmicdriftgamestudio/kumiko-renderer-mail-html with @cosmicdrift/kumiko-renderer-mail-html in package.json and in every import; install from npmjs instead of GitHub Packages.
+
+### renderer-puppeteer-client
+
+**renders document-pdf from templates, adds renderAndStorePdf, the rendered-pdf entity and puppeteer-status**
+
+The plugin resolves the document-pdf template and its pdf-layout (header, signature, footer), embeds every image as a data URI and sends finished HTML to the puppeteer-service. renderAndStorePdf(ctx, { slug, locale, variables, attachTo? }) stores the PDF as a file and a rendered-pdf record with the template and layout version. The puppeteer-status query reports whether the service answers; while it does not, rendering fails with PuppeteerUnavailableError (HTTP 503, puppeteer_unavailable). The feature adds the table rendered_pdfs.
+
+**Migration:** Call renderAndStorePdf(ctx, { slug, locale, variables, attachTo? }) from a write handler; no escape hatch or rendererDb is needed because the tenant db also reads system templates and files. Apps that mount renderer-puppeteer-client need a schema migration for rendered_pdfs (`kumiko schema generate`). PUPPETEER_SERVICE_URL and PUPPETEER_AUTH_TOKEN stay as before. image-snapshot requests are unchanged.
+
+**Package moved to the framework under the @cosmicdrift scope**
+
+Renamed from @cosmicdriftgamestudio/kumiko-renderer-puppeteer-client (GitHub Packages, kumiko-enterprise) to @cosmicdrift/kumiko-renderer-puppeteer-client on npmjs. The rename itself changes no API; the other 0.363.0 entries list the API changes of this release.
+
+**Migration:** Replace @cosmicdriftgamestudio/kumiko-renderer-puppeteer-client with @cosmicdrift/kumiko-renderer-puppeteer-client in package.json and in every import; install from npmjs instead of GitHub Packages.
 
 ### template-resolver
 
@@ -2121,17 +2065,6 @@ The log query, the export and the stored events show masked addresses, and the f
 
 **Migration:** Read recipients from your own data, not from the attempt log, because it only shows masked addresses now. Set `attemptLogRetentionDays` on createDeliveryFeature to another number of days, or to `false` to keep the log, if 90 days does not fit. Schedule nothing extra, the feature registers the cron job itself. Existing full-address entries are removed by the retention job once they are older than the window, or erased when their user is forgotten.
 
-## 0.346.0
-
-### step-dispatcher
-
-**r.step.webhook.send drops the unused retry option**
-
-`r.step.webhook.send` no longer accepts `retry`
-The option was never applied: every dispatch request is delivered once. Passing it is now a type error, and the dispatch-requested payload no longer carries it. Stored events that still contain `retry` are parsed and delivered as before.
-
-**Migration:** Remove `retry` from `r.step.webhook.send` calls; it was never applied. Each dispatch request is delivered once; a delivery error ends as step.dispatch-failed.
-
 ## 0.344.0
 
 ### billing-foundation
@@ -2264,14 +2197,6 @@ Consumers: `NotifyFn` implementations in tests and mocks must now return a `Noti
 `TenantDb.unsafeRaw` is now `unsafeRaw(): DbRunner`. The `unsafe-raw` audit entry carries the reason from the `escapeHatch` declaration, as before. Calls without a matching declaration are still rejected with an `AccessDeniedError`.
 
 **Migration:** Replace `ctx.db.unsafeRaw("...")` with `ctx.db.unsafeRaw()`. The reason lives only in `escapeHatch: { reason }` on the handler, hook or job; TypeScript flags old calls. `ctx.systemDb.unsafeRaw(reason)` is unchanged.
-
-### workflow-runner
-
-**workflow-run stream stores a reference to the trigger event instead of its payload**
-
-`workflow.run-started` now holds `triggerEventRef: { eventId, aggregateId, version }` and no `triggerPayload`; the wait, waitForEvent and retry step events no longer embed it either. `workflow_run_pending` gets a `trigger_event_ref` column and the event-subscriber stops writing `trigger_payload`. `resume-run` loads the trigger and the awaited event through `ctx.loadAggregate` and fails the run with `trigger_event_unavailable` or `awaited_event_unavailable` when one is gone.
-
-**Migration:** Own code that reads `triggerPayload` from `workflow.run-started` must read `triggerEventRef` and load the event with `ctx.loadAggregate(ref.aggregateId)`. Apps generate the migration for the new `workflow_run_pending.trigger_event_ref` column with `kumiko schema generate`. The step events `workflow.step.waiting`, `workflow.step.waiting-for-event` and `workflow.retry.scheduled` no longer carry `triggerPayload`; a custom resume loop that read it must load the trigger event through the `triggerEventRef` on its own run-started event (see `samples/recipes/workflow-engine/src/postgres-resume-loop.ts`). Stored run-started events and pending rows keep their old copy; this release rewrites no events, and runs started before it resume from that copy.
 
 ## 0.338.0
 
@@ -2588,20 +2513,6 @@ Screen forms have no card, sections are separated by lines, fields flow in rows 
 
 **Migration:** Adjust screenshots and DOM tests that pin the old card layout. `fillHeight: false` restores page scrolling only; the footer order, the moved actions and the new field layout apply in both modes. Empty list cells render a dash.
 
-## 0.327.0
-
-### step-dispatcher
-
-**step.dispatch-requested payloads are flat and crypto-shredded; kumiko:system:* events have a declared PII stance**
-
-**Migration:** No code change is needed for r.step.mail.send / r.step.webhook.send callers. The step.dispatch-requested payload changed from a nested `spec` object to flat fields (mail.send: to as JSON string, subject, body, from; webhook.send: url, method, headersJson, bodyJson, auth, retry). With a subject KMS configured, those fields are encrypted under a per-dispatch record key (record:step-dispatch:<aggregateId>) that the step-dispatcher erases once the outcome is recorded (Art. 17 via crypto-shredding). There is no legacy branch: a dispatch-requested event still in flight at upgrade (old nested shape) ends as step.dispatch-failed with error "invalid dispatch payload", so drain the queue before deploying or accept the one-time failed event. Webhook delivery errors no longer echo the URL or the raw request error. mail.send delivery errors are recorded as a generic "mail delivery failed"; the adapter's raw error goes to the step-dispatcher log. Code reading dispatch-requested payloads directly must switch to the flat shape. A new kumiko:system:* event type must be added to SYSTEM_EVENT_PII_STANCES (crypto/system-event-pii.ts); encryptEventPayloadPii throws for an undeclared system type. SYSTEM_EVENT_PREFIX and AGGREGATE_TRANSFERRED_EVENT_TYPE now live in crypto/system-event-pii.ts, and the STEP_DISPATCH_* constants are exported from @cosmicdrift/kumiko-framework/engine instead of engine/steps/webhook-send.
-
-### workflow-runner
-
-**Workflow run-failed and retry.scheduled events store a generic error text instead of the raw error**
-
-**Migration:** The `error` field of workflow.run-failed and workflow.retry.scheduled events is now generic, "workflow step failed (<error class>)" (or "(unknown error)" for non-Error throwables), because the raw text can contain recipients or payload fragments and would survive an erase. The raw error goes to the log (namespace workflow-runner, and the framework logger for retry). Code that parses the `error` text must switch to `reason` (machine-readable, set for definition changes) or to the logs. Already stored events keep their old text. The texts for an unregistered workflow and a definition-fingerprint mismatch are unchanged. describeWorkflowStepError is exported from @cosmicdrift/kumiko-framework/engine.
-
 ## 0.326.0
 
 ### config
@@ -2898,38 +2809,6 @@ deliberately does not carry `secrets` (rebuild must stay side-effect-free).
 call site. No action needed for `MultiStreamApplyContext` consumers that
 don't read `ctx.secrets` — the field is optional and additive.
 
-### step-dispatcher
-
-**Webhook auth secrets are now tenant-owned via the secrets feature, not a global env var**
-
-`r.step.webhook.send`'s `auth` config renamed `secretRef` → `secret`. The
-value is now a name inside the tenant-owned secrets namespace
-`step-dispatcher:webhook-auth.<secret>` (secrets feature), resolved via
-`SecretsContext.get()` at dispatch time with an audit read stamped with
-the triggering event's userId (or the system actor for cron/resume
-dispatches). `setWebhookSecretResolver` / the `WEBHOOK_SECRET_*` env
-convention are gone. `performWebhookDispatch(spec)` now takes a required
-second `deps: { tenantId, userId, secrets }` argument.
-
-**Migration:** Mount `createSecretsFeature()` (with a `MasterKeyProvider`) alongside
-`createStepDispatcherFeature()` — boot-validation now fails without it.
-For each tenant that uses `r.step.webhook.send` with `auth`, set the
-credential via `secrets:write:set` under
-`step-dispatcher:webhook-auth.<secret>` (the same name passed as
-`auth.secret`). Rename `auth.secretRef` → `auth.secret` at every
-`r.step.webhook.send({ auth: {...} })` call site. Remove any
-`WEBHOOK_SECRET_*` env vars — they're no longer read.
-
-A `step.dispatch-requested` event already enqueued before this upgrade
-(still carrying the old `secretRef` shape) fails validation on drain and
-is recorded as `step.dispatch-failed` with `error: "invalid dispatch
-payload"` instead of silently resolving a stale ref — drain the queue (or
-accept the one-time failed event) before deploying.
-
-Tests calling `performWebhookDispatch` directly or using
-`setWebhookSecretResolver` must pass a `SecretsContext` (or `undefined`)
-via the new `deps` argument instead.
-
 ## 0.320.0
 
 ### @cosmicdrift/kumiko-dev-server
@@ -3075,22 +2954,6 @@ add their own host to this list. Shared with inbound-provider-imap: one
 env var covers both SMTP and IMAP allowlisting. A DNS resolution failure
 for a genuinely unreachable host now surfaces distinctly (not as
 "unconfigured") instead of only failing later at first-send time.
-
-### step-dispatcher
-
-**A webhook.send target host must resolve to a public address**
-
-**Migration:** A workflow or handler pointing `r.step.webhook.send` at an internal
-receiver or a local dev/test endpoint (localhost or a private IP) now
-gets a delivery error (step.dispatch-failed) unless that host is
-explicitly allowed. Set the operator env var (comma-separated, read at
-dispatch time — no boot-time code call needed) before starting the
-process:
-  KUMIKO_WEBHOOK_ALLOWED_PRIVATE_HOSTS=webhook-receiver.internal
-This is an operator env var, not a tenant/workflow-config value — a
-workflow author cannot add their own host to this list. A DNS resolution
-failure for a genuinely unreachable host now surfaces as a distinct
-delivery error instead of only failing later inside `fetch()`.
 
 ## 0.319.0
 

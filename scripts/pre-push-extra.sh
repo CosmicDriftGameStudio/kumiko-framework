@@ -26,6 +26,7 @@ steps=(
   --step "doc screenshot freshness (warn-only)" "bun scripts/check-doc-screenshots-fresh.ts || true"
   --step "changeset required" "BASE_REF=main bash scripts/changeset-required-check.sh"
   --step "changes-json guard (base=$MERGE_BASE)" "GITHUB_BASE_SHA=$MERGE_BASE bun scripts/guard-changes-json.ts"
+  --step "migration guide generated (CI parity)" "bun scripts/gen-migration-guide.ts && git diff --exit-code docs/reference/migration-guide.md"
 )
 
 if [ -z "${KUMIKO_PUSH_PARENT_DIR:-}" ]; then
