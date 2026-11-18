@@ -508,6 +508,23 @@ describe("CapExceededError reset info", () => {
     );
   });
 
+  test("a subject-scoped cap reports its scope in the error details, a tenant cap reports none", () => {
+    const cap = {
+      capName: "c",
+      limit: 1,
+      profile: "hardSlot" as const,
+      periodStartIso: "2026-07-01T00:00:00Z",
+    };
+    expect(() => assertBelowHardCap(1, { ...cap, scope: "subject" })).toThrow(
+      expect.objectContaining({ details: expect.objectContaining({ scope: "subject" }) }),
+    );
+    expect(() => assertBelowHardCap(1, cap)).toThrow(
+      expect.objectContaining({
+        details: expect.not.objectContaining({ scope: expect.anything() }),
+      }),
+    );
+  });
+
   test("assertBelowHardCap rejects a misconfigured period even below the limit", () => {
     const cap = {
       capName: "c",

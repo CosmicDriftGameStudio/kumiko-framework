@@ -64,6 +64,8 @@ export type EnforceCapResult =
       readonly crossed: boolean;
     };
 
+export type CapScope = "tenant" | "subject";
+
 export function assertBelowHardCap(
   valueSeenByLastUnit: number,
   cap: {
@@ -74,6 +76,8 @@ export function assertBelowHardCap(
     readonly periodStartIso?: string;
     readonly periodEndIso?: string;
     readonly i18nKey?: string;
+    // Set when the cap belongs to one subject instead of the whole tenant; reaches the client as details.scope.
+    readonly scope?: CapScope;
   },
 ): void {
   const tolerance = CAP_TOLERANCES[cap.profile];
@@ -83,6 +87,7 @@ export function assertBelowHardCap(
     throw new CapExceededError(cap.capName, cap.limit, valueSeenByLastUnit, tolerance, {
       ...(resetAt !== undefined && { resetAt }),
       ...(cap.i18nKey !== undefined && { i18nKey: cap.i18nKey }),
+      ...(cap.scope !== undefined && { scope: cap.scope }),
     });
   }
 }
@@ -141,6 +146,8 @@ export async function enforceCap(
     // Default: end of the calendar month that starts at periodStartIso.
     readonly periodEndIso?: string;
     readonly i18nKey?: string;
+    // Set when the cap belongs to one subject instead of the whole tenant; reaches the client as details.scope.
+    readonly scope?: CapScope;
   },
 ): Promise<EnforceCapResult> {
   const { user, readDb } = resolveCapCounterScope(ctx, false);
@@ -258,6 +265,7 @@ export class CapExceededError extends KumikoError {
     options?: {
       readonly resetAt?: string;
       readonly i18nKey?: string;
+      readonly scope?: CapScope;
       readonly cause?: Error;
       // Deterministic tests only.
       readonly now?: Temporal.Instant;
@@ -284,6 +292,7 @@ export class CapExceededError extends KumikoError {
         currentValue,
         tolerance,
         ...(resetAt !== undefined && { resetAt, retryAfterSeconds }),
+        ...(options?.scope !== undefined && { scope: options.scope }),
       },
       ...(retryAfterSeconds !== undefined && { retryAfterSeconds }),
       ...(options?.cause && { cause: options.cause }),

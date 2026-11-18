@@ -71,8 +71,10 @@ function subscribeWindowOnline(listener: () => void): () => void {
   if (typeof window === "undefined" || typeof window.addEventListener !== "function") {
     return () => {};
   }
-  window.addEventListener("online", listener);
-  return () => window.removeEventListener("online", listener);
+  // The cleanup can run after the global window is gone (teardown), so it keeps its own reference.
+  const target = window;
+  target.addEventListener("online", listener);
+  return () => target.removeEventListener("online", listener);
 }
 
 // Equal jitter: half the exponential delay is fixed, half random, so a server

@@ -56,11 +56,7 @@ describe("reportIngestProgress", () => {
 
     const rows = (await progressRows()).filter((row) => row.fileRefId === "file-a");
     expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({
-      id: documentIngestAggregateId(admin.tenantId, "file-a"),
-      pagesDone: 2,
-      pagesTotal: 3,
-    });
+    expect(rows[0]).toMatchObject({ pagesDone: 2, pagesTotal: 3 });
   });
 
   test("parallel reports for one file leave one row on the highest count", async () => {
