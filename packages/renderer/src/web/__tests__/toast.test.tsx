@@ -6,6 +6,11 @@
 import { describe, expect, test } from "bun:test";
 import { act, fireEvent, screen } from "@testing-library/react";
 import { type ReactNode, useEffect } from "react";
+import {
+  createStaticLocaleResolver,
+  kumikoDefaultTranslations,
+  LocaleProvider,
+} from "../../index.ts";
 import { type ToastOptions, ToastProvider, useToast } from "../primitives/toast.tsx";
 import { render } from "./test-utils.tsx";
 
@@ -204,5 +209,22 @@ describe("ToastProvider + useToast", () => {
       </ToastProvider>,
     );
     expect(screen.queryByTestId("toast-error-reference")).toBeNull();
+  });
+
+  test("the notification region carries the label of the app language", () => {
+    render(
+      <LocaleProvider
+        resolver={createStaticLocaleResolver({ locale: "de" })}
+        fallbackBundles={[
+          { de: { "kumiko.toast.viewport-label": "Benachrichtigungen ({hotkey})" } },
+          kumikoDefaultTranslations,
+        ]}
+      >
+        <ToastProvider>
+          <ToastTrigger options={[{ title: "Gespeichert" }]} />
+        </ToastProvider>
+      </LocaleProvider>,
+    );
+    expect(screen.getByRole("region").getAttribute("aria-label")).toBe("Benachrichtigungen (F8)");
   });
 });

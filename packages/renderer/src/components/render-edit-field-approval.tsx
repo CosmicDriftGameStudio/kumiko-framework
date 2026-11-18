@@ -92,7 +92,7 @@ function renderPendingRequestHint<TValues extends FormValues, TCtx>(
   if (request === undefined) return undefined;
   const { Text } = state.primitives;
   return (
-    <Text variant="muted" testId={`field-approval-pending-${field.field}`}>
+    <Text variant="muted" announce testId={`field-approval-pending-${field.field}`}>
       {pendingRequestText(field, request, state.translate, state.appLocale)}
     </Text>
   );
@@ -125,7 +125,7 @@ export function fieldApprovalAppendix<TValues extends FormValues, TCtx>(
   field: EditFieldViewModel,
 ): ReactNode | undefined {
   const { props, state } = model.engine;
-  const { Button, Text } = state.primitives;
+  const { Button, Grid, Text } = state.primitives;
   const { translate, fieldApproval } = state;
   const fieldName = field.field;
   const gated = isApprovalGatedField(model, fieldName);
@@ -141,8 +141,9 @@ export function fieldApprovalAppendix<TValues extends FormValues, TCtx>(
   if (request === undefined && !gated) return undefined;
   const actionsAllowed = props.disabled !== true;
   const ownRequest = request?.filedByCaller === true;
+  // One wrapping row: on a phone the link drops below the hint as a whole instead of running into it.
   return (
-    <>
+    <Grid columns="auto" tight>
       {renderPendingRequestHint(model, field)}
       {actionsAllowed && request !== undefined && ownRequest && (
         <Button
@@ -166,7 +167,7 @@ export function fieldApprovalAppendix<TValues extends FormValues, TCtx>(
           {translate("kumiko.form.fieldApproval.requestChange")}
         </Button>
       )}
-    </>
+    </Grid>
   );
 }
 
@@ -296,11 +297,8 @@ function FieldApprovalDrawer<TValues extends FormValues, TCtx>({
               onSubmit={(result) => {
                 // skip: blocked, failed or nothing filed; the drawer stays open
                 if (result.validationBlocked || !result.isSuccess || result.isNoOp === true) return;
+                // No toast: it would cover the form's Save, and the hint at the field is the answer.
                 close();
-                state.notifyAction?.({
-                  tone: "success",
-                  text: translate("kumiko.form.fieldApproval.submitted"),
-                });
                 fieldApproval.reload();
               }}
             />

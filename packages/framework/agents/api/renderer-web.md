@@ -87,7 +87,7 @@ function PreviewWidthFrame(props: { device: PreviewDevice; children: ReactNode; 
 function PrimitivesProvider(props: PrimitivesProviderProps): ReactNode;
 function ProfileMenu(props: ProfileMenuProps): ReactNode;
 function ProgressBar(props: { value: number; tone?: ProgressTone; size?: "default" | "thin"; ariaLabel?: string; className?: string; testId?: string; }): ReactNode; // Progress bar, `value` 0..1 (clamped).
-function ProgressList(props: { rows: ProgressListRow[]; emptyContent?: ReactNode; testId?: string; }): ReactNode; // Label/value header and progress bar for each entry (for example, loan repayment progress).
+function ProgressList(props: { rows: ProgressListRow[]; emptyContent?: ReactNode; testId?: string; }): ReactNode; // Label/value header with its progress bar right below, per entry (for example, loan repayment progress).
 function PublicShell(props: PublicShellProps): ReactNode; // One header and footer for anonymous pages; `focus` narrows to a task column, `card` centers a single card (sign-in).
 function QueryTable<TData = unknown>(props: QueryTableProps<TData>): ReactNode;
 function RailField(props: { children: ReactNode; }): ReactNode;
@@ -1826,6 +1826,7 @@ type TextProps = { // Semantic text.
   decorative?: boolean; // Pure ornament (e.g. a separator glyph): hidden from assistive tech.
   concealed?: boolean; // A value the viewer may not see: drawn muted with a lock icon before it.
   narrow?: string; // Phone wording: `children` show from `sm` up, this text below it.
+  announce?: boolean; // Screen readers announce the text when it appears or changes (web: `role="status"`).
   children: ReactNode;
   testId?: string;
 };

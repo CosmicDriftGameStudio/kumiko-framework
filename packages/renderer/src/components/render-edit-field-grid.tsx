@@ -91,11 +91,7 @@ function createFieldCellRenderer<TValues extends FormValues, TCtx>(
     return (
       <GridCellForField
         key={field.field}
-        field={
-          disabled || isApprovalLockedField(model, field.field)
-            ? { ...field, readOnly: true }
-            : field
-        }
+        {...lockedFieldCellProps(model, field, disabled)}
         columns={columns}
         {...(!isSettingsList && flows && { flow: true })}
         {...(isSettingsList && {
@@ -135,6 +131,18 @@ function createFieldCellRenderer<TValues extends FormValues, TCtx>(
       />
     );
   };
+}
+
+// A field locked only by a pending approval keeps the cell it has while editable; a disabled form
+// shows every field read-only.
+function lockedFieldCellProps<TValues extends FormValues, TCtx>(
+  model: RenderEditModel<TValues, TCtx>,
+  field: EditFieldViewModel,
+  disabled: boolean,
+): { readonly field: EditFieldViewModel; readonly keepsEditableWidth?: true } {
+  if (disabled) return { field: { ...field, readOnly: true } };
+  if (field.readOnly || !isApprovalLockedField(model, field.field)) return { field };
+  return { field: { ...field, readOnly: true }, keepsEditableWidth: true };
 }
 
 // The flow layout sizes each field by its type and ignores `columns`; a section opts out with

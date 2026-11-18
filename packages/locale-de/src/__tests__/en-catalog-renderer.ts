@@ -368,6 +368,7 @@ export const rendererEnCatalog: Readonly<Record<string, string>> = {
   "kumiko.secretMint.warning":
     "Copy this now — it is shown only this once and cannot be retrieved later.",
   "kumiko.toast.learn-more": "Learn more",
+  "kumiko.toast.viewport-label": "Notifications ({hotkey})",
   "kumiko.validation.invalid": "Invalid value.",
   "kumiko.validation.optionNotAvailable": "Not available for the current selection.",
   "kumiko.validation.out-of-range": "Value out of allowed range.",

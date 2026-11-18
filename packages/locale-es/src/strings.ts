@@ -1094,6 +1094,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "kumiko.secretMint.warning":
     "Cópialo ahora: solo se muestra una vez y no se podrá recuperar después.",
   "kumiko.toast.learn-more": "Más información",
+  "kumiko.toast.viewport-label": "Notificaciones ({hotkey})",
   "kumiko.validation.invalid": "Valor no válido.",
   "kumiko.validation.out-of-range": "Valor fuera del rango permitido.",
   "kumiko.validation.required": "Campo obligatorio.",

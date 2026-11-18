@@ -63,6 +63,7 @@ export type ToastProviderProps = {
 };
 
 export function ToastProvider({ children }: ToastProviderProps): ReactNode {
+  const t = useTranslation();
   const [entries, setEntries] = useState<readonly ToastEntry[]>([]);
   // A monotonically increasing useRef counter avoids a closure bug: two
   // toast() calls in the same tick would read the same stale useState value
@@ -94,6 +95,7 @@ export function ToastProvider({ children }: ToastProviderProps): ReactNode {
           />
         ))}
         <Primitive.Viewport
+          label={t("kumiko.toast.viewport-label")}
           className={cn(
             "fixed top-(--shell-header-height) right-0 z-[100] flex max-h-screen w-full flex-col-reverse gap-2 p-4",
             "sm:bottom-0 sm:right-0 sm:top-auto sm:flex-col md:max-w-[420px]",

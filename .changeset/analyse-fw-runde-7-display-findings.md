@@ -67,3 +67,10 @@ type: fix
 title: Phone card layout: title first, date ranges, no empty lines
 detail: On the phone card the title keeps its line and a long status badge wraps below it. Exactly two unlabelled dates on one line above the title (`cardAbove`) read as a range with a dash. Empty file lists no longer leave a blank meta line. With a row menu (and no leading image, checkbox or expand toggle) the menu sits beside the title line without making it taller, the status badge stays at the right edge, and the lines above and below the title use the full card width.
 -->
+
+<!-- kumiko-changes
+feature: renderer
+type: fix
+title: Progress lists name an entry above its bar, translated notification region
+detail: `ProgressList` shows name and value first and the bar right below, with more space between two entries than inside one, so a reader from the top pairs each name with its own bar. The toast region is labelled through `kumiko.toast.viewport-label` (Radix fills in the hotkey) instead of the fixed English "Notifications (F8)", in all locale packages.
+-->

@@ -417,14 +417,17 @@ export function DefaultText({
   decorative,
   concealed,
   narrow,
+  announce,
   children,
   testId,
 }: TextProps): ReactNode {
   if (narrow !== undefined) return <NarrowText text={children} narrow={narrow} />;
+  const live = announce === true ? { role: "status" } : undefined;
   if (concealed === true) {
     return (
       <span
         data-testid={testId}
+        {...live}
         data-concealed=""
         className="inline-flex items-center gap-1.5 text-muted-foreground"
       >
@@ -438,6 +441,7 @@ export function DefaultText({
       return (
         <code
           data-testid={testId}
+          {...live}
           className="relative rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono text-sm"
         >
           {children}
@@ -445,13 +449,13 @@ export function DefaultText({
       );
     case "small":
       return (
-        <small data-testid={testId} className="text-xs text-muted-foreground">
+        <small data-testid={testId} {...live} className="text-xs text-muted-foreground">
           {children}
         </small>
       );
     case "required-mark":
       return (
-        <span data-testid={testId} data-required className="text-destructive">
+        <span data-testid={testId} {...live} data-required className="text-destructive">
           {children}
         </span>
       );
@@ -459,6 +463,7 @@ export function DefaultText({
       return (
         <span
           data-testid={testId}
+          {...live}
           {...(decorative === true && { "aria-hidden": true })}
           className="text-sm text-muted-foreground"
         >
@@ -466,7 +471,11 @@ export function DefaultText({
         </span>
       );
     default:
-      return <span data-testid={testId}>{children}</span>;
+      return (
+        <span data-testid={testId} {...live}>
+          {children}
+        </span>
+      );
   }
 }
 

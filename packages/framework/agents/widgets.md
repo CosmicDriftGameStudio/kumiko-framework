@@ -96,7 +96,7 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | `PrimitivesProvider` |  |
 | `ProfileMenu` |  |
 | `ProgressBar` | Progress bar, `value` 0..1 (clamped). |
-| `ProgressList` | Label/value header and progress bar for each entry (for example, loan repayment progress). |
+| `ProgressList` | Label/value header with its progress bar right below, per entry (for example, loan repayment progress). |
 | `PublicShell` | One header and footer for anonymous pages; `focus` narrows to a task column, `card` centers a single card (sign-in). |
 | `QueryTable` |  |
 | `RailField` |  |

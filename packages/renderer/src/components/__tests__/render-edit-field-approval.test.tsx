@@ -51,6 +51,8 @@ const REQUEST_CHANGE = "field-approval:write:request-change";
 const REJECT_CHANGE = "field-approval:write:reject-change";
 const PENDING_CHANGES = "field-approval:query:pending-changes";
 const DRAWER = "render-edit-field-approval-drawer";
+// The drawer form nests in the record form, so its field ids carry a scope of their own.
+const DRAWER_IBAN_ISSUE = /^field-kumiko-edit-.+-iban-issue$/;
 
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 
@@ -405,7 +407,7 @@ describe("RenderEdit — gated fields", () => {
     expect(writes.filter((w) => w.type === UPDATE)).toEqual([]);
   });
 
-  test("a filed request confirms through the notifier, closes the drawer and shows the request", async () => {
+  test("a filed request closes the drawer and answers at the field, without a notice", async () => {
     const openRequests: OpenRequest[] = [];
     const run = renderContactEdit({
       gatedFields: ["iban"],
@@ -425,11 +427,9 @@ describe("RenderEdit — gated fields", () => {
     fireEvent.change(drawerInput(drawer, "iban"), { target: { value: NEW_IBAN } });
     fireEvent.click(within(drawer).getByTestId("render-edit-submit"));
 
-    await waitFor(() =>
-      expect(run.notices).toEqual([{ tone: "success", text: "Submitted for approval" }]),
-    );
-    expect(rtlScreen.queryByTestId(DRAWER)).toBeNull();
+    await waitFor(() => expect(rtlScreen.queryByTestId(DRAWER)).toBeNull());
     const hint = await rtlScreen.findByText(`Requested: ${NEW_IBAN} · awaiting approval`);
+    expect(run.notices).toEqual([]);
     expect(rtlScreen.getByTestId("field-kumiko-edit-iban").contains(hint)).toBe(true);
     expect(run.queries.filter((q) => q.type === PENDING_CHANGES)).toHaveLength(2);
     expect(input("iban").value).toBe(OLD_IBAN);
@@ -455,7 +455,7 @@ describe("RenderEdit — gated fields", () => {
     fireEvent.click(within(drawer).getByTestId("render-edit-submit"));
 
     await waitFor(() => expect(batches).toHaveLength(1));
-    const issue = await within(drawer).findByTestId("field-kumiko-edit-iban-issue");
+    const issue = await within(drawer).findByTestId(DRAWER_IBAN_ISSUE);
     expect(issue.textContent).toBe("errors.validation.invalidIban");
     expect(drawer.isConnected).toBe(true);
   });
@@ -466,7 +466,7 @@ describe("RenderEdit — gated fields", () => {
     fireEvent.change(drawerInput(drawer, "iban"), { target: { value: "" } });
     fireEvent.click(within(drawer).getByTestId("render-edit-submit"));
 
-    await within(drawer).findByTestId("field-kumiko-edit-iban-issue");
+    await within(drawer).findByTestId(DRAWER_IBAN_ISSUE);
     expect(batches).toEqual([]);
   });
 

@@ -42,6 +42,8 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.pwa.install-hint-ios": "To install this app, tap Share and then “Add to Home Screen”.",
 
     "kumiko.toast.learn-more": "Learn more",
+    // Radix fills in {hotkey} (F8).
+    "kumiko.toast.viewport-label": "Notifications ({hotkey})",
 
     "kumiko.field.open-calendar": "Open calendar",
     "kumiko.field.dateField.placeholderYear": "Y",

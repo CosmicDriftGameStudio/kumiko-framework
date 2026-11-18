@@ -1219,11 +1219,9 @@ export type GridCellProps = {
   readonly children: ReactNode;
 };
 
-/** Semantic text. Variants map to standard typography roles: `body` is
- *  the default, `small` for secondary labels, `code` for inline monospace
- *  (entityId, screen-id), `required-mark` for the asterisk after labels,
- *  `muted` for dimmed body text (text-sm muted-foreground). Custom impls map
- *  these to their own type scale. */
+/** Semantic text. Variants map to standard typography roles: `body` is the default, `small` for secondary
+ *  labels, `code` for inline monospace (entityId, screen-id), `required-mark` for the asterisk after labels,
+ *  `muted` for dimmed body text (text-sm muted-foreground). Custom impls map these to their own type scale. */
 export type TextProps = {
   readonly variant?: "body" | "small" | "code" | "required-mark" | "muted";
   /** Pure ornament (e.g. a separator glyph): hidden from assistive tech. */
@@ -1232,6 +1230,8 @@ export type TextProps = {
   readonly concealed?: boolean;
   /** Phone wording: `children` show from `sm` up, this text below it. */
   readonly narrow?: string;
+  /** Screen readers announce the text when it appears or changes (web: `role="status"`). */
+  readonly announce?: boolean;
   readonly children: ReactNode;
   readonly testId?: string;
 };

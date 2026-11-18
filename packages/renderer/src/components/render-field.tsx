@@ -5,7 +5,7 @@ import { useLocale, useTranslation } from "../i18n.tsx";
 import { type FieldProps, usePrimitives } from "../primitives.tsx";
 import { HideRequiredMarkerContext } from "../required-marker-context.ts";
 import { listPrintsOwnIssues, renderControl } from "./render-field-control.tsx";
-import { inputId } from "./render-field-meta.ts";
+import { inputId, useFieldIdScope } from "./render-field-meta.ts";
 
 // RenderField translates an EditFieldViewModel into a primitives tree.
 // Raw HTML is excluded; all presentation decisions (label position,
@@ -157,9 +157,10 @@ export function RenderField({
   const t = useTranslation();
   const allFieldsRequired = useContext(HideRequiredMarkerContext);
   const iconless = useContext(FieldIconsHiddenContext);
+  const idScope = useFieldIdScope();
   if (!field.visible) return null;
 
-  const id = inputId(field);
+  const id = inputId(field, idScope);
   // An author-declared renderer always wins over the input widget, same as
   // the list-column path (render-list.tsx). Only takes effect once the field
   // is actually readOnly — a FormatSpec/PlatformComponent renderer has no

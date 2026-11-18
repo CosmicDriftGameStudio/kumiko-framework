@@ -14,6 +14,7 @@ import { createHandleSubmit } from "./render-edit-submit.ts";
 import { deriveTitles } from "./render-edit-titles.ts";
 import type { RenderEditProps } from "./render-edit-types.ts";
 import { createWizardNavigation } from "./render-edit-wizard-navigation.ts";
+import { FieldIdScopeProvider, useNestedFieldIdScope } from "./render-field-meta.ts";
 import { useRenderEditControlledSync } from "./use-render-edit-controlled-sync.ts";
 import { useRenderEditDraftSave } from "./use-render-edit-draft-save.ts";
 import { useRenderEditForm } from "./use-render-edit-form.ts";
@@ -38,6 +39,7 @@ function footerSlotName(screen: EntityEditScreenDefinition): string | undefined 
 export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   rawProps: RenderEditProps<TValues, TCtx>,
 ): ReactNode {
+  const fieldIdScope = useNestedFieldIdScope();
   const effectiveSchema = useEffectiveFormSchema(rawProps);
   const props = { ...resolveRenderEditProps(rawProps), schema: effectiveSchema };
   const state = useRenderEditState({
@@ -93,5 +95,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       partial: Readonly<Record<string, unknown>>,
     ) => void,
   };
-  return renderEditLayout(model);
+  return (
+    <FieldIdScopeProvider value={fieldIdScope}>{renderEditLayout(model)}</FieldIdScopeProvider>
+  );
 }
