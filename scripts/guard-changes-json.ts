@@ -21,7 +21,8 @@ import {
   validateChangelog,
 } from "../packages/framework/src/engine/feature-changelog";
 import { resolveFeatureTarget } from "../bin/commands/changes";
-import { parseChangesetChanges } from "../packages/framework/src/engine/changeset-changes";
+import { parseChangesetChanges, type PendingChange } from "../packages/framework/src/engine/changeset-changes";
+import { parseChangesetBumps } from "./guard-no-major-gt-zero";
 
 const SEMVER_RE = /^\d+\.\d+\.\d+$/;
 
@@ -209,6 +210,25 @@ function frontmatterNamesPackage(frontmatter: string, packageName: string): bool
   return new RegExp(`^\\s*["']?${escaped}["']?\\s*:`, "m").test(frontmatter);
 }
 
+// On 0.x a caret range takes every patch of its minor line, so `minor` is the
+// only bump that keeps a break away from `^0.X.0` consumers, and a `minor`
+// without a break would stop them from getting fixes. `major` is refused by
+// guard-no-major-gt-zero.
+export function bumpTypeViolation(
+  bumps: ReadonlyMap<string, string>,
+  changes: readonly PendingChange[],
+): string | undefined {
+  const bumpKinds = new Set(bumps.values());
+  const hasBreaking = changes.some((change) => change.type === "breaking");
+  if (bumpKinds.has("minor") && !hasBreaking) {
+    return "bump minor needs a breaking entry in the kumiko-changes block; fixes and improvements use patch";
+  }
+  if (hasBreaking && !bumpKinds.has("minor") && !bumpKinds.has("major")) {
+    return "a breaking entry needs bump minor, patch would reach ^0.X.0 consumers without notice";
+  }
+  return undefined;
+}
+
 export function findChangesetViolations(
   repoRoot: string,
   changed?: readonly string[],
@@ -237,6 +257,8 @@ export function findChangesetViolations(
         if (parsed.length === 0) {
           violations.push({ file, detail: "missing kumiko-changes metadata block" });
         }
+        const bumpDetail = bumpTypeViolation(parseChangesetBumps(raw), parsed);
+        if (bumpDetail) violations.push({ file, detail: bumpDetail });
         const frontmatter = /^\s*---\n([\s\S]*?)\n---/.exec(raw)?.[1] ?? "";
         parsed.forEach((change, index) => {
           for (const field of ["title", "detail", "migration"] as const) {

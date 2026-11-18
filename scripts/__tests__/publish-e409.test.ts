@@ -175,7 +175,7 @@ function runWithNpmStub(spec: NpmStubSpec): {
   const callLog = join(stubDir, "npm-calls.log");
   rmSync(callLog, { force: true });
   const script =
-    `set -euo pipefail\n\n${PUBLISH_AND_TAG_FN}\n\n` +
+    `set -euo pipefail\ndist_tag=latest\n\n${PUBLISH_AND_TAG_FN}\n\n` +
     `publish_and_tag /tmp/fake.tgz @cosmicdrift/kumiko-types 0.233.0\n` +
     `echo "already_published_via_e403=$already_published_via_e403"\n` +
     `echo "staged_unconfirmed=$staged_unconfirmed"\n`;
@@ -323,6 +323,7 @@ function runPublishOutcomeBranch(
   const script =
     [
       "set -euo pipefail",
+      "dist_tag=latest",
       EMIT_TAG_FN,
       REMOVE_TMP_TAG_FN,
       'name="@cosmicdrift/kumiko-types"',
@@ -379,6 +380,7 @@ function runSkipBranch(
   const script =
     [
       "set -euo pipefail",
+      "dist_tag=latest",
       EMIT_TAG_FN,
       REMOVE_TMP_TAG_FN,
       'name="@cosmicdrift/kumiko-types"',

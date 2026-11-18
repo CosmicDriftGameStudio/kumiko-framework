@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 
-export const SEMVER_RE = /^\d+\.\d+\.\d+$/;
+// A canary marker carries its prerelease suffix (0.425.0-next-<datetime>-<sha>).
+export const SEMVER_RE = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 const MANUAL_ID_HASH_LENGTH = 8;
 
 export type UpgradeMarkerCodemod = {

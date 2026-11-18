@@ -196,20 +196,10 @@ function changesetFeatureFor(pkg: PackageName, key: string): string {
   return pkg === "framework" ? "framework" : featureNameForBundledKey(key);
 }
 
-// x.y.z tuple compare, numeric per segment; a prerelease suffix is ignored.
+// Same semver precedence as the framework's compareVersions, without importing
+// the framework: guards must stay installable on their own.
 export function compareVersionsLocal(a: string, b: string): number {
-  const parse = (v: string): number[] =>
-    (v.split("-")[0] ?? v).split(".").map((seg) => {
-      const n = Number(seg);
-      return Number.isFinite(n) ? n : 0;
-    });
-  const pa = parse(a);
-  const pb = parse(b);
-  for (let i = 0; i < 3; i++) {
-    const diff = (pa[i] ?? 0) - (pb[i] ?? 0);
-    if (diff !== 0) return diff;
-  }
-  return 0;
+  return Bun.semver.order(a, b);
 }
 
 function escapeRegExp(value: string): string {
