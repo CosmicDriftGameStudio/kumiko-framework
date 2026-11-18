@@ -26,12 +26,12 @@ function getUnscopedStreamMaxVersionForSeed(...args: Parameters<typeof getUnscop
 function isSeedModeEnabled(env?: Readonly<Record<string, string | undefined>>): boolean;
 function isStreamArchived(db: DbRunner, tenantId: TenantId, aggregateId: string): Promise<boolean>;
 function loadAggregate(db: DbRunner, aggregateId: string, tenantId: TenantId, options?: { includeArchived?: boolean; aggregateType?: string; atVersion?: number; }): Promise<StoredEvent[]>;
-function makeUpcastCtx(db: DbRunner, tenantId: TenantId): EventUpcastCtx;
+function makeUpcastCtx(db: DbRunner, tenantId: TenantId): UpcastBaseCtx;
 function runSeedWritesAt<T>(createdAt: Temporal.Instant, fn: () => Promise<T>): Promise<T>; // Runs `fn` so that every event appended inside it (through the normal write path: handlers, validation, projections) is stored with `createdAt` instead of the database `now()`.
 function selectOpenStreamsStartedBefore(db: DbRunner, args: OpenStreamsArgs): Promise<OpenStream[]>;
 function streamAllEventsByType(db: DbRunner, aggregateType: string, batchSize?, signal?: AbortSignal): AsyncIterable<StoredEvent>;
 function transferAggregateStreams(db: DbRunner, args: TransferAggregateStreamsArgs): Promise<number>;
-function upcastStoredEvent(event: StoredEvent, upcasters: EventUpcasters, ctx: EventUpcastCtx): Promise<StoredEvent>;
+function upcastStoredEvent(event: StoredEvent, upcasters: EventUpcasters, baseCtx: UpcastBaseCtx): Promise<StoredEvent>;
 ```
 
 ## Constants

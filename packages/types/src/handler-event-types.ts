@@ -289,6 +289,9 @@ export type AggregateStreamHandle = {
 export type EventUpcastCtx = {
   readonly db: import("./db-connection.ts").DbRunner;
   readonly tenantId: import("./identifiers.ts").TenantId;
+  // Stream of the event being migrated; a created payload carries no id of its own.
+  readonly aggregateId: string;
+  readonly aggregateType: string;
 };
 
 export type EventUpcastFn = (payload: unknown, ctx: EventUpcastCtx) => unknown | Promise<unknown>;

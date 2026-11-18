@@ -9,6 +9,8 @@ import type { SingleStreamApplyFn } from "@cosmicdrift/kumiko-types/projection";
 import * as z from "zod";
 import {
   createEntity,
+  createLocatedTimestampField,
+  createMoneyField,
   createTextField,
   defineEntityCreateHandler,
   defineFeature,
@@ -19,6 +21,7 @@ import {
 import { rebuildProjection } from "../../pipeline/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { generateDeterministicId } from "../../utils/index.ts";
+import { rehydrateCompoundTypes } from "../compound-types.ts";
 import { insertProjectedEntityRow, patchProjectedEntityRow } from "../projected-entity-row.ts";
 import { selectMany } from "../query.ts";
 import { buildEntityTable } from "../table-builder.ts";
@@ -36,6 +39,8 @@ const receiptEntity = createEntity({
   fields: {
     orderId: createTextField({ personal: false, reason: "is_business_data" }),
     note: createTextField({ personal: false, reason: "is_business_data" }),
+    total: createMoneyField(),
+    pickup: createLocatedTimestampField(),
   },
 });
 const receiptTable = buildEntityTable(receiptEntity);
@@ -56,6 +61,7 @@ const peFeature = defineFeature("pe", (r) => {
   const eventShape = z.object({ note: z.string() });
   const paid = r.defineEvent("order-paid", eventShape, { piiFields: "none" });
   const noted = r.defineEvent("order-noted", eventShape, { piiFields: "none" });
+  const repriced = r.defineEvent("order-repriced", eventShape, { piiFields: "none" });
   const tagged = r.defineEvent("order-tagged", eventShape.extend({ bogus: z.string() }), {
     piiFields: "none",
   });
@@ -66,11 +72,18 @@ const peFeature = defineFeature("pe", (r) => {
       await insertProjectedEntityRow(tx, receipts, event, receiptIdOf(event), {
         orderId: event.aggregateId,
         note: p.note,
+        total: { amount: 12_345, currency: "EUR" },
+        pickup: { at: "2026-04-15T10:00:00", tz: "Europe/Lisbon", utc: "2026-04-15T09:00:00Z" },
       });
     },
     [noted.name]: async (event, tx) => {
       const p = typedPayload(event, noted);
       await patchProjectedEntityRow(tx, receipts, event, receiptIdOf(event), { note: p.note });
+    },
+    [repriced.name]: async (event, tx) => {
+      await patchProjectedEntityRow(tx, receipts, event, receiptIdOf(event), {
+        total: { amount: 6_789, currency: "USD" },
+      });
     },
     [tagged.name]: async (event, tx) => {
       const p = typedPayload(event, tagged);
@@ -101,6 +114,7 @@ const peFeature = defineFeature("pe", (r) => {
   const eventWrites = [
     ["order:pay", paid],
     ["order:note", noted],
+    ["order:reprice", repriced],
   ] as const;
   for (const [name, def] of eventWrites) {
     r.writeHandler(
@@ -154,7 +168,7 @@ afterAll(async () => {
 async function receiptRow(id: string): Promise<Record<string, unknown>> {
   const [row] = await selectMany(stack.db, receiptTable, { id });
   if (row === undefined) throw new Error("receipt row missing");
-  return row;
+  return rehydrateCompoundTypes(row, receiptEntity);
 }
 
 describe("projected entity row helpers", () => {
@@ -177,6 +191,13 @@ describe("projected entity row helpers", () => {
       note: "paid",
     });
     expect(inserted["insertedAt"]).not.toBeNull();
+    expect(inserted["total"]).toEqual({ amount: 12_345, currency: "EUR" });
+    expect(inserted["pickup"]).toMatchObject({ tz: "Europe/Lisbon", utc: "2026-04-15T09:00:00Z" });
+
+    await stack.http.writeOk("pe:write:order:reprice", { id: orderId, note: "x" }, admin);
+    const repriced = await receiptRow(receiptId);
+    expect(repriced["total"]).toEqual({ amount: 6_789, currency: "USD" });
+    expect(repriced["note"]).toBe("paid");
 
     await stack.http.writeOk("pe:write:order:note", { id: orderId, note: "noted" }, admin);
     const patched = await receiptRow(receiptId);

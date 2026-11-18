@@ -2,6 +2,7 @@ import type { ExecutorManagedRunner } from "@cosmicdrift/kumiko-types/executor-b
 import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import { InternalError } from "../errors/index.ts";
 import type { StoredEvent } from "../event-store/index.ts";
+import { flattenCompoundTypes } from "./compound-types.ts";
 import type { EntityTableMeta } from "./entity-table-meta.ts";
 import { insertOne, updateMany } from "./query.ts";
 import type { EntityRow } from "./table-builder.ts";
@@ -57,14 +58,16 @@ export async function insertProjectedEntityRow<E extends EntityDefinition>(
   rowId: string,
   values: ProjectedEntityValues<E>,
 ): Promise<void> {
-  assertFieldColumns(target, values, "insertProjectedEntityRow");
+  // EntityRow carries money and locatedTimestamp as one combined key; the table has column pairs.
+  const flat = flattenCompoundTypes(values, target.entity);
+  assertFieldColumns(target, flat, "insertProjectedEntityRow");
   // A row created by an event on its own stream starts at that event's version (the stream
   // bump ran before this apply and found no row); a row created from another stream has no
   // stream of its own.
   const version =
     event.aggregateType === target.entityName && event.aggregateId === rowId ? event.version : 1;
   await insertOne(tx, target.table, {
-    ...values,
+    ...flat,
     id: rowId,
     tenantId: event.tenantId,
     version,
@@ -80,13 +83,14 @@ export async function patchProjectedEntityRow<E extends EntityDefinition>(
   rowId: string,
   set: ProjectedEntityValues<E>,
 ): Promise<void> {
-  assertFieldColumns(target, set, "patchProjectedEntityRow");
+  const flat = flattenCompoundTypes(set, target.entity);
+  assertFieldColumns(target, flat, "patchProjectedEntityRow");
   // No version: an event on the row's own stream already moved it (runProjectionsForEvent,
   // rebuild alignment); an event from another stream must not stamp its stream's version on this row.
   await updateMany(
     tx,
     target.table,
-    { ...set, modifiedAt: event.createdAt, modifiedById: event.createdBy },
+    { ...flat, modifiedAt: event.createdAt, modifiedById: event.createdBy },
     { id: rowId, tenantId: event.tenantId },
   );
 }

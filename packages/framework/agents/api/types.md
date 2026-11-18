@@ -1243,6 +1243,7 @@ type TransferAggregateStreamsArgs = {
 
 ```ts
 type EventUpcasters = ReadonlyMap<string, { currentVersion: number; chain: ReadonlyMap<number, EventUpcastFn>; }>;
+type UpcastBaseCtx = Pick<EventUpcastCtx, "db" | "tenantId">;
 ```
 
 ## packages/framework/src/files/provider-resolver.ts
@@ -4470,6 +4471,8 @@ type EventPiiSubject =
 type EventUpcastCtx = {
   db: DbRunner;
   tenantId: TenantId;
+  aggregateId: string;
+  aggregateType: string;
 };
 type EventUpcastFn = (payload: unknown, ctx: EventUpcastCtx) => unknown | Promise<unknown>;
 type FetchForWritingArgs = {

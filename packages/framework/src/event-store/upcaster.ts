@@ -18,6 +18,9 @@ import { recordUpcasterDeadLetter } from "./upcaster-dead-letter.ts";
 //                replays after the code fix. Pick this for projections where a
 //                single unrenderable historic event shouldn't block the rest
 //                of the stream.
+// What a caller knows before an event is picked: the per-event stream identity is added per event.
+export type UpcastBaseCtx = Pick<EventUpcastCtx, "db" | "tenantId">;
+
 export type UpcasterErrorPolicy = "throw" | "quarantine";
 
 export type UpcastOptions = {
@@ -55,14 +58,14 @@ export type EventUpcasters = ReadonlyMap<
 //   - A failing transform propagates its error (errorPolicy "throw"); with
 //     "quarantine" it is recorded as an upcaster dead letter and the event is dropped.
 //
-// `ctx` carries db + tenantId for async upcasters that need DB enrichment.
-// Sync transforms ignore ctx entirely.
+// `baseCtx` carries db + tenantId; each event's aggregateId and aggregateType are added for the
+// transforms, which need them because a created payload carries no id of its own.
 export async function upcastStoredEvent(
   event: StoredEvent,
   upcasters: EventUpcasters,
-  ctx: EventUpcastCtx,
+  baseCtx: UpcastBaseCtx,
 ): Promise<StoredEvent> {
-  const result = await upcastStoredEventWithPolicy(event, upcasters, ctx, {
+  const result = await upcastStoredEventWithPolicy(event, upcasters, baseCtx, {
     errorPolicy: "throw",
   });
   // `throw` mode never returns null: the catch-block rethrows.
@@ -78,7 +81,7 @@ export async function upcastStoredEvent(
 async function upcastStoredEventWithPolicy(
   event: StoredEvent,
   upcasters: EventUpcasters,
-  ctx: EventUpcastCtx,
+  baseCtx: UpcastBaseCtx,
   options: UpcastOptions,
 ): Promise<StoredEvent | null> {
   const info = upcasters.get(event.type);
@@ -88,6 +91,11 @@ async function upcastStoredEventWithPolicy(
   }
   if (!info || event.eventVersion === knownVersion) return event;
 
+  const ctx: EventUpcastCtx = {
+    ...baseCtx,
+    aggregateId: event.aggregateId,
+    aggregateType: event.aggregateType,
+  };
   let payload = event.payload as unknown; // @cast-boundary engine-payload
   let v = event.eventVersion;
   const startVersion = event.eventVersion;
@@ -127,17 +135,17 @@ async function upcastStoredEventWithPolicy(
 export async function upcastStoredEvents(
   events: readonly StoredEvent[],
   upcasters: EventUpcasters,
-  ctx: EventUpcastCtx,
+  baseCtx: UpcastBaseCtx,
   options: UpcastOptions = {},
 ): Promise<readonly StoredEvent[]> {
   const results = await Promise.all(
-    events.map((e) => upcastStoredEventWithPolicy(e, upcasters, ctx, options)),
+    events.map((e) => upcastStoredEventWithPolicy(e, upcasters, baseCtx, options)),
   );
   return results.filter((e): e is StoredEvent => e !== null);
 }
 
 // Convenience builder for callers that have db + tenantId at hand and want
 // to construct the ctx-arg without restating the field names everywhere.
-export function makeUpcastCtx(db: DbRunner, tenantId: TenantId): EventUpcastCtx {
+export function makeUpcastCtx(db: DbRunner, tenantId: TenantId): UpcastBaseCtx {
   return { db, tenantId };
 }
