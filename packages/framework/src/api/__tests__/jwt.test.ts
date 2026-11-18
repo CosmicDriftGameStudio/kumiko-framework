@@ -246,7 +246,7 @@ describe("loadJwtSecretOrKeyring", () => {
   });
 
   it("plain JWT_SECRET alongside a keyring is not carried into it", () => {
-    const PLAIN_SECRET = "plain-secret-at-least-32-characters-long-bb";
+    const PLAIN_SECRET = `plain-${SECRET}`;
     expect(
       loadJwtSecretOrKeyring({
         JWT_SECRET: PLAIN_SECRET,
