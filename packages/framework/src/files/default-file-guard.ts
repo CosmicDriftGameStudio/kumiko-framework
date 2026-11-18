@@ -7,8 +7,9 @@ export const DEFAULT_PRIVILEGED_ROLES = ["TenantAdmin", "Admin", "SystemAdmin"] 
 // Default guard: the uploader and a privileged role get every file, attached, pending or
 // unclaimed; on a record-only entity type the privileged role gets no shortcut and the record
 // decides. For reads, the unclaimed-upload readers also get uploads no record can claim, and
-// everyone who may read the record gets its attached files. Delete stays with the uploader and
-// privileged roles: reading a record is no right to remove its files.
+// everyone who may read the record and the field holding the file gets its attached files.
+// Delete stays with the uploader and privileged roles: reading a record is no right to remove
+// its files.
 export function createDefaultGuard(
   privilegedRoles: readonly string[],
   canReadRecord: RecordReadCheck | undefined,
@@ -35,6 +36,7 @@ export function createDefaultGuard(
       entityType: fileRef.entityType,
       entityId: fileRef.entityId,
       user,
+      file: { id: fileRef.id, fieldName: fileRef.fieldName },
     });
     return recordReadable ? "allow" : "deny";
   };

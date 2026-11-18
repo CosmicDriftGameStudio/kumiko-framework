@@ -54,6 +54,7 @@ import { markExecutorManagedTable } from "../db/executor-managed-tables.ts";
 import { asEntityTableMeta } from "../db/query.ts";
 import { buildEntityTable, declareSystemRowsReadable } from "../db/table-builder.ts";
 import { FRAMEWORK_OWNED_EXTENSIONS } from "./extension-names.ts";
+import { isReadRestrictedField } from "./field-access.ts";
 import { type QnType, qualifyEntityName } from "./qualified-name.ts";
 import type { FeatureDefinition } from "./types/index.ts";
 
@@ -519,21 +520,9 @@ export function hasFieldAccessRules(feature: FeatureDefinition): boolean {
   return false;
 }
 
-/** True if a field of any entity in the feature is stripped or masked for some readers: an
- *  `access.read` rule (array or record form), a writeOnly text field, or an embedded sub-field
- *  with its own `access.read`. */
+/** True if a field of any entity in the feature is stripped or masked for some readers. */
 export function hasReadRestrictedFields(feature: FeatureDefinition): boolean {
-  for (const entity of Object.values(feature.entities ?? {})) {
-    for (const field of Object.values(entity.fields)) {
-      if (field.access?.read !== undefined) return true;
-      if (field.type === "text" && field.writeOnly === true) return true;
-      if (
-        field.type === "embedded" &&
-        Object.values(field.schema).some((subField) => subField.access?.read !== undefined)
-      ) {
-        return true;
-      }
-    }
-  }
-  return false;
+  return Object.values(feature.entities ?? {}).some((entity) =>
+    Object.values(entity.fields).some(isReadRestrictedField),
+  );
 }

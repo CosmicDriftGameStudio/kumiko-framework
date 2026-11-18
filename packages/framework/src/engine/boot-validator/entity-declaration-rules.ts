@@ -185,6 +185,12 @@ export const ENTITY_DECLARATION_RULES = {
     summary: "crossTenantFileRead declares a non-empty reason.",
     fix: "State why files of this entity are readable across tenants.",
   },
+  crossTenantFileReadRestrictedField: {
+    id: "files/cross-tenant-read-restricted-file-field",
+    summary:
+      "An entity with crossTenantFileRead has no file field or embedded file sub-field with an access.read rule, because the cross-tenant check asks only whether the declared query returns the record.",
+    fix: "Drop the field's access.read, or move the restricted file into an entity without crossTenantFileRead.",
+  },
   streamRetentionKeepFor: {
     id: "retention/stream-retention-keep-for",
     summary: "streamRetention.keepFor has the form <number><h|d|w|m|y>.",

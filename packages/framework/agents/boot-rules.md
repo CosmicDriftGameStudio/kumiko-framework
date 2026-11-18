@@ -467,6 +467,7 @@
 | --- | --- | --- | --- |
 | <a id="files-cross-tenant-read-query-unregistered"></a>`files/cross-tenant-read-query-unregistered` | crossTenantFileRead.query names a registered query handler. | Use the qualified name of a query handler (<feature>:query:<name>) and register it. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
 | <a id="files-cross-tenant-read-reason-missing"></a>`files/cross-tenant-read-reason-missing` | crossTenantFileRead declares a non-empty reason. | State why files of this entity are readable across tenants. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
+| <a id="files-cross-tenant-read-restricted-file-field"></a>`files/cross-tenant-read-restricted-file-field` | An entity with crossTenantFileRead has no file field or embedded file sub-field with an access.read rule, because the cross-tenant check asks only whether the declared query returns the record. | Drop the field's access.read, or move the restricted file into an entity without crossTenantFileRead. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
 
 ## folders
 

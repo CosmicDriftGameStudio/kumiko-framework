@@ -1,4 +1,8 @@
-import type { EmbeddedFieldDef, EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
+import type {
+  EmbeddedFieldDef,
+  EntityDefinition,
+  FieldDefinition,
+} from "@cosmicdrift/kumiko-types/fields";
 import type { DbRow } from "../db/connection.ts";
 import {
   normalizeAccessEntry,
@@ -48,6 +52,18 @@ export function dropEmptyWriteOnlyValues<T extends Readonly<Record<string, unkno
   const kept: Record<string, unknown> = { ...values };
   for (const name of names) delete kept[name];
   return kept as T; // @cast-boundary engine-payload
+}
+
+/** True if filterReadFields strips or masks the field for some readers: an `access.read` rule
+ *  (array or record form), a writeOnly text field, or an embedded sub-field with its own
+ *  `access.read`. */
+export function isReadRestrictedField(field: FieldDefinition): boolean {
+  if (field.access?.read !== undefined) return true;
+  if (field.type === "text" && field.writeOnly === true) return true;
+  return (
+    field.type === "embedded" &&
+    Object.values(field.schema).some((subField) => subField.access?.read !== undefined)
+  );
 }
 
 // Role-level gate for bulk exports: false for writeOnly fields and for fields whose read-access

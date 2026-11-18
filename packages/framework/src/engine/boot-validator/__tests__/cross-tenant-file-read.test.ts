@@ -1,7 +1,13 @@
 import { describe, expect, test } from "bun:test";
+import type { FieldDefinition } from "@cosmicdrift/kumiko-types/fields";
 import * as z from "zod";
 import { defineFeature } from "../../define-feature.ts";
-import { createEntity, createTextField } from "../../factories.ts";
+import {
+  createEmbeddedListField,
+  createEntity,
+  createFilesField,
+  createTextField,
+} from "../../factories.ts";
 import type { FeatureDefinition } from "../../types/index.ts";
 import { validateCrossTenantFileRead } from "../cross-tenant-file-read.ts";
 import { buildQueryHandlerMap } from "../projection-list-screens.ts";
@@ -14,13 +20,17 @@ const text = () =>
     reason: "technical_reference",
   });
 
-function featureDeclaring(query: string, reason: string): FeatureDefinition {
+function featureDeclaring(
+  query: string,
+  reason: string,
+  extraFields: Record<string, FieldDefinition> = {},
+): FeatureDefinition {
   return defineFeature("requests", (r) => {
     r.entity(
       createEntity({
         name: "request",
         table: "cross_tenant_file_read_boot_requests",
-        fields: { title: text() },
+        fields: { title: text(), ...extraFields },
         crossTenantFileRead: { query, reason },
       }),
     );
@@ -54,5 +64,37 @@ describe("validateCrossTenantFileRead", () => {
     expect(() => check(featureDeclaring("requests:query:request:visible-to-me", "  "))).toThrow(
       /without a reason/,
     );
+  });
+
+  test("rejects a file field with its own read access", () => {
+    const feature = featureDeclaring(
+      "requests:query:request:visible-to-me",
+      "buyers see their photos",
+      { photos: createFilesField({ access: { read: ["Admin"] } }) },
+    );
+    expect(() => check(feature)).toThrow(/declares crossTenantFileRead, but its file field/);
+  });
+
+  test("rejects an embedded file sub-field with its own read access", () => {
+    const feature = featureDeclaring(
+      "requests:query:request:visible-to-me",
+      "buyers see their photos",
+      {
+        checks: createEmbeddedListField(
+          { photos: { type: "files", access: { read: ["Admin"] } } },
+          { personal: false, reason: "is_business_data" },
+        ),
+      },
+    );
+    expect(() => check(feature)).toThrow(/declares crossTenantFileRead, but its file field/);
+  });
+
+  test("accepts a file field without a read rule", () => {
+    const feature = featureDeclaring(
+      "requests:query:request:visible-to-me",
+      "buyers see their photos",
+      { photos: createFilesField() },
+    );
+    expect(() => check(feature)).not.toThrow();
   });
 });

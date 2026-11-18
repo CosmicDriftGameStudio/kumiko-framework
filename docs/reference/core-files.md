@@ -136,7 +136,12 @@ renderer, exact or wildcard, so a variant request for it fails.
 
 A `fileRef` is readable by its uploader and by privileged roles (`Admin`,
 `SystemAdmin`). Everyone else sees it only once it is **bound** to a record
-(`entityType` + `entityId`) and they may read that record. An upload without
+(`entityType` + `entityId`) and they may read that record. When a file field
+of the entity, or an embedded file sub-field, has an `access.read` rule, the
+record's detail query has to return the file in one of its file fields for
+them; the query strips the fields they may not read. The field that holds the
+file now decides, also after a save moved it from one field to another. On a
+`record-only` entity type this applies to privileged roles as well. An upload without
 `entityType`, or a pending upload (`entityType` + `fieldName`, no `entityId`),
 stays private to its uploader until a save binds it.
 
