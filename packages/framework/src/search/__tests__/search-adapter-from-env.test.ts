@@ -1,4 +1,5 @@
 import { describe, expect, spyOn, test } from "bun:test";
+import { withEnv } from "@cosmicdrift/kumiko-testing/helpers";
 import { createSearchAdapterFromEnv } from "../meilisearch-adapter.ts";
 import { MEILI_INDEX_PREFIX_ENV } from "../meilisearch-adapter-internals.ts";
 import type { SearchAdapter } from "../types.ts";
@@ -31,26 +32,23 @@ describe("createSearchAdapterFromEnv", () => {
   });
 
   test("builds a Meilisearch adapter on the given index prefix when both variables are set", async () => {
-    const savedPrefixOverride = process.env[MEILI_INDEX_PREFIX_ENV];
-    delete process.env[MEILI_INDEX_PREFIX_ENV];
-    const fetchSpy = spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ hits: [] }));
-    try {
-      const adapter = createSearchAdapterFromEnv(
-        { MEILI_URL: "http://meili.test:7700", MEILI_MASTER_KEY: "master-key" },
-        { indexPrefix: "app_" },
-      );
+    await withEnv({ [MEILI_INDEX_PREFIX_ENV]: undefined }, async () => {
+      const fetchSpy = spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ hits: [] }));
+      try {
+        const adapter = createSearchAdapterFromEnv(
+          { MEILI_URL: "http://meili.test:7700", MEILI_MASTER_KEY: "master-key" },
+          { indexPrefix: "app_" },
+        );
 
-      expect(await adapter.search(TENANT, "marc")).toEqual([]);
-      const requestedUrls = fetchSpy.mock.calls.map(([input]) =>
-        input instanceof Request ? input.url : String(input),
-      );
-      expect(requestedUrls).toEqual([`http://meili.test:7700/indexes/app_t${TENANT}/search`]);
-    } finally {
-      fetchSpy.mockRestore();
-      if (savedPrefixOverride !== undefined) {
-        process.env[MEILI_INDEX_PREFIX_ENV] = savedPrefixOverride;
+        expect(await adapter.search(TENANT, "marc")).toEqual([]);
+        const requestedUrls = fetchSpy.mock.calls.map(([input]) =>
+          input instanceof Request ? input.url : String(input),
+        );
+        expect(requestedUrls).toEqual([`http://meili.test:7700/indexes/app_t${TENANT}/search`]);
+      } finally {
+        fetchSpy.mockRestore();
       }
-    }
+    });
   });
 
   test("throws when only MEILI_URL is set", () => {

@@ -235,24 +235,26 @@ function raisedTimeoutReason(
   if (DESCRIBE_CONFIGURE_CALLEE.test(calleeText) && call.getArguments().some(hasTimeoutProperty)) {
     return `${calleeText}(…) raises the timeout instead of fixing the cause`;
   }
-  // Extended Playwright test objects (`base.extend(...)`, also imported from helpers) are not
-  // resolvable here, so a one-arg setTimeout on any identifier in Playwright files is the raise.
-  // A shared E2E_TIMEOUT_MS class is the sanctioned budget; a literal or computed one is not.
-  if (
-    playwright &&
-    Node.isPropertyAccessExpression(callee) &&
-    Node.isIdentifier(callee.getExpression()) &&
-    ((callee.getName() === "setTimeout" &&
-      call.getArguments().length === 1 &&
-      !isE2eTimeoutClass(call.getArguments()[0])) ||
-      callee.getName() === "slow")
-  ) {
+  if (playwright && isPlaywrightTimeoutRaise(call)) {
     return `${callee.getText()}(…) raises the timeout instead of fixing the cause`;
   }
   if (Node.isPropertyAccessExpression(callee) && callee.getName() === "waitForTimeout") {
     return `${calleeText}(…) waits for time, not for a condition`;
   }
   return undefined;
+}
+
+// Extended Playwright test objects (`base.extend(...)`, also imported from helpers) are not
+// resolvable here, so a one-arg setTimeout on any identifier in Playwright files is the raise.
+// A shared E2E_TIMEOUT_MS class is the sanctioned budget; a literal or computed one is not.
+function isPlaywrightTimeoutRaise(call: CallExpression): boolean {
+  const callee = call.getExpression();
+  if (!Node.isPropertyAccessExpression(callee) || !Node.isIdentifier(callee.getExpression())) {
+    return false;
+  }
+  if (callee.getName() === "slow") return true;
+  const args = call.getArguments();
+  return callee.getName() === "setTimeout" && args.length === 1 && !isE2eTimeoutClass(args[0]);
 }
 
 function isE2eTimeoutClass(node: Node | undefined): boolean {
