@@ -92,4 +92,14 @@ describe("Feature Import Cycles guard", () => {
     });
     expect(counts).toEqual({});
   });
+
+  test("a test file importing the other feature does not close a cycle", () => {
+    const counts = findingsFor({
+      [A]: `import { v } from "../b/y.ts";\nexport const u = v;\n`,
+      [B]: `export const v = 1;\n`,
+      "/repo/src/features/b/__tests__/y.test.ts": `import { u } from "../../a/x.ts";\nexport const seen = u;\n`,
+      "/repo/src/features/b/y.integration.ts": `import { u } from "../a/x.ts";\nexport const seen = u;\n`,
+    });
+    expect(counts).toEqual({});
+  });
 });

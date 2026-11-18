@@ -27,7 +27,7 @@ export function OfflineBanner(): ReactNode {
   const offline = dispatcherStatus === "offline" || browserOffline;
   // The container stays mounted so screen readers announce the change.
   return (
-    <div role="status" aria-live="polite" data-testid="kumiko-offline-banner">
+    <div role="status" aria-live="polite">
       {offline && (
         <div
           className={cn(

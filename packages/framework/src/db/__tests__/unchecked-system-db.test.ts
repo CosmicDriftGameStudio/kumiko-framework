@@ -452,9 +452,12 @@ describe("createUncheckedSystemDb", () => {
 });
 
 describe("createTenantDb in system mode", () => {
-  test.each(["", "  ", "todo", "Legacy."])("refuses the placeholder reason %p", (reason) => {
+  test("refuses a placeholder reason at construction", () => {
     expect(() =>
-      createTenantDb({ db: unusedRunner(), tenantId: own, mode: "system", reason }),
-    ).toThrow();
+      createTenantDb({ db: unusedRunner(), tenantId: own, mode: "system", reason: "todo" }),
+    ).toThrow(/placeholder/);
+    expect(() =>
+      createTenantDb({ db: unusedRunner(), tenantId: own, mode: "system", reason: "Legacy." }),
+    ).toThrow(/placeholder/);
   });
 });

@@ -3,7 +3,8 @@
  * Feature Import Cycles Guard — counts static runtime imports that close a cycle between two or more features, frozen per file in `.kumiko-feature-import-cycles-baseline.json`.
  *
  * ESM evaluates a cycle in import order, so a feature can read another's exports before they
- * are initialised. Type-only and dynamic imports are erased or deferred and do not count. A
+ * are initialised. Type-only and dynamic imports are erased or deferred and do not count, and
+ * neither do imports in test files, which no feature imports back. A
  * missing baseline file counts as empty, so every existing hit fails until it is frozen with
  * `--write-baseline`.
  */
@@ -22,6 +23,7 @@ import {
 } from "./_lib/guard-kit";
 import { fileIgnoreTagLine, hasIgnoreTag } from "./_lib/ignore-tag";
 import { resolveRepoRoots } from "./_lib/roots";
+import { isTestFilePath } from "./_lib/test-file";
 import { locateFeature } from "./guard-cross-feature-imports";
 
 const ROOT = process.cwd();
@@ -70,6 +72,8 @@ function importSitesOf(
   sf: SourceFile,
   featureOf: (absPath: string) => string | null,
 ): ImportSite[] {
+  // Nothing imports a test file, so its imports cannot close a module cycle.
+  if (isTestFilePath(sf.getFilePath())) return [];
   const from = featureOf(sf.getFilePath());
   if (from === null || fileIgnoreTagLine(sf, IGNORE_SLUG) !== undefined) return [];
   const sites: ImportSite[] = [];

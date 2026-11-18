@@ -52,7 +52,6 @@
     "packages/renderer/src/web/app/dashboard-stat-group-panel.tsx": 3,
     "packages/renderer/src/web/app/dashboard-text-panel.tsx": 2,
     "packages/renderer/src/web/app/dashboard-visibility.tsx": 1,
-    "packages/renderer/src/web/app/offline-banner.tsx": 1,
     "packages/renderer/src/web/app/root-error-fallback.tsx": 3,
     "packages/renderer/src/web/components/config-cascade.tsx": 3,
     "packages/renderer/src/web/components/config-source-badge.tsx": 1,

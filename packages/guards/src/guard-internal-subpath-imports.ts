@@ -33,7 +33,7 @@ import {
   type ScanSpec,
 } from "./_lib/guard-kit";
 import { resolveRepoRoots } from "./_lib/roots";
-import { TEST_FILE_RE } from "./_lib/test-file";
+import { isTestFilePath } from "./_lib/test-file";
 
 const SCAN: ScanSpec = {
   kinds: ALL_REPO_KINDS,
@@ -76,10 +76,6 @@ type Finding = { line: number; message: string };
 function mayMention(sf: SourceFile, names: readonly string[]): boolean {
   const text = sf.getFullText();
   return mayContainEscapedLiteral(text) || names.some((name) => text.includes(name));
-}
-
-function isTestFile(rel: string): boolean {
-  return rel.split("/").includes("__tests__") || TEST_FILE_RE.test(rel);
 }
 
 function isInternalSpecifier(specifier: string): boolean {
@@ -285,7 +281,7 @@ export const guard: AstGuard = {
       const isFrameworkRepo = findRepoRootFor(file, roots)?.kind === "framework";
       const findings: Finding[] = [];
       if (!isFrameworkRepo) findings.push(...findInternalImports(sf));
-      if (!isTestFile(rel)) findings.push(...findTestOnlyScopeImports(sf));
+      if (!isTestFilePath(rel)) findings.push(...findTestOnlyScopeImports(sf));
       if (!isAllowlisted(rel, REASON_RULE_EXEMPT)) findings.push(...findReasonViolations(sf));
       if (!isAllowlisted(rel, FORWARDED_TENANT_DB_REASON_ALLOWLIST)) {
         findings.push(...findTenantDbReasonViolations(sf));
