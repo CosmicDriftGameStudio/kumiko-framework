@@ -114,4 +114,55 @@ describe("HistogramChart", () => {
     screen.getByText("0 runs");
     screen.getByText("40 runs");
   });
+
+  test("each x tick label sits at the left edge of the bar that starts at that value", () => {
+    render(
+      <HistogramChart
+        ariaLabel="Net result"
+        bins={[
+          { id: "a", start: -100, end: 0, count: 10 },
+          { id: "b", start: 0, end: 100, count: 40 },
+          { id: "c", start: 100, end: 200, count: 20 },
+        ]}
+        xAxis={{ ticks: 4, format: (value) => `${value} EUR` }}
+        yAxis={{ ticks: 3 }}
+      />,
+    );
+    const viewBoxWidth = Number(
+      screen.getByRole("img", { name: "Net result" }).getAttribute("viewBox")?.split(" ")[2],
+    );
+    const bars = screen.getAllByTestId("histogram-bin");
+    expect(bars).toHaveLength(3);
+    for (const [bar, start] of [
+      [bars[0], -100],
+      [bars[1], 0],
+      [bars[2], 100],
+    ] as const) {
+      const barLeftPercent = (Number(bar?.getAttribute("x")) / viewBoxWidth) * 100;
+      const labelLeftPercent = Number.parseFloat(screen.getByText(`${start} EUR`).style.left);
+      expect(labelLeftPercent).toBeCloseTo(barLeftPercent, 6);
+    }
+  });
+
+  test("anchors the first tick to start and the last tick to end so labels stay inside the plot area", () => {
+    render(
+      <HistogramChart
+        ariaLabel="Net result"
+        bins={[
+          { id: "a", start: -100, end: 0, count: 10 },
+          { id: "b", start: 0, end: 100, count: 40 },
+          { id: "c", start: 100, end: 200, count: 20 },
+        ]}
+        xAxis={{ ticks: 4, format: (value) => `${value} EUR` }}
+        yAxis={{ ticks: 3 }}
+      />,
+    );
+    const firstTick = screen.getByText("-100 EUR");
+    const middleTick = screen.getByText("0 EUR");
+    const lastTick = screen.getByText("200 EUR");
+
+    expect(firstTick.classList.contains("translate-x-0")).toBe(true);
+    expect(middleTick.classList.contains("-translate-x-1/2")).toBe(true);
+    expect(lastTick.classList.contains("-translate-x-full")).toBe(true);
+  });
 });

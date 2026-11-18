@@ -103,7 +103,8 @@ export function verifyRowBoundGrant(args: {
   readonly secret: string | undefined;
   readonly now?: Temporal.Instant;
 }): VerifiedRowBoundGrant {
-  if (!args.secret) return FAILED;
+  // A whitespace-only secret is as unset as an empty one; keying the HMAC with it would be guessable.
+  if (!args.secret?.trim()) return FAILED;
   const verified = verifyToken(args.token, grantPurpose(args.purpose), args.secret, args.now);
   if (!verified.ok) return FAILED;
   const [subject, anchor, ...rest] = verified.userId.split(BODY_SEPARATOR);

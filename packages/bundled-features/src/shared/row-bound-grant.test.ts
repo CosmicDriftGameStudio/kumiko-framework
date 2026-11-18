@@ -337,6 +337,34 @@ describe("redeemRowBoundGrant", () => {
     expect(looked).toBe(false);
   });
 
+  test("rejects a grant minted and redeemed with a whitespace-only secret", async () => {
+    const whitespaceSecret = "   ";
+    const minted = signRowBoundGrant({
+      subject: SUBJECT,
+      purpose: PURPOSE,
+      anchor: "pending",
+      ttlMinutes: 30,
+      secret: whitespaceSecret,
+      now: NOW,
+    }).token;
+    let looked = false;
+
+    const result = await redeemRowBoundGrant({
+      token: minted,
+      purpose: PURPOSE,
+      secret: whitespaceSecret,
+      loadAnchor: async () => {
+        looked = true;
+        return "pending";
+      },
+      commitAnchor: SKIP_COMMIT,
+      now: NOW,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(looked).toBe(false);
+  });
+
   test("rejects a malformed token without touching the row", async () => {
     let looked = false;
 

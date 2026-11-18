@@ -400,6 +400,32 @@ describe("currentCalendarMonthStartIso", () => {
     const result = currentCalendarMonthStartIso(midMay);
     expect(result).toBe("2026-05-01T00:00:00Z");
   });
+
+  const monthAt = (instant: string) => {
+    const startIso = currentCalendarMonthStartIso(Temporal.Instant.from(instant));
+    return { startIso, endIso: calendarMonthPeriodEndIso(startIso) };
+  };
+
+  test("the last millisecond of a month still belongs to that month", () => {
+    expect(monthAt("2026-11-30T23:59:59.999Z")).toEqual({
+      startIso: "2026-11-01T00:00:00Z",
+      endIso: "2026-12-01T00:00:00Z",
+    });
+  });
+
+  test("the first instant of a month opens the new period", () => {
+    expect(monthAt("2026-12-01T00:00:00Z")).toEqual({
+      startIso: "2026-12-01T00:00:00Z",
+      endIso: "2027-01-01T00:00:00Z",
+    });
+  });
+
+  test("the last millisecond of December ends the period on Jan 1 of the next year", () => {
+    expect(monthAt("2026-12-31T23:59:59.999Z")).toEqual({
+      startIso: "2026-12-01T00:00:00Z",
+      endIso: "2027-01-01T00:00:00Z",
+    });
+  });
 });
 
 // =============================================================================

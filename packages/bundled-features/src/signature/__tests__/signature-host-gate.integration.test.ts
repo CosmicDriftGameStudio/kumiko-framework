@@ -549,10 +549,13 @@ describe("signature :: host gate on aggregate, filters and cursor paging", () =>
   });
 });
 
-describe("signature :: empty linkSecret", () => {
-  test("the app boots and every link is refused", async () => {
+describe("signature :: unusable linkSecret", () => {
+  test.each([
+    ["empty", ""],
+    ["whitespace-only", "   "],
+  ])("%s: the app boots and every link is refused", async (_label, linkSecret) => {
     const emptySecretStack = await setupTestStack({
-      features: stackFeatures(""),
+      features: stackFeatures(linkSecret),
       files: { storageProvider: provider },
       anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID },
     });

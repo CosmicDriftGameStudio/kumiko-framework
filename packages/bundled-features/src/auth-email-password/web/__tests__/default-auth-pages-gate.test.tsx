@@ -161,6 +161,30 @@ describe("DefaultAuthPagesGate", () => {
     }
   });
 
+  test("/signup/ with a trailing slash shows the form like /signup", () => {
+    const ui = renderAt("/signup/");
+    expect(ui.queryByTestId("app")).toBeNull();
+    ui.getByLabelText(/^Email/);
+  });
+
+  test("/signup/ with a trailing slash and a session cookie falls through to the app", () => {
+    setCsrfCookie("x");
+    try {
+      renderAt("/signup/").getByTestId("app");
+    } finally {
+      clearCsrfCookie();
+    }
+  });
+
+  test("/signup/complete keeps the magic-link landing screen despite a stale session cookie", () => {
+    setCsrfCookie("stale");
+    try {
+      expect(renderAt("/signup/complete?token=abc").queryByTestId("app")).toBeNull();
+    } finally {
+      clearCsrfCookie();
+    }
+  });
+
   test("custom paths are served at the custom path only", () => {
     const gate = makeDefaultAuthPagesGate({ paths: { resetPassword: "/de/passwort-neu" } });
     const custom = renderAt("/de/passwort-neu?token=abc", undefined, { gate });
