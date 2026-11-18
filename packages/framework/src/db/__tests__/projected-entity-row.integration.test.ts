@@ -62,6 +62,7 @@ const peFeature = defineFeature("pe", (r) => {
   const paid = r.defineEvent("order-paid", eventShape, { piiFields: "none" });
   const noted = r.defineEvent("order-noted", eventShape, { piiFields: "none" });
   const repriced = r.defineEvent("order-repriced", eventShape, { piiFields: "none" });
+  const waived = r.defineEvent("order-waived", eventShape, { piiFields: "none" });
   const tagged = r.defineEvent("order-tagged", eventShape.extend({ bogus: z.string() }), {
     piiFields: "none",
   });
@@ -83,6 +84,12 @@ const peFeature = defineFeature("pe", (r) => {
     [repriced.name]: async (event, tx) => {
       await patchProjectedEntityRow(tx, receipts, event, receiptIdOf(event), {
         total: { amount: 6_789, currency: "USD" },
+      });
+    },
+    [waived.name]: async (event, tx) => {
+      await patchProjectedEntityRow(tx, receipts, event, receiptIdOf(event), {
+        total: null,
+        pickup: null,
       });
     },
     [tagged.name]: async (event, tx) => {
@@ -115,6 +122,7 @@ const peFeature = defineFeature("pe", (r) => {
     ["order:pay", paid],
     ["order:note", noted],
     ["order:reprice", repriced],
+    ["order:waive", waived],
   ] as const;
   for (const [name, def] of eventWrites) {
     r.writeHandler(
@@ -212,6 +220,12 @@ describe("projected entity row helpers", () => {
     );
     expect(tagRes.status).toBeGreaterThanOrEqual(400);
     expect((await receiptRow(receiptId))["note"]).toBe("noted");
+
+    await stack.http.writeOk("pe:write:order:waive", { id: orderId, note: "x" }, admin);
+    const waivedRow = await receiptRow(receiptId);
+    expect(waivedRow["total"]).toBeUndefined();
+    expect(waivedRow["pickup"]).toBeUndefined();
+    expect(waivedRow["note"]).toBe("noted");
 
     const before = await receiptRow(receiptId);
     await rebuildProjection("pe:projection:pe-receipt-entity", {

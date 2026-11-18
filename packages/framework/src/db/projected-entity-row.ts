@@ -25,8 +25,13 @@ export type ProjectedEntityTarget<E extends EntityDefinition> = {
   readonly table: EntityTableMeta;
 };
 
+// EntityRow types an optional money or located timestamp without null; a projection clears it with null.
+type ClearableOptionalFields<Row> = {
+  [K in keyof Row]: undefined extends Row[K] ? Row[K] | null : Row[K];
+};
+
 export type ProjectedEntityValues<E extends EntityDefinition> = Partial<
-  Omit<EntityRow<E>, ProjectedRowMetaKey>
+  ClearableOptionalFields<Omit<EntityRow<E>, ProjectedRowMetaKey>>
 >;
 
 function isRowMetaKey(key: string): boolean {

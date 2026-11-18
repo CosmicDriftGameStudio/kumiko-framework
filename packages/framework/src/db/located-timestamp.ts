@@ -49,7 +49,14 @@ export function flattenLocatedTimestamp(
     if (field.type !== "locatedTimestamp") continue;
 
     const raw = result[name];
-    if (raw === undefined || raw === null) continue;
+    if (raw === undefined) continue;
+    // The combined key is no column; an explicit null clears the pair.
+    if (raw === null) {
+      delete result[name];
+      result[`${name}Utc`] = null;
+      result[`${name}Tz`] = null;
+      continue;
+    }
     if (typeof raw !== "object") {
       throw new Error(
         `flattenLocatedTimestamp: field "${name}" expects { at, tz } or { utc, tz } object, got ${typeof raw}`,
