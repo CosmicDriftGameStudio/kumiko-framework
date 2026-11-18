@@ -5,7 +5,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import type * as z from "zod";
-import { SUPPORTED_FIELD_TYPES } from "../web/constants.ts";
+import { SUPPORTED_EMBEDDED_SUB_TYPES, SUPPORTED_FIELD_TYPES } from "../web/constants.ts";
 
 // Builds a Zod schema that validates a custom-field VALUE against its
 // fieldDefinition. Reuses the framework's `fieldToZod` so built-in and
@@ -22,15 +22,11 @@ import { SUPPORTED_FIELD_TYPES } from "../web/constants.ts";
 // with an `options` array.
 //
 // Returns `null` when the serialized field is unparseable or names a type
-// outside the custom-fields-supported set, allowing callers to skip validation.
+// outside the custom-fields-supported set, allowing callers to skip validation. Since
+// schemas.ts refuses such definitions, only ones stored before that check can still hit it.
 
 const SUPPORTED_TYPES_SET: ReadonlySet<string> = new Set(SUPPORTED_FIELD_TYPES);
-const SUPPORTED_EMBEDDED_SUB_TYPES: ReadonlySet<string> = new Set([
-  "text",
-  "number",
-  "boolean",
-  "date",
-]);
+const SUPPORTED_EMBEDDED_SUB_TYPES_SET: ReadonlySet<string> = new Set(SUPPORTED_EMBEDDED_SUB_TYPES);
 
 // Constraint-keys fieldToZod converts into Zod refinements. Stripped so the
 // resulting schema validates the type-shape only, not the constraint.
@@ -58,10 +54,11 @@ export function buildCustomFieldValueSchema(parsedField: unknown): z.ZodTypeAny 
     for (const [subKey, sub] of Object.entries(schema)) {
       if (!isPlainObject(sub)) return null;
       const subType = sub["type"];
-      if (typeof subType !== "string" || !SUPPORTED_EMBEDDED_SUB_TYPES.has(subType)) {
+      if (typeof subType !== "string" || !SUPPORTED_EMBEDDED_SUB_TYPES_SET.has(subType)) {
         return null;
       }
-      const strippedSub = { ...sub };
+      const strippedSub: Record<string, unknown> =
+        subType === "enum" ? { ...sub, type: "select", options: sub["values"] ?? [] } : { ...sub };
       for (const k of CONSTRAINT_KEYS) delete strippedSub[k];
       strippedSubSchema[subKey] = strippedSub;
     }

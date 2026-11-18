@@ -203,3 +203,7 @@ export const FIELD_APPROVAL_REQUEST_CHANGE = "field-approval:write:request-chang
 export function isFieldApprovalRequired(error: DispatcherError | null): boolean {
   return error?.details?.["reason"] === "field_approval_required";
 }
+
+export function fieldApprovalFields(error: DispatcherError | null): readonly string[] {
+  return isFieldApprovalRequired(error) ? (error?.details?.fields ?? []).map((i) => i.path) : [];
+}

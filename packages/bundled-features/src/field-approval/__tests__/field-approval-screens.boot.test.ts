@@ -5,6 +5,12 @@ import {
   defineFeature,
   validateBoot,
 } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  CARD_META_MAX,
+  cardColumnRoles,
+  cardMetaLines,
+  normalizeListColumn,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 import { createConfigFeature } from "../../config/feature.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { createUserFeature } from "../../user/feature.ts";
@@ -75,5 +81,28 @@ describe("field-approval list screen", () => {
         feature,
       ]),
     ).not.toThrow();
+  });
+});
+
+describe("field-approval list on the phone card", () => {
+  const screen = createFieldApprovalFeature({ parents: ["payee"] }).screens[
+    FIELD_APPROVAL_LIST_SCREEN_ID
+  ];
+  if (screen?.type !== "projectionList") throw new Error("expected the approval list screen");
+  const columns = screen.columns.map((spec) => normalizeListColumn(spec));
+
+  test("old and new value stand on their own labelled lines, requester and date share a labelled line", () => {
+    const { title, meta } = cardColumnRoles(columns.filter((col) => col.cardAbove !== true));
+    expect(title?.field).toBe("recordLabel");
+    const lines = cardMetaLines(meta).map((line) => line.map((col) => col.field));
+    expect(lines).toEqual([["currentValue"], ["value"], ["requestedByName", "requestedAt"]]);
+    expect(lines.length).toBeLessThanOrEqual(CARD_META_MAX);
+    for (const col of meta) expect(col.cardLabel).toBe(true);
+  });
+
+  test("the requester column shows the name the query carries, no member-directory lookup", () => {
+    const requester = columns.find((col) => col.field === "requestedByName");
+    expect(requester?.refEntity).toBeUndefined();
+    expect(columns.some((col) => col.field === "requestedBy")).toBe(false);
   });
 });

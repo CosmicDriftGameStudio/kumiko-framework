@@ -8,6 +8,7 @@ import { fireEvent, render, screen as rtlScreen, waitFor } from "@testing-librar
 import type { ComponentType, ReactNode } from "react";
 import { type RecordedWrite, stubDispatcher } from "../../__tests__/stub-dispatcher.ts";
 import { AppFeaturesProvider } from "../../app/app-features-context.tsx";
+import { type ActionNotice, ActionNoticeProvider } from "../../app/client-actions.tsx";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import type { WriteResult } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
@@ -61,15 +62,21 @@ const testInput: ComponentType<InputProps> = (props) =>
     />
   ) : null;
 
-const testField: ComponentType<FieldProps> = ({ description, children }) => (
-  <div>
+const testField: ComponentType<FieldProps> = ({ id, description, status, issues, children }) => (
+  <div data-testid={`field-${id}`}>
+    {status !== undefined ? <span data-tone={status.tone}>{status.label}</span> : null}
     {children}
     {description !== undefined ? <span>{description}</span> : null}
+    {issues?.map((issue) => (
+      <span key={issue.code} data-testid={`field-${id}-issue`}>
+        {issue.i18nKey}
+      </span>
+    ))}
   </div>
 );
 
-const testBanner: ComponentType<BannerProps> = ({ children, actions, testId }) => (
-  <div data-testid={testId}>
+const testBanner: ComponentType<BannerProps> = ({ children, actions, testId, variant }) => (
+  <div data-testid={testId} data-variant={variant}>
     {children}
     {actions}
   </div>
@@ -109,7 +116,10 @@ const approvalDenied = mapServerError({
   details: { reason: "field_approval_required", entity: "contact", fields: ["iban"] },
 });
 
-function renderContactEdit(features: readonly FeatureSchema[]): RecordedWrite[] {
+function renderContactEdit(
+  features: readonly FeatureSchema[],
+  notices: ActionNotice[] = [],
+): RecordedWrite[] {
   let updates = 0;
   const { dispatcher, writes } = stubDispatcher({
     write: (type): WriteResult<unknown> => {
@@ -130,30 +140,32 @@ function renderContactEdit(features: readonly FeatureSchema[]): RecordedWrite[] 
     >
       <AppFeaturesProvider features={features}>
         <DispatcherProvider dispatcher={dispatcher}>
-          <PrimitivesProvider
-            value={createStubPrimitives({
-              Button: testButton,
-              Banner: testBanner,
-              Field: testField,
-              Input: testInput,
-              Form: testForm,
-              Section: passChildren,
-              Card: passChildren,
-              Grid: passChildren,
-              GridCell: passChildren,
-              Text: testText,
-            })}
-          >
-            <RenderEdit<Values>
-              screen={editScreen}
-              entity={entity}
-              featureName="contacts"
-              entityId="c1"
-              writeCommand={UPDATE}
-              payloadMode="changes"
-              initial={{ name: "Owner", iban: OLD_IBAN }}
-            />
-          </PrimitivesProvider>
+          <ActionNoticeProvider notify={(notice) => notices.push(notice)}>
+            <PrimitivesProvider
+              value={createStubPrimitives({
+                Button: testButton,
+                Banner: testBanner,
+                Field: testField,
+                Input: testInput,
+                Form: testForm,
+                Section: passChildren,
+                Card: passChildren,
+                Grid: passChildren,
+                GridCell: passChildren,
+                Text: testText,
+              })}
+            >
+              <RenderEdit<Values>
+                screen={editScreen}
+                entity={entity}
+                featureName="contacts"
+                entityId="c1"
+                writeCommand={UPDATE}
+                payloadMode="changes"
+                initial={{ name: "Owner", iban: OLD_IBAN }}
+              />
+            </PrimitivesProvider>
+          </ActionNoticeProvider>
         </DispatcherProvider>
       </AppFeaturesProvider>
     </LocaleProvider>,
@@ -177,13 +189,24 @@ describe("RenderEdit — field approval required", () => {
     renderContactEdit([fieldApprovalSchema]);
     await editAndSave();
 
-    const banner = rtlScreen.getByTestId("render-edit-form-error");
-    expect(banner.textContent).toContain("This change needs approval.");
     expect(rtlScreen.getByTestId("render-edit-field-approval-fields").textContent).toContain(
       "IBAN",
     );
     expect(input("name").value).toBe("Owner GmbH");
     expect(input("iban").value).toBe(NEW_IBAN);
+  });
+
+  test("says it once: one warning sentence in the banner, the field marked without an error text", async () => {
+    renderContactEdit([fieldApprovalSchema]);
+    await editAndSave();
+
+    const banner = rtlScreen.getByTestId("render-edit-form-error");
+    expect(banner.dataset["variant"]).toBe("warning");
+    expect(banner.textContent).toBe("Changes to IBAN need approval.Submit for approval");
+    expect(rtlScreen.queryByTestId("field-kumiko-edit-iban-issue")).toBeNull();
+    const marker = rtlScreen.getByText("Needs approval");
+    expect(marker.dataset["tone"]).toBe("warn");
+    expect(rtlScreen.getByTestId("field-kumiko-edit-iban").contains(marker)).toBe(true);
   });
 
   test("submit for approval files exactly the gated field and saves the rest", async () => {
@@ -206,14 +229,26 @@ describe("RenderEdit — field approval required", () => {
     const hint = rtlScreen.getByText("Awaiting approval");
     expect(hint.parentElement?.contains(input("iban"))).toBe(true);
     expect(rtlScreen.getAllByText("Awaiting approval")).toHaveLength(1);
+    expect(rtlScreen.queryByText("Needs approval")).toBeNull();
+  });
+
+  test("submitting for approval confirms through the action notifier", async () => {
+    const notices: ActionNotice[] = [];
+    renderContactEdit([fieldApprovalSchema], notices);
+    await editAndSave();
+
+    fireEvent.click(rtlScreen.getByTestId("render-edit-field-approval-submit"));
+    await waitFor(() =>
+      expect(notices).toEqual([{ tone: "success", text: "Submitted for approval" }]),
+    );
   });
 
   test("without the field-approval feature only the hint shows, no action", async () => {
     renderContactEdit([]);
     await editAndSave();
 
-    expect(rtlScreen.getByTestId("render-edit-form-error").textContent).toContain(
-      "This change needs approval.",
+    expect(rtlScreen.getByTestId("render-edit-form-error").textContent).toBe(
+      "Changes to IBAN need approval.",
     );
     expect(rtlScreen.queryByTestId("render-edit-field-approval-submit")).toBeNull();
   });

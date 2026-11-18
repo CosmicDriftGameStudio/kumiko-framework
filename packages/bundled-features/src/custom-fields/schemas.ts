@@ -1,5 +1,6 @@
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
-import { SUPPORTED_FIELD_TYPES } from "./web/constants.ts";
+import { SUPPORTED_EMBEDDED_SUB_TYPES, SUPPORTED_FIELD_TYPES } from "./web/constants.ts";
 
 export const fieldTypeSchema = z.enum(SUPPORTED_FIELD_TYPES);
 
@@ -50,17 +51,44 @@ const rejectRetention = [
   "per-field custom-field retention was removed — it never ran. Set retention on the host entity (data-retention) instead.",
 ] as const;
 
+const EMBEDDED_SUB_TYPES_SET: ReadonlySet<string> = new Set(SUPPORTED_EMBEDDED_SUB_TYPES);
+
+function isCheckedEmbeddedSubField(sub: unknown, definitionCurrency: unknown): boolean {
+  if (!isPlainObject(sub) || typeof sub["type"] !== "string") return false;
+  if (!EMBEDDED_SUB_TYPES_SET.has(sub["type"])) return false;
+  if (sub["type"] === "enum") return Array.isArray(sub["values"]) && sub["values"].length > 0;
+  // An embedded amount is a bare integer, so the definition is the only place its currency lives.
+  if (sub["type"] === "money") return typeof definitionCurrency === "string";
+  return true;
+}
+
+// Each sub-field must be one set-custom-field can check, otherwise its values would be stored unchecked.
+const rejectUncheckedEmbeddedSubFields = [
+  (v: Record<string, unknown>) => {
+    if (v["type"] !== undefined && v["type"] !== "embedded") return true;
+    const schema = v["schema"];
+    if (schema === undefined && v["type"] === undefined) return true;
+    return (
+      isPlainObject(schema) &&
+      Object.values(schema).every((sub) => isCheckedEmbeddedSubField(sub, v["currency"]))
+    );
+  },
+  `embedded sub-fields must be one of ${SUPPORTED_EMBEDDED_SUB_TYPES.join(", ")}; enum needs values, money needs the definition's currency`,
+] as const;
+
 const serializedFieldSchema = z
   .looseObject({ type: fieldTypeSchema, ...serializedFieldBaseShape })
   .refine((v) => typeof v["type"] === "string", "serializedField must have a string `type`")
   .refine(...rejectSensitive)
-  .refine(...rejectRetention);
+  .refine(...rejectRetention)
+  .refine(...rejectUncheckedEmbeddedSubFields);
 
 // Update may omit `type`: it is immutable, so the handler takes it from the stored definition.
 const updateSerializedFieldSchema = z
   .looseObject({ type: fieldTypeSchema.optional(), ...serializedFieldBaseShape })
   .refine(...rejectSensitive)
-  .refine(...rejectRetention);
+  .refine(...rejectRetention)
+  .refine(...rejectUncheckedEmbeddedSubFields);
 
 // i18n labels — `{ de: "...", en: "...", ... }`. At least one entry.
 const labelSchema = z.record(z.string().min(2).max(8), z.string().min(1));

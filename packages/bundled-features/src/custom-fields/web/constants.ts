@@ -76,3 +76,14 @@ export const SUPPORTED_FIELD_TYPES = [
   "embedded",
 ] as const;
 export type SupportedFieldType = (typeof SUPPORTED_FIELD_TYPES)[number];
+
+// Sub-field types an embedded custom field may declare; set-custom-field checks each of them
+// (value-schema.ts), so a definition naming any other is refused.
+export const SUPPORTED_EMBEDDED_SUB_TYPES = [
+  "text",
+  "number",
+  "boolean",
+  "date",
+  "money",
+  "enum",
+] as const;

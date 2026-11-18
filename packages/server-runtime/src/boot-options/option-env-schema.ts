@@ -30,6 +30,12 @@ const SMTP_HOST_REQUIRED_DESCRIPTION = 'SMTP host; required with mail transport 
 
 const S3_REQUIRED_KEYS = ["S3_BUCKET", "S3_REGION", "S3_ACCESS_KEY", "S3_SECRET_KEY"] as const;
 
+const KMS_REQUIRED_KEYS = [
+  "PLATFORM_KEK",
+  "SUBJECT_KEYS_DATABASE_URL",
+  "KUMIKO_BLIND_INDEX_KEY",
+] as const;
+
 // `.unwrap()` drops what sits on the optional wrapper: the description and the
 // kumiko meta (pulumi secret, kms), both of which the dry run reports.
 function requiredField(field: z.core.$ZodType, description?: string): z.core.$ZodType {
@@ -137,10 +143,14 @@ function collectOptionEnvBlocks(options: BootOptionFields): OptionEnvBlock[] {
       required: ["MEILI_URL", "MEILI_MASTER_KEY"],
     });
   }
-  // The trio stays optional even under "required": each KMS slot may arrive
-  // as its *_CIPHERTEXT twin instead, which resolveKmsMode checks after decryption.
+  // A KMS slot delivered as its *_CIPHERTEXT twin still passes: the env check
+  // relaxes a required kms slot whose twin is set.
   if (options.kmsMode === "required" || options.kmsMode === "optional") {
-    blocks.push({ source: "runProdApp.kmsMode", shape: kmsEnvSchema.shape, required: [] });
+    blocks.push({
+      source: "runProdApp.kmsMode",
+      shape: kmsEnvSchema.shape,
+      required: options.kmsMode === "required" ? KMS_REQUIRED_KEYS : [],
+    });
   }
   if (options.billing) {
     blocks.push({

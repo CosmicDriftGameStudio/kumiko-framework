@@ -136,8 +136,17 @@ describe("runProdApp boot options", () => {
     );
   });
 
-  test('kmsMode "required" without the KMS env aborts', async () => {
-    await expect(bootValidate({ kmsMode: "required" })).rejects.toThrow(/kmsMode "required"/);
+  test('kmsMode "required" without the KMS env aborts, and the boot dry run names the trio', async () => {
+    await bootValidate({ kmsMode: "required" });
+    const table = logSpy.mock.calls.map((call: unknown[]) => String(call[0])).join("\n");
+    for (const name of ["PLATFORM_KEK", "SUBJECT_KEYS_DATABASE_URL", "KUMIKO_BLIND_INDEX_KEY"]) {
+      expect(table).toMatch(new RegExp(`${name}\\s+runProdApp\\.kmsMode\\s+required\\s+missing`));
+    }
+
+    const { KUMIKO_DRY_RUN_ENV: _dryRun, ...normalBootEnv } = BOOT_ENV;
+    await expect(
+      bootValidate({ kmsMode: "required", bootErrorReporter: () => {} }, normalBootEnv),
+    ).rejects.toThrow(/PLATFORM_KEK/);
   });
 
   test('fileStorage "auto" in production without S3 aborts', async () => {

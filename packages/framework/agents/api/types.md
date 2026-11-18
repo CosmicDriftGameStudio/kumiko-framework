@@ -2395,6 +2395,7 @@ type ListColumnViewModel = {
   ellipsis?: true; // Mirrors `ListColumnSpec.ellipsis`: one line, cut with an ellipsis.
   multiline?: true; // Mirrors `ListColumnSpec.multiline`: `\n` in the value breaks the line.
   cardAbove?: true; // Mirrors `ListColumnSpec.cardAbove`.
+  cardLabel?: true; // Mirrors `ListColumnSpec.cardLabel`.
   emphasis?: true; // Mirrors `ListColumnSpec.emphasis`: medium weight, foreground colour.
   tone?: "muted"; // Mirrors `ListColumnSpec.tone`.
   cardBadge?: true; // Mirrors `ListColumnSpec.cardBadge`.

@@ -6,6 +6,7 @@ import type { Dispatcher, DispatcherError, FormValues } from "../headless/index.
 import { tabIdAt } from "./render-edit-helpers.tsx";
 import {
   FIELD_APPROVAL_REQUEST_CHANGE,
+  fieldApprovalFields,
   isDispatcherRejection,
   isFieldApprovalRequired,
 } from "./render-edit-logic.ts";
@@ -148,6 +149,10 @@ async function submitForApproval<TValues extends FormValues, TCtx>(
   }
   state.setPendingApprovalFields(fields);
   state.setFormError(null);
+  state.notifyAction?.({
+    tone: "success",
+    text: state.translate("kumiko.form.fieldApproval.submitted"),
+  });
   if (form.controller.getSnapshot().isDirty) await handleSubmit({ saveNow: true });
 }
 
@@ -159,7 +164,7 @@ function renderFieldApprovalParts<TValues extends FormValues, TCtx>(
   if (!isFieldApprovalRequired(formError)) return undefined;
   const { props, state, sections } = model.engine;
   const { Button, Text } = state.primitives;
-  const fields = (formError.details?.fields ?? []).map((issue) => issue.path);
+  const fields = fieldApprovalFields(formError);
   const shownFields = sections.filteredSections.flatMap((s) =>
     s.kind === "fields" ? s.fields : [],
   );
@@ -204,7 +209,7 @@ export function renderFormErrorBanner<TValues extends FormValues, TCtx>(
   return (
     formError !== null && (
       <Banner
-        variant="error"
+        variant={approval === undefined ? "error" : "warning"}
         testId="render-edit-form-error"
         actions={
           approval?.action ? (
@@ -224,11 +229,14 @@ export function renderFormErrorBanner<TValues extends FormValues, TCtx>(
           ) : undefined
         }
       >
-        <Text testId="render-edit-form-error-key">
-          {unprocessableReasonText(formError, translate) ??
-            translate(formError.i18nKey, formError.i18nParams)}
-        </Text>
-        {approval?.text}
+        {approval === undefined ? (
+          <Text testId="render-edit-form-error-key">
+            {unprocessableReasonText(formError, translate) ??
+              translate(formError.i18nKey, formError.i18nParams)}
+          </Text>
+        ) : (
+          approval.text
+        )}
         {layout.rootIssues.map((issue) => (
           <Text key={`${issue.path}:${issue.i18nKey}`} testId="render-edit-form-error-root">
             {translate(issue.i18nKey, issue.params)}

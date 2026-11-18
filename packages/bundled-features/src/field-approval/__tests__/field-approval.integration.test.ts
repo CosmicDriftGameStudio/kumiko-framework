@@ -15,6 +15,7 @@ import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stac
 import { createConfigFeature } from "../../config/feature.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { createUserFeature } from "../../user/feature.ts";
+import { seedUser } from "../../user/seeding.ts";
 import { fieldChangeRequestAggregateId } from "../aggregate-id.ts";
 import {
   FIELD_APPROVAL_LIST_SCREEN_ID,
@@ -88,6 +89,7 @@ type PendingRows = {
     value: unknown;
     canApprove: boolean;
     requestedAt?: unknown;
+    requestedByName?: unknown;
   }>;
 };
 
@@ -348,6 +350,18 @@ describe("field-approval list", () => {
       filedByCaller: false,
     });
     expect(typeof row?.requestedAt).toBe("string");
+  });
+
+  test("an approver who is no admin sees the requester's display name, never the email", async () => {
+    const email = "erika.requester@example.test";
+    const seeded = await seedUser(stack.db, { email, displayName: "Erika Requester" });
+    const requester = createTestUser({ id: seeded.id, roles: ["PropertyManager"] });
+    const contactId = await seedContact();
+    const { id } = await fileRequest(contactId, NEW_IBAN, requester);
+
+    const row = (await pendingFor(accA, contactId)).find((r) => r.id === id);
+    expect(row).toMatchObject({ requestedBy: seeded.id, requestedByName: "Erika Requester" });
+    expect(JSON.stringify(row)).not.toContain(email);
   });
 
   test("an approver's own change offers no approve action and cannot be approved", async () => {

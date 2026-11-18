@@ -3,6 +3,7 @@ import type { EditFieldViewModel, FormValues } from "../headless/index.ts";
 import type { StatusBadgeProps } from "../primitives.tsx";
 import { statusToneForOptionTone } from "../status-tone.ts";
 import { fieldCellWidth, GridCellForField } from "./grid-cell-for-field.tsx";
+import { fieldApprovalFields } from "./render-edit-logic.ts";
 import type {
   FieldsSection,
   RenderEditModel,
@@ -79,6 +80,7 @@ function createFieldCellRenderer<TValues extends FormValues, TCtx>(
   const { isSettingsList, isCreate } = model.footer;
   const { disabled, fieldAccent } = props;
   const showsChangedMarker = !isCreate || props.markChangedFields;
+  const approvalRequiredFields = fieldApprovalFields(state.formError);
   const clearErrorsAndValidate = (fieldName: string): void => {
     form.clearErrorsOnInput(fieldName);
     if (props.validateOnChange === true) form.controller.validate([fieldName]);
@@ -111,6 +113,13 @@ function createFieldCellRenderer<TValues extends FormValues, TCtx>(
         {...appendixCellProps(props, field, snapshot.values, state.primitives.StatusBadge)}
         {...(state.pendingApprovalFields.includes(field.field) && {
           description: state.translate("kumiko.form.fieldApproval.pending"),
+        })}
+        {...(approvalRequiredFields.includes(field.field) && {
+          status: {
+            tone: "warn" as const,
+            label: state.translate("kumiko.form.fieldApproval.required"),
+            testId: `field-approval-required-${field.field}`,
+          },
         })}
         allIssues={snapshot.errors}
         valueDisplay={props.valueDisplay}

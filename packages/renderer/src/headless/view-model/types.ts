@@ -156,6 +156,8 @@ export type ListColumnViewModel = {
   readonly multiline?: true;
   /** Mirrors `ListColumnSpec.cardAbove`. */
   readonly cardAbove?: true;
+  /** Mirrors `ListColumnSpec.cardLabel`. */
+  readonly cardLabel?: true;
   /** Mirrors `ListColumnSpec.emphasis`: medium weight, foreground colour. */
   readonly emphasis?: true;
   /** Mirrors `ListColumnSpec.tone`. */

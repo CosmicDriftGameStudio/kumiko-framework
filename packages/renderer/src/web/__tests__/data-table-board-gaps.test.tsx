@@ -672,3 +672,34 @@ describe("DataTable multiline and cardAbove columns", () => {
     });
   });
 });
+
+describe("DataTable cardLabel columns", () => {
+  const OLD_IBAN = "DE02120300000000202051";
+  const columns = [
+    { field: "name", label: "Name", type: "string", sortable: false },
+    { field: "current", label: "Current value", type: "string", sortable: false, cardLabel: true },
+    { field: "next", label: "New value", type: "string", sortable: false, cardLabel: true },
+  ] as const;
+  const rows = [{ id: "r1", values: { name: "Owner", current: OLD_IBAN, next: "DE89" } }];
+
+  test("on the phone card each labelled column has its own line that starts with the label", () => {
+    atViewportWidth(500, () => {
+      render(<DataTable columns={columns} rows={rows} testId="phone" />);
+      const meta = screen.getByTestId("card-meta-r1");
+      const current = within(meta).getByTestId("cell-r1-current");
+      const next = within(meta).getByTestId("cell-r1-next");
+      expect(current.textContent).toBe(`Current value: ${OLD_IBAN}`);
+      expect(next.textContent).toBe("New value: DE89");
+      expect(current.parentElement).not.toBe(next.parentElement);
+      // The value moves below its label as one piece before it breaks inside.
+      expect(within(current).getByText(OLD_IBAN).className).toContain("inline-block");
+    });
+  });
+
+  test("the wide table keeps the label in the header only", () => {
+    atViewportWidth(1280, () => {
+      render(<DataTable columns={columns} rows={rows} testId="wide" />);
+      expect(screen.getByText(OLD_IBAN).closest("td")?.textContent).toBe(OLD_IBAN);
+    });
+  });
+});

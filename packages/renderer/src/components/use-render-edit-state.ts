@@ -1,6 +1,7 @@
 import type { EntityEditScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import { useCallback, useRef, useState } from "react";
 import { useAppFeatures } from "../app/app-features-context.tsx";
+import { useClientActionRuntime } from "../app/client-actions.tsx";
 import type { ErrorNotice } from "../app/error-reference.tsx";
 import { useExtensionFormHost } from "../app/extension-form-submit.tsx";
 import { useOptionalDispatcher } from "../context/dispatcher-context.tsx";
@@ -142,6 +143,7 @@ export function useRenderEditState({
   const fieldApprovalMounted = useAppFeatures().some(
     (feature) => feature.featureName === FIELD_APPROVAL_FEATURE,
   );
+  const notifyAction = useClientActionRuntime().notify;
 
   const isWizard = screen.layout.mode === "wizard";
   // Tabs reuse the wizard's step machinery: one section visible at a time,
@@ -176,6 +178,7 @@ export function useRenderEditState({
     appLocale,
     dispatcher,
     fieldApprovalMounted,
+    notifyAction,
     isWizard,
     isTabs,
     draftEnabled,

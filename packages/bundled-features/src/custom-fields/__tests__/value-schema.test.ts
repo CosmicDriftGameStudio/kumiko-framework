@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import * as z from "zod";
 import { createCustomFieldsFeature } from "../feature.ts";
 import { buildCustomFieldValueSchema } from "../lib/value-schema.ts";
+import { defineFieldPayloadSchema, updateFieldPayloadSchema } from "../schemas.ts";
 
 describe("set-custom-field money contract", () => {
   const moneySchema = buildCustomFieldValueSchema({ type: "money", currency: "EUR" });
@@ -82,5 +83,75 @@ describe("buildCustomFieldValueSchema — type-shape only", () => {
       schema: { blob: { type: "json" } },
     });
     expect(schema).toBeNull();
+  });
+});
+
+describe("embedded sub-types — every allowed sub-type is checked on write", () => {
+  const schema = buildCustomFieldValueSchema({
+    type: "embedded",
+    currency: "EUR",
+    schema: {
+      fee: { type: "money" },
+      tier: { type: "enum", values: ["bronze", "gold"] },
+    },
+  });
+
+  test("money is an integer amount in minor units", () => {
+    expect(schema?.safeParse({ fee: 1250 }).success).toBe(true);
+    expect(schema?.safeParse({ fee: 12.5 }).success).toBe(false);
+    expect(schema?.safeParse({ fee: 2 ** 60 }).success).toBe(false);
+    expect(schema?.safeParse({ fee: { amount: 1250, currency: "EUR" } }).success).toBe(false);
+  });
+
+  test("enum takes only its declared values", () => {
+    expect(schema?.safeParse({ tier: "gold" }).success).toBe(true);
+    expect(schema?.safeParse({ tier: "platinum" }).success).toBe(false);
+  });
+});
+
+describe("define payload — an embedded sub-type without a write check is refused", () => {
+  function defineWith(serializedField: Record<string, unknown>) {
+    return defineFieldPayloadSchema.safeParse({
+      entityName: "property",
+      fieldKey: "extra",
+      serializedField,
+    });
+  }
+
+  test("accepts every checked sub-type", () => {
+    const result = defineWith({
+      type: "embedded",
+      currency: "EUR",
+      schema: {
+        city: { type: "text" },
+        rooms: { type: "number" },
+        rented: { type: "boolean" },
+        since: { type: "date" },
+        fee: { type: "money" },
+        tier: { type: "enum", values: ["bronze", "gold"] },
+      },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  test("refuses an unknown sub-type, an enum without values and money without the definition's currency", () => {
+    expect(defineWith({ type: "embedded", schema: { blob: { type: "json" } } }).success).toBe(
+      false,
+    );
+    expect(
+      defineWith({ type: "embedded", schema: { tier: { type: "enum", values: [] } } }).success,
+    ).toBe(false);
+    expect(defineWith({ type: "embedded", schema: { fee: { type: "money" } } }).success).toBe(
+      false,
+    );
+  });
+
+  test("an update with an unchecked sub-type is refused too", () => {
+    const result = updateFieldPayloadSchema.safeParse({
+      entityName: "property",
+      fieldKey: "extra",
+      serializedField: { schema: { blob: { type: "json" } } },
+    });
+    expect(result.success).toBe(false);
   });
 });

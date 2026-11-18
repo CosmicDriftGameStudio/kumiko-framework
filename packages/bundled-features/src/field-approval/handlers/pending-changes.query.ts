@@ -15,6 +15,7 @@ import { fieldLabelKey } from "@cosmicdrift/kumiko-renderer/headless";
 import type { ListFilterOption } from "@cosmicdrift/kumiko-types/event-store-executor-types";
 import type * as z from "zod";
 import { visibleParentRowIds } from "../../shared/index.ts";
+import { resolveUserDisplayNames, USER_FEATURE } from "../../user/index.ts";
 import { FieldChangeStatus } from "../constants.ts";
 import type { fieldChangeRequestExecutor } from "../executor.ts";
 import { pendingFieldChangesQuerySchema } from "../schemas.ts";
@@ -137,6 +138,18 @@ async function toPendingChangeSummary(
   };
 }
 
+// The member directory behind a user reference is admin-only, so the list carries the
+// requester's display name itself; only the name, the email stays out.
+async function requesterNamesOf(
+  rows: readonly { readonly requestedBy: unknown }[],
+  ctx: PendingChangesContext,
+): Promise<ReadonlyMap<string, string>> {
+  if (ctx.registry.getFeature(USER_FEATURE) === undefined) return new Map();
+  const ids = new Set<string>();
+  for (const row of rows) if (typeof row.requestedBy === "string") ids.add(row.requestedBy);
+  return resolveUserDisplayNames(ctx.db, [...ids]);
+}
+
 export function createPendingChangesQuery(
   access: AccessRule,
   requestExecutor: typeof fieldChangeRequestExecutor,
@@ -164,7 +177,14 @@ export function createPendingChangesQuery(
         const summary = await toPendingChangeSummary(row, visibleByType, ctx, user);
         if (summary !== undefined) rows.push(summary);
       }
-      return { rows };
+      const names = await requesterNamesOf(rows, ctx);
+      return {
+        rows: rows.map((row) => ({
+          ...row,
+          requestedByName:
+            typeof row.requestedBy === "string" ? names.get(row.requestedBy) : undefined,
+        })),
+      };
     },
   });
 }

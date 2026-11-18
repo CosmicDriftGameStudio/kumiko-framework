@@ -28,23 +28,27 @@ export function createFieldChangeRequestListScreen(
         field: "fieldLabel",
         label: i18nKey("field-approval.list.col.field"),
         renderer: { format: "i18nText" },
+        cardAbove: true,
       },
+      // Each value on its own labelled card line: two IBANs side by side would break mid-value.
       {
         field: "currentValue",
         label: i18nKey("field-approval.list.col.currentValue"),
-        narrowInline: true,
+        cardLabel: true,
       },
-      { field: "value", label: i18nKey("field-approval.list.col.value"), narrowInline: true },
+      { field: "value", label: i18nKey("field-approval.list.col.value"), cardLabel: true },
+      // The query carries the name: a user reference would resolve through the admin-only member directory.
       {
-        field: "requestedBy",
+        field: "requestedByName",
         label: i18nKey("field-approval.list.col.requestedBy"),
-        refEntity: "user:user",
-        refLabelField: "displayName",
+        narrowInline: true,
+        cardLabel: true,
       },
       {
         field: "requestedAt",
         label: i18nKey("field-approval.list.col.requestedAt"),
-        hideOnNarrow: true,
+        narrowInline: true,
+        cardLabel: true,
         renderer: { format: "timestamp" },
       },
     ],

@@ -1106,6 +1106,7 @@ type ListColumnSpec =
     ellipsis?: true; // One line with a trailing ellipsis in the table; the full text is the cell's `title`.
     multiline?: true; // Free text: the cell wraps instead of ending in "…", and a line break (`\n`) in the value starts a new line (table and phone card).
     cardAbove?: true; // Phone card: the column's line stands above the title (muted, e.g. "date, channel") instead of below it.
+    cardLabel?: true; // Phone card: the line starts with the column label ("Current value: …"), and the value moves below the label as a whole before it breaks inside.
     emphasis?: true; // Cell text in medium weight and foreground colour, like the title column of a board.
     tone?: "muted"; // `"muted"` draws every cell of the column in the muted text colour (e.g. a free-text message beside primary columns).
     cardBadge?: true; // The phone card shows this column as its badge: right of the title, as an outlined neutral pill (a `display: "badge"` column keeps its own pill).

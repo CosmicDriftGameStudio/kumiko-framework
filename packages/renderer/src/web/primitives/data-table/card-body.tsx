@@ -148,6 +148,13 @@ function renderMetaCell(
     >
       {isBadgeColumn(col) ? (
         <span className="inline-flex align-middle">{cardCell(m, row, col)}</span>
+      ) : col.cardLabel === true ? (
+        <>
+          {`${col.label}: `}
+          <span className="inline-block max-w-full break-words align-top text-foreground">
+            {cardCell(m, row, col)}
+          </span>
+        </>
       ) : (
         cardCell(m, row, col)
       )}
