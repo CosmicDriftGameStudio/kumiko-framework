@@ -83,9 +83,9 @@ function cellTestIdOf(m: DataTableModel, row: ListRowViewModel, field: string): 
 }
 
 function hasCardLink(row: ListRowViewModel, col: ListColumnViewModel): boolean {
-  return (
-    !isEmptyCellValue(row.values[col.field]) && cellLinkProp(col, row, true).link !== undefined
-  );
+  if (isEmptyCellValue(row.values[col.field])) return false;
+  const { link, referenceFileId } = cellLinkProp(col, row, true);
+  return link !== undefined || referenceFileId !== undefined;
 }
 
 function needsControlOutsideOpener(row: ListRowViewModel, col: ListColumnViewModel): boolean {

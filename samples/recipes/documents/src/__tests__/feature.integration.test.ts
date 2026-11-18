@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { documentIdForFile } from "@cosmicdrift/kumiko-bundled-features/documents";
 import {
   createFilesFeature,
   createInMemoryFileProvider,
@@ -74,5 +75,43 @@ describe("documents recipe", () => {
     ]);
     // the property reader may open the property but not the contract that owns the file
     expect((await forRecord(propertyReader, "property", property.id)).rows).toEqual([]);
+  });
+});
+
+describe("offer list: reference to a filed document", () => {
+  // The query a list's reference column loads its labels from; the cell links `file`
+  // from the same rows, since filed-document has exactly one file field.
+  const lookupReceipt = (as: typeof admin, documentId: string) =>
+    stack.http.queryOk<{ rows: readonly Record<string, unknown>[] }>(
+      "documents:query:filed-document:list",
+      { filters: [{ field: "id", op: "in", value: [documentId] }] },
+      as,
+    );
+
+  test("the receipt lookup carries the title and the file for a reader of the document", async () => {
+    const fileId = await uploadContractFile();
+    const property = await stack.http.writeOk<{ id: string }>(
+      "property-management:write:property:create",
+      { name: "Harbour road 7" },
+      admin,
+    );
+    await stack.http.writeOk(
+      "property-management:write:contract:create",
+      { name: "C-2", propertyId: property.id, file: fileId },
+      admin,
+    );
+    const documentId = documentIdForFile(tenant, fileId);
+    await stack.http.writeOk(
+      "property-management:write:offer:create",
+      { name: "Roof repair", receipt: documentId },
+      admin,
+    );
+
+    const forContractReader = await lookupReceipt(contractReader, documentId);
+    expect(forContractReader.rows.map((row) => [row["title"], row["file"]])).toEqual([
+      ["Contract C-2", fileId],
+    ]);
+    // the property reader may not read the contract that owns the file: no label, no file
+    expect((await lookupReceipt(propertyReader, documentId)).rows).toEqual([]);
   });
 });

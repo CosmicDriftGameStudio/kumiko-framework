@@ -16,6 +16,7 @@ import {
   REFERENCE_LOOKUP_SOURCES,
   SYSTEM_REFERENCE_LABELS,
 } from "@cosmicdrift/kumiko-framework/ui-types";
+import { isUuid } from "@cosmicdrift/kumiko-types/identifiers";
 import { PII_ERASED_SENTINEL } from "@cosmicdrift/kumiko-types/kms-adapter-types";
 import { useMemo } from "react";
 import { toKebab } from "../app/qn.ts";
@@ -108,20 +109,40 @@ export function isCompleteRowPage(data: { readonly nextCursor?: string | null } 
   return data !== null && (data.nextCursor ?? null) === null;
 }
 
+// The list query already drops a file field the caller may not read, so only a FileRef id
+// that came back is linkable.
+export function referenceFileIdsOf(
+  rows: ReadonlyArray<Readonly<Record<string, unknown>>>,
+  fileField: string,
+): ReadonlyMap<string, string> {
+  const out = new Map<string, string>();
+  for (const row of rows) {
+    const id = row["id"];
+    const fileId = row[fileField];
+    if (typeof id === "string" && typeof fileId === "string" && isUuid(fileId)) {
+      out.set(id, fileId);
+    }
+  }
+  return out;
+}
+
 /** Without `ids` the lookup reads the first capped page, as an option source does;
  *  with `ids` it asks for exactly those rows.
  *  `map` holds the resolved labels; while the query loads or has failed an id is
  *  simply not in it. Callers decide the fallback: the raw id, or the "Unknown"
  *  label for entities listed in `UNRESOLVED_REFERENCE_LABEL_KEYS` once the
  *  lookup is complete.
+ *  `fileIds` maps a row id to the FileRef in its `fileField`, from the same rows.
  *  `featureName` is the reference's target feature, not the screen's. */
 export function useReferenceLookup(
   featureName: string,
   refEntity: string,
   labelField: string,
   ids?: readonly string[],
+  fileField?: string,
 ): {
   readonly map: ReferenceLookupMap;
+  readonly fileIds: ReadonlyMap<string, string> | undefined;
   readonly loading: boolean;
   readonly failed: boolean;
   /** False when the lookup page was capped: absent ids may still exist. */
@@ -161,8 +182,14 @@ export function useReferenceLookup(
     }
     return out;
   }, [result.data, labelKey, systemLabel, translate]);
+  const fileIds = useMemo(
+    () =>
+      fileField === undefined ? undefined : referenceFileIdsOf(result.data?.rows ?? [], fileField),
+    [result.data, fileField],
+  );
   return {
     map,
+    fileIds,
     loading: result.loading,
     failed: result.error !== null,
     complete: isCompleteRowPage(result.data),

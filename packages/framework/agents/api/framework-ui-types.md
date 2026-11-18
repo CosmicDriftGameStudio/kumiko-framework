@@ -28,6 +28,7 @@ function isUnusedFallbackOperand(screen: FormDerivationScreen, values: unknown, 
 function isWriteFormEditSection(section: EditSectionSpec): section is EditWriteFormSection;
 function parseFieldOptionsRef(raw: string): ParsedFieldOptionsRef | undefined;
 function pickEmptyStateText<Variant extends EmptyStateText & { when: FieldCondition; }, EmptyState extends EmptyStateText & { variants?: Variant[]; }>(emptyState: EmptyState | undefined, record: Readonly<Record<string, unknown>>): EmptyState | Variant | undefined; // Picks the first emptyState variant whose `when` matches the record, else the base emptyState.
+function referencedFileFieldOf(entity: { fields: Readonly<Record<string, { type: string; }>>; } | undefined): string | undefined;
 function resolveNavParentScreen(screens: ScreenDefinition[], detail: ScreenDefinition, getId: (screen: ScreenDefinition) => string): ScreenDefinition | undefined;
 function resolveTranslationValue(value: TranslationValue, locale: string, params?: Readonly<Record<string, unknown>>): string; // Resolve a TranslationValue to display text: a plural entry picks its CLDR category via `Intl.PluralRules` from `params.count`, falling back to `other` when `count` is missing, non-finite, or `locale` is invalid.
 function roundDerivedCellValue(value: number, target: DerivedCellRoundingTarget): number; // Rounds a derived cell's computed value to the precision its target sub-field declares — commercial rounding (round-half-away-from-zero, correct for signed minor-unit money).

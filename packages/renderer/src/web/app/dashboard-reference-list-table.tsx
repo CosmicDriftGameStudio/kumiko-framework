@@ -68,7 +68,8 @@ export function DashboardReferenceListTable({
     [columns, featureName],
   );
   const referenceColumns = useMemo(
-    () => selectReferenceColumns(viewColumns, featureName),
+    // The dashboard table renders a label and record link only, never a file cell.
+    () => selectReferenceColumns(viewColumns, featureName, []),
     [viewColumns, featureName],
   );
   const { referenceRequests, handleLookupMap, referenceLookups } = useReferenceColumnLookups(

@@ -1,8 +1,13 @@
-import { UNRESOLVED_REFERENCE_LABEL_KEYS } from "@cosmicdrift/kumiko-framework/ui-types";
+import {
+  type FeatureSchema,
+  referencedFileFieldOf,
+  UNRESOLVED_REFERENCE_LABEL_KEYS,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 import type { useReferenceLinkResolver } from "../app/reference-link.ts";
 import type {
   CellLinkItem,
   ListColumnViewModel,
+  RuntimeCellFile,
   RuntimeCellLink,
   RuntimeCellLinkItems,
   RuntimeRenderer,
@@ -13,6 +18,8 @@ import type { ReferenceLookupMap } from "../hooks/use-reference-lookup.ts";
 
 export type PublishedReferenceLookup = {
   readonly map: ReferenceLookupMap;
+  /** Referenced row id to the FileRef of its single file field, when the target has one. */
+  readonly fileIds?: ReadonlyMap<string, string>;
   readonly complete: boolean;
   /** The map is from an earlier id set; the current ids are still loading. */
   readonly pending?: true;
@@ -23,6 +30,7 @@ export type ReferenceColumnSpec = {
   readonly refEntity: string;
   readonly refFeature: string;
   readonly labelField: string;
+  readonly fileField?: string;
 };
 
 export type ReferenceLookupRequest = ReferenceColumnSpec & {
@@ -75,7 +83,11 @@ export function mergeChunkLookups(
   if (only !== undefined && !pending) return only;
   const map = new Map<string, string>();
   for (const chunk of resolved) for (const [id, label] of chunk.map) map.set(id, label);
-  return { map, complete, ...(pending && { pending }) };
+  const fileIds = new Map<string, string>();
+  for (const chunk of resolved)
+    for (const [id, fileId] of chunk.fileIds ?? []) fileIds.set(id, fileId);
+  const carriesFiles = resolved.some((chunk) => chunk.fileIds !== undefined);
+  return { map, ...(carriesFiles && { fileIds }), complete, ...(pending && { pending }) };
 }
 
 type ResolveReferenceLink = ReturnType<typeof useReferenceLinkResolver>;
@@ -99,17 +111,26 @@ function eagerloadedRef(row: unknown, field: string): EagerloadedRef {
 export function selectReferenceColumns(
   columns: readonly ListColumnViewModel[],
   featureName: string,
+  appFeatures: readonly FeatureSchema[],
 ): ReferenceColumnSpec[] {
   return columns
     .filter((c: ListColumnViewModel) => c.type === "reference" && c.refEntity !== undefined)
-    .map((c: ListColumnViewModel) => ({
-      field: c.field,
-      refEntity: c.refEntity ?? "",
+    .map((c: ListColumnViewModel) => {
       // refFeature comes from parseRefTarget in the ViewModel
       // (default = the current featureName).
-      refFeature: c.refFeature ?? featureName,
-      labelField: c.refLabelField ?? "id",
-    }));
+      const refFeature = c.refFeature ?? featureName;
+      const refEntity = c.refEntity ?? "";
+      const fileField = referencedFileFieldOf(
+        appFeatures.find((f) => f.featureName === refFeature)?.entities[refEntity],
+      );
+      return {
+        field: c.field,
+        refEntity,
+        refFeature,
+        labelField: c.refLabelField ?? "id",
+        ...(fileField !== undefined && { fileField }),
+      };
+    });
 }
 
 type ColumnLookup = {
@@ -181,6 +202,10 @@ function buildLinkItemsFor(lookup: ColumnLookup): RuntimeCellLinkItems {
   };
 }
 
+function buildReferenceFileFor(fileIds: ReadonlyMap<string, string>): RuntimeCellFile {
+  return (value) => (typeof value === "string" && value !== "" ? fileIds.get(value) : undefined);
+}
+
 function buildReferenceRenderer(lookup: ColumnLookup): RuntimeRenderer {
   const { col, map, labelField, unresolvedLabel } = lookup;
   return (value: unknown, row?: Readonly<Record<string, unknown>>): string => {
@@ -242,6 +267,9 @@ function enrichReferenceColumn(
     renderer: buildReferenceRenderer(lookup),
     linkFor: buildLinkFor(lookup),
     linkItemsFor: buildLinkItemsFor(lookup),
+    ...(published?.fileIds !== undefined && {
+      referenceFileFor: buildReferenceFileFor(published.fileIds),
+    }),
   };
 }
 

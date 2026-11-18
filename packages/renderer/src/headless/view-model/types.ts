@@ -56,6 +56,12 @@ export type RuntimeCellLinkItems = (
   row?: Readonly<Record<string, unknown>>,
 ) => readonly CellLinkItem[] | undefined;
 
+/** Runtime-only like RuntimeCellLink: the FileRef a reference cell links instead of its record. */
+export type RuntimeCellFile = (
+  value: unknown,
+  row?: Readonly<Record<string, unknown>>,
+) => string | undefined;
+
 // View-Models — plain data structures produced by computeListViewModel and
 // computeEditViewModel. They flatten the combined [screen-def + entity-def
 // + row-data + user] inputs into a shape the renderer draws directly,
@@ -94,6 +100,8 @@ export type ListColumnViewModel = {
   /** Per-row action link column: a text link right-aligned without header text from sm, a small outline button on cards. */
   readonly rowActionLink?: boolean;
   readonly linkItemsFor?: RuntimeCellLinkItems;
+  /** Reference column to an entity with one file field: the referenced record's file. */
+  readonly referenceFileFor?: RuntimeCellFile;
   readonly sortable: boolean;
   /** Only for `type: "select"` or `type: "multiSelect"` — translated option
    *  labels keyed by raw value. The renderer renders `optionLabels[value]`

@@ -209,10 +209,31 @@ export function FileNameLink({
   /** List cells: a bare underlined name does not read as a file to fetch. */
   readonly asDownload?: boolean;
 }): ReactNode {
-  const t = useTranslation();
   const fileName = useFileMeta(fileId)?.fileName ?? null;
   if (!isUuid(fileId)) return <span className={cn("text-sm", className)}>{fallbackLabel}</span>;
-  const name = fileName ?? fallbackLabel;
+  return (
+    <FileDownloadLink
+      fileId={fileId}
+      name={fileName ?? fallbackLabel}
+      asDownload={asDownload}
+      {...(className !== undefined && { className })}
+    />
+  );
+}
+
+/** A link to the stored file under a caller-given name; FileNameLink fetches the file's own name. */
+export function FileDownloadLink({
+  fileId,
+  name,
+  className,
+  asDownload = false,
+}: {
+  readonly fileId: string;
+  readonly name: string;
+  readonly className?: string;
+  readonly asDownload?: boolean;
+}): ReactNode {
+  const t = useTranslation();
   const downloadLabel = asDownload
     ? t("kumiko.field.file-list.downloadNamed", { name })
     : undefined;

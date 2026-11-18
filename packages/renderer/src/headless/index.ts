@@ -132,6 +132,7 @@ export type {
   ListColumnViewModel,
   ListRowViewModel,
   ListViewModel,
+  RuntimeCellFile,
   RuntimeCellLink,
   RuntimeCellLinkItems,
   RuntimeRenderer,

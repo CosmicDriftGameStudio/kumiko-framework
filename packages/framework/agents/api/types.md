@@ -2374,6 +2374,7 @@ type ListColumnViewModel = {
   linkFor?: RuntimeCellLink;
   rowActionLink?: boolean; // Per-row action link column: a text link right-aligned without header text from sm, a small outline button on cards.
   linkItemsFor?: RuntimeCellLinkItems;
+  referenceFileFor?: RuntimeCellFile; // Reference column to an entity with one file field: the referenced record's file.
   sortable: boolean;
   optionLabels?: Readonly<Record<string, string>>; // Only for `type: "select"` or `type: "multiSelect"` — translated option labels keyed by raw value.
   optionTones?: Readonly<Partial<Record<string, SelectOptionTone>>>; // Only for `type: "select"` — declared tone per raw option value.
@@ -2409,6 +2410,7 @@ type ListRowViewModel = {
   id: string;
   values: Readonly<Record<string, unknown>>;
 };
+type RuntimeCellFile = (value: unknown, row?: Readonly<Record<string, unknown>>) => string | undefined; // Runtime-only like RuntimeCellLink: the FileRef a reference cell links instead of its record.
 type RuntimeCellLink = (value: unknown, row?: Readonly<Record<string, unknown>>) => CellLink | undefined; // Runtime-only like RuntimeRenderer; undefined means the cell stays plain text.
 type RuntimeCellLinkItems = (value: unknown, row?: Readonly<Record<string, unknown>>) => CellLinkItem[] | undefined; // Runtime-only like RuntimeCellLink; undefined means the cell uses its single renderer.
 type RuntimeRenderer = (value: unknown, row?: Readonly<Record<string, unknown>>) => string;

@@ -1,4 +1,4 @@
-import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
+import type { EntityDefinition, FieldDefinition } from "@cosmicdrift/kumiko-types/fields";
 import type {
   EditLayout,
   EditRelatedListSection,
@@ -10,6 +10,7 @@ import {
   cardColumnRoles,
   cardFileDisplayKind,
   cardMetaLines,
+  referencedFileFieldOf,
 } from "../../ui-types/card-column-roles.ts";
 import { LIST_ROW_META_COLUMNS } from "../../ui-types/list-row-meta.ts";
 import { parseRefTarget } from "../parse-ref-target.ts";
@@ -190,52 +191,147 @@ function editLayoutShowsField(layout: EditLayout, field: string): boolean {
 
 // Follows the renderer's row-click targets (create-app hasRowClickTarget) except the
 // app-wide createKumikoApp onRowClick, which is client code the boot never sees: a rowClick
-// action, a `detailFor` screen, or an entityEdit screen that shows the file field.
+// action, a `detailFor` screen, or an entityEdit screen that shows the file field. The edit
+// form shows a reference as its picker, so it never reaches a file linked through one.
 function rowOpensRecordWithField(
   features: readonly FeatureDefinition[],
   screen: EntityListScreenDefinition,
   field: string,
+  viaReference: boolean,
 ): boolean {
-  if (screen.rowActions?.some((action) => "rowClick" in action && action.rowClick === true)) {
-    return true;
-  }
+  if (hasRowClickAction(screen.rowActions)) return true;
   return features.some((feature) =>
     Object.values(feature.screens).some(
       (other) =>
         ("detailFor" in other && other.detailFor === screen.entity) ||
-        (other.type === "entityEdit" &&
+        (!viaReference &&
+          other.type === "entityEdit" &&
           other.entity === screen.entity &&
           editLayoutShowsField(other.layout, field)),
     ),
   );
 }
 
+function hasRowClickAction(rowActions: EntityListScreenDefinition["rowActions"]): boolean {
+  return rowActions?.some((action) => "rowClick" in action && action.rowClick === true) === true;
+}
+
+// A declared refEntity only applies to a column without a real non-text field, as in the list view model.
+function singleReferenceTargetOf(
+  col: ReturnType<typeof normalizeListColumn>,
+  fieldDef: FieldDefinition | undefined,
+): string | undefined {
+  if (fieldDef?.type === "reference")
+    return fieldDef.multiple === true ? undefined : fieldDef.entity;
+  if (fieldDef === undefined || fieldDef.type === "text") return col.refEntity;
+  return undefined;
+}
+
+// Mirrors the renderer: a single (not multiple) reference without an author renderer
+// links the target's file when the target has exactly one file field.
+function referenceColumnLinksFile(
+  features: readonly FeatureDefinition[],
+  featureName: string,
+  col: ReturnType<typeof normalizeListColumn>,
+  fieldDef: FieldDefinition | undefined,
+): boolean {
+  if (col.renderer !== undefined) return false;
+  const target = singleReferenceTargetOf(col, fieldDef);
+  if (target === undefined) return false;
+  const { featureName: refFeature, entityName } = parseRefTarget(target, featureName);
+  const targetEntity = features.find((f) => f.name === refFeature)?.entities?.[entityName];
+  return referencedFileFieldOf(targetEntity) !== undefined;
+}
+
+type ListFileColumn = { readonly field: string; readonly viaReference: boolean };
+
+// Hidden columns whose cell is a file link: a file column, or a reference column whose
+// cell links the referenced record's only file.
+function hiddenFileColumnsOf(
+  features: readonly FeatureDefinition[],
+  featureName: string,
+  columns: readonly ListColumnSpec[],
+  source: EntityDefinition | undefined,
+): readonly ListFileColumn[] {
+  return columns.flatMap((spec): ListFileColumn[] => {
+    const col = normalizeListColumn(spec);
+    if (col.hideOnNarrow !== true) return [];
+    const fieldDef = source?.fields[col.field];
+    if (cardFileDisplayKind(fieldDef?.type ?? col.valueType, col.renderer) === "file") {
+      return [{ field: col.field, viaReference: false }];
+    }
+    return referenceColumnLinksFile(features, featureName, col, fieldDef)
+      ? [{ field: col.field, viaReference: true }]
+      : [];
+  });
+}
+
+// A relatedList row opens only through its own rowClick or a rowClick action. Its
+// RenderList runs under the section entity's feature when that entity resolves.
+function relatedListHiddenFileFields(
+  features: readonly FeatureDefinition[],
+  featureName: string,
+  section: EditRelatedListSection,
+): readonly string[] {
+  if (section.rowClick !== undefined || hasRowClickAction(section.rowActions)) return [];
+  let source: EntityDefinition | undefined;
+  let listFeatureName = featureName;
+  if (section.entity !== undefined) {
+    const target = parseRefTarget(section.entity, featureName);
+    source = features.find((f) => f.name === target.featureName)?.entities?.[target.entityName];
+    if (source !== undefined) listFeatureName = target.featureName;
+  }
+  return hiddenFileColumnsOf(features, listFeatureName, section.columns, source).map(
+    (col) => col.field,
+  );
+}
+
+function relatedListSectionsOf(
+  screen: FeatureDefinition["screens"][string],
+): readonly EditRelatedListSection[] {
+  if (screen.type !== "projectionDetail" && screen.type !== "entityEdit") return [];
+  return screen.layout.sections.filter(
+    (section): section is EditRelatedListSection =>
+      "kind" in section && section.kind === "relatedList",
+  );
+}
+
 // A phone card drops hideOnNarrow columns; when the row opens nothing either, the
-// file in such a column cannot be reached on a phone at all. A reference column to an
-// entity holding the file is not counted: its cell shows the label only, never a file link.
+// file in such a column cannot be reached on a phone at all.
 export function warnOnUnreachableHiddenFileColumns(
   warn: BootWarningSink,
   features: readonly FeatureDefinition[],
 ): void {
+  const report = (featureName: string, where: string, fields: readonly string[]) => {
+    // skip: every hidden file column of this list stays reachable
+    if (fields.length === 0) return;
+    warn({
+      kind: "list/hidden-file-column",
+      feature: featureName,
+      message: `Feature "${featureName}" ${where}: the file column(s) ${fields.join(", ")} are hideOnNarrow and the row opens no record showing them, so a phone cannot reach the file. Drop hideOnNarrow, or add a rowClick action, a detail screen or the field to the edit screen. An app-wide createKumikoApp onRowClick is not visible here; ignore this warning if it opens the file.`,
+    });
+  };
   for (const feature of features) {
     for (const screen of Object.values(feature.screens)) {
+      for (const section of relatedListSectionsOf(screen)) {
+        report(
+          feature.name,
+          `screen "${screen.id}" section "${section.title}"`,
+          relatedListHiddenFileFields(features, feature.name, section),
+        );
+      }
       if (screen.type !== "entityList") continue;
-      const entity = feature.entities?.[screen.entity];
-      const hiddenFileFields = screen.columns
-        .map((spec) => normalizeListColumn(spec))
-        .filter(
-          (col) =>
-            col.hideOnNarrow === true &&
-            cardFileDisplayKind(entity?.fields[col.field]?.type, col.renderer) === "file" &&
-            !rowOpensRecordWithField(features, screen, col.field),
-        )
-        .map((col) => col.field);
-      if (hiddenFileFields.length === 0) continue;
-      warn({
-        kind: "list/hidden-file-column",
-        feature: feature.name,
-        message: `Feature "${feature.name}" screen "${screen.id}": the file column(s) ${hiddenFileFields.join(", ")} are hideOnNarrow and the row opens no record showing them, so a phone cannot reach the file. Drop hideOnNarrow, or add a rowClick action, a detail screen or the field to the edit screen. An app-wide createKumikoApp onRowClick is not visible here; ignore this warning if it opens the file.`,
-      });
+      const unreachable = hiddenFileColumnsOf(
+        features,
+        feature.name,
+        screen.columns,
+        feature.entities?.[screen.entity],
+      ).filter((col) => !rowOpensRecordWithField(features, screen, col.field, col.viaReference));
+      report(
+        feature.name,
+        `screen "${screen.id}"`,
+        unreachable.map((col) => col.field),
+      );
     }
   }
 }

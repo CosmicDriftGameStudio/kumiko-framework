@@ -58,7 +58,7 @@ detail: A file cell in a list shows a download icon before the file name and is 
 feature: framework
 type: improvement
 title: Boot warning for a file column a phone cannot reach
-detail: Boot warns with `list/hidden-file-column` when an entityList hides a file column on narrow screens (`hideOnNarrow`) and its rows open nothing that shows the file: no rowClick action, no `detailFor` screen and no entityEdit screen for the entity with that field in its layout. An app-wide `createKumikoApp({ onRowClick })` is client code the boot cannot see, and a reference column to an entity holding the file is not checked. It is a warning, so existing apps keep booting.
+detail: Boot warns with `list/hidden-file-column` when an entityList hides a file column on narrow screens (`hideOnNarrow`) and its rows open nothing that shows the file: no rowClick action, no `detailFor` screen and no entityEdit screen for the entity with that field in its layout. A single reference column counts too when its target entity has exactly one file field, since its cell links that file; an edit screen does not make it reachable, because its form shows the reference picker. The relatedList sections of projectionDetail and entityEdit screens are checked as well, where only the section `rowClick` or a rowClick action opens a row. An app-wide `createKumikoApp({ onRowClick })` is client code the boot cannot see. It is a warning, so existing apps keep booting.
 -->
 
 <!-- kumiko-changes
@@ -73,4 +73,11 @@ feature: renderer
 type: fix
 title: Progress lists name an entry above its bar, translated notification region
 detail: `ProgressList` shows name and value first and the bar right below, with more space between two entries than inside one, so a reader from the top pairs each name with its own bar. The toast region is labelled through `kumiko.toast.viewport-label` (Radix fills in the hotkey) instead of the fixed English "Notifications (F8)", in all locale packages.
+-->
+
+<!-- kumiko-changes
+feature: renderer
+type: improvement
+title: A reference to a record with one file links that file
+detail: A list cell of a single reference (`createReferenceField` or a column with `refEntity`) whose target entity has exactly one `file` field and no `files` field shows the reference label as a download link to that file, with the PDF view in a drawer like the file column of the documents list. The file link takes the place of the link to the referenced record. The file id comes from the rows of the reference lookup query, so tenant and field read access apply: an unreadable file field, an unreadable target or an empty file keep the plain label. The name shown is the reference label, never the stored file name. A target with several file fields, a `files` field, a multi reference or an author renderer stays text, and so do reference columns of dashboard list panels. The documents recipe shows it with an offer that references a filed document.
 -->
