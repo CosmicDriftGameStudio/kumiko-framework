@@ -1,5 +1,12 @@
-import { normalizeListColumn } from "@cosmicdrift/kumiko-framework/ui-types";
+import {
+  declaredSortNulls,
+  type EntityDefinition,
+  normalizeListColumn,
+  nullsSortFirst,
+} from "@cosmicdrift/kumiko-framework/ui-types";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { useCallback, useEffect, useMemo, useRef } from "react";
+import { isMoneyValue } from "../app/entity-edit-prefill.ts";
 import type { EditRelatedListSectionViewModel, Translate } from "../headless/index.ts";
 import type { DataTableSort } from "../primitives.tsx";
 import { sortByAccessor } from "../sort-by-accessor.ts";
@@ -15,6 +22,35 @@ type PagedRows = {
 };
 
 const DEFAULT_GROUP_PAGE_SIZE = 50;
+
+const ISO_INSTANT_PATTERN = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,9}))?Z$/;
+
+// Instant.toString() drops trailing fraction zeros, so "…00.5Z" and "…00.25Z"
+// only compare by time once the fraction has a fixed width.
+function instantSortKey(value: string): string | undefined {
+  const match = ISO_INSTANT_PATTERN.exec(value);
+  if (match === null) return undefined;
+  return `${match[1]}.${(match[2] ?? "").padEnd(9, "0")}Z`;
+}
+
+// Mirrors the server's column sort: money by its amount column alone, a
+// locatedTimestamp by its instant, every other value as it is stored.
+function relatedListSortValue(value: unknown): string | number | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "number") return value;
+  if (isMoneyValue(value)) return value.amount;
+  const locatedUtc = propertyOf(value, "utc");
+  const text = typeof locatedUtc === "string" ? locatedUtc : String(value);
+  return instantSortKey(text) ?? text;
+}
+
+// The server list's tie order (`ORDER BY <field>, id ASC`); uuid order is its hex text order.
+function compareRowIds(a: Row, b: Row): number {
+  const aId = a["id"];
+  const bId = b["id"];
+  if (typeof aId !== "string" || typeof bId !== "string" || aId === bId) return 0;
+  return aId < bId ? -1 : 1;
+}
 
 // A handler that omits `nextCursor` (or reports a `total` the fetched rows
 // already cover) has no further rows; only a real cursor marks truncation.
@@ -41,6 +77,8 @@ export type RelatedListRows = {
  *  rows of its server groups in server order when `table.grouping` is active. */
 export function useRelatedListRows(args: {
   readonly section: EditRelatedListSectionViewModel;
+  /** Field definitions of the section's columns; a declared `sortNulls` places empty values. */
+  readonly fields: EntityDefinition["fields"];
   readonly payload: Readonly<Record<string, unknown>>;
   readonly groupField: string | undefined;
   readonly sort: DataTableSort | null;
@@ -49,7 +87,7 @@ export function useRelatedListRows(args: {
   readonly onAfterWrite: (() => Promise<void> | void) | undefined;
   readonly translate: Translate;
 }): RelatedListRows {
-  const { section, payload, groupField, sort, locale, refreshToken, onAfterWrite } = args;
+  const { section, fields, payload, groupField, sort, locale, refreshToken, onAfterWrite } = args;
   const aggregates = useListAggregates({
     queryType: section.query,
     payload,
@@ -83,17 +121,18 @@ export function useRelatedListRows(args: {
     const accessors: Record<string, (row: Row) => string | number | null> = {};
     for (const col of section.columns) {
       const field = normalizeListColumn(col).field;
-      accessors[field] = (row) => {
-        const value = row[field];
-        if (value === null || value === undefined) return null;
-        return typeof value === "number" ? value : String(value);
-      };
+      accessors[field] = (row) => relatedListSortValue(row[field]);
     }
     return accessors;
   }, [section.columns]);
   const sortedRows = useMemo(
-    () => sortByAccessor(rowsQuery.data?.rows ?? [], sort, sortAccessors, locale),
-    [rowsQuery.data, sort, sortAccessors, locale],
+    () =>
+      sortByAccessor(rowsQuery.data?.rows ?? [], sort, sortAccessors, locale, {
+        nullsFirst: (active) =>
+          nullsSortFirst(active.dir === "desc", declaredSortNulls(fields[active.field])),
+        tieBreaker: compareRowIds,
+      }),
+    [rowsQuery.data, sort, sortAccessors, locale, fields],
   );
 
   if (grouped) {

@@ -44,6 +44,7 @@ export { parseFieldOptionsRef, parseRefTarget } from "../engine/parse-ref-target
 export {
   ACTION_FORM_PSEUDO_ENTITY,
   availableSelectOptions,
+  declaredSortNulls,
   evalFieldCondition,
   findUnavailableSelectOptions,
   isExtensionEditSection,
@@ -54,6 +55,7 @@ export {
   isWriteFormEditSection,
   normalizeEditField,
   normalizeListColumn,
+  nullsSortFirst,
   pickEmptyStateText,
   resolveNavParentScreen,
   sectionFieldSpecs,

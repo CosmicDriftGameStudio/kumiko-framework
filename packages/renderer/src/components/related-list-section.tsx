@@ -378,6 +378,7 @@ export function RelatedListSection({
 
   const listRows = useRelatedListRows({
     section,
+    fields: entity.fields,
     payload,
     groupField,
     sort,

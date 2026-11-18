@@ -1,3 +1,4 @@
+import type { SortNulls } from "@cosmicdrift/kumiko-types/fields";
 import { createFallbackLogger } from "../logging/utils.ts";
 import type { FieldDefinition, SelectFieldDef } from "./types/fields.ts";
 import type {
@@ -172,6 +173,15 @@ export function normalizeListColumn(c: ListColumnSpec): Exclude<ListColumnSpec, 
     );
   }
   return col;
+}
+
+export function declaredSortNulls(field: FieldDefinition | undefined): SortNulls | undefined {
+  return field !== undefined && "sortNulls" in field ? field.sortNulls : undefined;
+}
+
+// Postgres' own null order without an explicit NULLS clause: last ascending, first descending.
+export function nullsSortFirst(descending: boolean, declared: SortNulls | undefined): boolean {
+  return declared === undefined ? descending : declared === "first";
 }
 
 /** Evaluates a declarative FieldCondition against the current row/form

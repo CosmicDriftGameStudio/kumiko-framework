@@ -88,3 +88,10 @@ type: fix
 title: The comma between phone card values stays at the value before it
 detail: In plain phone cards (`plainPhoneCards`, related lists) two `narrowInline` values on one line are joined by a comma that now sits in the same item as the front value, and the space after it is the line's column gap. An app stylesheet that widens that gap no longer leaves the comma standing alone with space on both sides ("980,00 €  ,  29.10.2026" becomes "980,00 €, 29.10.2026"). The front value takes its line height from that item, so an app rule on the line's direct children (`[data-testid^="card-vals-"] > div`) still reaches both values. A date range above the title keeps its dash flush between the dates.
 -->
+
+<!-- kumiko-changes
+feature: renderer
+type: fix
+title: Related lists sort money, located times and empty values like the standalone list
+detail: A relatedList sorts its loaded rows in the client. A money column (`{ amount, currency }`) now orders by its amount, like the server's column sort, which ignores the currency; before, every money value compared equal and the rows kept the server's id order. A `locatedTimestamp` column orders by its instant, and timestamps within one second order by their fraction whatever its digit count. Empty values sit where the standalone list puts them: last ascending, first descending, or where the field's `sortNulls` says. Rows with the same value follow the id, the standalone list's second key. `sortByAccessor` takes optional `nullsFirst` and `tieBreaker`; without them it behaves as before.
+-->

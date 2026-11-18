@@ -5,6 +5,7 @@ import {
   type OwnershipClause,
   shiftParams,
 } from "../engine/ownership.ts";
+import { declaredSortNulls, nullsSortFirst } from "../engine/screen-helpers.ts";
 import { SYSTEM_TENANT_ID } from "../engine/types/identifiers.ts";
 import type { SessionUser } from "../engine/types/index.ts";
 
@@ -51,14 +52,8 @@ export type ListSort =
 
 export type SortedListSort = Exclude<ListSort, { readonly kind: "unsorted" }>;
 
-function declaredSortNulls(entity: EntityDefinition, field: string): SortNulls | undefined {
-  const def = entity.fields[field];
-  return def !== undefined && "sortNulls" in def ? def.sortNulls : undefined;
-}
-
-// Postgres' own null order without an explicit NULLS clause: last ascending, first descending.
 export function sortsNullsFirst(sort: SortedListSort): boolean {
-  return sort.nulls === undefined ? sort.descending : sort.nulls === "first";
+  return nullsSortFirst(sort.descending, sort.nulls);
 }
 
 function nullsClause(sort: SortedListSort): string {
@@ -189,7 +184,7 @@ export function resolveListSort(request: {
       : undefined;
   if (field === undefined) return { kind: "unsorted" };
   const descending = payload.sortDirection === "desc";
-  const nulls = declaredSortNulls(entity, field);
+  const nulls = declaredSortNulls(entity.fields[field]);
   if (entity.fields[field]?.type !== "reference") {
     return { kind: "column", field, descending, nulls };
   }
