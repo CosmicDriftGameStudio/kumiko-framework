@@ -1,5 +1,9 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
+import {
+  createTierEngineFeature,
+  tierAssignmentTable,
+} from "@cosmicdrift/kumiko-bundled-features/tier-engine";
 import { setupAppTestStack } from "@cosmicdrift/kumiko-dev-server/testing";
 import { asRawClient, tableExists } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -12,7 +16,7 @@ import {
 import { resolveObservabilityWiring } from "@cosmicdrift/kumiko-framework/observability";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import * as z from "zod";
-import { createTestDb, type TestDb, type TestStack } from "../stack/index.ts";
+import { createTestDb, type TestDb, type TestStack, unsafePushTables } from "../stack/index.ts";
 import { noteFeature } from "./note-feature";
 
 const NOTES_TABLE = "public.read_testing_notes";
@@ -51,6 +55,21 @@ describe("setupAppTestStack", () => {
     const stack = await setupAppTestStack([noteFeature], { registryTables: false });
     try {
       expect(await tableExists(stack.db, NOTES_TABLE)).toBe(false);
+    } finally {
+      await stack.cleanup();
+    }
+  });
+
+  test("registryTables: false boots with a tier-engine mounted and leaves its table to a manual push", async () => {
+    const tierFeature = createTierEngineFeature({
+      tierMap: { free: { features: [], caps: {} } },
+      defaultTier: "free",
+    });
+    const stack = await setupAppTestStack([tierFeature], { registryTables: false });
+    try {
+      expect(await tableExists(stack.db, "public.read_tier_assignments")).toBe(false);
+      await unsafePushTables(stack.db, { tier_assignments: tierAssignmentTable });
+      expect(await tableExists(stack.db, "public.read_tier_assignments")).toBe(true);
     } finally {
       await stack.cleanup();
     }
