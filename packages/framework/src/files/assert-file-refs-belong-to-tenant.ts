@@ -9,6 +9,7 @@ import {
   fileRefIdsBySubField,
   fileRefIdsInField,
   holdsFileRefs,
+  isFileSubField,
   resolveFileSubField,
 } from "./file-field-slots.ts";
 import { FILE_REF_ENTITY_NAME } from "./file-ref-entity.ts";
@@ -65,12 +66,34 @@ function assertNewIdsFitSubFields(
 const WHOLE_FIELD_SLOT = "";
 
 // Sub-fields of one embedded field may carry different read rules, so each counts as its own slot.
+// A sub-field read rule is evaluated per row and rows have no stable id, so such a sub-field is a
+// slot per row index: a file the writer may not read keeps its row.
 function fileRefIdsBySlot(
   fieldDef: FieldDefinition,
   value: unknown,
 ): ReadonlyMap<string, readonly string[]> {
-  if (fieldDef.type === "embedded") return fileRefIdsBySubField(fieldDef, value);
-  return new Map([[WHOLE_FIELD_SLOT, fileRefIdsInField(fieldDef, value)]]);
+  if (fieldDef.type !== "embedded") {
+    return new Map([[WHOLE_FIELD_SLOT, fileRefIdsInField(fieldDef, value)]]);
+  }
+  const idsBySlot = new Map<string, readonly string[]>();
+  const rows: readonly unknown[] = Array.isArray(value) ? value : [value];
+  for (const [rowIndex, row] of rows.entries()) {
+    for (const [subField, ids] of fileRefIdsBySubField(fieldDef, row)) {
+      const readsPerRow = fieldDef.schema[subField]?.access?.read !== undefined;
+      const slot = readsPerRow ? `${subField}[${rowIndex}]` : subField;
+      idsBySlot.set(slot, [...(idsBySlot.get(slot) ?? []), ...ids]);
+    }
+  }
+  return idsBySlot;
+}
+
+function hasReadRuleOnFileSubField(fieldDef: FieldDefinition): boolean {
+  return (
+    fieldDef.type === "embedded" &&
+    Object.values(fieldDef.schema).some(
+      (subField) => isFileSubField(subField) && subField.access?.read !== undefined,
+    )
+  );
 }
 
 function fileRefIdsInFields(
@@ -86,7 +109,9 @@ function fileRefIdsInFields(
 
 // A file bound to this record that no field holds yet (an upload with entityId, not saved) opens
 // only through the field it was uploaded for, so naming it in another field needs read access to
-// that field, unless the writer uploaded it.
+// that field, unless the writer uploaded it. file_refs keeps only the top-level field, so when a
+// file sub-field of it has its own read rule, the sub-field and row the upload was meant for are
+// unknown and only the uploader may name it.
 function mayNameBoundFileInField(
   row: Readonly<Record<string, unknown>>,
   fieldName: string,
@@ -95,9 +120,11 @@ function mayNameBoundFileInField(
   user: SessionUser,
 ): boolean {
   const boundFieldName = row["fieldName"];
-  if (typeof boundFieldName !== "string" || boundFieldName === fieldName) return true;
+  if (typeof boundFieldName !== "string") return true;
   const boundField = entity.fields[boundFieldName];
   if (boundField === undefined || isOwnUpload(row, user)) return true;
+  if (hasReadRuleOnFileSubField(boundField)) return false;
+  if (boundFieldName === fieldName) return true;
   return userCanReadFieldRow(user, normalizeAccessEntry(boundField.access?.read), previous);
 }
 
@@ -167,7 +194,7 @@ export function assertFileRefsBelongToTenant(args: {
     fileFields,
     filterReadFields(entity, result.previous, user),
   );
-  // A slot pools the rows of a list field, but a sub-field rule may read the row it sits in: a
+  // A sub-field rule may read the row it sits in, and the writer may rewrite the row it reads: a
   // file the writer could not read must not end up where he can, whichever slot holds it.
   const revealedToWriter = [
     ...fileRefIdsInFields(

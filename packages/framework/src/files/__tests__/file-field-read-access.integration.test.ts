@@ -14,6 +14,7 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import { selectMany } from "../../db/query.ts";
 import {
+  createEmbeddedField,
   createEmbeddedListField,
   createEntity,
   createFileField,
@@ -56,6 +57,18 @@ const sealedEntity = createEntity({
   },
 });
 
+const surveyEntity = createEntity({
+  name: "survey",
+  table: "field_read_surveys",
+  fields: {
+    title: createTextField({ personal: false, reason: "test_fixture", required: true }),
+    check: createEmbeddedField(
+      { photos: { type: "files", access: restrictedFieldAccess }, sketches: { type: "files" } },
+      { personal: false, reason: "is_business_data" },
+    ),
+  },
+});
+
 // Each check row is read by its own inspector, so the row decides who reads its photos.
 const inspectionEntity = createEntity({
   name: "inspection",
@@ -82,6 +95,7 @@ const fieldReadFeature = defineFeature("field-read", (r) => {
   r.crud(dossierEntity, { write: RECORD_WRITERS, read: RECORD_READERS });
   r.crud(sealedEntity, { write: RECORD_WRITERS, read: RECORD_READERS });
   r.crud(inspectionEntity, { write: RECORD_WRITERS, read: RECORD_READERS });
+  r.crud(surveyEntity, { write: RECORD_WRITERS, read: RECORD_READERS });
 });
 
 const tenant = testTenantId(1);
@@ -91,6 +105,7 @@ const recordReader = createTestUser({ id: 22, tenantId: tenant, roles: ["User"] 
 const tenantAdmin = createTestUser({ id: 23, tenantId: tenant, roles: ["TenantAdmin"] });
 // Writes the record and its open fields, but may not read the restricted ones.
 const clerk = createTestUser({ id: 24, tenantId: tenant, roles: ["User", "Clerk"] });
+const otherInspector = createTestUser({ id: 25, tenantId: tenant, roles: ["User", "Clerk"] });
 const otherTenantAdmin = TestUsers.otherTenant;
 
 const PDF_BYTES = "%PDF-1.4 field read";
@@ -151,6 +166,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, dossierEntity, "dossier");
   await unsafeCreateEntityTable(stack.db, sealedEntity, "sealed");
   await unsafeCreateEntityTable(stack.db, inspectionEntity, "inspection");
+  await unsafeCreateEntityTable(stack.db, surveyEntity, "survey");
 
   files.scan = await upload({ entityType: "dossier", fieldName: "scan" });
   files.docsA = await upload({ entityType: "dossier", fieldName: "docs" });
@@ -401,6 +417,71 @@ describe("a writer who may not read the source field cannot move its file into a
     expect(await downloadStatus(recordReader, unsaved)).toBe(404);
   });
 
+  // file_refs keeps only the top-level field, so the sub-field such an upload was meant for is unknown.
+  test.each([
+    [
+      "an open sibling in the list",
+      "dossier",
+      "checks",
+      (id: string) => ({ checks: [{ sketches: [id] }] }),
+    ],
+    ["an open top-level field", "dossier", "checks", (id: string) => ({ cover: id })],
+    [
+      "an open sibling in a single embedded object",
+      "survey",
+      "check",
+      (id: string) => ({ check: { sketches: [id] } }),
+    ],
+  ] as const)(
+    "from an upload bound to a restricted file sub-field into %s: rejected",
+    async (_, entityType, fieldName, changesNaming) => {
+      const created = await stack.http.writeOk<{ id: string }>(
+        `field-read:write:${entityType}:create`,
+        { title: "Bound" },
+        uploader,
+      );
+      const unsaved = await upload({
+        entityType,
+        fieldName,
+        subField: "photos",
+        entityId: created.id,
+      });
+      expect(await downloadStatus(recordReader, unsaved)).toBe(404);
+
+      const err = await stack.http.writeErr(
+        `field-read:write:${entityType}:update`,
+        { id: created.id, version: 1, changes: changesNaming(unsaved) },
+        clerk,
+      );
+
+      expect(err.code).toBe("validation_error");
+      expect(JSON.stringify(err.details)).toContain("invalid_element");
+      expect(await downloadStatus(recordReader, unsaved)).toBe(404);
+    },
+  );
+
+  test("the uploader still saves his upload bound to a restricted file sub-field", async () => {
+    const created = await stack.http.writeOk<{ id: string }>(
+      "field-read:write:dossier:create",
+      { title: "Bound" },
+      uploader,
+    );
+    const unsaved = await upload({
+      entityType: "dossier",
+      fieldName: "checks",
+      subField: "photos",
+      entityId: created.id,
+    });
+
+    await stack.http.writeOk(
+      "field-read:write:dossier:update",
+      { id: created.id, version: 1, changes: { checks: [{ photos: [unsaved] }] } },
+      uploader,
+    );
+    expect(await downloadStatus(auditor, unsaved)).toBe(200);
+    expect(await downloadStatus(recordReader, unsaved)).toBe(404);
+  });
+
   // The privileged role still downloads the file, but the move would open it to every record reader.
   test("a privileged writer without the field rule is rejected as well", async () => {
     const dossier = await restrictedDossier();
@@ -497,6 +578,60 @@ describe("a writer cannot move a file from a list row he may not read into one h
       clerk,
     );
     expect(await downloadStatus(clerk, photo)).toBe(404);
+  });
+
+  async function inspectionWithPhotoInForeignRow(): Promise<{ recordId: string; photo: string }> {
+    const photo = await upload({
+      entityType: "inspection",
+      fieldName: "checks",
+      subField: "photos",
+    });
+    const created = await stack.http.writeOk<{ id: string }>(
+      "field-read:write:inspection:create",
+      {
+        title: "Rows",
+        checks: [
+          { inspector: "someone-else", photos: [photo] },
+          { inspector: otherInspector.id, photos: [] },
+        ],
+      },
+      uploader,
+    );
+    return { recordId: created.id, photo };
+  }
+
+  const photoMovedToSecondRow = (photo: string) => ({
+    checks: [
+      { inspector: "someone-else", photos: [] },
+      { inspector: otherInspector.id, photos: [photo] },
+    ],
+  });
+
+  // Rows have no stable id, so a file the writer may not read has to keep its row index.
+  test("moving the photo between two rows the writer may not read is rejected", async () => {
+    const { recordId, photo } = await inspectionWithPhotoInForeignRow();
+    expect(await downloadStatus(otherInspector, photo)).toBe(404);
+
+    const err = await stack.http.writeErr(
+      "field-read:write:inspection:update",
+      { id: recordId, version: 1, changes: photoMovedToSecondRow(photo) },
+      clerk,
+    );
+
+    expect(err.code).toBe("validation_error");
+    expect(JSON.stringify(err.details)).toContain("invalid_element");
+    expect(await downloadStatus(otherInspector, photo)).toBe(404);
+  });
+
+  test("a writer who may read the photo still moves it between rows", async () => {
+    const { recordId, photo } = await inspectionWithPhotoInForeignRow();
+
+    await stack.http.writeOk(
+      "field-read:write:inspection:update",
+      { id: recordId, version: 1, changes: photoMovedToSecondRow(photo) },
+      uploader,
+    );
+    expect(await downloadStatus(otherInspector, photo)).toBe(200);
   });
 });
 
