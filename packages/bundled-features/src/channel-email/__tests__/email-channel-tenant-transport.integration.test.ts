@@ -298,7 +298,16 @@ describe("channel-email resolves the transport per tenant", () => {
     await notifyInline(tenantWithoutProvider, "guest-1@guests.invalid", type);
 
     expect(appTransport.sent).toHaveLength(0);
-    expect(await attemptStatuses(type)).toEqual(["skipped"]);
+    const attempts = await selectMany<{ status: string; error: string | null }>(
+      stack.db,
+      deliveryAttemptsTable,
+      {
+        notificationType: type,
+      },
+    );
+    expect(attempts.map(({ status, error }) => ({ status, error }))).toEqual([
+      { status: "skipped", error: "no_address" },
+    ]);
   });
 
   test("a tenant without a provider falls back to the app transport", async () => {

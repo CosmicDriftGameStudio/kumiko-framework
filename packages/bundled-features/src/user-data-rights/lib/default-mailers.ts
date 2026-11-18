@@ -224,7 +224,7 @@ export function makeDefaultDeletionExecutedEmail(
         // No address in the message: the user is already erased.
         throw new Error(`deletion-executed mail not sent: ${result.error ?? result.status}`);
       }
-      // skip: the channel delivered it, the transport fallback below is for apps without one
+      // skip: the channel sent it or skipped a placeholder address; the transport fallback below is for apps without a channel
       return;
     }
     const transport = await deps.resolveTransport(tenantId);
