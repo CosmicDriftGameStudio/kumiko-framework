@@ -157,14 +157,17 @@ renderer_pkg="$consumer/node_modules/@cosmicdrift/kumiko-renderer"
 if [ -d "$renderer_pkg/dist" ]; then
   tailwind_bin="$repo_root/node_modules/.bin/tailwindcss"
   compiled_css="$scratch/compiled-styles.css"
+  # The CLI also auto-detects sources from its cwd; from the repo root that finds every class in the workspace and masks a broken @source.
+  tailwind_cwd="$scratch/tailwind-cwd"
+  mkdir -p "$tailwind_cwd"
   if [ ! -x "$tailwind_bin" ]; then
     problems+=("published styles.css: $tailwind_bin is missing, @source check did not run")
-  elif ! "$tailwind_bin" -i "$renderer_pkg/src/web/styles.css" -o "$compiled_css" >/dev/null 2>&1; then
+  elif ! (cd "$tailwind_cwd" && "$tailwind_bin" -i "$renderer_pkg/src/web/styles.css" -o "$compiled_css") >/dev/null 2>&1; then
     problems+=("published styles.css: tailwind failed to compile the installed stylesheet")
   else
     grep -qF '.min-h-screen' "$compiled_css" \
       || problems+=("published styles.css: class from the web layer (min-h-screen) missing after compile")
-    grep -qF 'first-child\]\:pb-2' "$compiled_css" \
+    grep -qF 'tr\>\:last-child\]\:pr-\[34px\]' "$compiled_css" \
       || problems+=("published styles.css: class that only exists in kumiko-renderer/dist is missing, @source does not reach the installed renderer dist")
   fi
 fi
