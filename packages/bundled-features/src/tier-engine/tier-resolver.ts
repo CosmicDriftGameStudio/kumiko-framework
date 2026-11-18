@@ -53,7 +53,9 @@ export function createTierResolver<TTier extends string, TCaps>(
     const storedTier = await resolveStoredTier(db);
     const unlifted: TierState<TTier> = { storedTier, tier: storedTier, trialEndsAtEpochMs: null };
     if (trial === undefined) return unlifted;
-    if (trial.tierOrder.indexOf(storedTier) >= trial.tierOrder.indexOf(trial.tier)) return unlifted;
+    const storedRank = trial.tierOrder.indexOf(storedTier);
+    // A tier outside tierOrder has no known rank; lifting it could be a downgrade.
+    if (storedRank === -1 || storedRank >= trial.tierOrder.indexOf(trial.tier)) return unlifted;
     const row = await db.fetchOne<{ insertedAt?: Temporal.Instant }>(tenantTable, {
       id: db.tenantId,
     });

@@ -80,7 +80,7 @@ describe("access log on tenant destroy", () => {
       await seedAccessRow(id);
     }
 
-    await seedDestroyingTenant(stack.db, tenantOne);
+    await seedDestroyingTenant(stack, tenantOne);
     expect(await driveDestructionToCompletion(stack, stack.db, tenantOne)).toBe("destroyed");
 
     expect(await selectMany(stack.db, accessLogTable, { tenantId: tenantOne })).toHaveLength(0);

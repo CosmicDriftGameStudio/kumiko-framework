@@ -32,8 +32,9 @@
 // fileRef executor; the generic soft-delete cleanup removes the bytes). A failure keeps the Row
 // for the next sweep, like a failed body delete.
 //
-// The purge erases the record key of each mail, so the PII in its archived
-// events are unreadable afterwards. The event log stays append-only.
+// With eraseRecordKeys the purge also erases the record key of each mail, so the PII in its
+// archived events is unreadable afterwards; tenant destroy erases the remaining keys. The event log
+// stays append-only.
 
 import { type DbRunner, deleteMany, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";

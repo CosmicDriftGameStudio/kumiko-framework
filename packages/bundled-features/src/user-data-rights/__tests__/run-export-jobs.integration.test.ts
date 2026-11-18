@@ -275,6 +275,48 @@ describe("runExportJobs :: per-run tenant cache", () => {
   });
 });
 
+describe("runExportJobs :: a failing pre-claim check", () => {
+  test("a job whose erased check throws is skipped; the next job and the cleanup pass still run", async () => {
+    const bobUser = createTestUser({ id: 43, tenantId: tenantA, roles: ["Member"] });
+    await seedRowViaEventStore(stack.db, userTable, {
+      id: String(bobUser.id),
+      email: "bob@example.com",
+      passwordHash: "hashed",
+      displayName: "Bob",
+      locale: "de",
+      emailVerified: true,
+      roles: '["Member"]',
+      status: USER_STATUS.Active,
+    });
+    const brokenJob = await seedPendingJob();
+    const healthyJob = await seedPendingJob({ user: bobUser });
+    // A user id that is no uuid makes the user-table lookup of the erased check fail in Postgres.
+    await changeExportJob(stack.db, brokenJob, { userId: "not-a-uuid" }, tenantA);
+    const metrics = createRecordingMetricsHandle();
+    const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+
+    try {
+      const result = await runExportJobs({
+        db: stack.db,
+        registry: stack.registry,
+        buildStorageProvider: buildProvider,
+        now: NOW(),
+        metrics,
+      });
+
+      expect(result.completedJobIds).toEqual([healthyJob]);
+      expect(result.failedJobIds).toEqual([]);
+      expect(metrics.values.has(EXPORT_CLEANUP_LAST_RUN_TIMESTAMP_METRIC)).toBe(true);
+      const [brokenRow] = await selectMany<{ status: string }>(stack.db, exportJobsTable, {
+        id: brokenJob,
+      });
+      expect(brokenRow?.status).toBe(EXPORT_JOB_STATUS.Pending);
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+});
+
 describe("runExportJobs :: stale-detection", () => {
   test("running job with startedAt > exportStaleTimeoutMinutes → failed", async () => {
     // Seed through the real path so the event stream exists, then directly update

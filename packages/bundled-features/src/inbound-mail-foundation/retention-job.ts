@@ -19,7 +19,7 @@ export function registerInboundMailRetentionJob(r: FeatureRegistrar<"inbound-mai
     name: "inbound-mail-retention",
     trigger: { maintenance: true },
     perTenant: true,
-    // The purge erases each expired mail's record key.
+    // The purge removes rows, original bodies and attachments; record keys stay (eraseRecordKeys is opt-in).
     irreversibleWithoutEntryHandler: "high-risk-or-cron-pipeline",
     concurrency: "skip",
     escapeHatch: { reason: INBOUND_MAIL_RETENTION_REASON, grants: ["unsafeRaw"] },

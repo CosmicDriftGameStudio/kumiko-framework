@@ -1,4 +1,4 @@
-import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
+import { createFallbackLogger, type Logger } from "@cosmicdrift/kumiko-framework/logging";
 // Async export-job worker — a pure pipeline function.
 //
 // A pass (maintenance job and on-request job in jobs.ts) processes all
@@ -63,6 +63,8 @@ export const EXPORT_CLEANUP_BACKLOG_AGE_METRIC = "export_cleanup_backlog_age";
 // gauge keeps its last value in-process (no TTL), so a dead cron does not make
 // the backlog gauge disappear — alert on `time() - this > interval + buffer`.
 export const EXPORT_CLEANUP_LAST_RUN_TIMESTAMP_METRIC = "export_cleanup_last_run_timestamp";
+
+const exportJobsLog = createFallbackLogger("user-data-rights:run-export-jobs");
 
 const crud = createEventStoreExecutor(exportJobsTable, exportJobEntity, {
   entityName: "export-job",
@@ -222,17 +224,26 @@ export async function runExportJobs(args: RunExportJobsArgs): Promise<RunExportJ
 
   const pendingJobs = await fetchPendingJobs(db);
   for (const job of pendingJobs) {
-    const outcome = await processJob({
-      db,
-      registry,
-      buildStorageProvider: storageProviderFor,
-      profileFor,
-      now,
-      job,
-      escapeHatchAuditSink: args.escapeHatchAuditSink,
-      escapeHatchAuditLog: args.escapeHatchAuditLog,
-      actor: args.actor,
-    });
+    let outcome: ProcessOutcome;
+    try {
+      outcome = await processJob({
+        db,
+        registry,
+        buildStorageProvider: storageProviderFor,
+        profileFor,
+        now,
+        job,
+        escapeHatchAuditSink: args.escapeHatchAuditSink,
+        escapeHatchAuditLog: args.escapeHatchAuditLog,
+        actor: args.actor,
+      });
+    } catch {
+      // Pre-claim and claim errors (erased check, version-checked claim) skip only this job: the
+      // job stays pending for the next run, and the remaining jobs and the cleanup pass still run.
+      // Only the job id is logged, a driver error message can carry the user id.
+      exportJobsLog.warn("pending export job skipped after an unexpected error", { jobId: job.id });
+      continue;
+    }
     if (outcome.kind === "done") {
       completedJobIds.push(job.id);
       // Keep the plain token only in memory for downstream callbacks; never put it

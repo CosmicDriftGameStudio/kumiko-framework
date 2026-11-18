@@ -361,6 +361,7 @@ export async function backfillEventPiiEncryptionBatch(
   if (last === undefined) return emptyBatch();
 
   const projectionOwnersByType = await loadProjectionOwners(scope, rows);
+  const streamHistories = await loadUpdatedStreamHistories(scope, rows);
   const touchedAggregates = new Set<string>();
   const touchedAggregateTypes = new Set<string>();
   const touchedEventTypes = new Set<string>();
@@ -373,6 +374,7 @@ export async function backfillEventPiiEncryptionBatch(
         scope,
         row,
         projectionOwnersByType.get(row.aggregate_type),
+        streamHistories.get(streamHistoryKey(row.tenant_id, row.aggregate_id)),
       );
       if (outcome === null) continue;
       result.encryptedFields += outcome.encrypted;
@@ -524,10 +526,70 @@ async function loadProjectionOwners(
   return byType;
 }
 
+type StreamHistoryEvent = Pick<EventRow, "id" | "aggregate_id" | "tenant_id" | "type" | "payload">;
+
+function streamHistoryKey(tenantId: string, aggregateId: string): string {
+  return `${tenantId}:${aggregateId}`;
+}
+
+// The streams of the batch's update events, up to the batch's last event. An update's previous
+// carries only the changed keys, so the owner of an older value must come from the stream folded
+// up to that event; the projection row only knows today's owner.
+async function loadUpdatedStreamHistories(
+  scope: BackfillBatchScope,
+  rows: readonly EventRow[],
+): Promise<ReadonlyMap<string, readonly StreamHistoryEvent[]>> {
+  const idsByType = new Map<string, Set<string>>();
+  let lastEventId = 0n;
+  for (const row of rows) {
+    if (!scope.entityTargets.has(row.aggregate_type) || !isRecord(row.payload["changes"])) continue;
+    const ids = idsByType.get(row.aggregate_type) ?? new Set<string>();
+    ids.add(row.aggregate_id);
+    idsByType.set(row.aggregate_type, ids);
+    const rowId = BigInt(row.id);
+    if (rowId > lastEventId) lastEventId = rowId;
+  }
+  const histories = new Map<string, StreamHistoryEvent[]>();
+  for (const [aggregateType, ids] of idsByType) {
+    const events = await scope.raw.unsafe<StreamHistoryEvent>(
+      `SELECT "id", "aggregate_id", "tenant_id", "type", "payload" FROM "kumiko_events" WHERE "aggregate_type" = $1 AND "aggregate_id" = ANY($2::uuid[]) AND "id" <= $3::bigint ORDER BY "id" ASC`,
+      [aggregateType, toPostgresArrayLiteral([...ids]), String(lastEventId)],
+    );
+    for (const event of events) {
+      const key = streamHistoryKey(event.tenant_id, event.aggregate_id);
+      const history = histories.get(key) ?? [];
+      history.push(event);
+      histories.set(key, history);
+    }
+  }
+  return histories;
+}
+
+// The row as the stream had it right before `row`: created sets the fields, every later
+// lifecycle event with changes overlays them.
+function streamStateBefore(
+  history: readonly StreamHistoryEvent[] | undefined,
+  row: EventRow,
+  entity: EntityDefinition,
+): Record<string, unknown> {
+  const createdType = entityEventName(row.aggregate_type, "created");
+  const rowId = BigInt(row.id);
+  let state: Record<string, unknown> = {};
+  for (const event of history ?? []) {
+    if (BigInt(event.id) >= rowId) break;
+    if (!isLifecycleEventOf(event.type, row.aggregate_type, entity)) continue;
+    const changes = event.payload["changes"];
+    if (event.type === createdType) state = { ...event.payload };
+    else if (isRecord(changes)) state = { ...state, ...changes };
+  }
+  return state;
+}
+
 async function transformEvent(
   scope: BackfillBatchScope,
   row: EventRow,
   projectionOwners: ReadonlyMap<string, ProjectionOwner> | undefined,
+  streamHistory: readonly StreamHistoryEvent[] | undefined,
 ): Promise<{
   payload: Record<string, unknown>;
   encrypted: number;
@@ -576,7 +638,12 @@ async function transformEvent(
       projectionOwners?.get(row.aggregate_id),
       row.tenant_id,
     );
-    await applyEntityLifecycleFields(eventScope, target, ownerRow);
+    await applyEntityLifecycleFields(
+      eventScope,
+      target,
+      ownerRow,
+      streamStateBefore(streamHistory, row, target.entity),
+    );
   }
 
   if (counters.encrypted === 0 && counters.erased === 0 && counters.rekeyed === 0) return null;
@@ -592,6 +659,7 @@ async function applyEntityLifecycleFields(
   scope: EventTransformScope,
   target: { readonly entity: EntityDefinition; readonly piiFields: readonly string[] },
   projectionOwnerRow: Record<string, unknown> | undefined,
+  stateBefore: Record<string, unknown>,
 ): Promise<void> {
   const { batch, row, tenantId, payload, counters } = scope;
   const { options } = batch;
@@ -601,6 +669,7 @@ async function applyEntityLifecycleFields(
       section,
       payload,
       row.aggregate_id,
+      stateBefore,
     );
     for (const field of target.piiFields) {
       const value = section[field];
@@ -1104,25 +1173,30 @@ export function lifecycleSections(payload: Record<string, unknown>): Record<stri
 }
 
 // Same view the live write path resolves from: changes see the merged row,
-// previous sees the owner the same event sets as fallback. aggregate_id backs
-// the self-subject when a section lacks the id column.
+// previous sees the row before the event with the owner the same event sets as
+// fallback. stateBefore fills the keys a slim previous leaves out. aggregate_id
+// backs the self-subject when a section lacks the id column.
 function lifecycleSubjectView(
   section: Record<string, unknown>,
   payload: Record<string, unknown>,
   aggregateId: string,
+  stateBefore: Record<string, unknown>,
 ): { subjectSource: Record<string, unknown>; ownerFallback: Record<string, unknown> | undefined } {
   const changes = isRecord(payload["changes"]) ? payload["changes"] : undefined;
   const previous = isRecord(payload["previous"]) ? payload["previous"] : undefined;
   if (section === changes) {
     return {
-      subjectSource: { id: aggregateId, ...previous, ...changes },
+      subjectSource: { id: aggregateId, ...stateBefore, ...previous, ...changes },
       ownerFallback: undefined,
     };
   }
-  return {
-    subjectSource: { id: aggregateId, ...section },
-    ownerFallback: section === previous ? changes : undefined,
-  };
+  if (section === previous) {
+    return {
+      subjectSource: { id: aggregateId, ...stateBefore, ...section },
+      ownerFallback: changes,
+    };
+  }
+  return { subjectSource: { id: aggregateId, ...section }, ownerFallback: undefined };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

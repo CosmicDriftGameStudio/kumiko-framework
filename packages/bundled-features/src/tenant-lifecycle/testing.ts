@@ -2,6 +2,7 @@ import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { append, loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
+import { runProjectionsForEvent } from "@cosmicdrift/kumiko-framework/pipeline";
 import type { SearchAdapter } from "@cosmicdrift/kumiko-framework/search";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { updateRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
@@ -12,7 +13,11 @@ import { runTenantDestructionSweep } from "./run-tenant-destroy.ts";
 
 // Sidesteps the `request-destruction` write handler (needs user/auth/sessions
 // features wired) by seeding the same "destroying" state it would produce.
-export async function seedDestroyingTenant(db: DbConnection, tenantId: TenantId): Promise<void> {
+export async function seedDestroyingTenant(
+  stack: Pick<TestStack, "db" | "registry">,
+  tenantId: TenantId,
+): Promise<void> {
+  const { db } = stack;
   const now = getTemporal().Now.instant();
   await updateRowViaEventStore(
     db,
@@ -21,7 +26,7 @@ export async function seedDestroyingTenant(db: DbConnection, tenantId: TenantId)
     { status: "destroying", destroyStartedAt: now },
     { tenantId: SYSTEM_TENANT_ID },
   );
-  await append(db, {
+  const started = await append(db, {
     aggregateId: tenantId,
     aggregateType: TENANT_AGGREGATE_TYPE,
     tenantId: SYSTEM_TENANT_ID,
@@ -30,6 +35,7 @@ export async function seedDestroyingTenant(db: DbConnection, tenantId: TenantId)
     payload: { startedAt: now.toString() },
     metadata: { userId: "system", requestId: "test:destruction-started" },
   });
+  await runProjectionsForEvent(started, stack.registry, db);
 }
 
 export async function driveDestructionToCompletion(

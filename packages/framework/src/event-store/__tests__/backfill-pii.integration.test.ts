@@ -1206,6 +1206,71 @@ describe("backfillEventPiiEncryption: owner re-key", () => {
   });
 });
 
+// Updates carry only the changed keys in previous, so an update of body alone names no owner.
+// The owner of that value is the one the stream had then, not the owner the row has today.
+describe("backfillEventPiiEncryption: owner of a slim update is the stream's owner at that event", () => {
+  test("values written under owner A stay under A after the owner moved to B", async () => {
+    const ownerA = generateId();
+    const ownerB = generateId();
+    const memoId = generateId();
+    await appendPlain(memoId, "memo", "memo.created", { id: memoId, ownerId: ownerA, body: null });
+    await appendPlain(
+      memoId,
+      "memo",
+      "memo.updated",
+      { changes: { body: "first note" }, previous: { body: null } },
+      1,
+    );
+    await appendPlain(
+      memoId,
+      "memo",
+      "memo.updated",
+      { changes: { body: "second note" }, previous: { body: "first note" } },
+      2,
+    );
+    await appendPlain(
+      memoId,
+      "memo",
+      "memo.updated",
+      { changes: { ownerId: ownerB }, previous: { ownerId: ownerA } },
+      3,
+    );
+    await asRawClient(testDb.db).unsafe(
+      `INSERT INTO "${memoTable.tableName}" (id, tenant_id, owner_id, body) VALUES ($1, $2, $3, $4)`,
+      [memoId, TENANT, ownerB, "projection-row-body"],
+    );
+    armKms();
+
+    const result = await backfillEventPiiEncryption(testDb.db, registry, {
+      resolveOwnerFromProjection: true,
+    });
+
+    expect(result.failures).toEqual([]);
+    expect(result.ownerFromProjection).toBe(0);
+    const events = await loadAggregate(testDb.db, memoId, TENANT);
+    const bodyOf = (version: number, section: "changes" | "previous"): string => {
+      const payload = events.find((event) => event.version === version)?.payload as
+        | Record<string, Record<string, unknown>>
+        | undefined;
+      return String(payload?.[section]?.["body"]);
+    };
+    const values = [bodyOf(2, "changes"), bodyOf(3, "changes"), bodyOf(3, "previous")];
+    for (const value of values) {
+      expect(value).toStartWith(`${PII_CIPHERTEXT_PREFIX}user:${ownerA}:`);
+    }
+    await kms.eraseKey({ kind: "user", userId: ownerB });
+    expect(
+      await decryptPiiValueForSubject(kms, values[0] ?? "", { requestId: "test" }, "body"),
+    ).toBe("first note");
+    await kms.eraseKey({ kind: "user", userId: ownerA });
+    for (const value of values) {
+      expect(await decryptPiiValueForSubject(kms, value, { requestId: "test" }, "body")).toBe(
+        PII_ERASED_SENTINEL,
+      );
+    }
+  });
+});
+
 // "Legacy data: plaintext free text in kumiko_events". The
 // recordOwned ("record") subject kind covers row-scoped free text with no
 // user/tenant owner. Nothing in this file's resolution path (subject-

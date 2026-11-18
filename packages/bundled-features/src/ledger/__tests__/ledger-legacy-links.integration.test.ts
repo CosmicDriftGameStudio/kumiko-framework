@@ -228,6 +228,42 @@ describe("ledger legacy events (eventVersion 1) after a rebuild", () => {
     expect(reconfirmed.alreadyBooked).toBe(false);
   });
 
+  test("two old Stornos of one original: the rebuild completes and only the first carries the link", async () => {
+    const bank = await createAccount("Bank", "asset");
+    const rent = await createAccount("Mieterträge", "income");
+    const lines = [
+      { accountId: bank, amount: 1000 },
+      { accountId: rent, amount: -1000 },
+    ];
+    const reversedLines = lines.map((l) => ({ ...l, amount: -l.amount }));
+    const originalId = generateId();
+    const firstStornoId = generateId();
+    const doubleClickStornoId = generateId();
+    await appendLegacyTransaction({ id: originalId, reference: null, lines, description: "Miete" });
+    await appendLegacyTransaction({
+      id: firstStornoId,
+      reference: originalId,
+      lines: reversedLines,
+      description: "Storno: Miete",
+    });
+    await appendLegacyTransaction({
+      id: doubleClickStornoId,
+      reference: originalId,
+      lines: reversedLines,
+      description: "Storno: Miete",
+    });
+
+    await rebuildTransactions();
+
+    const rows = await listTransactions();
+    expect(rows).toHaveLength(3);
+    const linked = rows.filter((r) => r["reversesTransactionId"] === originalId);
+    expect(linked.map((r) => r["id"])).toEqual([firstStornoId]);
+    const duplicate = rows.find((r) => r["id"] === doubleClickStornoId);
+    expect(duplicate?.["reference"]).toBe(originalId);
+    expect(duplicate?.["reversesTransactionId"] ?? null).toBeNull();
+  });
+
   test("a v1 reference that names no transaction stays display text", async () => {
     const bank = await createAccount("Bank", "asset");
     const rent = await createAccount("Mieterträge", "income");

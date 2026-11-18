@@ -253,7 +253,7 @@ describe("channel-whatsapp retention", () => {
       await selectMany(stack.db, whatsappRetentionCursorTable, { tenantId: admin.tenantId }),
     ).toHaveLength(1);
 
-    await seedDestroyingTenant(stack.db, admin.tenantId);
+    await seedDestroyingTenant(stack, admin.tenantId);
     const finalStatus = await driveDestructionToCompletion(stack, stack.db, admin.tenantId);
 
     expect(finalStatus).toBe("destroyed");

@@ -214,6 +214,16 @@ describe("test-timeouts guard — Playwright files", () => {
     expect(found).toEqual([expect.stringContaining("mailTest2.setTimeout")]);
   });
 
+  test("lets a test raise to an E2E_TIMEOUT_MS class, flags a literal or computed budget", () => {
+    expect(pw("mailTest.setTimeout(E2E_TIMEOUT_MS.real);")).toEqual([]);
+    expect(pw("mailTest.setTimeout(900_000);")).toEqual([
+      expect.stringContaining("mailTest.setTimeout"),
+    ]);
+    expect(pw("mailTest.setTimeout(15 * 60_000);")).toEqual([
+      expect.stringContaining("mailTest.setTimeout"),
+    ]);
+  });
+
   test("flags slow() and testInfo.setTimeout", () => {
     expect(pw("slowTest.slow();")).toHaveLength(1);
     expect(pw("testInfo.setTimeout(60_000);")).toHaveLength(1);

@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { generateMigration, writeSnapshotJson } from "../db/index.ts";
 import {
   assertValidMigrationName,
+  hasEntityEventVersionChanges,
   hasNoSchemaChanges,
   type UnversionedEntityRename,
 } from "../db/migrate-generator.ts";
@@ -135,6 +136,10 @@ export async function runGenerateCommand(ctx: SchemaCliContext): Promise<number>
 
   if (hasNoSchemaChanges(result)) {
     out.log("  No schema changes detected — no new migration file written.");
+    if (hasEntityEventVersionChanges(prevSnapshot, result.snapshot)) {
+      writeSnapshotJson(snapshotPath, result.snapshot);
+      out.log("  Entity eventVersion changed — .snapshot.json updated, commit it.");
+    }
     return 0;
   }
 

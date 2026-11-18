@@ -130,6 +130,18 @@ export function findUnversionedEntityRenames(
   });
 }
 
+// A bare eventVersion bump changes no column, so generate writes no migration; the snapshot must
+// still record the version, or a later unversioned rename compares against the old one and passes.
+export function hasEntityEventVersionChanges(prev: Snapshot | null, next: Snapshot): boolean {
+  if (prev === null) return false;
+  const prevByName = new Map(prev.tables.map((table) => [table.tableName, table]));
+  return next.tables.some((table) => {
+    const previous = prevByName.get(table.tableName);
+    if (previous === undefined || table.entityEventVersion === undefined) return false;
+    return (previous.entityEventVersion ?? 1) !== table.entityEventVersion;
+  });
+}
+
 export function snapshotFromMetas(
   metas: readonly EntityTableMeta[],
   options: { readonly rowLevelSecurity?: RowLevelSecurityMode } = {},

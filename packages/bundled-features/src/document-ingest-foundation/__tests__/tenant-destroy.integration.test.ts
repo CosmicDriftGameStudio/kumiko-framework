@@ -123,7 +123,7 @@ describe("document-ingest-foundation :: tenant destruction", () => {
       const idA = await seedDocumentExtract(tenantA.tenantId, "file-a");
       const idB = await seedDocumentExtract(tenantB.tenantId, "file-b");
 
-      await seedDestroyingTenant(db, tenantA.tenantId);
+      await seedDestroyingTenant(stack, tenantA.tenantId);
 
       const finalStatus = await driveDestructionToCompletion(stack, db, tenantA.tenantId);
       expect(finalStatus).toBe("destroyed");

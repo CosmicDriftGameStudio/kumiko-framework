@@ -237,11 +237,14 @@ function raisedTimeoutReason(
   }
   // Extended Playwright test objects (`base.extend(...)`, also imported from helpers) are not
   // resolvable here, so a one-arg setTimeout on any identifier in Playwright files is the raise.
+  // A shared E2E_TIMEOUT_MS class is the sanctioned budget; a literal or computed one is not.
   if (
     playwright &&
     Node.isPropertyAccessExpression(callee) &&
     Node.isIdentifier(callee.getExpression()) &&
-    ((callee.getName() === "setTimeout" && call.getArguments().length === 1) ||
+    ((callee.getName() === "setTimeout" &&
+      call.getArguments().length === 1 &&
+      !isE2eTimeoutClass(call.getArguments()[0])) ||
       callee.getName() === "slow")
   ) {
     return `${callee.getText()}(…) raises the timeout instead of fixing the cause`;
@@ -250,6 +253,14 @@ function raisedTimeoutReason(
     return `${calleeText}(…) waits for time, not for a condition`;
   }
   return undefined;
+}
+
+function isE2eTimeoutClass(node: Node | undefined): boolean {
+  return (
+    node !== undefined &&
+    Node.isPropertyAccessExpression(node) &&
+    node.getExpression().getText() === "E2E_TIMEOUT_MS"
+  );
 }
 
 function isLiteralTimeoutProperty(prop: PropertyAssignment): boolean {

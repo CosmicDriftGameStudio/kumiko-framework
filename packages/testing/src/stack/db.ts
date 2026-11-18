@@ -81,12 +81,21 @@ export function applicationRoleUrlOf(url: string, dbName: string): string {
   return parsed.toString();
 }
 
+const ensuredApplicationRoles = new Map<string, Promise<void>>();
+
+// Once per process and server: an ALTER ROLE per test database races the other workers
+// ("tuple concurrently updated") and each failed statement lands in the server log.
 async function ensureApplicationRole(admin: DbConnection, url: string): Promise<void> {
-  await createApplicationRole(
-    admin,
-    TEST_APPLICATION_ROLE,
-    decodeURIComponent(new URL(url).password),
-  );
+  const pending =
+    ensuredApplicationRoles.get(url) ??
+    createApplicationRole(admin, TEST_APPLICATION_ROLE, decodeURIComponent(new URL(url).password));
+  ensuredApplicationRoles.set(url, pending);
+  try {
+    await pending;
+  } catch (error) {
+    ensuredApplicationRoles.delete(url);
+    throw error;
+  }
 }
 
 // Admin connections below run as superuser for CREATE/DROP DATABASE and never open a tenant scope: "off" is explicit.
