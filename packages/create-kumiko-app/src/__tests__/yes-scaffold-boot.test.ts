@@ -22,7 +22,7 @@ import { runProdApp } from "@cosmicdrift/kumiko-server-runtime";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import { withBootValidatorFixture } from "@cosmicdrift/kumiko-testing/helpers";
 import { resolveDeps } from "../dep-resolver";
-import { FEATURE_CONSTRUCTORS } from "../feature-constructors";
+import { scaffoldEntryFor } from "../feature-constructors";
 import { runCreate } from "../index";
 import { loadManifest } from "../manifest";
 import { buildChoices } from "../picker";
@@ -34,7 +34,7 @@ function validateBoot(features: readonly FeatureDefinition[]): void {
 async function instantiateResolved(names: readonly string[]): Promise<FeatureDefinition[]> {
   const instances: FeatureDefinition[] = [];
   for (const name of names) {
-    const entry = FEATURE_CONSTRUCTORS[name];
+    const entry = scaffoldEntryFor(name, "test-app");
     if (!entry) continue; // mirrors index.ts:47-49 — auto-mounted core deps have no entry
     const mod = (await import(entry.importPath)) as Record<string, unknown>;
     const exp = mod[entry.exportName];
@@ -67,6 +67,24 @@ describe("--yes resolved set boots (issue-1174 regression)", () => {
     const composed = composeFeatures(instances, { includeBundled: true });
     expect(() => validateBoot(composed)).not.toThrow();
     expect(() => createRegistry(composed)).not.toThrow();
+  });
+});
+
+// A scaffold that adds a mail transport next to user-data-rights lets the
+// default GDPR mails go out, which the boot rule
+// user-data-rights/mail-app-name-missing only allows with mailDefaults.appName.
+describe("user-data-rights with a mail transport boots", () => {
+  test("the --yes set plus mail-transport-inmemory passes validateBoot", async () => {
+    const manifest = loadManifest();
+    const recommended = buildChoices(manifest)
+      .filter((c) => c.recommended)
+      .map((c) => c.name);
+    const resolved = resolveDeps([...recommended, "mail-transport-inmemory"], manifest);
+    expect(resolved.featureNames).toContain("user-data-rights");
+    expect(resolved.featureNames).toContain("mail-transport-inmemory");
+    const instances = await instantiateResolved(resolved.featureNames);
+    const composed = composeFeatures(instances, { includeBundled: true });
+    expect(() => validateBoot(composed)).not.toThrow();
   });
 });
 

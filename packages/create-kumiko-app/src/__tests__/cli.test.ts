@@ -64,6 +64,8 @@ describe("create-kumiko-app CLI", () => {
     // user-data-rights-defaults (the PII export/delete hooks for `user`)
     // is auto-included too.
     expect(cfg).toContain("createUserDataRightsDefaultsFeature");
+    // The GDPR default mails name the app; without it boot fails once a mail transport is added.
+    expect(cfg).toContain('createUserDataRightsFeature({ mailDefaults: { appName: "demo-app" } })');
 
     // UX-polish: Next-steps points at `bun dev` (the primary dev path), not
     // the CI-only `bun run boot` smoke.

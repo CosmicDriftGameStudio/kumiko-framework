@@ -175,6 +175,8 @@ export const FEATURE_CONSTRUCTORS: Readonly<Record<string, ScaffoldFeatureEntry>
     exportName: "createDataRetentionFeature",
     callExpression: "createDataRetentionFeature()",
   },
+  // Listing entry only (pickability, manifest checks); the scaffold renders
+  // scaffoldEntryFor("user-data-rights", appName), which names the app.
   "user-data-rights": {
     name: "user-data-rights",
     importPath: "@cosmicdrift/kumiko-bundled-features/user-data-rights",
@@ -230,6 +232,41 @@ export const FEATURE_CONSTRUCTORS: Readonly<Record<string, ScaffoldFeatureEntry>
     callExpression: "createCustomFieldsFeature()",
   },
 };
+
+// The default GDPR mails need an app name as soon as a mail transport is
+// mounted (boot rule user-data-rights/mail-app-name-missing), and the app name
+// only exists per scaffold run.
+function userDataRightsEntry(appName: string): ScaffoldFeatureEntry {
+  return {
+    name: "user-data-rights",
+    importPath: "@cosmicdrift/kumiko-bundled-features/user-data-rights",
+    exportName: "createUserDataRightsFeature",
+    callExpression: userDataRightsCallExpression(JSON.stringify(appName)),
+    callArgs: [{ mailDefaults: { appName } }],
+  };
+}
+
+// The scaffolded app's Biome lineWidth (dev-server MAX_LINE_WIDTH); importing it
+// would load the dev-server barrel on --help.
+const SCAFFOLD_LINE_WIDTH = 100;
+
+// Wrapped the way Biome prints it as an APP_FEATURES item (two-space indent,
+// trailing comma), so a long app name still leaves run-config.ts lint-clean.
+// App names are capped at 63 characters (they double as the k8s namespace),
+// so the wrapped mailDefaults line always fits.
+function userDataRightsCallExpression(appNameLiteral: string): string {
+  const oneLine = `createUserDataRightsFeature({ mailDefaults: { appName: ${appNameLiteral} } })`;
+  if (`  ${oneLine},`.length <= SCAFFOLD_LINE_WIDTH) return oneLine;
+  return `createUserDataRightsFeature({\n    mailDefaults: { appName: ${appNameLiteral} },\n  })`;
+}
+
+export function scaffoldEntryFor(
+  featureName: string,
+  appName: string,
+): ScaffoldFeatureEntry | undefined {
+  if (featureName === "user-data-rights") return userDataRightsEntry(appName);
+  return FEATURE_CONSTRUCTORS[featureName];
+}
 
 export function isPickable(featureName: string): boolean {
   return Object.hasOwn(FEATURE_CONSTRUCTORS, featureName);

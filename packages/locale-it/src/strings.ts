@@ -518,6 +518,8 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "custom-fields.form.loading": "Caricamento…",
   "custom-fields.form.save": "Salva i campi personalizzati",
   "custom-fields.form.saving": "Salvataggio…",
+  "custom-fields.form.moneyStoredInOtherCurrency":
+    "Salvato: {stored}. Il campo ora usa {currency}; un nuovo importo viene salvato in {currency}.",
   "delivery.log.col.createdAt": "Ora",
   "delivery.log.col.error": "Errore",
   "delivery.status.queued": "In coda",

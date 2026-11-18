@@ -453,4 +453,76 @@ describe("CustomFieldsFormSection — composed mode", () => {
       value: { amount: 9995, currency: "GBP" },
     });
   });
+
+  // set-custom-field accepts only the definition's currency, so a value stored
+  // before a currency change can only be replaced, never edited in place.
+  describe("money value stored in another currency than the definition's", () => {
+    function renderBudget(storedCurrency: string): void {
+      mockedQueryRows = [
+        {
+          id: "f1",
+          entityName: "component",
+          fieldKey: "budget",
+          type: "money",
+          required: false,
+          displayOrder: 1,
+          serializedField: JSON.stringify({ type: "money", currency: "EUR" }),
+        },
+      ];
+      dispatchSpy.mockClear();
+      render(
+        <Wrapper>
+          <CustomFieldsFormSection
+            entityName="component"
+            entityId="row-42"
+            initialValues={{ budget: { amount: 1250, currency: storedCurrency } }}
+          />
+        </Wrapper>,
+      );
+    }
+
+    test("shows the stored amount in its own currency and starts an empty input in the definition's currency", () => {
+      renderBudget("GBP");
+      const budgetInput = document.getElementById("custom-field-budget") as HTMLInputElement;
+      expect(budgetInput.value).toBe("");
+      const section = screen.getByTestId("custom-fields-form-section");
+      expect(section.textContent).toContain("£12.50");
+      expect(section.textContent).toContain("EUR");
+      expect((screen.getByTestId("custom-fields-form-save") as HTMLButtonElement).disabled).toBe(
+        true,
+      );
+    });
+
+    test("a typed amount is written as a new value in the definition's currency", async () => {
+      const user = userEvent.setup();
+      renderBudget("GBP");
+      const budgetInput = document.getElementById("custom-field-budget") as HTMLInputElement;
+      await user.type(budgetInput, "12.50");
+      await user.tab();
+      await user.click(screen.getByTestId("custom-fields-form-save"));
+      await waitFor(() => expect(dispatchSpy).toHaveBeenCalledTimes(1));
+      expect(dispatchSpy).toHaveBeenCalledWith("custom-fields:write:set-custom-field", {
+        entityName: "component",
+        entityId: "row-42",
+        fieldKey: "budget",
+        value: { amount: 1250, currency: "EUR" },
+      });
+    });
+
+    test("typing and emptying the input clears the stored value", async () => {
+      const user = userEvent.setup();
+      renderBudget("GBP");
+      const budgetInput = document.getElementById("custom-field-budget") as HTMLInputElement;
+      await user.type(budgetInput, "1");
+      await user.clear(budgetInput);
+      await user.tab();
+      await user.click(screen.getByTestId("custom-fields-form-save"));
+      await waitFor(() => expect(dispatchSpy).toHaveBeenCalledTimes(1));
+      expect(dispatchSpy).toHaveBeenCalledWith("custom-fields:write:clear-custom-field", {
+        entityName: "component",
+        entityId: "row-42",
+        fieldKey: "budget",
+      });
+    });
+  });
 });

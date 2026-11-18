@@ -437,6 +437,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "custom-fields.form.loading": "Loading…",
   "custom-fields.form.save": "Save custom fields",
   "custom-fields.form.saving": "Saving…",
+  "custom-fields.form.moneyStoredInOtherCurrency":
+    "Stored: {stored}. The field now uses {currency}; a new amount is saved in {currency}.",
   "delivery.log.col.createdAt": "Time",
   "delivery.log.col.error": "Error",
   "delivery.status.queued": "Queued",

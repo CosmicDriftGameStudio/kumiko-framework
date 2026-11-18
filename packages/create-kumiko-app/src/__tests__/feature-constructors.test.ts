@@ -6,7 +6,7 @@
 // exportName + callArgs for every entry and diffs it against the literal.
 
 import { describe, expect, test } from "bun:test";
-import { FEATURE_CONSTRUCTORS } from "../feature-constructors";
+import { FEATURE_CONSTRUCTORS, scaffoldEntryFor } from "../feature-constructors";
 
 // Renders a value as hand-written TS source (unquoted object keys, quoted
 // string values) instead of JSON — JSON.stringify(1) and JSON.stringify("1")
@@ -30,8 +30,10 @@ function expectedCallExpression(exportName: string, callArgs: readonly unknown[]
 }
 
 describe("FEATURE_CONSTRUCTORS callExpression/callArgs consistency", () => {
-  for (const [name, entry] of Object.entries(FEATURE_CONSTRUCTORS)) {
+  for (const name of Object.keys(FEATURE_CONSTRUCTORS)) {
     test(`${name}: callExpression matches exportName + callArgs`, () => {
+      const entry = scaffoldEntryFor(name, "demo-app");
+      if (entry === undefined) throw new Error(`no scaffold entry for ${name}`);
       if (entry.callArgs !== undefined) {
         // callExpression is hand-formatted TS source; compare with
         // whitespace stripped only — NOT quotes, so a string arg ("1") vs.

@@ -529,6 +529,8 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "custom-fields.form.loading": "Chargement…",
   "custom-fields.form.save": "Enregistrer les champs personnalisés",
   "custom-fields.form.saving": "Enregistrement…",
+  "custom-fields.form.moneyStoredInOtherCurrency":
+    "Enregistré : {stored}. Le champ utilise désormais {currency} ; un nouveau montant est enregistré en {currency}.",
   "delivery.log.col.createdAt": "Heure",
   "delivery.log.col.error": "Erreur",
   "delivery.status.queued": "En file d'attente",

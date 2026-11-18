@@ -520,6 +520,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "custom-fields.form.loading": "Lädt…",
   "custom-fields.form.save": "Custom-Felder speichern",
   "custom-fields.form.saving": "Speichert…",
+  "custom-fields.form.moneyStoredInOtherCurrency":
+    "Gespeichert: {stored}. Das Feld nutzt jetzt {currency}; ein neuer Betrag wird in {currency} gespeichert.",
   "delivery.log.col.createdAt": "Zeit",
   "delivery.log.col.error": "Fehler",
   "delivery.status.queued": "In Warteschlange",

@@ -18,9 +18,14 @@ export const setCustomFieldPayloadSchema = z.object({
     .regex(/^[a-zA-Z][a-zA-Z0-9_-]*$/),
   // z.unknown() is implicitly optional; reject a missing value here (clearing is
   // clear-custom-field's job) so the projection never binds JSON.stringify(undefined).
+  // value is z.unknown() because its shape depends on the stored definition, so
+  // the agent tool schema would otherwise carry no hint that money is minor units.
   value: z
     .unknown()
-    .refine((v) => v !== undefined, "value is required (use clear-custom-field to remove a value)"),
+    .refine((v) => v !== undefined, "value is required (use clear-custom-field to remove a value)")
+    .describe(
+      "Value matching the field definition's type. A money field takes { amount, currency }: amount is an integer in minor units of the currency (cents for EUR, pence for GBP; 12.50 is 1250, never whole units), currency is the definition's currency.",
+    ),
 });
 export type SetCustomFieldPayload = z.infer<typeof setCustomFieldPayloadSchema>;
 

@@ -598,6 +598,42 @@ describe("custom-fields integration — value validation (Builder-Reuse)", () =>
     expect(await rawCustomFields(id)).toMatchObject({ note: "not-an-email-and-way-too-long" });
   });
 
+  test("money takes only integer minor units in the definition's currency", async () => {
+    const id = "12121212-1212-4000-8000-000000000012";
+    await stack.http.writeOk(
+      "custom-fields:write:define-tenant-field",
+      {
+        entityName: "property",
+        fieldKey: "budget",
+        serializedField: { type: "money", currency: "EUR" },
+        required: false,
+        searchable: false,
+        displayOrder: 0,
+      },
+      admin,
+    );
+    await createProperty(id, "MoneyContract");
+
+    for (const rejected of [
+      { amount: 12.5, currency: "EUR" },
+      { amount: 2 ** 60, currency: "EUR" },
+      { amount: 1250, currency: "GBP" },
+    ]) {
+      const err = await setErr(id, "budget", rejected);
+      expect(err.httpStatus).toBe(422);
+      expect(err.details).toMatchObject({
+        reason: "custom_field_value_invalid",
+        fieldKey: "budget",
+        fieldType: "money",
+      });
+    }
+    expect(await countSetEvents(id)).toBe(0);
+
+    await setCustomField("property", id, "budget", { amount: 1250, currency: "EUR" });
+    await stack.eventDispatcher?.runOnce();
+    expect(await rawCustomFields(id)).toMatchObject({ budget: { amount: 1250, currency: "EUR" } });
+  });
+
   test("default-having field validates as plain type (default-key stripped)", async () => {
     const id = "cccccccc-cccc-4000-8000-00000000000c";
     // Pre-fix: fieldToZod folded `default` into `.default(...)`. Combined with

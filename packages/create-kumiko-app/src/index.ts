@@ -6,7 +6,7 @@
 
 import type { ScaffoldFeatureEntry, ScaffoldStarter } from "@cosmicdrift/kumiko-dev-server";
 import { resolveDeps } from "./dep-resolver";
-import { FEATURE_CONSTRUCTORS } from "./feature-constructors";
+import { FEATURE_CONSTRUCTORS, scaffoldEntryFor } from "./feature-constructors";
 import { loadManifest, type Manifest } from "./manifest";
 import { buildChoices, runPicker } from "./picker";
 
@@ -45,7 +45,8 @@ export async function runCreate(args: CliArgs): Promise<number> {
     return 0;
   }
 
-  if (!args.name) {
+  const appName = args.name;
+  if (!appName) {
     log(USAGE);
     return 1;
   }
@@ -58,7 +59,7 @@ export async function runCreate(args: CliArgs): Promise<number> {
 
   const resolved = resolveDeps(selected, manifest);
   const features = resolved.featureNames
-    .map((name) => FEATURE_CONSTRUCTORS[name])
+    .map((featureName) => scaffoldEntryFor(featureName, appName))
     .filter((entry): entry is ScaffoldFeatureEntry => entry !== undefined);
 
   // config/user/tenant/auth-email-password are auto-mounted by
