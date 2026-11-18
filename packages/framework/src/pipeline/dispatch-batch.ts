@@ -246,7 +246,7 @@ async function runAcquiredBatch(
   // Hooks already ran on the plaintext results; what is returned and cached
   // for retries must not carry writeOnly values.
   const maskForClient = (result: BatchResult): BatchResult =>
-    maskBatchResultForClient(ctx.registry, commands, result);
+    maskBatchResultForClient(ctx.registry, commands, result, user);
 
   // Cache the result under requestId so retries get the same answer. Only a
   // provably rolled-back 5xx releases the lock instead (releaseOrFinalize).

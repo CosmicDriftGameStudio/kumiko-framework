@@ -82,7 +82,12 @@ import {
   projectEntityEvent,
   runPreSave,
 } from "./event-store-executor-write-steps.ts";
-import { isFrameworkSystemUser, isLockGuardBypassed } from "./lock-guard.ts";
+import { keepHiddenSubFields } from "./keep-hidden-embedded-sub-fields.ts";
+import {
+  isFrameworkSystemUser,
+  isLockGuardBypassed,
+  isStatutorySystemWrite,
+} from "./lock-guard.ts";
 import { parentRulesFromOption, resolveParentWriteAccess } from "./parent-ownership.ts";
 import { runInSavepointIfSupported } from "./query.ts";
 import { assertPersonalDataWrite, tableNameOf, withExecutorManagedWrites } from "./tenant-db.ts";
@@ -337,9 +342,7 @@ export function createWriteVerbs(
   ): WriteFailure | undefined {
     // Statutory retention/erasure writes may change a condition field (e.g. null a PII
     // reference) and must not be blocked by the select rule — same exemption as the lock.
-    const isStatutorySystemWrite =
-      options?.writePurpose !== undefined && isFrameworkSystemUser(user);
-    if (isStatutorySystemWrite) return undefined;
+    if (isStatutorySystemWrite(user, options)) return undefined;
     return fieldStateFailure(entity.fields, mergedNew, previous);
   }
 
@@ -705,7 +708,9 @@ export function createWriteVerbs(
     if (streamTenantMismatch) return streamTenantMismatch;
     const handles = await resolveFileHandles(entity, entityName, payload.changes, db, user);
     if ("failure" in handles) return handles.failure;
-    const submittedChanges: DbRow = { ...handles.values };
+    const kept = keepHiddenSubFields(entity, handles.values, previous, user, updateOptions);
+    if ("failure" in kept) return kept.failure;
+    const submittedChanges: DbRow = { ...kept.changes };
     const preSaveResult = await runPreSave(
       updateOptions?.preSave,
       submittedChanges,

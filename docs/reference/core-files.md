@@ -148,9 +148,11 @@ refused too. The same holds for a file in a list row the writer may not read
 and for an upload bound to the record for a restricted field but not saved
 into it yet, unless the writer uploaded it. List rows have no stable id, so a
 file the writer may not read keeps its row index when its sub-field has a read
-rule, and an upload bound to an embedded field with such a file sub-field can be
-named only by its uploader, because `file_refs` records the top-level field
-only. Privileged roles skip the record and its field rules, so an
+rule; naming another file there is refused (`hidden_row_changed`). Reordering the rows, or inserting or
+deleting a row before the file, leaves it at its index, and a save that shortens
+the list past a row holding such a file is refused (`hidden_row_removed`). An upload bound to an embedded field with such a file
+sub-field can be named only by its uploader, a system save included, because
+`file_refs` records the top-level field only. Privileged roles skip the record and its field rules, so an
 `access.read` rule on a file field binds them only when the entity declares
 `attachedFileAccess: "record-only"`. An upload without
 `entityType`, or a pending upload (`entityType` + `fieldName`, no `entityId`),

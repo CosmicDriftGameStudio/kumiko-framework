@@ -605,6 +605,10 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "errors.validation.custom": "Valeur invalide.",
   "errors.validation.onlyDeleted": "Requête de la corbeille impossible.",
   "errors.validation.failed": "Échec de la validation.",
+  "errors.validation.hidden_row_changed":
+    "Une ligne contient un champ que vous ne pouvez pas voir, elle ne peut donc pas être modifiée ainsi.",
+  "errors.validation.hidden_row_removed":
+    "Une ligne contient des données que vous ne pouvez pas voir, elle ne peut donc pas être supprimée.",
   "errors.validation.invalid_element": "Entrée invalide.",
   "errors.validation.invalid_format": "Format invalide.",
   "errors.validation.invalid_format.email": "Adresse e-mail invalide, p. ex. nom@exemple.fr.",

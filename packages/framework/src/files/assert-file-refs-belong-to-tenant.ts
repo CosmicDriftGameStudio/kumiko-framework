@@ -1,6 +1,6 @@
 import type { EntityDefinition, FieldDefinition } from "@cosmicdrift/kumiko-types/fields";
 import type { SaveContext } from "@cosmicdrift/kumiko-types/hooks";
-import { filterReadFields } from "../engine/field-access.ts";
+import { filterReadFields, hasOwnershipRule, restrictsAccess } from "../engine/field-access.ts";
 import { normalizeAccessEntry, userCanReadFieldRow } from "../engine/ownership.ts";
 import type { Registry, SessionUser } from "../engine/types/index.ts";
 
@@ -66,8 +66,9 @@ function assertNewIdsFitSubFields(
 const WHOLE_FIELD_SLOT = "";
 
 // Sub-fields of one embedded field may carry different read rules, so each counts as its own slot.
-// A sub-field read rule is evaluated per row and rows have no stable id, so such a sub-field is a
-// slot per row index: a file the writer may not read keeps its row.
+// A sub-field rule that reads its row is evaluated per row and rows have no stable id, so such a
+// sub-field is a slot per row index: a file the writer may not read keeps its row. A role rule
+// gives every row the same readers, so its files may change rows.
 function fileRefIdsBySlot(
   fieldDef: FieldDefinition,
   value: unknown,
@@ -79,7 +80,8 @@ function fileRefIdsBySlot(
   const rows: readonly unknown[] = Array.isArray(value) ? value : [value];
   for (const [rowIndex, row] of rows.entries()) {
     for (const [subField, ids] of fileRefIdsBySubField(fieldDef, row)) {
-      const readsPerRow = fieldDef.schema[subField]?.access?.read !== undefined;
+      const readMap = normalizeAccessEntry(fieldDef.schema[subField]?.access?.read);
+      const readsPerRow = readMap !== undefined && hasOwnershipRule(readMap);
       const slot = readsPerRow ? `${subField}[${rowIndex}]` : subField;
       idsBySlot.set(slot, [...(idsBySlot.get(slot) ?? []), ...ids]);
     }
@@ -91,7 +93,8 @@ function hasReadRuleOnFileSubField(fieldDef: FieldDefinition): boolean {
   return (
     fieldDef.type === "embedded" &&
     Object.values(fieldDef.schema).some(
-      (subField) => isFileSubField(subField) && subField.access?.read !== undefined,
+      (subField) =>
+        isFileSubField(subField) && restrictsAccess(normalizeAccessEntry(subField.access?.read)),
     )
   );
 }

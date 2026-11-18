@@ -8,6 +8,10 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
     "Sie sehen Daten aller Mandanten. Mandantenübergreifende Abfragen werden im Ereignisprotokoll vermerkt.",
   "config.secret.channel-whatsapp.verify-token.hint":
     "Beliebiger Text, den Sie auch in den Meta-Webhook-Einstellungen eintragen; beantwortet den Abonnement-Handshake von Meta.",
+  "errors.validation.hidden_row_changed":
+    "Eine Zeile hat ein Feld, das Sie nicht sehen dürfen, und kann daher so nicht geändert werden.",
+  "errors.validation.hidden_row_removed":
+    "Eine Zeile enthält Inhalte, die Sie nicht sehen dürfen, und kann daher nicht entfernt werden.",
   "kumiko.screen.forbidden": "Sie haben keinen Zugriff auf diese Seite.",
   "managed-pages:body.lossy.warning":
     "Diese Seite wurde in Markdown geschrieben. Bei der Umwandlung in den Editor gehen verloren: {features}. Prüfen Sie das Ergebnis vor dem Speichern.",

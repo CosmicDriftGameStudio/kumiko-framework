@@ -594,6 +594,10 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "errors.validation.custom": "Valore non valido.",
   "errors.validation.onlyDeleted": "Richiesta del cestino non disponibile.",
   "errors.validation.failed": "Convalida non riuscita.",
+  "errors.validation.hidden_row_changed":
+    "Una riga ha un campo che non puoi vedere, quindi non può essere modificata così.",
+  "errors.validation.hidden_row_removed":
+    "Una riga contiene dati che non puoi vedere, quindi non può essere rimossa.",
   "errors.validation.invalid_element": "Voce non valida.",
   "errors.validation.invalid_format": "Formato non valido.",
   "errors.validation.invalid_format.email": "Indirizzo e-mail non valido, ad es. nome@esempio.it.",

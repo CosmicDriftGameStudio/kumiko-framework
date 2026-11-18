@@ -597,6 +597,10 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "errors.validation.custom": "Ungültiger Wert.",
   "errors.validation.onlyDeleted": "Papierkorb-Abfrage nicht möglich.",
   "errors.validation.failed": "Validierung fehlgeschlagen.",
+  "errors.validation.hidden_row_changed":
+    "Eine Zeile hat ein Feld, das du nicht sehen darfst, und kann daher so nicht geändert werden.",
+  "errors.validation.hidden_row_removed":
+    "Eine Zeile enthält Inhalte, die du nicht sehen darfst, und kann daher nicht entfernt werden.",
   "errors.validation.invalid_element": "Ungültiger Eintrag.",
   "errors.validation.invalid_format": "Ungültiges Format.",
   "errors.validation.invalid_format.email": "Ungültige E-Mail-Adresse, z. B. name@beispiel.de.",

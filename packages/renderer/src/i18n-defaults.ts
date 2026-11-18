@@ -522,6 +522,10 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "errors.validation.invalid_key": "Invalid key.",
     "errors.validation.invalid_element": "Invalid entry.",
     "errors.validation.invalid_value": "Invalid choice.",
+    "errors.validation.hidden_row_changed":
+      "A row has a field you may not see, so it cannot be changed this way.",
+    "errors.validation.hidden_row_removed":
+      "A row holds content you may not see, so it cannot be removed.",
     "errors.validation.custom": "Invalid value.",
     "errors.validation.onlyDeleted": "The trash list is not available here.",
     "errors.validation.unexpected_field": "Unknown field.",

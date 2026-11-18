@@ -90,7 +90,7 @@ function fieldToZod(field: FieldDefinition, currencies: string[], opts?: { apply
 function fieldsAwaitingApproval(entity: EntityDefinition, user: Pick<SessionUser, "roles">, data: Readonly<Record<string, unknown>>, previous: Readonly<Record<string, unknown>> | undefined): string[];
 function fieldsRequiringApprovalRequest(entity: EntityDefinition, user: Pick<SessionUser, "roles">): string[];
 function filterEntriesAfter(entries: ChangelogEntry[], version: string): ChangelogEntry[];
-function filterReadFields(entity: EntityDefinition, data: Readonly<Record<string, unknown>>, user: SessionUser): Record<string, unknown>;
+function filterReadFields(entity: EntityDefinition, data: Readonly<Record<string, unknown>>, user: SessionUser, ruleRow?: Readonly<Record<string, unknown>>): Record<string, unknown>;
 function findEntity(features: ReadonlyMap<string, FeatureDefinition>, entityName: string): EntityDefinition | undefined;
 function findForbiddenMembershipRole(roles: string[]): string | undefined;
 function findForbiddenRoleAssignment(actorRoles: string[], assignedRoles: string[], targetCurrentRoles: string[], assignableAppRoles?: AssignableAppRoles): string | undefined;

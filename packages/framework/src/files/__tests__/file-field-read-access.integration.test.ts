@@ -88,6 +88,23 @@ const inspectionEntity = createEntity({
   },
 });
 
+// Read by role only, so every row of the list has the same readers.
+const folderEntity = createEntity({
+  name: "folder",
+  table: "field_read_folders",
+  fields: {
+    title: createTextField({ personal: false, reason: "test_fixture", required: true }),
+    sheets: createEmbeddedListField(
+      { note: { type: "text" }, scans: { type: "files", access: { read: FIELD_READERS } } },
+      { personal: false, reason: "is_business_data" },
+    ),
+    openSheets: createEmbeddedListField(
+      { scans: { type: "files", access: { read: [] } } },
+      { personal: false, reason: "is_business_data" },
+    ),
+  },
+});
+
 const RECORD_READERS = { access: { roles: ["Admin", "User", "Auditor", "TenantAdmin"] } } as const;
 const RECORD_WRITERS = { access: { roles: ["Admin", "Clerk", "TenantAdmin"] } } as const;
 
@@ -96,6 +113,7 @@ const fieldReadFeature = defineFeature("field-read", (r) => {
   r.crud(sealedEntity, { write: RECORD_WRITERS, read: RECORD_READERS });
   r.crud(inspectionEntity, { write: RECORD_WRITERS, read: RECORD_READERS });
   r.crud(surveyEntity, { write: RECORD_WRITERS, read: RECORD_READERS });
+  r.crud(folderEntity, { write: RECORD_WRITERS, read: RECORD_READERS });
 });
 
 const tenant = testTenantId(1);
@@ -167,6 +185,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, sealedEntity, "sealed");
   await unsafeCreateEntityTable(stack.db, inspectionEntity, "inspection");
   await unsafeCreateEntityTable(stack.db, surveyEntity, "survey");
+  await unsafeCreateEntityTable(stack.db, folderEntity, "folder");
 
   files.scan = await upload({ entityType: "dossier", fieldName: "scan" });
   files.docsA = await upload({ entityType: "dossier", fieldName: "docs" });
@@ -607,7 +626,7 @@ describe("a writer cannot move a file from a list row he may not read into one h
     ],
   });
 
-  // Rows have no stable id, so a file the writer may not read has to keep its row index.
+  // Rows have no stable id, so a file the writer may not read keeps its row index.
   test("moving the photo between two rows the writer may not read is rejected", async () => {
     const { recordId, photo } = await inspectionWithPhotoInForeignRow();
     expect(await downloadStatus(otherInspector, photo)).toBe(404);
@@ -619,7 +638,17 @@ describe("a writer cannot move a file from a list row he may not read into one h
     );
 
     expect(err.code).toBe("validation_error");
-    expect(JSON.stringify(err.details)).toContain("invalid_element");
+    expect(JSON.stringify(err.details)).toContain("hidden_row_changed");
+
+    const record = await stack.http.queryOk<Record<string, unknown>>(
+      "field-read:query:inspection:detail",
+      { id: recordId },
+      uploader,
+    );
+    expect(record["checks"]).toEqual([
+      { inspector: "someone-else", photos: [photo] },
+      { inspector: otherInspector.id, photos: [] },
+    ]);
     expect(await downloadStatus(otherInspector, photo)).toBe(404);
   });
 
@@ -632,6 +661,87 @@ describe("a writer cannot move a file from a list row he may not read into one h
       uploader,
     );
     expect(await downloadStatus(otherInspector, photo)).toBe(200);
+  });
+});
+
+describe("a file sub-field read by role only", () => {
+  // The hidden scan would have to change its row index, which the writer cannot do for a value he
+  // may not read; without the refusal the scan would be lost.
+  test("a writer who may not read it removes the row before the file: refused, the file stays readable", async () => {
+    const scan = await upload({ entityType: "folder", fieldName: "sheets", subField: "scans" });
+    const created = await stack.http.writeOk<{ id: string }>(
+      "field-read:write:folder:create",
+      {
+        title: "Shift",
+        sheets: [
+          { note: "first", scans: [] },
+          { note: "second", scans: [scan] },
+        ],
+      },
+      uploader,
+    );
+
+    const err = await stack.http.writeErr(
+      "field-read:write:folder:update",
+      { id: created.id, version: 1, changes: { sheets: [{ note: "second", scans: [scan] }] } },
+      clerk,
+    );
+
+    expect(err.code).toBe("validation_error");
+    expect(JSON.stringify(err.details)).toContain("hidden_row_removed");
+    const record = await stack.http.queryOk<Record<string, unknown>>(
+      "field-read:query:folder:detail",
+      { id: created.id },
+      auditor,
+    );
+    expect(record["sheets"]).toEqual([
+      { note: "first", scans: [] },
+      { note: "second", scans: [scan] },
+    ]);
+    expect(await downloadStatus(auditor, scan)).toBe(200);
+  });
+
+  test("a writer who may read it removes the row before the file: saved", async () => {
+    const scan = await upload({ entityType: "folder", fieldName: "sheets", subField: "scans" });
+    const created = await stack.http.writeOk<{ id: string }>(
+      "field-read:write:folder:create",
+      {
+        title: "Shift",
+        sheets: [
+          { note: "first", scans: [] },
+          { note: "second", scans: [scan] },
+        ],
+      },
+      uploader,
+    );
+
+    await stack.http.writeOk(
+      "field-read:write:folder:update",
+      { id: created.id, version: 1, changes: { sheets: [{ note: "second", scans: [scan] }] } },
+      uploader,
+    );
+    expect(await downloadStatus(auditor, scan)).toBe(200);
+  });
+
+  test("an empty read list is public: another writer saves an upload bound to that sub-field", async () => {
+    const created = await stack.http.writeOk<{ id: string }>(
+      "field-read:write:folder:create",
+      { title: "Open" },
+      uploader,
+    );
+    const unsaved = await upload({
+      entityType: "folder",
+      fieldName: "openSheets",
+      subField: "scans",
+      entityId: created.id,
+    });
+
+    await stack.http.writeOk(
+      "field-read:write:folder:update",
+      { id: created.id, version: 1, changes: { openSheets: [{ scans: [unsaved] }] } },
+      clerk,
+    );
+    expect(await downloadStatus(recordReader, unsaved)).toBe(200);
   });
 });
 

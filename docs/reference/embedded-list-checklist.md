@@ -1,7 +1,7 @@
 ---
 status: reference
 verified: 2026-10-29
-evidence: "samples/recipes/inspection-checklist/src/__tests__/feature.integration.test.ts, samples/recipes/inspection-checklist/src/__tests__/photos.integration.test.ts, packages/framework/src/engine/boot-validator/__tests__/field-conditions.test.ts, packages/framework/src/engine/__tests__/embedded-derived.test.ts, packages/framework/src/files/__tests__/file-field-slots.test.ts"
+evidence: "samples/recipes/inspection-checklist/src/__tests__/feature.integration.test.ts, samples/recipes/inspection-checklist/src/__tests__/photos.integration.test.ts, packages/framework/src/engine/boot-validator/__tests__/field-conditions.test.ts, packages/framework/src/engine/__tests__/embedded-derived.test.ts, packages/framework/src/files/__tests__/file-field-slots.test.ts, packages/framework/src/db/__tests__/embedded-hidden-sub-field-save.integration.test.ts"
 ---
 
 # Embedded-Liste als Checkliste
@@ -74,6 +74,15 @@ Wert ist ein Array von FileRef-IDs.
   Index verglichen, eine geänderte, geleerte oder entfernte Zelle ohne Recht ergibt
   `ownership_denied` mit dem Feldpfad `checkpoints.approvedBy`. Besitzregeln werden gegen die
   Zeile ausgewertet, wie beim Lesefilter.
+- Ein Sub-Feld mit `access.read`, das der Schreiber nicht lesen darf, behält beim Speichern je
+  Zeilenindex den bisherigen Wert, wenn er dort nichts schickt (bei einem Datei-Sub-Feld auch
+  dieselben Datei-Ids). Schickt er einen Wert, auch den gleichen, kommt `validation_error` (400)
+  mit `hidden_row_changed`, damit ein Speichern keinen geratenen Wert bestätigt; ebenso wenn der
+  Wert in einer Zeile landen würde, die er lesen darf. Entfernt sein Speichern eine Zeile mit so
+  einem Wert, kommt `validation_error` (400) mit `hidden_row_removed`. Weil Zeilen keine feste Id
+  haben, bleibt der verborgene Wert am Index: Sortiert ein Schreiber ohne Leserecht die Zeilen um
+  oder fügt er eine davor ein, hängt der Wert danach an der Zeile, die jetzt dort steht.
+  Aufbewahrung und Löschung als System-User mit `writePurpose` ändern das Sub-Feld wie jeder Leser.
 - `file_refs.fieldName` bleibt der Name des Embedded-Felds. Bindung beim Speichern,
   Mandanten-Check, Aufräumen entfernter Fotos, Lesezugriff über das Recht am Datensatz,
   DSGVO-Löschung (PII-Angabe des Embedded-Felds) und Retention laufen dadurch wie bei einem

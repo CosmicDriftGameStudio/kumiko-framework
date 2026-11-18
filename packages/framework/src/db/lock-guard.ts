@@ -9,15 +9,19 @@ export function isFrameworkSystemUser(user: SessionUser): boolean {
   return user.id === SYSTEM_USER_ID && user.roles.includes(SYSTEM_ROLE);
 }
 
-// Framework system writes that name a writePurpose (retention, erasure) are exempt:
-// statutory deletion must reach locked rows. The options are server-code only; no
-// request field is ever copied into them.
+// A framework system write that names a writePurpose (retention, erasure). The options are
+// server-code only; no request field is ever copied into them.
+export function isStatutorySystemWrite(
+  user: SessionUser,
+  options: Pick<LockGuardOption, "writePurpose"> | undefined,
+): boolean {
+  return options?.writePurpose !== undefined && isFrameworkSystemUser(user);
+}
+
+// Statutory system writes are exempt: statutory deletion must reach locked rows.
 export function isLockGuardBypassed(
   user: SessionUser,
   options: LockGuardOption | undefined,
 ): boolean {
-  return (
-    options?.unsafeSkipLockGuard === true ||
-    (options?.writePurpose !== undefined && isFrameworkSystemUser(user))
-  );
+  return options?.unsafeSkipLockGuard === true || isStatutorySystemWrite(user, options);
 }
