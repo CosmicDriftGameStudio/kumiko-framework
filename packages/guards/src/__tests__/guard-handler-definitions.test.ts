@@ -48,6 +48,21 @@ describe("Handler Definitions guard: layout", () => {
   });
 });
 
+describe("Handler Definitions guard: callee names", () => {
+  test("calls of inherited object methods are not handler definitions", () => {
+    const counts = findingsFor({
+      [`${DEMO}/web/format.ts`]: [
+        "export const a = (value: number) => value.toString();",
+        "export const b = (x: unknown) => String(x).valueOf();",
+        "export const c = (x: { constructor: (v: number) => unknown }) => x.constructor(1);",
+        "export const d = (x: object) => x.hasOwnProperty('k');",
+        "",
+      ].join("\n"),
+    });
+    expect(counts).toEqual({});
+  });
+});
+
 describe("Handler Definitions guard: erased literals", () => {
   test("a literal typed WriteHandlerDef counts", () => {
     const counts = findingsFor({

@@ -18,3 +18,5 @@ The direct-entity-writes guard reads the entity definition as the first argument
 Projected row helpers (`insertProjectedEntityRow`, `patchProjectedEntityRow`) accept money and located timestamps in the combined form their type declares.
 
 Upcasters and entity `eventMigrations` receive the aggregate id and type of the event they migrate (`EventUpcastCtx.aggregateId`, `EventUpcastCtx.aggregateType`).
+
+The handler definitions guard no longer counts calls to inherited object methods such as `toString`.

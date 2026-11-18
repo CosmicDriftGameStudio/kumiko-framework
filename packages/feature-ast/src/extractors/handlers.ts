@@ -142,7 +142,7 @@ function lookupClassification<T extends Record<string, KeyClassification>>(
   map: T,
   key: string,
 ): KeyClassification | undefined {
-  return key in map ? map[key as keyof T] : undefined;
+  return Object.hasOwn(map, key) ? map[key as keyof T] : undefined;
 }
 
 function isStaticStringNode(node: Node): boolean {

@@ -52,15 +52,16 @@ const ERASED_TYPES: ReadonlySet<string> = new Set(["WriteHandlerDef", "QueryHand
 
 type HandlerKind = "write" | "query";
 
-const FACTORY_KIND: Readonly<Record<string, HandlerKind>> = {
-  defineWriteHandler: "write",
-  defineQueryHandler: "query",
-  definePagedQueryHandler: "query",
-};
-const INLINE_KIND: Readonly<Record<string, HandlerKind>> = {
-  writeHandler: "write",
-  queryHandler: "query",
-};
+// Maps, not object literals: an arbitrary callee name such as `toString` must not hit Object.prototype.
+const FACTORY_KIND: ReadonlyMap<string, HandlerKind> = new Map([
+  ["defineWriteHandler", "write"],
+  ["defineQueryHandler", "query"],
+  ["definePagedQueryHandler", "query"],
+]);
+const INLINE_KIND: ReadonlyMap<string, HandlerKind> = new Map([
+  ["writeHandler", "write"],
+  ["queryHandler", "query"],
+]);
 
 const handlerDefinitionsBaseline = baselineRatchet({
   file: path.join(ROOT, ".kumiko-handler-definitions-baseline.json"),
@@ -86,12 +87,12 @@ function handlerDefinitionsOf(sf: SourceFile): HandlerDefinition[] {
   for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
     const name = calleeName(call);
     if (name === undefined) continue;
-    const factoryKind = FACTORY_KIND[name];
+    const factoryKind = FACTORY_KIND.get(name);
     if (factoryKind !== undefined) {
       found.push({ node: call, kind: factoryKind });
       continue;
     }
-    const inlineKind = INLINE_KIND[name];
+    const inlineKind = INLINE_KIND.get(name);
     if (inlineKind !== undefined && Node.isObjectLiteralExpression(call.getArguments()[0])) {
       found.push({ node: call, kind: inlineKind });
     }
