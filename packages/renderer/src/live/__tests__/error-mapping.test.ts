@@ -153,3 +153,27 @@ describe("buildAbortError", () => {
     expect(err.httpStatus).toBe(0);
   });
 });
+
+describe("mapServerError — field names of a reasoned denial", () => {
+  test("a field-approval denial keeps its field names as issues of that reason", () => {
+    const mapped = mapServerError({
+      code: "access_denied",
+      httpStatus: 403,
+      i18nKey: "errors.access.fieldApprovalRequired",
+      message: "x",
+      details: { reason: "field_approval_required", entity: "contact", fields: ["iban"] },
+    });
+
+    expect(mapped.details).toEqual({
+      reason: "field_approval_required",
+      entity: "contact",
+      fields: [
+        {
+          path: "iban",
+          code: "field_approval_required",
+          i18nKey: "errors.access.fieldApprovalRequired",
+        },
+      ],
+    });
+  });
+});

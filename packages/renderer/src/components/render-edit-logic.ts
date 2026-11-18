@@ -195,3 +195,11 @@ export function issuesAfterEdit<TIssue>(
   );
   return Object.keys(remaining).length === Object.keys(errors).length ? errors : remaining;
 }
+
+// Mirrors bundled-features/field-approval, which the renderer must not import.
+export const FIELD_APPROVAL_FEATURE = "field-approval";
+export const FIELD_APPROVAL_REQUEST_CHANGE = "field-approval:write:request-change";
+
+export function isFieldApprovalRequired(error: DispatcherError | null): boolean {
+  return error?.details?.["reason"] === "field_approval_required";
+}

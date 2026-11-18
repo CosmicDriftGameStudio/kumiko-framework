@@ -22,6 +22,7 @@ import type * as z from "zod";
 import type { ZodType } from "zod";
 import { toTableName } from "../db/table-builder.ts";
 import { bootRuleError } from "./boot-validator/boot-rule.ts";
+import { FEATURE_DEFINITION_RULES } from "./boot-validator/definition-feature-rules.ts";
 import { DEFINITION_HANDLER_RULES } from "./boot-validator/definition-handlers-rules.ts";
 import { HANDLER_ACCESS_RULES } from "./boot-validator/entity-handler-access-rules.ts";
 import {
@@ -280,6 +281,13 @@ export function buildEntityHandlerMethods<TName extends string>(
   return {
     ...methods,
     crud(entity: EntityDefinition, options?: RegisterEntityCrudOptions): void {
+      // Untyped callers (JS, generated code written for an older framework) still pass the name
+      // first or a nameless entity; both would end in a TypeError deep in the table naming.
+      if (!isObjectArgument(entity) || typeof entity.name !== "string") {
+        throw bootRuleError(FEATURE_DEFINITION_RULES.optionsObjectRequired, {
+          message: `[Feature ${name}] r.crud(entity, options) takes an entity created with createEntity({ name, ... }); the name no longer goes first, \`bun kumiko-upgrade --apply\` moves it into createEntity`,
+        });
+      }
       registerCrudHandlers(methods, entity, options);
     },
   };

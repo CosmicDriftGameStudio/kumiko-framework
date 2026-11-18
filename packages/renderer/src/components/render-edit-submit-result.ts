@@ -1,6 +1,6 @@
 import type { DispatcherError, FormValues, SubmitResult } from "../headless/index.ts";
 import { groupIssuesByPath } from "../headless/index.ts";
-import { hasIssueWithoutRenderedField } from "./render-edit-logic.ts";
+import { hasIssueWithoutRenderedField, isFieldApprovalRequired } from "./render-edit-logic.ts";
 import type { RenderEditEngineBase } from "./render-edit-render-model.ts";
 
 export function createSubmitResultHandlers<TValues extends FormValues, TCtx>({
@@ -73,12 +73,15 @@ export function createSubmitResultHandlers<TValues extends FormValues, TCtx>({
     jumpToFirstErroringStep(issuePaths);
     state.setExtraDeleteIssues([]);
     state.setFormErrorSource("submit");
+    // The approval banner carries the submit-for-approval action, so it shows even though
+    // the gated fields are rendered.
     state.setFormError(
-      hasIssueWithoutRenderedField(
-        issuePaths,
-        sections.filteredSections,
-        new Set(Object.keys(props.formDerivation?.derive ?? {})),
-      )
+      isFieldApprovalRequired(error) ||
+        hasIssueWithoutRenderedField(
+          issuePaths,
+          sections.filteredSections,
+          new Set(Object.keys(props.formDerivation?.derive ?? {})),
+        )
         ? error
         : null,
     );

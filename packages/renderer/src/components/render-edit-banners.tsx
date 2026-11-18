@@ -2,9 +2,13 @@ import type { ReactNode } from "react";
 import { ErrorReference } from "../app/error-reference.tsx";
 import { unprocessableReasonText } from "../app/write-failed-error.ts";
 import { formatWhen } from "../format-when.ts";
-import type { DispatcherError, FormValues } from "../headless/index.ts";
+import type { Dispatcher, DispatcherError, FormValues } from "../headless/index.ts";
 import { tabIdAt } from "./render-edit-helpers.tsx";
-import { isDispatcherRejection } from "./render-edit-logic.ts";
+import {
+  FIELD_APPROVAL_REQUEST_CHANGE,
+  isDispatcherRejection,
+  isFieldApprovalRequired,
+} from "./render-edit-logic.ts";
 import type { RenderEditModel } from "./render-edit-render-model.ts";
 import type { RenderEditState } from "./use-render-edit-state.ts";
 
@@ -116,20 +120,96 @@ export function renderTabStrip<TValues extends FormValues, TCtx>({
   );
 }
 
-export function renderFormErrorBanner<TValues extends FormValues, TCtx>({
-  engine: { props, state },
-  layout,
-}: RenderEditModel<TValues, TCtx>): ReactNode {
+// Files each gated field's new value as a change request, puts the field back to its saved
+// value and then saves the remaining changes the normal way.
+async function submitForApproval<TValues extends FormValues, TCtx>(
+  model: RenderEditModel<TValues, TCtx>,
+  dispatcher: Dispatcher,
+  entityId: string,
+  fields: readonly string[],
+): Promise<void> {
+  const { props, state, form, handleSubmit } = model.engine;
+  const { values, initial } = form.controller.getSnapshot();
+  for (const fieldName of fields) {
+    const result = await dispatcher.write(FIELD_APPROVAL_REQUEST_CHANGE, {
+      entityType: props.screen.entity,
+      entityId,
+      fieldName,
+      value: values[fieldName],
+    });
+    if (!result.isSuccess) {
+      state.setFormError(result.error);
+      return;
+    }
+  }
+  for (const fieldName of fields) {
+    model.setFieldUntyped(fieldName, initial[fieldName]);
+    form.controller.clearErrors(fieldName);
+  }
+  state.setPendingApprovalFields(fields);
+  state.setFormError(null);
+  if (form.controller.getSnapshot().isDirty) await handleSubmit({ saveNow: true });
+}
+
+function renderFieldApprovalParts<TValues extends FormValues, TCtx>(
+  model: RenderEditModel<TValues, TCtx>,
+  formError: DispatcherError,
+): { readonly text: ReactNode; readonly action: ReactNode } | undefined {
+  // skip: not a field-approval denial
+  if (!isFieldApprovalRequired(formError)) return undefined;
+  const { props, state, sections } = model.engine;
+  const { Button, Text } = state.primitives;
+  const fields = (formError.details?.fields ?? []).map((issue) => issue.path);
+  const shownFields = sections.filteredSections.flatMap((s) =>
+    s.kind === "fields" ? s.fields : [],
+  );
+  const labels = fields.map((name) => shownFields.find((f) => f.field === name)?.label ?? name);
+  const { dispatcher } = state;
+  const entityId = props.entityId;
+  const canSubmit =
+    state.fieldApprovalMounted &&
+    dispatcher !== undefined &&
+    typeof entityId === "string" &&
+    !state.isCreateMode &&
+    fields.length > 0;
+  return {
+    text: (
+      <Text testId="render-edit-field-approval-fields">
+        {state.translate("kumiko.form.fieldApproval.fields", { fields: labels.join(", ") })}
+      </Text>
+    ),
+    action: canSubmit && (
+      <Button
+        variant="secondary"
+        onClick={() => void submitForApproval(model, dispatcher, entityId, fields)}
+        testId="render-edit-field-approval-submit"
+      >
+        {state.translate("kumiko.form.fieldApproval.submit")}
+      </Button>
+    ),
+  };
+}
+
+export function renderFormErrorBanner<TValues extends FormValues, TCtx>(
+  model: RenderEditModel<TValues, TCtx>,
+): ReactNode {
+  const {
+    engine: { props, state },
+    layout,
+  } = model;
   const { Banner, Button, Text } = state.primitives;
   const { translate, formError } = state;
   const { onReload } = props;
+  const approval = formError === null ? undefined : renderFieldApprovalParts(model, formError);
   return (
     formError !== null && (
       <Banner
         variant="error"
         testId="render-edit-form-error"
         actions={
-          formError.code === "version_conflict" && onReload !== undefined ? (
+          approval?.action ? (
+            approval.action
+          ) : formError.code === "version_conflict" && onReload !== undefined ? (
             <Button
               variant="secondary"
               onClick={() => {
@@ -148,6 +228,7 @@ export function renderFormErrorBanner<TValues extends FormValues, TCtx>({
           {unprocessableReasonText(formError, translate) ??
             translate(formError.i18nKey, formError.i18nParams)}
         </Text>
+        {approval?.text}
         {layout.rootIssues.map((issue) => (
           <Text key={`${issue.path}:${issue.i18nKey}`} testId="render-edit-form-error-root">
             {translate(issue.i18nKey, issue.params)}

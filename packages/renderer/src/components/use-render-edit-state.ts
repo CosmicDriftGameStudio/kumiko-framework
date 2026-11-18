@@ -1,5 +1,6 @@
 import type { EntityEditScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import { useCallback, useRef, useState } from "react";
+import { useAppFeatures } from "../app/app-features-context.tsx";
 import type { ErrorNotice } from "../app/error-reference.tsx";
 import { useExtensionFormHost } from "../app/extension-form-submit.tsx";
 import { useOptionalDispatcher } from "../context/dispatcher-context.tsx";
@@ -11,6 +12,7 @@ import { usePageHeaderCompact, usePageHeaderSlotAvailable } from "../page-header
 import { usePrimitives } from "../primitives.tsx";
 import { useFormPendingUploadsHost } from "./form-pending-uploads.tsx";
 import type { FormErrorSource } from "./render-edit-helpers.tsx";
+import { FIELD_APPROVAL_FEATURE } from "./render-edit-logic.ts";
 import { useActionMenuItems } from "./use-action-menu-items.tsx";
 import { useWizardFormDraftState } from "./use-wizard-form-draft.ts";
 
@@ -32,6 +34,8 @@ function useSubmitFeedbackState() {
   // button row: a full-width Banner there breaks the
   // flex justify-end action bar.
   const [actionError, setActionError] = useState<ErrorNotice | null>(null);
+  // Fields filed for approval keep their old value and show they are waiting.
+  const [pendingApprovalFields, setPendingApprovalFields] = useState<readonly string[]>([]);
   return {
     confirmDeleteOpen,
     setConfirmDeleteOpen,
@@ -49,6 +53,8 @@ function useSubmitFeedbackState() {
     setExtraDeleteIssues,
     actionError,
     setActionError,
+    pendingApprovalFields,
+    setPendingApprovalFields,
   };
 }
 
@@ -133,6 +139,9 @@ export function useRenderEditState({
   const appLocale = useLocale().locale();
   const translate = translateProp ?? t;
   const dispatcher = useOptionalDispatcher();
+  const fieldApprovalMounted = useAppFeatures().some(
+    (feature) => feature.featureName === FIELD_APPROVAL_FEATURE,
+  );
 
   const isWizard = screen.layout.mode === "wizard";
   // Tabs reuse the wizard's step machinery: one section visible at a time,
@@ -166,6 +175,7 @@ export function useRenderEditState({
     translate,
     appLocale,
     dispatcher,
+    fieldApprovalMounted,
     isWizard,
     isTabs,
     draftEnabled,

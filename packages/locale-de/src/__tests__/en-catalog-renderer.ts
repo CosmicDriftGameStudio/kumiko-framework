@@ -195,6 +195,9 @@ export const rendererEnCatalog: Readonly<Record<string, string>> = {
   "kumiko.field.writeOnly.undo": "Undo",
   "kumiko.field.writeOnly.willRemove": "Removed on save",
   "kumiko.form.all-required": "All fields are required.",
+  "kumiko.form.fieldApproval.fields": "Needs approval: {fields}",
+  "kumiko.form.fieldApproval.submit": "Submit for approval",
+  "kumiko.form.fieldApproval.pending": "Awaiting approval",
   "kumiko.form.changed": "changed",
   "kumiko.form.discard": "Discard",
   "kumiko.form.draft.resume-multiple":

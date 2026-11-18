@@ -29,3 +29,5 @@ export const FieldApprovalReasons = {
   selfApproval: "field_change_self_approval",
   valueErased: "field_change_value_erased",
 } as const;
+
+export const FIELD_APPROVAL_LIST_SCREEN_ID = "field-change-requests";

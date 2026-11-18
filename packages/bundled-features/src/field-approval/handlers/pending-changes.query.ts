@@ -1,6 +1,8 @@
 import {
   type AccessRule,
   defineQueryHandler,
+  type EntityDefinition,
+  type FieldDefinition,
   type HandlerContext,
   listAllPages,
   normalizeAccessEntry,
@@ -9,6 +11,7 @@ import {
   userCanApproveField,
   userCanReadFieldRow,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { fieldLabelKey } from "@cosmicdrift/kumiko-renderer/headless";
 import type { ListFilterOption } from "@cosmicdrift/kumiko-types/event-store-executor-types";
 import type * as z from "zod";
 import { visibleParentRowIds } from "../../shared/index.ts";
@@ -55,20 +58,37 @@ async function visibleHostIdsByType(
   return visibleByType;
 }
 
-// An approver who may not read the field does not see the requested value.
-async function approverMayReadRequestedValue(
+function hostFeatureOf(ctx: PendingChangesContext, entityType: string): string {
+  for (const feature of ctx.registry.features.values()) {
+    if (feature.entities !== undefined && Object.hasOwn(feature.entities, entityType)) {
+      return feature.name;
+    }
+  }
+  return entityType;
+}
+
+// A field the caller may not read shows no value, so the list never leaks it.
+function readableValue(
+  user: SessionUser,
+  field: FieldDefinition | undefined,
+  hostRow: Record<string, unknown>,
+  fieldName: string,
+): unknown {
+  if (field === undefined) return undefined;
+  const readMap = normalizeAccessEntry(field.access?.read);
+  if (readMap !== undefined && !userCanReadFieldRow(user, readMap, hostRow)) return undefined;
+  return hostRow[fieldName];
+}
+
+function recordLabelOf(
   ctx: PendingChangesContext,
   user: SessionUser,
-  entityType: string,
-  entityId: string,
-  readMap: NonNullable<ReturnType<typeof normalizeAccessEntry>>,
-): Promise<boolean> {
-  const hostRow = await registeredEntityExecutor(ctx.registry, entityType)?.detail(
-    { id: entityId },
-    user,
-    ctx.db,
-  );
-  return !!hostRow && userCanReadFieldRow(user, readMap, hostRow);
+  hostEntity: EntityDefinition,
+  hostRow: Record<string, unknown>,
+): unknown {
+  const labelField = ctx.registry.getSearchableFields(hostEntity.name)[0];
+  if (labelField === undefined) return undefined;
+  return readableValue(user, hostEntity.fields[labelField], hostRow, labelField);
 }
 
 async function toPendingChangeSummary(
@@ -81,17 +101,21 @@ async function toPendingChangeSummary(
   const entityId = String(row["entityId"]);
   const fieldName = String(row["fieldName"]);
   if (visibleByType.get(entityType)?.has(entityId) !== true) return undefined;
-  const field = ctx.registry.getEntity(entityType)?.fields[fieldName];
-  if (field === undefined) return undefined;
+  const hostEntity = ctx.registry.getEntity(entityType);
+  const field = hostEntity?.fields[fieldName];
+  if (hostEntity === undefined || field === undefined) return undefined;
   const filedByCaller = requesterIdOf(row) === user.id;
   const mayApprove = userCanApproveField(user, field);
   if (!mayApprove && !filedByCaller) return undefined;
+  const hostRow = await registeredEntityExecutor(ctx.registry, entityType)?.detail(
+    { id: entityId },
+    user,
+    ctx.db,
+  );
+  if (!hostRow) return undefined;
   const readMap = normalizeAccessEntry(field.access?.read);
-  if (
-    !filedByCaller &&
-    readMap !== undefined &&
-    !(await approverMayReadRequestedValue(ctx, user, entityType, entityId, readMap))
-  ) {
+  // An approver who may not read the field does not see the requested value.
+  if (!filedByCaller && readMap !== undefined && !userCanReadFieldRow(user, readMap, hostRow)) {
     return undefined;
   }
   const opened = await openRequestedValue(row["requestedValue"], fieldName);
@@ -101,11 +125,15 @@ async function toPendingChangeSummary(
     version: Number(row["version"]),
     entityType,
     entityId,
+    recordLabel: recordLabelOf(ctx, user, hostEntity, hostRow) ?? entityId,
     fieldName,
+    fieldLabel: fieldLabelKey(hostFeatureOf(ctx, entityType), entityType, fieldName),
+    currentValue: readableValue(user, field, hostRow, fieldName),
     value: opened.value,
     requestedBy: requesterIdOf(row),
     requestedAt: row["modifiedAt"] ?? row["insertedAt"],
     canApprove: mayApprove && !filedByCaller,
+    filedByCaller,
   };
 }
 

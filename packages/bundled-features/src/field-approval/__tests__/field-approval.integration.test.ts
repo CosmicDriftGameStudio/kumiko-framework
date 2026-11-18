@@ -12,8 +12,15 @@ import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumik
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { createConfigFeature } from "../../config/feature.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { createUserFeature } from "../../user/feature.ts";
 import { fieldChangeRequestAggregateId } from "../aggregate-id.ts";
-import { FieldApprovalHandlers, FieldApprovalQueries } from "../constants.ts";
+import {
+  FIELD_APPROVAL_LIST_SCREEN_ID,
+  FieldApprovalHandlers,
+  FieldApprovalQueries,
+} from "../constants.ts";
 import { fieldChangeRequestTable } from "../executor.ts";
 import { createFieldApprovalFeature } from "../feature.ts";
 
@@ -28,6 +35,7 @@ const contactEntity = createEntity({
     name: createTextField({
       required: true,
       maxLength: 64,
+      searchable: true,
       personal: false,
       reason: "technical_reference",
     }),
@@ -79,6 +87,7 @@ type PendingRows = {
     fieldName: string;
     value: unknown;
     canApprove: boolean;
+    requestedAt?: unknown;
   }>;
 };
 
@@ -87,6 +96,9 @@ let stack: TestStack;
 beforeAll(async () => {
   stack = await setupTestStack({
     features: [
+      createConfigFeature(),
+      createTenantFeature(),
+      createUserFeature(),
       contactFixtureFeature,
       createFieldApprovalFeature({ parents: ["contact"], roles: readRoles }),
     ],
@@ -317,6 +329,49 @@ describe("field-approval request flow", () => {
       pm,
     );
     expect(error.details).toMatchObject({ reason: "field_not_approval_gated" });
+  });
+});
+
+describe("field-approval list", () => {
+  test("a row names the record, the field label, old and new value, who and when", async () => {
+    const contactId = await seedContact();
+    const { id } = await fileRequest(contactId, NEW_IBAN, pm);
+    const row = (await pendingFor(accA, contactId)).find((r) => r.id === id);
+    expect(row).toMatchObject({
+      recordLabel: "Owner",
+      fieldName: "iban",
+      fieldLabel: "fa-fixture:entity:contact:field:iban",
+      currentValue: OLD_IBAN,
+      value: NEW_IBAN,
+      requestedBy: pm.id,
+      canApprove: true,
+      filedByCaller: false,
+    });
+    expect(typeof row?.requestedAt).toBe("string");
+  });
+
+  test("an approver's own change offers no approve action and cannot be approved", async () => {
+    const contactId = await seedContact();
+    const { id } = await fileRequest(contactId, NEW_IBAN, accA);
+    const row = (await pendingFor(accA, contactId)).find((r) => r.id === id);
+    expect(row).toMatchObject({ canApprove: false, filedByCaller: true });
+
+    const screen = createFieldApprovalFeature({ parents: ["contact"] }).screens[
+      FIELD_APPROVAL_LIST_SCREEN_ID
+    ];
+    if (screen?.type !== "projectionList") throw new Error("expected the approval list screen");
+    const approve = screen.rowActions?.find(
+      (action) => "handler" in action && action.handler === FieldApprovalHandlers.approveChange,
+    );
+    expect(approve?.visible).toEqual({ field: "canApprove", eq: true });
+
+    const error = await stack.http.writeErr(
+      FieldApprovalHandlers.approveChange,
+      { id, version: row?.version ?? 1 },
+      accA,
+    );
+    expect(error.httpStatus).toBe(403);
+    expect(await currentIban(contactId)).toBe(OLD_IBAN);
   });
 });
 

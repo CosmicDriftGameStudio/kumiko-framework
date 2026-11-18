@@ -179,6 +179,9 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.pager.status": "{from}–{to} of {total}",
     "kumiko.pager.statusEmpty": "0 of 0",
     "kumiko.form.all-required": "All fields are required.",
+    "kumiko.form.fieldApproval.fields": "Needs approval: {fields}",
+    "kumiko.form.fieldApproval.submit": "Submit for approval",
+    "kumiko.form.fieldApproval.pending": "Awaiting approval",
     "kumiko.pager.pageSize": "{size} per page",
     "kumiko.pager.pageOf": "Page {page} of {total}",
     "kumiko.time.justNow": "just now",
@@ -517,6 +520,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
 
     "errors.feature.disabled": "This feature is currently unavailable.",
     "errors.access.denied": "You don't have permission to do this.",
+    "errors.access.fieldApprovalRequired": "This change needs approval.",
     "errors.demoReadOnly": "This live demo is read-only.",
     "errors.notFound": "Not found.",
     "errors.conflict": "Conflict — the operation could not be completed.",

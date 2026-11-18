@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { ProbeOptions } from "@cosmicdrift/kumiko-types/probe";
 import * as z from "zod";
 import { defineFeature } from "../../define-feature.ts";
-import { createDecimalField } from "../../factories.ts";
+import { createDecimalField, createEntity, createNumberField } from "../../factories.ts";
 import { from } from "../../ownership.ts";
 import { assignableAppRolesFromUsages } from "../../role-assignment.ts";
 import { BootRuleViolation } from "../boot-rule.ts";
@@ -74,6 +74,34 @@ describe("definition layer rules", () => {
         }),
       "registrar/options-object-required",
       "r.requires() takes one options object",
+    );
+  });
+
+  const crudAccess = {
+    write: { access: { roles: ["Admin"] } },
+    read: { access: { roles: ["Admin"] } },
+  };
+
+  test("registrar: r.crud in the old name-first form", () => {
+    const taskEntity = createEntity({ name: "task", fields: { count: createNumberField({}) } });
+    expectRule(
+      () =>
+        defineFeature("demo", (r) => {
+          Reflect.apply(r.crud, r, ["task", taskEntity, crudAccess]);
+        }),
+      "registrar/options-object-required",
+      "r.crud(entity, options) takes an entity created with createEntity({ name, ... })",
+    );
+  });
+
+  test("registrar: r.crud with an entity that has no name", () => {
+    expectRule(
+      () =>
+        defineFeature("demo", (r) => {
+          Reflect.apply(r.crud, r, [{ fields: { count: createNumberField({}) } }, crudAccess]);
+        }),
+      "registrar/options-object-required",
+      "r.crud(entity, options) takes an entity created with createEntity({ name, ... })",
     );
   });
 

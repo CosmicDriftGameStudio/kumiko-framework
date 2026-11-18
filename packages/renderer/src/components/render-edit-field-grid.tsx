@@ -109,6 +109,9 @@ function createFieldCellRenderer<TValues extends FormValues, TCtx>(
         GridCell={GridCell}
         featureName={props.featureName}
         {...appendixCellProps(props, field, snapshot.values, state.primitives.StatusBadge)}
+        {...(state.pendingApprovalFields.includes(field.field) && {
+          description: state.translate("kumiko.form.fieldApproval.pending"),
+        })}
         allIssues={snapshot.errors}
         valueDisplay={props.valueDisplay}
         row={snapshot.values}
