@@ -60,10 +60,12 @@ import {
 } from "../crypto/pii-field-encryption.ts";
 import { collectPiiFileReferenceFields } from "../crypto/subject-resolver.ts";
 import { deleteMany, insertMany, insertOne, updateMany } from "../db/query.ts";
+import { SYSTEM_TENANT_ID } from "../engine/types/identifiers.ts";
 import { InternalError } from "../errors/index.ts";
 import type { StoredEvent } from "../event-store/index.ts";
 import type { DbRow } from "./connection.ts";
 import type { TableColumns } from "./dialect.ts";
+import { executorManagedEntitySourceOf } from "./executor-managed-tables.ts";
 import {
   activeRowLevelSecurityScope,
   runInSystemRowLevelSecurityScope,
@@ -144,12 +146,18 @@ export async function applyStreamVersionToEntityRow(
   table: Table,
   tx: ExecutorManagedRunner,
 ): Promise<void> {
+  // The tenant match of alignShadowRowVersionsWithStreams: a stream moves only its own tenant's row.
+  const systemStream = executorManagedEntitySourceOf(table)?.entity.systemStream === true;
+  if (systemStream && event.tenantId !== SYSTEM_TENANT_ID) return;
+  const rowOfStream = systemStream
+    ? { id: event.aggregateId }
+    : { id: event.aggregateId, tenantId: event.tenantId };
   const bump = async (): Promise<void> => {
     await updateMany(
       tx,
       table,
       { version: event.version },
-      { id: event.aggregateId, version: { lt: event.version } },
+      { ...rowOfStream, version: { lt: event.version } },
     );
   };
   if (keepsAmbientTenantScope(table)) return bump();

@@ -17,6 +17,7 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
+import { applyStreamVersionToEntityRow } from "../../db/apply-entity-event.ts";
 import {
   integer as pgInteger,
   table as pgTable,
@@ -26,6 +27,7 @@ import {
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
 import { insertOne, selectMany, updateMany } from "../../db/query.ts";
 import { buildEntityTable } from "../../db/table-builder.ts";
+import { withExecutorManagedWrites } from "../../db/tenant-db.ts";
 import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
 import { loadAggregate } from "../../event-store/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
@@ -340,6 +342,33 @@ describe("Marten gold-standard: domain events → inline projections", () => {
       admin,
     );
     expect(updated.data.version).toBe(3);
+  });
+
+  test("another tenant's events on the same aggregate id leave the row version alone", async () => {
+    const created = await stack.http.writeOk<{ id: string }>(
+      "shipping:write:shipment:create",
+      { cargo: "Container T", status: "loaded" },
+      admin,
+    );
+    const [createdEvent] = await loadAggregate(stack.db, created.id, admin.tenantId);
+    if (createdEvent === undefined) throw new Error("created event missing");
+    // No ambient tenant scope, as in a job or consumer: only the tenant match keeps the row apart.
+    await applyStreamVersionToEntityRow(
+      { ...createdEvent, tenantId: TestUsers.otherTenant.tenantId, version: 5 },
+      shipmentTable,
+      withExecutorManagedWrites(stack.db),
+    );
+
+    expect(
+      (await selectMany<{ version: number }>(stack.db, shipmentTable, { id: created.id }))[0]
+        ?.version,
+    ).toBe(1);
+    const updated = await stack.http.writeOk<{ data: { version: number } }>(
+      "shipping:write:shipment:update",
+      { id: created.id, version: 1, changes: { status: "delivered" } },
+      admin,
+    );
+    expect(updated.data.version).toBe(2);
   });
 
   test("Block 0 regression: CRUD update after ctx.events.append on same stream succeeds", async () => {
