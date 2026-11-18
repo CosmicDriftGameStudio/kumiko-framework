@@ -17,6 +17,7 @@ import {
   ValidationError,
 } from "../errors/index.ts";
 import { serializeError } from "../errors/serialize.ts";
+import { toClientWriteErrorInfo } from "../errors/write-error-info.ts";
 
 import { createFallbackLogger, scrubLogText } from "../logging/index.ts";
 import { scrubLogValue } from "../logging/scrub.ts";
@@ -143,7 +144,9 @@ export function createApiRoutes(
             isSuccess: false,
             error,
             failedIndex: result.failedIndex,
-            results: result.results,
+            results: result.results.map((entry) =>
+              entry.isSuccess ? entry : { ...entry, error: toClientWriteErrorInfo(entry.error) },
+            ),
           },
           toContentfulStatus(err.httpStatus),
         );

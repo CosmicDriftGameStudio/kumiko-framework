@@ -147,6 +147,7 @@ export function useScreenListRows({
           loadedRows: current.rows,
           previousFirstPageIds: current.firstPageIds,
           freshFirstPage: data.rows,
+          freshPageHasNextPage: data.nextCursor !== null,
           rowIdOf: rowIdOfListRow,
         }),
         firstPageIds: rowIdSet(data.rows, rowIdOfListRow),

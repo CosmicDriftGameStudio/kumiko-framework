@@ -152,8 +152,8 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
 
   // Live-mode: on an SSE event for the query's entity, refetch only the
   // first page and merge it in — rows the fresh page still contains move
-  // to the front (newest-first feeds), rows it dropped (edited/deleted
-  // elsewhere) are pruned, and everything beyond page 1 stays untouched.
+  // to the front (newest-first feeds), rows it proves deleted or filtered
+  // out are pruned, and everything beyond page 1 stays untouched.
   // A full reload would collapse already-accumulated pages and jump the
   // scroll position.
   // biome-ignore lint/correctness/useExhaustiveDependencies: payload goes through payloadKey
@@ -184,11 +184,11 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
         setState({ kind: "ready", rows: freshRows, cursor: nextCursorRef.current(res.data) });
         return;
       }
-      // A row absent from freshIds is stale for one of two reasons: it was
-      // dropped from page 1 (deleted, or filtered out elsewhere) and must be
-      // pruned, or it belongs to an already-accumulated later page and must
-      // survive. previousFirstPageIds — captured before it's overwritten below
-      // — is what tells those two cases apart.
+      // A row absent from freshIds was dropped from page 1 (deleted, or
+      // filtered out elsewhere) and must be pruned, was pushed onto page 2,
+      // or belongs to an already-accumulated later page and must survive.
+      // previousFirstPageIds — captured before it's overwritten below — is
+      // what tells the first-page rows apart.
       const previousFirstPageIds = firstPageIdsRef.current;
       firstPageIdsRef.current = freshIds;
       setState((prev) => {
@@ -205,6 +205,7 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
             loadedRows: prev.rows,
             previousFirstPageIds,
             freshFirstPage: freshRows,
+            freshPageHasNextPage: nextCursorRef.current(res.data) !== null,
             rowIdOf: rowIdRef.current,
           }),
           cursor: prev.cursor,

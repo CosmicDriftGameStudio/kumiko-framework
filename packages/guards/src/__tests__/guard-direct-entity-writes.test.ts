@@ -178,13 +178,30 @@ describe("entity registration name forms", () => {
     });
   }
 
-  test("ignores an .entity() call without a name property", () => {
+  test("collects the table for an .entity() call without a name property (the entity carries its name)", () => {
     const project = makeProject({
       "/repo/foo.ts": `${ENTITY_PROJECTION_PRELUDE}
         function setup(r: { entity: (n: unknown) => void }) { r.entity({ ...fooEntity }); }
       `,
     });
-    expect(collectEntityProjectionTables(project.getSourceFiles()).size).toBe(0);
+    expect([...collectEntityProjectionTables(project.getSourceFiles())]).toEqual([
+      "/repo/foo.ts::fooTable",
+    ]);
+  });
+
+  test("collects the backingTable override of r.entity({ ...def, backingTable }) without a name", () => {
+    const project = makeProject({
+      "/repo/foo.ts": `${ENTITY_PROJECTION_PRELUDE}
+        export const fooArchiveTable = t;
+        function setup(r: { entity: (n: unknown) => void }) {
+          r.entity({ ...fooEntity, backingTable: fooArchiveTable });
+        }
+      `,
+    });
+    expect([...collectEntityProjectionTables(project.getSourceFiles())].sort()).toEqual([
+      "/repo/foo.ts::fooArchiveTable",
+      "/repo/foo.ts::fooTable",
+    ]);
   });
 });
 

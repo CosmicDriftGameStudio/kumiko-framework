@@ -322,7 +322,7 @@ r.screen({
 
 **Totals row.** `totals` sends one `aggregate` query without `groupBy` over the same filters and search, kept live like the list. Money measures come back per currency and show one amount per currency. When the server caps groups or search hits, the toolbar shows a hint (`truncated`, `searchTruncated`).
 
-**Number range facet.** `facets: { amount: { display: "range" } }` on a `number`, `decimal`, `money` or `bigInt` field that is `filterable` shows from/to inputs. They land in the URL as `<screenId>.f.<field>.min` and `.max` and reach the query as `gte`/`lte` filters. Money is typed in major units and sent in minor units, scaled per currency (10^decimals). Groups, totals and rows all follow the range.
+**Number range facet.** `facets: { amount: { display: "range" } }` on a `number`, `decimal`, `money` or `bigInt` field that is `filterable` shows from/to inputs. They land in the URL as `<screenId>.f.<field>.min` and `.max` and reach the query as `gte`/`lte` filters. Money is typed in major units and sent in minor units, scaled by 10^decimals of the field's currency: its literal `currency` code, the tenant currency for `currency: { kind: "tenant" }` (no bound is sent until it has loaded), otherwise the entity's `defaultCurrency` (EUR without one). Groups, totals and rows all follow the range.
 
 **Session storage.** Choices live in `sessionStorage` under `kumiko.list.<tenantId>.<userId>.<storeKey>`, so they last for the tab only. The marker `kumiko.list.identity` records who wrote them. They are removed when the user or tenant changes, when the identity disappears, and on logout. An app without a current user keeps them in memory only and writes nothing to `sessionStorage`.
 

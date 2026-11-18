@@ -194,7 +194,7 @@ const baseSession: SessionUser = { id: found.id, tenantId: chosen.tenantId, role
   });
 });
 
-describe("Check C: TenantAdmin ctx.db.raw user writes need a membership check", () => {
+describe("Check C: TenantAdmin user writes through a global db accessor need a membership check", () => {
   const userWrite = (opts: {
     gated: boolean;
     roles?: string;
@@ -213,8 +213,8 @@ export const h = defineWriteHandler({
 	schema: z.object({ ${opts.schema ?? "userId: z.string().uuid()"} }),
 	access: { roles: ${opts.roles ?? "access.admin"} },
 	handler: async (event: any, ctx: any) => {
-		${opts.gated ? "if (!isSystemAdminActor(event.user)) { await fetchOne(ctx.db.raw, tenantMembershipsTable, { userId: event.payload.userId, tenantId: event.user.tenantId }); }" : ""}
-		await fetchOne(${opts.raw === false ? "ctx.db" : "ctx.db.raw"}, userTable, { id: event.payload.userId });
+		${opts.gated ? "if (!isSystemAdminActor(event.user)) { await fetchOne(ctx.db.unsafeRawAllTenants(), tenantMembershipsTable, { userId: event.payload.userId, tenantId: event.user.tenantId }); }" : ""}
+		await fetchOne(${opts.raw === false ? "ctx.db" : "ctx.db.unsafeRawAllTenants()"}, userTable, { id: event.payload.userId });
 		return { isSuccess: true, data: {} };
 	},
 });
@@ -234,7 +234,7 @@ export const h = defineWriteHandler({
 	schema: z.object({ userId: z.string().uuid() }),
 	access: { roles: access.admin },
 	handler: async (event: any, ctx: any) => {
-		await fetchOne(ctx.db.raw, userTable, { id: event.payload.userId });
+		await fetchOne(ctx.db.unsafeRawAllTenants(), userTable, { id: event.payload.userId });
 		return { isSuccess: true, data: {} };
 	},
 });
@@ -254,6 +254,24 @@ export const h = defineWriteHandler({
       "restrict-account",
     ]);
   });
+
+  for (const userRead of [
+    "ctx.db.global(userTable).fetchOne({ id: event.payload.userId })",
+    "fetchOne(ctx.db.unsafeRaw(), userTable, { id: event.payload.userId })",
+  ]) {
+    test(`flags the ungated handler reading the user via ${userRead.slice(0, 22)}`, () => {
+      const sfs = files({
+        "/r/packages/bundled-features/src/user-data-rights/handlers/restrict-account.write.ts":
+          userWrite({ gated: false }).replace(
+            "fetchOne(ctx.db.unsafeRawAllTenants(), userTable, { id: event.payload.userId })",
+            userRead,
+          ),
+      });
+      expect(findGlobalUserWritesMissingMembershipCheck(sfs).map((g) => g.name)).toEqual([
+        "restrict-account",
+      ]);
+    });
+  }
 
   test("passes with the lift-restriction membership gate", () => {
     const sfs = files({
@@ -277,9 +295,9 @@ export const h = defineWriteHandler({
 	schema: z.object({ userId: z.string().uuid() }),
 	access: { roles: access.admin },
 	handler: async (event: any, ctx: any) => {
-		const outside = await denyIfTargetBeyondAdminReach(ctx.db.raw, event.user, event.payload.userId);
+		const outside = await denyIfTargetBeyondAdminReach(ctx.db.unsafeRawAllTenants(), event.user, event.payload.userId);
 		if (outside) return outside;
-		await fetchOne(ctx.db.raw, userTable, { id: event.payload.userId });
+		await fetchOne(ctx.db.unsafeRawAllTenants(), userTable, { id: event.payload.userId });
 		return { isSuccess: true, data: {} };
 	},
 });
@@ -303,7 +321,7 @@ export const h = defineWriteHandler({
 	access: { roles: access.admin },
 	handler: async (event: any, ctx: any) => {
 		await denyIfTargetBeyondAdminReach(event, ctx);
-		await fetchOne(ctx.db.raw, userTable, { id: event.payload.userId });
+		await fetchOne(ctx.db.unsafeRawAllTenants(), userTable, { id: event.payload.userId });
 		return { isSuccess: true, data: {} };
 	},
 });
@@ -359,7 +377,7 @@ export const h = defineWriteHandler({
 	name: "orphaned",
 	schema: z.object({ userId: z.string().uuid() }),
 	handler: async (event: any, ctx: any) => {
-		await fetchOne(ctx.db.raw, userTable, { id: event.payload.userId });
+		await fetchOne(ctx.db.unsafeRawAllTenants(), userTable, { id: event.payload.userId });
 		return { isSuccess: true, data: {} };
 	},
 });
@@ -397,7 +415,7 @@ ${userWrite({ gated: false }).replace("export const h =", "export const h2 =")}
     expect(findGlobalUserWritesMissingMembershipCheck(sfs)).toHaveLength(0);
   });
 
-  test("ignores a ctx.db.raw read against an unrelated global table (not a user-row read, real cancel-invitation.write.ts shape)", () => {
+  test("ignores a ctx.db.unsafeRawAllTenants() read against an unrelated global table (not a user-row read, real cancel-invitation.write.ts shape)", () => {
     const sfs = files({
       "/r/packages/bundled-features/src/user-data-rights/handlers/cancel-invitation.write.ts": `
 declare function defineWriteHandler(cfg: unknown): unknown;
@@ -410,7 +428,7 @@ export const h = defineWriteHandler({
 	schema: z.object({ invitationId: z.string(), userId: z.string().uuid() }),
 	access: { roles: access.admin },
 	handler: async (event: any, ctx: any) => {
-		await fetchOne(ctx.db.raw, tenantInvitationsTable, { id: event.payload.invitationId });
+		await fetchOne(ctx.db.unsafeRawAllTenants(), tenantInvitationsTable, { id: event.payload.invitationId });
 		return { isSuccess: true, data: {} };
 	},
 });
@@ -462,7 +480,7 @@ r.writeHandler({
 	schema: z.object({ userId: z.string().uuid() }),
 	access: { roles: access.admin },
 	handler: async (event: any, ctx: any) => {
-		await fetchOne(ctx.db.raw, userTable, { id: event.payload.userId });
+		await fetchOne(ctx.db.unsafeRawAllTenants(), userTable, { id: event.payload.userId });
 		return { isSuccess: true, data: {} };
 	},
 });

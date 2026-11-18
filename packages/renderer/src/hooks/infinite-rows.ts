@@ -17,18 +17,41 @@ export function appendUnseenRows<TRow>(
   return [...loaded, ...nextPage.filter((row, index) => !seen.has(rowIdOf(row, index)))];
 }
 
-// A row missing from the fresh first page either belongs to an already loaded later page and stays, or was on the old first page (deleted or filtered out) and drops.
+// A row of the old first page that the fresh page lacks was deleted or filtered out if the fresh page is the
+// last one or shows a row that followed it after one that preceded it; otherwise an insert or re-sort above pushed it
+// onto the loaded page 2 and it stays. A deletion and a later row re-sorted into exactly that slot look alike and drop.
 export function mergeFreshFirstPage<TRow>(args: {
   readonly loadedRows: readonly TRow[];
   readonly previousFirstPageIds: ReadonlySet<unknown>;
   readonly freshFirstPage: readonly TRow[];
+  readonly freshPageHasNextPage: boolean;
   readonly rowIdOf: RowIdOf<TRow>;
 }): readonly TRow[] {
-  const { loadedRows, previousFirstPageIds, freshFirstPage, rowIdOf } = args;
+  const { loadedRows, previousFirstPageIds, freshFirstPage, freshPageHasNextPage, rowIdOf } = args;
   const freshIds = rowIdSet(freshFirstPage, rowIdOf);
+  const loadedPositionById = new Map(loadedRows.map((row, index) => [rowIdOf(row, index), index]));
+  const freshLoadedPositions = freshFirstPage.map((row, index) =>
+    loadedPositionById.get(rowIdOf(row, index)),
+  );
+  const freshPageCoversLoadedPosition = (loadedPosition: number): boolean => {
+    let lastPredecessorFreshIndex = -1;
+    freshLoadedPositions.forEach((position, freshIndex) => {
+      if (position !== undefined && position < loadedPosition) {
+        lastPredecessorFreshIndex = freshIndex;
+      }
+    });
+    return freshLoadedPositions.some(
+      (position, freshIndex) =>
+        position !== undefined &&
+        position > loadedPosition &&
+        freshIndex > lastPredecessorFreshIndex,
+    );
+  };
   const laterRows = loadedRows.filter((row, index) => {
     const id = rowIdOf(row, index);
-    return !freshIds.has(id) && !previousFirstPageIds.has(id);
+    if (freshIds.has(id)) return false;
+    if (!previousFirstPageIds.has(id)) return true;
+    return freshPageHasNextPage && !freshPageCoversLoadedPosition(index);
   });
   return [...freshFirstPage, ...laterRows];
 }

@@ -23,7 +23,7 @@
  *      read-time backstop, directly or through `buildSessionRoles`.
  *
  *   C) **TenantAdmin-reachable writes on a global user row need a membership
- *      check.** A `ctx.db.raw` read deliberately bypasses the auto-tenant-
+ *      check.** A `ctx.db.global(...)` or `ctx.db.unsafeRaw*()` read deliberately bypasses the auto-tenant-
  *      filter because User status is global. Combined with `access.admin`
  *      (which includes the tenant-scoped TenantAdmin) and a `userId` payload,
  *      the handler acts on *someone else's* account across tenant lines, so it
@@ -209,6 +209,8 @@ const TARGETS_OTHER_USER = /\buserId\s*:/;
 // un-helpered access.withSystem form) is tenant-reachable, and no write
 // handler needs the exemption today.
 const PLATFORM_WIDE_ACCESS = /\baccess\.(?:systemAdmin|system|privileged)\b/;
+// The TenantDb accessors that leave the caller's tenant scope (db/tenant-db.ts).
+const GLOBAL_DB_ACCESS = /\bctx\.db\.(?:global|unsafeRaw|unsafeRawAllTenants)\s*\(/;
 
 type GlobalUserWrite = { name: string; file: string; line: number };
 
@@ -239,10 +241,10 @@ function globalUserWriteMissingCheck(
   if (!TARGETS_OTHER_USER.test(resolvedSchemaText(schema))) return undefined;
   const body = call.getText();
   // Must actually touch a *user* table — otherwise a handler reading
-  // ctx.db.raw against an unrelated global table (plans, audit log,
+  // a global db accessor against an unrelated global table (plans, audit log,
   // invitations) gets flagged with a "reads a global user row" message
   // that doesn't apply to it (false-positive on clean code).
-  if (!body.includes("ctx.db.raw") || !/\buserTable\b/.test(body)) return undefined;
+  if (!GLOBAL_DB_ACCESS.test(body) || !/\buserTable\b/.test(body)) return undefined;
   if (MEMBERSHIP_GATE.test(body) || CROSS_TENANT_HELPER_GATE.test(body)) return undefined;
   return {
     name: name ?? path.basename(filePath),
@@ -269,7 +271,7 @@ export const guard: AstGuard = {
   name: "Tenant-Escalation Guard",
   scan: SCAN,
   security: true,
-  hint: "Role-input handlers need an escalation test (assert a reserved role is rejected); membership-derived JWT mints must call stripForbiddenMembershipRoles or buildSessionRoles; TenantAdmin-reachable ctx.db.raw user writes must check the target's membership.",
+  hint: "Role-input handlers need an escalation test (assert a reserved role is rejected); membership-derived JWT mints must call stripForbiddenMembershipRoles or buildSessionRoles; TenantAdmin-reachable user writes through ctx.db.global or ctx.db.unsafeRaw* must check the target's membership.",
   run(files) {
     const violations: Array<{ file: string; line: number; message: string }> = [];
 
@@ -294,7 +296,7 @@ export const guard: AstGuard = {
       violations.push({
         file: path.relative(ROOT, g.file),
         line: g.line,
-        message: `write handler "${g.name}" reads a global user row via ctx.db.raw and is reachable by a tenant-scoped admin, but never checks the target's membership in the caller's tenant — a TenantAdmin from another tenant could act on this account. Gate it like lift-restriction.write.ts (denyIfTargetBeyondAdminReach, or isSystemAdminActor + tenantMembershipsTable lookup).`,
+        message: `write handler "${g.name}" reads a global user row via ctx.db.global or ctx.db.unsafeRaw* and is reachable by a tenant-scoped admin, but never checks the target's membership in the caller's tenant — a TenantAdmin from another tenant could act on this account. Gate it like lift-restriction.write.ts (denyIfTargetBeyondAdminReach, or isSystemAdminActor + tenantMembershipsTable lookup).`,
       });
     }
 

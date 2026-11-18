@@ -89,6 +89,24 @@ describe("guard-markers-to-lint-ignore codemod", () => {
     expect(result.rewrites).toHaveLength(0);
   });
 
+  it("leaves comment-like marker text inside string and template literals alone", () => {
+    const input = [
+      'const lineMarker = "// @timeout-exception: #1 fixture";',
+      "const blockMarker = `",
+      " * @no-server-stack: fixture inside a template",
+      "`;",
+      "// @template-drift-exception: #2 real marker",
+      "",
+    ].join("\n");
+
+    const result = transformGuardMarkersSource(input, FILE);
+
+    expect(result.output).toBe(
+      input.replace("// @template-drift-exception: ", "// kumiko-lint-ignore test-template-drift "),
+    );
+    expect(result.rewrites.map((site) => site.line)).toEqual([5]);
+  });
+
   it("leaves a file without markers alone", () => {
     const input = "export const answer = 42;\n";
 

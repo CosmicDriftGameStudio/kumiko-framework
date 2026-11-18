@@ -11,6 +11,7 @@
 // Without a mode flag it writes (kumiko-upgrade --apply calls it that way). --check exits 1
 // while any rewritable site is left; --dry-run only reports.
 
+import { ts } from "ts-morph";
 import { type CodemodResult, runCodemodCli, type SiteLists } from "./codemod-support.ts";
 
 const COMMENT_PREFIX = String.raw`(\/\/\s*|\/\*\s*|^\s*\*\s*)`;
@@ -46,21 +47,52 @@ const SKIPPED_PATH_SUFFIXES: readonly string[] = [
   "packages/feature-ast/src/__tests__/guard-markers-to-lint-ignore-codemod.test.ts",
 ];
 
+// Leading and trailing trivia of every node cover every comment; string and template contents are tokens, not trivia.
+function commentRangesOf(source: string, filePath: string): readonly ts.CommentRange[] {
+  const sourceFile = ts.createSourceFile(filePath, source, ts.ScriptTarget.Latest, false);
+  const rangesByStart = new Map<number, ts.CommentRange>();
+  const collect = (ranges: readonly ts.CommentRange[] | undefined): void => {
+    for (const range of ranges ?? []) rangesByStart.set(range.pos, range);
+  };
+  const visit = (node: ts.Node): void => {
+    collect(ts.getLeadingCommentRanges(source, node.getFullStart()));
+    collect(ts.getTrailingCommentRanges(source, node.getEnd()));
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return [...rangesByStart.values()];
+}
+
+function lineAt(source: string, offset: number): number {
+  return source.slice(0, offset).split("\n").length;
+}
+
 export function transformGuardMarkersSource(source: string, filePath: string): CodemodResult {
   const result: SiteLists = { rewrites: [], manual: [] };
   if (!CHEAP_PREFILTER.test(source)) return { output: source, ...result };
-  const lines = source.split("\n");
-  const output = lines.map((line, index) => {
-    let rewritten = line;
-    for (const rewrite of MARKER_REWRITES) {
-      const next = rewritten.replace(rewrite.pattern, rewrite.replacement);
-      if (next === rewritten) continue;
-      result.rewrites.push({ file: filePath, line: index + 1, description: rewrite.description });
-      rewritten = next;
-    }
-    return rewritten;
-  });
-  return { output: output.join("\n"), ...result };
+  let output = source;
+  for (const rewrite of MARKER_REWRITES) {
+    const comments = commentRangesOf(output, filePath);
+    const current = output;
+    output = current.replace(
+      new RegExp(rewrite.pattern.source, "gm"),
+      (match: string, prefix: string, offset: number) => {
+        const markerOffset = offset + prefix.length;
+        const insideComment = comments.some(
+          (range) => range.pos <= markerOffset && markerOffset < range.end,
+        );
+        if (!insideComment) return match;
+        result.rewrites.push({
+          file: filePath,
+          line: lineAt(current, markerOffset),
+          description: rewrite.description,
+        });
+        return match.replace(rewrite.pattern, rewrite.replacement);
+      },
+    );
+  }
+  result.rewrites.sort((left, right) => left.line - right.line);
+  return { output, ...result };
 }
 
 function isSkippedPath(file: string): boolean {

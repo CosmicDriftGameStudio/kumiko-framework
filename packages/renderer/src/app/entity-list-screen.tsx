@@ -200,6 +200,7 @@ function EntityListBody({
     fields: entity.fields,
     screen,
     featureName,
+    defaultCurrency: entity.defaultCurrency ?? "EUR",
     translate: effectiveTranslate,
     urlState,
   });

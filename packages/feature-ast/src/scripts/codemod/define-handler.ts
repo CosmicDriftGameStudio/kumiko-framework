@@ -611,8 +611,9 @@ function enclosingStatement(node: Node): Node | undefined {
   }
 }
 
-// The marker comment sits directly above the statement that holds the cast and goes with it.
-function castBoundaryComment(statement: Node): Span | undefined {
+// The marker lines sit in the comment block directly above the statement that holds the cast and go with it;
+// other lines of that block stay.
+function castBoundaryCommentLines(statement: Node): readonly Span[] {
   const text = statement.getSourceFile().getFullText();
   const ranges = statement.getLeadingCommentRanges();
   let firstIndex = ranges.length;
@@ -625,11 +626,11 @@ function castBoundaryComment(statement: Node): Span | undefined {
     cursor = range.getPos();
   }
   const group = ranges.slice(firstIndex);
-  const first = group[0];
-  if (first === undefined || !group.some((range) => range.getText().includes("@cast-boundary"))) {
-    return undefined;
-  }
-  return { start: first.getPos(), end: statement.getStart() };
+  return group.flatMap((range, index) =>
+    range.getText().includes("@cast-boundary")
+      ? [{ start: range.getPos(), end: group[index + 1]?.getPos() ?? statement.getStart() }]
+      : [],
+  );
 }
 
 function removeCast(cast: Node, expression: Node, state: FileState): void {
@@ -637,10 +638,12 @@ function removeCast(cast: Node, expression: Node, state: FileState): void {
   state.removed.push(spanOf(cast));
   state.castsRemoved = true;
   const statement = enclosingStatement(cast);
-  const comment = statement === undefined ? undefined : castBoundaryComment(statement);
-  if (comment === undefined || state.commentStarts.has(comment.start)) return;
-  state.commentStarts.add(comment.start);
-  state.edits.push({ ...comment, text: "" });
+  const markerLines = statement === undefined ? [] : castBoundaryCommentLines(statement);
+  for (const markerLine of markerLines) {
+    if (state.commentStarts.has(markerLine.start)) continue;
+    state.commentStarts.add(markerLine.start);
+    state.edits.push({ ...markerLine, text: "" });
+  }
 }
 
 function removePayloadCasts(

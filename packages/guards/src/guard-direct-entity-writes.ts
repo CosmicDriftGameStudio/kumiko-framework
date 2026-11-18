@@ -217,7 +217,7 @@ function entityRegistrationOf(call: CallExpression): EntityRegistration | undefi
   const entityIdentifierDid = unwrappedIdentifierDeclId(call.getArguments()[0]);
   if (entityIdentifierDid) return { entityDid: entityIdentifierDid, overrideTableDid: undefined };
   const definition = call.getArguments()[0]?.asKind(SyntaxKind.ObjectLiteralExpression);
-  if (!definition?.getProperty("name")) return undefined;
+  if (!definition) return undefined;
   return {
     entityDid: spreadEntityDefinitionId(definition),
     overrideTableDid: entityTableOverrideId(definition),

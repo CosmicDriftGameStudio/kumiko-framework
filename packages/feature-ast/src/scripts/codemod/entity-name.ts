@@ -61,6 +61,7 @@ interface Usage {
   // Undefined when neither a literal nor the type checker pins the name to one string.
   readonly nameValue: string | undefined;
   readonly carrier: ObjectLiteralExpression;
+  readonly isHelperReturn: boolean;
   // The carrier sits inside the call itself, so every name in scope at the call is in scope there.
   readonly isInline: boolean;
   // Builds the replacement once the canonical name of the entity is known.
@@ -71,7 +72,13 @@ interface Usage {
 interface NameCarrier {
   readonly literal: ObjectLiteralExpression;
   readonly isCreateEntityArgument: boolean;
+  // The literal a helper returns rather than a createEntity argument; a helper that wraps several
+  // entities returns one literal for all of them.
+  readonly isHelperReturn: boolean;
 }
+
+const HELPER_SHARED_BY_NAMES =
+  "the entity comes from a helper that entities with different names share, move the names by hand";
 
 function isStringish(node: Node): boolean {
   return Node.isStringLiteral(node) || Node.isNoSubstitutionTemplateLiteral(node);
@@ -197,10 +204,16 @@ function resolveCallCarrier(
 ): NameCarrier | undefined {
   if (calleeNameOf(call) === CREATE_ENTITY) {
     const literal = createEntityLiteralOf(call);
-    return literal === undefined ? undefined : { literal, isCreateEntityArgument: true };
+    return literal === undefined
+      ? undefined
+      : { literal, isCreateEntityArgument: true, isHelperReturn: false };
   }
   const returned = returnedExpressionOf(call);
-  return returned === undefined ? undefined : resolveNameCarrier(returned, usageFile, depth + 1);
+  const carrier =
+    returned === undefined ? undefined : resolveNameCarrier(returned, usageFile, depth + 1);
+  return carrier === undefined || carrier.isCreateEntityArgument
+    ? carrier
+    : { ...carrier, isHelperReturn: true };
 }
 
 function resolveIdentifierCarrier(
@@ -231,7 +244,7 @@ function resolveNameCarrier(
   if (depth > MAX_RESOLUTION_DEPTH) return undefined;
   const node = unwrapExpression(expression);
   if (Node.isObjectLiteralExpression(node)) {
-    return { literal: node, isCreateEntityArgument: false };
+    return { literal: node, isCreateEntityArgument: false, isHelperReturn: false };
   }
   if (Node.isCallExpression(node)) return resolveCallCarrier(node, usageFile, depth);
   if (!Node.isIdentifier(node)) return undefined;
@@ -325,6 +338,7 @@ class Collector {
       nameExpression,
       nameValue,
       carrier: carrier.literal,
+      isHelperReturn: carrier.isHelperReturn,
       isInline: isInside(carrier.literal, call),
       edits: (canonicalName) => edits(nameValue !== canonicalName),
     });
@@ -542,7 +556,12 @@ export function transformEntityNames(
     if (first === undefined) continue;
     const literal = first.carrier;
     const carrierFile = literal.getSourceFile().getFilePath();
-    const canonical = canonicalNameOf(literal, group);
+    const isSharedHelper =
+      group.some((usage) => usage.isHelperReturn) &&
+      new Set(group.map((usage) => usage.nameValue)).size > 1;
+    const canonical = isSharedHelper
+      ? { why: HELPER_SHARED_BY_NAMES }
+      : canonicalNameOf(literal, group);
     if ("why" in canonical) {
       for (const usage of group) {
         const file = usage.call.getSourceFile().getFilePath();

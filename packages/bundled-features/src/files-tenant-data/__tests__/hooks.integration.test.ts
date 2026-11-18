@@ -22,7 +22,7 @@ import {
   type JobContext,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { append, loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
+import { loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   buildStorageKey,
   createFilesFeature,
@@ -57,14 +57,10 @@ import { configValuesTable } from "../../config/table.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantMembershipEntity } from "../../tenant/index.ts";
 import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.ts";
-import { updateTenantViaEventStore } from "../../tenant/testing.ts";
 import { TenantHandlers } from "../../tenant/web/constants.ts";
-import {
-  TENANT_AGGREGATE_TYPE,
-  TENANT_DESTRUCTION_STARTED_EVENT_QN,
-} from "../../tenant-lifecycle/constants.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import { runTenantDestructionSweep } from "../../tenant-lifecycle/run-tenant-destroy.ts";
+import { seedDestroyingTenant } from "../../tenant-lifecycle/testing.ts";
 import { fileRefStorageDestroyHook, fileRefTenantDestroyHook } from "../hooks.ts";
 import { createFilesTenantDataFeature } from "../index.ts";
 
@@ -156,23 +152,6 @@ async function handOverFileRef(fileRefId: EntityId, toTenantId: TenantId): Promi
     { id: String(fileRefId) },
     { projectionOnly: "stands in for the tenant-handover move, which writes the row directly" },
   );
-}
-
-// Sidesteps the `request-destruction` write handler (needs user/auth/sessions
-// features wired) by seeding the same "destroying" state it would produce —
-// same pattern as tenant-lifecycle's own poison-pill destroy tests.
-async function seedDestroyingTenant(tenantId: TenantId): Promise<void> {
-  const now = getTemporal().Now.instant();
-  await updateTenantViaEventStore(db, tenantId, { status: "destroying", destroyStartedAt: now });
-  await append(db, {
-    aggregateId: tenantId,
-    aggregateType: TENANT_AGGREGATE_TYPE,
-    tenantId,
-    expectedVersion: (await loadAggregate(db, tenantId, tenantId)).at(-1)?.version ?? 0,
-    type: TENANT_DESTRUCTION_STARTED_EVENT_QN,
-    payload: { startedAt: now.toString() },
-    metadata: { userId: "system", requestId: "test:destruction-started" },
-  });
 }
 
 async function driveDestructionToCompletion(
@@ -285,7 +264,7 @@ describe("files-tenant-data :: tenant destroy", () => {
     await seedFileRef(tenantB.tenantId, originalKeyB);
     await provider.write(originalKeyB, new Uint8Array([4]));
 
-    await seedDestroyingTenant(tenantA.tenantId);
+    await seedDestroyingTenant(stack, tenantA.tenantId);
 
     const finalStatus = await driveDestructionToCompletion(tenantA.tenantId, async () => provider);
     expect(finalStatus).toBe("destroyed");
@@ -327,7 +306,7 @@ describe("files-tenant-data :: tenant destroy", () => {
     await seedFileRef(tenantA.tenantId, originalKeyA);
     await provider.write(originalKeyA, new Uint8Array([1]));
 
-    await seedDestroyingTenant(tenantA.tenantId);
+    await seedDestroyingTenant(stack, tenantA.tenantId);
 
     const finalStatus = await driveDestructionToCompletion(tenantA.tenantId);
     expect(finalStatus).toBe("destroyed");
@@ -361,7 +340,7 @@ describe("files-tenant-data :: tenant destroy", () => {
 
       await handOverFileRef(fileRefId, tenantB.tenantId);
 
-      await seedDestroyingTenant(tenantB.tenantId);
+      await seedDestroyingTenant(stack, tenantB.tenantId);
       const finalStatus = await driveDestructionToCompletion(
         tenantB.tenantId,
         async () => provider,
@@ -392,7 +371,7 @@ describe("files-tenant-data :: tenant destroy", () => {
 
       await handOverFileRef(fileRefId, tenantB.tenantId);
 
-      await seedDestroyingTenant(tenantB.tenantId);
+      await seedDestroyingTenant(stack, tenantB.tenantId);
       const finalStatus = await driveDestructionToCompletion(tenantB.tenantId, async (tenantId) =>
         tenantId === tenantA.tenantId ? providerOfA : providerOfB,
       );
@@ -438,7 +417,7 @@ describe("files-tenant-data :: tenant destroy", () => {
       await handOverFileRef(fileRefId, tenantB.tenantId);
       await handOverFileRef(secondFileRefId, tenantB.tenantId);
 
-      await seedDestroyingTenant(tenantA.tenantId);
+      await seedDestroyingTenant(stack, tenantA.tenantId);
       const finalStatus = await driveDestructionToCompletion(
         tenantA.tenantId,
         async () => provider,

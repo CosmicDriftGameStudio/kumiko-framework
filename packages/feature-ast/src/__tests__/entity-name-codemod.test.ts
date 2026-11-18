@@ -48,6 +48,7 @@ const FIXTURE_CASES: ReadonlyArray<{
   { name: "already-named", rewrites: 7, manual: 0 },
   { name: "resolved-identifier", rewrites: 10, manual: 0 },
   { name: "site-form", rewrites: 4, manual: 0 },
+  { name: "shared-helper", rewrites: 0, manual: 2 },
 ];
 
 describe("entity-name codemod fixtures", () => {
