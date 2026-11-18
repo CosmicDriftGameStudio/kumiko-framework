@@ -114,9 +114,17 @@ describe("compareVersionsLocal", () => {
     expect(compareVersionsLocal("1.2.0", "1.10.0")).toBeLessThan(0);
   });
 
-  test("prerelease suffix is stripped before compare", () => {
-    expect(compareVersionsLocal("1.0.0-rc.1", "1.0.0")).toBe(0);
-    expect(compareVersionsLocal("0.219.0-rc.1", "0.219.0")).toBe(0);
+  test("a prerelease sorts below its release, canaries by timestamp", () => {
+    expect(compareVersionsLocal("1.0.0-rc.1", "1.0.0")).toBeLessThan(0);
+    expect(compareVersionsLocal("0.425.0-next-20261118090000-abc1234", "0.424.1")).toBeGreaterThan(
+      0,
+    );
+    expect(
+      compareVersionsLocal(
+        "0.425.0-next-20261118090000-ffff000",
+        "0.425.0-next-20261118143000-0000abc",
+      ),
+    ).toBeLessThan(0);
   });
 });
 

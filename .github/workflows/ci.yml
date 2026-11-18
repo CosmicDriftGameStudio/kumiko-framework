@@ -837,6 +837,95 @@ jobs:
           git add .github/badges/coverage.json
           git commit -m "chore: update coverage badge [skip ci]"
           git push -f origin badges-tmp:badges
+  # Per-merge canary on the `next` dist-tag: a green main push with pending
+  # changesets publishes all fixed packages as 0.X.Y-next-<datetime>-<sha>.
+  # It never commits, pushes, tags or moves `latest`; rescue publish and
+  # publish-raced-version-pr.sh stay with the release train. npm Trusted
+  # Publishing is bound to this workflow file, so the job lives in ci.yml.
+  canary:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'CosmicDriftGameStudio/kumiko-framework'
+    needs: [test, use-all-bundled-smoke, integration, e2e, tz-matrix, event-store-perf]
+    # github-hosted: npm only accepts provenance from github-hosted runners.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    # One canary at a time, never cancelled mid-publish. A newer queued run
+    # evicting an older queued one only drops a canary that is already stale.
+    concurrency:
+      group: npm-canary
+      cancel-in-progress: false
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The version commit consumes every changeset, so it skips here too. A run
+      # whose SHA is no longer main's head skips because {datetime} is the run
+      # time: a late older run would otherwise take `next` from a newer canary.
+      - name: Decide whether to publish
+        id: decide
+        run: |
+          if ! find .changeset -maxdepth 1 -name '*.md' ! -name 'README.md' -print -quit | grep -q .; then
+            echo "::notice::No pending changesets at $GITHUB_SHA, no canary."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # A failed ls-remote prints nothing; compared directly that would read
+          # as "main moved" and skip green forever. No pipefail here, hence -z.
+          main_head="$(git ls-remote --exit-code origin refs/heads/main | cut -f1)"
+          if [ -z "$main_head" ]; then
+            echo "::error::cannot read the head of main"
+            exit 1
+          fi
+          if [ "$main_head" != "$GITHUB_SHA" ]; then
+            echo "::notice::main has moved past $GITHUB_SHA, the newer run publishes the canary."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        if: steps.decide.outputs.publish == 'true'
+        with:
+          bun-version: "1.4.4"
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: steps.decide.outputs.publish == 'true'
+        with:
+          node-version: "26.13.0"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Cache Bun
+        if: steps.decide.outputs.publish == 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('**/bun.lock') }}
+          restore-keys: |
+            bun-${{ runner.os }}-
+
+      - name: Install
+        if: steps.decide.outputs.publish == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Install" -- bun install --frozen-lockfile
+
+      # Only the working tree changes; pack builds each package itself, so
+      # nothing is built twice.
+      - name: Snapshot version
+        if: steps.decide.outputs.publish == 'true'
+        run: bash scripts/changeset-version.sh --snapshot next
+
+      - name: Publish canary under next
+        if: steps.decide.outputs.publish == 'true'
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: bash scripts/publish-with-oidc.sh next
+
   release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [test, use-all-bundled-smoke, integration, e2e, tz-matrix, event-store-perf]

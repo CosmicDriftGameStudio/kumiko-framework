@@ -176,6 +176,15 @@ describe("changes add", () => {
     expect(availableFeatures(result.errs)).not.toContain("dist-only");
   });
 
+  test("an improvement is written as patch, only a breaking change bumps minor", async () => {
+    const cwd = tmp(frameworkFixture());
+
+    const result = await run(cwd, ["add", "--improvement", "--title", "Faster boot", "--feature", "framework"]);
+
+    expect(result.exit).toBe(0);
+    expect(readFileSync(result.logs[0]!, "utf-8")).toContain('"@cosmicdrift/kumiko-framework": patch');
+  });
+
   test("still resolves framework via its own special case when a standalone package also exists", async () => {
     const cwd = tmp({
       ...frameworkFixture(),

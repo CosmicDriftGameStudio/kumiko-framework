@@ -370,7 +370,7 @@ describe("upgrade command — installed version comes from the repo's own packag
     );
   });
 
-  test("prerelease lockfile pin resolves to its x.y.z core", async () => {
+  test("prerelease lockfile pin keeps its suffix", async () => {
     const cwd = tmp({
       ...ISOLATED_CONSUMER,
       "bun.lock": LOCKFILE.replace(
@@ -379,7 +379,7 @@ describe("upgrade command — installed version comes from the repo's own packag
       ),
     });
 
-    expect(await installedVersionAt(cwd)).toBe("0.364.0");
+    expect(await installedVersionAt(cwd)).toBe("0.364.0-next.1");
   });
 
   test("changelog entries newer than the installed version are not pending", async () => {

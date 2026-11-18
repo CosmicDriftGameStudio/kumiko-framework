@@ -101,14 +101,41 @@ export function validateChangelog(entry: ChangelogEntry): string[] {
   return errors;
 }
 
+function compareIdentifiers(a: string, b: string): number {
+  const aNumeric = /^\d+$/.test(a);
+  const bNumeric = /^\d+$/.test(b);
+  if (aNumeric && bNumeric) return Math.sign(Number(a) - Number(b));
+  if (aNumeric !== bNumeric) return aNumeric ? -1 : 1;
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+// Semver precedence in plain TS because the engine also runs under Metro/React
+// Native, where Bun.semver is missing. A canary `0.425.0-next-<datetime>-<sha>`
+// must sort above 0.424.x, below 0.425.0 and after older canaries.
+function splitVersion(
+  version: string,
+): readonly [core: string[], prerelease: string[] | undefined] {
+  const [core = "", prerelease] = (version.split("+", 1)[0] ?? "").split(/-(.*)/s);
+  return [core.split("."), prerelease?.split(".")];
+}
+
 export function compareVersions(a: string, b: string): number {
-  const pa = a.split(".").map(Number);
-  const pb = b.split(".").map(Number);
-  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-    const na = pa[i] ?? 0;
-    const nb = pb[i] ?? 0;
-    if (na > nb) return 1;
-    if (na < nb) return -1;
+  const [coreA, preA] = splitVersion(a);
+  const [coreB, preB] = splitVersion(b);
+  for (let i = 0; i < Math.max(coreA.length, coreB.length); i++) {
+    const diff = compareIdentifiers(coreA[i] ?? "0", coreB[i] ?? "0");
+    if (diff !== 0) return diff;
+  }
+  if (preA === undefined || preB === undefined) {
+    return preA === preB ? 0 : preA === undefined ? 1 : -1;
+  }
+  for (let i = 0; i < Math.max(preA.length, preB.length); i++) {
+    const idA = preA[i];
+    const idB = preB[i];
+    // A prerelease that is a prefix of the other ranks lower (alpha < alpha.1).
+    if (idA === undefined || idB === undefined) return idA === undefined ? -1 : 1;
+    const diff = compareIdentifiers(idA, idB);
+    if (diff !== 0) return diff;
   }
   return 0;
 }

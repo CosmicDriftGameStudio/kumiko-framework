@@ -190,6 +190,12 @@ export type EmailChannelOptions = EmailChannelTransports & {
   ) => Promise<string | null>;
 };
 
+// RFC 2606 reserves .invalid, so apps use it for placeholder addresses (guests, anonymized
+// users); the mail provider rejects them, and a send attempt would only end as failed.
+function isReservedInvalidAddress(address: string): boolean {
+  return address.toLowerCase().endsWith(".invalid");
+}
+
 function isTenantTransportNotification(ctx: ChannelContext, notificationType: string): boolean {
   const current = currentNotificationType(ctx.registry, notificationType);
   return ctx.registry.getAllNotifications().get(current)?.tenantTransport === true;
@@ -250,7 +256,8 @@ export function createEmailChannel(options: EmailChannelOptions): DeliveryChanne
       const stored = await resolveEmail(userId, ctx);
       if (stored === null) return null;
       const address = await decryptStoredPii(stored, "email", "channel-email:resolve");
-      return address === PII_ERASED_SENTINEL ? null : address;
+      if (address === PII_ERASED_SENTINEL || isReservedInvalidAddress(address)) return null;
+      return address;
     },
 
     render(message, ctx) {
@@ -258,6 +265,7 @@ export function createEmailChannel(options: EmailChannelOptions): DeliveryChanne
     },
 
     async send(address, message, ctx, rendered) {
+      if (isReservedInvalidAddress(address)) return { status: "skipped", error: "no_address" };
       const { html, subject, text, attachments, fromName, replyTo } =
         rendered ?? (await renderMessage(message, ctx));
       // Template-level sender defaults; notify data wins.

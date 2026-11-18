@@ -36,6 +36,16 @@ body text with major in it should be ignored
 		expect(bumps.size).toBe(2);
 	});
 
+	it("reads single-quoted and bare package names", () => {
+		const bumps = parseChangesetBumps(`---
+'@cosmicdrift/kumiko-framework': major
+create-kumiko-app: minor
+---
+`);
+		expect(bumps.get("@cosmicdrift/kumiko-framework")).toBe("major");
+		expect(bumps.get("create-kumiko-app")).toBe("minor");
+	});
+
 	it("returns empty for missing frontmatter", () => {
 		expect(parseChangesetBumps("# no frontmatter\n").size).toBe(0);
 	});

@@ -27,6 +27,10 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
+  "snapshot": {
+    "useCalculatedVersion": true,
+    "prereleaseTemplate": "{tag}-{datetime}-{commit-short}"
+  },
   "ignore": [
     "@cosmicdrift/kumiko-sample-*",
     "@cosmicdrift/kumiko-marketing-demo",

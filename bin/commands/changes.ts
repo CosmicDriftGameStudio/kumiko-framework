@@ -314,7 +314,7 @@ function runAdd(ctx: Parameters<typeof changesCommand.run>[0], args: ReturnType<
   let counter = 2;
   while (existsSync(join(changesetDir, fileName))) fileName = `${base}-${counter++}.md`;
   const path = join(changesetDir, fileName);
-  writeFileSync(path, renderChangeset(target.packageName, change, type === "fix" ? "patch" : "minor", affectsAll), "utf-8");
+  writeFileSync(path, renderChangeset(target.packageName, change, type === "breaking" ? "minor" : "patch", affectsAll), "utf-8");
   ctx.out.log(path);
   return 0;
 }

@@ -326,6 +326,63 @@ describe("findChangesetViolations", () => {
     expect(violations[1]?.detail).toContain("missing from the changeset frontmatter");
   });
 
+  describe("bump against entry type", () => {
+    function bumpFixture(files: Record<string, { bump: string; types: readonly string[] }>): string {
+      const root = makeTempRoot("changeset-bump-");
+      mkdirSync(join(root, ".changeset"), { recursive: true });
+      mkdirSync(join(root, "packages", "framework"), { recursive: true });
+      writeFileSync(
+        join(root, "packages", "framework", "package.json"),
+        JSON.stringify({ name: "@cosmicdrift/kumiko-framework" }),
+      );
+      for (const [name, { bump, types }] of Object.entries(files)) {
+        const blocks = types
+          .map(
+            (type, index) =>
+              `<!-- kumiko-changes\nfeature: framework\ntype: ${type}\ntitle: Change ${index}\n${type === "breaking" ? "migration: Use the new call\naffects: all\n" : ""}-->\n`,
+          )
+          .join("\n");
+        writeFileSync(
+          join(root, ".changeset", name),
+          `---\n"@cosmicdrift/kumiko-framework": ${bump}\n---\n\nChange\n\n${blocks}`,
+        );
+      }
+      return root;
+    }
+
+    it("accepts minor with a breaking entry and patch for fixes and improvements", () => {
+      const root = bumpFixture({
+        "break.md": { bump: "minor", types: ["improvement", "breaking"] },
+        "fix.md": { bump: "patch", types: ["fix"] },
+        "improve.md": { bump: "patch", types: ["improvement"] },
+      });
+
+      expect(findChangesetViolations(root, [".changeset/break.md", ".changeset/fix.md", ".changeset/improve.md"], {})).toEqual([]);
+    });
+
+    it("rejects minor without a breaking entry", () => {
+      const root = bumpFixture({ "improve.md": { bump: "minor", types: ["improvement", "fix"] } });
+
+      expect(findChangesetViolations(root, [".changeset/improve.md"], {})).toEqual([
+        {
+          file: ".changeset/improve.md",
+          detail: "bump minor needs a breaking entry in the kumiko-changes block; fixes and improvements use patch",
+        },
+      ]);
+    });
+
+    it("rejects a breaking entry shipped as patch", () => {
+      const root = bumpFixture({ "break.md": { bump: "patch", types: ["breaking"] } });
+
+      expect(findChangesetViolations(root, [".changeset/break.md"], {})).toEqual([
+        {
+          file: ".changeset/break.md",
+          detail: "a breaking entry needs bump minor, patch would reach ^0.X.0 consumers without notice",
+        },
+      ]);
+    });
+  });
+
   it("rejects direct changes.json edits outside the release branch", () => {
     const root = makeTempRoot("changeset-guard-");
     mkdirSync(join(root, ".changeset"), { recursive: true });
