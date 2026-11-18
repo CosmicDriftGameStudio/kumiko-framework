@@ -47,7 +47,8 @@ export function presetPath(name: string): string {
   return join(PRESETS_DIR, name);
 }
 
-export function lintFixture(
+function runBiomeFixture(
+  command: "lint" | "check",
   config: Record<string, unknown>,
   files: Readonly<Record<string, string>>,
 ): Finding[] {
@@ -61,7 +62,7 @@ export function lintFixture(
     }
     const result = spawnSync(
       "bun",
-      [BIOME_BIN, "lint", "--reporter=json", "--max-diagnostics=none", "."],
+      [BIOME_BIN, command, "--reporter=json", "--max-diagnostics=none", "."],
       {
         cwd: dir,
         encoding: "utf8",
@@ -95,4 +96,19 @@ export function lintWithPlugin(plugin: string, files: Readonly<Record<string, st
 
 export function lineNumbers(findings: readonly Finding[], file: string): number[] {
   return findings.filter((f) => f.file === file).map((f) => f.line);
+}
+
+export function lintFixture(
+  config: Record<string, unknown>,
+  files: Readonly<Record<string, string>>,
+): Finding[] {
+  return runBiomeFixture("lint", config, files);
+}
+
+/** Like lintFixture but also reports formatter and assist findings. */
+export function checkFixture(
+  config: Record<string, unknown>,
+  files: Readonly<Record<string, string>>,
+): Finding[] {
+  return runBiomeFixture("check", config, files);
 }

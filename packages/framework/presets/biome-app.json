@@ -54,6 +54,11 @@
   },
   "overrides": [
     {
+      "includes": ["bin/kumiko.ts", "kumiko/schema.ts"],
+      "formatter": { "enabled": false },
+      "assist": { "enabled": false }
+    },
+    {
       "includes": ["bin/**", "scripts/**", "**/bin/**", "**/scripts/**"],
       "linter": {
         "rules": {

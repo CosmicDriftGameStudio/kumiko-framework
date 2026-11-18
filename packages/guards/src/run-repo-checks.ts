@@ -10,6 +10,7 @@ import { check as singleRuntimeInstance } from "./check-single-runtime-instance"
 import { check as subpathExports } from "./check-subpath-exports";
 import { check as agentDocsDrift } from "./guard-agent-docs-drift";
 import { check as appDockerfile } from "./guard-app-dockerfile";
+import { check as biomePreset } from "./guard-biome-preset";
 import { check as docStatus } from "./guard-doc-status";
 import { check as featureIntegrationTests } from "./guard-feature-integration-tests";
 import { check as guardsDocDrift } from "./guard-guards-doc-drift";
@@ -39,6 +40,7 @@ export const REPO_CHECKS = [
   appDockerfile,
   docStatus,
   integrationMocks,
+  biomePreset,
 ];
 
 export const REPO_CHECK_FLAGS: readonly string[] = ["--write-baseline"];

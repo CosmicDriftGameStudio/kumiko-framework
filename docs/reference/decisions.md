@@ -618,11 +618,9 @@ Rejected: a workaround comment form matched against the kumiko-upgrade changelog
 
 **`fromParent(field, entity)` lets a child entity grant a role exactly the rows whose reference points at a parent row that role may read (read path) or write (write path) under the parent's own access map.** parentRef cannot carry this: it is polymorphic, host chains are rejected at boot (parentRefAllowedTypeHasParentRef), so two-level chains such as lease-party → lease → rental-unit stay out of reach, and parentRef does not gate create. Apps therefore copied the scoping column (team_id) into every child and kept it in sync with follow hooks. Read compiles to an EXISTS subquery against the parent table; write loads the parent row per role and checks old and new parent, which keeps the straddle rule of the in-memory write check. The ban on where rules in access.write stays: a parent rule is not free SQL but a reference the boot validator checks (reference field to exactly that entity, both tenant-bound, no cycle). Places without a resolver treat a parent rule as no grant (fail closed). No contradiction with an earlier entry found.
 
-### 2026-11-17 The framework ships locale packages for German and Spanish only
+### 2026-11-17 The framework ships locale packages for German, Spanish, French and Italian
 
-**`@cosmicdrift/kumiko-locale-fr` and `@cosmicdrift/kumiko-locale-it` are deleted. Framework copy ships in English inside the features and in German and Spanish through `locale-de` and `locale-es`; the `kumiko api-docs` pages and the `tenant:config:locale` setting offer en, de and es.** No app, Enterprise or Platform mounted French or Italian, yet the i18n parity test made every new UI or mail key carry four translations, about 6,000 lines of strings nobody shipped. A new locale package comes back when an app needs it: AI translation of the English catalog creates it, and the same change adds it to the parity test, the tenant locale options and `apiDocsLocales`.
-
-Rejected: keeping fr and it but dropping them from the parity test (the frozen copy goes stale, still costs search context and stays a published package without a user).
+**`@cosmicdrift/kumiko-locale-fr` and `@cosmicdrift/kumiko-locale-it` exist again; the earlier deletion was reverted. Framework copy ships in English inside the features and in German, Spanish, French and Italian through `locale-de`, `locale-es`, `locale-fr` and `locale-it`; each is opt-in per app.** The i18n parity test keeps every UI or mail key translated in all four locales, which an app needs only if it mounts that locale; a locale nobody mounts is the cost to weigh when a new one is proposed.
 
 ### 2026-11-17 A record key that an owner forget erases holds only that owner's data
 

@@ -54,7 +54,7 @@ function checkDefaultSortRequired(
   const searchable = screen.searchable !== false;
   if ((searchable || filtersActive) && screen.defaultSort === undefined) {
     throw bootRuleError(ENTITY_LIST_RULES.defaultSortRequired, {
-      message: `${screenPrefix(feature, screen)}: defaultSort required when searchable or filterable fields are active. Set defaultSort: { field, direction } on the screen.`,
+      message: `${screenPrefix(feature, screen)}: defaultSort required when searchable or filterable fields are active. Set defaultSort: { field, dir } on the screen.`,
     });
   }
 }

@@ -176,7 +176,7 @@ describe("TenantDb.upsert increment", () => {
       Array.from({ length: 20 }, (_, i) =>
         dbA.upsert(
           slotsTable,
-          { code: "par", token: "tok-par-" + i, label: "x" },
+          { code: "par", token: `tok-par-${i}`, label: "x" },
           { ...byCode, update: { label: "par" }, increment: { hits: 1 } },
         ),
       ),

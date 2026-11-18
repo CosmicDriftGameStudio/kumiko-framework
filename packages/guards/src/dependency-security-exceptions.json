@@ -1,4 +1,12 @@
 {
   "$schema": "Exceptions file for check-security.ts. Each exception needs reason, reviewer, and expiry (max ~30 days).",
-  "exceptions": []
+  "exceptions": [
+    {
+      "advisory": "GHSA-FC5Q-39XC-VJPF",
+      "package": "picomatch",
+      "reason": "No patched release exists (vulnerable <=4.0.7, latest is 4.0.7). picomatch is only reached through glob tooling: @changesets/config and @changesets/git (release tooling), @parcel/watcher under @tailwindcss/cli (CSS build), @manypkg/tools, and tinyglobby/fdir under @ts-morph/common (feature-ast codemods over the app's own source tree). All of them match glob patterns from repo or project config; no runtime request path hands request or user input to picomatch, so the extglob ReDoS is not reachable from outside. Drop once picomatch ships a fix.",
+      "reviewedBy": "Marc",
+      "expires": "2026-12-17"
+    }
+  ]
 }

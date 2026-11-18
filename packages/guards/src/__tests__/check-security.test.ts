@@ -298,8 +298,8 @@ describe("findLockfileDir", () => {
 });
 
 describe("loadSecurityExceptions", () => {
-  test("the bundled default is empty and the repo file is merged in", () => {
-    expect(loadSecurityExceptions([])).toEqual([]);
+  test("the bundled default carries only the picomatch exception and the repo file is merged in", () => {
+    expect(loadSecurityExceptions([]).map((e) => e.advisory)).toEqual(["GHSA-FC5Q-39XC-VJPF"]);
     const repo = repoWithLockfile();
     writeFileSync(
       join(repo, "dependency-security-exceptions.json"),
@@ -307,8 +307,8 @@ describe("loadSecurityExceptions", () => {
       "utf-8",
     );
     const loaded = loadSecurityExceptions([repo]);
-    expect(loaded.map((e) => e.advisory)).toEqual(["GHSA-aaaa-bbbb-cccc"]);
-    expect(loaded[0]?.source).toEqual({
+    expect(loaded.map((e) => e.advisory)).toEqual(["GHSA-FC5Q-39XC-VJPF", "GHSA-aaaa-bbbb-cccc"]);
+    expect(loaded[1]?.source).toEqual({
       file: join(repo, "dependency-security-exceptions.json"),
       origin: "repo",
     });
@@ -321,6 +321,6 @@ describe("loadSecurityExceptions", () => {
       JSON.stringify({ exceptions: [securityException({ expires: "someday" })] }),
       "utf-8",
     );
-    expect(loadSecurityExceptions([repo])).toEqual([]);
+    expect(loadSecurityExceptions([repo]).map((e) => e.source.origin)).toEqual(["bundled"]);
   });
 });
