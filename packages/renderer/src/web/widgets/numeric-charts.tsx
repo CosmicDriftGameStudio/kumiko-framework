@@ -10,7 +10,9 @@ import { niceTicks } from "./chart-scale.ts";
 
 const VIEW_WIDTH = 300;
 const DEFAULT_HEIGHT = 192;
-const GUTTER_CLASS = "w-12 shrink-0";
+// minmax(0, 1fr): the plot takes what the label column leaves and never pushes past the frame.
+const PLOT_GRID_CLASS = "grid grid-cols-[auto_minmax(0,1fr)] gap-2";
+const Y_GUTTER_MIN_WIDTH_CLASS = "min-w-12";
 const MAX_X_LABELS = 8;
 
 export type NumericPoint = { readonly x: number; readonly y: number };
@@ -91,26 +93,28 @@ function PlotFrame({
 }: PlotFrameProps): ReactNode {
   return (
     <div className="flex flex-col gap-2" data-testid={testId}>
-      <div className="flex gap-2">
+      <div className={PLOT_GRID_CLASS}>
+        {/* Zero-height rows in flow instead of absolute spans: the auto grid column then takes
+            the width of the widest label, and the x-label row below shares that column. */}
         <div
           aria-hidden="true"
           className={cn(
-            "relative text-right text-[11px] tabular-nums text-muted-foreground",
-            GUTTER_CLASS,
+            "text-right text-[11px] tabular-nums text-muted-foreground",
+            Y_GUTTER_MIN_WIDTH_CLASS,
           )}
           style={{ height }}
         >
           {yLabels.map((tick) => (
-            <span
+            <div
               key={tick.position}
-              className="absolute right-0 -translate-y-1/2"
+              className="relative h-0"
               style={{ top: `${tick.position * 100}%` }}
             >
-              {tick.label}
-            </span>
+              <span className="block -translate-y-1/2 whitespace-nowrap">{tick.label}</span>
+            </div>
           ))}
         </div>
-        <div className="relative min-w-0 flex-1" {...plotHandlers}>
+        <div className="relative min-w-0" {...plotHandlers}>
           <svg
             viewBox={`0 0 ${VIEW_WIDTH} ${height}`}
             preserveAspectRatio="none"
@@ -137,12 +141,9 @@ function PlotFrame({
           </svg>
           {overlay}
         </div>
-      </div>
-      <div className="flex gap-2">
-        <div className={GUTTER_CLASS} />
         <div
           aria-hidden="true"
-          className="relative h-4 min-w-0 flex-1 text-[11px] tabular-nums text-muted-foreground"
+          className="relative col-start-2 h-4 min-w-0 text-[11px] tabular-nums text-muted-foreground"
         >
           {xLabels.map((tick) => (
             <span

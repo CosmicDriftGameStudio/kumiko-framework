@@ -112,6 +112,32 @@ describe("SignedBarChart", () => {
       expect(tick.classList.contains("-translate-x-1/2")).toBe(true);
     }
   });
+
+  test("y labels stay on one line in a label column sized by its widest label", () => {
+    render(
+      <SignedBarChart
+        ariaLabel="Cashflow"
+        buckets={[{ x: 2026, values: { loss: -4000, gain: 6000 } }]}
+        series={[
+          { key: "loss", label: "Subsidy" },
+          { key: "gain", label: "Surplus" },
+        ]}
+        xAxis={{ format: (x) => `Year ${x}` }}
+        yAxis={{ ticks: 5, format: (value) => `${value.toFixed(2)} EUR` }}
+      />,
+    );
+    const label = screen.getByText("-5000.00 EUR");
+    const labelRow = label.parentElement;
+    const labelColumn = labelRow?.parentElement;
+
+    expect(label.classList.contains("whitespace-nowrap")).toBe(true);
+    // In flow, not absolute: only in-flow content can size the auto grid column.
+    expect(labelRow?.classList.contains("absolute")).toBe(false);
+    expect(labelColumn?.classList.contains("w-12")).toBe(false);
+    expect(labelColumn?.parentElement?.classList.contains("grid-cols-[auto_minmax(0,1fr)]")).toBe(
+      true,
+    );
+  });
 });
 
 describe("HistogramChart", () => {
