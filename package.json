@@ -59,7 +59,6 @@
   },
   "scripts": {
     "kumiko": "bun run bin/kumiko.ts",
-    "lint": "biome check packages samples",
     "test": "bun test --dots --parallel=4 --no-isolate",
     "test:dom": "bun test --dots --config=bunfig.dom.toml --timeout=5000 .test.tsx",
     "test:run": "bun test --dots",
