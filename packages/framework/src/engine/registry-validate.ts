@@ -377,9 +377,19 @@ export function validateFieldAccessHandlersAreEntityMapped(
   // Validate: handlers in features with field-access rules must be entity-mapped.
   // Without entity mapping, field-level access checks are silently skipped (security gap).
   for (const feature of features) {
+    // extendSchema fields are merged into entityMap only, so the feature's entities come from there.
+    const withExtensionFields: FeatureDefinition = {
+      ...feature,
+      entities: Object.fromEntries(
+        Object.entries(feature.entities ?? {}).map(([name, entity]) => [
+          name,
+          state.entityMap.get(name) ?? entity,
+        ]),
+      ),
+    };
     const restrictions = {
-      hasFieldAccess: hasFieldAccessRules(feature),
-      hasReadRestrictions: hasReadRestrictedFields(feature),
+      hasFieldAccess: hasFieldAccessRules(withExtensionFields),
+      hasReadRestrictions: hasReadRestrictedFields(withExtensionFields),
     };
 
     if (restrictions.hasFieldAccess) {

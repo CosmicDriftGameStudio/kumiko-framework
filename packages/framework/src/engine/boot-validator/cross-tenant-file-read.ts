@@ -1,4 +1,4 @@
-import type { FieldDefinition } from "@cosmicdrift/kumiko-types/fields";
+import type { EntityDefinition, FieldDefinition } from "@cosmicdrift/kumiko-types/fields";
 import type { QueryHandlerDef } from "@cosmicdrift/kumiko-types/handlers";
 import { holdsFileRefs, isFileSubField } from "../../files/file-field-slots.ts";
 import type { FeatureDefinition } from "../types/index.ts";
@@ -14,11 +14,37 @@ function hasReadRuleOnItsFiles(field: FieldDefinition): boolean {
   );
 }
 
+// The runtime looks a declaration up by entity type: an r.entity, or a read model keyed by its one
+// source stream when no r.entity of the app registers that stream (getReadModelEntity).
+function projectionDeclarationsOf(
+  feature: FeatureDefinition,
+  registeredEntityNames: ReadonlySet<string>,
+): ReadonlyArray<readonly [string, EntityDefinition]> {
+  return Object.values(feature.projections ?? {}).flatMap((projection) => {
+    const { entity, source } = projection;
+    if (projection.isImplicit || entity?.crossTenantFileRead === undefined) return [];
+    if (typeof source === "string" && feature.entities?.[source]?.fields === entity.fields) {
+      return [];
+    }
+    if (typeof source !== "string" || registeredEntityNames.has(source)) {
+      throw bootRuleError(ENTITY_DECLARATION_RULES.crossTenantFileReadUnseenProjectionEntity, {
+        message: `[Feature ${feature.name}] projection "${projection.name}" entity "${entity.name}" declares crossTenantFileRead, but the file check never sees it: it finds read models only by a single source stream that no r.entity registers (source: ${JSON.stringify(source)}).`,
+      });
+    }
+    return [[source, entity] as const];
+  });
+}
+
 export function validateCrossTenantFileRead(
   feature: FeatureDefinition,
   queryHandlers: ReadonlyMap<string, QueryHandlerDef>,
+  registeredEntityNames: ReadonlySet<string>,
 ): void {
-  for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
+  const entries = [
+    ...Object.entries(feature.entities ?? {}),
+    ...projectionDeclarationsOf(feature, registeredEntityNames),
+  ];
+  for (const [entityName, entity] of entries) {
     const declaration = entity.crossTenantFileRead;
     if (declaration === undefined) continue;
     if (declaration.reason.trim().length === 0) {

@@ -81,3 +81,10 @@ type: improvement
 title: A reference to a record with one file links that file
 detail: A list cell of a single reference (`createReferenceField` or a column with `refEntity`) whose target entity has exactly one `file` field and no `files` field shows the reference label as a download link to that file, with the PDF view in a drawer like the file column of the documents list. The file link takes the place of the link to the referenced record. The file id comes from the rows of the reference lookup query, so tenant and field read access apply: an unreadable file field, an unreadable target or an empty file keep the plain label. The name shown is the reference label, never the stored file name. A target with several file fields, a `files` field, a multi reference or an author renderer stays text, and so do reference columns of dashboard list panels. The documents recipe shows it with an offer that references a filed document.
 -->
+
+<!-- kumiko-changes
+feature: renderer
+type: fix
+title: The comma between phone card values stays at the value before it
+detail: In plain phone cards (`plainPhoneCards`, related lists) two `narrowInline` values on one line are joined by a comma that now sits in the same item as the front value, and the space after it is the line's column gap. An app stylesheet that widens that gap no longer leaves the comma standing alone with space on both sides ("980,00 €  ,  29.10.2026" becomes "980,00 €, 29.10.2026"). The front value takes its line height from that item, so an app rule on the line's direct children (`[data-testid^="card-vals-"] > div`) still reaches both values. A date range above the title keeps its dash flush between the dates.
+-->

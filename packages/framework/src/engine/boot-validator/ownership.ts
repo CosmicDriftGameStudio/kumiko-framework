@@ -15,6 +15,7 @@ import type { FeatureDefinition, SessionUser } from "../types/index.ts";
 import { assertQualifiedWhereFragment, tableColumnSqlNames } from "../where-rule-lint.ts";
 import { bootRuleError } from "./boot-rule.ts";
 import { OWNERSHIP_RULES } from "./ownership-rules.ts";
+import { readModelEntitiesOf } from "./read-model-field-access.ts";
 
 // --- Ownership rule validation ---
 //
@@ -96,15 +97,7 @@ export function validateOwnershipRules(
 ): void {
   // A read model's access.read is the file-owner gate (readGate.fileOwner), so it gets the same
   // role/column/where-lint pass as a registered entity.
-  const readModelEntities = Object.values(feature.projections ?? {}).flatMap((projection) =>
-    !projection.isImplicit &&
-    projection.entity !== undefined &&
-    typeof projection.source === "string" &&
-    feature.entities?.[projection.source] === undefined
-      ? [[projection.source, projection.entity] as const]
-      : [],
-  );
-  const entries = [...Object.entries(feature.entities ?? {}), ...readModelEntities];
+  const entries = [...Object.entries(feature.entities ?? {}), ...readModelEntitiesOf(feature)];
   for (const [entityName, entity] of entries) {
     const columnNames = new Set<string>(Object.keys(entity.fields));
     // Framework-managed columns that rules are allowed to reference too.

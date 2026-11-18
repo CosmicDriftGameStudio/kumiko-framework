@@ -137,6 +137,40 @@ describe("extendsRegistrar", () => {
     expect(entity?.fields["customData"]?.type).toBe("text");
   });
 
+  test("a read-restricted extendSchema field makes unbound queries declare their result entity", () => {
+    const ext = defineFeature("internalNotes", (r) => {
+      r.extendsRegistrar("internalNotes", {
+        extendSchema: () => ({
+          internalNote: createTextField({
+            personal: false,
+            reason: "test_fixture",
+            access: { read: ["Admin"] },
+          }),
+        }),
+      });
+    });
+    const consumer = defineFeature("fleet", (r) => {
+      r.entity(
+        createEntity({
+          name: "vehicle",
+          table: "Vehicles",
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
+      r.applyExtension({ name: "internalNotes", entity: "vehicle" });
+      r.queryHandler({
+        name: "fleet-overview",
+        schema: z.object({}),
+        handler: async () => [],
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
+    });
+
+    expect(() => createRegistry([ext, consumer])).toThrow(
+      /"fleet:query:fleet-overview" returns data of feature "fleet".*declares no resultEntity/,
+    );
+  });
+
   test("extension preSave hooks fire for bare CRUD handler with smart entity map", () => {
     const preSaveFn = mock(async (changes: Record<string, unknown>) => changes);
 

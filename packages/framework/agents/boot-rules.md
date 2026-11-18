@@ -468,6 +468,7 @@
 | <a id="files-cross-tenant-read-query-unregistered"></a>`files/cross-tenant-read-query-unregistered` | crossTenantFileRead.query names a registered query handler. | Use the qualified name of a query handler (<feature>:query:<name>) and register it. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
 | <a id="files-cross-tenant-read-reason-missing"></a>`files/cross-tenant-read-reason-missing` | crossTenantFileRead declares a non-empty reason. | State why files of this entity are readable across tenants. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
 | <a id="files-cross-tenant-read-restricted-file-field"></a>`files/cross-tenant-read-restricted-file-field` | An entity with crossTenantFileRead has no file field or embedded file sub-field with an access.read rule, because the cross-tenant check asks only whether the declared query returns the record. | Drop the field's access.read, or move the restricted file into an entity without crossTenantFileRead. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
+| <a id="files-cross-tenant-read-unseen-projection-entity"></a>`files/cross-tenant-read-unseen-projection-entity` | crossTenantFileRead on a projection entity sits on a read model with one source stream that no r.entity registers, because the file check finds projection entities only by that stream. | Declare crossTenantFileRead on the r.entity of the stream, or give the read model its own single source stream. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
 
 ## folders
 
@@ -1023,6 +1024,7 @@
 
 | Rule | Summary | Fix | Source |
 | --- | --- | --- | --- |
+| <a id="projection-entity-field-read-rule"></a>`projection/entity-field-read-rule` | A field of a read-model entity (projection entity) has no access.read, no writeOnly and no embedded sub-field with access.read, because read-model queries return rows without field filtering. | Restrict the read model's query access instead, or move the field into an r.entity whose queries the framework filters. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
 | <a id="projection-extend-without-apply"></a>`projection/extend-without-apply` | extendEntityProjection declares at least one apply handler. | Declare at least one event type to apply. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
 | <a id="projection-multi-stream-name-duplicate"></a>`projection/multi-stream-name-duplicate` | r.projection and r.multiStreamProjection share one name space per feature. | Pick a unique short name. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
 | <a id="projection-multi-stream-name-not-kebab"></a>`projection/multi-stream-name-not-kebab` | Multi-stream projection names are kebab-case. | Rename the projection to lowercase letters, digits and dashes. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |

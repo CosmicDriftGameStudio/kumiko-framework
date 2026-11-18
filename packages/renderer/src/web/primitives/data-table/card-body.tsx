@@ -139,12 +139,13 @@ function renderMetaCell(
   m: DataTableModel,
   row: ListRowViewModel,
   col: ListColumnViewModel,
+  inheritLineHeight = false,
 ): ReactNode {
   return (
     <div
       key={col.field}
       data-testid={cellTestIdOf(m, row, col.field)}
-      className={`min-w-0 max-w-full leading-5 ${col.ellipsis === true ? "truncate" : "break-words"}${col.multiline === true ? " whitespace-pre-line" : ""}${col.emphasis === true ? " font-semibold text-foreground" : ""}`}
+      className={`min-w-0 max-w-full ${inheritLineHeight ? "leading-[inherit]" : "leading-5"} ${col.ellipsis === true ? "truncate" : "break-words"}${col.multiline === true ? " whitespace-pre-line" : ""}${col.emphasis === true ? " font-semibold text-foreground" : ""}`}
       onPointerEnter={showFullTextOnHover}
     >
       {isBadgeColumn(col) ? (
@@ -169,8 +170,15 @@ function renderMetaCell(
   );
 }
 
-function isUnlabeledDateRange(line: readonly ListColumnViewModel[]): boolean {
-  return line.length === 2 && line.every((col) => isDateColumn(col) && col.cardLabel !== true);
+function isDateRangeLine(
+  line: readonly ListColumnViewModel[],
+  placement: "above" | "below",
+): boolean {
+  return (
+    placement === "above" &&
+    line.length === 2 &&
+    line.every((col) => isDateColumn(col) && col.cardLabel !== true)
+  );
 }
 
 function renderCardMeta(
@@ -195,20 +203,28 @@ function renderCardMeta(
               data-testid={`card-vals-${row.id}-${line[0].field}`}
               className={cn(
                 "mt-1 flex min-w-0 max-w-full flex-wrap items-center gap-y-0.5 text-[12.5px] leading-5",
-                plain ? "gap-x-0" : "gap-x-3",
+                plain ? (isDateRangeLine(line, placement) ? "gap-x-0" : "gap-x-1") : "gap-x-3",
               )}
             >
-              {line.map((col, colIndex) => (
-                <Fragment key={col.field}>
-                  {colIndex > 0 &&
-                    (placement === "above" && isUnlabeledDateRange(line) ? (
-                      <span>–</span>
+              {line.map((col, colIndex) => {
+                const isRange = isDateRangeLine(line, placement);
+                // The comma rides inside the front value's item, so a wider column gap set by
+                // the app lands after it, never on both sides.
+                const commaAfter = plain && !isRange && colIndex < line.length - 1;
+                return (
+                  <Fragment key={col.field}>
+                    {colIndex > 0 && isRange && <span>–</span>}
+                    {commaAfter ? (
+                      <div className="flex min-w-0 max-w-full items-baseline">
+                        {renderMetaCell(m, row, col, true)}
+                        <span aria-hidden="true">,</span>
+                      </div>
                     ) : (
-                      plain && <span aria-hidden="true">,&nbsp;</span>
-                    ))}
-                  {renderMetaCell(m, row, col)}
-                </Fragment>
-              ))}
+                      renderMetaCell(m, row, col)
+                    )}
+                  </Fragment>
+                );
+              })}
             </div>
           ) : (
             <div

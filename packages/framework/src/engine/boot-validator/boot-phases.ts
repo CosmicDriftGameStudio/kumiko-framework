@@ -53,6 +53,7 @@ import { validateParentRefs } from "./parent-ref.ts";
 import { validatePiiAndRetention } from "./pii-retention.ts";
 import { validateQueryRefs } from "./query-refs.ts";
 import { validateReadGates } from "./read-gate.ts";
+import { validateReadModelFieldReadRules } from "./read-model-field-access.ts";
 import {
   validateForgetWithSubject,
   validateRecordKeyHeldByOneOwner,
@@ -189,9 +190,15 @@ const FEATURE_CHECKS: readonly FeatureCheck[] = [
     check: "validateFieldApproval",
     run: (f, c) => validateFieldApproval(f, c.featureMap, c.knownRoles),
   },
+  { check: "validateReadModelFieldReadRules", run: (f) => validateReadModelFieldReadRules(f) },
   {
     check: "validateCrossTenantFileRead",
-    run: (f, c) => validateCrossTenantFileRead(f, c.queryHandlerQns),
+    run: (f, c) =>
+      validateCrossTenantFileRead(
+        f,
+        c.queryHandlerQns,
+        new Set(c.features.flatMap((feature) => Object.keys(feature.entities ?? {}))),
+      ),
   },
   { check: "validateTransferGraph", run: (f, c) => validateTransferGraph(f, c.featureMap) },
   { check: "validateMultiStreamProjections", run: (f) => validateMultiStreamProjections(f) },

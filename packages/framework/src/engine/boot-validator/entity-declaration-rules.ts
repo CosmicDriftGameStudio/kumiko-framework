@@ -191,6 +191,18 @@ export const ENTITY_DECLARATION_RULES = {
       "An entity with crossTenantFileRead has no file field or embedded file sub-field with an access.read rule, because the cross-tenant check asks only whether the declared query returns the record.",
     fix: "Drop the field's access.read, or move the restricted file into an entity without crossTenantFileRead.",
   },
+  crossTenantFileReadUnseenProjectionEntity: {
+    id: "files/cross-tenant-read-unseen-projection-entity",
+    summary:
+      "crossTenantFileRead on a projection entity sits on a read model with one source stream that no r.entity registers, because the file check finds projection entities only by that stream.",
+    fix: "Declare crossTenantFileRead on the r.entity of the stream, or give the read model its own single source stream.",
+  },
+  readModelFieldReadRule: {
+    id: "projection/entity-field-read-rule",
+    summary:
+      "A field of a read-model entity (projection entity) has no access.read, no writeOnly and no embedded sub-field with access.read, because read-model queries return rows without field filtering.",
+    fix: "Restrict the read model's query access instead, or move the field into an r.entity whose queries the framework filters.",
+  },
   streamRetentionKeepFor: {
     id: "retention/stream-retention-keep-for",
     summary: "streamRetention.keepFor has the form <number><h|d|w|m|y>.",
