@@ -5,6 +5,7 @@ export {
   REAL_PROVIDERS_ENV,
   requireRealProviders,
 } from "../helpers/real-providers.ts";
+export { SERVICE_ENV_DEFAULTS } from "../preload/service-env-defaults-values";
 export {
   apiCommand,
   apiQuery,

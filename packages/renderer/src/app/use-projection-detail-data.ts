@@ -82,21 +82,23 @@ export function useProjectionDetailData(input: DetailDataInput) {
   // remount (a `key`) so unsaved input in the other writeForm sections and
   // the related lists' local state survive.
   const [reloadNonce, setReloadNonce] = useState(0);
-  // Live mode: every refetched record bumps the nonce below, a write included.
+  // Every newly shown record bumps the nonce below, a write's refetch included.
   const reloadDetail = useCallback(async () => {
     await refetchAfterWrite(detailQuery.refetch);
-    if (!live) setReloadNonce((n) => n + 1);
-  }, [detailQuery.refetch, live]);
-  // A live refetch only reaches the record; the related lists hold their own rows.
-  const liveRecord = live ? (detailQuery.data ?? undefined) : undefined;
-  const shownLiveRecord = useRef(liveRecord);
+  }, [detailQuery.refetch]);
+  // Not only live refetches replace the record: hooks on the same query share one state, so a
+  // screen mounted right after another one on the same record (an edit wizard returning here)
+  // first shows that screen's answer and the fresh one after its own load. The form was seeded
+  // from the first, and the related lists hold their own rows.
+  const shownRecordValue = detailQuery.data ?? undefined;
+  const shownRecord = useRef(shownRecordValue);
   useEffect(() => {
-    const previous = shownLiveRecord.current;
+    const previous = shownRecord.current;
     // skip: the shown record is unchanged, the related lists need no reload.
-    if (previous === liveRecord) return;
-    shownLiveRecord.current = liveRecord;
+    if (previous === shownRecordValue) return;
+    shownRecord.current = shownRecordValue;
     if (previous !== undefined) setReloadNonce((n) => n + 1);
-  }, [liveRecord]);
+  }, [shownRecordValue]);
   return {
     activeSection,
     activeSections,

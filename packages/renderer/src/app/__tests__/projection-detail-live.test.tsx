@@ -4,6 +4,7 @@ import { act, renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import { LIVE_REFETCH_COALESCE_MS } from "../../hooks/live-refetch-scheduler.ts";
+import { useQuery } from "../../hooks/use-query.ts";
 import {
   LIVE_RESYNC_EVENT_TYPE,
   type LiveEventSubscriber,
@@ -115,5 +116,48 @@ describe("projectionDetail live", () => {
 
     expect(calls()).toBe(1);
     expect(hook.result.current.reloadNonce).toBe(0);
+  });
+
+  test("without live a reload after a write refetches the record and reloads the related lists once", async () => {
+    const { hook, calls } = renderDetail(false);
+    await advance(0);
+
+    await act(async () => {
+      await hook.result.current.reloadDetail();
+    });
+
+    expect(calls()).toBe(2);
+    expect(hook.result.current.detailQuery.data).toEqual({ id: "r1", okCount: 2 });
+    expect(hook.result.current.reloadNonce).toBe(1);
+  });
+
+  test("without live a record another hook on the same query loads reseeds the form", async () => {
+    let calls = 0;
+    const dispatcher = createMockDispatcher({
+      query: (async () => {
+        calls += 1;
+        return { isSuccess: true, data: { id: "r1", okCount: calls } } as unknown as QueryResult;
+      }) as unknown as QueryFn,
+    });
+    const screen = screenWith(false);
+    const wrapper = ({ children }: { readonly children: ReactNode }) => (
+      <DispatcherProvider dispatcher={dispatcher}>{children}</DispatcherProvider>
+    );
+    const hook = renderHook(
+      () => ({
+        detail: useProjectionDetailData({ screen, nav, effectiveEntityId: undefined }),
+        sibling: useQuery(screen.query, {}),
+      }),
+      { wrapper },
+    );
+    await advance(0);
+    expect(hook.result.current.detail.reloadNonce).toBe(0);
+
+    await act(async () => {
+      await hook.result.current.sibling.refetch();
+    });
+
+    expect(hook.result.current.detail.detailQuery.data).toEqual({ id: "r1", okCount: 2 });
+    expect(hook.result.current.detail.reloadNonce).toBe(1);
   });
 });

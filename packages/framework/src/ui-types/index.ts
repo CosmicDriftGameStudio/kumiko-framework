@@ -208,10 +208,15 @@ export { MAX_BULK_SELECTION } from "../engine/types/screen.ts";
 export type { TargetRef } from "../engine/types/target-ref.ts";
 export type { TreeAction } from "../engine/types/tree-node.ts";
 export type { WorkspaceDefinition } from "../engine/types/workspace.ts";
+export type {
+  HandlerTranslations,
+  HandlerTranslationTexts,
+} from "../i18n/required-surface-keys.ts";
 export {
   ACTION_FORM_ENTITY,
   handlerFieldLabelKey,
   handlerTitleKey,
+  handlerTranslationKeys,
   PROJECTION_DETAIL_ENTITY,
   WRITE_FORM_SECTION_ENTITY,
 } from "../i18n/required-surface-keys.ts";
