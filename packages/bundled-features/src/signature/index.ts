@@ -2,6 +2,8 @@ export type { SignatureRetention } from "./entity.ts";
 export { createSignatureFeature } from "./feature.ts";
 export type {
   DeliverSignatureLink,
+  SignatureHost,
+  SignatureLegacyHostResolver,
   SignatureLinkDelivery,
   SignatureOptions,
 } from "./options.ts";

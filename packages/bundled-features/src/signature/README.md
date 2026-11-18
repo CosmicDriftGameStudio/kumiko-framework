@@ -22,14 +22,15 @@ the `files` feature. Order of signatures is free.
 
 ## Options
 
-| Option             | Default                                      | Effect                                                                                                                                                                    |
-| ------------------ | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `retention`        | required                                     | `{ keepFor, unfinishedKeepFor? }`; keepFor counts from creation, `unfinishedKeepFor` is opt-in, see below                                                                 |
-| `hostEntities`     | required                                     | Entity names a request may belong to (`hostType`); registered entities without their own `parentRef`. A user sees a request only while its host row is readable to them   |
-| `linkSecret`       | required                                     | HMAC secret of the links; empty rejects every link                                                                                                                        |
-| `deliverLink`      | required                                     | `(ctx, delivery)`: sends the link to the signer (mail) inside `issue-link`'s transaction; `delivery.issuedBy` is the issuing user. The token is never in a handler result |
-| `signaturePageUrl` | required                                     | URL of the app's signature page; the token is appended as `#<token>`                                                                                                      |
-| `access`           | `{ roles: ["TenantAdmin", "TenantMember"] }` | `AccessRule` of the signed-in handlers, queries, screens and nav; set it when the app hands out other roles. Link handlers stay anonymous                                 |
+| Option             | Default                                      | Effect                                                                                                                                                                                             |
+| ------------------ | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `retention`        | required                                     | `{ keepFor, unfinishedKeepFor? }`; keepFor counts from creation, `unfinishedKeepFor` is opt-in, see below                                                                                          |
+| `hostEntities`     | required                                     | Entity names a request may belong to (`hostType`); registered entities without their own `parentRef`. A user sees a request only while its host row is readable to them                            |
+| `linkSecret`       | required                                     | HMAC secret of the links; empty rejects every link                                                                                                                                                 |
+| `deliverLink`      | required                                     | `(ctx, delivery)`: sends the link to the signer (mail) inside `issue-link`'s transaction; `delivery.issuedBy` is the issuing user. The token is never in a handler result                          |
+| `signaturePageUrl` | required                                     | URL of the app's signature page; the token is appended as `#<token>`                                                                                                                               |
+| `access`           | `{ roles: ["TenantAdmin", "TenantMember"] }` | `AccessRule` of the signed-in handlers, queries, screens and nav; set it when the app hands out other roles. Link handlers stay anonymous                                                          |
+| `legacyHostOf`     | none                                         | `({ subjectType, subjectId }, ctx)`: names the `{ hostType, hostId }` of requests stored before the host gate existed; `undefined` leaves them invisible. Applied on replay, events stay unchanged |
 
 Host gate: every request names a host row, `hostType` (one of `hostEntities`) and `hostId` in the
 `request` payload. `signatureRequest` declares a `parentRef` on it, so the list and detail filter in SQL

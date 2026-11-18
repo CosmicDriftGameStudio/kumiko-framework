@@ -1,5 +1,5 @@
 import type { AccessRule, HandlerContext, SessionUser } from "@cosmicdrift/kumiko-framework/engine";
-import type { RateLimitDeclaration } from "@cosmicdrift/kumiko-types/handlers";
+import type { EventUpcastCtx, RateLimitDeclaration } from "@cosmicdrift/kumiko-types/handlers";
 import type { SignatureRetention } from "./entity.ts";
 
 export type SignatureLinkDelivery = {
@@ -22,6 +22,13 @@ export type DeliverSignatureLink = (
   delivery: SignatureLinkDelivery,
 ) => Promise<void>;
 
+export type SignatureHost = { readonly hostType: string; readonly hostId: string };
+
+export type SignatureLegacyHostResolver = (
+  subject: { readonly subjectType: string; readonly subjectId: string },
+  ctx: EventUpcastCtx,
+) => SignatureHost | undefined | Promise<SignatureHost | undefined>;
+
 export type SignatureOptions = {
   /** keepFor: how long requests and signers are kept, counted from creation (hard delete). unfinishedKeepFor (optional, no default; without it nothing is anonymized): signers of declined, expired, failed or cancelled requests are anonymized this long after the request's last change. Both in data-retention keepFor syntax. */
   readonly retention: SignatureRetention;
@@ -35,6 +42,8 @@ export type SignatureOptions = {
   readonly access?: AccessRule;
   /** Entity names a request may belong to (`hostType`). A user sees and works on a request only while its host row is readable to them; the names must be registered entities without their own `parentRef`. */
   readonly hostEntities: readonly [string, ...string[]];
+  /** Names the host of a request stored before the host gate existed (no `hostType`/`hostId` in its created event); applied when events are replayed, the events stay unchanged. Returning `undefined` leaves the request invisible. */
+  readonly legacyHostOf?: SignatureLegacyHostResolver;
 };
 
 export const LINK_RATE_LIMIT: RateLimitDeclaration = {

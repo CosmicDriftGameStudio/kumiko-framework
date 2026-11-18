@@ -54,8 +54,12 @@ export function createSignatureFeature(opts: SignatureOptions): FeatureDefinitio
     computeCutoff(unfinishedKeepFor, Temporal.Instant.fromEpochMilliseconds(0));
   }
   const signedInAccess = opts.access ?? DEFAULT_SIGNATURE_ACCESS;
-  const requestEntity = createSignatureRequestEntity(opts.retention, opts.hostEntities);
-  const requestExecutor = createSignatureRequestExecutor(opts.hostEntities);
+  const requestEntity = createSignatureRequestEntity(
+    opts.retention,
+    opts.hostEntities,
+    opts.legacyHostOf,
+  );
+  const requestExecutor = createSignatureRequestExecutor(opts.hostEntities, opts.legacyHostOf);
   const signerEntity = createSignatureSignerEntity(opts.retention);
   const anonymous = createAnonymousLinkHandlers(LINK_RATE_LIMIT, opts.linkSecret);
   const link = createLinkInternalHandlers(opts.linkSecret, requestExecutor);

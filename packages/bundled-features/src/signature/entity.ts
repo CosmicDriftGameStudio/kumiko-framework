@@ -7,7 +7,9 @@ import {
   createTextField,
   createTimestampField,
 } from "@cosmicdrift/kumiko-framework/engine";
-import type { ParentRefDef } from "@cosmicdrift/kumiko-types/fields";
+import type { EntityEventMigration, ParentRefDef } from "@cosmicdrift/kumiko-types/fields";
+import type { SignatureLegacyHostResolver } from "./options.ts";
+import { createRequestHostUpcast } from "./request-host-upcast.ts";
 import {
   SIGNATURE_LEVEL,
   SIGNATURE_METHOD,
@@ -50,9 +52,12 @@ const SIGNER_PERSONAL = { personal: "self", find: "none" } as const;
 function buildSignatureRequestEntity(
   retention: Pick<SignatureRetention, "keepFor">,
   parentRef: ParentRefDef | undefined,
+  hostUpcast: EntityEventMigration,
 ) {
   return createEntity({
     table: "read_signature_requests",
+    eventVersion: 2,
+    eventMigrations: [hostUpcast],
     description:
       "A request to sign one PDF document by several people, on a display in person or through a link, tracked through open, all-signed, completed, declined, expired, failed and cancelled; the document is referenced by file id and hash and never changed.",
     retention: { keepFor: retention.keepFor, strategy: "hardDelete", reference: "createdAt" },
@@ -150,12 +155,17 @@ function buildSignatureRequestEntity(
 export function createSignatureRequestEntity(
   retention: Pick<SignatureRetention, "keepFor">,
   hostEntities: readonly string[],
+  legacyHostOf?: SignatureLegacyHostResolver,
 ) {
-  return buildSignatureRequestEntity(retention, {
-    entityTypeField: "hostType",
-    entityIdField: "hostId",
-    allowedTypes: hostEntities,
-  });
+  return buildSignatureRequestEntity(
+    retention,
+    {
+      entityTypeField: "hostType",
+      entityIdField: "hostId",
+      allowedTypes: hostEntities,
+    },
+    createRequestHostUpcast(legacyHostOf, hostEntities),
+  );
 }
 
 export function createSignatureSignerEntity(
@@ -222,6 +232,7 @@ export function createSignatureSignerEntity(
 export const signatureRequestEntity = buildSignatureRequestEntity(
   { keepFor: DEFAULT_SIGNATURE_RETENTION_KEEP_FOR },
   undefined,
+  createRequestHostUpcast(undefined, []),
 );
 export const signatureSignerEntity = createSignatureSignerEntity();
 
@@ -229,9 +240,16 @@ export const signatureSignerEntity = createSignatureSignerEntity();
 export const { executor: ungatedRequestExecutor, table: signatureRequestTable } =
   createEntityExecutor(signatureRequestEntity);
 
-export function createSignatureRequestExecutor(hostEntities: readonly string[]) {
+export function createSignatureRequestExecutor(
+  hostEntities: readonly string[],
+  legacyHostOf?: SignatureLegacyHostResolver,
+) {
   return createEntityExecutor(
-    createSignatureRequestEntity({ keepFor: DEFAULT_SIGNATURE_RETENTION_KEEP_FOR }, hostEntities),
+    createSignatureRequestEntity(
+      { keepFor: DEFAULT_SIGNATURE_RETENTION_KEEP_FOR },
+      hostEntities,
+      legacyHostOf,
+    ),
   ).executor;
 }
 
