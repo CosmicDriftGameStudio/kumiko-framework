@@ -29,13 +29,13 @@ describe("pageRows", () => {
     expect(idsOf(pageRows(rows, { limit: 50 }, options))).toEqual(["r2", "r5", "r1", "r4", "r3"]);
   });
 
-  test("keeps missing values last in descending order too", () => {
+  test("puts missing values first in descending order, like the server list", () => {
     expect(idsOf(pageRows(rows, { limit: 50, sortDirection: "desc" }, options))).toEqual([
+      "r3",
       "r4",
       "r1",
       "r5",
       "r2",
-      "r3",
     ]);
   });
 
@@ -43,7 +43,18 @@ describe("pageRows", () => {
     const asc = pageRows(rows, { limit: 50, sort: "score" }, options);
     expect(idsOf(asc)).toEqual(["r5", "r1", "r2", "r4", "r3"]);
     const desc = pageRows(rows, { limit: 50, sort: "score", sortDirection: "desc" }, options);
-    expect(idsOf(desc)).toEqual(["r4", "r1", "r2", "r5", "r3"]);
+    expect(idsOf(desc)).toEqual(["r3", "r4", "r1", "r2", "r5"]);
+  });
+
+  test("orders instant strings by time whatever their fraction digit count", () => {
+    type RunRow = { readonly id: string; readonly requestedAt: string };
+    const runs: readonly RunRow[] = [
+      { id: "a", requestedAt: "2026-03-01T10:00:00.5Z" },
+      { id: "b", requestedAt: "2026-03-01T10:00:00Z" },
+      { id: "c", requestedAt: "2026-03-01T10:00:00.25Z" },
+    ];
+    const page = pageRows(runs, { limit: 50 }, { searchFields: [], defaultSort: "requestedAt" });
+    expect(page.rows.map((row) => row.id)).toEqual(["b", "c", "a"]);
   });
 
   test("applies offset and limit and never returns a cursor", () => {

@@ -47,6 +47,7 @@ export {
   declaredSortNulls,
   evalFieldCondition,
   findUnavailableSelectOptions,
+  instantSortKey,
   isExtensionEditSection,
   isFieldsEditSection,
   isFormatSpec,

@@ -50,7 +50,7 @@ import type {
   Translate,
 } from "../headless/index.ts";
 import { buildRelatedListParentPayload } from "../hooks/related-list-parent-payload.ts";
-import { useRelatedListRows } from "../hooks/use-related-list-rows.ts";
+import { relatedListServerSort, useRelatedListRows } from "../hooks/use-related-list-rows.ts";
 import { useRelatedListState } from "../hooks/use-related-list-state.ts";
 import { useOptionalLocale, useTranslation } from "../i18n.tsx";
 import { PageHeaderSlotAvailableProvider } from "../page-header-slot.ts";
@@ -89,16 +89,20 @@ const RELATED_LIST_PSEUDO_ENTITY = "__related-list__";
 // relatedList section has no single Zod schema to derive it from. With a
 // declared `entity`, a column naming one of its fields takes that field's
 // definition, so RenderList formats it exactly like an entityList column;
-// only `sortable` stays per-column because the sort runs locally.
+// only `sortable` stays per-column. A reference the query cannot order by its
+// label never sorts: the client would only have its uuid to compare.
 function synthesizeRelatedListEntity(
   columns: EditRelatedListSectionViewModel["columns"],
   sourceEntity: EntityDefinition | undefined,
+  serverSortFields: readonly string[],
 ): Pick<EntityDefinition, "fields" | "derivedFields"> {
   const fields: Record<string, SynthesizedField> = {};
   for (const col of columns) {
     const normalized = normalizeListColumn(col);
-    const sortable = normalized.sortable === true;
     const sourceField = sourceEntity?.fields[normalized.field];
+    const sortable =
+      normalized.sortable === true &&
+      (sourceField?.type !== "reference" || serverSortFields.includes(normalized.field));
     fields[normalized.field] =
       sourceField === undefined
         ? valueTypeField(normalized.valueType, sortable)
@@ -296,8 +300,9 @@ export function RelatedListSection({
   const listFeatureName = sourceEntity !== undefined ? sourceTarget?.featureName : undefined;
   const listEntityName = sourceEntity !== undefined ? sourceTarget?.entityName : undefined;
   const entity = useMemo(
-    () => synthesizeRelatedListEntity(section.columns, sourceEntity),
-    [section.columns, sourceEntity],
+    () =>
+      synthesizeRelatedListEntity(section.columns, sourceEntity, section.serverSortFields ?? []),
+    [section.columns, sourceEntity, section.serverSortFields],
   );
   const listScreen = useMemo(
     (): EntityListScreenDefinition => ({
@@ -349,6 +354,7 @@ export function RelatedListSection({
     [resolvedFacetSpecs],
   );
 
+  const serverSort = relatedListServerSort(section, sort);
   const payload = useMemo(
     () => ({
       // Kept separate from `filterPayload` (user facets) below so a facet selection can never
@@ -363,6 +369,7 @@ export function RelatedListSection({
       // doesn't accept would 422 the whole section.
       ...(section.searchable === true && search !== "" && { search }),
       ...(section.facets !== undefined && filterPayload.length > 0 && { filters: filterPayload }),
+      ...(serverSort !== undefined && { sort: serverSort.field, sortDirection: serverSort.dir }),
     }),
     [
       section.parentFilter,
@@ -373,6 +380,7 @@ export function RelatedListSection({
       parentId,
       search,
       filterPayload,
+      serverSort,
     ],
   );
 
@@ -519,8 +527,7 @@ export function RelatedListSection({
       />
     ) : undefined;
 
-  // Without a cursor-driven pager the client-side sort covers only the fetched
-  // rows; the banner keeps it from claiming "these are the top N".
+  // The section has no pager; the banner says more rows exist than are shown.
   const content = listRows.firstLoad ? (
     <Banner padded variant="loading" testId="related-list-loading">
       {t("kumiko.widget.loading")}

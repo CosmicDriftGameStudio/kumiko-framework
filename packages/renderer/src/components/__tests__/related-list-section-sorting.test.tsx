@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { createDateField, createEntity } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createDateField,
+  createEntity,
+  createReferenceField,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { fireEvent, render, screen as rtlScreen, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { AppFeaturesProvider } from "../../app/app-features-context.tsx";
@@ -36,16 +40,16 @@ function testPrimitives(): CorePrimitives {
 
 function stubDispatcher(rows: readonly Record<string, unknown>[]): {
   dispatcher: Dispatcher;
-  queryCount: () => number;
+  queryPayloads: () => readonly unknown[];
 } {
-  let queryCalls = 0;
+  const payloads: unknown[] = [];
   const dispatcher: Dispatcher = createMockDispatcher({
-    query: async () => {
-      queryCalls += 1;
+    query: async (_type, payload) => {
+      payloads.push(payload);
       return { isSuccess: true, data: { rows, nextCursor: null } };
     },
   });
-  return { dispatcher, queryCount: () => queryCalls };
+  return { dispatcher, queryPayloads: () => payloads };
 }
 
 function stubNav(): { nav: NavApi } {
@@ -131,8 +135,8 @@ describe("RelatedListSection — sorting", () => {
     expect(renderedRowOrder()).toEqual(["r2", "r3", "r1"]);
   });
 
-  test("toggling sort via onSortChange re-orders rows without a refetch", async () => {
-    const { dispatcher, queryCount } = stubDispatcher(unsortedRows);
+  test("toggling sort on a column the query sorts reloads with the sort in the payload and keeps the server order", async () => {
+    const { dispatcher, queryPayloads } = stubDispatcher(unsortedRows);
     render(
       <LocaleProvider
         resolver={createStaticLocaleResolver({ locale: "en-US" })}
@@ -147,6 +151,7 @@ describe("RelatedListSection — sorting", () => {
                   title: "Positions",
                   query: "lease:query:items:list",
                   columns: [{ field: "amount", sortable: true }],
+                  serverSortFields: ["amount"],
                 }}
                 parentId="order-1"
                 record={{ id: "order-1" }}
@@ -159,12 +164,83 @@ describe("RelatedListSection — sorting", () => {
     );
 
     await waitFor(() => rtlScreen.getByTestId("row-r1"));
-    expect(renderedRowOrder()).toEqual(["r1", "r2", "r3"]);
+    expect(queryPayloads()).toHaveLength(1);
+    expect(queryPayloads()[0]).not.toHaveProperty("sort");
 
     fireEvent.click(rtlScreen.getByTestId("sort-amount-desc"));
 
-    await waitFor(() => expect(renderedRowOrder()).toEqual(["r1", "r3", "r2"]));
-    expect(queryCount()).toBe(1);
+    await waitFor(() =>
+      expect(queryPayloads().at(-1)).toMatchObject({ sort: "amount", sortDirection: "desc" }),
+    );
+    // The stub answers every page in one fixed order; the server's order is final.
+    expect(renderedRowOrder()).toEqual(["r1", "r2", "r3"]);
+  });
+
+  test("a defaultSort the query handles is sent with the first load", async () => {
+    const { dispatcher, queryPayloads } = stubDispatcher(unsortedRows);
+    render(
+      <LocaleProvider
+        resolver={createStaticLocaleResolver({ locale: "en-US" })}
+        fallbackBundles={[kumikoDefaultTranslations]}
+      >
+        <DispatcherProvider dispatcher={dispatcher}>
+          <PrimitivesProvider value={{ ...testPrimitives(), DataTable: orderedDataTable }}>
+            <NavProvider value={stubNav().nav}>
+              <RelatedListSection
+                section={{
+                  kind: "relatedList",
+                  title: "Positions",
+                  query: "lease:query:items:list",
+                  columns: [{ field: "amount", sortable: true }],
+                  defaultSort: { field: "amount", dir: "asc" },
+                  serverSortFields: ["amount", "insertedAt"],
+                  pageSize: 2,
+                }}
+                parentId="order-1"
+                record={{ id: "order-1" }}
+                featureName="orders"
+              />
+            </NavProvider>
+          </PrimitivesProvider>
+        </DispatcherProvider>
+      </LocaleProvider>,
+    );
+
+    await waitFor(() => rtlScreen.getByTestId("row-r1"));
+    expect(queryPayloads()[0]).toMatchObject({ limit: 2, sort: "amount", sortDirection: "asc" });
+    expect(renderedRowOrder()).toEqual(["r1", "r2", "r3"]);
+  });
+
+  test("without a sort, a query that sorts by insertedAt is asked for creation order", async () => {
+    const { dispatcher, queryPayloads } = stubDispatcher(unsortedRows);
+    render(
+      <LocaleProvider
+        resolver={createStaticLocaleResolver({ locale: "en-US" })}
+        fallbackBundles={[kumikoDefaultTranslations]}
+      >
+        <DispatcherProvider dispatcher={dispatcher}>
+          <PrimitivesProvider value={{ ...testPrimitives(), DataTable: orderedDataTable }}>
+            <NavProvider value={stubNav().nav}>
+              <RelatedListSection
+                section={{
+                  kind: "relatedList",
+                  title: "Positions",
+                  query: "lease:query:items:list",
+                  columns: [{ field: "amount", sortable: true }],
+                  serverSortFields: ["amount", "insertedAt"],
+                }}
+                parentId="order-1"
+                record={{ id: "order-1" }}
+                featureName="orders"
+              />
+            </NavProvider>
+          </PrimitivesProvider>
+        </DispatcherProvider>
+      </LocaleProvider>,
+    );
+
+    await waitFor(() => rtlScreen.getByTestId("row-r1"));
+    expect(queryPayloads()[0]).toMatchObject({ sort: "insertedAt", sortDirection: "asc" });
   });
 
   test("a section without defaultSort renders rows in the original query order (unchanged behavior)", async () => {
@@ -198,7 +274,7 @@ describe("RelatedListSection — sorting", () => {
     expect(renderedRowOrder()).toEqual(["r1", "r2", "r3"]);
   });
 
-  // One sort button per column and direction, wired to onSortChange like a header click.
+  // One sort button per sortable column and direction, wired to onSortChange like a header click.
   const sortButtonsDataTable: ComponentType<DataTableProps> = ({ rows, columns, onSortChange }) => (
     <div>
       <table>
@@ -209,7 +285,7 @@ describe("RelatedListSection — sorting", () => {
         </tbody>
       </table>
       {columns.flatMap((col) =>
-        (["asc", "desc"] as const).map((dir) => (
+        (col.sortable ? (["asc", "desc"] as const) : []).map((dir) => (
           <button
             key={`${col.field}-${dir}`}
             type="button"
@@ -225,7 +301,10 @@ describe("RelatedListSection — sorting", () => {
 
   function renderSortedRelatedList(
     rows: readonly Record<string, unknown>[],
-    section: Pick<EditRelatedListSectionViewModel, "columns" | "defaultSort" | "entity">,
+    section: Pick<
+      EditRelatedListSectionViewModel,
+      "columns" | "defaultSort" | "entity" | "serverSortFields"
+    >,
     features: readonly FeatureSchema[] = [],
   ): void {
     const { dispatcher } = stubDispatcher(rows);
@@ -426,5 +505,48 @@ describe("RelatedListSection — sorting", () => {
 
     await waitFor(() => rtlScreen.getByTestId("row-r1"));
     expect(renderedRowOrder()).toEqual(["r2", "r1"]);
+  });
+
+  test("a reference column the query cannot sort by its label offers no sort, so nothing orders by uuid", async () => {
+    const schema: FeatureSchema = {
+      featureName: "lease",
+      entities: {
+        item: createEntity({
+          name: "item",
+          table: "Items",
+          fields: {
+            contactId: createReferenceField({
+              entity: "contact",
+              personal: false,
+              reason: "test_fixture",
+            }),
+            dueDate: createDateField(),
+          },
+        }),
+      },
+      screens: [],
+    };
+    renderSortedRelatedList(
+      [
+        { id: "r1", contactId: "c9", dueDate: "2026-02-01" },
+        { id: "r2", contactId: "c1", dueDate: "2026-01-01" },
+      ],
+      {
+        entity: "lease:item",
+        columns: [
+          { field: "contactId", sortable: true },
+          { field: "dueDate", sortable: true },
+        ],
+        defaultSort: { field: "contactId", dir: "asc" },
+        serverSortFields: [],
+      },
+      [schema],
+    );
+
+    await waitFor(() => rtlScreen.getByTestId("row-r1"));
+    expect(rtlScreen.queryByTestId("sort-contactId-asc")).toBeNull();
+    expect(renderedRowOrder()).toEqual(["r1", "r2"]);
+    fireEvent.click(rtlScreen.getByTestId("sort-dueDate-asc"));
+    await waitFor(() => expect(renderedRowOrder()).toEqual(["r2", "r1"]));
   });
 });

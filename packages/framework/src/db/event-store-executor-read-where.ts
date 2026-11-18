@@ -1,3 +1,5 @@
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
+import { blindIndexFieldName } from "../crypto/blind-index.ts";
 import {
   buildOwnershipClause,
   normalizeAccessEntry,
@@ -64,9 +66,27 @@ export function createFieldReadClause(
   return (field) =>
     buildOwnershipClause(
       user,
-      normalizeAccessEntry(ctx.entity.fields[field]?.access?.read),
+      normalizeAccessEntry(
+        ctx.entity.fields[declaredFieldOfColumn(ctx.entity, field)]?.access?.read,
+      ),
       ctx.table,
     );
+}
+
+// Companion columns (<name>Currency, <name>Utc/<name>Tz, <name>Bidx) are table
+// keys without a field entry; they hold the declared field's value, so its read rule.
+function declaredFieldOfColumn(entity: EntityDefinition, column: string): string {
+  if (Object.hasOwn(entity.fields, column)) return column;
+  for (const [name, def] of Object.entries(entity.fields)) {
+    if (def.type === "money" && column === `${name}Currency`) return name;
+    if (def.type === "locatedTimestamp" && (column === `${name}Utc` || column === `${name}Tz`)) {
+      return name;
+    }
+    if (def.type === "text" && def.lookupable === true && column === blindIndexFieldName(name)) {
+      return name;
+    }
+  }
+  return column;
 }
 
 export type ListWhereBuild =

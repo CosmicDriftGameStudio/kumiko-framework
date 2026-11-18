@@ -6,6 +6,7 @@
 import type { CursorResult } from "@cosmicdrift/kumiko-types/cursor-types";
 import * as z from "zod";
 import { MAX_LIST_LIMIT } from "./entity-handlers.ts";
+import { instantSortKey, nullsSortFirst } from "./screen-helpers.ts";
 
 export type PagedListRowValue = string | number | boolean | null;
 
@@ -37,21 +38,27 @@ function isMissing(value: PagedListRowValue | undefined): value is null | undefi
   return value === null || value === undefined;
 }
 
-// Missing values sort last in both directions; numbers and booleans compare
-// by value, everything else as a locale-aware string.
+// Missing values sit where the SQL list puts them (nullsSortFirst); numbers and
+// booleans compare by value, instants by time, everything else as a locale-aware string.
 function compareRowValues(
   a: PagedListRowValue | undefined,
   b: PagedListRowValue | undefined,
   directionMultiplier: 1 | -1,
 ): number {
   if (isMissing(a) && isMissing(b)) return 0;
-  if (isMissing(a)) return 1;
-  if (isMissing(b)) return -1;
+  const missingFirst = nullsSortFirst(directionMultiplier === -1, undefined);
+  if (isMissing(a)) return missingFirst ? -1 : 1;
+  if (isMissing(b)) return missingFirst ? 1 : -1;
   if (typeof a === "number" && typeof b === "number") return (a - b) * directionMultiplier;
   if (typeof a === "boolean" && typeof b === "boolean") {
     return (Number(a) - Number(b)) * directionMultiplier;
   }
-  return String(a).localeCompare(String(b)) * directionMultiplier;
+  const aText = String(a);
+  const bText = String(b);
+  return (
+    (instantSortKey(aText) ?? aText).localeCompare(instantSortKey(bText) ?? bText) *
+    directionMultiplier
+  );
 }
 
 export function pageRows<

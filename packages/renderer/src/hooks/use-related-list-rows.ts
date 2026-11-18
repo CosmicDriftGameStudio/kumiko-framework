@@ -1,6 +1,7 @@
 import {
   declaredSortNulls,
   type EntityDefinition,
+  instantSortKey,
   normalizeListColumn,
   nullsSortFirst,
 } from "@cosmicdrift/kumiko-framework/ui-types";
@@ -23,14 +24,18 @@ type PagedRows = {
 
 const DEFAULT_GROUP_PAGE_SIZE = 50;
 
-const ISO_INSTANT_PATTERN = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,9}))?Z$/;
+const CREATION_ORDER: DataTableSort = { field: "insertedAt", dir: "asc" };
 
-// Instant.toString() drops trailing fraction zeros, so "…00.5Z" and "…00.25Z"
-// only compare by time once the fraction has a fixed width.
-function instantSortKey(value: string): string | undefined {
-  const match = ISO_INSTANT_PATTERN.exec(value);
-  if (match === null) return undefined;
-  return `${match[1]}.${(match[2] ?? "").padEnd(9, "0")}Z`;
+/** The sort the section's query applies itself: the active one when the query
+ *  orders by that column, else creation order where the query offers it, so
+ *  rows with random (v4) ids do not come back shuffled. */
+export function relatedListServerSort(
+  section: EditRelatedListSectionViewModel,
+  sort: DataTableSort | null,
+): DataTableSort | undefined {
+  const serverFields = section.serverSortFields ?? [];
+  if (sort !== null && serverFields.includes(sort.field)) return sort;
+  return serverFields.includes(CREATION_ORDER.field) ? CREATION_ORDER : undefined;
 }
 
 // Mirrors the server's column sort: money by its amount column alone, a
@@ -67,14 +72,15 @@ export type RelatedListRows = {
   readonly firstLoad: boolean;
   readonly error: ListAggregates["error"];
   readonly hasData: boolean;
-  /** The one-shot fetch stopped early, so the client-side sort covers part of the set. */
+  /** The one-shot fetch stopped early; the section has no pager for the rest. */
   readonly truncated: boolean;
   readonly aggregates: ListAggregates;
   readonly refetchSelfAndHost: () => Promise<void>;
 };
 
-/** Rows of a relatedList section: one fetch sorted on the client, or the loaded
- *  rows of its server groups in server order when `table.grouping` is active. */
+/** Rows of a relatedList section: one fetch in the query's order, sorted on the
+ *  client only for a column the query cannot order by, or the loaded rows of its
+ *  server groups in server order when `table.grouping` is active. */
 export function useRelatedListRows(args: {
   readonly section: EditRelatedListSectionViewModel;
   /** Field definitions of the section's columns; a declared `sortNulls` places empty values. */
@@ -125,14 +131,21 @@ export function useRelatedListRows(args: {
     }
     return accessors;
   }, [section.columns]);
+  // A column the query already ordered is not sorted again here: two rules for one order drift.
+  const clientSort =
+    sort !== null &&
+    section.serverSortFields?.includes(sort.field) !== true &&
+    propertyOf(fields[sort.field], "sortable") === true
+      ? sort
+      : null;
   const sortedRows = useMemo(
     () =>
-      sortByAccessor(rowsQuery.data?.rows ?? [], sort, sortAccessors, locale, {
+      sortByAccessor(rowsQuery.data?.rows ?? [], clientSort, sortAccessors, locale, {
         nullsFirst: (active) =>
           nullsSortFirst(active.dir === "desc", declaredSortNulls(fields[active.field])),
         tieBreaker: compareRowIds,
       }),
-    [rowsQuery.data, sort, sortAccessors, locale, fields],
+    [rowsQuery.data, clientSort, sortAccessors, locale, fields],
   );
 
   if (grouped) {

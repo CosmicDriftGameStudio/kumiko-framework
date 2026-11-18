@@ -95,3 +95,24 @@ type: fix
 title: Related lists sort money, located times and empty values like the standalone list
 detail: A relatedList sorts its loaded rows in the client. A money column (`{ amount, currency }`) now orders by its amount, like the server's column sort, which ignores the currency; before, every money value compared equal and the rows kept the server's id order. A `locatedTimestamp` column orders by its instant, and timestamps within one second order by their fraction whatever its digit count. Empty values sit where the standalone list puts them: last ascending, first descending, or where the field's `sortNulls` says. Rows with the same value follow the id, the standalone list's second key. `sortByAccessor` takes optional `nullsFirst` and `tieBreaker`; without them it behaves as before.
 -->
+
+<!-- kumiko-changes
+feature: renderer
+type: fix
+title: Related lists let their query sort, so the first page holds the right rows
+detail: buildAppSchema derives `serverSortFields` on every relatedList section and entityList `expandableRow` from the bound query: nothing without a `sort` param, the enum literals of a hand-written query, the fields the SQL sort of an `<entity>:list` query orders by for every caller (no locatedTimestamp, no encrypted field, no field or reference label with its own `access.read`, a reference only with `sortable: true` and a label), plus `insertedAt` where the query can order by it. An open `sort: z.string()` is trusted for the sortable columns, except a reference of the section's `entity` without such a label sort. A value written by the app is overwritten. The section sends `sort`/`sortDirection` for a `defaultSort` or header click on such a column and reloads, so a section with more rows than `pageSize` shows the smallest or largest values instead of sorting only the loaded page. Text columns sorted this way follow the database collation, like the standalone list, instead of the client's locale collation (numeric, case-insensitive): "W 10" now sorts before "W 2". Without a sort it asks for `insertedAt` ascending, so child rows with random (v4) ids come in creation order across commands; rows written in one transaction share `insertedAt` and keep id order among themselves. A column the query cannot order keeps the client sort over the loaded rows; a reference column the query cannot order by its label offers no sort at all, since the client only has its uuid. Apps that marked such a reference `sortable` in the section lose that header sort until the entity field gets `sortable: true` and a `labelField`.
+-->
+
+<!-- kumiko-changes
+feature: framework
+type: fix
+title: pageRows orders empty values and instants like the SQL list
+detail: `pageRows` puts missing values last ascending and first descending, like the server list (`nullsSortFirst`), and compares ISO instant strings by time whatever their fraction digit count (`instantSortKey`, now exported from `ui-types` and shared with the relatedList client sort). Lists that page through `pageRows` and sort descending by a nullable column now show the empty rows first: publicstatus sysadmin users (`globalRoles`, `locale`) and tenants (`customDomain`), and the bundled tenant-caps and readiness-run lists.
+-->
+
+<!-- kumiko-changes
+feature: framework
+type: fix
+title: Sorting and filtering by a companion column respect the field's read access
+detail: Money, located timestamps and lookupable text store companion columns (`<name>Currency`, `<name>Utc`, `<name>Tz`, `<name>Bidx`) that have no field entry of their own. A list `sort` or `filter` on such a column skipped the field-level read check, so a caller who could not read the field could learn its order, or which rows share a value, through it. These columns now carry the read rule of their field: the sort drops to id order, the filter matches nothing, as for the field itself.
+-->

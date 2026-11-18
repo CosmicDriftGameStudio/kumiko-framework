@@ -575,7 +575,8 @@ type EditRelatedListSection = EditSectionPresentation & {
   itemNoun?: string; // i18n key holding plural forms for the footer count ("1 Position", "3 Positionen").
   pageSize?: number;
   table?: ListTableOptions; // Opt-in table behaviour: remembered state, reset, column picker, density.
-  defaultSort?: ListSortSpec; // Initial sort on mount, applied client-side over the already-loaded rows (this section has no pager; if the fetch is truncated, `nextCursor !== null`, the section shows a hint banner that the sort covers only the loaded rows).
+  defaultSort?: ListSortSpec; // Initial sort on mount.
+  serverSortFields?: string[]; // Derived by buildAppSchema, never authored (an authored value is overwritten): the columns the bound query orders itself, from its Zod `sort` param (enum literals, or for an `<entity>:list` query the fields its SQL sort accepts for every caller, so no field with its own `access.read`), plus `insertedAt` when the query can order by creation time.
   searchable?: boolean; // Renders a search box whose debounced term rides along as `payload.search` on this section's own query.
   facets?: ListFacetSpec[]; // User-toggleable facet dropdowns — same explicit-label `ListFacetSpec` as `projectionList.facets` (a relatedList has no entity to derive filterable fields from).
   rowClick?: {

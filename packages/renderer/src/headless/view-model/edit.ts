@@ -240,6 +240,9 @@ function relatedListQueryProps(sectionSpec: EditRelatedListSection) {
     ...(sectionSpec.pageSize !== undefined && { pageSize: sectionSpec.pageSize }),
     ...(sectionSpec.table !== undefined && { table: sectionSpec.table }),
     ...(sectionSpec.defaultSort !== undefined && { defaultSort: sectionSpec.defaultSort }),
+    ...(sectionSpec.serverSortFields !== undefined && {
+      serverSortFields: sectionSpec.serverSortFields,
+    }),
     ...(sectionSpec.searchable !== undefined && { searchable: sectionSpec.searchable }),
     ...(sectionSpec.facets !== undefined && { facets: sectionSpec.facets }),
   };

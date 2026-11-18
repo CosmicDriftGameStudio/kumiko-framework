@@ -184,6 +184,16 @@ export function nullsSortFirst(descending: boolean, declared: SortNulls | undefi
   return declared === undefined ? descending : declared === "first";
 }
 
+const ISO_INSTANT_PATTERN = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,9}))?Z$/;
+
+/** Fixed-width text of an ISO instant, undefined for any other string. Instant.toString()
+ *  drops trailing fraction zeros, so "…00.5Z" and "…00.25Z" only compare by time this way. */
+export function instantSortKey(value: string): string | undefined {
+  const match = ISO_INSTANT_PATTERN.exec(value);
+  if (match === null) return undefined;
+  return `${match[1]}.${(match[2] ?? "").padEnd(9, "0")}Z`;
+}
+
 /** Evaluates a declarative FieldCondition against the current row/form
  *  values. THE single implementation — renderer (row-action visibility),
  *  headless view-model (visible/readOnly/required) and render-edit

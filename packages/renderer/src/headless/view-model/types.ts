@@ -595,6 +595,8 @@ export type EditRelatedListSectionViewModel = {
   readonly pageSize?: number;
   readonly table?: ListTableOptions;
   readonly defaultSort?: ListSortSpec;
+  /** From `EditRelatedListSection.serverSortFields` (derived by buildAppSchema). */
+  readonly serverSortFields?: readonly string[];
   readonly searchable?: boolean;
   readonly facets?: readonly ListFacetSpec[];
   readonly rowClick?: { readonly entity: string; readonly idColumn?: string };
