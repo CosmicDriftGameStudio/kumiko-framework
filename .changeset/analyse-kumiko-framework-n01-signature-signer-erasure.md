@@ -1,5 +1,5 @@
 ---
-"@cosmicdrift/kumiko-bundled-features": minor
+"@cosmicdrift/kumiko-bundled-features": patch
 ---
 
 Signers of declined, expired, failed or cancelled requests can be erased after a shorter retention when the app sets `retention.unfinishedKeepFor`, and an admin can forget a single signer.

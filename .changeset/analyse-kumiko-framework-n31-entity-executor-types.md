@@ -1,5 +1,5 @@
 ---
-"@cosmicdrift/kumiko-framework": minor
+"@cosmicdrift/kumiko-framework": patch
 ---
 
 `@cosmicdrift/kumiko-framework/db` exports `EntityRow` and `EntityExecutorOf`.

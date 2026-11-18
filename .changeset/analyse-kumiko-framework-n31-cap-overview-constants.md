@@ -1,5 +1,5 @@
 ---
-"@cosmicdrift/kumiko-bundled-features": minor
+"@cosmicdrift/kumiko-bundled-features": patch
 ---
 
 `@cosmicdrift/kumiko-bundled-features/cap-overview/constants` exports the cap-overview constants and the `caps:usage` contract for client code.

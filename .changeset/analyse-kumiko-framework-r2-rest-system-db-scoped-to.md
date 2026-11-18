@@ -1,6 +1,6 @@
 ---
-"@cosmicdrift/kumiko-framework": minor
-"@cosmicdrift/kumiko-types": minor
+"@cosmicdrift/kumiko-framework": patch
+"@cosmicdrift/kumiko-types": patch
 "@cosmicdrift/kumiko-bundled-features": patch
 ---
 

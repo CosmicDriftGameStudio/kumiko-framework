@@ -1,7 +1,7 @@
 ---
-"@cosmicdrift/kumiko-types": minor
-"@cosmicdrift/kumiko-framework": minor
-"@cosmicdrift/kumiko-renderer": minor
+"@cosmicdrift/kumiko-types": patch
+"@cosmicdrift/kumiko-framework": patch
+"@cosmicdrift/kumiko-renderer": patch
 ---
 
 Handler contracts type dispatch: `queryContract` and `writeContract` declare a handler's payload and result once, and dispatch on server and client infers both from it.
