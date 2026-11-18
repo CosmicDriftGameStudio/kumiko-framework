@@ -323,6 +323,7 @@ export type RegistryState = {
   secretNamespaceMap: Map<string, SecretNamespaceDefinition>;
   projectionMap: Map<string, ProjectionDefinition>;
   projectionsBySource: Map<string, ProjectionDefinition[]>;
+  entityProjectionsByExtensionSource: Map<string, ProjectionDefinition[]>;
   multiStreamProjectionMap: Map<string, MultiStreamProjectionDefinition>;
   multiStreamProjectionFeatureMap: Map<string, string>;
   storeTableMap: Map<string, StoreTableDef>;
@@ -394,6 +395,7 @@ export function createInitialState(): RegistryState {
     secretNamespaceMap: new Map(),
     projectionMap: new Map(),
     projectionsBySource: new Map(),
+    entityProjectionsByExtensionSource: new Map(),
     multiStreamProjectionMap: new Map(),
     multiStreamProjectionFeatureMap: new Map(),
     storeTableMap: new Map(),

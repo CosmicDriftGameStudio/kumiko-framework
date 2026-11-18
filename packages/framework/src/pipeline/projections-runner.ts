@@ -65,12 +65,15 @@ function liveProjectionsForEvent(event: StoredEvent, registry: Registry) {
     .filter((proj) => !proj.isImplicit && proj.apply[event.type] !== undefined);
 }
 
-// Only domain events: an auto-verb event is written to the row by the executor itself.
-function implicitEntityProjectionFor(event: StoredEvent, registry: Registry) {
-  if (parseAutoVerb(event, registry.getEntity(event.aggregateType)) !== null) return undefined;
-  return registry
+// The entity tables whose row version follows this stream, the same set a rebuild aligns. The
+// entity's own table only for domain events: the executor writes an auto-verb event to the row itself.
+function entityProjectionsVersionedBy(event: StoredEvent, registry: Registry) {
+  const extended = registry.getEntityProjectionsExtendedBy(event.aggregateType);
+  if (parseAutoVerb(event, registry.getEntity(event.aggregateType)) !== null) return extended;
+  const own = registry
     .getProjectionsForSource(event.aggregateType)
-    .find((proj) => proj.isImplicit === true);
+    .find((proj) => proj.isImplicit === true && proj.source === event.aggregateType);
+  return own === undefined ? extended : [own, ...extended];
 }
 
 export function hasLiveProjectionsForEvent(event: StoredEvent, registry: Registry): boolean {
@@ -86,8 +89,7 @@ export async function runProjectionsForEvent(
   if (projectedEvents.has(event)) return;
   // Inline projections write the event's own tenant, which differs from the caller's scope for system-actor events.
   await inEventStreamScope(event.tenantId, async () => {
-    const entityProjection = implicitEntityProjectionFor(event, registry);
-    if (entityProjection !== undefined) {
+    for (const entityProjection of entityProjectionsVersionedBy(event, registry)) {
       await applyStreamVersionToEntityRow(
         event,
         entityProjection.table,

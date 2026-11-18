@@ -604,6 +604,8 @@ export type Registry = {
   // Look up projections by source-entity name. Empty list when no projection
   // feeds off the entity — event-store-executor uses this as the hot-path.
   getProjectionsForSource(entityName: string): readonly ProjectionDefinition[];
+  // Entity projections that take this stream in through r.extendEntityProjection sources.
+  getEntityProjectionsExtendedBy(aggregateType: string): readonly ProjectionDefinition[];
   getAllProjections(): ReadonlyMap<string, ProjectionDefinition>;
 
   // All r.storeTable() registrations across all features, keyed by

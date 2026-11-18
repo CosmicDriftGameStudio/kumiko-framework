@@ -1627,6 +1627,7 @@ type Registry = {
   getAllNotifications(): ReadonlyMap<string, NotificationDefinition>;
   getAllReferenceData(): ReferenceDataDef[];
   getProjectionsForSource(entityName: string): ProjectionDefinition[];
+  getEntityProjectionsExtendedBy(aggregateType: string): ProjectionDefinition[];
   getAllProjections(): ReadonlyMap<string, ProjectionDefinition>;
   getAllStoreTables(): ReadonlyMap<string, StoreTableDef>;
   getAllMultiStreamProjections(): ReadonlyMap<string, MultiStreamProjectionDefinition>;

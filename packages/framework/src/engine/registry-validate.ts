@@ -293,11 +293,14 @@ export function buildImplicitProjections(
         );
       }
       state.projectionMap.set(def.name, def);
-      // Extension streams too: a domain event on one of them moves the row version live, as a rebuild does.
-      for (const source of [entityName, ...(def.extraSources ?? [])]) {
-        const existing = state.projectionsBySource.get(source) ?? [];
-        existing.push(def);
-        state.projectionsBySource.set(source, existing);
+      const existing = state.projectionsBySource.get(entityName) ?? [];
+      existing.push(def);
+      state.projectionsBySource.set(entityName, existing);
+      // Kept apart from projectionsBySource: callers of that index expect one entity projection per stream.
+      for (const extensionSource of def.extraSources ?? []) {
+        const extended = state.entityProjectionsByExtensionSource.get(extensionSource) ?? [];
+        extended.push(def);
+        state.entityProjectionsByExtensionSource.set(extensionSource, extended);
       }
     }
   }

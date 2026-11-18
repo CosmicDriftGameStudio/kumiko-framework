@@ -333,6 +333,10 @@ export function buildRegistryFacade(state: RegistryState): Registry {
       return state.projectionsBySource.get(entityName) ?? [];
     },
 
+    getEntityProjectionsExtendedBy(aggregateType: string): readonly ProjectionDefinition[] {
+      return state.entityProjectionsByExtensionSource.get(aggregateType) ?? [];
+    },
+
     getAllProjections(): ReadonlyMap<string, ProjectionDefinition> {
       return state.projectionMap;
     },
