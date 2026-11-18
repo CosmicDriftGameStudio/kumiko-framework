@@ -104,7 +104,7 @@ function buildUncheckedSystemDb(
     // Engine-forwarded steps carry their own declared reason; a caller-supplied one never reaches the audit trail.
     report("unsafe-raw", forwardedDeclaredStep ? reason : (gate?.grant?.reason ?? reason));
     const runner = unsafeRawScopedRunner(withoutExecutorManagedWrites(tenantDbRunner(db)));
-    return boundRunner(runner, personalDataGates.get(db), projectionRegistryOf(db), false);
+    return boundRunner(runner, personalDataGates.get(db), projectionRegistryOf(db), false, true);
   }
 
   const uncheckedSystemDb: UncheckedSystemDb = {

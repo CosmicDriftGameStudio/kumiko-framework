@@ -82,6 +82,11 @@ const assignableRolesAppFeature = defineFeature("invite-assignable-roles-app", (
   r.applyExtension({ name: EXT_ASSIGNABLE_ROLE, entity: "Auditor", assignableFrom: "TenantAdmin" });
 });
 
+// The claim echoes the minted session's tenant, so it proves the hook saw the invited tenant.
+const claimsProbeFeature = defineFeature("claims-probe", (r) => {
+  r.authClaims(async (user) => ({ tenant: user.tenantId }));
+});
+
 let stack: TestStack;
 let aliceId: string;
 let bobId: string;
@@ -123,6 +128,7 @@ beforeAll(async () => {
         invite: { tokenTtlMinutes: 60, appUrl: APP_ACCEPT_URL },
       }),
       assignableRolesAppFeature,
+      claimsProbeFeature,
     ],
     extraContext: (deps) => ({
       ...createDeliveryTestContext(deps),
@@ -672,6 +678,22 @@ describe("invite-accept-with-login (Branch 2: anon + existing email)", () => {
     }
   });
 
+  test("Bob accepts with login → JWT carries the app's auth claims for the invited tenant", async () => {
+    const token = await inviteEmail(BOB_EMAIL, "Editor");
+
+    const res = await stack.http.raw("POST", "/api/auth/invite-accept-with-login", {
+      token,
+      email: BOB_EMAIL,
+      password: BOB_PASSWORD,
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { token?: string };
+    if (!body.token) throw new Error("invite acceptance did not return a token");
+
+    const payload = await stack.jwt.verify(body.token);
+    expect(payload.claims).toEqual({ "claims-probe:tenant": TENANT_A_ID });
+  });
+
   test("Bob accepts with a timezone → JWT retains the timezone", async () => {
     await updateUserViaEventStore(stack.db, bobId, { timezone: "Europe/Berlin" });
     try {
@@ -787,6 +809,21 @@ describe("invite-signup-complete (Branch 3: anon + new email)", () => {
     expect(payload.locale).toBe("de-DE");
     const rows = await selectMany(stack.db, userTable, { email: "dora-locale@example.com" });
     expect(rows[0]?.["locale"]).toBe("de-DE");
+  });
+
+  test("Carol registers → the first JWT carries the app's auth claims for the invited tenant", async () => {
+    const token = await inviteEmail(CAROL_EMAIL, "Admin");
+
+    const res = await stack.http.raw("POST", "/api/auth/invite-signup-complete", {
+      token,
+      password: CAROL_PASSWORD,
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { token?: string };
+    if (!body.token) throw new Error("invite signup did not return a token");
+
+    const payload = await stack.jwt.verify(body.token);
+    expect(payload.claims).toEqual({ "claims-probe:tenant": TENANT_A_ID });
   });
 
   test("common password → 400 (schema rejects breach-list password)", async () => {

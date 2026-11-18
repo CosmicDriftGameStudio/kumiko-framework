@@ -28,7 +28,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { registrationLocaleFromRequest } from "../../shared/index.ts";
+import { mintAuthSession, registrationLocaleFromRequest } from "../../shared/index.ts";
 // kumiko-lint-ignore cross-feature-import reserved-role check owned by tenant-feature
 import {
   findForbiddenMembershipRole,
@@ -173,12 +173,12 @@ async function acceptInvitationAndCreateUser(
     return { isSuccess: true, data: mfaGate };
   }
 
-  const session: SessionUser = {
-    id: userId,
+  const session = await mintAuthSession(ctx, {
+    userId,
     tenantId: invitationTenantId,
     roles: mergedRoles,
-    ...registrationLocale,
-  };
+    locale: registrationLocale.locale,
+  });
 
   return {
     isSuccess: true,

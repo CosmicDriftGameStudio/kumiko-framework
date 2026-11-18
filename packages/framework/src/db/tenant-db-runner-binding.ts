@@ -34,13 +34,26 @@ export const personalDataGates = new WeakMap<TenantDb, PersonalDataGate>();
 // because there is exactly one per app.
 export const runnerPersonalDataGates = new WeakMap<DbRunner, PersonalDataGate>();
 
+// The public createTenantDb refuses these; every tx, savepoint and reserved connection derived
+// from an unsafeRaw runner carries the mark, so a callback cannot re-tenant one either.
+const unsafeRawRunners = new WeakSet<object>();
+
+export function isUnsafeRawRunner(runner: unknown): boolean {
+  return (
+    (typeof runner === "object" || typeof runner === "function") &&
+    runner !== null &&
+    unsafeRawRunners.has(runner)
+  );
+}
+
 export function boundRunner<TRunner extends DbRunner>(
   runner: TRunner,
   gate: PersonalDataGate | undefined,
   projectionRegistry: Registry | undefined,
   executorManagedWrites: boolean,
+  unsafeRaw = false,
 ): TRunner {
-  if (!gate && !projectionRegistry && !executorManagedWrites) return runner;
+  if (!gate && !projectionRegistry && !executorManagedWrites && !unsafeRaw) return runner;
   const proxy = new Proxy(runner, {
     // Tagged-template calls need the real driver object as `this`.
     apply(target, _thisArg, args) {
@@ -56,7 +69,7 @@ export function boundRunner<TRunner extends DbRunner>(
         // The driver hands back a raw connection; re-wrap it so the gate survives.
         return async (...args: unknown[]) => {
           const reserved: DbRunner = await Reflect.apply(value, target, args);
-          return boundRunner(reserved, gate, projectionRegistry, executorManagedWrites);
+          return boundRunner(reserved, gate, projectionRegistry, executorManagedWrites, unsafeRaw);
         };
       }
       if (
@@ -77,7 +90,7 @@ export function boundRunner<TRunner extends DbRunner>(
               // @cast-boundary db-runner — driver callback hands over the tx handle untyped
               const txRunner = tx as DbRunner;
               return callback(
-                boundRunner(txRunner, gate, projectionRegistry, executorManagedWrites),
+                boundRunner(txRunner, gate, projectionRegistry, executorManagedWrites, unsafeRaw),
               );
             },
           ];
@@ -88,6 +101,7 @@ export function boundRunner<TRunner extends DbRunner>(
     },
   });
   registerRunnerProxyTarget(proxy, runner);
+  if (unsafeRaw) unsafeRawRunners.add(proxy);
   if (gate) runnerPersonalDataGates.set(proxy, gate);
   if (projectionRegistry) bindProjectionRegistry(proxy, projectionRegistry);
   if (executorManagedWrites) {
@@ -135,6 +149,7 @@ export function withExecutorManagedWrites(runner: DbRunner): ExecutorManagedRunn
     runnerPersonalDataGates.get(runner),
     appProjectionRegistryOf(runner),
     true,
+    isUnsafeRawRunner(runner),
   );
   if (!hasExecutorManagedWriteCapability(capable)) {
     throw new InternalError({

@@ -7,7 +7,8 @@ import * as z from "zod";
 import { defineFeature, parseTenantId } from "../../engine/index.ts";
 import { UnprocessableError } from "../../errors/index.ts";
 import { TestUsers, testTenantId } from "../../seeding/seed-users.ts";
-import { createTenantDb, scopeTenantDbToTenant } from "../index.ts";
+import { createTenantDb, scopeTenantDbToTenant, transaction } from "../index.ts";
+import { runInSavepoint } from "../query.ts";
 
 const tenantPayload = z.object({ tenantId: z.string() });
 const anyUser = { openToAll: { reason: "test handler callable by any signed-in test user" } };
@@ -37,6 +38,38 @@ const pubdbFeature = defineFeature("pubdb", (r) => {
   });
 
   r.queryHandler({
+    name: "raw-transaction-retenant",
+    schema: tenantPayload,
+    access: anyUser,
+    escapeHatch: {
+      grants: ["unsafeRaw"],
+      reason: "test: a transaction opened on an unsafeRaw runner stays unsafeRaw",
+    },
+    handler: async ({ payload }, ctx) => {
+      await transaction(ctx.db.unsafeRawAllTenants(), async (tx) => {
+        createTenantDb({ db: tx, tenantId: tenantIdOrThrow(payload.tenantId) });
+      });
+      return { ok: true };
+    },
+  });
+
+  r.writeHandler({
+    name: "raw-savepoint-retenant",
+    schema: tenantPayload,
+    access: anyUser,
+    escapeHatch: {
+      grants: ["unsafeRaw"],
+      reason: "test: a savepoint opened on an unsafeRaw runner stays unsafeRaw",
+    },
+    handler: async ({ payload }, ctx) => {
+      await runInSavepoint(ctx.db.unsafeRawAllTenants(), async (sp) => {
+        createTenantDb({ db: sp, tenantId: tenantIdOrThrow(payload.tenantId) });
+      });
+      return { isSuccess: true as const, data: { ok: true } };
+    },
+  });
+
+  r.queryHandler({
     name: "scope-foreign",
     schema: tenantPayload,
     access: anyUser,
@@ -57,13 +90,35 @@ const pubdbFeature = defineFeature("pubdb", (r) => {
   });
 });
 
+const pubdbSystemFeature = defineFeature("pubdbsys", (r) => {
+  r.systemScope();
+  r.queryHandler({
+    name: "system-raw-retenant",
+    schema: tenantPayload,
+    access: anyUser,
+    handler: async ({ payload }, ctx) => {
+      if (!ctx.systemDb) throw new Error("systemScope handler without ctx.systemDb");
+      createTenantDb({
+        db: ctx.systemDb.unsafeRaw(
+          "test: public createTenantDb refuses a systemDb unsafeRaw runner",
+        ),
+        tenantId: tenantIdOrThrow(payload.tenantId),
+      });
+      return { ok: true };
+    },
+  });
+});
+
 let stack: TestStack;
 const admin = TestUsers.admin;
 const own = testTenantId(1);
 const other = testTenantId(2);
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [pubdbFeature], systemHooks: [] });
+  stack = await setupTestStack({
+    features: [pubdbFeature, pubdbSystemFeature],
+    systemHooks: [],
+  });
 });
 
 afterAll(async () => {
@@ -73,6 +128,33 @@ afterAll(async () => {
 describe("public tenant db", () => {
   test("public createTenantDb refuses a runner from unsafeRaw()", async () => {
     const error = await stack.http.queryErr("pubdb:query:raw-retenant", { tenantId: other }, admin);
+    expect(error.httpStatus).toBe(403);
+  });
+
+  test("public createTenantDb refuses a transaction opened on an unsafeRaw runner", async () => {
+    const error = await stack.http.queryErr(
+      "pubdb:query:raw-transaction-retenant",
+      { tenantId: other },
+      admin,
+    );
+    expect(error.httpStatus).toBe(403);
+  });
+
+  test("public createTenantDb refuses a savepoint opened on an unsafeRaw runner", async () => {
+    const error = await stack.http.writeErr(
+      "pubdb:write:raw-savepoint-retenant",
+      { tenantId: other },
+      admin,
+    );
+    expect(error.httpStatus).toBe(403);
+  });
+
+  test("public createTenantDb refuses a runner from ctx.systemDb.unsafeRaw()", async () => {
+    const error = await stack.http.queryErr(
+      "pubdbsys:query:system-raw-retenant",
+      { tenantId: other },
+      admin,
+    );
     expect(error.httpStatus).toBe(403);
   });
 

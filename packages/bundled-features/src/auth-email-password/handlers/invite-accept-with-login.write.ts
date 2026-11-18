@@ -28,7 +28,7 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { sessionLocaleField, sessionTimezoneField } from "../../shared/index.ts";
+import { mintAuthSession } from "../../shared/index.ts";
 // kumiko-lint-ignore cross-feature-import membership grant for a privileged cross-tenant add
 import { grantInvitedMembershipRole } from "../../tenant/invited-membership.ts";
 // kumiko-lint-ignore cross-feature-import global roles granted on invite accept live on the user row
@@ -204,13 +204,13 @@ export function createInviteAcceptWithLoginHandler(opts: InviteAcceptWithLoginOp
 
           // SessionUser for the JWT mint in the invited tenant. Roles =
           // mergedRoles (Admin/Editor/User depending on the invite).
-          const session: SessionUser = {
-            id: userId,
+          const session = await mintAuthSession(ctx, {
+            userId,
             tenantId: invitation.tenantId,
             roles: mergedRoles,
-            ...sessionTimezoneField(userRow.timezone),
-            ...sessionLocaleField(userRow.locale),
-          };
+            timezone: userRow.timezone,
+            locale: userRow.locale,
+          });
 
           return {
             isSuccess: true,

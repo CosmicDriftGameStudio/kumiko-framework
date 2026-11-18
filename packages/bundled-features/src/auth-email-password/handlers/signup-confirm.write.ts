@@ -38,6 +38,7 @@ import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
 import {
   findSignupHandoverProvider,
+  mintAuthSession,
   registrationLocaleFromRequest,
   SIGNUP_HANDOVER_BENIGN_CLAIM_REJECTION_CODE,
   type SignupHandoverBinding,
@@ -215,12 +216,12 @@ export function createSignupConfirmHandler(opts: SignupConfirmOptions = {}) {
         // so the database write (provisionSignupAccount) and session claim share
         // one source; otherwise two hardcoded "TenantAdmin" values could drift
         // during a refactor and create a role mismatch between the DB and JWT.
-        const session: SessionUser = {
-          id: provisioned.userId,
+        const session = await mintAuthSession(ctx, {
+          userId: provisioned.userId,
           tenantId: provisioned.tenantId,
           roles: [...INITIAL_SIGNUP_ROLES],
-          ...registrationLocale,
-        };
+          locale: registrationLocale.locale,
+        });
 
         // Claim BEFORE spending the signup token or the binding below and
         // before `committed` flips: if the claim throws, the `finally` still

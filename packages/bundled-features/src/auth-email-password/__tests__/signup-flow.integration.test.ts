@@ -100,6 +100,11 @@ const tenantMembershipHookVendorFeature = defineFeature(
   },
 );
 
+// The claim echoes the minted session's tenant, so it proves the hook saw the new account.
+const claimsProbeFeature = defineFeature("claims-probe", (r) => {
+  r.authClaims(async (user) => ({ tenant: user.tenantId }));
+});
+
 const APP_ACTIVATION_URL = "https://app.example.com/signup/complete";
 
 registerMailTranslations("de", localeDeBundle);
@@ -136,6 +141,7 @@ beforeAll(async () => {
       }),
       userHookVendorFeature,
       tenantMembershipHookVendorFeature,
+      claimsProbeFeature,
     ],
     extraContext: (deps) => ({
       ...createDeliveryTestContext(deps),
@@ -403,6 +409,18 @@ describe("POST /api/auth/signup-confirm", () => {
     expect(payload.locale).toBe("de-DE");
     const rows = await selectMany(stack.db, userTable, { email });
     expect(rows[0]?.["locale"]).toBe("de-DE");
+  });
+
+  test("the first JWT carries the app's auth claims for the new tenant", async () => {
+    const token = await requestSignup("claims@example.com");
+
+    const res = await postSignupConfirm(token, "fresh-secure-pw-1234");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { token: string };
+
+    const payload = await stack.jwt.verify(body.token);
+    expect(payload.tenantId).toBeTruthy();
+    expect(payload.claims).toEqual({ "claims-probe:tenant": payload.tenantId });
   });
 
   test("a confirm request without a locale signal leaves the locale unset", async () => {

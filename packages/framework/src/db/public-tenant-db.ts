@@ -7,8 +7,8 @@ import {
   type CreateTenantDbOptions,
   createTenantDb as createTenantDbInAnyMode,
   type ExecutorManagedTenantDb,
-  isUnsafeRawRunner,
 } from "./tenant-db.ts";
+import { isUnsafeRawRunner } from "./tenant-db-runner-binding.ts";
 
 // System mode and grants stay framework-internal (internal/row-level-security); the public
 // handle is always pinned to one tenant, and declared cross-tenant access goes through
