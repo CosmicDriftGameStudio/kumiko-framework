@@ -44,4 +44,20 @@ describe("runMigrations lock_timeout", () => {
     );
     expect(tracked).toEqual([]);
   });
+
+  test.each([0, 0.5, -1, Number.NaN, Number.POSITIVE_INFINITY])(
+    "lockTimeoutMs %p is refused before any migration runs",
+    async (lockTimeoutMs) => {
+      const error = await runMigrations(
+        testDb.db,
+        [{ id: "0002_never_applied", checksum: "lock-timeout-0002", statements: ["SELECT 1"] }],
+        { lockTimeoutMs },
+      ).catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(RangeError);
+      const tracked = await asRawClient(testDb.db).unsafe(
+        `SELECT 1 FROM "_kumiko_migrations" WHERE id = '0002_never_applied'`,
+      );
+      expect(tracked).toEqual([]);
+    },
+  );
 });

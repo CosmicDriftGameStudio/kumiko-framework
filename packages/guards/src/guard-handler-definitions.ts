@@ -209,6 +209,7 @@ Root-level \`<name>.write.ts\` / \`<name>.query.ts\` move with \`bun kumiko code
 
 export const guard: AstGuard = {
   name: "Handler Definitions",
+  ignoreTag: IGNORE_TAG,
   scan: SCAN,
   hint: 'after a deliberate change: `kumiko-guards guards --write-baseline --guard="Handler Definitions"`',
   run: (files, roots = resolveRepoRoots()) => {

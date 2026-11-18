@@ -36,7 +36,8 @@ export function registerTenantCreatedSeedHook(
       const tenantId = parseTenantId(result.data["id"]);
       // skip: defensive guard; the tenant entity always has a uuid id.
       if (tenantId === null) return;
-      // Event-store paths need the raw connection; TenantDb has no execute.
+      // A TenantDb bound to the new tenant can only be built from the raw runner: tenant:create
+      // runs in the creator's tenant and systemDb.scopedTo() refuses any other tenant.
       // Self-signup fires this from auth-email-password, which is not r.systemScope(), so there
       // is no systemDb; seedTenant has already pinned ctx.db to the new tenant in system mode.
       const rawDb = ctx.systemDb ? ctx.systemDb.unsafeRaw(options.reason) : ctx.db.unsafeRaw();

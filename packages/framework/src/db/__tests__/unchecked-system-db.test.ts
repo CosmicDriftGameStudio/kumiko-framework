@@ -450,3 +450,11 @@ describe("createUncheckedSystemDb", () => {
     });
   });
 });
+
+describe("createTenantDb in system mode", () => {
+  test.each(["", "  ", "todo", "Legacy."])("refuses the placeholder reason %p", (reason) => {
+    expect(() =>
+      createTenantDb({ db: unusedRunner(), tenantId: own, mode: "system", reason }),
+    ).toThrow();
+  });
+});

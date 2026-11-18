@@ -317,6 +317,12 @@ export async function runMigrations(
   options: RunMigrationsOptions = {},
 ): Promise<ApplyResult> {
   const lockTimeoutMs = options.lockTimeoutMs ?? DEFAULT_MIGRATION_LOCK_TIMEOUT_MS;
+  // lock_timeout 0 means "wait forever" in Postgres, the opposite of a bound.
+  if (!Number.isFinite(lockTimeoutMs) || lockTimeoutMs < 1) {
+    throw new RangeError(
+      `runMigrations: lockTimeoutMs must be a finite number of at least 1, got ${lockTimeoutMs}`,
+    );
+  }
   // Session-level advisory lock and per-migration BEGIN/COMMIT must share one
   // session. Pool calls may land on different connections (the pool round-robins),
   // which would leave the lock held on a session nobody unlocks.

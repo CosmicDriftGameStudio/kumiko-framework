@@ -171,6 +171,7 @@ const REMEDIATION =
 
 export const guard: AstGuard = {
   name: "Feature Import Cycles",
+  ignoreTag: IGNORE_TAG,
   scan: SCAN,
   hint: 'after a deliberate change: `kumiko-guards guards --write-baseline --guard="Feature Import Cycles"`',
   run: (files, roots = resolveRepoRoots()) => ({

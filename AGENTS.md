@@ -65,7 +65,7 @@ The full list (17 packages; the five former shims were removed in 0.379.0) is in
 | --- | --- |
 | Boot validation plus guards, step list only | `bun kumiko check --explain` |
 | All guards | `bun packages/guards/src/run-guards.ts` |
-| Unit tests (runs the integration-test guard first) | `bun run test` |
+| Unit tests | `bun run test` |
 | Integration tests (needs `docker compose up -d`) | `bun run test:integration` |
 | DOM tests | `bun run test:dom` |
 | E2E | no root script; `bunx playwright test --config=<dir>/playwright.config.ts`, suites listed in `.github/workflows/ci.yml` |
