@@ -485,9 +485,10 @@ export function isPlainPrimaryClick(event: MouseEvent): boolean {
   return event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
 }
 
-// A download never navigates, so blob and inline image URLs are safe there.
+// A download never navigates, so blob and inline image URLs are safe there. text/calendar is
+// matched as the exact media type: browsers never execute it, a look-alike subtype could be.
 function isSafeDownloadHref(href: string): boolean {
-  return isSafeHref(href) || /^(?:blob:|data:image\/)/i.test(href.trim());
+  return isSafeHref(href) || /^(?:blob:|data:image\/|data:text\/calendar[;,])/i.test(href.trim());
 }
 
 export function DefaultLink({

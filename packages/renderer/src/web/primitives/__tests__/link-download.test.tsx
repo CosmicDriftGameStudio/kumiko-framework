@@ -28,6 +28,38 @@ describe("DefaultLink download", () => {
     }
   });
 
+  test("allows data:text/calendar hrefs with and without parameters", () => {
+    for (const href of [
+      "data:text/calendar,BEGIN%3AVCALENDAR",
+      "data:text/calendar;charset=utf-8,BEGIN%3AVCALENDAR",
+    ]) {
+      const view = render(
+        <Link download="event.ics" href={href} testId="link">
+          Save
+        </Link>,
+      );
+      expect(screen.getByTestId("link").getAttribute("href")).toBe(href);
+      view.unmount();
+    }
+  });
+
+  test("blocks other data: types and calendar look-alikes", () => {
+    for (const href of [
+      "data:text/html,<p>x</p>",
+      "data:text/calendar-x,BEGIN",
+      "data:text/calendarx;charset=utf-8,BEGIN",
+      "data:text/calendar+html,BEGIN",
+    ]) {
+      const view = render(
+        <Link download="event.ics" href={href} testId="link">
+          Save
+        </Link>,
+      );
+      expect(screen.getByTestId("link").getAttribute("href")).toBe("#");
+      view.unmount();
+    }
+  });
+
   test("still blocks javascript: hrefs", () => {
     const scheme = "javascript";
     render(

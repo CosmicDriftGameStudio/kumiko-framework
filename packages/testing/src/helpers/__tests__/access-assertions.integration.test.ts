@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import * as z from "zod";
 import { setupTestStack, type TestStack } from "../../stack/test-stack.ts";
