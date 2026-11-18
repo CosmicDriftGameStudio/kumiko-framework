@@ -44,6 +44,12 @@
 // finding this guard needs to see, but can also be a known, reviewed
 // exception (e.g. samples/recipes are worked examples, not the framework's
 // own production surface — one exception is currently frozen here).
+// Client code importing a server entry point of an installed Kumiko package
+// (`@cosmicdrift/kumiko-framework/engine` instead of `/ui-types`) is judged by
+// the package's own markers and reported with the import chain and the
+// client-safe entry to use. Those findings bypass the baseline: such a bundle
+// does not start in the browser, there is nothing to freeze.
+//
 // Exceptions are tracked via a per-repo baseline file
 // (`.kumiko-runtime-isolation-baseline.json`, same `baselineRatchet`
 // mechanism as check-complexity/etc.), not a
@@ -67,12 +73,14 @@ import { frameworkTsConfigPath, type RepoRoot, resolveRepoRoots } from "./_lib/r
 import { keepsRootKind, type ScanSpec, scanFiles } from "./_lib/scan-scope";
 import {
   classify,
+  clientImportChain,
   computeClientReachablePaths,
   createDirectiveClassifier,
   findRuntimeIsolationViolations,
   isClientEntryPath,
   type Runtime,
   readDeclaredClientEntries,
+  type ServerEntryImport,
 } from "./runtime-isolation-classify";
 
 const SCAN: ScanSpec = { scope: "source", extensions: ["ts", "tsx"] };
@@ -90,6 +98,20 @@ function printViolation(v: RawViolation, root: string): void {
   const fileRel = path.relative(root, v.file);
   console.log(`  ${fileRel}:${v.line}`);
   console.log(`    [${v.fileRuntime}] imports [${v.importedRuntime}] "${v.importedSpec}"`);
+}
+
+function serverEntryViolation(
+  v: ServerEntryImport,
+  root: string,
+  reachedFrom: ReadonlyMap<string, string>,
+): GuardViolation {
+  const chain = clientImportChain(v.file, reachedFrom).map((file) => path.relative(root, file));
+  return {
+    file: path.relative(root, v.file),
+    line: v.line,
+    message: `browser code imports the [${v.importedRuntime}] entry "${v.importedSpec}", which pulls server code into the client bundle. Import chain: ${chain.join(" -> ")}. Fix: ${v.replacement}`,
+    neverFrozen: true,
+  };
 }
 
 function violationKey(rootAbsPath: string, v: RawViolation): string {
@@ -119,6 +141,7 @@ function ratchetFor(rootAbsPath: string) {
 function scanRoot(root: RepoRoot): {
   allViolations: readonly RawViolation[];
   outsideRoot: readonly string[];
+  serverEntryViolations: readonly GuardViolation[];
   scannedFiles: number;
 } {
   const tsConfigFilePath = frameworkTsConfigPath();
@@ -146,15 +169,25 @@ function scanRoot(root: RepoRoot): {
   const declaredClientEntries = readDeclaredClientEntries(root.absPath);
   const workspaceCache = new Map<string, Runtime | null>();
   const directiveOf = createDirectiveClassifier();
-  const clientReachable = computeClientReachablePaths(scannedFiles, (sf) => {
-    const rel = path.relative(root.absPath, sf.getFilePath());
-    if (isClientEntryPath(rel, declaredClientEntries)) return true;
-    return (
-      classify(sf.getFilePath(), root.absPath, workspaceCache, undefined, directiveOf) === "client"
-    );
-  });
+  const reachedFrom = new Map<string, string>();
+  const clientReachable = computeClientReachablePaths(
+    scannedFiles,
+    (sf) => {
+      const rel = path.relative(root.absPath, sf.getFilePath());
+      if (isClientEntryPath(rel, declaredClientEntries)) return true;
+      return (
+        classify(sf.getFilePath(), root.absPath, workspaceCache, undefined, directiveOf) ===
+        "client"
+      );
+    },
+    reachedFrom,
+  );
 
-  const { violations: allViolations, outsideRoot } = findRuntimeIsolationViolations(
+  const {
+    violations: allViolations,
+    outsideRoot,
+    serverEntryImports,
+  } = findRuntimeIsolationViolations(
     scannedFiles,
     root.absPath,
     workspaceCache,
@@ -162,7 +195,10 @@ function scanRoot(root: RepoRoot): {
     directiveOf,
   );
 
-  return { allViolations, outsideRoot, scannedFiles: scannedFiles.length };
+  const serverEntryViolations = serverEntryImports.map((v) =>
+    serverEntryViolation(v, root.absPath, reachedFrom),
+  );
+  return { allViolations, outsideRoot, serverEntryViolations, scannedFiles: scannedFiles.length };
 }
 
 export const check: RepoCheck = {
@@ -182,7 +218,7 @@ export const check: RepoCheck = {
     }
     const rootAbsPath = root.absPath;
 
-    const { allViolations, outsideRoot, scannedFiles } = scanRoot(root);
+    const { allViolations, outsideRoot, serverEntryViolations, scannedFiles } = scanRoot(root);
     for (const v of allViolations) printViolation(v, rootAbsPath);
 
     const counts = countByKey(rootAbsPath, allViolations);
@@ -212,7 +248,11 @@ export const check: RepoCheck = {
       );
     }
 
-    return { violations, matchedFiles: scannedFiles, notApplicable: false };
+    return {
+      violations: [...violations, ...serverEntryViolations],
+      matchedFiles: scannedFiles,
+      notApplicable: false,
+    };
   },
 };
 

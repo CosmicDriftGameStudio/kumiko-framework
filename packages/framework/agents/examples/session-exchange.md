@@ -59,7 +59,6 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/config";
 import {
   createTenantFeature,
-  tenantEntity,
   tenantMembershipsTable,
 } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { seedTenantMembership } from "@cosmicdrift/kumiko-bundled-features/tenant/seeding";
@@ -67,7 +66,6 @@ import {
   createUserFeature,
   USER_STATUS,
   UserHandlers,
-  userEntity,
 } from "@cosmicdrift/kumiko-bundled-features/user";
 import { updateUserViaEventStore } from "@cosmicdrift/kumiko-bundled-features/user/testing";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
@@ -75,7 +73,6 @@ import { TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import {
@@ -106,8 +103,6 @@ beforeAll(async () => {
     },
   });
 
-  await unsafeCreateEntityTable(stack.db, userEntity);
-  await unsafeCreateEntityTable(stack.db, tenantEntity);
   await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
 
   await createMember(EMAIL, { verified: true });

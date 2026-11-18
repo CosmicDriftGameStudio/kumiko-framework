@@ -12,7 +12,7 @@ import {
 import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { decryptStoredPii } from "../../shared/index.ts";
+import { decryptStoredPii, resolveHandlerMailLocale } from "../../shared/index.ts";
 import { tenantMembershipsTable } from "../../tenant/index.ts";
 import { USER_STATUS, userTable } from "../../user/index.ts";
 import { signDeletionCancelToken } from "../deletion-token.ts";
@@ -216,8 +216,11 @@ export async function sendDeletionRequestedNotification(
 ): Promise<void> {
   const send =
     opts.sendDeletionRequestedEmail ??
-    (ctx.notify !== undefined && isGdprMailDeliveryAvailable(ctx.registry)
-      ? makeDefaultDeletionRequestedEmail(ctx.notify, opts.mailDefaults)
+    (ctx.notify !== undefined && opts.mailDefaults && isGdprMailDeliveryAvailable(ctx.registry)
+      ? makeDefaultDeletionRequestedEmail(ctx.notify, {
+          ...opts.mailDefaults,
+          locale: resolveHandlerMailLocale(ctx, opts.mailDefaults.locale),
+        })
       : undefined);
   if (!send || args.userEmail.length === 0) return;
 

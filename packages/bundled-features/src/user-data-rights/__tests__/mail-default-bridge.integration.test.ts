@@ -89,7 +89,7 @@ beforeAll(async () => {
       createMailTransportInMemoryFeature(),
       ...authMailRendererFeatures(),
       // KEINE send*Email-Opts — die mail-foundation-Defaults muessen greifen.
-      createUserDataRightsFeature(),
+      createUserDataRightsFeature({ mailDefaults: { appName: "Acme" } }),
       localeDe(),
       createUserDataRightsDefaultsFeature(),
     ],

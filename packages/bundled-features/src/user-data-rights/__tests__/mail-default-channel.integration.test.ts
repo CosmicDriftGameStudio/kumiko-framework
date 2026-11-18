@@ -87,7 +87,7 @@ beforeAll(async () => {
         tenantTransport: tenantMailTransport,
         resolveEmail: async () => null,
       }),
-      createUserDataRightsFeature(),
+      createUserDataRightsFeature({ mailDefaults: { appName: "Acme" } }),
       localeDe(),
       createUserDataRightsDefaultsFeature(),
     ],

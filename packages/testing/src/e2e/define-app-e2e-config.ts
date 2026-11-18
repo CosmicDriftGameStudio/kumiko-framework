@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
-import { availableParallelism } from "node:os";
+import { availableParallelism, cpus } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseEnv } from "node:util";
@@ -185,17 +185,33 @@ function patternList(
   return typeof patterns === "string" || patterns instanceof RegExp ? [patterns] : [...patterns];
 }
 
+function isPositiveInteger(value: number): boolean {
+  return Number.isInteger(value) && value > 0;
+}
+
+// Under Bun, availableParallelism() reads globalThis.navigator; a library that replaces it
+// (pdfjs did) turns the result into NaN, and Playwright then hangs on "NaN workers".
+function usableCpuCount(cpuCount: number, fallbackCpuCount: () => number): number {
+  if (isPositiveInteger(cpuCount)) return cpuCount;
+  const fallback = fallbackCpuCount();
+  if (isPositiveInteger(fallback)) return fallback;
+  throw new Error(
+    `defineAppE2eConfig: cannot determine the CPU count (availableParallelism() returned ${cpuCount}, os.cpus().length ${fallback}); set ${E2E_WORKERS_ENV} to a positive integer`,
+  );
+}
+
 export function resolveE2eWorkers(
   env: Readonly<Record<string, string | undefined>> = process.env,
   // cpus() reports every host core inside a CPU-limited container (1.5 CPU CI
   // pods got 4 workers); availableParallelism() honours the cgroup quota.
   cpuCount: number = availableParallelism(),
+  fallbackCpuCount: () => number = () => cpus().length,
 ): number {
   const override = env[E2E_WORKERS_ENV];
   if (override === undefined || override === "") {
     // 1.5 CPU CI pod, publicstatus 59 tests: 1/2/4 workers = 2.6/2.6/2.7 min;
     // saturated at 1.
-    return Math.max(1, Math.min(4, Math.floor(cpuCount / 2)));
+    return Math.max(1, Math.min(4, Math.floor(usableCpuCount(cpuCount, fallbackCpuCount) / 2)));
   }
   const workers = Number(override);
   if (!Number.isInteger(workers) || workers < 1) {

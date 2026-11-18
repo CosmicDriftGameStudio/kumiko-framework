@@ -20,6 +20,7 @@ type FieldRow = {
   type: string;
   required: boolean;
   displayOrder: number;
+  serializedField?: string;
 };
 
 const dispatchSpy = mock(async () => ({ isSuccess: true, data: undefined }));
@@ -410,5 +411,46 @@ describe("CustomFieldsFormSection — composed mode", () => {
     // The inputs remain available, but composed mode omits the standalone Save button because
     // the main form provides the Save action.
     expect(screen.queryByTestId("custom-fields-form-save")).toBeNull();
+  });
+
+  test("money field shows the stored minor units as an amount and writes minor units with its currency", async () => {
+    const user = userEvent.setup();
+    mockedQueryRows = [
+      {
+        id: "f1",
+        entityName: "component",
+        fieldKey: "budget",
+        type: "money",
+        required: false,
+        displayOrder: 1,
+        serializedField: JSON.stringify({ type: "money", currency: "GBP" }),
+      },
+    ];
+    dispatchSpy.mockClear();
+
+    render(
+      <Wrapper>
+        <CustomFieldsFormSection
+          entityName="component"
+          entityId="row-42"
+          initialValues={{ budget: { amount: 1250, currency: "GBP" } }}
+        />
+      </Wrapper>,
+    );
+
+    const budgetInput = document.getElementById("custom-field-budget") as HTMLInputElement;
+    expect(budgetInput.value).toBe("12.50");
+
+    await user.clear(budgetInput);
+    await user.type(budgetInput, "99.95");
+    await user.tab();
+    await user.click(screen.getByTestId("custom-fields-form-save"));
+    await waitFor(() => expect(dispatchSpy).toHaveBeenCalledTimes(1));
+    expect(dispatchSpy).toHaveBeenCalledWith("custom-fields:write:set-custom-field", {
+      entityName: "component",
+      entityId: "row-42",
+      fieldKey: "budget",
+      value: { amount: 9995, currency: "GBP" },
+    });
   });
 });

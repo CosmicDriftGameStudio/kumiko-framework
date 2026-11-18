@@ -304,7 +304,7 @@ export const APP_FEATURES = [
     tenant: { file: "index.html" },
   }),
   createDataRetentionFeature(),
-  createUserDataRightsFeature(),
+  createUserDataRightsFeature({ mailDefaults: { appName: "Use All Bundled" } }),
   createUserDataRightsDefaultsFeature(),
   createUserProfileFeature(),
 

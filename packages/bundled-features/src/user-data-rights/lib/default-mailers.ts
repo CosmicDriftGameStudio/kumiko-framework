@@ -21,7 +21,7 @@ import type {
   Registry,
   TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { hasMailTranslations, mailT } from "@cosmicdrift/kumiko-framework/i18n";
+import { hasMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import {
   buildChannelContext,
@@ -43,7 +43,7 @@ import type { SendDeletionExecutedEmailFn } from "../run-forget-cleanup.ts";
 
 export type GdprMailDefaults = {
   readonly locale?: GdprMailLocale;
-  readonly appName?: string;
+  readonly appName: string;
 };
 
 // The notify-based defaults need the delivery pipeline with an email channel.
@@ -63,8 +63,9 @@ export function isMailRendererAvailable(registry: Registry): boolean {
 
 export type NotifyForTenant = (tenantId: TenantId) => NotifyFn;
 
-// Per-recipient locale wins (user.locale); mailDefaults.locale is the fallback
-// for unknown/unsupported user.locale values; a locale without a template for
+// Per-recipient locale wins (user.locale); defaults.locale is the fallback
+// for unknown/unsupported user.locale values (handlers put the request locale
+// there, jobs the app's mailDefaults.locale); a locale without a template for
 // this notification falls back to en.
 function mailLocaleFor(
   notificationType: string,
@@ -74,10 +75,6 @@ function mailLocaleFor(
   const user = normalizeGdprMailLocale(userLocale);
   const preferred = user !== undefined && hasMailTranslations(user) ? user : defaults.locale;
   return gdprMailTemplateLocale(notificationType, preferred ?? "en");
-}
-
-function appNameFor(locale: string, defaults: GdprMailDefaults): string {
-  return defaults.appName ?? mailT(locale, "gdpr.mail.appNameDefault");
 }
 
 // Delivery failures come back as results, not throws; the callers' best-effort
@@ -96,7 +93,7 @@ async function notifyImmediately(
 
 export function makeDefaultExportReadyEmail(
   notifyFor: NotifyForTenant,
-  defaults: GdprMailDefaults = {},
+  defaults: GdprMailDefaults,
 ): SendExportReadyEmailFn {
   return async (args) => {
     const type = GdprMailNotificationTypes.exportReady;
@@ -106,7 +103,7 @@ export function makeDefaultExportReadyEmail(
       to: args.userId,
       locale,
       data: {
-        appName: appNameFor(locale, defaults),
+        appName: defaults.appName,
         actionUrl: args.downloadUrl,
         validUntil: formatGdprMailTimestamp(args.expiresAt),
       },
@@ -116,7 +113,7 @@ export function makeDefaultExportReadyEmail(
 
 export function makeDefaultExportFailedEmail(
   notifyFor: NotifyForTenant,
-  defaults: GdprMailDefaults = {},
+  defaults: GdprMailDefaults,
 ): SendExportFailedEmailFn {
   return async (args) => {
     const type = GdprMailNotificationTypes.exportFailed;
@@ -124,14 +121,14 @@ export function makeDefaultExportFailedEmail(
     await notifyImmediately(notifyFor(args.tenantId), type, {
       to: args.userId,
       locale,
-      data: { appName: appNameFor(locale, defaults) },
+      data: { appName: defaults.appName },
     });
   };
 }
 
 export function makeDefaultDeletionRequestedEmail(
   notify: NotifyFn,
-  defaults: GdprMailDefaults = {},
+  defaults: GdprMailDefaults,
 ): SendDeletionRequestedEmailFn {
   return async (args) => {
     const type = GdprMailNotificationTypes.deletionRequested;
@@ -140,7 +137,7 @@ export function makeDefaultDeletionRequestedEmail(
       to: args.userId,
       locale,
       data: {
-        appName: appNameFor(locale, defaults),
+        appName: defaults.appName,
         deletionDate: formatGdprMailTimestamp(args.gracePeriodEnd),
         ...(args.cancelUrl !== undefined
           ? { cancelUrl: args.cancelUrl }
@@ -174,7 +171,7 @@ export async function sendDefaultDeletionVerificationEmail(
     locale,
     priority: "critical",
     data: {
-      appName: appNameFor(locale, defaults),
+      appName: defaults.appName,
       actionUrl: args.verifyUrl,
       validUntil: formatGdprMailTimestamp(args.expiresAt),
     },
@@ -196,7 +193,7 @@ function emailChannelOf(registry: Registry): DeliveryChannel | undefined {
 
 export function makeDefaultDeletionExecutedEmail(
   deps: DeletionExecutedMailDeps,
-  defaults: GdprMailDefaults = {},
+  defaults: GdprMailDefaults,
 ): SendDeletionExecutedEmailFn {
   return async (args) => {
     // The user is global, but the mail transport is tenant-specific, so use the
@@ -218,7 +215,7 @@ export function makeDefaultDeletionExecutedEmail(
           slug: type,
           locale,
           variables: {
-            appName: appNameFor(locale, defaults),
+            appName: defaults.appName,
             executedAt: formatGdprMailTimestamp(args.executedAt),
           },
         },

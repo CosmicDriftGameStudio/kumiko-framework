@@ -68,6 +68,7 @@ beforeAll(async () => {
       createUserDataRightsFeature({
         deletionTokenSecret: DELETION_SECRET,
         deletionVerifyUrl: VERIFY_URL,
+        mailDefaults: { appName: "Acme" },
         deletionCancelUrl: CANCEL_URL,
         sendDeletionRequestedEmail: async (args) => {
           requestedMails.push(args);

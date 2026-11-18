@@ -13,6 +13,13 @@ import { isValidIban } from "./iban.ts";
 
 const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
 
+// Carried into z.toJSONSchema: agent tools see only the JSON Schema, and a bare integer
+// reads as whole units, so "12,500 GBP" would be written as 12500 (125 GBP).
+const MONEY_AMOUNT_DESCRIPTION =
+  "Integer amount in minor units of the currency (cents for EUR, pence for GBP): 12.50 is 1250. Never whole units.";
+const EMBEDDED_MONEY_AMOUNT_DESCRIPTION =
+  "Integer amount in minor units of the record's currency (cents for EUR, pence for GBP): 12.50 is 1250. Never whole units.";
+
 // True if `n` carries at most `scale` decimal places. A relative epsilon
 // tolerates float artifacts (`0.1 + 0.2 = 0.30000000000000004` is accepted at
 // scale 2) — the exact `toFixed`-roundtrip-equality it replaces rejected such
@@ -64,7 +71,7 @@ function embeddedSubFieldToZod(subField: EmbeddedSubFieldDef): z.ZodTypeAny {
       // Signed minor units; the currency lives on the head aggregate, not the
       // row. The safe-integer cap mirrors bigInt mode:"number" — jsonb has no
       // BIGINT column behind it, so 2^53 is the real representability boundary.
-      return z.number().int().safe();
+      return z.number().int().safe().describe(EMBEDDED_MONEY_AMOUNT_DESCRIPTION);
     case "timestamp":
       // No locatedBy/min/max on EmbeddedSubFieldDef (unlike the top-level
       // timestamp field) — plain UTC-instant ISO-datetime validation.
@@ -221,7 +228,7 @@ function moneyFieldToZod(currencies: readonly string[]): z.ZodTypeAny {
   const [first, ...rest] = currencies;
   if (!first) throw new Error("No currencies configured");
   return z.object({
-    amount: z.number().int().safe(),
+    amount: z.number().int().safe().describe(MONEY_AMOUNT_DESCRIPTION),
     currency: z.enum([first, ...rest]),
   });
 }

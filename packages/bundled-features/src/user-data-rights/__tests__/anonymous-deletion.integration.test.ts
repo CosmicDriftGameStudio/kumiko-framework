@@ -65,6 +65,7 @@ beforeAll(async () => {
       createUserDataRightsFeature({
         deletionTokenSecret: DELETION_SECRET,
         deletionVerifyUrl: VERIFY_URL,
+        mailDefaults: { appName: "Acme" },
       }),
       ...deletionMailFeatures(transport),
     ],
@@ -409,7 +410,7 @@ describe("anonymous deletion flow — not configured (no secret)", () => {
         createComplianceProfilesFeature(),
         createAuthFoundationFeature(),
         createSessionsFeature(),
-        createUserDataRightsFeature(),
+        createUserDataRightsFeature({ mailDefaults: { appName: "Acme" } }),
         ...deletionMailFeatures(bareTransport),
       ],
       extraContext: (deps) => createDeliveryTestContext(deps),

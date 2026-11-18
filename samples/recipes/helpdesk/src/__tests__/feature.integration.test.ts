@@ -40,7 +40,7 @@ beforeAll(async () => {
       createComplianceProfilesFeature(),
       createAuthFoundationFeature(),
       createSessionsFeature(),
-      createUserDataRightsFeature(),
+      createUserDataRightsFeature({ mailDefaults: { appName: "Acme" } }),
       createNotesHistoryFeature({ parents: ["helpdesk-request"] }),
       helpdeskFeature,
     ],

@@ -1,3 +1,4 @@
+import { MAIL_TRANSPORT_EXTENSION } from "@cosmicdrift/kumiko-bundled-features/mail-foundation";
 import {
   bootRuleError,
   collectBootRuleViolations,
@@ -5,8 +6,48 @@ import {
   type FeatureDefinition,
   type ResolvedPiiFlags,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { DELIVERY_CHANNEL_EXTENSION, EMAIL_CHANNEL_NAME } from "../delivery/index.ts";
 import { entitiesOf } from "../shared/index.ts";
 import { USER_DATA_RIGHTS_BOOT_RULES } from "./boot-rules.ts";
+import type { UserDataRightsOptions } from "./options.ts";
+
+// Same mail paths the default mailers probe on the registry at send time.
+function isGdprMailPathMounted(features: readonly FeatureDefinition[]): boolean {
+  return features.some((feature) =>
+    feature.extensionUsages.some(
+      (usage) =>
+        (usage.extensionName === DELIVERY_CHANNEL_EXTENSION &&
+          usage.entityName === EMAIL_CHANNEL_NAME) ||
+        usage.extensionName === MAIL_TRANSPORT_EXTENSION,
+    ),
+  );
+}
+
+function sendsAnyDefaultGdprMail(opts: UserDataRightsOptions): boolean {
+  const anonymousDeletionFlow =
+    opts.deletionTokenSecret !== undefined && opts.deletionVerifyUrl !== undefined;
+  return (
+    anonymousDeletionFlow ||
+    opts.sendExportReadyEmail === undefined ||
+    opts.sendExportFailedEmail === undefined ||
+    opts.sendDeletionRequestedEmail === undefined ||
+    opts.sendDeletionExecutedEmail === undefined
+  );
+}
+
+// Without an app name the default mails went out as "Account — ...", which reads
+// like phishing; a boot error is cheaper than that mail in a user's inbox.
+export function validateGdprMailAppName(
+  features: readonly FeatureDefinition[],
+  opts: UserDataRightsOptions,
+): void {
+  if (opts.mailDefaults !== undefined) return;
+  if (!sendsAnyDefaultGdprMail(opts) || !isGdprMailPathMounted(features)) return;
+  throw bootRuleError(USER_DATA_RIGHTS_BOOT_RULES.mailAppNameMissing, {
+    message:
+      '[kumiko:boot] user-data-rights sends its default GDPR mails (a mail channel or transport is mounted and not every send*Email callback is set) but has no app name for them. Pass createUserDataRightsFeature({ mailDefaults: { appName: "<your app>" } }) so subject and body name the app.',
+  });
+}
 
 // V2: export-without-erase gate. A feature that registers an EXT_USER_DATA
 // export hook without a matching delete hook exports data under Art.20 but

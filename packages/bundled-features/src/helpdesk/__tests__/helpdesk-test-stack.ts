@@ -138,7 +138,7 @@ export async function createHelpdeskTestStack(
         invite: { tokenTtlMinutes: 60, appUrl: "https://app.example.com/invite/accept" },
         signup: { tokenTtlMinutes: 60, appUrl: "https://app.example.com/signup/activate" },
       }),
-      createUserDataRightsFeature(),
+      createUserDataRightsFeature({ mailDefaults: { appName: "Acme" } }),
       createNotesHistoryFeature({ parents: ["helpdesk-request"] }),
       createHelpdeskFeature({
         appName: "Acme",

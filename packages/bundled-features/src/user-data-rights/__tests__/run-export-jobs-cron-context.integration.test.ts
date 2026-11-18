@@ -99,7 +99,10 @@ beforeAll(async () => {
       createSessionsFeature(),
       // appExportDownloadUrl set → the default export-ready mail is enabled, so
       // this also proves the export cron's mail bridge end-to-end.
-      createUserDataRightsFeature({ appExportDownloadUrl: EXPORT_DOWNLOAD_URL }),
+      createUserDataRightsFeature({
+        appExportDownloadUrl: EXPORT_DOWNLOAD_URL,
+        mailDefaults: { appName: "Acme" },
+      }),
     ],
     extraContext: (deps) => {
       const delivery = createDeliveryTestContext(deps);

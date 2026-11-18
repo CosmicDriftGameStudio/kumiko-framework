@@ -14,9 +14,10 @@
 import { closeSync, existsSync, openSync, readFileSync, readSync } from "node:fs";
 import * as path from "node:path";
 import {
+  type CompilerOptions,
   type ExportDeclaration,
   type ImportDeclaration,
-  type Project,
+  Project,
   type SourceFile,
   ts,
 } from "ts-morph";
@@ -65,7 +66,7 @@ const PATH_RULES: readonly (readonly [RegExp, Runtime])[] = [
   // package.json marker classifies the whole package, this carves the
   // deliberately-named exception back out. Deliberately workspace-wide (any
   // repo, any depth), not framework-only: app repos' own `src/features/*/web/`
-  // dirs follow the identical convention. `time`/`utils`/`engine/types`/`errors`
+  // dirs follow the identical convention. `time`/`utils`/`engine/types`/`errors`/`auth`
   // are framework's other isomorphic exports (published as their own subpath
   // exports, empirically zero Node-only or cross-module value imports, same
   // shape as `ui-types`). Scoped to `packages/framework/src/` specifically —
@@ -76,7 +77,7 @@ const PATH_RULES: readonly (readonly [RegExp, Runtime])[] = [
   [/\/web\.tsx?$/, "client"],
   // After the web/ carve-out: client code under web/dev/ must stay client.
   [/(?:^|\/)dev\//, "dev"],
-  [/^packages\/framework\/src\/(?:time|utils|engine\/types|errors)\//, "client"],
+  [/^packages\/framework\/src\/(?:time|utils|engine\/types|errors|auth)\//, "client"],
 
   // More single-file carve-outs, same "package marker is coarser than the
   // file" shape, verified case by case rather than by a directory
@@ -187,7 +188,21 @@ export type ValueModuleEdge = {
   readonly spec: string;
   readonly targetPath: string;
   readonly line: number;
+  /** Imported or re-exported binding names; "default" and "*" for default and namespace/star forms. */
+  readonly names: readonly string[];
 };
+
+function importedNames(decl: ImportDeclaration): string[] {
+  const names = decl.getNamedImports().map((n) => n.getName());
+  if (decl.getDefaultImport()) names.push("default");
+  if (decl.getNamespaceImport()) names.push("*");
+  return names;
+}
+
+function reExportedNames(decl: ExportDeclaration): string[] {
+  const named = decl.getNamedExports();
+  return named.length > 0 ? named.map((n) => n.getName()) : ["*"];
+}
 
 /**
  * Every runtime-weighted edge out of a file: value imports plus value
@@ -205,6 +220,7 @@ export function valueModuleEdges(sf: SourceFile): ValueModuleEdge[] {
       spec: decl.getModuleSpecifierValue(),
       targetPath,
       line: decl.getStartLineNumber(),
+      names: importedNames(decl),
     });
   }
   for (const decl of sf.getExportDeclarations()) {
@@ -214,7 +230,7 @@ export function valueModuleEdges(sf: SourceFile): ValueModuleEdge[] {
     const spec = decl.getModuleSpecifierValue();
     const targetPath = resolveImportTargetPath(decl);
     if (!targetPath || spec === undefined) continue;
-    edges.push({ spec, targetPath, line: decl.getStartLineNumber() });
+    edges.push({ spec, targetPath, line: decl.getStartLineNumber(), names: reExportedNames(decl) });
   }
   return edges;
 }
@@ -294,6 +310,8 @@ export function toEffectivePath(filePath: string): string {
 export function computeClientReachablePaths(
   sourceFiles: readonly SourceFile[],
   isEntry: (sourceFile: SourceFile) => boolean,
+  /** Filled with file -> the file it was first reached from, for `clientImportChain`. */
+  reachedFrom?: Map<string, string>,
 ): ReadonlySet<string> {
   const reached = new Set<string>();
   const queue: SourceFile[] = sourceFiles.filter(isEntry);
@@ -309,10 +327,24 @@ export function computeClientReachablePaths(
       const targetPath = toEffectivePath(edge.targetPath);
       if (targetPath.includes("/node_modules/") || targetPath.includes("/dist/")) continue;
       if (reached.has(targetPath)) continue;
+      if (reachedFrom && !reachedFrom.has(targetPath)) reachedFrom.set(targetPath, fp);
       queue.push(project.getSourceFile(targetPath) ?? project.addSourceFileAtPath(targetPath));
     }
   }
   return reached;
+}
+
+/** Entry-first import chain to `file`, built from `computeClientReachablePaths`' `reachedFrom`. */
+export function clientImportChain(
+  file: string,
+  reachedFrom: ReadonlyMap<string, string>,
+): readonly string[] {
+  const chain = [file];
+  for (let prev = reachedFrom.get(file); prev !== undefined; prev = reachedFrom.get(prev)) {
+    if (chain.includes(prev)) break;
+    chain.unshift(prev);
+  }
+  return chain;
 }
 
 const DIRECTIVE_HEAD_BYTES = 600;
@@ -461,6 +493,158 @@ export function classify(
   );
 }
 
+type KumikoPackage = {
+  readonly root: string;
+  readonly name: string;
+  readonly runtime: Runtime;
+  /** `repository.directory`: maps a package file onto the repo path the PATH_RULES are written against. */
+  readonly repoDirectory: string;
+  readonly exports: unknown;
+};
+
+function readKumikoPackage(dir: string): KumikoPackage | null {
+  try {
+    const pkg: unknown = JSON.parse(readFileSync(path.join(dir, "package.json"), "utf8"));
+    if (!isRecord(pkg) || typeof pkg["name"] !== "string") return null;
+    const kumiko = pkg["kumiko"];
+    const runtime = isRecord(kumiko) ? kumiko["runtime"] : undefined;
+    if (!isRuntime(runtime)) return null;
+    const repository = pkg["repository"];
+    const directory = isRecord(repository) ? repository["directory"] : undefined;
+    return {
+      root: dir,
+      name: pkg["name"],
+      runtime,
+      repoDirectory: typeof directory === "string" ? directory : "",
+      exports: pkg["exports"],
+    };
+  } catch {
+    return null;
+  }
+}
+
+export type ServerEntryImport = {
+  readonly file: string;
+  readonly line: number;
+  readonly importedSpec: string;
+  readonly importedRuntime: Runtime;
+  /** Where to import from instead, or why no client-safe entry fits. */
+  readonly replacement: string;
+};
+
+type ClientEntry = { readonly specifier: string; readonly file: string };
+
+/**
+ * Judges import targets inside installed (or symlinked) Kumiko packages, which
+ * the in-repo classification never sees. The package's own markers decide:
+ * directive, the PATH_RULES applied to the file's path in its source repo
+ * (`repository.directory`), then `kumiko.runtime`. Its client-safe entry points
+ * are the `exports` whose target classifies "client" by the same rules, so
+ * there is no second list to keep in sync. Packages without a `kumiko.runtime`
+ * marker (third-party code) are not judged.
+ */
+export function createKumikoPackageClassifier(
+  compilerOptions: CompilerOptions,
+  directiveOf: DirectiveClassifier,
+) {
+  const packageByDir = new Map<string, KumikoPackage | null>();
+  const clientEntriesByRoot = new Map<string, readonly ClientEntry[]>();
+  const exportNamesByFile = new Map<string, ReadonlySet<string>>();
+  let exportProject: Project | undefined;
+
+  function packageOf(filePath: string): KumikoPackage | null {
+    for (let dir = path.dirname(filePath); ; dir = path.dirname(dir)) {
+      const cached = packageByDir.get(dir);
+      if (cached !== undefined) return cached;
+      if (existsSync(path.join(dir, "package.json"))) {
+        const pkg = readKumikoPackage(dir);
+        packageByDir.set(dir, pkg);
+        return pkg;
+      }
+      if (path.dirname(dir) === dir) return null;
+    }
+  }
+
+  function classifyIn(pkg: KumikoPackage, filePath: string): Runtime {
+    // The npm tarball ships only the compiled dist/; the rules are written against src/.
+    const inPackage = path
+      .relative(pkg.root, filePath)
+      .split(path.sep)
+      .join("/")
+      .replace(/^dist\//, "src/")
+      .replace(/\.(?:d\.ts|js)$/, ".ts");
+    return (
+      directiveOf(filePath) ??
+      classifyByPath(path.posix.join(pkg.repoDirectory, inPackage)) ??
+      pkg.runtime
+    );
+  }
+
+  function clientEntriesOf(pkg: KumikoPackage): readonly ClientEntry[] {
+    const cached = clientEntriesByRoot.get(pkg.root);
+    if (cached) return cached;
+    const entries: ClientEntry[] = [];
+    if (isRecord(pkg.exports)) {
+      for (const [subpath, target] of Object.entries(pkg.exports)) {
+        const relFile = isRecord(target)
+          ? (target["types"] ?? target["default"] ?? target["import"])
+          : target;
+        if (typeof relFile !== "string" || !/\.tsx?$/.test(relFile)) continue;
+        const file = path.join(pkg.root, relFile);
+        if (classifyIn(pkg, file) !== "client") continue;
+        const specifier =
+          subpath === "." ? pkg.name : `${pkg.name}/${subpath.replace(/^\.\//, "")}`;
+        entries.push({ specifier, file });
+      }
+    }
+    clientEntriesByRoot.set(pkg.root, entries);
+    return entries;
+  }
+
+  // Own small project: only reached when a violation is already found, and
+  // it binds just the client entry's closure, never the scanned repo.
+  function exportNamesOf(file: string): ReadonlySet<string> {
+    const cached = exportNamesByFile.get(file);
+    if (cached) return cached;
+    exportProject ??= new Project({ compilerOptions, skipAddingFilesFromTsConfig: true });
+    let names: ReadonlySet<string> = new Set();
+    try {
+      const sf = exportProject.getSourceFile(file) ?? exportProject.addSourceFileAtPath(file);
+      names = new Set(sf.getExportedDeclarations().keys());
+    } catch {
+      // Unreadable entry: it just cannot be suggested.
+    }
+    exportNamesByFile.set(file, names);
+    return names;
+  }
+
+  function replacementFor(pkg: KumikoPackage, names: readonly string[]): string {
+    const entries = clientEntriesOf(pkg);
+    if (entries.length === 0) {
+      return `${pkg.name} has no client-safe entry; keep this import in server-only code.`;
+    }
+    const nameable = names.length > 0 && !names.includes("*");
+    const match = nameable
+      ? entries.find((entry) => names.every((name) => exportNamesOf(entry.file).has(name)))
+      : undefined;
+    if (match) return `import ${names.join(", ")} from "${match.specifier}" instead.`;
+    const what = nameable ? names.join(", ") : "this import";
+    return `${what} is not exported by the client-safe entries of ${pkg.name}: ${entries.map((e) => e.specifier).join(", ")}; keep it in server-only code.`;
+  }
+
+  /** Non-client runtime plus replacement hint when `targetPath` is a server file of a Kumiko package. */
+  return function judge(
+    targetPath: string,
+    names: readonly string[],
+  ): { readonly runtime: Runtime; readonly replacement: string } | undefined {
+    const pkg = packageOf(targetPath);
+    if (!pkg) return undefined;
+    const runtime = classifyIn(pkg, targetPath);
+    if (COMPAT.client.has(runtime)) return undefined;
+    return { runtime, replacement: replacementFor(pkg, names) };
+  };
+}
+
 export type Violation = {
   readonly file: string;
   readonly line: number;
@@ -488,8 +672,12 @@ export function findRuntimeIsolationViolations(
   readonly stats: Record<Runtime, number>;
   /** Import targets (or scanned files) that resolved outside the repo root. */
   readonly outsideRoot: readonly string[];
+  /** Client code importing a server entry point of an installed Kumiko package; never baselined. */
+  readonly serverEntryImports: readonly ServerEntryImport[];
 } {
   const violations: Violation[] = [];
+  const serverEntryImports: ServerEntryImport[] = [];
+  let judgeKumikoPackage: ReturnType<typeof createKumikoPackageClassifier> | undefined;
   const outsideRoot: string[] = [];
   const seenOutside = new Set<string>();
   const noteOutside = (fp: string) => {
@@ -518,7 +706,24 @@ export function findRuntimeIsolationViolations(
     const fileRt = classify(fp, repoRoot, workspaceCache, clientReachable, directiveOf);
     stats[fileRt]++;
 
-    for (const { spec, targetPath, line } of valueModuleEdges(sf)) {
+    for (const { spec, targetPath, line, names } of valueModuleEdges(sf)) {
+      const outsideRepoSource = targetPath.includes("/node_modules/") || !withinRoot(targetPath);
+      if (fileRt === "client" && outsideRepoSource) {
+        judgeKumikoPackage ??= createKumikoPackageClassifier(
+          sf.getProject().getCompilerOptions(),
+          directiveOf,
+        );
+        const serverEntry = judgeKumikoPackage(targetPath, names);
+        if (serverEntry) {
+          serverEntryImports.push({
+            file: fp,
+            line,
+            importedSpec: spec,
+            importedRuntime: serverEntry.runtime,
+            replacement: serverEntry.replacement,
+          });
+        }
+      }
       if (targetPath.includes("/node_modules/")) continue;
       if (!withinRoot(targetPath)) {
         noteOutside(targetPath);
@@ -539,5 +744,5 @@ export function findRuntimeIsolationViolations(
     }
   }
 
-  return { violations, stats, outsideRoot };
+  return { violations, stats, outsideRoot, serverEntryImports };
 }

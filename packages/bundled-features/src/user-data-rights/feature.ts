@@ -4,7 +4,11 @@ import {
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
-import { validateGdprHookCompleteness, validateGdprPiiHookCoverage } from "./boot-checks.ts";
+import {
+  validateGdprHookCompleteness,
+  validateGdprMailAppName,
+  validateGdprPiiHookCoverage,
+} from "./boot-checks.ts";
 import { deletionTokenSecretEnvSchema } from "./env.ts";
 import { registerExportDownloadRoutes } from "./export-download-routes.ts";
 import { cancelDeletionWrite } from "./handlers/cancel-deletion.write.ts";
@@ -94,6 +98,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
 
     // GDPR-storage guards run whenever this feature is mounted; EXT_USER_DATA itself is framework-owned, so owner features register their hooks without requiring user-data-rights.
     r.bootCheck(({ features }) => validateGdprHookCompleteness(features));
+    r.bootCheck(({ features }) => validateGdprMailAppName(features, opts));
     r.bootCheck(({ features }) => {
       validateGdprPiiHookCoverage(features);
       if (!warnedMissingMailDelivery && isMailTransportMountedWithoutDelivery(features)) {

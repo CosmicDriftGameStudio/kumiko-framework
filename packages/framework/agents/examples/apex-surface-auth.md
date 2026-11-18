@@ -371,6 +371,7 @@ export function composeApexAccountApp(opts: ApexAccountAppOptions): FeatureDefin
     createUserDataRightsFeature({
       deletionTokenSecret: opts.deletionTokenSecret,
       deletionVerifyUrl: opts.deletionVerifyUrl,
+      mailDefaults: { appName: "Apex Account" },
     }),
     createDeliveryFeature(),
     createChannelEmailFeature({ transport: opts.mailTransport, resolveEmail: async () => null }),

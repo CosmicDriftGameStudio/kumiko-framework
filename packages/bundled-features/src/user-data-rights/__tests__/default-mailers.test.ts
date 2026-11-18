@@ -86,16 +86,19 @@ describe("default-mailers dispatch", () => {
     const cap = capturingNotify();
     const notifyFor = () => cap.notify;
 
-    await makeDefaultExportReadyEmail(notifyFor, { locale: "de" })({
+    await makeDefaultExportReadyEmail(notifyFor, { appName: "Acme", locale: "de" })({
       ...exportArgs,
       userLocale: "nl",
     });
-    await makeDefaultExportReadyEmail(notifyFor, { locale: "de" })({
+    await makeDefaultExportReadyEmail(notifyFor, { appName: "Acme", locale: "de" })({
       ...exportArgs,
       userLocale: null,
     });
-    await makeDefaultExportReadyEmail(notifyFor)({ ...exportArgs, userLocale: null });
-    await makeDefaultExportReadyEmail(notifyFor, { locale: "en" })({
+    await makeDefaultExportReadyEmail(notifyFor, { appName: "Acme" })({
+      ...exportArgs,
+      userLocale: null,
+    });
+    await makeDefaultExportReadyEmail(notifyFor, { appName: "Acme", locale: "en" })({
       ...exportArgs,
       userLocale: "de",
     });
@@ -105,7 +108,7 @@ describe("default-mailers dispatch", () => {
 
   test("a failed delivery throws so the best-effort caller sees it", async () => {
     const cap = capturingNotify("failed");
-    const send = makeDefaultExportFailedEmail(() => cap.notify);
+    const send = makeDefaultExportFailedEmail(() => cap.notify, { appName: "Acme" });
     await expect(send({ ...exportArgs, userLocale: null, errorMessage: "x" })).rejects.toThrow(
       "send_failed",
     );
@@ -130,7 +133,7 @@ describe("default-mailers dispatch", () => {
 
   test("deletion-requested with a cancel link: immediate send, link passed, no sign-in flag", async () => {
     const cap = capturingNotify();
-    await makeDefaultDeletionRequestedEmail(cap.notify)({
+    await makeDefaultDeletionRequestedEmail(cap.notify, { appName: "Acme" })({
       userId: "u1",
       userEmail: "u1@example.com",
       userLocale: "en",
@@ -148,7 +151,7 @@ describe("default-mailers dispatch", () => {
 
   test("deletion-requested without a cancel link: queued, sign-in flag set", async () => {
     const cap = capturingNotify();
-    await makeDefaultDeletionRequestedEmail(cap.notify)({
+    await makeDefaultDeletionRequestedEmail(cap.notify, { appName: "Acme" })({
       userId: "u1",
       userEmail: "u1@example.com",
       userLocale: "en",
@@ -163,15 +166,18 @@ describe("default-mailers dispatch", () => {
 
   test("deletion-executed orphan (0 memberships): no transport resolved, no mail", async () => {
     let resolverCalled = false;
-    const send = makeDefaultDeletionExecutedEmail({
-      registry: {} as never,
-      db: {} as never,
-      resolveTransport: async () => {
-        resolverCalled = true;
-        throw new Error("must not be called");
+    const send = makeDefaultDeletionExecutedEmail(
+      {
+        registry: {} as never,
+        db: {} as never,
+        resolveTransport: async () => {
+          resolverCalled = true;
+          throw new Error("must not be called");
+        },
+        configFor: () => undefined,
       },
-      configFor: () => undefined,
-    });
+      { appName: "Acme" },
+    );
 
     await send({
       userId: "u1",

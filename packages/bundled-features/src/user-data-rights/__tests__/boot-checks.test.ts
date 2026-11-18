@@ -29,6 +29,8 @@ function projectionProbeTable(name: string): SchemaTable {
 }
 
 import { createFormDraftFeature } from "../../form-draft/index.ts";
+import { createMailFoundationFeature } from "../../mail-foundation/index.ts";
+import { createMailTransportInMemoryFeature } from "../../mail-transport-inmemory/index.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/feature.ts";
 import { createUserDataRightsFeature } from "../feature.ts";
@@ -379,5 +381,41 @@ describe("anonymous deletion verify mail", () => {
         : feature,
     );
     expect(() => validateBoot(features)).toThrow(/delivery/);
+  });
+});
+
+describe("default GDPR mail app name", () => {
+  const withUserDataRights = (opts: Parameters<typeof createUserDataRightsFeature>[0]) => [
+    ...baseFeatures().map((feature) =>
+      feature.name === "user-data-rights" ? createUserDataRightsFeature(opts) : feature,
+    ),
+    createMailFoundationFeature(),
+    createMailTransportInMemoryFeature(),
+  ];
+
+  test("a mounted mail transport without mailDefaults.appName fails boot", () => {
+    expect(() => validateBoot(withUserDataRights({}))).toThrow(
+      /mailDefaults: \{ appName: "<your app>" \}/,
+    );
+  });
+
+  test("mailDefaults with an app name boots", () => {
+    expect(() =>
+      validateBoot(withUserDataRights({ mailDefaults: { appName: "Acme" } })),
+    ).not.toThrow();
+  });
+
+  test("every send*Email callback set and no anonymous deletion flow → no default mail, boots", () => {
+    const send = async () => {};
+    expect(() =>
+      validateBoot(
+        withUserDataRights({
+          sendExportReadyEmail: send,
+          sendExportFailedEmail: send,
+          sendDeletionRequestedEmail: send,
+          sendDeletionExecutedEmail: send,
+        }),
+      ),
+    ).not.toThrow();
   });
 });

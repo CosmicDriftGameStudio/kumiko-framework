@@ -1,6 +1,7 @@
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import * as z from "zod";
+import { resolveHandlerMailLocale } from "../../shared/index.ts";
 import { USER_STATUS, userTable } from "../../user/index.ts";
 import { signDeletionToken } from "../deletion-token.ts";
 import {
@@ -108,14 +109,18 @@ export function createRequestDeletionByEmailHandler(opts: RequestDeletionByEmail
       const verifyUrl = buildDeletionVerifyUrl(opts.deletionVerifyUrl, token);
 
       // No throw: it would only hit existing users and bring the timing oracle back.
-      if (!ctx.notify) {
+      if (!ctx.notify || !opts.mailDefaults) {
         log.warn(
-          "[user-data-rights:request-deletion-by-email] ctx.notify unavailable, verify mail not sent",
+          "[user-data-rights:request-deletion-by-email] ctx.notify or mailDefaults unavailable, verify mail not sent",
         );
         return success;
       }
+      const mailDefaults: GdprMailDefaults = {
+        ...opts.mailDefaults,
+        locale: resolveHandlerMailLocale(ctx, opts.mailDefaults.locale),
+      };
       try {
-        await sendDefaultDeletionVerificationEmail(ctx.notify, opts.mailDefaults ?? {}, {
+        await sendDefaultDeletionVerificationEmail(ctx.notify, mailDefaults, {
           // Row value is ciphertext with an active KMS; the lookup above
           // only matches byte-exact, so the payload IS the stored plaintext.
           email: event.payload.email,

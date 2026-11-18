@@ -68,9 +68,10 @@ export type UserDataRightsOptions = {
    *  mounted, user-data-rights sends export and deletion notifications itself
    *  (export-ready/-failed, deletion-requested/-executed) using the default
    *  templates (email-templates.ts), without an app callback.
-   *  `mailDefaults` brands these default messages (locale and app name). It
-   *  applies only when the relevant send*Email option is unset; export-ready
-   *  also requires appExportDownloadUrl. */
+   *  `mailDefaults` brands these default messages (app name, fallback locale)
+   *  and is required at boot whenever one of them can go out. It applies only
+   *  when the relevant send*Email option is unset; export-ready also requires
+   *  appExportDownloadUrl. */
   readonly mailDefaults?: GdprMailDefaults;
   /** Hides the Art. 17 deletion section + its request-deletion/cancel-deletion
    *  actions on the privacy-center screen — for apps that already offer

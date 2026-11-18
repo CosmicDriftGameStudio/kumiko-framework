@@ -82,7 +82,7 @@ beforeAll(async () => {
       createRendererMailHtmlFeature(),
       createDeliveryFeature(),
       mail.feature,
-      createUserDataRightsFeature(),
+      createUserDataRightsFeature({ mailDefaults: { appName: "Acme" } }),
       localeDe(),
       createUserDataRightsDefaultsFeature(),
     ],

@@ -35,6 +35,7 @@ import {
 import { isValidLocaleTag } from "@cosmicdrift/kumiko-framework/i18n";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
+import { resolveHandlerMailLocale } from "../../shared/index.ts";
 // kumiko-lint-ignore cross-feature-import invite flow lives in auth-email-password (Magic-Link-Pattern); DB-row owner is the tenant feature
 import {
   INVITATION_STATUS,
@@ -57,7 +58,7 @@ import { GLOBAL_ROLE_OPTIONS, type GlobalRole } from "../../user/web/constants.t
 import type { AuthMailLocale } from "../email-templates.ts";
 import { inviteAlreadyAccepted } from "../errors.ts";
 import { invalidateExistingInviteToken, storeInviteToken } from "../invite-token-store.ts";
-import { dispatchMagicLinkMail, resolveHandlerMailLocale } from "../magic-link-mail.ts";
+import { dispatchMagicLinkMail } from "../magic-link-mail.ts";
 import { AuthMailNotificationTypes } from "../mail-notifications.ts";
 import { AUTH_INVITE_DEFAULT_TTL_MINUTES } from "../web/constants.ts";
 

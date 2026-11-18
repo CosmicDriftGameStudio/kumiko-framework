@@ -133,7 +133,8 @@ describe("classifyByPath — client-safe carve-outs", () => {
     expect(classifyByPath("packages/framework/src/webhook/index.ts")).toBeNull();
   });
 
-  test("framework's time/utils/engine-types/errors subpaths are client", () => {
+  test("framework's time/utils/engine-types/errors/auth subpaths are client", () => {
+    expect(classifyByPath("packages/framework/src/auth/roles.ts")).toBe("client");
     expect(classifyByPath("packages/framework/src/time/index.ts")).toBe("client");
     expect(classifyByPath("packages/framework/src/utils/index.ts")).toBe("client");
     expect(classifyByPath("packages/framework/src/engine/types/index.ts")).toBe("client");

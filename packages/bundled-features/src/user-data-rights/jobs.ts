@@ -54,12 +54,12 @@ function resolveExportMailers(
       : undefined;
   const sendExportReadyEmail =
     opts.sendExportReadyEmail ??
-    (exportNotifyFor && opts.appExportDownloadUrl !== undefined
+    (exportNotifyFor && opts.mailDefaults && opts.appExportDownloadUrl !== undefined
       ? makeDefaultExportReadyEmail(exportNotifyFor, opts.mailDefaults)
       : undefined);
   const sendExportFailedEmail =
     opts.sendExportFailedEmail ??
-    (exportNotifyFor
+    (exportNotifyFor && opts.mailDefaults
       ? makeDefaultExportFailedEmail(exportNotifyFor, opts.mailDefaults)
       : undefined);
   if (
@@ -191,8 +191,8 @@ export function registerUserDataRightsJobs(
       const forgetConfigResolver = ctx.services.configResolver;
       const sendDeletionExecutedEmail =
         opts.sendDeletionExecutedEmail ??
-        ((isGdprMailDeliveryAvailable(forgetRegistry) ||
-          isMailTransportAvailable(forgetRegistry)) &&
+        (opts.mailDefaults &&
+        (isGdprMailDeliveryAvailable(forgetRegistry) || isMailTransportAvailable(forgetRegistry)) &&
         isMailRendererAvailable(forgetRegistry)
           ? makeDefaultDeletionExecutedEmail(
               {

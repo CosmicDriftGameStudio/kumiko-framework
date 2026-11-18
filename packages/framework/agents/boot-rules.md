@@ -1339,6 +1339,7 @@
 | --- | --- | --- | --- |
 | <a id="user-data-rights-empty-hook"></a>`user-data-rights/empty-hook` | An EXT_USER_DATA registration declares at least one of an export or a delete hook. | Register at least one hook. | `packages/bundled-features/src/user-data-rights/boot-rules.ts` |
 | <a id="user-data-rights-export-without-delete"></a>`user-data-rights/export-without-delete` | An entity exported via EXT_USER_DATA also registers a delete hook. | Add a delete hook, or a documented no-op delete if erasure is handled elsewhere. | `packages/bundled-features/src/user-data-rights/boot-rules.ts` |
+| <a id="user-data-rights-mail-app-name-missing"></a>`user-data-rights/mail-app-name-missing` | When the default GDPR mails can go out, mailDefaults.appName names the app in their subject and body. | Pass createUserDataRightsFeature({ mailDefaults: { appName: "<your app>" } }), or set every send*Email callback and leave the anonymous deletion flow off. | `packages/bundled-features/src/user-data-rights/boot-rules.ts` |
 | <a id="user-data-rights-missing-hook"></a>`user-data-rights/missing-hook` | An entity with user-subject fields registers an EXT_USER_DATA hook. | Register r.applyExtension({ name: EXT_USER_DATA, ... }) for the entity, or a documented no-op hook if it is covered elsewhere. | `packages/bundled-features/src/user-data-rights/boot-rules.ts` |
 
 ## webhook-event

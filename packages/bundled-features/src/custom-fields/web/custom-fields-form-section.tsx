@@ -12,10 +12,12 @@ import {
   type ExtensionSubmitResult,
   useDispatcher,
   useExtensionFormSubmit,
+  useLocale,
   usePrimitives,
   useQuery,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useState } from "react";
 import { CustomFieldsHandlers, CustomFieldsQueries } from "./constants.ts";
 
@@ -26,7 +28,11 @@ type FieldDefinitionRow = {
   readonly type: string;
   readonly required: boolean;
   readonly displayOrder: number;
+  readonly serializedField?: string;
 };
+
+// The renderer's money inputs fall back to EUR the same way.
+const FALLBACK_MONEY_CURRENCY = "EUR";
 
 type FieldDefinitionListResponse = {
   readonly rows: readonly FieldDefinitionRow[];
@@ -47,6 +53,7 @@ export function CustomFieldsFormSection({
 }): ReactNode {
   const { Banner, Button, Field, Input, Text } = usePrimitives();
   const t = useTranslation();
+  const appLocale = useLocale().locale();
   const dispatcher = useDispatcher();
   const query = useQuery<FieldDefinitionListResponse>(
     CustomFieldsQueries.fieldDefinitionList,
@@ -92,7 +99,11 @@ export function CustomFieldsFormSection({
               entityName,
               entityId: targetEntityId,
               fieldKey: field.fieldKey,
-              value: coerceValue(field.type, raw),
+              value: coerceValue(
+                field.type,
+                raw,
+                moneyCurrencyOf(field, initialValues?.[field.fieldKey]),
+              ),
             });
       if (!result.isSuccess) {
         return {
@@ -223,24 +234,62 @@ export function CustomFieldsFormSection({
         <Input kind="date" id={id} name={name} value={raw} onChange={(v) => onChange(v ?? "")} />
       );
     }
+    if (field.type === "money") {
+      return (
+        <Input
+          kind="money"
+          id={id}
+          name={name}
+          value={raw === "" ? "" : Number(raw)}
+          onChange={(v) => onChange(v === undefined ? "" : String(v))}
+          currency={moneyCurrencyOf(field, initialValues?.[field.fieldKey])}
+          locale={appLocale}
+        />
+      );
+    }
     return <Input kind="text" id={id} name={name} value={raw} onChange={onChange} />;
   }
 }
 
-function coerceValue(type: string, raw: string): unknown {
+// A stored value keeps the currency it was written in; a new value takes the
+// definition's currency.
+function moneyCurrencyOf(field: FieldDefinitionRow, stored: unknown): string {
+  const storedCurrency = propertyOf(stored, "currency");
+  if (typeof storedCurrency === "string") return storedCurrency;
+  return declaredCurrencyOf(field.serializedField) ?? FALLBACK_MONEY_CURRENCY;
+}
+
+function declaredCurrencyOf(serializedField: string | undefined): string | undefined {
+  if (serializedField === undefined) return undefined;
+  try {
+    const currency = propertyOf(JSON.parse(serializedField), "currency");
+    return typeof currency === "string" ? currency : undefined;
+  } catch {
+    // skip: an unparseable definition falls back like one without a currency
+    return undefined;
+  }
+}
+
+// Money travels as minor units, the same as built-in money fields.
+function coerceValue(type: string, raw: string, moneyCurrency: string): unknown {
   if (type === "number") {
     const n = Number(raw);
     return Number.isNaN(n) ? raw : n;
   }
   if (type === "boolean") return raw === "true";
+  if (type === "money") return { amount: Number(raw), currency: moneyCurrency };
   return raw;
 }
 
 // Inverse of coerceValue: converts a stored jsonb value to the string form
 // expected by the input. number/boolean/date/text are represented as their
-// inputs expect; missing values become "".
+// inputs expect; money as its minor-unit amount; missing values become "".
 function displayValue(type: string, value: unknown): string {
   if (value === undefined || value === null) return "";
   if (type === "boolean") return value === true ? "true" : "false";
+  if (type === "money") {
+    const amount = propertyOf(value, "amount");
+    return typeof amount === "number" ? String(amount) : "";
+  }
   return String(value);
 }

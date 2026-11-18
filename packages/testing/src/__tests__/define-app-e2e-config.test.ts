@@ -632,6 +632,25 @@ describe("resolveE2eWorkers", () => {
     expect(resolveE2eWorkers({ [E2E_WORKERS_ENV]: "" }, 8)).toBe(4);
   });
 
+  // pdfjs replaced globalThis.navigator under Bun, availableParallelism() returned NaN
+  // and Playwright hung on "NaN workers".
+  test.each([Number.NaN, 0, -2, 1.5])(
+    "an unusable availableParallelism() (%p) falls back to os.cpus().length",
+    (broken) => {
+      expect(resolveE2eWorkers({}, broken, () => 6)).toBe(3);
+    },
+  );
+
+  test("throws a clear error when neither CPU source yields a positive integer", () => {
+    expect(() => resolveE2eWorkers({}, Number.NaN, () => 0)).toThrow(
+      /cannot determine the CPU count.*KUMIKO_E2E_WORKERS/,
+    );
+  });
+
+  test("a valid override needs no CPU count at all", () => {
+    expect(resolveE2eWorkers({ [E2E_WORKERS_ENV]: "2" }, Number.NaN, () => Number.NaN)).toBe(2);
+  });
+
   test("defineAppE2eConfig applies the override", () => {
     process.env[E2E_WORKERS_ENV] = "3";
     expect(defineAppE2eConfig({ port: 1 }).workers).toBe(3);

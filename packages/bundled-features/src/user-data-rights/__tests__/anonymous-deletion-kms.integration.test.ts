@@ -70,6 +70,7 @@ beforeAll(async () => {
       createUserDataRightsFeature({
         deletionTokenSecret: DELETION_SECRET,
         deletionVerifyUrl: VERIFY_URL,
+        mailDefaults: { appName: "Acme" },
       }),
       ...deletionMailFeatures(transport),
     ],

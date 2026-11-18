@@ -219,7 +219,7 @@ describe("composeStacks boots for real", () => {
         ...composeMailStack({ transports: ["inmemory"] }),
         ...composeFileStack({ providers: ["inmemory"] }),
         ...composeGdprStack({ order: "compliance-first", sessions: true }),
-        ...composeUserDataRightsStack(),
+        ...composeUserDataRightsStack({ userDataRights: { mailDefaults: { appName: "Studio" } } }),
       ],
       { includeBundled: true },
     );
