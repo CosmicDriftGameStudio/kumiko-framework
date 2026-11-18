@@ -291,7 +291,8 @@ export function DashboardListTable({
   const padded = rowToneField !== undefined || leadingBadgeColumns.length > 0;
   const cellProps = { formatPercent, formatNumber, formatDateTime, translate };
   return (
-    <div className="overflow-x-auto">
+    // `relative` keeps the absolutely placed sr-only link labels inside the scrollport.
+    <div className="relative overflow-x-auto">
       <table data-testid={testId} className="w-full text-sm">
         {showHeader && (
           <thead>

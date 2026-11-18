@@ -506,6 +506,11 @@ describe("DataTable", () => {
       expect(scroll.contains(screen.getByTestId("dt"))).toBe(true);
     });
 
+    test("the scroll container is positioned, so absolutely placed sr-only cell labels cannot widen the page", () => {
+      render(<DataTable columns={cols} rows={threeRows} testId="dt" scrollBody />);
+      expect(screen.getByTestId("dt-scroll").classList.contains("relative")).toBe(true);
+    });
+
     test("without scrollBody, the pager remains unchanged below the table, without a scroll container", () => {
       render(
         <DataTable
