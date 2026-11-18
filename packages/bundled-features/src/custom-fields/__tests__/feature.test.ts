@@ -72,10 +72,13 @@ describe("defineFieldPayloadSchema", () => {
 
   test("accepts all SUPPORTED_FIELD_TYPES", () => {
     for (const type of SUPPORTED_FIELD_TYPES) {
+      // An embedded field is only definable with at least one checkable sub-field.
+      const serializedField =
+        type === "embedded" ? { type, schema: { note: { type: "text" } } } : { type };
       const result = defineFieldPayloadSchema.safeParse({
         entityName: "thing",
         fieldKey: "f",
-        serializedField: { type },
+        serializedField,
       });
       expect(result.success).toBe(true);
     }

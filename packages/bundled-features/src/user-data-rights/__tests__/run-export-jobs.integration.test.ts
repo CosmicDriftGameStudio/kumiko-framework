@@ -293,27 +293,22 @@ describe("runExportJobs :: a failing pre-claim check", () => {
     // A user id that is no uuid makes the user-table lookup of the erased check fail in Postgres.
     await changeExportJob(stack.db, brokenJob, { userId: "not-a-uuid" }, tenantA);
     const metrics = createRecordingMetricsHandle();
-    const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
 
-    try {
-      const result = await runExportJobs({
-        db: stack.db,
-        registry: stack.registry,
-        buildStorageProvider: buildProvider,
-        now: NOW(),
-        metrics,
-      });
+    const result = await runExportJobs({
+      db: stack.db,
+      registry: stack.registry,
+      buildStorageProvider: buildProvider,
+      now: NOW(),
+      metrics,
+    });
 
-      expect(result.completedJobIds).toEqual([healthyJob]);
-      expect(result.failedJobIds).toEqual([]);
-      expect(metrics.values.has(EXPORT_CLEANUP_LAST_RUN_TIMESTAMP_METRIC)).toBe(true);
-      const [brokenRow] = await selectMany<{ status: string }>(stack.db, exportJobsTable, {
-        id: brokenJob,
-      });
-      expect(brokenRow?.status).toBe(EXPORT_JOB_STATUS.Pending);
-    } finally {
-      warnSpy.mockRestore();
-    }
+    expect(result.completedJobIds).toEqual([healthyJob]);
+    expect(result.failedJobIds).toEqual([]);
+    expect(metrics.values.has(EXPORT_CLEANUP_LAST_RUN_TIMESTAMP_METRIC)).toBe(true);
+    const [brokenRow] = await selectMany<{ status: string }>(stack.db, exportJobsTable, {
+      id: brokenJob,
+    });
+    expect(brokenRow?.status).toBe(EXPORT_JOB_STATUS.Pending);
   });
 });
 

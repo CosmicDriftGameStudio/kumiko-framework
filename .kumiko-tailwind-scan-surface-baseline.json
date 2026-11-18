@@ -1,16 +1,10 @@
 {
   "format": 1,
-  "generated": "2026-10-31",
-  "total": 17,
   "perFile": {
-    "packages/bundled-features/src/auth-email-password/web/forgot-password-screen.tsx": 1,
-    "packages/bundled-features/src/auth-email-password/web/login-screen.tsx": 2,
-    "packages/bundled-features/src/auth-email-password/web/request-account-unlock-screen.tsx": 1,
-    "packages/bundled-features/src/auth-email-password/web/signup-screen.tsx": 1,
     "packages/bundled-features/src/auth-email-password/web/tenant-switcher.tsx": 2,
-    "packages/bundled-features/src/auth-email-password/web/user-menu.tsx": 2,
-    "packages/bundled-features/src/folders/web/folder-manager.tsx": 4,
-    "packages/bundled-features/src/notes-history/web/notes-section.tsx": 2,
+    "packages/bundled-features/src/auth-email-password/web/user-menu.tsx": 1,
+    "packages/bundled-features/src/folders/web/folder-manager.tsx": 2,
+    "packages/bundled-features/src/notes-history/web/notes-section.tsx": 1,
     "packages/bundled-features/src/user-data-rights/web/confirm-deletion-screen.tsx": 1,
     "packages/bundled-features/src/user-data-rights/web/request-deletion-screen.tsx": 1
   }

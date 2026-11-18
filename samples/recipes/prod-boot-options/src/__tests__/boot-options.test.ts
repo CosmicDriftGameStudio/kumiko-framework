@@ -4,7 +4,7 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { composeEnvSchema } from "@cosmicdrift/kumiko-framework/env";
-import { runProdApp } from "@cosmicdrift/kumiko-server-runtime";
+import { type RunProdAppOptions, runProdApp } from "@cosmicdrift/kumiko-server-runtime";
 import { appFeatures, bootOptions } from "../app";
 
 const PRODUCTION_BOOT_ENV: Readonly<Record<string, string>> = {
@@ -29,7 +29,10 @@ function withoutKey(key: string): Record<string, string> {
   return rest;
 }
 
-async function bootValidate(envSource: Record<string, string>): Promise<void> {
+async function bootValidate(
+  envSource: Record<string, string>,
+  bootErrorReporter?: RunProdAppOptions["bootErrorReporter"],
+): Promise<void> {
   const features = appFeatures();
   const handle = await runProdApp({
     features,
@@ -38,6 +41,7 @@ async function bootValidate(envSource: Record<string, string>): Promise<void> {
     migrations: false,
     envSource,
     ...bootOptions(envSource),
+    ...(bootErrorReporter !== undefined && { bootErrorReporter }),
   });
   await handle.stop();
 }
@@ -72,11 +76,30 @@ describe("prod boot options recipe", () => {
     expect(lines.some((line: string) => line.includes("boot validation OK"))).toBe(false);
   });
 
-  test("a missing KMS trio aborts the boot under kmsMode required", async () => {
+  test("the dry run names a missing KMS trio as required under kmsMode required", async () => {
     const envSource = withoutKey("PLATFORM_KEK");
     delete envSource["SUBJECT_KEYS_DATABASE_URL"];
     delete envSource["KUMIKO_BLIND_INDEX_KEY"];
-    await expect(bootValidate(envSource)).rejects.toThrow(/kmsMode "required"/);
+    await bootValidate(envSource);
+    const lines = logSpy.mock.calls.map((call: unknown[]) => String(call[0]));
+    const inventory = lines.find((line: string) => line.startsWith("Env check")) ?? "";
+    for (const name of ["PLATFORM_KEK", "SUBJECT_KEYS_DATABASE_URL", "KUMIKO_BLIND_INDEX_KEY"]) {
+      expect(inventory).toMatch(
+        new RegExp(`${name}\\s+runProdApp\\.kmsMode\\s+required\\s+missing`),
+      );
+    }
+    expect(lines.some((line: string) => line.includes("boot validation OK"))).toBe(false);
+  });
+
+  test("a missing KMS trio aborts the boot under kmsMode required", async () => {
+    const envSource = withoutKey("KUMIKO_DRY_RUN_ENV");
+    delete envSource["PLATFORM_KEK"];
+    delete envSource["SUBJECT_KEYS_DATABASE_URL"];
+    delete envSource["KUMIKO_BLIND_INDEX_KEY"];
+    const boot = bootValidate(envSource, () => {});
+    await expect(boot).rejects.toThrow(/PLATFORM_KEK/);
+    await expect(boot).rejects.toThrow(/SUBJECT_KEYS_DATABASE_URL/);
+    await expect(boot).rejects.toThrow(/KUMIKO_BLIND_INDEX_KEY/);
   });
 });
 

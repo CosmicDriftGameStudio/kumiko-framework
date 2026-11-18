@@ -337,16 +337,23 @@ describe("generated bin/main.ts actually boots (issue-2330 regression, real subp
     const exitCode = await runCreate({ name: "boot-prod-fixture", yes: true, cwd, log: () => {} });
     expect(exitCode).toBe(0);
 
-    // Unset, not "": the env contract rejects an empty key before kmsMode can report the missing trio.
-    const { PLATFORM_KEK, SUBJECT_KEYS_DATABASE_URL, KUMIKO_BLIND_INDEX_KEY, ...hostEnv } =
-      process.env;
+    // A real boot, not KUMIKO_DRY_RUN_ENV=boot: the dry run only lists missing variables and
+    // exits 0. Every KMS variable of the shell (trio, *_CIPHERTEXT twins, versions) is dropped,
+    // since a twin would stand in for its slot and the result would depend on the developer shell.
+    const kmsEnvPrefixes = ["PLATFORM_KEK", "SUBJECT_KEYS_DATABASE_URL", "KUMIKO_BLIND_INDEX_KEY"];
+    const hostEnv = Object.fromEntries(
+      Object.entries(process.env).filter(
+        ([name]) =>
+          name !== "KUMIKO_DRY_RUN_ENV" &&
+          !kmsEnvPrefixes.some((prefix) => name.startsWith(prefix)),
+      ),
+    );
     const proc = Bun.spawn({
       cmd: ["bun", "bin/main.ts"],
       cwd: join(cwd, "boot-prod-fixture"),
       env: {
         ...hostEnv,
         NODE_ENV: "production",
-        KUMIKO_DRY_RUN_ENV: "boot",
         JWT_SECRET: "a".repeat(32),
         KUMIKO_SECRETS_MASTER_KEY_V1: Buffer.alloc(32, 7).toString("base64"),
         DEMO_ADMIN_PASSWORD: TEST_ADMIN_PASSWORD,
@@ -363,7 +370,9 @@ describe("generated bin/main.ts actually boots (issue-2330 regression, real subp
     ]);
 
     expect(code, `stdout:\n${stdout}\nstderr:\n${stderr}`).not.toBe(0);
-    expect(`${stdout}${stderr}`).toContain('kmsMode "required"');
-    expect(`${stdout}${stderr}`).toContain("PLATFORM_KEK / SUBJECT_KEYS_DATABASE_URL");
+    const output = `${stdout}${stderr}`;
+    for (const name of ["PLATFORM_KEK", "SUBJECT_KEYS_DATABASE_URL", "KUMIKO_BLIND_INDEX_KEY"]) {
+      expect(output).toContain(`${name} (runProdApp.kmsMode, required, missing)`);
+    }
   });
 });
