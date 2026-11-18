@@ -220,7 +220,7 @@ export function makeDefaultDeletionExecutedEmail(
         buildChannelContext(deps.db, deps.registry, undefined, tenantId, deps.secrets, config),
         { subject: rendered.subject, html: rendered.html, text: rendered.text },
       );
-      if (result.status !== "sent") {
+      if (result.status === "failed") {
         // No address in the message: the user is already erased.
         throw new Error(`deletion-executed mail not sent: ${result.error ?? result.status}`);
       }
