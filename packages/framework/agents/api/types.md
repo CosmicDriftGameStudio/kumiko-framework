@@ -614,6 +614,7 @@ type PgErrorInfo = {
 ## packages/framework/src/db/projected-entity-row.ts
 
 ```ts
+type ClearableOptionalFields<Row> = { [K in keyof Row]: undefined extends Row[K] ? Row[K] | null : Row[K]; };
 const PROJECTED_ROW_META_KEYS: ["id", "tenantId", "version", "insertedAt", "insertedById", "modifiedAt", "modifiedById"];
 type ProjectedRowMetaKey = (typeof PROJECTED_ROW_META_KEYS)[number];
 ```

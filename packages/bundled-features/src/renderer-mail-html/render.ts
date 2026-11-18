@@ -42,7 +42,11 @@ import {
   type TemplateResolverApi,
   type TemplateResource,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
-import { SYSTEM_TENANT_ID, type TemplateVariables } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  isSystemTenant,
+  SYSTEM_TENANT_ID,
+  type TemplateVariables,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { convert as htmlToText } from "html-to-text";
 import mjml2html from "mjml";
 import { readChromeLogoSrc } from "./chrome-logo.ts";
@@ -55,6 +59,7 @@ import {
   readBrandingAccentColor,
   readBrandingLogoUrl,
   readBrandingSiteUrl,
+  readBrandingTitle,
   readDocumentFormat,
   readTenantName,
   resolveResourceFileRefs,
@@ -106,6 +111,8 @@ export type MailHtmlRenderOptions = {
   readonly brandSuffix?: MailBrandSuffixResolver;
   /** Site link in the mail band when the tenant's branding has no site URL. */
   readonly siteUrl?: MailSiteUrlResolver;
+  /** Brand of the system tenant's mails while no branding is stored for that tenant. */
+  readonly platformBrand?: { readonly title: string; readonly accentColor?: string };
 };
 
 const LINE_BREAKS = /[\r\n]+/g;
@@ -603,12 +610,33 @@ type MailBranding = {
   readonly brandColor: string | undefined;
 };
 
-// Only a structured (html) layout carries appearance; an mjml layout keeps its own look.
-async function resolveMailBranding(
+type MailBrand = { readonly tenantName: string; readonly brandColor: string | undefined };
+
+// The platform brand stands in only for the system tenant's own mails; another tenant never inherits it.
+async function readMailBrand(
   ctx: RendererContext,
-  layout: ResolvedLayout,
-): Promise<MailBranding> {
-  const brandColor = await readBrandingAccentColor(ctx);
+  options: MailHtmlRenderOptions,
+): Promise<MailBrand> {
+  const platformBrand = isSystemTenant(ctx.tenantId) ? options.platformBrand : undefined;
+  if (platformBrand === undefined) {
+    const [tenantName, brandColor] = await Promise.all([
+      readTenantName(ctx),
+      readBrandingAccentColor(ctx),
+    ]);
+    return { tenantName, brandColor };
+  }
+  const [storedTitle, storedColor] = await Promise.all([
+    readBrandingTitle(ctx),
+    readBrandingAccentColor(ctx),
+  ]);
+  return {
+    tenantName: storedTitle ?? platformBrand.title,
+    brandColor: storedColor ?? platformBrand.accentColor,
+  };
+}
+
+// Only a structured (html) layout carries appearance; an mjml layout keeps its own look.
+function resolveMailBranding(brandColor: string | undefined, layout: ResolvedLayout): MailBranding {
   if (layout.format !== "html") {
     return { appearance: undefined, accentColor: undefined, brandColor };
   }
@@ -702,14 +730,14 @@ export async function readMailChrome(
   options: MailHtmlRenderOptions = {},
 ): Promise<MailPageChrome> {
   const { locale } = req;
-  const [tenantName, footer, siteUrl, brandSuffix, logoUrl, accentColor] = await Promise.all([
-    readTenantName(ctx),
+  const [brand, footer, siteUrl, brandSuffix, logoUrl] = await Promise.all([
+    readMailBrand(ctx, options),
     resolveMailFooter(options, ctx, locale),
     resolveMailSiteUrl(options, ctx, locale),
     resolveBrandSuffix(options, ctx, locale),
     readChromeLogoSrc(ctx),
-    readBrandingAccentColor(ctx),
   ]);
+  const { tenantName, brandColor: accentColor } = brand;
   const footerText = footer?.text?.trim() ?? "";
   const imprint = resolvedFooterLink(
     footer?.imprint,
@@ -748,14 +776,15 @@ export async function mailHtmlRender(
 
   const tplApi = createTemplateResolverApi(ctx.db, ctx.registry);
   const { template, meta } = await resolveMailTemplate(tplApi, ctx, slug, locale, draft);
-  const [format, tenantName, footer, siteUrl, brandSuffix, brandingLogoUrl] = await Promise.all([
+  const [format, brand, footer, siteUrl, brandSuffix, brandingLogoUrl] = await Promise.all([
     readDocumentFormat(ctx, locale),
-    readTenantName(ctx),
+    readMailBrand(ctx, options),
     resolveMailFooter(options, ctx, locale),
     resolveMailSiteUrl(options, ctx, locale),
     resolveBrandSuffix(options, ctx, locale),
     readBrandingLogoUrl(ctx),
   ]);
+  const { tenantName } = brand;
   const layout = (await resolveMailLayout(tplApi, ctx, meta, locale)) ?? (await inCodeLayout(ctx));
   const hbs = createDocumentHandlebars(format);
   const systemPlaceholders = {
@@ -771,7 +800,7 @@ export async function mailHtmlRender(
     template.variableSchema,
   );
 
-  const { appearance, accentColor, brandColor } = await resolveMailBranding(ctx, layout);
+  const { appearance, accentColor, brandColor } = resolveMailBranding(brand.brandColor, layout);
   const chrome = renderMailChrome(hbs, meta, slug, context, variableDefs, brandColor);
   const body = await renderMailBody(
     tplApi,

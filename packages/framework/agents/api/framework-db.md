@@ -288,7 +288,7 @@ type ProjectedEntityTarget<E extends EntityDefinition> = {
   entity: E;
   table: EntityTableMeta;
 };
-type ProjectedEntityValues<E extends EntityDefinition> = Partial<Omit<EntityRow<E>, ProjectedRowMetaKey>>;
+type ProjectedEntityValues<E extends EntityDefinition> = Partial<ClearableOptionalFields<Omit<EntityRow<E>, ProjectedRowMetaKey>>>;
 type PublicCreateTenantDbOptions = Pick<CreateTenantDbOptions, "db" | "tenantId" | "tracer" | "meter" | "signal"> & {
   mode?: "tenant";
 };

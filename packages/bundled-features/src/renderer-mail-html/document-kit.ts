@@ -201,9 +201,13 @@ export async function readDocumentFormat(
   };
 }
 
+export async function readBrandingTitle(ctx: RendererContext): Promise<string | undefined> {
+  return readBrandingConfigText(ctx, "title");
+}
+
 // Without the branding feature there is no branding title; the tenant record's own name is the fallback.
 export async function readTenantName(ctx: RendererContext): Promise<string> {
-  const branded = await readBrandingConfigText(ctx, "title");
+  const branded = await readBrandingTitle(ctx);
   if (branded !== undefined) return branded;
   if (ctx.registry.getFeature(TENANT_FEATURE) === undefined) return "";
   const rows = await selectMany<{ name?: unknown }>(ctx.db, tenantTable, { id: ctx.tenantId });
