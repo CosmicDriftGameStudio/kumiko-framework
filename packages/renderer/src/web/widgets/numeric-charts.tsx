@@ -70,11 +70,11 @@ type PlotFrameProps = {
   readonly children: ReactNode;
 };
 
-// Edge labels align inward so they stay inside the plot instead of overflowing half their width.
-function xLabelAlignClass(index: number, labelCount: number): string {
-  if (labelCount < 2) return "-translate-x-1/2";
-  if (index === 0) return "translate-x-0";
-  if (index === labelCount - 1) return "-translate-x-full";
+// Only a label exactly on a plot edge aligns inward; every other label stays centered under its
+// tick or bar, otherwise the outer bar and inner tick labels drift off their anchor.
+function xLabelAlignClass(position: number): string {
+  if (position <= 0) return "translate-x-0";
+  if (position >= 1) return "-translate-x-full";
   return "-translate-x-1/2";
 }
 
@@ -144,10 +144,10 @@ function PlotFrame({
           aria-hidden="true"
           className="relative h-4 min-w-0 flex-1 text-[11px] tabular-nums text-muted-foreground"
         >
-          {xLabels.map((tick, index) => (
+          {xLabels.map((tick) => (
             <span
               key={tick.position}
-              className={cn("absolute whitespace-nowrap", xLabelAlignClass(index, xLabels.length))}
+              className={cn("absolute whitespace-nowrap", xLabelAlignClass(tick.position))}
               style={{ left: `${tick.position * 100}%` }}
             >
               {tick.label}

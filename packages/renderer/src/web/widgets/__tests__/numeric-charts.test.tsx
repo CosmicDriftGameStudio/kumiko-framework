@@ -91,6 +91,27 @@ describe("SignedBarChart", () => {
     screen.getByTestId("signed-bar-zero-line");
     screen.getByText("Year 1");
   });
+
+  test("keeps the first and last bar labels centered under their bars", () => {
+    render(
+      <SignedBarChart
+        ariaLabel="Cashflow"
+        buckets={[2026, 2027, 2028].map((x) => ({ x, values: { gain: 100 } }))}
+        series={[{ key: "gain", label: "Surplus" }]}
+        xAxis={{ format: (x) => `Year ${x}` }}
+        yAxis={{ ticks: 5 }}
+      />,
+    );
+    for (const [label, barCenterPercent] of [
+      ["Year 2026", 100 / 6],
+      ["Year 2027", 50],
+      ["Year 2028", 500 / 6],
+    ] as const) {
+      const tick = screen.getByText(label);
+      expect(Number.parseFloat(tick.style.left)).toBeCloseTo(barCenterPercent, 6);
+      expect(tick.classList.contains("-translate-x-1/2")).toBe(true);
+    }
+  });
 });
 
 describe("HistogramChart", () => {
@@ -164,5 +185,27 @@ describe("HistogramChart", () => {
     expect(firstTick.classList.contains("translate-x-0")).toBe(true);
     expect(middleTick.classList.contains("-translate-x-1/2")).toBe(true);
     expect(lastTick.classList.contains("-translate-x-full")).toBe(true);
+  });
+
+  test("centers outer tick labels that do not sit on the plot edge", () => {
+    render(
+      <HistogramChart
+        ariaLabel="Net result"
+        bins={[
+          { id: "a", start: -60, end: 0, count: 10 },
+          { id: "b", start: 0, end: 60, count: 40 },
+          { id: "c", start: 60, end: 120, count: 20 },
+        ]}
+        xAxis={{ ticks: 4, format: (value) => `${value} EUR` }}
+        yAxis={{ ticks: 3 }}
+      />,
+    );
+    const firstTick = screen.getByText("0 EUR");
+    const lastTick = screen.getByText("100 EUR");
+
+    expect(Number.parseFloat(firstTick.style.left)).toBeGreaterThan(0);
+    expect(Number.parseFloat(lastTick.style.left)).toBeLessThan(100);
+    expect(firstTick.classList.contains("-translate-x-1/2")).toBe(true);
+    expect(lastTick.classList.contains("-translate-x-1/2")).toBe(true);
   });
 });
