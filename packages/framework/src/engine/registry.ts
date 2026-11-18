@@ -32,6 +32,7 @@ import {
   resolveJobTriggers,
   resolveNotificationTriggersAndRegisterHooks,
   validateBootGates,
+  validateCrossTenantFileReadWithExtensionFields,
   validateEntityHookTargets,
   validateEventMigrationVersions,
   validateExtensionSelectors,
@@ -82,6 +83,7 @@ export function createRegistry(rawFeatures: readonly FeatureDefinition[]): Regis
   populateReadModelEntities(state);
   buildIncomingRelations(state);
   validateFieldAccessHandlersAreEntityMapped(state, features);
+  validateCrossTenantFileReadWithExtensionFields(state, features);
   validateExtensionPreSaveWiring(features);
   validateRelationTargetsExist(state);
   validateEventMigrationVersions(state, features);

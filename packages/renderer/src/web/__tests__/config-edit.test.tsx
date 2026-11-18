@@ -10,7 +10,7 @@
 import { describe, expect, type Mock, mock, test } from "bun:test";
 import type { ConfigEditScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import userEvent from "@testing-library/user-event";
-import type { BatchResult, Dispatcher, QueryResult } from "../../headless/index.ts";
+import type { BatchResult, Dispatcher, QueryResult, WriteResult } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
 import {
@@ -1398,17 +1398,21 @@ describe("KumikoScreen / configEdit — tenant value shows in the control", () =
   function renderSiteNameOverride(
     tenantValue: string,
     inheritedValue: string,
+    writeResult: WriteResult<unknown> = { isSuccess: true, data: null },
   ): {
     readonly writes: { type: string; payload: unknown }[];
     readonly batchSpy: Mock<MockBatchHandler>;
+    readonly queries: string[];
   } {
     const writes: { type: string; payload: unknown }[] = [];
+    const queries: string[] = [];
     const batchSpy = mock<MockBatchHandler>(async () => ({
       isSuccess: true as const,
       results: [],
     }));
     const dispatcher: Dispatcher = createMockDispatcher({
       query: async (qn: string) => {
+        queries.push(qn);
         if (qn === "config:query:cascade") {
           return {
             isSuccess: true,
@@ -1424,7 +1428,7 @@ describe("KumikoScreen / configEdit — tenant value shows in the control", () =
       },
       write: async (type: string, payload: unknown) => {
         writes.push({ type, payload });
-        return { isSuccess: true, data: null };
+        return writeResult;
       },
       batch: batchSpy,
     });
@@ -1433,7 +1437,7 @@ describe("KumikoScreen / configEdit — tenant value shows in the control", () =
         <KumikoScreen schema={layoutSchema} qn="demo:screen:site-settings" />
       </DispatcherProvider>,
     );
-    return { writes, batchSpy };
+    return { writes, batchSpy, queries };
   }
 
   async function clickSiteNameReset(user: ReturnType<typeof userEvent.setup>): Promise<void> {
@@ -1480,5 +1484,17 @@ describe("KumikoScreen / configEdit — tenant value shows in the control", () =
         { type: "config:write:reset", payload: { key: "demo:config:site-name", scope: "tenant" } },
       ]),
     );
+  });
+
+  test("a refused immediate reset shows the error like a refused save and reloads nothing", async () => {
+    const error = { code: "access_denied", httpStatus: 403, i18nKey: "errors.access.denied" };
+    const refused = { isSuccess: false, error: { ...error, message: "denied" } } as const;
+    const { writes, queries } = renderSiteNameOverride("Site", "Site", refused);
+    await clickSiteNameReset(userEvent.setup());
+    const banner = await screen.findByTestId("render-edit-form-error");
+    expect(banner.textContent).toContain("You don't have permission to do this.");
+    expect(writes).toHaveLength(1);
+    // Only the read at render: a reload after the click would have landed by now.
+    expect(queries.filter((qn) => qn === "config:query:cascade")).toHaveLength(1);
   });
 });

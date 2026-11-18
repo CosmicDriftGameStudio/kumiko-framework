@@ -24,4 +24,7 @@ export const FIELD_APPROVAL_I18N: Readonly<Record<string, { readonly en: string 
   },
   "field-approval.list.action.withdraw": { en: "Withdraw" },
   "field-approval.list.action.withdraw.confirm": { en: "Withdraw this change request?" },
+  "errors.fieldApproval.requestPendingByOther": {
+    en: "Someone else's change request for this field is already awaiting approval.",
+  },
 };

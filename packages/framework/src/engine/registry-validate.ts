@@ -16,6 +16,7 @@ import { entityReadsSystemRows } from "../db/entity-table-meta.ts";
 import { type EntityLifecycleVerb, entityEventName } from "../db/event-store-executor-context.ts";
 import { tableNameOf } from "../db/table-introspection.ts";
 import { resolveMaxPerTenant } from "../jobs/max-per-tenant.ts";
+import { assertCrossTenantFilesCarryNoReadRule } from "./boot-validator/cross-tenant-file-read.ts";
 import { resolveName } from "./handler-helpers.ts";
 import { HookPhases } from "./hook-helpers.ts";
 import { parseRefTargetEntityName } from "./parse-ref-target.ts";
@@ -370,6 +371,34 @@ function assertQueryHandlerEntityBinding(
   }
 }
 
+// extendSchema fields are merged into entityMap only, so the feature's entities come from there.
+function featureWithExtensionFields(
+  state: RegistryState,
+  feature: FeatureDefinition,
+): FeatureDefinition {
+  return {
+    ...feature,
+    entities: Object.fromEntries(
+      Object.entries(feature.entities ?? {}).map(([name, entity]) => [
+        name,
+        state.entityMap.get(name) ?? entity,
+      ]),
+    ),
+  };
+}
+
+export function validateCrossTenantFileReadWithExtensionFields(
+  state: RegistryState,
+  features: readonly FeatureDefinition[],
+): void {
+  for (const feature of features) {
+    const { entities } = featureWithExtensionFields(state, feature);
+    for (const [entityName, entity] of Object.entries(entities ?? {})) {
+      assertCrossTenantFilesCarryNoReadRule(feature.name, entityName, entity);
+    }
+  }
+}
+
 export function validateFieldAccessHandlersAreEntityMapped(
   state: RegistryState,
   features: readonly FeatureDefinition[],
@@ -377,16 +406,7 @@ export function validateFieldAccessHandlersAreEntityMapped(
   // Validate: handlers in features with field-access rules must be entity-mapped.
   // Without entity mapping, field-level access checks are silently skipped (security gap).
   for (const feature of features) {
-    // extendSchema fields are merged into entityMap only, so the feature's entities come from there.
-    const withExtensionFields: FeatureDefinition = {
-      ...feature,
-      entities: Object.fromEntries(
-        Object.entries(feature.entities ?? {}).map(([name, entity]) => [
-          name,
-          state.entityMap.get(name) ?? entity,
-        ]),
-      ),
-    };
+    const withExtensionFields = featureWithExtensionFields(state, feature);
     const restrictions = {
       hasFieldAccess: hasFieldAccessRules(withExtensionFields),
       hasReadRestrictions: hasReadRestrictedFields(withExtensionFields),

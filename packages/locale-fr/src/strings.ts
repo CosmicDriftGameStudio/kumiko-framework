@@ -942,6 +942,8 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "kumiko.form.fieldApproval.submit": "Soumettre pour approbation",
   "kumiko.form.fieldApproval.pending": "En attente d'approbation",
   "kumiko.form.fieldApproval.pendingValue": "Demandé : {value} · en attente d'approbation",
+  "kumiko.form.fieldApproval.pendingByOther":
+    "Une demande de modification de ce champ est en attente d'approbation",
   "kumiko.form.changed": "modifié",
   "kumiko.form.discard": "Abandonner",
   "kumiko.form.draft.resume-multiple":
@@ -3351,6 +3353,8 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
     "Refuser cette modification ? L'enregistrement conserve sa valeur actuelle.",
   "field-approval.list.action.withdraw": "Retirer",
   "field-approval.list.action.withdraw.confirm": "Retirer cette demande de modification ?",
+  "errors.fieldApproval.requestPendingByOther":
+    "Une demande d'une autre personne attend déjà l'approbation pour ce champ.",
   "inbound-mail-foundation:write:disconnect-account:title": "Déconnecter la boîte mail",
   "inbound-mail-foundation:write:disconnect-account:field:accountId": "Boîte mail",
   "inbound-mail-foundation:write:disconnect-account:field:reason": "Motif",

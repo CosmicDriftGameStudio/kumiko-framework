@@ -11,6 +11,7 @@ import {
   createFilesField,
   createTextField,
 } from "../../factories.ts";
+import { createRegistry } from "../../registry.ts";
 import type { FeatureDefinition } from "../../types/index.ts";
 import { validateCrossTenantFileRead } from "../cross-tenant-file-read.ts";
 import { buildQueryHandlerMap } from "../projection-list-screens.ts";
@@ -164,6 +165,51 @@ describe("validateCrossTenantFileRead on a read-model entity", () => {
   });
 });
 
+// extendSchema fields reach the entity only in the registry, and the file check reads that entity.
+describe("validateCrossTenantFileRead with extendSchema fields", () => {
+  function scansExtension(access?: { read: string[] }) {
+    return defineFeature("scans", (r) => {
+      r.extendsRegistrar("scans", {
+        extendSchema: () => ({ scan: createFilesField(access === undefined ? {} : { access }) }),
+      });
+    });
+  }
+
+  function requestsApplying(extensionName: string): FeatureDefinition {
+    return defineFeature("requests", (r) => {
+      r.entity(
+        createEntity({
+          name: "request",
+          table: "cross_tenant_file_read_boot_requests",
+          fields: { title: text() },
+          crossTenantFileRead: {
+            query: "requests:query:request:visible-to-me",
+            reason: "buyers see their photos",
+          },
+        }),
+      );
+      r.applyExtension({ name: extensionName, entity: "request" });
+      r.queryHandler({
+        name: "request:visible-to-me",
+        schema: z.object({ id: z.string() }),
+        handler: async () => null,
+        resultEntity: "request",
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
+    });
+  }
+
+  test("rejects an extendSchema file field with its own read access", () => {
+    expect(() =>
+      createRegistry([scansExtension({ read: ["Admin"] }), requestsApplying("scans")]),
+    ).toThrow(/entity "request" declares crossTenantFileRead, but its file field "scan"/);
+  });
+
+  test("accepts an extendSchema file field without a read rule", () => {
+    expect(() => createRegistry([scansExtension(), requestsApplying("scans")])).not.toThrow();
+  });
+});
+
 // The runtime finds crossTenantFileRead only on r.entity entities and on read models keyed by a
 // single source stream that no r.entity registers; anywhere else the declaration does nothing.
 describe("validateCrossTenantFileRead on a projection entity the file check never sees", () => {
@@ -248,6 +294,33 @@ describe("validateCrossTenantFileRead on a projection entity the file check neve
     });
     expect(() => boot([intake, feature])).toThrow(
       /declares crossTenantFileRead, but the file check never/,
+    );
+  });
+
+  test("rejects it on a separate entity that reuses its source's fields", () => {
+    const request = createEntity({
+      name: "request",
+      table: "ctfr_requests",
+      fields: { title: text(), photos: createFilesField() },
+    });
+    const digest = {
+      ...request,
+      name: "request-digest",
+      table: "cross_tenant_file_read_boot_request_digests",
+      crossTenantFileRead: { query: QUERY, reason: "buyers see photos" },
+    };
+    const feature = requestsFeature((r) => {
+      r.entity(request);
+      r.projection({
+        name: "request-digest",
+        source: "request",
+        table: buildEntityTable(digest),
+        entity: digest,
+        apply: { "request.created": async () => {} },
+      });
+    });
+    expect(() => boot([feature])).toThrow(
+      /projection "request-digest" entity "request-digest" declares crossTenantFileRead, but the file check never/,
     );
   });
 });

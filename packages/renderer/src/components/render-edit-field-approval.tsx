@@ -83,6 +83,17 @@ function openRequestFor<TValues extends FormValues, TCtx>(
   );
 }
 
+// The server refuses a second request while someone else's is open, so the field offers none.
+function isRequestedByOther<TValues extends FormValues, TCtx>(
+  model: RenderEditModel<TValues, TCtx>,
+  fieldName: string,
+): boolean {
+  return (
+    isApprovalGatedField(model, fieldName) &&
+    openRequestFor(model, fieldName)?.filedByCaller === false
+  );
+}
+
 function renderPendingRequestHint<TValues extends FormValues, TCtx>(
   model: RenderEditModel<TValues, TCtx>,
   field: EditFieldViewModel,
@@ -93,31 +104,57 @@ function renderPendingRequestHint<TValues extends FormValues, TCtx>(
   const { Text } = state.primitives;
   return (
     <Text variant="muted" announce testId={`field-approval-pending-${field.field}`}>
-      {pendingRequestText(field, request, state.translate, state.appLocale)}
+      {isRequestedByOther(model, field.field)
+        ? state.translate("kumiko.form.fieldApproval.pendingByOther")
+        : pendingRequestText(field, request, state.translate, state.appLocale)}
     </Text>
   );
 }
 
-async function withdrawRequest<TValues extends FormValues, TCtx>(
-  model: RenderEditModel<TValues, TCtx>,
-  request: PendingApprovalRequest,
-): Promise<void> {
+function WithdrawRequestButton<TValues extends FormValues, TCtx>({
+  model,
+  request,
+}: {
+  readonly model: RenderEditModel<TValues, TCtx>;
+  readonly request: PendingApprovalRequest;
+}): ReactNode {
   const { state } = model.engine;
-  // skip: no server to withdraw at
-  if (state.dispatcher === undefined) return;
-  const result = await state.dispatcher.write(FIELD_APPROVAL_REJECT_CHANGE, {
-    id: request.id,
-    version: request.version,
-  });
-  if (!result.isSuccess) {
-    state.setFormError(result.error);
-    return;
-  }
-  state.fieldApproval.reload();
-  state.notifyAction?.({
-    tone: "success",
-    text: state.translate("kumiko.form.fieldApproval.withdrawn"),
-  });
+  const { Button } = state.primitives;
+  const [withdrawing, setWithdrawing] = useState(false);
+  const withdraw = async (): Promise<void> => {
+    // skip: no server to withdraw at
+    if (state.dispatcher === undefined) return;
+    setWithdrawing(true);
+    try {
+      const result = await state.dispatcher.write(FIELD_APPROVAL_REJECT_CHANGE, {
+        id: request.id,
+        version: request.version,
+      });
+      if (!result.isSuccess) {
+        state.setFormError(result.error);
+        return;
+      }
+      state.fieldApproval.reload();
+      state.notifyAction?.({
+        tone: "success",
+        text: state.translate("kumiko.form.fieldApproval.withdrawn"),
+      });
+    } finally {
+      setWithdrawing(false);
+    }
+  };
+  return (
+    <Button
+      type="button"
+      variant="link"
+      size="sm"
+      disabled={withdrawing}
+      onClick={() => void withdraw()}
+      testId={`field-approval-withdraw-${request.fieldName}`}
+    >
+      {state.translate("kumiko.form.fieldApproval.withdraw")}
+    </Button>
+  );
 }
 
 export function fieldApprovalAppendix<TValues extends FormValues, TCtx>(
@@ -146,17 +183,9 @@ export function fieldApprovalAppendix<TValues extends FormValues, TCtx>(
     <Grid columns="auto" tight>
       {renderPendingRequestHint(model, field)}
       {actionsAllowed && request !== undefined && ownRequest && (
-        <Button
-          type="button"
-          variant="link"
-          size="sm"
-          onClick={() => void withdrawRequest(model, request)}
-          testId={`field-approval-withdraw-${fieldName}`}
-        >
-          {translate("kumiko.form.fieldApproval.withdraw")}
-        </Button>
+        <WithdrawRequestButton model={model} request={request} />
       )}
-      {actionsAllowed && gated && !ownRequest && field.visible && !field.readOnly && (
+      {actionsAllowed && gated && request === undefined && field.visible && !field.readOnly && (
         <Button
           type="button"
           variant="link"
@@ -177,7 +206,11 @@ function requestableFields<TValues extends FormValues, TCtx>(
   return model.engine.sections.filteredSections.flatMap((section) =>
     section.kind === "fields" && section.visible
       ? section.fields.filter(
-          (field) => field.visible && !field.readOnly && isApprovalGatedField(model, field.field),
+          (field) =>
+            field.visible &&
+            !field.readOnly &&
+            isApprovalGatedField(model, field.field) &&
+            !isRequestedByOther(model, field.field),
         )
       : [],
   );

@@ -1,5 +1,5 @@
 import type { MutableRefObject } from "react";
-import type { FormValues } from "../headless/index.ts";
+import type { DispatcherError, FormValues } from "../headless/index.ts";
 import { dryRunFieldIssues } from "./render-edit-helpers.tsx";
 import type { ResolvedRenderEditProps } from "./render-edit-render-model.ts";
 import type { RenderEditForm } from "./use-render-edit-form.ts";
@@ -34,6 +34,7 @@ export function buildControlsFor<TValues extends FormValues>({
   handleSubmitRef,
   wizardNextRef,
   wizardBackRef,
+  showSubmitErrorRef,
 }: {
   readonly controller: RenderEditForm<TValues>["controller"];
   readonly patch: ControlsOf<TValues>["patch"];
@@ -43,6 +44,7 @@ export function buildControlsFor<TValues extends FormValues>({
   >;
   readonly wizardNextRef: MutableRefObject<() => void>;
   readonly wizardBackRef: MutableRefObject<() => void>;
+  readonly showSubmitErrorRef: MutableRefObject<(error: DispatcherError) => void>;
 }): ControlsOf<TValues> {
   return {
     patch,
@@ -53,6 +55,7 @@ export function buildControlsFor<TValues extends FormValues>({
     submit: () => handleSubmitRef.current({ saveNow: true }),
     next: () => wizardNextRef.current(),
     back: () => wizardBackRef.current(),
+    showSubmitError: (error) => showSubmitErrorRef.current(error),
   };
 }
 

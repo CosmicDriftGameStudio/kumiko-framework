@@ -1,4 +1,5 @@
 import type { EntityDefinition, FieldDefinition } from "@cosmicdrift/kumiko-types/fields";
+import type { ProjectionDefinition } from "@cosmicdrift/kumiko-types/projection";
 import { isReadRestrictedField } from "../field-access.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 import { bootRuleError } from "./boot-rule.ts";
@@ -18,6 +19,23 @@ export function readModelEntitiesOf(
   );
 }
 
+// r.entity stores a copy without backingTable, so identity cannot mark it. A separate entity may
+// reuse the fields map (`{ ...entity, name }`), so name and table must match as well.
+export function carriesOwnSourceEntity(
+  feature: FeatureDefinition,
+  projection: ProjectionDefinition,
+): boolean {
+  const { entity, source } = projection;
+  if (entity === undefined || typeof source !== "string") return false;
+  const own = feature.entities?.[source];
+  return (
+    own !== undefined &&
+    own.fields === entity.fields &&
+    own.name === entity.name &&
+    own.table === entity.table
+  );
+}
+
 function restrictedSubFieldOf(field: FieldDefinition): string | undefined {
   if (field.type !== "embedded") return undefined;
   return Object.entries(field.schema).find(([, sub]) => sub.access?.read !== undefined)?.[0];
@@ -28,12 +46,9 @@ function restrictedSubFieldOf(field: FieldDefinition): string | undefined {
 // read model) comes back from hand-written queries, so a field rule there would never apply.
 export function validateReadModelFieldReadRules(feature: FeatureDefinition): void {
   for (const projection of Object.values(feature.projections ?? {})) {
-    const { entity, source } = projection;
+    const { entity } = projection;
     if (projection.isImplicit || entity === undefined) continue;
-    // r.entity stores a copy without backingTable, so the shared fields map marks the same entity.
-    if (typeof source === "string" && feature.entities?.[source]?.fields === entity.fields) {
-      continue;
-    }
+    if (carriesOwnSourceEntity(feature, projection)) continue;
     for (const [fieldName, field] of Object.entries(entity.fields)) {
       if (!isReadRestrictedField(field)) continue;
       const subField = restrictedSubFieldOf(field);

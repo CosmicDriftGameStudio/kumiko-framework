@@ -124,11 +124,38 @@ async function visibleRequestedValue(
   return opened.ok ? { value: maskedFieldValue(hostEntity, fieldName, opened.value) } : undefined;
 }
 
+// A writer who would have to request the field learns that someone else's request is open, so the
+// form offers no second request; the value and who filed it stay with approvers and the requester.
+function otherRequesterSummary(
+  row: PendingRequestRow,
+  ctx: PendingChangesContext,
+  entityType: string,
+  entityId: string,
+  fieldName: string,
+) {
+  return {
+    id: String(row["id"]),
+    version: Number(row["version"]),
+    entityType,
+    entityId,
+    recordLabel: entityId,
+    fieldName,
+    fieldLabel: fieldLabelKey(hostFeatureOf(ctx, entityType), entityType, fieldName),
+    currentValue: undefined,
+    value: undefined,
+    requestedBy: undefined,
+    requestedAt: undefined,
+    canApprove: false,
+    filedByCaller: false,
+  };
+}
+
 async function toPendingChangeSummary(
   row: PendingRequestRow,
   visibleByType: ReadonlyMap<string, ReadonlySet<string>>,
   ctx: PendingChangesContext,
   user: SessionUser,
+  scopedToRecord: boolean,
 ) {
   const entityType = String(row["entityType"]);
   const entityId = String(row["entityId"]);
@@ -139,7 +166,11 @@ async function toPendingChangeSummary(
   if (hostEntity === undefined || field === undefined) return undefined;
   const filedByCaller = requesterIdOf(row) === user.id;
   const mayApprove = userCanApproveField(user, field);
-  if (!mayApprove && !filedByCaller) return undefined;
+  if (!mayApprove && !filedByCaller) {
+    return scopedToRecord && fieldsRequiringApprovalRequest(hostEntity, user).includes(fieldName)
+      ? otherRequesterSummary(row, ctx, entityType, entityId, fieldName)
+      : undefined;
+  }
   const hostRow = await registeredEntityExecutor(ctx.registry, entityType)?.detail(
     { id: entityId },
     user,
@@ -193,7 +224,7 @@ export function createPendingChangesQuery(
     schema: pendingFieldChangesQuerySchema,
     access,
     description:
-      "Lists open field change requests the caller may decide or has filed, with the requested value. With an entityType it also returns gatedFields: the fields of that entity the caller may write but must request (a form shows them read-only with a request action). entityId null answers for a record not created yet: no rows, only gatedFields.",
+      "Lists open field change requests the caller may decide or has filed, with the requested value. With an entityId, a writer who must request a field also gets a row without value or requester for another person's open request on it. With an entityType it also returns gatedFields: the fields of that entity the caller may write but must request (a form shows them read-only with a request action). entityId null answers for a record not created yet: no rows, only gatedFields.",
     unfilteredResult: {
       reason:
         "rows are request summaries filtered per host record and approver role by the handler",
@@ -215,10 +246,11 @@ export function createPendingChangesQuery(
         requestExecutor.list({ ...page, filters }, user, ctx.db),
       );
       const visibleByType = await visibleHostIdsByType(pending, ctx, user);
+      const scopedToRecord = typeof entityId === "string";
 
       const rows = [];
       for (const row of pending) {
-        const summary = await toPendingChangeSummary(row, visibleByType, ctx, user);
+        const summary = await toPendingChangeSummary(row, visibleByType, ctx, user, scopedToRecord);
         if (summary !== undefined) rows.push(summary);
       }
       const names = await requesterNamesOf(rows, ctx);

@@ -21,6 +21,14 @@ import { FieldApprovalReasons, FieldChangeStatus } from "../constants.ts";
 import type { fieldChangeRequestExecutor } from "../executor.ts";
 import { requestFieldChangePayloadSchema } from "../schemas.ts";
 import { sealRequestedValue } from "../stored-value.ts";
+import { requesterIdOf } from "./decide-change.ts";
+
+function isOpenRequestOfAnotherUser(
+  request: Readonly<Record<string, unknown>> | null | undefined,
+  userId: string,
+): boolean {
+  return request?.["status"] === FieldChangeStatus.Pending && requesterIdOf(request) !== userId;
+}
 
 export function createRequestChangeHandler(
   access: AccessRule,
@@ -112,6 +120,22 @@ export function createRequestChangeHandler(
         );
       }
 
+      const id = fieldChangeRequestAggregateId(
+        event.user.tenantId,
+        entityType,
+        entityId,
+        fieldName,
+      );
+      const existing = await requestExecutor.detail({ id }, event.user, ctx.db);
+      // Re-filing would make the caller the requester and drop the other person's request unseen.
+      if (isOpenRequestOfAnotherUser(existing, event.user.id)) {
+        return unprocessable(
+          FieldApprovalReasons.requestPendingByOther,
+          "errors.fieldApproval.requestPendingByOther",
+          { field: fieldName },
+        );
+      }
+
       const requestedValue = await sealRequestedValue(
         hostEntity,
         entityType,
@@ -120,21 +144,18 @@ export function createRequestChangeHandler(
         { ...hostRow, id: entityId },
       );
 
-      const id = fieldChangeRequestAggregateId(
-        event.user.tenantId,
-        entityType,
-        entityId,
-        fieldName,
-      );
-      const existing = await requestExecutor.detail({ id }, event.user, ctx.db);
-      // A new request overwrites the open value and bumps the version, so approve and reject pin
-      // the version the approver saw.
+      // A new request overwrites the requester's own open value and bumps the version, so approve
+      // and reject pin the version the approver saw. The update pins the version checked above: a
+      // request filed by someone else in between must fail, not be replaced.
       const saved = existing
         ? await requestExecutor.update(
-            { id, changes: { status: FieldChangeStatus.Pending, requestedValue } },
+            {
+              id,
+              version: Number(existing["version"]),
+              changes: { status: FieldChangeStatus.Pending, requestedValue },
+            },
             event.user,
             ctx.db,
-            { skipOptimisticLock: true },
           )
         : await requestExecutor.create(
             {

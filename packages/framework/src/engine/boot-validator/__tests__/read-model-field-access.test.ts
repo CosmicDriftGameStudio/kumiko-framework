@@ -168,4 +168,26 @@ describe("field read rules on other projection entities", () => {
     });
     expect(() => validateBoot(feature)).not.toThrow();
   });
+
+  test("a separate entity that reuses its source's fields fails the boot", () => {
+    const ticket = projectionEntity("ticket", { note: restrictedNote() });
+    const summary = {
+      ...ticket,
+      name: "ticket-summary",
+      table: "fw_read_model_field_access_ticket_summary",
+    };
+    const feature = defineFeature("helpdesk", (r) => {
+      r.entity(ticket);
+      r.projection({
+        name: "ticket-summary",
+        source: "ticket",
+        table: buildEntityTable(summary),
+        entity: summary,
+        apply: { "ticket.created": async () => {} },
+      });
+    });
+    expect(() => validateBoot(feature)).toThrow(
+      /read-model entity "ticket-summary" field "note" has a read rule/,
+    );
+  });
 });

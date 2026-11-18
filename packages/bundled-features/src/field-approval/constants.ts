@@ -26,6 +26,7 @@ export const FieldApprovalReasons = {
   fieldNotApprovalGated: "field_not_approval_gated",
   invalidValue: "field_change_invalid_value",
   requestNotPending: "field_change_request_not_pending",
+  requestPendingByOther: "field_change_request_pending_by_other",
   selfApproval: "field_change_self_approval",
   valueErased: "field_change_value_erased",
 } as const;

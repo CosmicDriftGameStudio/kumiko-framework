@@ -134,14 +134,21 @@ renderer, exact or wildcard, so a variant request for it fails.
 
 ## Who sees a file: unbound uploads and binding
 
-A `fileRef` is readable by its uploader and by privileged roles (`Admin`,
-`SystemAdmin`). Everyone else sees it only once it is **bound** to a record
+A `fileRef` is readable by its uploader and by privileged roles (`TenantAdmin`,
+`Admin`, `SystemAdmin` by default; the files feature's `privilegedRoles` option
+changes the list). Everyone else sees it only once it is **bound** to a record
 (`entityType` + `entityId`) and they may read that record. When a file field
 of the entity, or an embedded file sub-field, has an `access.read` rule, the
 record's detail query has to return the file in one of its file fields for
 them; the query strips the fields they may not read. The field that holds the
-file now decides, also after a save moved it from one field to another. On a
-`record-only` entity type this applies to privileged roles as well. An upload without
+file now decides, also after a save moved it from one field to another. A save
+may move a file from another field of the record only for a writer who may read
+that field, by its field rule alone, so a privileged role without that rule is
+refused too. The same holds for a file in a list row the writer may not read
+and for an upload bound to the record for a restricted field but not saved
+into it yet, unless the writer uploaded it. Privileged roles skip the record and its field rules, so an
+`access.read` rule on a file field binds them only when the entity declares
+`attachedFileAccess: "record-only"`. An upload without
 `entityType`, or a pending upload (`entityType` + `fieldName`, no `entityId`),
 stays private to its uploader until a save binds it.
 

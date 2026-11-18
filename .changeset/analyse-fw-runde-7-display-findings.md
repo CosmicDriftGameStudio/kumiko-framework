@@ -27,7 +27,7 @@ detail: `cardColumnRoles` skips `hideOnNarrow` select columns in the status fall
 -->
 
 <!-- kumiko-changes
-feature: bundled-features
+feature: template-resolver
 type: fix
 title: Shorter nav labels, translated content folders and layout presets
 detail: The all-tenants audit log nav label is shorter in every locale so it fits the sidebar. The template-resolver content tree labels its folders and its root through `template-resolver.folder.<segment>` and `template-resolver.nav.content`; a `TreeNode` can carry a `labelKey` that the nav tree translates, falling back to the raw label; the sidebar search matches the translated label. The branding layout preset select shows translated option labels. All texts ship in English, German, Spanish, French and Italian.

@@ -20,6 +20,7 @@ import {
   createFilesField,
   createTextField,
   defineFeature,
+  from,
 } from "../../engine/index.ts";
 import type { SessionUser } from "../../engine/types/index.ts";
 import { createTestUser, TestUsers, testTenantId } from "../../seeding/seed-users.ts";
@@ -39,7 +40,7 @@ const dossierEntity = createEntity({
     docs: createFilesField({ access: restrictedFieldAccess }),
     cover: createFileField(),
     checks: createEmbeddedListField(
-      { photos: { type: "files", access: restrictedFieldAccess } },
+      { photos: { type: "files", access: restrictedFieldAccess }, sketches: { type: "files" } },
       { personal: false, reason: "is_business_data" },
     ),
   },
@@ -55,12 +56,32 @@ const sealedEntity = createEntity({
   },
 });
 
+// Each check row is read by its own inspector, so the row decides who reads its photos.
+const inspectionEntity = createEntity({
+  name: "inspection",
+  table: "field_read_inspections",
+  fields: {
+    title: createTextField({ personal: false, reason: "test_fixture", required: true }),
+    checks: createEmbeddedListField(
+      {
+        inspector: { type: "text" },
+        photos: {
+          type: "files",
+          access: { read: { Admin: "all", Clerk: from("user:id", "inspector") } },
+        },
+      },
+      { personal: false, reason: "is_business_data" },
+    ),
+  },
+});
+
 const RECORD_READERS = { access: { roles: ["Admin", "User", "Auditor", "TenantAdmin"] } } as const;
-const RECORD_WRITERS = { access: { roles: ["Admin"] } } as const;
+const RECORD_WRITERS = { access: { roles: ["Admin", "Clerk", "TenantAdmin"] } } as const;
 
 const fieldReadFeature = defineFeature("field-read", (r) => {
   r.crud(dossierEntity, { write: RECORD_WRITERS, read: RECORD_READERS });
   r.crud(sealedEntity, { write: RECORD_WRITERS, read: RECORD_READERS });
+  r.crud(inspectionEntity, { write: RECORD_WRITERS, read: RECORD_READERS });
 });
 
 const tenant = testTenantId(1);
@@ -68,6 +89,8 @@ const uploader = TestUsers.admin;
 const auditor = createTestUser({ id: 21, tenantId: tenant, roles: ["Auditor"] });
 const recordReader = createTestUser({ id: 22, tenantId: tenant, roles: ["User"] });
 const tenantAdmin = createTestUser({ id: 23, tenantId: tenant, roles: ["TenantAdmin"] });
+// Writes the record and its open fields, but may not read the restricted ones.
+const clerk = createTestUser({ id: 24, tenantId: tenant, roles: ["User", "Clerk"] });
 const otherTenantAdmin = TestUsers.otherTenant;
 
 const PDF_BYTES = "%PDF-1.4 field read";
@@ -84,7 +107,9 @@ const files = {
 };
 
 async function upload(
-  target: { entityType: string; fieldName: string; subField?: string } | undefined,
+  target:
+    | { entityType: string; fieldName: string; subField?: string; entityId?: string }
+    | undefined,
 ): Promise<string> {
   const fd = new FormData();
   for (const [key, value] of Object.entries(target ?? {})) fd.append(key, value);
@@ -125,6 +150,7 @@ beforeAll(async () => {
   });
   await unsafeCreateEntityTable(stack.db, dossierEntity, "dossier");
   await unsafeCreateEntityTable(stack.db, sealedEntity, "sealed");
+  await unsafeCreateEntityTable(stack.db, inspectionEntity, "inspection");
 
   files.scan = await upload({ entityType: "dossier", fieldName: "scan" });
   files.docsA = await upload({ entityType: "dossier", fieldName: "docs" });
@@ -289,6 +315,188 @@ describe("a file moved to another field of the record", () => {
     expect(record["cover"]).toBe(fileRefId);
     expect(await downloadStatus(recordReader, fileRefId)).toBe(200);
     expect(await downloadStatus(auditor, fileRefId)).toBe(200);
+  });
+});
+
+// The field that holds a file decides who reads it, so naming a restricted field's file in an open
+// field would hand it to every record reader. Only a writer who may read the source field may move it.
+describe("a writer who may not read the source field cannot move its file into an open field", () => {
+  async function restrictedDossier(): Promise<{
+    recordId: string;
+    scan: string;
+    docs: string;
+    photo: string;
+  }> {
+    const scan = await upload({ entityType: "dossier", fieldName: "scan" });
+    const docs = await upload({ entityType: "dossier", fieldName: "docs" });
+    const photo = await upload({ entityType: "dossier", fieldName: "checks", subField: "photos" });
+    const created = await stack.http.writeOk<{ id: string }>(
+      "field-read:write:dossier:create",
+      { title: "Locked", scan, docs: [docs], checks: [{ photos: [photo] }] },
+      uploader,
+    );
+    return { recordId: created.id, scan, docs, photo };
+  }
+
+  test.each([
+    ["a file field", "scan"],
+    ["a files field", "docs"],
+    ["an embedded file sub-field", "photo"],
+  ] as const)(
+    "from %s: rejected, the file stays closed to the record reader",
+    async (_, source) => {
+      const dossier = await restrictedDossier();
+      const fileRefId = dossier[source];
+
+      const err = await stack.http.writeErr(
+        "field-read:write:dossier:update",
+        { id: dossier.recordId, version: 1, changes: { cover: fileRefId } },
+        clerk,
+      );
+
+      expect(err.code).toBe("validation_error");
+      expect(JSON.stringify(err.details)).toContain("invalid_element");
+      const record = await stack.http.queryOk<Record<string, unknown>>(
+        "field-read:query:dossier:detail",
+        { id: dossier.recordId },
+        recordReader,
+      );
+      expect(record["cover"]).toBeNull();
+      expect(await downloadStatus(recordReader, fileRefId)).toBe(404);
+    },
+  );
+
+  test("from a restricted embedded sub-field into an open sibling: rejected", async () => {
+    const dossier = await restrictedDossier();
+
+    const err = await stack.http.writeErr(
+      "field-read:write:dossier:update",
+      {
+        id: dossier.recordId,
+        version: 1,
+        changes: { checks: [{ photos: [dossier.photo], sketches: [dossier.photo] }] },
+      },
+      clerk,
+    );
+
+    expect(err.code).toBe("validation_error");
+    expect(JSON.stringify(err.details)).toContain("invalid_element");
+    expect(await downloadStatus(recordReader, dossier.photo)).toBe(404);
+  });
+
+  // Uploaded straight onto the record for the restricted field and not saved into it yet: no field
+  // holds it, so the record shows it to nobody but the uploader and privileged roles.
+  test("from an upload bound to the record's restricted field that no field holds yet: rejected", async () => {
+    const { recordId } = await restrictedDossier();
+    const unsaved = await upload({ entityType: "dossier", fieldName: "scan", entityId: recordId });
+
+    const err = await stack.http.writeErr(
+      "field-read:write:dossier:update",
+      { id: recordId, version: 1, changes: { cover: unsaved } },
+      clerk,
+    );
+
+    expect(err.code).toBe("validation_error");
+    expect(JSON.stringify(err.details)).toContain("invalid_element");
+    expect(await downloadStatus(recordReader, unsaved)).toBe(404);
+  });
+
+  // The privileged role still downloads the file, but the move would open it to every record reader.
+  test("a privileged writer without the field rule is rejected as well", async () => {
+    const dossier = await restrictedDossier();
+    expect(await downloadStatus(tenantAdmin, dossier.scan)).toBe(200);
+
+    const err = await stack.http.writeErr(
+      "field-read:write:dossier:update",
+      { id: dossier.recordId, version: 1, changes: { cover: dossier.scan } },
+      tenantAdmin,
+    );
+
+    expect(err.code).toBe("validation_error");
+    expect(await downloadStatus(recordReader, dossier.scan)).toBe(404);
+  });
+
+  test("the same writer keeps saving the open field's own file", async () => {
+    const cover = await upload({ entityType: "dossier", fieldName: "cover" });
+    const created = await stack.http.writeOk<{ id: string }>(
+      "field-read:write:dossier:create",
+      { title: "Open", cover },
+      uploader,
+    );
+
+    await stack.http.writeOk(
+      "field-read:write:dossier:update",
+      { id: created.id, version: 1, changes: { title: "Open again", cover } },
+      clerk,
+    );
+  });
+});
+
+// A sub-field rule that reads its own row decides per row, so all rows share the sub-field but a
+// row the writer may not read is a source of its own.
+describe("a writer cannot move a file from a list row he may not read into one he may", () => {
+  async function inspectionWithForeignPhoto(): Promise<{ recordId: string; photo: string }> {
+    const photo = await upload({
+      entityType: "inspection",
+      fieldName: "checks",
+      subField: "photos",
+    });
+    const created = await stack.http.writeOk<{ id: string }>(
+      "field-read:write:inspection:create",
+      {
+        title: "Rows",
+        checks: [
+          { inspector: clerk.id, photos: [] },
+          { inspector: "someone-else", photos: [photo] },
+        ],
+      },
+      uploader,
+    );
+    return { recordId: created.id, photo };
+  }
+
+  test("copying the photo into the writer's own row is rejected", async () => {
+    const { recordId, photo } = await inspectionWithForeignPhoto();
+    expect(await downloadStatus(clerk, photo)).toBe(404);
+
+    const err = await stack.http.writeErr(
+      "field-read:write:inspection:update",
+      {
+        id: recordId,
+        version: 1,
+        changes: {
+          checks: [
+            { inspector: clerk.id, photos: [photo] },
+            { inspector: "someone-else", photos: [photo] },
+          ],
+        },
+      },
+      clerk,
+    );
+
+    expect(err.code).toBe("validation_error");
+    expect(JSON.stringify(err.details)).toContain("invalid_element");
+    expect(await downloadStatus(clerk, photo)).toBe(404);
+  });
+
+  test("leaving the photo in its row still saves", async () => {
+    const { recordId, photo } = await inspectionWithForeignPhoto();
+
+    await stack.http.writeOk(
+      "field-read:write:inspection:update",
+      {
+        id: recordId,
+        version: 1,
+        changes: {
+          checks: [
+            { inspector: clerk.id, photos: [] },
+            { inspector: "someone-else", photos: [photo] },
+          ],
+        },
+      },
+      clerk,
+    );
+    expect(await downloadStatus(clerk, photo)).toBe(404);
   });
 });
 

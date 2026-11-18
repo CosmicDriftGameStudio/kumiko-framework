@@ -4,6 +4,7 @@ import { holdsFileRefs, isFileSubField } from "../../files/file-field-slots.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 import { bootRuleError } from "./boot-rule.ts";
 import { ENTITY_DECLARATION_RULES } from "./entity-declaration-rules.ts";
+import { carriesOwnSourceEntity } from "./read-model-field-access.ts";
 
 function hasReadRuleOnItsFiles(field: FieldDefinition): boolean {
   if (!holdsFileRefs(field)) return false;
@@ -23,9 +24,7 @@ function projectionDeclarationsOf(
   return Object.values(feature.projections ?? {}).flatMap((projection) => {
     const { entity, source } = projection;
     if (projection.isImplicit || entity?.crossTenantFileRead === undefined) return [];
-    if (typeof source === "string" && feature.entities?.[source]?.fields === entity.fields) {
-      return [];
-    }
+    if (carriesOwnSourceEntity(feature, projection)) return [];
     if (typeof source !== "string" || registeredEntityNames.has(source)) {
       throw bootRuleError(ENTITY_DECLARATION_RULES.crossTenantFileReadUnseenProjectionEntity, {
         message: `[Feature ${feature.name}] projection "${projection.name}" entity "${entity.name}" declares crossTenantFileRead, but the file check never sees it: it finds read models only by a single source stream that no r.entity registers (source: ${JSON.stringify(source)}).`,
@@ -57,13 +56,23 @@ export function validateCrossTenantFileRead(
         message: `[Feature ${feature.name}] entity "${entityName}" declares crossTenantFileRead.query "${declaration.query}" which is not a registered query-handler. Check the QN spelling (expected "<feature>:query:<short>") and that the handler is declared via r.queryHandler(...).`,
       });
     }
-    const restrictedFileField = Object.entries(entity.fields).find(([, field]) =>
-      hasReadRuleOnItsFiles(field),
-    );
-    if (restrictedFileField !== undefined) {
-      throw bootRuleError(ENTITY_DECLARATION_RULES.crossTenantFileReadRestrictedField, {
-        message: `[Feature ${feature.name}] entity "${entityName}" declares crossTenantFileRead, but its file field "${restrictedFileField[0]}" (or one of its file sub-fields) has an access.read rule; a reader from another tenant would get the file without passing that rule.`,
-      });
-    }
+    assertCrossTenantFilesCarryNoReadRule(feature.name, entityName, entity);
+  }
+}
+
+// Also run by the registry on entities with their extendSchema fields merged in.
+export function assertCrossTenantFilesCarryNoReadRule(
+  featureName: string,
+  entityName: string,
+  entity: EntityDefinition,
+): void {
+  if (entity.crossTenantFileRead === undefined) return;
+  const restrictedFileField = Object.entries(entity.fields).find(([, field]) =>
+    hasReadRuleOnItsFiles(field),
+  );
+  if (restrictedFileField !== undefined) {
+    throw bootRuleError(ENTITY_DECLARATION_RULES.crossTenantFileReadRestrictedField, {
+      message: `[Feature ${featureName}] entity "${entityName}" declares crossTenantFileRead, but its file field "${restrictedFileField[0]}" (or one of its file sub-fields) has an access.read rule; a reader from another tenant would get the file without passing that rule.`,
+    });
   }
 }

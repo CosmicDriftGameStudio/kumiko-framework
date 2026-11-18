@@ -11,6 +11,7 @@ import {
   resolveRenderEditProps,
 } from "./render-edit-render-model.ts";
 import { createHandleSubmit } from "./render-edit-submit.ts";
+import { createSubmitResultHandlers } from "./render-edit-submit-result.ts";
 import { deriveTitles } from "./render-edit-titles.ts";
 import type { RenderEditProps } from "./render-edit-types.ts";
 import { createWizardNavigation } from "./render-edit-wizard-navigation.ts";
@@ -75,6 +76,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   draft.refs.handleSubmitRef.current = handleSubmit;
   draft.refs.wizardNextRef.current = state.isWizard ? nav.handleWizardNext : () => {};
   draft.refs.wizardBackRef.current = state.isWizard ? nav.handleWizardBack : () => {};
+  draft.refs.showSubmitErrorRef.current = createSubmitResultHandlers(base).handleSubmitError;
 
   const engine: RenderEditEngine<TValues, TCtx> = { ...base, handleSubmit };
   const layout = deriveLayoutFlags(engine);

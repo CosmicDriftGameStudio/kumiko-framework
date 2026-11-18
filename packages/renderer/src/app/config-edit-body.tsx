@@ -412,7 +412,15 @@ export function ConfigEditBody({
     if (qualified !== undefined && Object.is(initial?.[fieldName], formValue)) {
       void dispatcher
         .write("config:write:reset", { key: qualified, scope: screen.scope })
-        .then(() => cascadeQuery.refetch?.());
+        .then((result) => {
+          if (!result.isSuccess) {
+            formControlsRef.current?.showSubmitError(
+              mapFailedConfigCommandIssuesToField(result.error, 0, [fieldName]),
+            );
+            return;
+          }
+          return cascadeQuery.refetch?.();
+        });
       return;
     }
     pendingResetsRef.current.set(fieldName, formValue);

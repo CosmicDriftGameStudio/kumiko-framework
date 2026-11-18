@@ -479,6 +479,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "dispatcher.errors.network": "Network error. Please check your connection and try again.",
   "errors.access.denied": "You don't have permission to do this.",
   "errors.access.fieldApprovalRequired": "This change needs approval.",
+  "errors.fieldApproval.requestPendingByOther":
+    "Someone else's change request for this field is already awaiting approval.",
   "errors.cap.exceeded": "Limit reached. Upgrade your plan or wait for the next period.",
   "errors.conflict": "Conflict — the operation could not be completed.",
   "errors.demoReadOnly": "This live demo is read-only.",

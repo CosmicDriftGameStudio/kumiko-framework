@@ -335,4 +335,7 @@ export type RenderEditControls<TValues extends FormValues> = {
   readonly next: () => void;
   /** Wizard only (no-op elsewhere): goes back one step without validating. */
   readonly back: () => void;
+  /** Shows the failure of a write the host ran outside `submit` the way a failed save shows:
+   *  field issues at their fields, anything else in the form's error banner. */
+  readonly showSubmitError: (error: DispatcherError) => void;
 };

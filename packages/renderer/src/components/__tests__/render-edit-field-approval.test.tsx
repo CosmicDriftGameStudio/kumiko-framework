@@ -116,18 +116,26 @@ const testText: ComponentType<TextProps> = ({ children, testId }) => (
   <span data-testid={testId}>{children}</span>
 );
 
-const testDrawer: ComponentType<DrawerProps> = ({ open, title, children, testId }) =>
+const testDrawer: ComponentType<DrawerProps> = ({ open, title, children, testId, onOpenChange }) =>
   open ? (
     <section data-testid={testId} aria-label={title}>
+      <button type="button" data-testid={`${testId}-close`} onClick={() => onOpenChange(false)}>
+        close
+      </button>
       {children}
     </section>
   ) : null;
 
-const testDialog: ComponentType<DialogProps> = ({ open, testId, onConfirm }) =>
+const testDialog: ComponentType<DialogProps> = ({ open, testId, onConfirm, onOpenChange }) =>
   open ? (
-    <button type="button" data-testid={testId} onClick={onConfirm}>
-      confirm
-    </button>
+    <>
+      <button type="button" data-testid={testId} onClick={onConfirm}>
+        confirm
+      </button>
+      <button type="button" data-testid={`${testId}-cancel`} onClick={() => onOpenChange(false)}>
+        cancel
+      </button>
+    </>
   ) : null;
 
 const entity: EntityDefinition = {
@@ -242,6 +250,7 @@ type ContactEditSetup = {
   // Holds the pending-changes answer back until the test resolves it.
   readonly pendingChangesAnswered?: Promise<void>;
   readonly batch?: (commands: readonly Command[]) => BatchResult;
+  readonly rejectChange?: () => WriteResult<unknown> | Promise<WriteResult<unknown>>;
   readonly buildPayload?: (snapshot: {
     readonly changes: Readonly<Record<string, unknown>>;
   }) => unknown;
@@ -272,10 +281,12 @@ function renderContactEdit(setup: ContactEditSetup = {}): ContactEditRun {
             : {},
       };
     },
-    write: (type): WriteResult<unknown> =>
-      type === UPDATE && setup.rejectUpdate === true
+    write: (type) => {
+      if (type === REJECT_CHANGE && setup.rejectChange !== undefined) return setup.rejectChange();
+      return type === UPDATE && setup.rejectUpdate === true
         ? { isSuccess: false, error: approvalDenied }
-        : { isSuccess: true, data: { id: "c1" } },
+        : { isSuccess: true, data: { id: "c1" } };
+    },
     batch: (commands) => {
       batches.push(commands);
       return setup.batch?.(commands) ?? { isSuccess: true, results: [] };
@@ -623,14 +634,13 @@ describe("RenderEdit — open approval request", () => {
       gatedFields: ["iban", "bic"],
       openRequests: [
         { id: "fcr-1", version: 3, fieldName: "iban", value: NEW_IBAN, filedByCaller: true },
-        { id: "fcr-2", version: 1, fieldName: "bic", value: "COBADEFFXXX", filedByCaller: false },
+        { id: "fcr-2", version: 1, fieldName: "bic", filedByCaller: false },
       ],
     });
 
     const withdraw = await rtlScreen.findByTestId("field-approval-withdraw-iban");
     expect(rtlScreen.queryByTestId("field-approval-withdraw-bic")).toBeNull();
     expect(rtlScreen.queryByTestId("field-approval-request-iban")).toBeNull();
-    expect(rtlScreen.getByTestId("field-approval-request-bic").textContent).toBe("Request change");
     fireEvent.click(withdraw);
 
     await waitFor(() =>
@@ -695,5 +705,108 @@ describe("RenderEdit — open approval request", () => {
 
     expect(queries.filter((q) => q.type === PENDING_CHANGES)).toEqual([]);
     expect(rtlScreen.queryByText("Awaiting approval")).toBeNull();
+  });
+});
+
+describe("RenderEdit — someone else's open request", () => {
+  test("the field shows that a request is open instead of offering a second one", async () => {
+    renderContactEdit({
+      gatedFields: ["iban", "bic"],
+      openRequests: [{ id: "fcr-2", version: 1, fieldName: "bic", filedByCaller: false }],
+    });
+
+    const hint = await rtlScreen.findByText("A change request for this field is awaiting approval");
+    expect(rtlScreen.getByTestId("field-kumiko-edit-bic").contains(hint)).toBe(true);
+    expect(rtlScreen.queryByTestId("field-approval-request-bic")).toBeNull();
+    expect(rtlScreen.queryByTestId("field-approval-withdraw-bic")).toBeNull();
+    const drawer = await openDrawer("iban");
+    expect(within(drawer).queryByLabelText("bic")).toBeNull();
+    expect(drawerInput(drawer, "iban").value).toBe(OLD_IBAN);
+  });
+
+  test("an approver still sees the requested value of another person's request", async () => {
+    renderContactEdit({
+      gatedFields: [],
+      openRequests: [
+        { id: "fcr-2", version: 1, fieldName: "iban", value: NEW_IBAN, filedByCaller: false },
+      ],
+    });
+
+    await rtlScreen.findByText(`Requested: ${NEW_IBAN} · awaiting approval`);
+    expect(
+      rtlScreen.queryByText("A change request for this field is awaiting approval"),
+    ).toBeNull();
+  });
+});
+
+describe("RenderEdit — withdrawing and discarding", () => {
+  const ownRequest: OpenRequest = {
+    id: "fcr-1",
+    version: 3,
+    fieldName: "iban",
+    value: NEW_IBAN,
+    filedByCaller: true,
+  };
+
+  test("a double click on withdraw sends one call while the first is running", async () => {
+    let answerWithdraw = (): void => {};
+    const { writes } = renderContactEdit({
+      gatedFields: ["iban"],
+      openRequests: [ownRequest],
+      rejectChange: () =>
+        new Promise((resolve) => {
+          answerWithdraw = () => resolve({ isSuccess: true, data: { id: "fcr-1" } });
+        }),
+    });
+    const withdraw = (await rtlScreen.findByTestId(
+      "field-approval-withdraw-iban",
+    )) as HTMLButtonElement;
+
+    fireEvent.click(withdraw);
+    fireEvent.click(withdraw);
+
+    expect(writes.filter((w) => w.type === REJECT_CHANGE)).toHaveLength(1);
+    expect(withdraw.disabled).toBe(true);
+    await act(async () => answerWithdraw());
+    expect(writes.filter((w) => w.type === REJECT_CHANGE)).toHaveLength(1);
+  });
+
+  test("a failed withdraw shows the error and keeps the request hint and the withdraw action", async () => {
+    renderContactEdit({
+      gatedFields: ["iban"],
+      openRequests: [ownRequest],
+      rejectChange: () => ({
+        isSuccess: false,
+        error: mapServerError({
+          code: "unprocessable",
+          httpStatus: 422,
+          i18nKey: "errors.unprocessable",
+          message: "request not pending",
+          details: { reason: "field_change_request_not_pending" },
+        }),
+      }),
+    });
+    fireEvent.click(await rtlScreen.findByTestId("field-approval-withdraw-iban"));
+
+    await rtlScreen.findByTestId("render-edit-form-error");
+    rtlScreen.getByText(`Requested: ${NEW_IBAN} · awaiting approval`);
+    const withdraw = rtlScreen.getByTestId("field-approval-withdraw-iban") as HTMLButtonElement;
+    expect(withdraw.disabled).toBe(false);
+  });
+
+  test("closing the drawer with input asks first; cancel keeps the input, discard files nothing", async () => {
+    const { batches } = renderContactEdit({ gatedFields: ["iban"] });
+    const drawer = await openDrawer();
+    fireEvent.change(drawerInput(drawer, "iban"), { target: { value: NEW_IBAN } });
+
+    fireEvent.click(rtlScreen.getByTestId(`${DRAWER}-close`));
+    fireEvent.click(rtlScreen.getByTestId("render-edit-field-approval-discard-dialog-cancel"));
+    expect(rtlScreen.queryByTestId("render-edit-field-approval-discard-dialog")).toBeNull();
+    expect(drawerInput(drawer, "iban").value).toBe(NEW_IBAN);
+
+    fireEvent.click(rtlScreen.getByTestId(`${DRAWER}-close`));
+    fireEvent.click(rtlScreen.getByTestId("render-edit-field-approval-discard-dialog"));
+    expect(rtlScreen.queryByTestId(DRAWER)).toBeNull();
+    expect(batches).toEqual([]);
   });
 });

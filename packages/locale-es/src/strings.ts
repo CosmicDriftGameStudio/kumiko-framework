@@ -928,6 +928,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "kumiko.form.fieldApproval.submit": "Enviar a aprobación",
   "kumiko.form.fieldApproval.pending": "Pendiente de aprobación",
   "kumiko.form.fieldApproval.pendingValue": "Solicitado: {value} · pendiente de aprobación",
+  "kumiko.form.fieldApproval.pendingByOther":
+    "Hay una solicitud de cambio pendiente de aprobación para este campo",
   "kumiko.form.changed": "modificado",
   "kumiko.form.discard": "Descartar",
   "kumiko.form.draft.resume-multiple":
@@ -3316,6 +3318,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "¿Rechazar este cambio? El registro conserva su valor actual.",
   "field-approval.list.action.withdraw": "Retirar",
   "field-approval.list.action.withdraw.confirm": "¿Retirar esta solicitud de cambio?",
+  "errors.fieldApproval.requestPendingByOther":
+    "Ya hay una solicitud de otra persona pendiente de aprobación para este campo.",
   "inbound-mail-foundation:write:disconnect-account:title": "Desconectar buzón",
   "inbound-mail-foundation:write:disconnect-account:field:accountId": "Buzón",
   "inbound-mail-foundation:write:disconnect-account:field:reason": "Motivo",

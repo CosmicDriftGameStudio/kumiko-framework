@@ -259,7 +259,7 @@ describe("field-approval request flow", () => {
     expect(JSON.stringify(row)).not.toContain("COBADEFFXXX");
   });
 
-  test("a second request on the same field replaces the open one instead of adding a row", async () => {
+  test("a second request by the same requester replaces the open one instead of adding a row", async () => {
     const contactId = await seedContact();
     const first = await fileRequest(contactId, NEW_IBAN, pm);
     const second = await fileRequest(contactId, SECOND_IBAN, pm);
@@ -273,7 +273,69 @@ describe("field-approval request flow", () => {
     expect(raw).toHaveLength(1);
   });
 
-  test("a request is stored encrypted and visible only to approvers and its requester", async () => {
+  test("a second requester is refused while another's request is open; the first stays as filed", async () => {
+    const contactId = await seedContact();
+    const first = await fileRequest(contactId, NEW_IBAN, pm);
+
+    const error = await stack.http.writeErr(
+      FieldApprovalHandlers.requestChange,
+      { entityType: "contact", entityId: contactId, fieldName: "iban", value: SECOND_IBAN },
+      pm2,
+    );
+
+    expect(error.httpStatus).toBe(422);
+    expect(error.details).toMatchObject({ reason: "field_change_request_pending_by_other" });
+    const rows = await pendingFor(accA, contactId);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      id: first.id,
+      version: 1,
+      value: NEW_IBAN,
+      requestedBy: pm.id,
+    });
+  });
+
+  test("an approver still writes the field directly while a request is open", async () => {
+    const contactId = await seedContact();
+    const { id } = await fileRequest(contactId, NEW_IBAN, pm);
+
+    await stack.http.writeOk(
+      UPDATE,
+      { id: contactId, version: 1, changes: { iban: SECOND_IBAN } },
+      accA,
+    );
+
+    expect(await currentIban(contactId)).toBe(SECOND_IBAN);
+    // The direct write leaves the open request as it was; an approver still decides it.
+    const raw = await selectMany<{ status: string }>(stack.db, fieldChangeRequestTable, { id });
+    expect(raw[0]?.status).toBe("pending");
+  });
+
+  test("on the record, another requester's open request shows as open without value or name", async () => {
+    const email = "pia.first@example.test";
+    const seeded = await seedUser(stack.db, { email, displayName: "Pia First" });
+    const firstRequester = createTestUser({ id: seeded.id, roles: ["PropertyManager"] });
+    const contactId = await seedContact();
+    const { id } = await fileRequest(contactId, NEW_IBAN, firstRequester);
+
+    const rows = await pendingFor(pm2, contactId);
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      id,
+      fieldName: "iban",
+      canApprove: false,
+      filedByCaller: false,
+    });
+    expect(rows[0]?.value).toBeUndefined();
+    const json = JSON.stringify(rows);
+    for (const leak of [NEW_IBAN, seeded.id, "Pia First", email]) {
+      expect(json).not.toContain(leak);
+    }
+    expect(await pendingFor(viewer, contactId)).toEqual([]);
+  });
+
+  test("a request is stored encrypted and its value reaches only approvers and its requester", async () => {
     const contactId = await seedContact();
     const { id } = await fileRequest(contactId, NEW_IBAN, pm);
 
@@ -286,7 +348,7 @@ describe("field-approval request flow", () => {
     expect(forApprover).toHaveLength(1);
     expect(forApprover[0]?.value).toBe(NEW_IBAN);
     expect(forApprover[0]?.canApprove).toBe(true);
-    expect(await pendingFor(pm2, contactId)).toHaveLength(0);
+    expect(JSON.stringify(await pendingFor(pm2, contactId))).not.toContain(NEW_IBAN);
   });
 
   test("a non-approver cannot approve", async () => {
@@ -430,20 +492,29 @@ describe("field-approval list", () => {
     }
   });
 
-  test("a requester sees only their own requests, an approver all, a third role none", async () => {
+  test("a requester sees the value of their own requests only, an approver all, a third role none", async () => {
     const pmContact = await seedContact();
     const pm2Contact = await seedContact();
     const pmRequest = await fileRequest(pmContact, NEW_IBAN, pm);
     const pm2Request = await fileRequest(pm2Contact, SECOND_IBAN, pm2);
 
-    const idsFor = async (user: typeof pm) =>
+    const valuesFor = async (user: typeof pm) =>
       [...(await pendingFor(user, pmContact)), ...(await pendingFor(user, pm2Contact))].map(
-        (row) => row.id,
+        (row) => [row.id, row.value],
       );
-    expect(await idsFor(pm)).toEqual([pmRequest.id]);
-    expect(await idsFor(pm2)).toEqual([pm2Request.id]);
-    expect((await idsFor(accA)).sort()).toEqual([pmRequest.id, pm2Request.id].sort());
-    expect(await idsFor(viewer)).toEqual([]);
+    expect(await valuesFor(pm)).toEqual([
+      [pmRequest.id, NEW_IBAN],
+      [pm2Request.id, undefined],
+    ]);
+    expect(await valuesFor(pm2)).toEqual([
+      [pmRequest.id, undefined],
+      [pm2Request.id, SECOND_IBAN],
+    ]);
+    expect(await valuesFor(accA)).toEqual([
+      [pmRequest.id, NEW_IBAN],
+      [pm2Request.id, SECOND_IBAN],
+    ]);
+    expect(await valuesFor(viewer)).toEqual([]);
   });
 
   test("an approver who is no admin sees the requester's display name, never the email", async () => {

@@ -205,6 +205,8 @@ export const rendererEnCatalog: Readonly<Record<string, string>> = {
   "kumiko.form.fieldApproval.submit": "Submit for approval",
   "kumiko.form.fieldApproval.pending": "Awaiting approval",
   "kumiko.form.fieldApproval.pendingValue": "Requested: {value} · awaiting approval",
+  "kumiko.form.fieldApproval.pendingByOther":
+    "A change request for this field is awaiting approval",
   "kumiko.form.changed": "changed",
   "kumiko.form.discard": "Discard",
   "kumiko.form.draft.resume-multiple":

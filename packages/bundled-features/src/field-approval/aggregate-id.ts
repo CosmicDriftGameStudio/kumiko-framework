@@ -6,7 +6,7 @@ import { v5 as uuidv5 } from "uuid";
 const FIELD_CHANGE_REQUEST_NAMESPACE = "3c1e8a52-7d94-4f0b-a6e2-9b5d1f04c7e8";
 
 // One request row per (tenant, host record, field): a new request for the same
-// field overwrites the open one instead of piling up.
+// field overwrites the requester's own open one instead of piling up.
 export function fieldChangeRequestAggregateId(
   tenantId: string,
   entityType: string,

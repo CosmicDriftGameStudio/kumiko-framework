@@ -1440,6 +1440,7 @@ type RenderEditControls<TValues extends FormValues> = {
   submit: () => Promise<void>; // Runs the same pipeline the built-in save button runs: validation, `customSubmit`/`writeCommand`, extension-section persistence, draft discard, state rebase.
   next: () => void; // Wizard only (no-op elsewhere): validates the current step and advances, like the built-in Next button.
   back: () => void; // Wizard only (no-op elsewhere): goes back one step without validating.
+  showSubmitError: (error: DispatcherError) => void; // Shows the failure of a write the host ran outside `submit` the way a failed save shows: field issues at their fields, anything else in the form's error banner.
 };
 type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
   screen: EntityEditScreenDefinition;

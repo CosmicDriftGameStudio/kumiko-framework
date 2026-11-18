@@ -934,6 +934,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "kumiko.form.fieldApproval.submit": "Zur Freigabe einreichen",
   "kumiko.form.fieldApproval.pending": "Wartet auf Freigabe",
   "kumiko.form.fieldApproval.pendingValue": "Beantragt: {value} · wartet auf Freigabe",
+  "kumiko.form.fieldApproval.pendingByOther": "Für dieses Feld liegt ein offener Antrag vor",
   "kumiko.form.changed": "geändert",
   "kumiko.form.discard": "Verwerfen",
   "kumiko.form.draft.resume-multiple":
@@ -3322,6 +3323,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Diese Änderung ablehnen? Der Datensatz behält seinen aktuellen Wert.",
   "field-approval.list.action.withdraw": "Zurückziehen",
   "field-approval.list.action.withdraw.confirm": "Diesen Änderungsantrag zurückziehen?",
+  "errors.fieldApproval.requestPendingByOther":
+    "Für dieses Feld wartet schon ein Antrag einer anderen Person auf Freigabe.",
   "inbound-mail-foundation:write:disconnect-account:title": "Postfach trennen",
   "inbound-mail-foundation:write:disconnect-account:field:accountId": "Postfach",
   "inbound-mail-foundation:write:disconnect-account:field:reason": "Grund",
