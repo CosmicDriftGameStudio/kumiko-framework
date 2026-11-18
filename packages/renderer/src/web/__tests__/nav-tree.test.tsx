@@ -27,7 +27,12 @@ import { act } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { LIVE_REFETCH_COALESCE_MS } from "../../hooks/live-refetch-scheduler.ts";
 import type { FeatureSchema, LiveEventSubscriber, NavApi } from "../../index.ts";
-import { LiveEventsProvider, NavProvider } from "../../index.ts";
+import {
+  createStaticLocaleResolver,
+  LiveEventsProvider,
+  LocaleProvider,
+  NavProvider,
+} from "../../index.ts";
 import { NavProvidersProvider } from "../app/nav-providers-context.tsx";
 import { NavTree } from "../layout/nav-tree.tsx";
 import { ShellNavStyleProvider } from "../layout/shell-style.tsx";
@@ -939,6 +944,56 @@ describe("NavTree dynamic provider nodes", () => {
     screen.getByText("Content");
     screen.getByText("apex");
     screen.getByText("hero");
+  });
+
+  test("a provider node's labelKey is translated when the bundle has it, otherwise its label shows", async () => {
+    const provider: TreeChildrenSubscribe = () => (emit) => {
+      emit([
+        { label: "legal", labelKey: "cms.folder.legal", children: [pageLeaf("imprint")] },
+        { label: "Marketing", labelKey: "cms.folder.Marketing", children: [pageLeaf("hero")] },
+      ]);
+      return () => {};
+    };
+    await act(async () => {
+      render(
+        <LocaleProvider
+          resolver={createStaticLocaleResolver()}
+          fallbackBundles={[{ en: { "cms.folder.legal": "Legal notices" } }]}
+        >
+          <NavProvidersProvider value={new Map([["cms:nav:content", provider]])}>
+            <NavTree schema={dynamicSchema()} />
+          </NavProvidersProvider>
+        </LocaleProvider>,
+      );
+    });
+    screen.getByText("Legal notices");
+    expect(screen.queryByText("legal")).toBeNull();
+    screen.getByText("Marketing");
+  });
+
+  test("the search filter finds a provider node by its translated labelKey", async () => {
+    const provider: TreeChildrenSubscribe = () => (emit) => {
+      emit([
+        { label: "legal", labelKey: "cms.folder.legal", children: [pageLeaf("imprint")] },
+        { label: "Marketing", children: [pageLeaf("hero")] },
+      ]);
+      return () => {};
+    };
+    await act(async () => {
+      render(
+        <LocaleProvider
+          resolver={createStaticLocaleResolver()}
+          fallbackBundles={[{ en: { "cms.folder.legal": "Legal notices" } }]}
+        >
+          <NavProvidersProvider value={new Map([["cms:nav:content", provider]])}>
+            <NavTree schema={dynamicSchema()} />
+          </NavProvidersProvider>
+        </LocaleProvider>,
+      );
+    });
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "notices" } });
+    screen.getByText("Legal notices");
+    expect(screen.queryByText("Marketing")).toBeNull();
   });
 
   test("createAction renders a plus button that dispatches its target", async () => {

@@ -62,7 +62,13 @@ export function cardColumnRoles<C extends CardRoleColumn>(
     textColumns.find(
       (col) => col !== title && col.cardBadge === true && col.hideOnNarrow !== true,
     ) ??
-    textColumns.find((col) => col !== title && col.type === "select" && col.renderer === undefined);
+    textColumns.find(
+      (col) =>
+        col !== title &&
+        col.type === "select" &&
+        col.renderer === undefined &&
+        col.hideOnNarrow !== true,
+    );
   const lead = textColumns.find(
     (col) => col !== title && col !== status && isLeadCandidate(col) && col.hideOnNarrow !== true,
   );

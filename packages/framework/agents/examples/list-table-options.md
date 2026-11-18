@@ -17,7 +17,10 @@ the `table` block renders and behaves as before.
   leaving and re-entering the list within the browser session.
 - `table.resetAll`: one button resets everything that differs from the defaults.
 - `table.columnPicker`: the view menu lets the user hide and reorder columns;
-  `hidden: true` on a column starts it hidden.
+  `hidden: true` on a column starts it hidden. The hidden `plannedMonth` column is a
+  text field with `format: "month"`: it stores `YYYY-MM` and the list shows it as
+  month and year in the user's locale ("Juni 2026"). A query column without field
+  metadata gets the same with `renderer: { format: "month" }`.
 - `table.density`: row density default and an optional user choice.
 - `table.pinning`: the user pins columns left or right in the view menu;
   `pinned: "left"` on a column starts it pinned.
@@ -270,6 +273,18 @@ describe("list-table-options recipe", () => {
     ).toThrow(/table\.export\.maxRows is 100001 .* at most 100000/);
   });
 });
+
+describe("list-table-options month column", () => {
+  // The renderer derives `{ format: "month" }` for this column from the field format.
+  test("the planned month is a month-format text field listed without its own renderer", () => {
+    expect(taskEntity.fields.plannedMonth.format).toBe("month");
+    const screen = createRegistry([createTaskBoardFeature()]).getScreen(
+      "task-board:screen:task-list",
+    );
+    const columns = screen?.type === "entityList" ? screen.columns : [];
+    expect(columns).toContainEqual({ field: "plannedMonth", hidden: true, hideOnNarrow: true });
+  });
+});
 ```
 
 ### src/__tests__/workload.integration.test.ts
@@ -514,6 +529,13 @@ export const taskEntity = createEntity({
       filterable: true,
     }),
     dueDate: createDateField({ sortable: true }),
+    // Stored as YYYY-MM; the list shows it as month and year in the user's locale.
+    plannedMonth: createTextField({
+      format: "month",
+      maxLength: 7,
+      personal: false,
+      reason: "is_business_data",
+    }),
     assignee: createTextField({ personal: false, reason: "is_business_data", sortable: true }),
     estimateHours: createNumberField({ sortable: true, filterable: true }),
     parked: createBooleanField({ default: false }),
@@ -780,6 +802,7 @@ export function createTaskListScreen(taskTable: ListTableOptions): ScreenDefinit
       { field: "lastUpdate", dateOnlyAfterDays: 7, hideOnNarrow: true },
       // Starts hidden; the user can add it back in the view menu.
       { field: "estimateHours", hidden: true, hideOnNarrow: true },
+      { field: "plannedMonth", hidden: true, hideOnNarrow: true },
     ],
     facets: { status: { display: "chips" }, priority: {}, estimateHours: { display: "range" } },
     defaultSort: { field: "dueDate", dir: "asc" },

@@ -301,10 +301,29 @@
 :root {
   --kumiko-grid-row-h: 2.5rem;
   --kumiko-grid-gap: 1rem;
-  /* 0 = no ShellHeader mounted (e.g. a Drawer used outside a shell) — a
-     consumer offsetting by this variable then gets today's edge-to-edge
-     behavior for free. */
-  --shell-header-height: 0px;
+  --kumiko-offline-banner-height: 0px;
+  /* Without a ShellHeader (e.g. a Drawer used outside a shell) only the
+     offline banner counts — a consumer offsetting by this variable then gets
+     today's edge-to-edge behavior for free. */
+  --shell-header-height: var(--kumiko-offline-banner-height);
+}
+
+/* The offline banner (app/offline-banner.tsx) sits in the page flow above the shell: viewport-fit
+   shells shrink by its height and the fixed sidebar starts below it, so nothing is covered. 2.5rem
+   holds two lines of text-xs on a phone. */
+:root:has([data-kumiko-offline-banner]) {
+  --kumiko-offline-banner-height: 2.5rem;
+}
+:root:has([data-kumiko-offline-banner]) [data-kumiko-fill="true"],
+:root:has([data-kumiko-offline-banner]) [data-kumiko-layout="sidebar-panel"] {
+  height: calc(100svh - var(--kumiko-offline-banner-height));
+}
+:root:has([data-kumiko-offline-banner]) [data-slot="sidebar-wrapper"] {
+  min-height: calc(100svh - var(--kumiko-offline-banner-height));
+}
+:root:has([data-kumiko-offline-banner]) [data-slot="sidebar-container"] {
+  top: var(--kumiko-offline-banner-height);
+  height: calc(100svh - var(--kumiko-offline-banner-height));
 }
 
 /* Mirrors ShellHeader's own h-14, kept in CSS (not a React state) so a Drawer
@@ -312,16 +331,16 @@
    the right value from this shared :root ancestor. The icon-rail rule stays
    so the header height remains defined per collapse state. */
 :root:has([data-kumiko-layout="shell-header"]) {
-  --shell-header-height: 3.5rem;
+  --shell-header-height: calc(3.5rem + var(--kumiko-offline-banner-height));
 }
 :root:has([data-kumiko-layout="shell-header"][data-nav-style="plain"]),
 :root:has([data-kumiko-layout="shell-header"][data-nav-style="plain"]):has(
   [data-collapsible="icon"]
 ) {
-  --shell-header-height: 58px;
+  --shell-header-height: calc(58px + var(--kumiko-offline-banner-height));
 }
 :root:has([data-kumiko-layout="shell-header"]):has([data-collapsible="icon"]) {
-  --shell-header-height: 3.5rem;
+  --shell-header-height: calc(3.5rem + var(--kumiko-offline-banner-height));
 }
 
 /* A non-modal side Drawer publishes the width it occupies (widgets/drawer.tsx); the content area

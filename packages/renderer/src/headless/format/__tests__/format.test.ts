@@ -569,6 +569,18 @@ describe("applyFormatSpec — image and file", () => {
   });
 });
 
+describe("applyFormatSpec — month", () => {
+  test("a stored YYYY-MM reads as month and year in the UI locale", () => {
+    expect(applyFormatSpec({ format: "month", locale: "de-DE" }, "2026-06")).toBe("Juni 2026");
+    expect(applyFormatSpec({ format: "month", locale: "en-US" }, "2026-01")).toBe("January 2026");
+  });
+
+  test("anything that is not YYYY-MM stays as stored", () => {
+    expect(applyFormatSpec({ format: "month", locale: "de-DE" }, "2026-13")).toBe("2026-13");
+    expect(applyFormatSpec({ format: "month", locale: "de-DE" }, "Q2 2026")).toBe("Q2 2026");
+  });
+});
+
 describe("applyFormatSpec — inherited member names", () => {
   test("a format named like an Object.prototype member takes the unknown-format path", () => {
     // The warning fires only when NODE_ENV !== "production"; set it explicitly

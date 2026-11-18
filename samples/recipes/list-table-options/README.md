@@ -9,7 +9,10 @@ the `table` block renders and behaves as before.
   leaving and re-entering the list within the browser session.
 - `table.resetAll`: one button resets everything that differs from the defaults.
 - `table.columnPicker`: the view menu lets the user hide and reorder columns;
-  `hidden: true` on a column starts it hidden.
+  `hidden: true` on a column starts it hidden. The hidden `plannedMonth` column is a
+  text field with `format: "month"`: it stores `YYYY-MM` and the list shows it as
+  month and year in the user's locale ("Juni 2026"). A query column without field
+  metadata gets the same with `renderer: { format: "month" }`.
 - `table.density`: row density default and an optional user choice.
 - `table.pinning`: the user pins columns left or right in the view menu;
   `pinned: "left"` on a column starts it pinned.

@@ -89,6 +89,8 @@ export interface FieldFormatRegistry {
     readonly locale?: string;
     readonly dateStyle?: "full" | "long" | "medium" | "short";
   };
+  /** A `YYYY-MM` value (text field `format: "month"`) as month and year, "Juni 2026"; anything else stays as stored. */
+  month: { readonly locale?: string };
   /** Telephone number shown as a `tel:` link in list cells, like a read-only `format: "phone"` field. */
   phone: Record<never, never>;
   boolean: { readonly trueLabel?: string; readonly falseLabel?: string };

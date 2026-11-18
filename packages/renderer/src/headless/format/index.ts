@@ -406,6 +406,17 @@ function formatJsonCell(spec: CellFormatSpec, value: unknown): string {
   return stringifyJsonOrString(value, typeof spec["indent"] === "number" ? spec["indent"] : 2);
 }
 
+const YEAR_MONTH_RE = /^(\d{4})-(0[1-9]|1[0-2])$/;
+
+function formatMonthCell(spec: CellFormatSpec, value: unknown): string {
+  if (typeof value !== "string" || !YEAR_MONTH_RE.test(value)) return String(value);
+  // A PlainDate, not a PlainYearMonth: the latter throws for a locale whose calendar is not iso8601.
+  return Temporal.PlainDate.from(`${value}-01`).toLocaleString(stringSpec(spec, "locale"), {
+    month: "long",
+    year: "numeric",
+  });
+}
+
 const RELATIVE_TIME_STYLES = ["long", "short", "narrow"] as const;
 
 function formatRelativeTimeCell(
@@ -431,6 +442,7 @@ function formatRelativeTimeCell(
 const CELL_FORMATTERS = {
   timestamp: formatTemporalCell,
   date: formatTemporalCell,
+  month: formatMonthCell,
   boolean: formatBooleanCell,
   currency: formatCurrencyCell,
   money: formatMoneyCell,

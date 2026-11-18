@@ -169,6 +169,10 @@ function renderMetaCell(
   );
 }
 
+function isUnlabeledDateRange(line: readonly ListColumnViewModel[]): boolean {
+  return line.length === 2 && line.every((col) => isDateColumn(col) && col.cardLabel !== true);
+}
+
 function renderCardMeta(
   m: DataTableModel,
   row: ListRowViewModel,
@@ -196,7 +200,12 @@ function renderCardMeta(
             >
               {line.map((col, colIndex) => (
                 <Fragment key={col.field}>
-                  {plain && colIndex > 0 && <span aria-hidden="true">,&nbsp;</span>}
+                  {colIndex > 0 &&
+                    (placement === "above" && isUnlabeledDateRange(line) ? (
+                      <span>–</span>
+                    ) : (
+                      plain && <span aria-hidden="true">,&nbsp;</span>
+                    ))}
                   {renderMetaCell(m, row, col)}
                 </Fragment>
               ))}
@@ -278,11 +287,11 @@ function renderCardHeading(m: DataTableModel, row: ListRowViewModel, roles: Card
   const showStatus =
     cardStatusColumn !== undefined && !isEmptyCellValue(row.values[cardStatusColumn.field]);
   return (
-    <div className="flex min-w-0 items-start justify-between gap-2">
+    <div className="flex w-full min-w-0 flex-wrap items-start justify-between gap-x-2 gap-y-1">
       {cardTitleColumn !== undefined && (
         <span
           data-testid={cellTestIdOf(m, row, cardTitleColumn.field)}
-          className="min-w-0 truncate text-[14.5px] font-semibold text-foreground"
+          className="min-w-0 max-w-full truncate text-[14.5px] font-semibold text-foreground"
           onPointerEnter={showFullTextOnHover}
         >
           {cardCell(m, row, cardTitleColumn)}
@@ -293,19 +302,49 @@ function renderCardHeading(m: DataTableModel, row: ListRowViewModel, roles: Card
   );
 }
 
+function isBlankCardValue(value: unknown): boolean {
+  return isEmptyCellValue(value) || (Array.isArray(value) && value.length === 0);
+}
+
+export type CardBodyParts = {
+  readonly top: ReactNode;
+  readonly heading: ReactNode;
+  readonly meta: ReactNode;
+};
+
+export function cardBodyParts(
+  m: DataTableModel,
+  row: ListRowViewModel,
+  roles: CardRoles,
+): CardBodyParts {
+  const shownMeta = roles.meta.filter(
+    (col) =>
+      !isBlankCardValue(row.values[col.field]) &&
+      !isUnlabeledFalse(col.type, row.values[col.field], col.renderer),
+  );
+  const aboveColumns = shownMeta.filter((col) => col.cardAbove === true);
+  const metaColumns = shownMeta.filter((col) => col.cardAbove !== true);
+  const lead = renderCardLead(m, row, roles.lead);
+  return {
+    top:
+      lead === null && aboveColumns.length === 0 ? null : (
+        <>
+          {lead}
+          {aboveColumns.length > 0 && renderCardMeta(m, row, aboveColumns, "above")}
+        </>
+      ),
+    heading: renderCardHeading(m, row, roles),
+    meta: metaColumns.length > 0 ? renderCardMeta(m, row, metaColumns) : null,
+  };
+}
+
 export function renderCardBody(
   m: DataTableModel,
   row: ListRowViewModel,
   roles: CardRoles,
 ): ReactNode {
-  const { image: cardImageColumn, meta: cardMetaColumns } = roles;
-  const shownMeta = cardMetaColumns.filter(
-    (col) =>
-      !isEmptyCellValue(row.values[col.field]) &&
-      !isUnlabeledFalse(col.type, row.values[col.field], col.renderer),
-  );
-  const aboveColumns = shownMeta.filter((col) => col.cardAbove === true);
-  const metaColumns = shownMeta.filter((col) => col.cardAbove !== true);
+  const { image: cardImageColumn } = roles;
+  const { top, heading, meta } = cardBodyParts(m, row, roles);
   return (
     <>
       {cardImageColumn?.fileDisplay !== undefined && (
@@ -317,10 +356,9 @@ export function renderCardBody(
         </div>
       )}
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        {renderCardLead(m, row, roles.lead)}
-        {aboveColumns.length > 0 && renderCardMeta(m, row, aboveColumns, "above")}
-        {renderCardHeading(m, row, roles)}
-        {metaColumns.length > 0 && renderCardMeta(m, row, metaColumns)}
+        {top}
+        {heading}
+        {meta}
       </div>
     </>
   );

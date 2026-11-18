@@ -50,6 +50,9 @@ export type TreeNode = {
   // i18n translation key or raw string, resolved by the renderer during
   // rendering (see TreeAction.label).
   readonly label: string;
+  // Translation key that wins over `label` when the bundle has it; `label` stays the
+  // fallback, e.g. a folder named by a user.
+  readonly labelKey?: string;
   // Optional icon displayed to the left of the label. Uses the same
   // convention as TreeAction.icon and is looked up in the renderer's icon registry.
   readonly icon?: string;

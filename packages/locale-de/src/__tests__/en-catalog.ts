@@ -826,6 +826,10 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
     "Use lowercase letters, digits and dashes only; start with a letter or digit.",
   "template-resolver.editor.slugLabel": "Slug",
   "template-resolver.editor.titleLabel": "Title",
+  "template-resolver.folder.legal": "Legal",
+  "template-resolver.folder.marketing": "Marketing",
+  "template-resolver.folder.page": "Pages",
+  "template-resolver.nav.content": "Content",
   "templateResolver.errors.document.imagesBlockPdfOnly":
     "Photo blocks are only allowed in PDF documents.",
   "templateResolver.errors.document.printStylePdfOnly":

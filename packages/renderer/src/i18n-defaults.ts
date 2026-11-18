@@ -54,6 +54,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
       "Record was created but could not be selected automatically. Please select it manually.",
     "kumiko.field.unsupported": "This field type can't be edited here yet.",
     "kumiko.field.file-list.download": "Download",
+    "kumiko.field.file-list.downloadNamed": "Download: {name}",
     "kumiko.field.file-list.hidePreview": "Hide preview",
     "kumiko.field.file-list.preview": "Preview",
     "kumiko.field.file-list.view": "View",

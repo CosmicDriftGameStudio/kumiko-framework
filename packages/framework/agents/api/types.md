@@ -2170,7 +2170,7 @@ type FormController<TValues extends FormValues> = {
   rebaseFields(fields: string[]): void;
   seedField(field: string, value: unknown): void;
   setCtx(ctx: unknown): void;
-  submit<TData = unknown>(payloadPatch?: Partial<TValues>): Promise<SubmitResult<TData>>;
+  submit<TData = unknown>(overrides?: SubmitOverrides<TValues>): Promise<SubmitResult<TData>>;
 };
 type FormControllerOptions<TValues extends FormValues, TCtx = unknown> = {
   initial: TValues;
@@ -2199,6 +2199,10 @@ type SubmitConfig<TValues extends FormValues = FormValues> = {
   buildPayload?: (snapshot: FormSnapshot<TValues>, shapedValues: unknown) => unknown;
   serverFieldPathPrefix?: string;
   validateScope?: string[]; // Restricts submit()'s internal validate() call to these field names — same contract as validate()'s `scope` param.
+};
+type SubmitOverrides<TValues extends FormValues> = { // Applies to one submit only.
+  payloadPatch?: Partial<TValues> | undefined;
+  omitFields?: string[];
 };
 type SubmitPayloadMode = "values" | "changes";
 type SubmitResult<TData = unknown> =

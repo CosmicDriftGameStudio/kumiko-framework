@@ -29,10 +29,13 @@ export function OfflineBanner(): ReactNode {
   return (
     <div role="status" aria-live="polite">
       {offline && (
+        // In the page flow above the shell; styles.css shrinks the viewport-fit shells by
+        // --kumiko-offline-banner-height. Fixed height so portals resolve it in CSS alone.
         <div
+          data-kumiko-offline-banner=""
           className={cn(
-            "fixed inset-x-0 top-0 z-[200] flex items-center justify-center",
-            "border-b bg-background px-4 py-2 text-sm text-foreground shadow-md",
+            "flex h-(--kumiko-offline-banner-height) items-center justify-center overflow-hidden",
+            "border-b bg-background px-4 text-center text-xs leading-4 text-foreground sm:text-sm",
           )}
         >
           {t("kumiko.network.offline")}

@@ -20,6 +20,9 @@ export const BRANDING_I18N: Readonly<Record<string, LocalizedString>> = {
   "branding:entity:__config-edit__:field:logoUrl": { en: "Logo URL" },
   "branding:entity:__config-edit__:field:logoFile": { en: "Logo file" },
   "branding:entity:__config-edit__:field:layoutPreset": { en: "Layout" },
+  "branding:entity:__config-edit__:field:layoutPreset:option:centered": { en: "Centered" },
+  "branding:entity:__config-edit__:field:layoutPreset:option:minimal": { en: "Minimal" },
+  "branding:entity:__config-edit__:field:layoutPreset:option:wide": { en: "Wide" },
   "branding:section.identity": { en: "Identity" },
 
   // Only used when allowCustomCss:true in the screen; supplied unconditionally

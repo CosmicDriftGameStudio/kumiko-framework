@@ -179,3 +179,15 @@ describe("list-table-options recipe", () => {
     ).toThrow(/table\.export\.maxRows is 100001 .* at most 100000/);
   });
 });
+
+describe("list-table-options month column", () => {
+  // The renderer derives `{ format: "month" }` for this column from the field format.
+  test("the planned month is a month-format text field listed without its own renderer", () => {
+    expect(taskEntity.fields.plannedMonth.format).toBe("month");
+    const screen = createRegistry([createTaskBoardFeature()]).getScreen(
+      "task-board:screen:task-list",
+    );
+    const columns = screen?.type === "entityList" ? screen.columns : [];
+    expect(columns).toContainEqual({ field: "plannedMonth", hidden: true, hideOnNarrow: true });
+  });
+});

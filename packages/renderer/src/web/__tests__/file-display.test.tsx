@@ -165,6 +165,16 @@ describe("FileDisplayCell", () => {
     );
     expect(container.textContent).toBe("");
   });
+
+  test("a file name reads as a download: icon before the name and a download label", async () => {
+    const { findByRole, container } = render(
+      <FileDisplayCell value={FILE_ID} display={{ kind: "file" }} fallbackLabel="File" />,
+    );
+    const link = await findByRole("link", { name: "Download: floorplan.pdf" });
+    expect(link.getAttribute("title")).toBe("Download: floorplan.pdf");
+    expect(link.querySelector("svg")).not.toBeNull();
+    expect(container.textContent).toBe("floorplan.pdf");
+  });
 });
 
 describe("FileUploadInput", () => {

@@ -138,12 +138,17 @@ function storedFieldColumn(
   const fieldDef = input.entity.fields[column.field];
   // skip: not a stored field, a later resolver decides
   if (!fieldDef) return undefined;
+  const renderer =
+    column.renderer ??
+    (fieldDef.type === "text" && fieldDef.format === "month"
+      ? ({ format: "month" } as const)
+      : undefined);
   return {
     field: column.field,
     label: translatedColumnLabel(input, column),
     type: fieldDef.type,
     sortable: fieldIsSortable(fieldDef),
-    ...(column.renderer !== undefined && { renderer: column.renderer }),
+    ...(renderer !== undefined && { renderer }),
     ...storedFieldMetadata(input, column, fieldDef),
     ...(column.hideOnNarrow === true && { hideOnNarrow: true }),
     ...(column.hideWhenDocked === true && { hideWhenDocked: true }),

@@ -1,5 +1,10 @@
 import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
-import type { EditRelatedListSection, ListColumnSpec } from "@cosmicdrift/kumiko-types/screen";
+import type {
+  EditLayout,
+  EditRelatedListSection,
+  EntityListScreenDefinition,
+  ListColumnSpec,
+} from "@cosmicdrift/kumiko-types/screen";
 import {
   CARD_META_MAX,
   cardColumnRoles,
@@ -8,9 +13,15 @@ import {
 } from "../../ui-types/card-column-roles.ts";
 import { LIST_ROW_META_COLUMNS } from "../../ui-types/list-row-meta.ts";
 import { parseRefTarget } from "../parse-ref-target.ts";
-import { normalizeListColumn } from "../screen-helpers.ts";
+import {
+  isFieldsEditSection,
+  normalizeEditField,
+  normalizeListColumn,
+  sectionFieldSpecs,
+} from "../screen-helpers.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 import { bootRuleError } from "./boot-rule.ts";
+import type { BootWarningSink } from "./boot-warning.ts";
 import { CARD_META_OVERFLOW_RULES } from "./card-meta-overflow-rules.ts";
 
 export type CardMetaOverflow = {
@@ -167,4 +178,64 @@ export function validateCardMetaOverflow(features: readonly FeatureDefinition[])
   throw bootRuleError(CARD_META_OVERFLOW_RULES.overflow, {
     message: `List cards show at most ${CARD_META_MAX} meta lines (all columns except title, status select and hideOnNarrow ones, consecutive narrowInline columns sharing one line); more would be cut off on narrow screens:\n${lines.join("\n")}\nReduce each to ${CARD_META_MAX} lines or mark the other columns hideOnNarrow: true.`,
   });
+}
+
+function editLayoutShowsField(layout: EditLayout, field: string): boolean {
+  return layout.sections.some(
+    (section) =>
+      isFieldsEditSection(section) &&
+      sectionFieldSpecs(section).some((spec) => normalizeEditField(spec).field === field),
+  );
+}
+
+// Follows the renderer's row-click targets (create-app hasRowClickTarget) except the
+// app-wide createKumikoApp onRowClick, which is client code the boot never sees: a rowClick
+// action, a `detailFor` screen, or an entityEdit screen that shows the file field.
+function rowOpensRecordWithField(
+  features: readonly FeatureDefinition[],
+  screen: EntityListScreenDefinition,
+  field: string,
+): boolean {
+  if (screen.rowActions?.some((action) => "rowClick" in action && action.rowClick === true)) {
+    return true;
+  }
+  return features.some((feature) =>
+    Object.values(feature.screens).some(
+      (other) =>
+        ("detailFor" in other && other.detailFor === screen.entity) ||
+        (other.type === "entityEdit" &&
+          other.entity === screen.entity &&
+          editLayoutShowsField(other.layout, field)),
+    ),
+  );
+}
+
+// A phone card drops hideOnNarrow columns; when the row opens nothing either, the
+// file in such a column cannot be reached on a phone at all. A reference column to an
+// entity holding the file is not counted: its cell shows the label only, never a file link.
+export function warnOnUnreachableHiddenFileColumns(
+  warn: BootWarningSink,
+  features: readonly FeatureDefinition[],
+): void {
+  for (const feature of features) {
+    for (const screen of Object.values(feature.screens)) {
+      if (screen.type !== "entityList") continue;
+      const entity = feature.entities?.[screen.entity];
+      const hiddenFileFields = screen.columns
+        .map((spec) => normalizeListColumn(spec))
+        .filter(
+          (col) =>
+            col.hideOnNarrow === true &&
+            cardFileDisplayKind(entity?.fields[col.field]?.type, col.renderer) === "file" &&
+            !rowOpensRecordWithField(features, screen, col.field),
+        )
+        .map((col) => col.field);
+      if (hiddenFileFields.length === 0) continue;
+      warn({
+        kind: "list/hidden-file-column",
+        feature: feature.name,
+        message: `Feature "${feature.name}" screen "${screen.id}": the file column(s) ${hiddenFileFields.join(", ")} are hideOnNarrow and the row opens no record showing them, so a phone cannot reach the file. Drop hideOnNarrow, or add a rowClick action, a detail screen or the field to the edit screen. An app-wide createKumikoApp onRowClick is not visible here; ignore this warning if it opens the file.`,
+      });
+    }
+  }
 }

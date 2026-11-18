@@ -64,6 +64,7 @@ describe("groupBlocksByFolder", () => {
     expect(folder).toBeDefined();
     if (!folder) return;
     expect(folder.label).toBe("page");
+    expect(folder.labelKey).toBe("template-resolver.folder.page");
     expect(folder.icon).toBe("folder");
     const children = childrenArray(folder.children);
     expect(children).toHaveLength(1);
@@ -222,6 +223,7 @@ describe("groupBlocksByFolder", () => {
     expect(result).toHaveLength(1);
     const wrapper = result[0];
     expect(wrapper?.label).toBe("Content");
+    expect(wrapper?.labelKey).toBe("template-resolver.nav.content");
     expect(wrapper?.icon).toBe("folder");
     expect(wrapper?.target).toBeUndefined();
     expect(childrenArray(wrapper?.children)).toHaveLength(1);

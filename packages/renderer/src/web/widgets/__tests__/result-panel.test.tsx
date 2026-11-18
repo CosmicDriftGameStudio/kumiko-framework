@@ -33,6 +33,15 @@ describe("ResultTable", () => {
     expect(container.querySelector("thead.bg-muted")).toBeNull();
   });
 
+  test("without card, cells keep the DataTable gutter so adjacent values do not run together", () => {
+    const { container } = render(
+      <ResultTable columns={COLUMNS} rows={ROWS} rowKey={(r) => String(r.year)} testId="rt" />,
+    );
+    const cells = [...container.querySelectorAll("th, td")];
+    expect(cells.length).toBeGreaterThan(0);
+    expect(cells.filter((cell) => !cell.classList.contains("px-2"))).toEqual([]);
+  });
+
   test("footer rows render as table rows spanning all-but-last column, value under the last column", () => {
     const { container } = render(
       <ResultTable

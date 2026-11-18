@@ -14,6 +14,7 @@ export const rendererEnCatalog: Readonly<Record<string, string>> = {
   "kumiko.editor.savedAt": "Last saved {when}",
   "kumiko.editor.unsavedChanges": "Unsaved changes",
   "kumiko.field.file-list.download": "Download",
+  "kumiko.field.file-list.downloadNamed": "Download: {name}",
   "kumiko.field.file-list.hidePreview": "Hide preview",
   "kumiko.field.file-list.preview": "Preview",
   "kumiko.field.file-list.view": "View",

@@ -509,3 +509,33 @@ describe("computeListViewModel writeOnly columns", () => {
     expect(vm.rows.map((r) => r.values["name"])).toEqual(["A", "B"]);
   });
 });
+
+describe("computeListViewModel — month text fields", () => {
+  test("a text field with format month gets the month renderer unless the column sets one", () => {
+    const entity = {
+      fields: {
+        period: { type: "text", format: "month" },
+        dueMonth: { type: "text", format: "month" },
+        note: { type: "text" },
+      },
+    } as unknown as EntityDefinition;
+    const screen: EntityListScreenDefinition = {
+      id: "charge-list",
+      type: "entityList",
+      entity: "charge",
+      columns: ["period", { field: "dueMonth", renderer: { format: "date" } }, "note"],
+    };
+    const vm = computeListViewModel({
+      screen,
+      entity,
+      rows: [],
+      translate: (k) => k,
+      featureName: "hausgeld",
+    });
+    expect(vm.columns.map((c) => c.renderer)).toEqual([
+      { format: "month" },
+      { format: "date" },
+      undefined,
+    ]);
+  });
+});

@@ -51,6 +51,13 @@ export const taskEntity = createEntity({
       filterable: true,
     }),
     dueDate: createDateField({ sortable: true }),
+    // Stored as YYYY-MM; the list shows it as month and year in the user's locale.
+    plannedMonth: createTextField({
+      format: "month",
+      maxLength: 7,
+      personal: false,
+      reason: "is_business_data",
+    }),
     assignee: createTextField({ personal: false, reason: "is_business_data", sortable: true }),
     estimateHours: createNumberField({ sortable: true, filterable: true }),
     parked: createBooleanField({ default: false }),

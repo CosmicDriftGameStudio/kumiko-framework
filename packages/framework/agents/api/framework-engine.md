@@ -371,7 +371,7 @@ type BootWarning = {
   feature?: string;
   message: string;
 };
-type BootWarningKind = "nav/access-inversion" | "nav/screen-unreachable" | "config/toggleable-dependency" | "security/baseline-incomplete" | "access/unique-role" | "api/self-use" | "gdpr/ephemeral-store" | "gdpr/s3-env-unset" | "pii/owner-not-user-reference" | "pii/unannotated-personal-name" | "retention/invalid-keep-for" | "retention/block-delete-without-anonymize";
+type BootWarningKind = "nav/access-inversion" | "nav/screen-unreachable" | "config/toggleable-dependency" | "security/baseline-incomplete" | "access/unique-role" | "list/hidden-file-column" | "api/self-use" | "gdpr/ephemeral-store" | "gdpr/s3-env-unset" | "pii/owner-not-user-reference" | "pii/unannotated-personal-name" | "retention/invalid-keep-for" | "retention/block-delete-without-anonymize";
 type ChangelogEntry = {
   version: string;
   type: ChangelogType;
@@ -893,6 +893,9 @@ interface FieldFormatRegistry {
     locale?: string;
     dateStyle?: "full" | "long" | "medium" | "short";
   };
+  month: {
+    locale?: string;
+  }; // A `YYYY-MM` value (text field `format: "month"`) as month and year, "Juni 2026"; anything else stays as stored.
   phone: Record<never, never>; // Telephone number shown as a `tel:` link in list cells, like a read-only `format: "phone"` field.
   boolean: {
     trueLabel?: string;
@@ -1900,6 +1903,7 @@ type TreeActionDef<TArgs = Record<string, unknown>> = {
 type TreeChildrenSubscribe = () => Subscribe<TreeNode[]>;
 type TreeNode = {
   label: string;
+  labelKey?: string;
   icon?: string;
   state?: TreeNodeState;
   target?: TargetRef;

@@ -91,6 +91,7 @@ function renderFolderNode(node: FolderNode): TreeNode[] {
     if (subNode === undefined) continue;
     result.push({
       label: folderName,
+      labelKey: `template-resolver.folder.${folderName}`,
       icon: "folder",
       state: "filled",
       children: renderFolderNode(subNode),
@@ -113,6 +114,7 @@ export function groupBlocksByFolder(
   return [
     {
       label: "Content",
+      labelKey: "template-resolver.nav.content",
       icon: "folder",
       state: "filled",
       children: rendered,

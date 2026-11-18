@@ -9,7 +9,7 @@
 // it the whole sidebar row and the page — past the viewport instead of
 // scrolling inside the inset's own `main` (which already has overflow-auto).
 export const fillClasses = (fill?: boolean) => ({
-  provider: fill === true ? { className: "h-svh" } : {},
+  provider: fill === true ? { className: "h-svh", "data-kumiko-fill": "true" } : {},
   inset: fill === true ? "min-h-0 min-w-0" : "min-w-0",
   main: fill === true ? "min-h-0 flex-1 overflow-auto" : "flex-1 overflow-auto",
 });

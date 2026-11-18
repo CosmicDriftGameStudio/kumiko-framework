@@ -205,3 +205,35 @@ test.describe("desktop overflow", () => {
     await expect(page.locator("input[value='Plan the offsite']")).toBeVisible();
   });
 });
+
+test.describe("phone card with the actions menu beside the title", () => {
+  test.use({ viewport: { width: 390, height: 800 } });
+
+  async function box(
+    page: Page,
+    testId: string,
+  ): Promise<{ top: number; bottom: number; right: number; mid: number }> {
+    const b = await page.getByTestId(testId).first().boundingBox();
+    if (b === null) throw new Error(`${testId} has no box`);
+    return { top: b.y, bottom: b.y + b.height, right: b.x + b.width, mid: b.y + b.height / 2 };
+  }
+
+  test("the 44px menu target neither pushes the meta lines down nor sits below the title", async ({
+    page,
+  }) => {
+    await openList(page, "/task-wide-list");
+    const title = await box(page, "cell-task-1-title");
+    const meta = await box(page, "card-meta-task-1");
+    const menu = await box(page, "row-task-1-actions-menu");
+    expect(meta.top - title.bottom).toBeLessThanOrEqual(8);
+    expect(Math.abs(menu.mid - title.mid)).toBeLessThanOrEqual(3);
+  });
+
+  test("the status badge keeps to the right edge, next to the menu", async ({ page }) => {
+    await openList(page, "/task-wide-list");
+    const status = await box(page, "cell-task-1-priority");
+    const menu = await page.getByTestId("row-task-1-actions-menu").first().boundingBox();
+    if (menu === null) throw new Error("menu has no box");
+    expect(menu.x - status.right).toBeLessThanOrEqual(16);
+  });
+});

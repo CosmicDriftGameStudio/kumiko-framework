@@ -93,6 +93,35 @@ describe("DefaultTabs mobile overflow scroll hint", () => {
     expect(el.scrollLeft).toBe(600 + 150 - 300);
   });
 
+  test("the active tab is scrolled back into view when the strip grows, e.g. counts loading", () => {
+    const resizeCallbacks: (() => void)[] = [];
+    const originalResizeObserver = globalThis.ResizeObserver;
+    globalThis.ResizeObserver = class implements ResizeObserver {
+      constructor(callback: ResizeObserverCallback) {
+        resizeCallbacks.push(() => callback([], this));
+      }
+      observe(): void {}
+      unobserve(): void {}
+      disconnect(): void {}
+    };
+    try {
+      render(<Tabs items={ITEMS} activeId="internal-note" onSelect={() => {}} testId="tabs" />);
+      const el = scroller();
+      stubDimension(el, "scrollWidth", 800);
+      stubDimension(el, "clientWidth", 300);
+      el.scrollLeft = 300;
+      const lastTrigger = screen.getByRole("tab", { name: "InternalNote" });
+      stubDimension(lastTrigger, "offsetLeft", 700);
+      stubDimension(lastTrigger, "offsetWidth", 100);
+
+      for (const callback of resizeCallbacks) callback();
+
+      expect(el.scrollLeft).toBe(700 + 100 - 300);
+    } finally {
+      globalThis.ResizeObserver = originalResizeObserver;
+    }
+  });
+
   test("manual scroll away from the active tab is not snapped back while activeId is unchanged", () => {
     // Active tab is the first item, so its (unstubbed, default) offsetLeft
     // is 0 — scrolling away from it is exactly the case the scroll-to-active

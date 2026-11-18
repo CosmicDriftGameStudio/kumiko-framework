@@ -40,6 +40,7 @@ export function createTaskListScreen(taskTable: ListTableOptions): ScreenDefinit
       { field: "lastUpdate", dateOnlyAfterDays: 7, hideOnNarrow: true },
       // Starts hidden; the user can add it back in the view menu.
       { field: "estimateHours", hidden: true, hideOnNarrow: true },
+      { field: "plannedMonth", hidden: true, hideOnNarrow: true },
     ],
     facets: { status: { display: "chips" }, priority: {}, estimateHours: { display: "range" } },
     defaultSort: { field: "dueDate", dir: "asc" },

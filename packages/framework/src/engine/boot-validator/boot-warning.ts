@@ -4,6 +4,7 @@ export type BootWarningKind =
   | "config/toggleable-dependency"
   | "security/baseline-incomplete"
   | "access/unique-role"
+  | "list/hidden-file-column"
   | "api/self-use"
   | "gdpr/ephemeral-store"
   | "gdpr/s3-env-unset"
