@@ -69,6 +69,20 @@ describe("composeStacks", () => {
     expect(upsertTenantRoles(composeRendererStack())).toEqual(["SystemAdmin"]);
   });
 
+  test("composeRendererStack({ mailPlatformBrand }) reaches the mail renderer, which checks it on creation", () => {
+    expect(() =>
+      composeRendererStack({ mailPlatformBrand: { title: "Status", accentColor: "red" } }),
+    ).toThrow(/platformBrand\.accentColor must be a hex color/);
+    expect(() => composeRendererStack({ mailPlatformBrand: { title: " " } })).toThrow(
+      /platformBrand\.title must not be empty/,
+    );
+    expect(
+      stackFeatureNames(
+        composeRendererStack({ mailPlatformBrand: { title: "Status", accentColor: "#1f5468" } }),
+      ),
+    ).toContain("renderer-mail-html");
+  });
+
   test("composePagesStack → legal-pages (template-resolver comes from the renderer stack)", () => {
     expect(stackFeatureNames(composePagesStack())).toEqual(["legal-pages"]);
   });

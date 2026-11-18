@@ -48,6 +48,7 @@ import {
   createRendererMailHtmlFeature,
   type MailBrandSuffixResolver,
   type MailFooterResolver,
+  type MailHtmlRenderOptions,
 } from "@cosmicdrift/kumiko-bundled-features/renderer-mail-html";
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import {
@@ -175,6 +176,8 @@ export type RendererStackOptions = {
   readonly mailFooter?: MailFooterResolver;
   /** Word after the tenant name in the mail's brand row, e.g. "Status". */
   readonly mailBrandSuffix?: MailBrandSuffixResolver;
+  /** Title and accent color of the system tenant's own mails while no branding is stored for it. */
+  readonly mailPlatformBrand?: MailHtmlRenderOptions["platformBrand"];
   /** Passed to createTemplateResolverFeature, e.g. `tenantEditable` to let a TenantAdmin edit chosen templates. */
   readonly templateResolver?: TemplateResolverOptions;
 };
@@ -186,6 +189,7 @@ export function composeRendererStack(options: RendererStackOptions = {}): Featur
     createRendererMailHtmlFeature({
       ...(options.mailFooter !== undefined && { footer: options.mailFooter }),
       ...(options.mailBrandSuffix !== undefined && { brandSuffix: options.mailBrandSuffix }),
+      ...(options.mailPlatformBrand !== undefined && { platformBrand: options.mailPlatformBrand }),
     }),
   ];
 }
