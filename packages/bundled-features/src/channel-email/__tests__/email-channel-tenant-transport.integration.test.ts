@@ -114,6 +114,7 @@ const TENANT_ROUTED_NOTIFICATIONS = [
 const appNotificationsFeature = defineFeature("app", (r) => {
   for (const name of TENANT_ROUTED_NOTIFICATIONS) r.notification(name, { tenantTransport: true });
   r.notification("password-reset", {});
+  r.notification("guest-placeholder", {});
 });
 
 const tenantA: TenantId = testTenantId(601);
@@ -289,6 +290,24 @@ describe("channel-email resolves the transport per tenant", () => {
     expect(getInbox(tenantA).map((m) => m.to)).toEqual(["a@test.local"]);
     expect(getInbox(tenantB).map((m) => m.to)).toEqual(["b@test.local"]);
     expect(appTransport.sent).toHaveLength(0);
+  });
+
+  test("a mail to a .invalid placeholder address is logged as skipped and never sent", async () => {
+    appTransport.sent.length = 0;
+    const type = "app:notify:guest-placeholder";
+    await notifyInline(tenantWithoutProvider, "guest-1@guests.invalid", type);
+
+    expect(appTransport.sent).toHaveLength(0);
+    const attempts = await selectMany<{ status: string; error: string | null }>(
+      stack.db,
+      deliveryAttemptsTable,
+      {
+        notificationType: type,
+      },
+    );
+    expect(attempts.map(({ status, error }) => ({ status, error }))).toEqual([
+      { status: "skipped", error: "no_address" },
+    ]);
   });
 
   test("a tenant without a provider falls back to the app transport", async () => {

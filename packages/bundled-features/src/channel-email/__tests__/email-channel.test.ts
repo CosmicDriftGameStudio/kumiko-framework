@@ -500,3 +500,34 @@ describe("email channel transport per notification", () => {
     }
   });
 });
+
+describe("email channel placeholder addresses on .invalid", () => {
+  const resolvedAddressOf = (stored: string) =>
+    createEmailChannel({
+      transport: createInMemoryTransport(),
+      resolveEmail: async () => stored,
+    }).resolve?.("u1", ctx);
+  const message: ChannelMessage = {
+    notificationType: "app:notify:deletion-requested",
+    title: "",
+    body: undefined,
+    data: undefined,
+  };
+
+  test("a placeholder address resolves to no address", async () => {
+    await expect(resolvedAddressOf("guest-1@guests.invalid")).resolves.toBeNull();
+    await expect(resolvedAddressOf("deleted-1@anonymized.INVALID")).resolves.toBeNull();
+  });
+
+  test("a real address resolves unchanged", async () => {
+    await expect(resolvedAddressOf("user@example.com")).resolves.toBe("user@example.com");
+  });
+
+  test("sending to a placeholder address is skipped without reaching the transport", async () => {
+    const transport = createInMemoryTransport();
+    await expect(
+      channelWith(transport).send("guest-1@guests.invalid", message, ctx, rendered),
+    ).resolves.toEqual({ status: "skipped", error: "no_address" });
+    expect(transport.sent).toHaveLength(0);
+  });
+});
