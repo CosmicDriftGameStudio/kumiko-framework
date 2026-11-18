@@ -186,5 +186,17 @@ export const BILLING_FOUNDATION_HANDLER_I18N = handlerTranslationKeys("billing-f
       },
     },
     "create-portal-session": { title: { en: "Open billing portal" } },
+    "start-plan-checkout": {
+      title: { en: "Start plan checkout" },
+      fields: {
+        tier: { en: "Plan" },
+        providerName: { en: "Payment provider" },
+        consent: { en: "Consent" },
+      },
+    },
+    "switch-plan": {
+      title: { en: "Switch plan" },
+      fields: { tier: { en: "Plan" }, consent: { en: "Consent" } },
+    },
   },
 });

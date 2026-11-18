@@ -11,7 +11,7 @@ import { envSchema } from "./env-schema";
 
 const out = { log: (l: string) => console.log(l), err: (l: string) => console.error(l) };
 
-const cwd = process.env.INIT_CWD ?? process.cwd();
+const cwd = process.env["INIT_CWD"] ?? process.cwd();
 
 // exitCode, not exit(): in an initContainer stderr is a pipe and exit() drops unflushed lines.
 process.exitCode = await runStandaloneCli(Bun.argv.slice(2), cwd, out, {
