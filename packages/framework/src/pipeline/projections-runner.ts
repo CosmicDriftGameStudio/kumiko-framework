@@ -70,7 +70,7 @@ function implicitEntityProjectionFor(event: StoredEvent, registry: Registry) {
   if (parseAutoVerb(event, registry.getEntity(event.aggregateType)) !== null) return undefined;
   return registry
     .getProjectionsForSource(event.aggregateType)
-    .find((proj) => proj.isImplicit === true && proj.source === event.aggregateType);
+    .find((proj) => proj.isImplicit === true);
 }
 
 export function hasLiveProjectionsForEvent(event: StoredEvent, registry: Registry): boolean {

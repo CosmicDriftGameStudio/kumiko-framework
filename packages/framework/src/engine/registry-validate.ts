@@ -293,9 +293,12 @@ export function buildImplicitProjections(
         );
       }
       state.projectionMap.set(def.name, def);
-      const existing = state.projectionsBySource.get(entityName) ?? [];
-      existing.push(def);
-      state.projectionsBySource.set(entityName, existing);
+      // Extension streams too: a domain event on one of them moves the row version live, as a rebuild does.
+      for (const source of [entityName, ...(def.extraSources ?? [])]) {
+        const existing = state.projectionsBySource.get(source) ?? [];
+        existing.push(def);
+        state.projectionsBySource.set(source, existing);
+      }
     }
   }
 }

@@ -146,7 +146,9 @@ async function observedEventsOf(fileRefId: string) {
 }
 
 async function extractsOf(fileRefId: string) {
-  return selectMany<{ id: string }>(stack.db, documentExtractsTable, { fileRefId });
+  return selectMany<{ id: string; version: number }>(stack.db, documentExtractsTable, {
+    fileRefId,
+  });
 }
 
 async function complete(
@@ -172,6 +174,8 @@ describe("completeDocumentExtract", () => {
     expect(events[0]?.payload["fileRefId"]).toBe(file.id);
     const [extract] = await extractsOf(file.id);
     expect(events[0]?.payload["documentExtractId"]).toBe(extract?.id);
+    // The ready event is the second event of the extract stream; a rebuild sets the same version.
+    expect(extract?.version).toBe(2);
 
     const loaded = await loadDocumentExtract({ db: tenantDb(), user: systemUser() }, file.id);
     expect(loaded?.pages).toEqual(pages);
