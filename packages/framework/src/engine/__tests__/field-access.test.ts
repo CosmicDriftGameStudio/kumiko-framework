@@ -4,6 +4,7 @@ import {
   checkWriteFieldOwnership,
   checkWriteFieldRoles,
   filterReadFields,
+  keepHiddenEmbeddedSubFields,
 } from "../field-access.ts";
 
 const entity: EntityDefinition = {
@@ -105,5 +106,32 @@ describe("checkWriteFieldOwnership embedded sub-fields", () => {
   test("an unchanged sub-field in another key order is not a write", () => {
     const old = { checkpoints: [{ approvedBy: "boss", label: "a" }] };
     expect(checkWriteFieldOwnership(checkpoints, row, editor, old)).toBeNull();
+  });
+});
+
+describe("keepHiddenEmbeddedSubFields", () => {
+  const notes: EntityDefinition = {
+    name: "notes",
+    fields: {
+      lines: {
+        type: "embedded",
+        multiple: true,
+        schema: {
+          note: { type: "text" },
+          internalNote: { type: "text", access: { read: { admin: "all" } } },
+        },
+      },
+    },
+  };
+  const previous = { lines: [{ note: "a", internalNote: "keep" }, { note: "b" }] };
+
+  test("a sent row that is no object where a hidden value was counts as a dropped row", () => {
+    const kept = keepHiddenEmbeddedSubFields(
+      notes,
+      { lines: [null, { note: "b" }] },
+      previous,
+      editor,
+    );
+    expect(kept).toEqual({ kind: "hiddenRowDropped", fieldName: "lines" });
   });
 });

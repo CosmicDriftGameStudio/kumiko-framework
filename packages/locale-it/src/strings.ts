@@ -595,7 +595,7 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "errors.validation.onlyDeleted": "Richiesta del cestino non disponibile.",
   "errors.validation.failed": "Convalida non riuscita.",
   "errors.validation.hidden_row_changed":
-    "Una riga ha un campo che non puoi vedere, quindi non può essere modificata così.",
+    "Questo elenco contiene dati che non puoi vedere. Non puoi spostare le righe con questi dati né modificare questi dati.",
   "errors.validation.hidden_row_removed":
     "Una riga contiene dati che non puoi vedere, quindi non può essere rimossa.",
   "errors.validation.invalid_element": "Voce non valida.",

@@ -62,6 +62,32 @@ const ledgerEntity = createEntity({
       },
       { personal: false, reason: "is_business_data" },
     ),
+    // The derived target is hidden, its sources are visible.
+    costs: createEmbeddedListField(
+      {
+        qty: { type: "number" },
+        price: { type: "number" },
+        total: { type: "number", access: { read: ADMIN_ONLY } },
+      },
+      {
+        personal: false,
+        reason: "is_business_data",
+        derived: { total: { op: "multiply", from: ["qty", "price"] } },
+      },
+    ),
+    // A derived source is hidden, the target is visible.
+    hours: createEmbeddedListField(
+      {
+        spent: { type: "number" },
+        rate: { type: "number", access: { read: ADMIN_ONLY } },
+        amount: { type: "number" },
+      },
+      {
+        personal: false,
+        reason: "is_business_data",
+        derived: { amount: { op: "multiply", from: ["spent", "rate"] } },
+      },
+    ),
   },
 });
 
@@ -85,6 +111,19 @@ const hiddenSubFieldFeature = defineFeature("hidden-sub-field", (r) => {
         { skipOptimisticLock: true, writePurpose: WritePurposes.retention },
       ),
     access: { roles: ["Admin"] },
+  });
+  // No entity prefix: the response cannot name its entity through the handler.
+  r.writeHandler({
+    name: "rename-ledger",
+    schema: z.object({ id: z.uuid(), title: z.string() }),
+    handler: async (event, ctx) =>
+      executor.update(
+        { id: event.payload.id, changes: { title: event.payload.title } },
+        event.user,
+        ctx.db,
+        { skipOptimisticLock: true },
+      ),
+    access: { roles: ["Admin", "Clerk"] },
   });
 });
 
@@ -335,6 +374,162 @@ describe("a writer saves back the rows he got without the sub-fields he may not 
     await update(clerk, id, { summary: { note: "a2" } });
 
     expect((await detail(admin, id))["summary"]).toEqual({ note: "a2", internalNote: "keep" });
+  });
+});
+
+describe("a writer without read access moves rows of a list with hidden values", () => {
+  async function expectRefused(id: string, lines: unknown[], code: string) {
+    const err = await stack.http.writeErr(
+      "hidden-sub-field:write:ledger:update",
+      { id, version: 1, changes: { lines } },
+      clerk,
+    );
+    expect(err.code).toBe("validation_error");
+    expect(err.details).toEqual({
+      fields: [{ path: "lines", code, i18nKey: `errors.validation.${code}` }],
+    });
+  }
+
+  test("swapping two rows is refused, the rows stay as they were", async () => {
+    const id = await createLedger({ lines: [{ note: "a", internalNote: "keep" }, { note: "b" }] });
+
+    await expectRefused(id, [{ note: "b" }, { note: "a" }], "hidden_row_changed");
+
+    expect((await detail(admin, id))["lines"]).toEqual([
+      { note: "a", internalNote: "keep" },
+      { note: "b" },
+    ]);
+  });
+
+  test("deleting a row before a row with a hidden value is refused", async () => {
+    const id = await createLedger({
+      lines: [{ note: "a" }, { note: "b", internalNote: "keep" }, { note: "c" }],
+    });
+
+    await expectRefused(id, [{ note: "b" }, { note: "c" }], "hidden_row_changed");
+
+    expect((await detail(admin, id))["lines"]).toEqual([
+      { note: "a" },
+      { note: "b", internalNote: "keep" },
+      { note: "c" },
+    ]);
+  });
+
+  test("inserting a row in front is refused", async () => {
+    const id = await createLedger({ lines: [{ note: "a", internalNote: "keep" }] });
+
+    await expectRefused(id, [{ note: "new" }, { note: "a" }], "hidden_row_changed");
+
+    expect((await detail(admin, id))["lines"]).toEqual([{ note: "a", internalNote: "keep" }]);
+  });
+
+  test("two rows with the same visible content: changing one in place saves", async () => {
+    const id = await createLedger({
+      lines: [
+        { note: "a", internalNote: "first" },
+        { note: "a", internalNote: "second" },
+      ],
+    });
+
+    await update(clerk, id, { lines: [{ note: "a2" }, { note: "a" }] });
+
+    expect((await detail(admin, id))["lines"]).toEqual([
+      { note: "a2", internalNote: "first" },
+      { note: "a", internalNote: "second" },
+    ]);
+  });
+
+  test("a list without any hidden value can be reordered freely", async () => {
+    const id = await createLedger({ lines: [{ note: "a" }, { note: "b" }, { note: "c" }] });
+
+    await update(clerk, id, { lines: [{ note: "c" }, { note: "a" }, { note: "b" }] });
+
+    expect((await detail(admin, id))["lines"]).toEqual([
+      { note: "c" },
+      { note: "a" },
+      { note: "b" },
+    ]);
+  });
+
+  test("a writer who may read the sub-field swaps two rows, the values move with them", async () => {
+    const id = await createLedger({ lines: [{ note: "a", internalNote: "keep" }, { note: "b" }] });
+
+    await update(admin, id, { lines: [{ note: "b" }, { note: "a", internalNote: "keep" }] });
+
+    expect((await detail(admin, id))["lines"]).toEqual([
+      { note: "b" },
+      { note: "a", internalNote: "keep" },
+    ]);
+  });
+});
+
+describe("derived cells next to a hidden sub-field", () => {
+  test("a hidden derived target is recomputed from the sources the writer changed", async () => {
+    const id = await createLedger({ costs: [{ qty: 1, price: 4 }] });
+    expect((await detail(admin, id))["costs"]).toEqual([{ qty: 1, price: 4, total: 4 }]);
+    expect((await detail(clerk, id))["costs"]).toEqual([{ qty: 1, price: 4 }]);
+
+    await update(clerk, id, { costs: [{ qty: 2, price: 3 }] });
+
+    expect((await detail(admin, id))["costs"]).toEqual([{ qty: 2, price: 3, total: 6 }]);
+  });
+
+  test("a derived target is computed with the hidden source the writer did not send", async () => {
+    const id = await createLedger({ hours: [{ spent: 2, rate: 50 }] });
+    expect((await detail(clerk, id))["hours"]).toEqual([{ spent: 2, amount: 100 }]);
+
+    await update(clerk, id, { hours: [{ spent: 3, amount: 100 }] });
+
+    expect((await detail(admin, id))["hours"]).toEqual([{ spent: 3, rate: 50, amount: 150 }]);
+  });
+
+  test("rows whose only hidden cell is derived can be reordered", async () => {
+    const id = await createLedger({
+      costs: [
+        { qty: 1, price: 4 },
+        { qty: 2, price: 5 },
+      ],
+    });
+
+    await update(clerk, id, {
+      costs: [
+        { qty: 2, price: 5 },
+        { qty: 1, price: 4 },
+      ],
+    });
+
+    expect((await detail(admin, id))["costs"]).toEqual([
+      { qty: 2, price: 5, total: 10 },
+      { qty: 1, price: 4, total: 4 },
+    ]);
+  });
+
+  test("a row whose only hidden cell is derived can be deleted", async () => {
+    const id = await createLedger({
+      costs: [
+        { qty: 1, price: 4 },
+        { qty: 2, price: 5 },
+      ],
+    });
+
+    await update(clerk, id, { costs: [{ qty: 1, price: 4 }] });
+
+    expect((await detail(admin, id))["costs"]).toEqual([{ qty: 1, price: 4, total: 4 }]);
+  });
+});
+
+describe("a handler without an entity prefix returns the saved row", () => {
+  test("the response does not carry a sub-field the writer may not read", async () => {
+    const id = await createLedger({ lines: [{ note: "a", internalNote: "keep" }] });
+
+    const response = await stack.http.writeOk(
+      "hidden-sub-field:write:rename-ledger",
+      { id, title: "Renamed" },
+      clerk,
+    );
+
+    expect(JSON.stringify(response)).toContain("Renamed");
+    expect(JSON.stringify(response)).not.toContain("keep");
   });
 });
 

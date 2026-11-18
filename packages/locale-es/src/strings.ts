@@ -594,7 +594,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "errors.validation.onlyDeleted": "Consulta de la papelera no disponible.",
   "errors.validation.failed": "Validación fallida.",
   "errors.validation.hidden_row_changed":
-    "Una fila tiene un campo que no puedes ver, por lo que no se puede cambiar así.",
+    "Esta lista contiene datos que no puedes ver. No puedes mover las filas con esos datos ni cambiar esos datos.",
   "errors.validation.hidden_row_removed":
     "Una fila contiene datos que no puedes ver, por lo que no se puede eliminar.",
   "errors.validation.invalid_element": "Entrada no válida.",

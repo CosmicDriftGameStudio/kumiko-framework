@@ -30,6 +30,11 @@ const taskEntity = createEntity({
   fields: {
     projectId: createTextField({ personal: false, reason: "test_fixture", required: true }),
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
+    auditNote: createTextField({
+      personal: false,
+      reason: "test_fixture",
+      access: { read: { Auditor: "all" } },
+    }),
   },
 });
 const taskTable = buildEntityTable(taskEntity);
@@ -64,6 +69,7 @@ const nestedFeature = defineFeature("nested", (r) => {
     schema: z.object({
       projectId: z.string().uuid(),
       title: z.string().min(1),
+      auditNote: z.string().optional(),
     }),
     handler: async (event, ctx) => {
       const crud = createEventStoreExecutor(taskTable, taskEntity, {
@@ -125,6 +131,22 @@ describe("POST /api/write — nested-write (Welle M1)", () => {
     const dbTasks = await selectMany(stack.db, taskTable, { projectId: parent.id });
     expect(dbProjects).toHaveLength(1);
     expect(dbTasks).toHaveLength(2);
+  });
+
+  test("a nested child field the writer may not read is saved but not returned", async () => {
+    const res = await stack.http.write(
+      "nested:write:project:create",
+      { name: "P-audit", tasks: [{ title: "t1", auditNote: "audit only" }] },
+      admin,
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.data.data.tasks).toHaveLength(1);
+    expect(body.data.data.tasks[0].title).toBe("t1");
+    expect(JSON.stringify(body)).not.toContain("audit only");
+    const dbTasks = await selectMany(stack.db, taskTable);
+    expect(dbTasks.map((task) => task["auditNote"])).toEqual(["audit only"]);
   });
 
   test("sub-write failure rolls back parent: neither project nor sibling tasks persist", async () => {

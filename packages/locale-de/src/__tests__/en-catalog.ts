@@ -503,7 +503,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "errors.validation.onlyDeleted": "The trash list is not available here.",
   "errors.validation.failed": "Validation failed.",
   "errors.validation.hidden_row_changed":
-    "A row has a field you may not see, so it cannot be changed this way.",
+    "This list holds details you may not see. Rows with such details cannot be moved, and the details cannot be changed.",
   "errors.validation.hidden_row_removed":
     "A row holds content you may not see, so it cannot be removed.",
   "errors.validation.invalid_element": "Invalid entry.",

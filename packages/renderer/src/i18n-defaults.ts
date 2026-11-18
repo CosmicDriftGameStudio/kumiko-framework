@@ -523,7 +523,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "errors.validation.invalid_element": "Invalid entry.",
     "errors.validation.invalid_value": "Invalid choice.",
     "errors.validation.hidden_row_changed":
-      "A row has a field you may not see, so it cannot be changed this way.",
+      "This list holds details you may not see. Rows with such details cannot be moved, and the details cannot be changed.",
     "errors.validation.hidden_row_removed":
       "A row holds content you may not see, so it cannot be removed.",
     "errors.validation.custom": "Invalid value.",

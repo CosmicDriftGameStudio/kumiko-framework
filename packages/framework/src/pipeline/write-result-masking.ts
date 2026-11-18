@@ -59,6 +59,20 @@ function maskLifecycleOrRow(
   return { ...lifecycle, data: filterReadFields(entity, lifecycle.data, user) };
 }
 
+// An executor result names its entity; a handler may return one of another entity, or carry no
+// entity in its name at all.
+function resultEntity(
+  registry: EntityLookup,
+  handlerType: string,
+  data: unknown,
+): EntityDefinition | undefined {
+  const ownEntityName = isLifecycleResult(data) ? data.entityName : undefined;
+  const ownEntity = ownEntityName ? registry.getEntity(ownEntityName) : undefined;
+  if (ownEntity) return ownEntity;
+  const handlerEntityName = registry.getHandlerEntity(handlerType);
+  return handlerEntityName ? registry.getEntity(handlerEntityName) : undefined;
+}
+
 // Copy-on-mask: the original results still feed postSaveBatch hooks, which
 // need the plaintext. Only what leaves the dispatcher is masked.
 export function maskWriteResultForClient(
@@ -69,8 +83,7 @@ export function maskWriteResultForClient(
 ): WriteResult {
   if (!result.isSuccess) return result;
   const { lifecycle, ...clientResult } = result;
-  const entityName = registry.getHandlerEntity(handlerType);
-  const entity = entityName ? registry.getEntity(entityName) : undefined;
+  const entity = resultEntity(registry, handlerType, result.data);
   const data = maskLifecycleOrRow(entity, result.data, user);
   return data === result.data && lifecycle === undefined ? result : { ...clientResult, data };
 }

@@ -598,7 +598,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "errors.validation.onlyDeleted": "Papierkorb-Abfrage nicht möglich.",
   "errors.validation.failed": "Validierung fehlgeschlagen.",
   "errors.validation.hidden_row_changed":
-    "Eine Zeile hat ein Feld, das du nicht sehen darfst, und kann daher so nicht geändert werden.",
+    "Diese Liste enthält Angaben, die du nicht sehen darfst. Zeilen mit solchen Angaben kannst du nicht verschieben, und die Angaben kannst du nicht ändern.",
   "errors.validation.hidden_row_removed":
     "Eine Zeile enthält Inhalte, die du nicht sehen darfst, und kann daher nicht entfernt werden.",
   "errors.validation.invalid_element": "Ungültiger Eintrag.",

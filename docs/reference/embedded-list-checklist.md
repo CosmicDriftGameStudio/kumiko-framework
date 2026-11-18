@@ -80,8 +80,13 @@ Wert ist ein Array von FileRef-IDs.
   mit `hidden_row_changed`, damit ein Speichern keinen geratenen Wert bestätigt; ebenso wenn der
   Wert in einer Zeile landen würde, die er lesen darf. Entfernt sein Speichern eine Zeile mit so
   einem Wert, kommt `validation_error` (400) mit `hidden_row_removed`. Weil Zeilen keine feste Id
-  haben, bleibt der verborgene Wert am Index: Sortiert ein Schreiber ohne Leserecht die Zeilen um
-  oder fügt er eine davor ein, hängt der Wert danach an der Zeile, die jetzt dort steht.
+  haben, bleibt der verborgene Wert am Index. Verschiebt ein Schreiber ohne Leserecht eine Zeile
+  mit so einem Wert, fügt er eine davor ein oder löscht er eine davor, kommt ebenfalls
+  `hidden_row_changed`; eine Liste ohne verborgenen Wert sortiert er frei um. Nicht erkannt wird,
+  wenn er dieselbe Zeile im selben Speichern verschiebt und ihren sichtbaren Inhalt ändert: Dann
+  hängt der Wert an der Zeile, die jetzt an seinem Index steht. Abgeleitete Zellen rechnet der
+  Server nach dem Halten neu, auch aus verborgenen Quellen; eine verborgene abgeleitete Zelle
+  allein hält keine Zeile fest.
   Aufbewahrung und Löschung als System-User mit `writePurpose` ändern das Sub-Feld wie jeder Leser.
 - `file_refs.fieldName` bleibt der Name des Embedded-Felds. Bindung beim Speichern,
   Mandanten-Check, Aufräumen entfernter Fotos, Lesezugriff über das Recht am Datensatz,

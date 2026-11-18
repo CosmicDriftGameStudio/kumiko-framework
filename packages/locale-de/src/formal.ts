@@ -9,7 +9,7 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
   "config.secret.channel-whatsapp.verify-token.hint":
     "Beliebiger Text, den Sie auch in den Meta-Webhook-Einstellungen eintragen; beantwortet den Abonnement-Handshake von Meta.",
   "errors.validation.hidden_row_changed":
-    "Eine Zeile hat ein Feld, das Sie nicht sehen dürfen, und kann daher so nicht geändert werden.",
+    "Diese Liste enthält Angaben, die Sie nicht sehen dürfen. Zeilen mit solchen Angaben können Sie nicht verschieben, und die Angaben können Sie nicht ändern.",
   "errors.validation.hidden_row_removed":
     "Eine Zeile enthält Inhalte, die Sie nicht sehen dürfen, und kann daher nicht entfernt werden.",
   "kumiko.screen.forbidden": "Sie haben keinen Zugriff auf diese Seite.",

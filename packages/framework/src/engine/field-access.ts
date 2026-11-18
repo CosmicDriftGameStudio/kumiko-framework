@@ -5,6 +5,7 @@ import type {
 } from "@cosmicdrift/kumiko-types/fields";
 import type { DbRow } from "../db/connection.ts";
 import { isFileSubField } from "../files/file-field-slots.ts";
+import { withDerivedCells } from "./embedded-derived.ts";
 import {
   normalizeAccessEntry,
   type OwnershipMap,
@@ -316,13 +317,19 @@ function subFieldsHiddenInRow(
     .map(([subKey]) => subKey);
 }
 
+function isDerivedCell(field: EmbeddedFieldDef, subKey: string): boolean {
+  return field.derived?.[subKey] !== undefined;
+}
+
+// A derived cell is recomputed from its sources on every save, so it holds no value of its own.
 function holdsHiddenValue(
+  field: EmbeddedFieldDef,
   rules: readonly SubFieldReadRule[],
   row: Readonly<Record<string, unknown>>,
   user: SessionUser,
 ): boolean {
   return subFieldsHiddenInRow(rules, row, user).some(
-    (subKey) => !isEmptySubFieldValue(row[subKey]),
+    (subKey) => !isDerivedCell(field, subKey) && !isEmptySubFieldValue(row[subKey]),
   );
 }
 
@@ -339,7 +346,10 @@ function withValuesOfPreviousRow(
   return kept;
 }
 
+// The payload parse computed the derived cells without the hidden sources; with them back in
+// the row they are computed again.
 function keptEmbeddedValue(
+  field: EmbeddedFieldDef,
   value: unknown,
   previousRows: readonly (Readonly<Record<string, unknown>> | undefined)[],
   rules: readonly SubFieldReadRule[],
@@ -348,11 +358,14 @@ function keptEmbeddedValue(
   const keepRow = (row: unknown, index: number): unknown => {
     const previousRow = previousRows[index];
     if (!isRecord(row) || previousRow === undefined) return row;
-    return withValuesOfPreviousRow(
+    const keptRow = withValuesOfPreviousRow(
       row,
       previousRow,
       subFieldsHiddenInRow(rules, previousRow, user),
     );
+    return field.derived === undefined
+      ? keptRow
+      : withDerivedCells(keptRow, field.derived, field.schema);
   };
   return Array.isArray(value) ? value.map(keepRow) : keepRow(value, 0);
 }
@@ -385,7 +398,7 @@ function sendsValueAtHiddenPlace(
   user: SessionUser,
 ): boolean {
   const sendsValue = (subKey: string, sent: unknown, previousValue: unknown): boolean => {
-    if (isEmptySubFieldValue(sent)) return false;
+    if (isEmptySubFieldValue(sent) || isDerivedCell(field, subKey)) return false;
     const subField = field.schema[subKey];
     return !(
       subField !== undefined &&
@@ -402,14 +415,71 @@ function sendsValueAtHiddenPlace(
   });
 }
 
+function hasSameVisibleContent(
+  row: Readonly<Record<string, unknown>> | undefined,
+  otherRow: Readonly<Record<string, unknown>> | undefined,
+  ignoredSubKeys: readonly string[],
+): boolean {
+  if (row === undefined || otherRow === undefined) return row === otherRow;
+  const subKeys = new Set([...Object.keys(row), ...Object.keys(otherRow)]);
+  for (const subKey of subKeys) {
+    if (ignoredSubKeys.includes(subKey)) continue;
+    const value = row[subKey];
+    const otherValue = otherRow[subKey];
+    if (isEmptySubFieldValue(value) && isEmptySubFieldValue(otherValue)) continue;
+    if (!isUnchangedValue(value, otherValue)) return false;
+  }
+  return true;
+}
+
+// Rows have no stable id, so a hidden value stays at its index: a row holding one whose visible
+// content turns up at another index, in a row that did not stay in place, was moved. Derived
+// cells are left out of the comparison, the payload parse recomputed them without hidden sources.
+// ponytail: quadratic in the row count, run only for rows holding a value the writer may not read.
+function movesRowWithHiddenValue(
+  field: EmbeddedFieldDef,
+  value: unknown,
+  previousRows: readonly (Readonly<Record<string, unknown>> | undefined)[],
+  rules: readonly SubFieldReadRule[],
+  user: SessionUser,
+): boolean {
+  const sentRows = embeddedRows(value);
+  const derivedCells = Object.keys(field.derived ?? {});
+  const ignoredSubKeys = (previousRow: Readonly<Record<string, unknown>>) => [
+    ...subFieldsHiddenInRow(rules, previousRow, user),
+    ...derivedCells,
+  ];
+  const staysInPlace = (index: number): boolean => {
+    const previousRow = previousRows[index];
+    if (previousRow === undefined) return false;
+    return hasSameVisibleContent(sentRows[index], previousRow, ignoredSubKeys(previousRow));
+  };
+  const wasMovedAway = (previousRow: Readonly<Record<string, unknown>>, index: number) => {
+    const ignored = ignoredSubKeys(previousRow);
+    if (hasSameVisibleContent(sentRows[index], previousRow, ignored)) return false;
+    return sentRows.some(
+      (sentRow, sentIndex) =>
+        sentIndex !== index &&
+        hasSameVisibleContent(sentRow, previousRow, ignored) &&
+        !staysInPlace(sentIndex),
+    );
+  };
+  return previousRows.some(
+    (previousRow, index) =>
+      previousRow !== undefined &&
+      holdsHiddenValue(field, rules, previousRow, user) &&
+      wasMovedAway(previousRow, index),
+  );
+}
+
 export type HiddenSubFieldsKept =
   | { readonly kind: "kept"; readonly changes: Record<string, unknown> }
   | { readonly kind: "hiddenRowDropped" | "hiddenRowChanged"; readonly fieldName: string };
 
 // The read path hands a writer embedded rows without the sub-fields he may not read, and saving
 // them replaces the whole field. Rows have no stable id, so each row index keeps the hidden values
-// of the row it held before; dropping a row that holds a hidden value, sending a value there or
-// revealing one is refused instead of losing it. The rule is evaluated against the previous row, as on read.
+// of the row it held before; dropping or moving a row that holds a hidden value, sending a value
+// there or revealing one is refused instead of losing it. The rule is evaluated against the previous row, as on read.
 export function keepHiddenEmbeddedSubFields(
   entity: EntityDefinition,
   changes: Readonly<Record<string, unknown>>,
@@ -423,15 +493,19 @@ export function keepHiddenEmbeddedSubFields(
     const rules = subFieldReadRules(field);
     if (rules.length === 0) continue;
     const previousRows = embeddedRows(previous[fieldName]);
-    const sentRowCount = embeddedRows(value).length;
-    const droppedRows = previousRows.slice(sentRowCount);
-    if (droppedRows.some((row) => row !== undefined && holdsHiddenValue(rules, row, user))) {
+    // A sent row that is no object is kept as sent, so it drops the row at its index.
+    const sentRows = embeddedRows(value);
+    const droppedRows = previousRows.filter((_, index) => sentRows[index] === undefined);
+    if (droppedRows.some((row) => row !== undefined && holdsHiddenValue(field, rules, row, user))) {
       return { kind: "hiddenRowDropped", fieldName };
+    }
+    if (movesRowWithHiddenValue(field, value, previousRows, rules, user)) {
+      return { kind: "hiddenRowChanged", fieldName };
     }
     if (sendsValueAtHiddenPlace(field, value, previousRows, rules, user)) {
       return { kind: "hiddenRowChanged", fieldName };
     }
-    const keptValue = keptEmbeddedValue(value, previousRows, rules, user);
+    const keptValue = keptEmbeddedValue(field, value, previousRows, rules, user);
     if (revealsHiddenValue(keptValue, previousRows, rules, user)) {
       return { kind: "hiddenRowChanged", fieldName };
     }
