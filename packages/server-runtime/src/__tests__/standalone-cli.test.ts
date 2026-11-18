@@ -42,6 +42,21 @@ describe("runStandaloneCli", () => {
     expect(log.join("\n")).toContain("apply");
   });
 
+  for (const devOnly of ["generate", "baseline"]) {
+    test(`rejects the development-only schema ${devOnly} in the bundle`, async () => {
+      const { out, err } = captureOut();
+      expect(await runStandaloneCli(["schema", devOnly, "test"], appCwd, out, options)).toBe(1);
+      expect(err.join("\n")).toContain("Unknown subcommand");
+      expect(err.join("\n")).toContain("bun kumiko-schema");
+    });
+  }
+
+  test("keeps schema validate reachable", async () => {
+    const { out, err } = captureOut();
+    await runStandaloneCli(["schema", "validate"], appCwd, out, options);
+    expect(err.join("\n")).not.toContain("only runs in development");
+  });
+
   test("dispatches events to the events CLI", async () => {
     const { out, log } = captureOut();
     expect(await runStandaloneCli(["events"], appCwd, out, options)).toBe(0);

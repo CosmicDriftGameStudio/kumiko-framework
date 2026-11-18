@@ -2045,6 +2045,7 @@ type WriteHandlerInput<TName extends string = string, TSchema extends ZodType = 
   access: AccessRule;
   description?: string;
   agent?: AgentHandlerHints;
+  excludedFields?: string[]; // See WriteHandlerDefinition.excludedFields.
   unsafeSkipTransitionGuard?: boolean;
   rateLimit?: RateLimitDeclaration;
   additionalRateLimits?: PayloadRateLimitOption[];

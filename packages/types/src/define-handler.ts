@@ -108,6 +108,8 @@ export type WriteHandlerInput<
   readonly access: AccessRule;
   readonly description?: string;
   readonly agent?: AgentHandlerHints;
+  /** See WriteHandlerDefinition.excludedFields. */
+  readonly excludedFields?: readonly string[];
   readonly unsafeSkipTransitionGuard?: boolean;
   readonly rateLimit?: RateLimitDeclaration;
   readonly additionalRateLimits?: readonly PayloadRateLimitOption[];

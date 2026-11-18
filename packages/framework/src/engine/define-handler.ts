@@ -94,6 +94,7 @@ function pickWriteHandlerMetadata<
     ...(def.access && { access: def.access }),
     ...(def.description !== undefined && { description: def.description }),
     ...(def.agent && { agent: def.agent }),
+    ...(def.excludedFields && { excludedFields: def.excludedFields }),
     ...(def.rateLimit && { rateLimit: def.rateLimit }),
     ...(def.additionalRateLimits && { additionalRateLimits: def.additionalRateLimits }),
     ...(def.rateLimitCost && { rateLimitCost: def.rateLimitCost }),

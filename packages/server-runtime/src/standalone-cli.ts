@@ -20,6 +20,9 @@ export type StandaloneCliOptions = {
   readonly requireKms?: boolean;
 };
 
+// `generate` writes files, `baseline` marks migrations applied without running SQL.
+const DEV_ONLY_SCHEMA_SUBCOMMANDS: readonly string[] = ["generate", "baseline"];
+
 /** Dispatches `schema`, `consumer` and `events` for the bundled dist-server/kumiko.js. Returns the exit code. */
 export async function runStandaloneCli(
   argv: readonly string[],
@@ -32,6 +35,13 @@ export async function runStandaloneCli(
     rowLevelSecurity: options.rowLevelSecurity,
   };
   if (command === "schema") {
+    const subcommand = rest[0];
+    if (subcommand !== undefined && DEV_ONLY_SCHEMA_SUBCOMMANDS.includes(subcommand)) {
+      out.err(
+        `\n  Unknown subcommand: "${subcommand}" — it only runs in development via 'bun kumiko-schema', not in the production bundle.\n`,
+      );
+      return 1;
+    }
     // runProdApp resolves the kmsEnvSchema slots in kmsMode even when the app's own env
     // schema omits them; the projection rebuild after `apply` needs the same keys.
     const kmsSlots = [

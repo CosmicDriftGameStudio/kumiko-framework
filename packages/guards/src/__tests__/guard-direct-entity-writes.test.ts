@@ -63,17 +63,17 @@ describe("collectEsTables", () => {
   });
 });
 
-// r.entity({ name, ...ent }) and buildEntityTable(name2, ent) are linked through the
+// r.entity({ name, ...ent }) and buildEntityTable(ent) are linked through the
 // shared `fooEntity` symbol, NOT through the name string (here "foo" vs
 // "foo_tbl" — deliberately different, like sessions' "user-session" vs
 // "user_session"). Pins the symbol-based linking.
 const ENTITY_PROJECTION_PRELUDE = `
 declare const t: unknown;
-declare function buildEntityTable(name: string, e: unknown): unknown;
+declare function buildEntityTable(e: unknown, options?: unknown): unknown;
 declare function updateMany(db: unknown, table: unknown, set: unknown, where: unknown): Promise<void>;
 declare function insertOne(db: unknown, table: unknown, row: unknown): Promise<void>;
 export const fooEntity = t;
-export const fooTable = buildEntityTable("foo_tbl", fooEntity);
+export const fooTable = buildEntityTable(fooEntity);
 `;
 
 describe("collectEntityProjectionTables", () => {
@@ -115,11 +115,11 @@ describe("collectEntityProjectionTables", () => {
 });
 
 describe("collectEntityProjectionTables :: r.crud", () => {
-  test("links r.crud(name, entityDef, options) to the table built from the same entityDef", () => {
+  test("links r.crud(entityDef, options) to the table built from the same entityDef", () => {
     const project = makeProject({
       "/repo/foo.ts": `${ENTITY_PROJECTION_PRELUDE}
-        function setup(r: { crud: (n: string, e: unknown, o?: unknown) => void }) {
-          r.crud("foo", fooEntity, {});
+        function setup(r: { crud: (e: unknown, o?: unknown) => void }) {
+          r.crud(fooEntity, {});
         }
         async function bad(ctx: { db: unknown }) {
           await updateMany(ctx.db, fooTable, {}, {});
@@ -137,12 +137,26 @@ describe("collectEntityProjectionTables :: r.crud", () => {
   test("an inline entity definition is not statically resolvable and collects nothing", () => {
     const project = makeProject({
       "/repo/foo.ts": `${ENTITY_PROJECTION_PRELUDE}
-        function setup(r: { crud: (n: string, e: unknown, o?: unknown) => void }) {
-          r.crud("foo", { fields: {} }, {});
+        function setup(r: { crud: (e: unknown, o?: unknown) => void }) {
+          r.crud({ fields: {} }, {});
         }
       `,
     });
     expect(collectEntityProjectionTables(project.getSourceFiles()).size).toBe(0);
+  });
+});
+
+describe("collectEntityProjectionTables :: r.entity(entityDef)", () => {
+  test("links the one-argument form to the table built from the same entityDef", () => {
+    const project = makeProject({
+      "/repo/foo.ts": `${ENTITY_PROJECTION_PRELUDE}
+        function setup(r: { entity: (e: unknown) => void }) {
+          r.entity(fooEntity);
+        }
+      `,
+    });
+    const tables = collectEntityProjectionTables(project.getSourceFiles());
+    expect([...tables]).toEqual(["/repo/foo.ts::fooTable"]);
   });
 });
 
@@ -809,8 +823,8 @@ describe("guard.run :: ES table catalog of the owning repo", () => {
 describe("r.projection tables", () => {
   const PROJECTION_PRELUDE = `
     declare const t: unknown;
-    declare function buildEntityTable(name: string, e: unknown): unknown;
-    export const fooProjectionTable = buildEntityTable("foo", t);
+    declare function buildEntityTable(e: unknown, options?: unknown): unknown;
+    export const fooProjectionTable = buildEntityTable(t);
     declare const r: { projection: (d: unknown) => void };
     r.projection({ name: "foo", table: fooProjectionTable, apply: {} });
   `;

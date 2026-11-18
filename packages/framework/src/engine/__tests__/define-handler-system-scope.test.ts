@@ -28,6 +28,29 @@ const access = { roles: ["SystemAdmin"] };
 const writeEvent = { type: "probe:write", payload: {}, user: TestUsers.admin };
 const queryEvent = { type: "probe:query", payload: {}, user: TestUsers.admin };
 
+describe("defineWriteHandler excludedFields", () => {
+  test("a hand-written handler's excludedFields reach the definition", () => {
+    const def = defineWriteHandler({
+      name: "probe:excluded",
+      schema,
+      access,
+      excludedFields: ["internalNote"],
+      handler: async () => ({ isSuccess: true as const, data: {} }),
+    });
+    expect(def.excludedFields).toEqual(["internalNote"]);
+  });
+
+  test("excludedFields stays absent when not declared", () => {
+    const def = defineWriteHandler({
+      name: "probe:not-excluded",
+      schema,
+      access,
+      handler: async () => ({ isSuccess: true as const, data: {} }),
+    });
+    expect(def.excludedFields).toBeUndefined();
+  });
+});
+
 describe("defineWriteHandler systemScope marker", () => {
   test("throws InternalError naming the handler when ctx.systemDb is missing", async () => {
     const def = defineWriteHandler({

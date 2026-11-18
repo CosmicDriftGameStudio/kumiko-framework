@@ -14,10 +14,10 @@
  *         `r.entity` is a rebuildable implicit projection. The corresponding
  *         Drizzle table is linked via the SHARED entity-def identifier, NOT via
  *         a name string — `r.entity({ name: "user-session", ...ent })` and
- *         `buildEntityTable("user_session", ent)` disagree on the name
- *         (dash vs. underscore) but share the `ent` symbol. Plus an explicit
- *         `backingTable` override. `r.crud(name, entityDef, options)` is linked the
- *         same way through its positional entityDef symbol. Tables that are NOT
+ *         `buildEntityTable(ent)` share the `ent` symbol (the entity def is
+ *         the first argument of `buildEntityTable`). Plus an explicit
+ *         `backingTable` override. `r.entity(entityDef)` and `r.crud(entityDef, options)` are
+ *         linked the same way through their entityDef symbol. Tables that are NOT
  *         statically resolvable are skipped (a miss is preferable to a false block).
  *      c) Tables of external packages (node_modules, workspace links), read from the
  *         `kumiko-es-tables.json` catalog each published package ships; a package whose
@@ -209,11 +209,13 @@ function entityRegistrationOf(call: CallExpression): EntityRegistration | undefi
   const method = expr.asKindOrThrow(SyntaxKind.PropertyAccessExpression).getName();
   if (method === CRUD_REGISTRATION_METHOD) {
     return {
-      entityDid: unwrappedIdentifierDeclId(call.getArguments()[1]),
+      entityDid: unwrappedIdentifierDeclId(call.getArguments()[0]),
       overrideTableDid: undefined,
     };
   }
   if (method !== ENTITY_REGISTRATION_METHOD) return undefined;
+  const entityIdentifierDid = unwrappedIdentifierDeclId(call.getArguments()[0]);
+  if (entityIdentifierDid) return { entityDid: entityIdentifierDid, overrideTableDid: undefined };
   const definition = call.getArguments()[0]?.asKind(SyntaxKind.ObjectLiteralExpression);
   if (!definition?.getProperty("name")) return undefined;
   return {
@@ -222,13 +224,13 @@ function entityRegistrationOf(call: CallExpression): EntityRegistration | undefi
   };
 }
 
-// `const xTable = buildEntityTable(<name>, <entityDef>)` with a rebuildable entityDef.
+// `const xTable = buildEntityTable(<entityDef>, options?)` with a rebuildable entityDef.
 function rebuildableEntityTableDeclId(
   call: CallExpression,
   rebuildableEntities: ReadonlySet<TableId>,
 ): TableId | undefined {
   if (call.getExpression().getText() !== "buildEntityTable") return undefined;
-  const entityDid = unwrappedIdentifierDeclId(call.getArguments()[1]);
+  const entityDid = unwrappedIdentifierDeclId(call.getArguments()[0]);
   if (!entityDid || !rebuildableEntities.has(entityDid)) return undefined;
   const nameNode = call.getFirstAncestorByKind(SyntaxKind.VariableDeclaration)?.getNameNode();
   if (nameNode?.getKind() !== SyntaxKind.Identifier) return undefined;
@@ -254,7 +256,7 @@ export function collectEntityProjectionTables(files: readonly SourceFile[]): Set
     }
   }
 
-  // Pass 2: `const xTable = buildEntityTable(<name>, <entityDef>)` where entityDef
+  // Pass 2: `const xTable = buildEntityTable(<entityDef>)` where entityDef
   // is in the rebuildable set → xTable is a rebuildable entity table.
   for (const sf of files) {
     if (!sf.getFullText().includes("buildEntityTable")) continue;

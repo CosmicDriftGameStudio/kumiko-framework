@@ -3256,6 +3256,27 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "billing-foundation:write:switch-plan:field:consent": "Consentement",
   "billing-foundation:write:switch-plan:field:tier": "Offre",
   "billing-foundation:write:switch-plan:title": "Changer d'offre",
+  "billing-foundation:write:create-checkout-session:field:consent": "Consentement",
+  "billing-foundation:write:request-contract-termination:field:customerReference":
+    "Référence client",
+  "billing-foundation:write:request-contract-termination:field:declarationType": "Déclaration",
+  "billing-foundation:write:request-contract-termination:field:email": "E-mail",
+  "billing-foundation:write:request-contract-termination:field:locale": "Langue",
+  "billing-foundation:write:request-contract-termination:field:name": "Nom",
+  "billing-foundation:write:request-contract-termination:field:reason": "Motif",
+  "billing-foundation:write:request-contract-termination:field:terminationKind":
+    "Type de résiliation",
+  "billing-foundation:write:request-contract-termination:title":
+    "Déclarer la résiliation du contrat",
+  "billing-foundation:write:revoke-contract-termination:field:requestId": "Demande",
+  "billing-foundation:write:revoke-contract-termination:field:tenantId": "Compte",
+  "billing-foundation:write:revoke-contract-termination:field:token": "Jeton",
+  "billing-foundation:write:revoke-contract-termination:title":
+    "Révoquer la résiliation du contrat",
+  "billing-foundation:write:terminate-contract:field:declarationType": "Déclaration",
+  "billing-foundation:write:terminate-contract:field:reason": "Motif",
+  "billing-foundation:write:terminate-contract:field:terminationKind": "Type de résiliation",
+  "billing-foundation:write:terminate-contract:title": "Résilier le contrat",
   "tags:write:assign-tag:title": "Attribuer une étiquette",
   "tags:write:assign-tag:field:tagId": "Étiquette",
   "tags:write:assign-tag:field:entityType": "Type d'enregistrement",

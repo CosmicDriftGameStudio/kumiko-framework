@@ -183,6 +183,35 @@ export const BILLING_FOUNDATION_HANDLER_I18N = handlerTranslationKeys("billing-f
         cancelUrl: { en: "Cancel page" },
         providerCustomerId: { en: "Provider customer" },
         mode: { en: "Mode" },
+        consent: { en: "Consent" },
+      },
+    },
+    "request-contract-termination": {
+      title: { en: "Declare contract termination" },
+      fields: {
+        declarationType: { en: "Declaration" },
+        terminationKind: { en: "Termination type" },
+        reason: { en: "Reason" },
+        name: { en: "Name" },
+        email: { en: "Email" },
+        customerReference: { en: "Customer reference" },
+        locale: { en: "Language" },
+      },
+    },
+    "revoke-contract-termination": {
+      title: { en: "Revoke contract termination" },
+      fields: {
+        requestId: { en: "Request" },
+        token: { en: "Token" },
+        tenantId: { en: "Account" },
+      },
+    },
+    "terminate-contract": {
+      title: { en: "Terminate contract" },
+      fields: {
+        declarationType: { en: "Declaration" },
+        terminationKind: { en: "Termination type" },
+        reason: { en: "Reason" },
       },
     },
     "create-portal-session": { title: { en: "Open billing portal" } },
