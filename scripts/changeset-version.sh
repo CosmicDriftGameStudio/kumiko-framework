@@ -9,7 +9,9 @@ trap 'rm -f "$bump_status"' EXIT
 
 bunx changeset status --output="$bump_status"
 bun bin/kumiko.ts changes fold --status "$bump_status"
-bunx changeset version
+# The canary passes `--snapshot next`; the fold still labels entries with the
+# release version (0.425.0), so a canary ships the notes of the release it previews.
+bunx changeset version "$@"
 # Block accidental major≥1 bumps (stay on 0.x until explicitly approved).
 bun scripts/guard-no-major-gt-zero.ts
 # CI verifies this file is generated, so the bump must regenerate it here.

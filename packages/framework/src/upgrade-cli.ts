@@ -44,6 +44,10 @@ import {
 
 const SEMVER_CORE_RE = /^(\d+\.\d+\.\d+)(?:-[0-9A-Za-z.-]+)?$/;
 
+function releaseCoreOf(version: string): string {
+  return SEMVER_CORE_RE.exec(version)?.[1] ?? version;
+}
+
 function readPackageJsonVersion(packageJsonPath: string): string | null {
   if (!existsSync(packageJsonPath)) return null;
   try {
@@ -57,15 +61,15 @@ function readPackageJsonVersion(packageJsonPath: string): string | null {
 
 // bun.lock pins transitive packages too, so a repo that only depends on
 // kumiko-cli/-guards still records the bundled-features version it resolved.
-// Prerelease and snapshot pins (0.364.0-next.1, 0.0.0-pr-123) are reduced to
-// their x.y.z core, the only shape the rest of the CLI compares.
+// Prerelease pins keep their suffix like a node_modules package.json does: the
+// marker must record the canary, not claim the release it previews.
 function readLockfileVersion(dir: string, pkgName: string): string | null {
   const lockPath = join(dir, "bun.lock");
   if (!existsSync(lockPath)) return null;
   const pinned = new RegExp(`"@cosmicdrift/${pkgName}": \\["@cosmicdrift/${pkgName}@([^"]+)"`).exec(
     readFileSync(lockPath, "utf-8"),
-  );
-  return pinned?.[1] === undefined ? null : (SEMVER_CORE_RE.exec(pinned[1])?.[1] ?? null);
+  )?.[1];
+  return pinned !== undefined && SEMVER_CORE_RE.test(pinned) ? pinned : null;
 }
 
 function declaresWorkspaces(packageJsonPath: string): boolean {
@@ -845,23 +849,53 @@ function collectAllChangelogEntries(cwd: string): Planned<readonly ChangelogEntr
   return { kind: "ok", value: allEntries };
 }
 
+// A canary baseline (0.425.0-next-…) sorts below 0.425.0, so every 0.425.0
+// entry stays after it, also those already handled at that canary. Those the
+// marker recorded (codemod run, manual step tracked) and plain notes are done;
+// a codemod or manual step added by a later canary is not. Without a marker the
+// installed canary itself is the baseline and all of its release is done.
+function isDoneAtCanaryBaseline(
+  entry: ChangelogEntry,
+  baselineVersion: string,
+  markerRead: MarkerRead,
+): boolean {
+  const baselineCore = releaseCoreOf(baselineVersion);
+  if (baselineCore === baselineVersion || entry.version !== baselineCore) return false;
+  if (markerRead.kind !== "ok") return true;
+  const { codemods, pendingManual, resolvedManual } = markerRead.marker;
+  const codemodRecorded =
+    !hasCodemod(entry) ||
+    codemods.some((run) => run.version === entry.version && run.codemod === entry.codemod);
+  const manualId = manualIdOf(entry);
+  const manualRecorded =
+    manualId === undefined || [...pendingManual, ...resolvedManual].some((m) => m.id === manualId);
+  return codemodRecorded && manualRecorded;
+}
+
 function planUpgrade(args: ParsedArgs, cwd: string, targetDir: string): Planned<UpgradePlan> {
   const dirFlag = getStringFlag(args, "dir");
   const baseline = resolveUpgradeBaseline(cwd, targetDir, getStringFlag(args, "from"));
   if (baseline.kind === "error") return baseline;
   const entries = collectAllChangelogEntries(cwd);
   if (entries.kind === "error") return entries;
-  const { currentVersion, installedVersion } = baseline.value;
+  const { currentVersion, installedVersion, markerRead } = baseline.value;
   const allEntries = entries.value;
   // Installed version of the target the marker belongs to (cwd unless --dir).
   const targetInstalledVersion = dirFlag ? readCurrentVersion(targetDir) : installedVersion;
   // Changelogs can be found in a parent workspace's newer install. A change
-  // the repo has not installed yet is not pending for it.
+  // the repo has not installed yet is not pending for it. A canary installs
+  // the entries of the release it previews.
   const installedEntries =
     targetInstalledVersion === null
       ? allEntries
-      : allEntries.filter((entry) => compareVersions(entry.version, targetInstalledVersion) <= 0);
-  const pending = sortEntries(filterEntriesAfter(installedEntries, currentVersion));
+      : allEntries.filter(
+          (entry) => compareVersions(entry.version, releaseCoreOf(targetInstalledVersion)) <= 0,
+        );
+  const pending = sortEntries(
+    filterEntriesAfter(installedEntries, currentVersion).filter(
+      (entry) => !isDoneAtCanaryBaseline(entry, currentVersion, markerRead),
+    ),
+  );
   return {
     kind: "ok",
     value: { ...baseline.value, targetInstalledVersion, allEntries, pending },

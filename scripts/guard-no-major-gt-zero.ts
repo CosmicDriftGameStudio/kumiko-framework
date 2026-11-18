@@ -43,8 +43,9 @@ export function parseChangesetBumps(content: string): ReadonlyMap<string, string
 	if (end < 0) return bumps;
 	const fm = trimmed.slice(3, end);
 	for (const line of fm.split("\n")) {
-		const m = /^\s*"([^"]+)"\s*:\s*(major|minor|patch)\s*$/.exec(line);
-		if (m) bumps.set(m[1], m[2]);
+		// Changesets accepts the package name double-quoted, single-quoted or bare.
+		const m = /^\s*(["']?)([^"'\s]+)\1\s*:\s*(major|minor|patch)\s*$/.exec(line);
+		if (m) bumps.set(m[2], m[3]);
 	}
 	return bumps;
 }

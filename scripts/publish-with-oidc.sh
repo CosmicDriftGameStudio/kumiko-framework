@@ -35,6 +35,15 @@
 
 set -euo pipefail
 
+# Usage: publish-with-oidc.sh [latest|next]
+# latest (default) is the release train; next is the per-merge canary, which
+# must never touch `latest`, create git tags or emit "New tag:" lines.
+dist_tag="${1:-latest}"
+case "$dist_tag" in
+  latest | next) ;;
+  *) echo "[fail] unknown dist-tag '$dist_tag' (allowed: latest, next)" >&2; exit 2 ;;
+esac
+
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
 
@@ -58,6 +67,8 @@ workspace_versions="$(jq -s 'map({(.name): .version}) | add' packages/*/package.
 # never get a tag or release; a tag already on origin needs no new marker.
 emit_tag_unless_on_origin() {
   local name="$1" version="$2"
+  # skip: canaries get neither git tags nor GitHub Releases
+  if [ "$dist_tag" != "latest" ]; then return 0; fi
   if [ -n "$(git ls-remote --tags origin "refs/tags/$name@$version" 2>/dev/null)" ]; then
     return 0
   fi
@@ -98,7 +109,7 @@ publish_and_tag() {
   # for the E403/E409 matching; pipefail keeps npm's exit status. The echo loop
   # writes to the inherited fd 2 instead of `tee /dev/stderr`, which re-opens
   # the device path and fails (ENXIO) when stderr is a socket (CI runners).
-  if log="$(npm publish "$tarball" --provenance --access public --tag latest 2>&1 \
+  if log="$(npm publish "$tarball" --provenance --access public --tag "$dist_tag" 2>&1 \
     | while IFS= read -r line || [ -n "$line" ]; do
       printf '%s\n' "$line"
       printf '%s\n' "$line" >&2
@@ -135,20 +146,20 @@ publish_and_tag() {
     return 0
   fi
 
-  if npm dist-tag add "$name@$version" latest >&2; then
+  if npm dist-tag add "$name@$version" "$dist_tag" >&2; then
     return 0
   fi
   [ "$staged" = 1 ] || return 1
   local max_attempts="${STAGED_POLL_ATTEMPTS:-10}" interval="${STAGED_POLL_INTERVAL_SECONDS:-15}"
   for ((attempt = 1; attempt <= max_attempts; attempt++)); do
-    echo "[wait] $name@$version staged, not yet resolvable; retrying latest move ($attempt/$max_attempts)" >&2
+    echo "[wait] $name@$version staged, not yet resolvable; retrying $dist_tag move ($attempt/$max_attempts)" >&2
     sleep "$interval"
-    if npm dist-tag add "$name@$version" latest >&2; then
+    if npm dist-tag add "$name@$version" "$dist_tag" >&2; then
       return 0
     fi
   done
   staged_unconfirmed=1
-  local message="$name@$version staged but still not resolvable; the latest dist-tag was not moved and stays on the previous version until a later release run repairs it"
+  local message="$name@$version staged but still not resolvable; the $dist_tag dist-tag was not moved and stays on the previous version until a later release run repairs it"
   echo "::warning::$message" >&2
   if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
     printf '%s\n' "- :warning: $message" >>"$GITHUB_STEP_SUMMARY"
@@ -184,15 +195,26 @@ for pkg_json in packages/*/package.json; do
   # package (empty registry_version), re-triggering `npm publish` and failing
   # with E403 (cannot republish an already-existing version). Check the exact
   # version instead of the tag.
-  registry_version="$(npm view "$name" version 2>/dev/null || echo "")"
+  registry_lookup="found"
+  registry_view_stderr="$(mktemp)"
+  if ! registry_version="$(npm view "$name" version 2>"$registry_view_stderr")"; then
+    registry_version=""
+    if grep -q 'E404' "$registry_view_stderr"; then
+      registry_lookup="not-found"
+    else
+      registry_lookup="failed"
+    fi
+  fi
+  rm -f "$registry_view_stderr"
   exact_version="$(npm view "$name@$version" version 2>/dev/null || echo "")"
 
   if [ "$version" = "$exact_version" ]; then
     echo "[skip] $name@$version (already on registry)" >&2
     # A prior run may have published this version but died before moving
     # `latest` below — repair it here so a skip never leaves consumers
-    # pinned to an older `latest`.
-    if [ "$registry_version" != "$version" ]; then
+    # pinned to an older `latest`. A canary publish sets `next` atomically, and
+    # a re-run of an older canary must not pull `next` back.
+    if [ "$dist_tag" = "latest" ] && [ "$registry_version" != "$version" ]; then
       npm dist-tag add "$name@$version" latest >&2
     fi
     # Leftover from releases that published under the old throwaway tag; only
@@ -201,6 +223,31 @@ for pkg_json in packages/*/package.json; do
       remove_tmp_tag "$name"
     fi
     emit_tag_unless_on_origin "$name" "$version"
+    skipped=$((skipped + 1))
+    continue
+  fi
+
+  # A canary under `latest` or a release under `next` would hand the wrong build
+  # to every consumer of that channel; npm only refuses an untagged prerelease.
+  if { [ "$dist_tag" = "next" ] && [[ "$version" != *-* ]]; } \
+    || { [ "$dist_tag" = "latest" ] && [[ "$version" == *-* ]]; }; then
+    echo "[fail] $name@$version does not belong on the $dist_tag dist-tag" >&2
+    failed+=("$name@$version (wrong channel)")
+    continue
+  fi
+
+  # The registry points `latest` at a package's first-ever version whatever tag
+  # the publish names, so a canary would become the latest build of a new package.
+  # Only E404 proves the package is new; skipping on an outage would leave the
+  # other canaries pinned to a version of it that never reaches the registry.
+  if [ "$dist_tag" = "next" ] && [ "$registry_lookup" = "failed" ]; then
+    echo "[fail] $name@$version: npm view failed without E404, cannot tell whether it was ever released" >&2
+    failed+=("$name@$version (registry lookup failed)")
+    continue
+  fi
+  if [ "$dist_tag" = "next" ] && [ -z "$registry_version" ]; then
+    echo "[skip] $name@$version (not on npm yet, its first publish goes through the release train)" >&2
+    echo "::warning::$name has no release on npm yet; the canary skips it, so canary packages depending on it stay uninstallable until the release train ships it" >&2
     skipped=$((skipped + 1))
     continue
   fi
