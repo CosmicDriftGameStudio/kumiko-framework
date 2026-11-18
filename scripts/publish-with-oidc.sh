@@ -195,7 +195,17 @@ for pkg_json in packages/*/package.json; do
   # package (empty registry_version), re-triggering `npm publish` and failing
   # with E403 (cannot republish an already-existing version). Check the exact
   # version instead of the tag.
-  registry_version="$(npm view "$name" version 2>/dev/null || echo "")"
+  registry_lookup="found"
+  registry_view_stderr="$(mktemp)"
+  if ! registry_version="$(npm view "$name" version 2>"$registry_view_stderr")"; then
+    registry_version=""
+    if grep -q 'E404' "$registry_view_stderr"; then
+      registry_lookup="not-found"
+    else
+      registry_lookup="failed"
+    fi
+  fi
+  rm -f "$registry_view_stderr"
   exact_version="$(npm view "$name@$version" version 2>/dev/null || echo "")"
 
   if [ "$version" = "$exact_version" ]; then
@@ -228,6 +238,13 @@ for pkg_json in packages/*/package.json; do
 
   # The registry points `latest` at a package's first-ever version whatever tag
   # the publish names, so a canary would become the latest build of a new package.
+  # Only E404 proves the package is new; skipping on an outage would leave the
+  # other canaries pinned to a version of it that never reaches the registry.
+  if [ "$dist_tag" = "next" ] && [ "$registry_lookup" = "failed" ]; then
+    echo "[fail] $name@$version: npm view failed without E404, cannot tell whether it was ever released" >&2
+    failed+=("$name@$version (registry lookup failed)")
+    continue
+  fi
   if [ "$dist_tag" = "next" ] && [ -z "$registry_version" ]; then
     echo "[skip] $name@$version (not on npm yet, its first publish goes through the release train)" >&2
     echo "::warning::$name has no release on npm yet; the canary skips it, so canary packages depending on it stay uninstallable until the release train ships it" >&2

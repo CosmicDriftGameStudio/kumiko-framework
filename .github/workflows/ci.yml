@@ -948,7 +948,7 @@ jobs:
       - name: Install
         if: steps.decide.outputs.publish == 'true'
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Install" -- bun install --frozen-lockfile
 
       # Only the working tree changes; pack builds each package itself, so

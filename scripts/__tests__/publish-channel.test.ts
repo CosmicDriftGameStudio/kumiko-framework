@@ -20,7 +20,16 @@ case "$1" in
       if printf '%s\\n' "\${STUB_PUBLISHED:-}" | grep -qxF "$spec"; then echo "\${spec##*@}"; exit 0; fi
       exit 1
     fi
-    if printf '%s\\n' "\${STUB_UNRELEASED_NAMES:-}" | grep -qxF "$spec"; then exit 1; fi
+    if printf '%s\\n' "\${STUB_UNRELEASED_NAMES:-}" | grep -qxF "$spec"; then
+      echo "npm error code E404" >&2
+      echo "npm error 404 Not Found - GET https://registry.npmjs.org/$spec - Not found" >&2
+      exit 1
+    fi
+    if printf '%s\\n' "\${STUB_LOOKUP_FAILING_NAMES:-}" | grep -qxF "$spec"; then
+      echo "npm error code E503" >&2
+      echo "npm error 503 Service Unavailable - GET https://registry.npmjs.org/$spec" >&2
+      exit 1
+    fi
     if [ -n "\${STUB_LATEST:-}" ]; then echo "$STUB_LATEST"; exit 0; fi
     exit 1
     ;;
@@ -161,6 +170,22 @@ describe("publish-with-oidc.sh dist-tag channel", () => {
     expect(publishes).toHaveLength(1);
     expect(publishes[0]).toContain("cosmicdrift-kumiko-types-");
     expect(stderr).toContain("[skip] @cosmicdrift/kumiko-framework");
+    expect(stderr).toContain("::warning::@cosmicdrift/kumiko-framework has no release on npm yet");
+  });
+
+  // Reading an outage as "never released" would skip the package while the other
+  // canaries pin it to a version that never reaches the registry.
+  test("next fails a package whose registry lookup errors without E404", () => {
+    const { exitCode, stderr, npmCalls } = runPublish(CANARY, ["next"], {
+      ...ON_REGISTRY,
+      STUB_LOOKUP_FAILING_NAMES: "@cosmicdrift/kumiko-framework",
+    });
+
+    expect(exitCode).not.toBe(0);
+    expect(stderr).toContain(`failed: @cosmicdrift/kumiko-framework@${CANARY} (registry lookup failed)`);
+    const publishes = publishCalls(npmCalls);
+    expect(publishes).toHaveLength(1);
+    expect(publishes[0]).toContain("cosmicdrift-kumiko-types-");
   });
 
   test("an unknown dist-tag aborts before any npm call", () => {
