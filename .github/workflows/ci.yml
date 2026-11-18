@@ -909,7 +909,16 @@ jobs:
           if ! find .changeset -maxdepth 1 -name '*.md' ! -name 'README.md' -print -quit | grep -q .; then
             echo "::notice::No pending changesets at $GITHUB_SHA, no canary."
             echo "publish=false" >> "$GITHUB_OUTPUT"
-          elif [ "$(git ls-remote origin refs/heads/main | cut -f1)" != "$GITHUB_SHA" ]; then
+            exit 0
+          fi
+          # A failed ls-remote prints nothing; compared directly that would read
+          # as "main moved" and skip green forever. No pipefail here, hence -z.
+          main_head="$(git ls-remote --exit-code origin refs/heads/main | cut -f1)"
+          if [ -z "$main_head" ]; then
+            echo "::error::cannot read the head of main"
+            exit 1
+          fi
+          if [ "$main_head" != "$GITHUB_SHA" ]; then
             echo "::notice::main has moved past $GITHUB_SHA, the newer run publishes the canary."
             echo "publish=false" >> "$GITHUB_OUTPUT"
           else
