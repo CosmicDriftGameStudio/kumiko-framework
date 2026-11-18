@@ -20,3 +20,5 @@ Projected row helpers (`insertProjectedEntityRow`, `patchProjectedEntityRow`) ac
 Upcasters and entity `eventMigrations` receive the aggregate id and type of the event they migrate (`EventUpcastCtx.aggregateId`, `EventUpcastCtx.aggregateType`).
 
 The handler definitions guard no longer counts calls to inherited object methods such as `toString`.
+
+The managed `ci.yml` pins the image build job to the commit behind the infra tag (`_docker-build-push.yml@<sha> # reusables-v2.4.5`); an app that sets `kumiko.deploy.infraRef` keeps its own ref there. The cross-feature import guard accepts `../<feature>/server-contract` as a public surface next to `contract` and `schema/entity`.

@@ -74,7 +74,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-    uses: cosmicdriftgamestudio/infra/.github/workflows/_docker-build-push.yml@{{infraRef}}
+    uses: cosmicdriftgamestudio/infra/.github/workflows/_docker-build-push.yml@{{buildRef}}
     with:
       image-name: {{appName}}
       dockerfile: deploy/Dockerfile

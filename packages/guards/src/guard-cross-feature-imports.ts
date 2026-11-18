@@ -8,9 +8,9 @@
  *   - A file inside feature A may not import from feature B's internals.
  *   - Allowed cross-feature imports: the barrel (`from "../B"`, or
  *     `"../B/index"` / `"../B/index.ts"`), the client barrel (`"../B/web"`,
- *     `"../B/web/index"`), and two side-effect-free public surface modules,
- *     `"../B/contract"` and `"../B/schema/entity"` (with or without
- *     extension). Anything else — `from "../B/types"`,
+ *     `"../B/web/index"`), and the side-effect-free public surface modules
+ *     `"../B/contract"`, `"../B/server-contract"` and `"../B/schema/entity"`
+ *     (with or without extension). Anything else — `from "../B/types"`,
  *     `from "../B/handlers/foo"`, `from "../B/feature"` — is rejected.
  *   - Re-exports with a module specifier (`export { x } from "../B/types"`,
  *     `export * from "../B/feature"`) are checked like imports; dynamic
@@ -141,6 +141,9 @@ const PUBLIC_SURFACE_MODULES = new Set([
   "contract",
   "contract.ts",
   "contract.tsx",
+  // Server-only twin of contract: re-exports entities and readers a browser bundle must not load.
+  "server-contract",
+  "server-contract.ts",
   "schema/entity",
   "schema/entity.ts",
   "schema/entity.tsx",

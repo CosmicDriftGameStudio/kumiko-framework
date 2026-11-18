@@ -15,6 +15,7 @@ import {
   checkAppScripts,
   checkManagedFiles,
   findKumikoPinErrors,
+  INFRA_BUILD_PIN,
   isManagedDrift,
   type ManagedAppFacts,
   type ManagedFileReport,
@@ -261,6 +262,9 @@ describe("infraRef, visibility and app jobs", () => {
     syncAll();
     const ci = read(".github/workflows/ci.yml");
     expect(ci).toContain(`_app-test.yml@${CURRENT_INFRA_REF}`);
+    expect(ci).toContain(
+      `_docker-build-push.yml@${INFRA_BUILD_PIN.sha} # ${INFRA_BUILD_PIN.tag}\n`,
+    );
     expect(ci).not.toContain("@main");
     expect(read(".github/workflows/release.yml")).toContain(`_app-deploy.yml@${CURRENT_INFRA_REF}`);
     expect(checkManagedFiles(facts()).errors).toEqual([]);

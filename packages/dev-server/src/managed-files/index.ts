@@ -34,6 +34,7 @@ export { findKumikoPinErrors } from "./pins.ts";
 export {
   BIOME_PRESET,
   CURRENT_INFRA_REF,
+  INFRA_BUILD_PIN,
   listManagedErrors,
   listManagedFiles,
   type ManagedAppFacts,

@@ -51,6 +51,19 @@ describe("Cross-Feature-Import Guard", () => {
     expect(guard.run(sfs).violations).toHaveLength(0);
   });
 
+  test("allows importing the server-contract module (public surface)", () => {
+    const sfs = files({
+      ...featureB,
+      "packages/bundled-features/src/b/server-contract.ts":
+        'export { entity } from "./schema/entity";',
+      "packages/bundled-features/src/a/feature.ts": `
+					import { entity } from "../b/server-contract";
+					export const a = entity;
+				`,
+    });
+    expect(guard.run(sfs).violations).toHaveLength(0);
+  });
+
   test("allows importing schema/entity (public surface)", () => {
     const sfs = files({
       ...featureB,
