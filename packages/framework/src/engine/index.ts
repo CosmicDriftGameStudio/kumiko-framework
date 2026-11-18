@@ -393,6 +393,7 @@ export {
   FIELD_CHANGE_REQUEST_ENTITY_NAME,
   fieldApproveRoles,
   fieldsAwaitingApproval,
+  fieldsRequiringApprovalRequest,
   userCanApproveField,
 } from "./field-approval.ts";
 export { DEFAULT_CURRENCIES, DEFAULT_LOCALES } from "./field-helpers.ts";

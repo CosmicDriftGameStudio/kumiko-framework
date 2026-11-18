@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { ExtensionFormRegistryProvider } from "../app/extension-form-submit.tsx";
 import type { EditSectionViewModel, FormValues } from "../headless/index.ts";
 import { EditSlotMount, ExtensionSectionMount } from "./edit-mounts.tsx";
 import { RelatedListSection } from "./related-list-section.tsx";
@@ -21,9 +22,8 @@ function renderExtensionSection<TValues extends FormValues, TCtx>(
   const { hideSectionTitles } = props;
   const { Card } = state.primitives;
   const anchorId = sectionNavAnchorId(model.titles.sectionNavItems, sectionIndex);
-  const mount = (
+  const sectionMount = (
     <ExtensionSectionMount
-      key={section.title}
       {...(anchorId !== undefined && { anchorId })}
       section={section}
       entityName={sections.vm.entityName}
@@ -45,6 +45,17 @@ function renderExtensionSection<TValues extends FormValues, TCtx>(
       {...(hideSectionTitles !== true &&
         sectionActionsEl !== undefined && { actions: sectionActionsEl })}
     />
+  );
+  // A self-saving extension (NotesSection) folds into the host's Save only where the host has one
+  // of its own; in a locked form or a projectionDetail it keeps its own save button.
+  const hostHasOwnSave = !props.disabled && sections.isFormEditable;
+  const mount = (
+    <ExtensionFormRegistryProvider
+      key={section.title}
+      value={section.contributesToFormSubmit || hostHasOwnSave ? state.extensionFormRegistry : null}
+    >
+      {sectionMount}
+    </ExtensionFormRegistryProvider>
   );
   // Tabs mode: an unframed padded panel (the tab panel is the
   // surface), so extension content neither sits flush at the shell

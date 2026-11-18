@@ -200,27 +200,14 @@ export function issuesAfterEdit<TIssue>(
 export const FIELD_APPROVAL_FEATURE = "field-approval";
 export const FIELD_APPROVAL_REQUEST_CHANGE = "field-approval:write:request-change";
 export const FIELD_APPROVAL_PENDING_CHANGES = "field-approval:query:pending-changes";
-
-export function isFieldApprovalRequired(error: DispatcherError | null): boolean {
-  return error?.details?.["reason"] === "field_approval_required";
-}
-
-export function fieldApprovalFields(error: DispatcherError | null): readonly string[] {
-  return isFieldApprovalRequired(error) ? (error?.details?.fields ?? []).map((i) => i.path) : [];
-}
+export const FIELD_APPROVAL_REJECT_CHANGE = "field-approval:write:reject-change";
 
 // requestedValue is absent when the caller may not read the field; the form then only says
 // that a request is open.
 export type PendingApprovalRequest = {
+  readonly id: string;
+  readonly version: number;
   readonly fieldName: string;
   readonly requestedValue?: unknown;
+  readonly filedByCaller: boolean;
 };
-
-// A request filed in this form replaces the server's view of the same field.
-export function mergePendingApprovalRequests(
-  filedHere: readonly PendingApprovalRequest[],
-  open: readonly PendingApprovalRequest[],
-): readonly PendingApprovalRequest[] {
-  const filedFields = new Set(filedHere.map((request) => request.fieldName));
-  return [...filedHere, ...open.filter((request) => !filedFields.has(request.fieldName))];
-}

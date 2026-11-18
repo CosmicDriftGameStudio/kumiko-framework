@@ -7,7 +7,7 @@
 //   - Save-button disabling via controller.rebase after success
 //   - Loading state while config:query:values is pending
 
-import { describe, expect, mock, test } from "bun:test";
+import { describe, expect, type Mock, mock, test } from "bun:test";
 import type { ConfigEditScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import userEvent from "@testing-library/user-event";
 import type { BatchResult, Dispatcher, QueryResult } from "../../headless/index.ts";
@@ -1278,5 +1278,207 @@ describe("KumikoScreen / configEdit — tenant value shows in the control", () =
       screen.getByTestId("field-mode").querySelector('[role="radio"][aria-checked="true"]')
         ?.textContent,
     ).toBe("b");
+  });
+
+  test("reset only marks the field: the inherited value shows, nothing is written until Save sends the reset", async () => {
+    const writes: string[] = [];
+    const batchSpy = mock<MockBatchHandler>(async () => ({
+      isSuccess: true as const,
+      results: [],
+    }));
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: async (qn: string) => {
+        if (qn === "config:query:cascade") {
+          return {
+            isSuccess: true,
+            data: {
+              "demo:config:site-name": cascadeFor("Acme", "Site"),
+              "demo:config:layout": cascadeFor("wide", "centered"),
+            },
+          };
+        }
+        return {
+          isSuccess: true,
+          data: {
+            "demo:config:site-name": { value: "Acme", scope: "tenant", source: "tenant-row" },
+            "demo:config:layout": { value: "wide", scope: "tenant", source: "tenant-row" },
+          },
+        };
+      },
+      write: async (type: string) => {
+        writes.push(type);
+        return { isSuccess: true, data: null };
+      },
+      batch: batchSpy,
+    });
+    const user = userEvent.setup();
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={layoutSchema} qn="demo:screen:site-settings" />
+      </DispatcherProvider>,
+    );
+    const siteField = await waitFor(() => {
+      const field = screen.getByTestId("field-siteName");
+      if (field.querySelector('[data-testid="config-cascade-reset"]') === null) {
+        throw new Error("reset not rendered yet");
+      }
+      return field;
+    });
+    const resetButton = siteField.querySelector('[data-testid="config-cascade-reset"]');
+    if (!(resetButton instanceof HTMLElement)) throw new Error("reset button missing");
+
+    await user.click(resetButton);
+
+    await waitFor(() => expect(siteField.querySelector("input")?.value).toBe("Site"));
+    expect(writes).toEqual([]);
+    expect(batchSpy).not.toHaveBeenCalled();
+
+    await user.click(screen.getByTestId("render-edit-submit"));
+
+    await waitFor(() => expect(batchSpy).toHaveBeenCalledTimes(1));
+    expect(batchSpy.mock.calls[0]?.[0]).toEqual([
+      { type: "config:write:reset", payload: { key: "demo:config:site-name", scope: "tenant" } },
+    ]);
+    expect(writes).toEqual([]);
+  });
+
+  test("typing after a reset saves the typed value instead of the reset", async () => {
+    const batchSpy = mock<MockBatchHandler>(async () => ({
+      isSuccess: true as const,
+      results: [],
+    }));
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: async (qn: string) => {
+        if (qn === "config:query:cascade") {
+          return {
+            isSuccess: true,
+            data: { "demo:config:site-name": cascadeFor("Acme", "Site") },
+          };
+        }
+        return {
+          isSuccess: true,
+          data: {
+            "demo:config:site-name": { value: "Acme", scope: "tenant", source: "tenant-row" },
+          },
+        };
+      },
+      batch: batchSpy,
+    });
+    const user = userEvent.setup();
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={layoutSchema} qn="demo:screen:site-settings" />
+      </DispatcherProvider>,
+    );
+    const resetButton = await waitFor(() => {
+      const button = screen
+        .getByTestId("field-siteName")
+        .querySelector('[data-testid="config-cascade-reset"]');
+      if (!(button instanceof HTMLElement)) throw new Error("reset not rendered yet");
+      return button;
+    });
+    await user.click(resetButton);
+    const input = screen.getByTestId("field-siteName").querySelector("input");
+    if (!input) throw new Error("siteName input missing");
+    await waitFor(() => expect(input.value).toBe("Site"));
+
+    await user.clear(input);
+    await user.type(input, "Beta");
+    await user.click(screen.getByTestId("render-edit-submit"));
+
+    await waitFor(() => expect(batchSpy).toHaveBeenCalledTimes(1));
+    expect(batchSpy.mock.calls[0]?.[0]).toEqual([
+      {
+        type: "config:write:set",
+        payload: { key: "demo:config:site-name", value: "Beta", scope: "tenant" },
+      },
+    ]);
+  });
+
+  function renderSiteNameOverride(
+    tenantValue: string,
+    inheritedValue: string,
+  ): {
+    readonly writes: { type: string; payload: unknown }[];
+    readonly batchSpy: Mock<MockBatchHandler>;
+  } {
+    const writes: { type: string; payload: unknown }[] = [];
+    const batchSpy = mock<MockBatchHandler>(async () => ({
+      isSuccess: true as const,
+      results: [],
+    }));
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: async (qn: string) => {
+        if (qn === "config:query:cascade") {
+          return {
+            isSuccess: true,
+            data: { "demo:config:site-name": cascadeFor(tenantValue, inheritedValue) },
+          };
+        }
+        return {
+          isSuccess: true,
+          data: {
+            "demo:config:site-name": { value: tenantValue, scope: "tenant", source: "tenant-row" },
+          },
+        };
+      },
+      write: async (type: string, payload: unknown) => {
+        writes.push({ type, payload });
+        return { isSuccess: true, data: null };
+      },
+      batch: batchSpy,
+    });
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={layoutSchema} qn="demo:screen:site-settings" />
+      </DispatcherProvider>,
+    );
+    return { writes, batchSpy };
+  }
+
+  async function clickSiteNameReset(user: ReturnType<typeof userEvent.setup>): Promise<void> {
+    const resetButton = await waitFor(() => {
+      const button = screen
+        .getByTestId("field-siteName")
+        .querySelector('[data-testid="config-cascade-reset"]');
+      if (!(button instanceof HTMLElement)) throw new Error("reset not rendered yet");
+      return button;
+    });
+    await user.click(resetButton);
+  }
+
+  test("a discarded reset is forgotten: typing the inherited value later saves it as the tenant's own", async () => {
+    const { batchSpy } = renderSiteNameOverride("Acme", "Site");
+    const user = userEvent.setup();
+    await clickSiteNameReset(user);
+    const input = screen.getByTestId("field-siteName").querySelector("input");
+    if (!input) throw new Error("siteName input missing");
+    await waitFor(() => expect(input.value).toBe("Site"));
+
+    await user.click(screen.getByTestId("render-edit-discard"));
+    await waitFor(() => expect(input.value).toBe("Acme"));
+    await user.clear(input);
+    await user.type(input, "Site");
+    await user.click(screen.getByTestId("render-edit-submit"));
+
+    await waitFor(() => expect(batchSpy).toHaveBeenCalledTimes(1));
+    expect(batchSpy.mock.calls[0]?.[0]).toEqual([
+      {
+        type: "config:write:set",
+        payload: { key: "demo:config:site-name", value: "Site", scope: "tenant" },
+      },
+    ]);
+  });
+
+  test("resetting an override that equals the inherited value removes the override", async () => {
+    const { writes } = renderSiteNameOverride("Site", "Site");
+    const user = userEvent.setup();
+    await clickSiteNameReset(user);
+
+    await waitFor(() =>
+      expect(writes).toEqual([
+        { type: "config:write:reset", payload: { key: "demo:config:site-name", scope: "tenant" } },
+      ]),
+    );
   });
 });

@@ -920,8 +920,12 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "kumiko.field.writeOnly.undo": "Rückgängig",
   "kumiko.field.writeOnly.willRemove": "Wird beim Speichern entfernt",
   "kumiko.form.all-required": "Alle Felder sind erforderlich.",
-  "kumiko.form.fieldApproval.fields": "Änderungen an {fields} brauchen eine Freigabe.",
-  "kumiko.form.fieldApproval.required": "Freigabe nötig",
+  "kumiko.form.fieldApproval.requestChange": "Änderung beantragen",
+  "kumiko.form.fieldApproval.drawerHint":
+    "Geänderte Felder gelten erst, wenn jemand mit Freigaberecht sie freigibt.",
+  "kumiko.form.fieldApproval.withdraw": "Antrag zurückziehen",
+  "kumiko.form.fieldApproval.withdrawn": "Antrag zurückgezogen",
+  "kumiko.form.fieldApproval.afterCreate": "Nach dem Anlegen zur Freigabe beantragen",
   "kumiko.form.fieldApproval.submitted": "Zur Freigabe eingereicht",
   "kumiko.form.fieldApproval.submit": "Zur Freigabe einreichen",
   "kumiko.form.fieldApproval.pending": "Wartet auf Freigabe",
@@ -1992,6 +1996,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "documentDesigner.usedBy.templates.other": "{count} Vorlagen",
   "documentDesigner.usedBy.title": "Wird verwendet von",
   "documentDesigner.usedBy.none": "Noch keine Vorlage nutzt dieses Layout.",
+  "documentDesigner.usedBy.saveFirst":
+    "Erst das Layout speichern. Veröffentlichen und Anwenden nutzen die gespeicherte Fassung.",
   "documentDesigner.usedBy.publishHint":
     "Beim Veröffentlichen geht der gesamte Entwurf jeder aufgeführten Vorlage live, auch Textänderungen, die nicht aus diesem Layout stammen.",
   "documentDesigner.overriddenBy.tenants": "{active} Mandanten",

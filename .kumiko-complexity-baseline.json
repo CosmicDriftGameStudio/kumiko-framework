@@ -52,7 +52,7 @@
     "packages/framework/src/search/reindex-entity.ts": 1,
     "packages/framework/src/secrets/leak-guard.ts": 1,
     "packages/renderer/src/app/action-form-body.tsx": 1,
-    "packages/renderer/src/app/config-edit-body.tsx": 2,
+    "packages/renderer/src/app/config-edit-body.tsx": 1,
     "packages/renderer/src/app/entity-edit-prefill.ts": 3,
     "packages/renderer/src/app/entity-edit-screen.tsx": 2,
     "packages/renderer/src/app/entity-list-screen.tsx": 2,

@@ -75,6 +75,10 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
     en: "No template uses this layout yet.",
     de: "Noch keine Vorlage nutzt dieses Layout.",
   },
+  "documentDesigner.usedBy.saveFirst": {
+    en: "Save the layout first. Publishing and applying use the saved version.",
+    de: "Erst das Layout speichern. Veröffentlichen und Anwenden nutzen die gespeicherte Fassung.",
+  },
   "documentDesigner.usedBy.publishHint": {
     en: "Publishing puts each listed template's whole draft live, including text changes made outside this layout.",
     de: "Beim Veröffentlichen geht der gesamte Entwurf jeder aufgeführten Vorlage live, auch Textänderungen, die nicht aus diesem Layout stammen.",

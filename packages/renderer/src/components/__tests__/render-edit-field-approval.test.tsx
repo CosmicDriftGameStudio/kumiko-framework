@@ -4,7 +4,14 @@ import type {
   EntityEditScreenDefinition,
   FeatureSchema,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { fireEvent, render, screen as rtlScreen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen as rtlScreen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { type ComponentType, type ReactNode, useState } from "react";
 import { type RecordedWrite, stubDispatcher } from "../../__tests__/stub-dispatcher.ts";
 import { AppFeaturesProvider } from "../../app/app-features-context.tsx";
@@ -15,13 +22,15 @@ import {
 } from "../../app/extension-form-submit.tsx";
 import { ExtensionSectionsProvider } from "../../app/extension-sections.tsx";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
-import type { WriteResult } from "../../headless/index.ts";
+import type { BatchResult, Command, WriteResult } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import { mapServerError } from "../../live/error-mapping.ts";
 import {
   type BannerProps,
   type ButtonProps,
+  type DialogProps,
+  type DrawerProps,
   type FieldProps,
   type FormProps,
   type InputProps,
@@ -31,13 +40,17 @@ import {
 import { createStubPrimitives } from "../../testing.ts";
 import { RenderEdit } from "../render-edit.tsx";
 
-type Values = { name: string; iban: string };
+type Values = { name: string; iban: string; bic: string };
 
 const OLD_IBAN = "DE02120300000000202051";
 const NEW_IBAN = "DE89370400440532013000";
+const OLD_BIC = "BYLADEM1001";
 const UPDATE = "contacts:write:contact:update";
+const CREATE = "contacts:write:contact:create";
 const REQUEST_CHANGE = "field-approval:write:request-change";
+const REJECT_CHANGE = "field-approval:write:reject-change";
 const PENDING_CHANGES = "field-approval:query:pending-changes";
+const DRAWER = "render-edit-field-approval-drawer";
 
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 
@@ -64,14 +77,23 @@ const testInput: ComponentType<InputProps> = (props) =>
     <input
       aria-label={props.name}
       value={props.value}
+      disabled={props.disabled}
       onChange={(e) => props.onChange(e.target.value)}
     />
   ) : null;
 
-const testField: ComponentType<FieldProps> = ({ id, description, status, issues, children }) => (
+const testField: ComponentType<FieldProps> = ({
+  id,
+  description,
+  status,
+  issues,
+  children,
+  fieldAppendix,
+}) => (
   <div data-testid={`field-${id}`}>
     {status !== undefined ? <span data-tone={status.tone}>{status.label}</span> : null}
     {children}
+    {fieldAppendix}
     {description !== undefined ? <span>{description}</span> : null}
     {issues?.map((issue) => (
       <span key={issue.code} data-testid={`field-${id}-issue`}>
@@ -92,11 +114,26 @@ const testText: ComponentType<TextProps> = ({ children, testId }) => (
   <span data-testid={testId}>{children}</span>
 );
 
+const testDrawer: ComponentType<DrawerProps> = ({ open, title, children, testId }) =>
+  open ? (
+    <section data-testid={testId} aria-label={title}>
+      {children}
+    </section>
+  ) : null;
+
+const testDialog: ComponentType<DialogProps> = ({ open, testId, onConfirm }) =>
+  open ? (
+    <button type="button" data-testid={testId} onClick={onConfirm}>
+      confirm
+    </button>
+  ) : null;
+
 const entity: EntityDefinition = {
   name: "contact",
   fields: {
     name: { type: "text", allowPlaintext: "test fixture", maxLength: 64 },
-    iban: { type: "text", allowPlaintext: "test fixture", maxLength: 34 },
+    iban: { type: "text", allowPlaintext: "test fixture", maxLength: 34, required: true },
+    bic: { type: "text", allowPlaintext: "test fixture", maxLength: 11 },
     accessPin: { type: "text", allowPlaintext: "test fixture", writeOnly: true },
     manager: { type: "reference", entity: "user", labelField: "name" },
     notes: { type: "longText", allowPlaintext: "test fixture" },
@@ -109,14 +146,14 @@ const editScreen: EntityEditScreenDefinition = {
   id: "contact-edit",
   type: "entityEdit",
   entity: "contact",
-  layout: { sections: [{ title: "Main", fields: ["name", "iban"] }] },
+  layout: { sections: [{ title: "Main", fields: ["name", "iban", "bic"] }] },
 };
 
 const editScreenWithCustomFields: EntityEditScreenDefinition = {
   ...editScreen,
   layout: {
     sections: [
-      { title: "Main", fields: ["name", "iban"] },
+      { title: "Main", fields: ["name", "iban", "bic"] },
       {
         kind: "extension",
         title: "Custom Fields",
@@ -181,28 +218,65 @@ const approvalDenied = mapServerError({
   details: { reason: "field_approval_required", entity: "contact", fields: ["iban"] },
 });
 
+type OpenRequest = {
+  readonly id: string;
+  readonly version: number;
+  readonly fieldName: string;
+  readonly value?: unknown;
+  readonly filedByCaller?: boolean;
+};
+
 type RecordedQuery = { readonly type: string; readonly payload: unknown };
 
-function renderContactEdit(
-  features: readonly FeatureSchema[],
-  notices: ActionNotice[] = [],
-  openRequests: readonly { readonly fieldName: string; readonly value?: unknown }[] = [],
-  queries: RecordedQuery[] = [],
-  screen: EntityEditScreenDefinition = editScreen,
-  buildPayload?: (snapshot: { readonly changes: Readonly<Record<string, unknown>> }) => unknown,
-): RecordedWrite[] {
-  let updates = 0;
+type ContactEditSetup = {
+  readonly features?: readonly FeatureSchema[];
+  readonly gatedFields?: readonly string[];
+  readonly openRequests?: readonly OpenRequest[];
+  readonly screen?: EntityEditScreenDefinition;
+  readonly entityId?: string;
+  readonly rejectUpdate?: boolean;
+  readonly payloadMode?: "values" | "changes";
+  readonly initial?: Values;
+  // Holds the pending-changes answer back until the test resolves it.
+  readonly pendingChangesAnswered?: Promise<void>;
+  readonly batch?: (commands: readonly Command[]) => BatchResult;
+  readonly buildPayload?: (snapshot: {
+    readonly changes: Readonly<Record<string, unknown>>;
+  }) => unknown;
+};
+
+type ContactEditRun = {
+  readonly writes: RecordedWrite[];
+  readonly batches: (readonly Command[])[];
+  readonly queries: RecordedQuery[];
+  readonly notices: ActionNotice[];
+};
+
+function renderContactEdit(setup: ContactEditSetup = {}): ContactEditRun {
+  const batches: (readonly Command[])[] = [];
+  const queries: RecordedQuery[] = [];
+  const notices: ActionNotice[] = [];
+  const features = setup.features ?? [fieldApprovalSchema];
+  const entityId = setup.entityId ?? "c1";
   const { dispatcher, writes } = stubDispatcher({
-    query: (type, payload) => {
+    query: async (type, payload) => {
       queries.push({ type, payload });
-      return { isSuccess: true, data: type === PENDING_CHANGES ? { rows: openRequests } : {} };
+      if (type === PENDING_CHANGES) await setup.pendingChangesAnswered;
+      return {
+        isSuccess: true,
+        data:
+          type === PENDING_CHANGES
+            ? { rows: setup.openRequests ?? [], gatedFields: setup.gatedFields ?? [] }
+            : {},
+      };
     },
-    write: (type): WriteResult<unknown> => {
-      if (type !== UPDATE) return { isSuccess: true, data: { id: "fcr-1" } };
-      updates += 1;
-      return updates === 1
+    write: (type): WriteResult<unknown> =>
+      type === UPDATE && setup.rejectUpdate === true
         ? { isSuccess: false, error: approvalDenied }
-        : { isSuccess: true, data: { id: "c1" } };
+        : { isSuccess: true, data: { id: "c1" } },
+    batch: (commands) => {
+      batches.push(commands);
+      return setup.batch?.(commands) ?? { isSuccess: true, results: [] };
     },
   });
   render(
@@ -228,18 +302,25 @@ function renderContactEdit(
                 Grid: passChildren,
                 GridCell: passChildren,
                 Text: testText,
+                Drawer: testDrawer,
+                Dialog: testDialog,
               })}
             >
               <ExtensionSectionsProvider value={{ ContactCustomFields }}>
                 <RenderEdit<Values>
-                  screen={screen}
+                  screen={setup.screen ?? editScreen}
                   entity={entity}
                   featureName="contacts"
-                  entityId="c1"
-                  writeCommand={UPDATE}
-                  payloadMode="changes"
-                  {...(buildPayload !== undefined && { buildPayload })}
-                  initial={{ name: "Owner", iban: OLD_IBAN }}
+                  entityId={entityId}
+                  writeCommand={entityId === "" ? CREATE : UPDATE}
+                  payloadMode={setup.payloadMode ?? "changes"}
+                  {...(setup.buildPayload !== undefined && { buildPayload: setup.buildPayload })}
+                  initial={
+                    setup.initial ??
+                    (entityId === ""
+                      ? { name: "", iban: "", bic: "" }
+                      : { name: "Owner", iban: OLD_IBAN, bic: OLD_BIC })
+                  }
                 />
               </ExtensionSectionsProvider>
             </PrimitivesProvider>
@@ -248,127 +329,284 @@ function renderContactEdit(
       </AppFeaturesProvider>
     </LocaleProvider>,
   );
-  return writes;
+  return { writes, batches, queries, notices };
 }
 
 function input(name: string): HTMLInputElement {
   return rtlScreen.getByLabelText(name) as HTMLInputElement;
 }
 
-async function editAndSave(): Promise<void> {
-  fireEvent.change(input("name"), { target: { value: "Owner GmbH" } });
-  fireEvent.change(input("iban"), { target: { value: NEW_IBAN } });
-  fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
-  await waitFor(() => rtlScreen.getByTestId("render-edit-form-error"));
+async function openDrawer(fieldName = "iban"): Promise<HTMLElement> {
+  fireEvent.click(await rtlScreen.findByTestId(`field-approval-request-${fieldName}`));
+  return rtlScreen.getByTestId(DRAWER);
 }
 
-describe("RenderEdit — field approval required", () => {
-  test("the banner names the gated field and every input is kept", async () => {
-    renderContactEdit([fieldApprovalSchema]);
-    await editAndSave();
+function drawerInput(drawer: HTMLElement, name: string): HTMLInputElement {
+  return within(drawer).getByLabelText(name) as HTMLInputElement;
+}
 
-    expect(rtlScreen.getByTestId("render-edit-field-approval-fields").textContent).toContain(
-      "IBAN",
-    );
+describe("RenderEdit — the server lock stays as a safety net", () => {
+  test("a refused save shows the approval error once at the field and keeps every input", async () => {
+    renderContactEdit({ rejectUpdate: true });
+    fireEvent.change(input("name"), { target: { value: "Owner GmbH" } });
+    fireEvent.change(input("iban"), { target: { value: NEW_IBAN } });
+    fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
+
+    const issue = await rtlScreen.findByTestId("field-kumiko-edit-iban-issue");
+    expect(issue.textContent).toBe("errors.access.fieldApprovalRequired");
+    expect(rtlScreen.getAllByTestId("field-kumiko-edit-iban-issue")).toHaveLength(1);
+    expect(rtlScreen.queryByTestId("render-edit-form-error")).toBeNull();
     expect(input("name").value).toBe("Owner GmbH");
     expect(input("iban").value).toBe(NEW_IBAN);
   });
 
-  test("says it once: one warning sentence in the banner, the field marked without an error text", async () => {
-    renderContactEdit([fieldApprovalSchema]);
-    await editAndSave();
+  test("the refused save offers no pill and no submit-for-approval button in the form", async () => {
+    renderContactEdit({ rejectUpdate: true });
+    fireEvent.change(input("iban"), { target: { value: NEW_IBAN } });
+    fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
+    await rtlScreen.findByTestId("field-kumiko-edit-iban-issue");
 
-    const banner = rtlScreen.getByTestId("render-edit-form-error");
-    expect(banner.dataset["variant"]).toBe("warning");
-    expect(banner.textContent).toBe("Changes to IBAN need approval.Submit for approval");
-    expect(rtlScreen.queryByTestId("field-kumiko-edit-iban-issue")).toBeNull();
-    const marker = rtlScreen.getByText("Needs approval");
-    expect(marker.dataset["tone"]).toBe("warn");
-    expect(rtlScreen.getByTestId("field-kumiko-edit-iban").contains(marker)).toBe(true);
+    expect(rtlScreen.queryByText("Needs approval")).toBeNull();
+    expect(rtlScreen.queryByTestId("render-edit-field-approval-submit")).toBeNull();
+  });
+});
+
+describe("RenderEdit — gated fields", () => {
+  test("a gated field is read-only and Save sends only the other fields", async () => {
+    const { writes } = renderContactEdit({ gatedFields: ["iban", "bic"] });
+    await rtlScreen.findByTestId("field-approval-request-iban");
+
+    expect(input("iban").disabled).toBe(true);
+    expect(input("name").disabled).toBe(false);
+    fireEvent.change(input("name"), { target: { value: "Owner GmbH" } });
+    fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
+
+    await waitFor(() => expect(writes.filter((w) => w.type === UPDATE)).toHaveLength(1));
+    const saved = JSON.stringify(writes.find((w) => w.type === UPDATE)?.payload);
+    expect(saved).toContain("Owner GmbH");
+    expect(saved).not.toContain("iban");
   });
 
-  test("submit for approval files exactly the gated field and saves the rest", async () => {
-    const writes = renderContactEdit([fieldApprovalSchema]);
-    await editAndSave();
+  test("the drawer files only the changed field in one batch and writes no update", async () => {
+    const { writes, batches } = renderContactEdit({ gatedFields: ["iban", "bic"] });
+    const drawer = await openDrawer();
 
-    fireEvent.click(rtlScreen.getByTestId("render-edit-field-approval-submit"));
-    await waitFor(() => expect(writes.filter((w) => w.type === UPDATE)).toHaveLength(2));
+    expect(drawerInput(drawer, "bic").value).toBe(OLD_BIC);
+    fireEvent.change(drawerInput(drawer, "iban"), { target: { value: NEW_IBAN } });
+    fireEvent.click(within(drawer).getByTestId("render-edit-submit"));
 
-    expect(writes.filter((w) => w.type === REQUEST_CHANGE)).toEqual([
+    await waitFor(() => expect(batches).toHaveLength(1));
+    expect(batches[0]).toEqual([
       {
         type: REQUEST_CHANGE,
         payload: { entityType: "contact", entityId: "c1", fieldName: "iban", value: NEW_IBAN },
       },
     ]);
-    const saved = JSON.stringify(writes.filter((w) => w.type === UPDATE)[1]?.payload);
-    expect(saved).toContain("Owner GmbH");
-    expect(saved).not.toContain(NEW_IBAN);
-    await waitFor(() => expect(input("iban").value).toBe(OLD_IBAN));
-    const hintText = `Requested: ${NEW_IBAN} · awaiting approval`;
-    const hint = rtlScreen.getByText(hintText);
-    expect(hint.parentElement?.contains(input("iban"))).toBe(true);
-    expect(rtlScreen.getAllByText(hintText)).toHaveLength(1);
-    expect(rtlScreen.queryByText("Needs approval")).toBeNull();
+    expect(writes.filter((w) => w.type === UPDATE)).toEqual([]);
   });
 
-  test("a change only in an extension section is saved after submitting for approval", async () => {
-    const writes = renderContactEdit([fieldApprovalSchema], [], [], [], editScreenWithCustomFields);
-    fireEvent.click(rtlScreen.getByTestId("custom-fields-touch"));
+  test("a filed request confirms through the notifier, closes the drawer and shows the request", async () => {
+    const openRequests: OpenRequest[] = [];
+    const run = renderContactEdit({
+      gatedFields: ["iban"],
+      openRequests,
+      batch: () => {
+        openRequests.push({
+          id: "fcr-1",
+          version: 1,
+          fieldName: "iban",
+          value: NEW_IBAN,
+          filedByCaller: true,
+        });
+        return { isSuccess: true, results: [] };
+      },
+    });
+    const drawer = await openDrawer();
+    fireEvent.change(drawerInput(drawer, "iban"), { target: { value: NEW_IBAN } });
+    fireEvent.click(within(drawer).getByTestId("render-edit-submit"));
+
+    await waitFor(() =>
+      expect(run.notices).toEqual([{ tone: "success", text: "Submitted for approval" }]),
+    );
+    expect(rtlScreen.queryByTestId(DRAWER)).toBeNull();
+    const hint = await rtlScreen.findByText(`Requested: ${NEW_IBAN} · awaiting approval`);
+    expect(rtlScreen.getByTestId("field-kumiko-edit-iban").contains(hint)).toBe(true);
+    expect(run.queries.filter((q) => q.type === PENDING_CHANGES)).toHaveLength(2);
+    expect(input("iban").value).toBe(OLD_IBAN);
+  });
+
+  test("a failed batch puts the error at the field inside the drawer and keeps it open", async () => {
+    const { batches } = renderContactEdit({
+      gatedFields: ["iban", "bic"],
+      batch: () => ({
+        isSuccess: false,
+        failedIndex: 0,
+        results: [],
+        error: {
+          code: "validation_failed",
+          httpStatus: 400,
+          i18nKey: "errors.validation.invalidIban",
+          message: "invalid iban",
+        },
+      }),
+    });
+    const drawer = await openDrawer();
+    fireEvent.change(drawerInput(drawer, "iban"), { target: { value: "DE00" } });
+    fireEvent.click(within(drawer).getByTestId("render-edit-submit"));
+
+    await waitFor(() => expect(batches).toHaveLength(1));
+    const issue = await within(drawer).findByTestId("field-kumiko-edit-iban-issue");
+    expect(issue.textContent).toBe("errors.validation.invalidIban");
+    expect(drawer.isConnected).toBe(true);
+  });
+
+  test("the drawer's client validation blocks the batch", async () => {
+    const { batches } = renderContactEdit({ gatedFields: ["iban"] });
+    const drawer = await openDrawer();
+    fireEvent.change(drawerInput(drawer, "iban"), { target: { value: "" } });
+    fireEvent.click(within(drawer).getByTestId("render-edit-submit"));
+
+    await within(drawer).findByTestId("field-kumiko-edit-iban-issue");
+    expect(batches).toEqual([]);
+  });
+
+  test("an approver edits the gated field directly", async () => {
+    const { writes } = renderContactEdit({ gatedFields: [] });
+    await waitFor(() => expect(input("iban").disabled).toBe(false));
+    expect(rtlScreen.queryByTestId("field-approval-request-iban")).toBeNull();
     fireEvent.change(input("iban"), { target: { value: NEW_IBAN } });
     fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
-    await waitFor(() => rtlScreen.getByTestId("render-edit-form-error"));
-    expect(customFieldSubmits).toEqual([]);
 
-    fireEvent.click(rtlScreen.getByTestId("render-edit-field-approval-submit"));
+    await waitFor(() => expect(writes.filter((w) => w.type === UPDATE)).toHaveLength(1));
+    expect(JSON.stringify(writes.find((w) => w.type === UPDATE)?.payload)).toContain(NEW_IBAN);
+  });
+
+  test("in create mode a gated field is read-only with the after-create hint and no action", async () => {
+    const { queries } = renderContactEdit({ gatedFields: ["iban"], entityId: "" });
+
+    const hint = await rtlScreen.findByText("Request a value once the record is saved");
+    expect(rtlScreen.getByTestId("field-kumiko-edit-iban").contains(hint)).toBe(true);
+    expect(input("iban").disabled).toBe(true);
+    expect(rtlScreen.queryByTestId("field-approval-request-iban")).toBeNull();
+    expect(queries).toContainEqual({
+      type: PENDING_CHANGES,
+      payload: { entityType: "contact", entityId: null },
+    });
+  });
+
+  test("a form with a gated field saves a changed extension section through the one Save", async () => {
+    const { writes } = renderContactEdit({
+      gatedFields: ["iban"],
+      screen: editScreenWithCustomFields,
+    });
+    await rtlScreen.findByTestId("field-approval-request-iban");
+    fireEvent.click(rtlScreen.getByTestId("custom-fields-touch"));
+    fireEvent.change(input("name"), { target: { value: "Owner GmbH" } });
+    fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
+
     await waitFor(() => expect(customFieldSubmits).toEqual([{ entityId: "c1" }]));
     expect(writes.filter((w) => w.type === UPDATE)).toHaveLength(1);
+    expect(writes.filter((w) => w.type === REQUEST_CHANGE)).toEqual([]);
   });
 
   test("with the entity-edit payload builder, an extension-only change sends no empty update", async () => {
-    const writes = renderContactEdit(
-      [fieldApprovalSchema],
-      [],
-      [],
-      [],
-      editScreenWithCustomFields,
-      (snapshot) => ({ id: "c1", version: 1, changes: snapshot.changes }),
-    );
+    const { writes } = renderContactEdit({
+      gatedFields: ["iban"],
+      screen: editScreenWithCustomFields,
+      buildPayload: (snapshot) => ({ id: "c1", version: 1, changes: snapshot.changes }),
+    });
+    await rtlScreen.findByTestId("field-approval-request-iban");
     fireEvent.click(rtlScreen.getByTestId("custom-fields-touch"));
-    fireEvent.change(input("iban"), { target: { value: NEW_IBAN } });
     fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
-    await waitFor(() => rtlScreen.getByTestId("render-edit-form-error"));
 
-    fireEvent.click(rtlScreen.getByTestId("render-edit-field-approval-submit"));
     await waitFor(() => expect(customFieldSubmits).toEqual([{ entityId: "c1" }]));
-    expect(writes.filter((w) => w.type === UPDATE)).toHaveLength(1);
+    expect(writes.filter((w) => w.type === UPDATE)).toEqual([]);
   });
 
-  test("submitting for approval confirms through the action notifier", async () => {
-    const notices: ActionNotice[] = [];
-    renderContactEdit([fieldApprovalSchema], notices);
-    await editAndSave();
+  test("without the field-approval feature the form asks nothing and the field stays editable", async () => {
+    const { queries } = renderContactEdit({ features: [], gatedFields: ["iban"] });
+    await rtlScreen.findByLabelText("iban");
 
-    fireEvent.click(rtlScreen.getByTestId("render-edit-field-approval-submit"));
-    await waitFor(() =>
-      expect(notices).toEqual([{ tone: "success", text: "Submitted for approval" }]),
-    );
+    expect(queries.filter((q) => q.type === PENDING_CHANGES)).toEqual([]);
+    expect(input("iban").disabled).toBe(false);
+    expect(rtlScreen.queryByTestId("field-approval-request-iban")).toBeNull();
+  });
+});
+
+describe("RenderEdit — gated fields at the edges", () => {
+  test("in create mode an untouched gated field stays out of the payload, even with a start value", async () => {
+    const { writes } = renderContactEdit({
+      gatedFields: ["iban"],
+      entityId: "",
+      payloadMode: "values",
+      initial: { name: "", iban: OLD_IBAN, bic: "" },
+    });
+    await rtlScreen.findByText("Request a value once the record is saved");
+    fireEvent.change(input("name"), { target: { value: "Owner GmbH" } });
+    fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
+
+    await waitFor(() => expect(writes.filter((w) => w.type === CREATE)).toHaveLength(1));
+    const created = writes.find((w) => w.type === CREATE)?.payload;
+    expect(created).toMatchObject({ name: "Owner GmbH" });
+    expect(created).not.toHaveProperty("iban");
   });
 
-  test("without the field-approval feature only the hint shows, no action", async () => {
-    renderContactEdit([]);
-    await editAndSave();
+  test("a gated field typed into before the answer arrives stays editable until it is reverted", async () => {
+    let answerPendingChanges = (): void => {};
+    const pendingChangesAnswered = new Promise<void>((resolve) => {
+      answerPendingChanges = resolve;
+    });
+    renderContactEdit({ gatedFields: ["iban", "bic"], pendingChangesAnswered });
+    fireEvent.change(input("iban"), { target: { value: NEW_IBAN } });
+    await act(async () => answerPendingChanges());
+    await rtlScreen.findByTestId("field-approval-request-bic");
 
-    expect(rtlScreen.getByTestId("render-edit-form-error").textContent).toBe(
-      "Changes to IBAN need approval.",
-    );
-    expect(rtlScreen.queryByTestId("render-edit-field-approval-submit")).toBeNull();
+    expect(input("bic").disabled).toBe(true);
+    expect(input("iban").disabled).toBe(false);
+    fireEvent.change(input("iban"), { target: { value: OLD_IBAN } });
+    expect(input("iban").disabled).toBe(true);
+  });
+
+  test("a gated field the layout makes read-only offers no request", async () => {
+    renderContactEdit({
+      gatedFields: ["iban", "bic"],
+      screen: {
+        ...editScreen,
+        layout: {
+          sections: [
+            {
+              title: "Main",
+              fields: ["name", { field: "iban", readOnly: { field: "name", eq: "Owner" } }, "bic"],
+            },
+          ],
+        },
+      },
+    });
+    await rtlScreen.findByTestId("field-approval-request-bic");
+
+    expect(rtlScreen.queryByTestId("field-approval-request-iban")).toBeNull();
+  });
+
+  test("the drawer files and reports nothing while no field has changed", async () => {
+    const { batches, notices } = renderContactEdit({ gatedFields: ["iban"] });
+    const drawer = await openDrawer();
+    const submit = within(drawer).getByTestId("render-edit-submit") as HTMLButtonElement;
+
+    expect(submit.disabled).toBe(true);
+    await act(async () => {
+      fireEvent.submit(submit.form as HTMLFormElement);
+    });
+    expect(batches).toEqual([]);
+    expect(notices).toEqual([]);
+    expect(rtlScreen.getByTestId(DRAWER)).toBe(drawer);
   });
 });
 
 describe("RenderEdit — open approval request", () => {
   test("a freshly loaded form shows the open request at its field without any edit", async () => {
-    const queries: RecordedQuery[] = [];
-    renderContactEdit([fieldApprovalSchema], [], [{ fieldName: "iban" }], queries);
+    const { queries } = renderContactEdit({
+      openRequests: [{ id: "fcr-1", version: 1, fieldName: "iban" }],
+    });
 
     const hint = await rtlScreen.findByText("Awaiting approval");
     expect(rtlScreen.getByTestId("field-kumiko-edit-iban").contains(hint)).toBe(true);
@@ -380,8 +618,33 @@ describe("RenderEdit — open approval request", () => {
     });
   });
 
+  test("only the requester sees the withdraw action, which rejects the request and asks again", async () => {
+    const { writes, queries } = renderContactEdit({
+      gatedFields: ["iban", "bic"],
+      openRequests: [
+        { id: "fcr-1", version: 3, fieldName: "iban", value: NEW_IBAN, filedByCaller: true },
+        { id: "fcr-2", version: 1, fieldName: "bic", value: "COBADEFFXXX", filedByCaller: false },
+      ],
+    });
+
+    const withdraw = await rtlScreen.findByTestId("field-approval-withdraw-iban");
+    expect(rtlScreen.queryByTestId("field-approval-withdraw-bic")).toBeNull();
+    expect(rtlScreen.queryByTestId("field-approval-request-iban")).toBeNull();
+    expect(rtlScreen.getByTestId("field-approval-request-bic").textContent).toBe("Request change");
+    fireEvent.click(withdraw);
+
+    await waitFor(() =>
+      expect(writes.filter((w) => w.type === REJECT_CHANGE)).toEqual([
+        { type: REJECT_CHANGE, payload: { id: "fcr-1", version: 3 } },
+      ]),
+    );
+    await waitFor(() => expect(queries.filter((q) => q.type === PENDING_CHANGES)).toHaveLength(2));
+  });
+
   test("a reopened form names the requested value while the field keeps the saved one", async () => {
-    renderContactEdit([fieldApprovalSchema], [], [{ fieldName: "iban", value: NEW_IBAN }]);
+    renderContactEdit({
+      openRequests: [{ id: "fcr-1", version: 1, fieldName: "iban", value: NEW_IBAN }],
+    });
 
     const hint = await rtlScreen.findByText(`Requested: ${NEW_IBAN} · awaiting approval`);
     expect(rtlScreen.getByTestId("field-kumiko-edit-iban").contains(hint)).toBe(true);
@@ -390,13 +653,10 @@ describe("RenderEdit — open approval request", () => {
   });
 
   test("a writeOnly field shows only that a request is open, never a value", async () => {
-    renderContactEdit(
-      [fieldApprovalSchema],
-      [],
-      [{ fieldName: "accessPin", value: true }],
-      [],
-      editScreenWithAccessPin,
-    );
+    renderContactEdit({
+      openRequests: [{ id: "fcr-1", version: 1, fieldName: "accessPin", value: true }],
+      screen: editScreenWithAccessPin,
+    });
 
     const hint = await rtlScreen.findByText("Awaiting approval");
     expect(rtlScreen.getByTestId("field-kumiko-edit-accessPin").contains(hint)).toBe(true);
@@ -404,13 +664,10 @@ describe("RenderEdit — open approval request", () => {
   });
 
   test("a reference field never shows the raw record id as the requested value", async () => {
-    renderContactEdit(
-      [fieldApprovalSchema],
-      [],
-      [{ fieldName: "manager", value: MANAGER_ID }],
-      [],
-      editScreenWithManagerAndNotes,
-    );
+    renderContactEdit({
+      openRequests: [{ id: "fcr-1", version: 1, fieldName: "manager", value: MANAGER_ID }],
+      screen: editScreenWithManagerAndNotes,
+    });
 
     const hint = await rtlScreen.findByText("Awaiting approval");
     expect(rtlScreen.getByTestId("field-kumiko-edit-manager").contains(hint)).toBe(true);
@@ -418,21 +675,22 @@ describe("RenderEdit — open approval request", () => {
   });
 
   test("a document field names the requested value as plain text, not HTML", async () => {
-    renderContactEdit(
-      [fieldApprovalSchema],
-      [],
-      [{ fieldName: "notes", value: "<p>New <strong>text</strong></p>" }],
-      [],
-      editScreenWithManagerAndNotes,
-    );
+    renderContactEdit({
+      openRequests: [
+        { id: "fcr-1", version: 1, fieldName: "notes", value: "<p>New <strong>text</strong></p>" },
+      ],
+      screen: editScreenWithManagerAndNotes,
+    });
 
     const hint = await rtlScreen.findByText("Requested: New text · awaiting approval");
     expect(rtlScreen.getByTestId("field-kumiko-edit-notes").contains(hint)).toBe(true);
   });
 
   test("without the field-approval feature the form asks for no open requests", async () => {
-    const queries: RecordedQuery[] = [];
-    renderContactEdit([], [], [{ fieldName: "iban" }], queries);
+    const { queries } = renderContactEdit({
+      features: [],
+      openRequests: [{ id: "fcr-1", version: 1, fieldName: "iban" }],
+    });
     await rtlScreen.findByLabelText("iban");
 
     expect(queries.filter((q) => q.type === PENDING_CHANGES)).toEqual([]);

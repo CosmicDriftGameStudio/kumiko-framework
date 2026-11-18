@@ -197,7 +197,14 @@ export type FormController<TValues extends FormValues> = {
   // Throws (not returns a failure) if `submit` config wasn't provided —
   // a controller without submit-wiring has no destination, and guessing
   // one would hide an integration bug.
-  submit<TData = unknown>(): Promise<SubmitResult<TData>>;
+  submit<TData = unknown>(overrides?: SubmitOverrides<TValues>): Promise<SubmitResult<TData>>;
+};
+
+/** Applies to one submit only. `payloadPatch` joins the payload and lands in the form only once the
+ *  write succeeds; `omitFields` adds to `SubmitConfig.omitFields` for this call. */
+export type SubmitOverrides<TValues extends FormValues> = {
+  readonly payloadPatch?: Partial<TValues> | undefined;
+  readonly omitFields?: readonly string[];
 };
 
 export type FormControllerOptions<TValues extends FormValues, TCtx = unknown> = {

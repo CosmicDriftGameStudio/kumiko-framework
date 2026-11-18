@@ -48,6 +48,8 @@ export const documentDesignerEnCatalog: Readonly<Record<string, string>> = {
   "documentDesigner.usedBy.templates.other": "{count} templates",
   "documentDesigner.usedBy.title": "Used by",
   "documentDesigner.usedBy.none": "No template uses this layout yet.",
+  "documentDesigner.usedBy.saveFirst":
+    "Save the layout first. Publishing and applying use the saved version.",
   "documentDesigner.usedBy.publishHint":
     "Publishing puts each listed template's whole draft live, including text changes made outside this layout.",
   "documentDesigner.overriddenBy.tenants": "{active} tenants",

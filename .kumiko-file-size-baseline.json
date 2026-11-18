@@ -17,7 +17,7 @@
     "packages/renderer/src/primitives.tsx": 1707,
     "packages/renderer/src/web/__tests__/dashboard-panels.test.tsx": 2452,
     "packages/renderer/src/web/__tests__/kumiko-screen.test.tsx": 1570,
-    "packages/renderer/src/web/__tests__/projection-detail.test.tsx": 2244,
+    "packages/renderer/src/web/__tests__/projection-detail.test.tsx": 2101,
     "packages/renderer/src/web/__tests__/render-edit-states-slots.test.tsx": 1764,
     "packages/server-runtime/src/__tests__/run-prod-app.integration.test.ts": 1789,
     "packages/types/src/fields.ts": 1280

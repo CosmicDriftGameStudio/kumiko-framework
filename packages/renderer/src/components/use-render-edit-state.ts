@@ -17,7 +17,6 @@ import type { FormErrorSource } from "./render-edit-helpers.tsx";
 import {
   FIELD_APPROVAL_FEATURE,
   FIELD_APPROVAL_PENDING_CHANGES,
-  mergePendingApprovalRequests,
   type PendingApprovalRequest,
 } from "./render-edit-logic.ts";
 import { useActionMenuItems } from "./use-action-menu-items.tsx";
@@ -41,10 +40,6 @@ function useSubmitFeedbackState() {
   // button row: a full-width Banner there breaks the
   // flex justify-end action bar.
   const [actionError, setActionError] = useState<ErrorNotice | null>(null);
-  // Fields filed for approval keep their old value and show they are waiting.
-  const [pendingApprovalRequests, setPendingApprovalRequests] = useState<
-    readonly PendingApprovalRequest[]
-  >([]);
   return {
     confirmDeleteOpen,
     setConfirmDeleteOpen,
@@ -62,8 +57,6 @@ function useSubmitFeedbackState() {
     setExtraDeleteIssues,
     actionError,
     setActionError,
-    pendingApprovalRequests,
-    setPendingApprovalRequests,
   };
 }
 
@@ -126,51 +119,87 @@ function useExtensionComposition() {
   };
 }
 
-type OpenApprovalRequests = {
-  readonly rows?: readonly { readonly fieldName?: unknown; readonly value?: unknown }[];
+type PendingChangesAnswer = {
+  readonly rows?: readonly {
+    readonly id?: unknown;
+    readonly version?: unknown;
+    readonly fieldName?: unknown;
+    readonly value?: unknown;
+    readonly filedByCaller?: unknown;
+  }[];
+  readonly gatedFields?: readonly unknown[];
 };
 
-// The open requests live on the server, so the hint survives a reload and also shows a request
-// someone filed elsewhere. The query only returns requests the caller filed or may decide.
-function useOpenApprovalRequests(
+function toPendingApprovalRequests(
+  rows: NonNullable<PendingChangesAnswer["rows"]>,
+): readonly PendingApprovalRequest[] {
+  return rows.flatMap((row) =>
+    typeof row.fieldName === "string" &&
+    typeof row.id === "string" &&
+    typeof row.version === "number"
+      ? [
+          {
+            id: row.id,
+            version: row.version,
+            fieldName: row.fieldName,
+            filedByCaller: row.filedByCaller === true,
+            ...(row.value !== undefined && { requestedValue: row.value }),
+          },
+        ]
+      : [],
+  );
+}
+
+type FieldApprovalAnswer = {
+  readonly gatedFields: readonly string[];
+  readonly requests: readonly PendingApprovalRequest[];
+};
+
+const NO_FIELD_APPROVAL: FieldApprovalAnswer = { gatedFields: [], requests: [] };
+
+// The server knows which fields the caller must request (the client schema carries no access)
+// and which requests are open, so the hint survives a reload and shows a request filed elsewhere.
+function useFieldApproval(
   dispatcher: Dispatcher | undefined,
   entityType: string,
   entityId: string | null | undefined,
   enabled: boolean,
-): readonly PendingApprovalRequest[] {
-  const [requests, setRequests] = useState<readonly PendingApprovalRequest[]>([]);
-  useEffect(() => {
-    // skip: no field-approval, no saved record or no server to ask
-    if (!enabled || dispatcher === undefined || typeof entityId !== "string") return;
-    let cancelled = false;
-    void (async () => {
+) {
+  const [answer, setAnswer] = useState<FieldApprovalAnswer>(NO_FIELD_APPROVAL);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const savedEntityId = isCreateModeEntityId(entityId) ? null : entityId;
+  const loadAnswer = useCallback(
+    async (isSuperseded: () => boolean): Promise<void> => {
+      // skip: no field-approval, or no server to ask
+      if (!enabled || dispatcher === undefined) return;
       try {
-        const result = await dispatcher.query<OpenApprovalRequests>(
+        const result = await dispatcher.query<PendingChangesAnswer>(
           FIELD_APPROVAL_PENDING_CHANGES,
-          { entityType, entityId },
+          { entityType, entityId: savedEntityId ?? null },
         );
-        // skip: superseded, or the caller may not ask; the form works without the hint
-        if (cancelled || !result.isSuccess) return;
-        setRequests(
-          (result.data.rows ?? []).flatMap((row) =>
-            typeof row.fieldName === "string"
-              ? [
-                  row.value === undefined
-                    ? { fieldName: row.fieldName }
-                    : { fieldName: row.fieldName, requestedValue: row.value },
-                ]
-              : [],
+        // skip: superseded, or the caller may not ask; the form then edits like without the feature
+        if (isSuperseded() || !result.isSuccess) return;
+        setAnswer({
+          gatedFields: (result.data.gatedFields ?? []).filter(
+            (name): name is string => typeof name === "string",
           ),
-        );
+          requests: toPendingApprovalRequests(result.data.rows ?? []),
+        });
       } catch (err: unknown) {
-        rendererWarn("render-edit: open approval requests query failed", err);
+        rendererWarn("render-edit: field approval query failed", err);
       }
-    })();
+    },
+    [dispatcher, entityType, savedEntityId, enabled],
+  );
+  const reload = useCallback(() => void loadAnswer(() => false), [loadAnswer]);
+  useEffect(() => {
+    let cancelled = false;
+    void loadAnswer(() => cancelled);
     return () => {
       cancelled = true;
     };
-  }, [dispatcher, entityType, entityId, enabled]);
-  return requests;
+  }, [loadAnswer]);
+  return { ...answer, reload, drawerOpen, setDrawerOpen };
 }
 
 export function isCreateModeEntityId(entityId: string | null | undefined): boolean {
@@ -181,10 +210,13 @@ export function useRenderEditState({
   screen,
   entityId,
   translate: translateProp,
+  approvalEnabled,
 }: {
   readonly screen: EntityEditScreenDefinition;
   readonly entityId: string | null | undefined;
   readonly translate: Translate | undefined;
+  // Forms with their own submit (drawer, configEdit, projectionDetail) do not ask.
+  readonly approvalEnabled: boolean;
 }) {
   // Translate fallback: when the caller does not provide a translate function,
   // consume the i18next context directly. Otherwise field labels would remain raw
@@ -210,11 +242,11 @@ export function useRenderEditState({
   const isCreateMode = isCreateModeEntityId(entityId);
   const draftStorage = useDraftStorage();
   const feedback = useSubmitFeedbackState();
-  const openApprovalRequests = useOpenApprovalRequests(
+  const fieldApproval = useFieldApproval(
     dispatcher,
     screen.entity,
     entityId,
-    fieldApprovalMounted && !isCreateMode,
+    fieldApprovalMounted && approvalEnabled,
   );
   const stepState = useStepState();
   const draftState = useWizardFormDraftState({
@@ -238,7 +270,7 @@ export function useRenderEditState({
     translate,
     appLocale,
     dispatcher,
-    fieldApprovalMounted,
+    fieldApproval,
     notifyAction,
     isWizard,
     isTabs,
@@ -246,10 +278,6 @@ export function useRenderEditState({
     isCreateMode,
     draftStorage,
     ...feedback,
-    pendingApprovalRequests: mergePendingApprovalRequests(
-      feedback.pendingApprovalRequests,
-      openApprovalRequests,
-    ),
     ...stepState,
     draftState,
     ...extensions,

@@ -1,3 +1,5 @@
+import { userHasWriteRole } from "./field-access.ts";
+import { normalizeAccessEntry } from "./ownership.ts";
 import { isUnchangedValue } from "./screen-helpers.ts";
 import type { EntityDefinition, FieldDefinition } from "./types/fields.ts";
 import type { SessionUser } from "./types/index.ts";
@@ -28,8 +30,40 @@ export function userCanApproveField(
   return user.roles.some((role) => approvers.includes(role));
 }
 
-function isEmptyCreateValue(value: unknown): boolean {
-  return value === undefined || value === null || value === "";
+// A form shows these fields read-only and offers a change request instead of a direct edit.
+export function fieldsRequiringApprovalRequest(
+  entity: EntityDefinition,
+  user: Pick<SessionUser, "roles">,
+): readonly string[] {
+  return Object.entries(entity.fields)
+    .filter(
+      ([, field]) =>
+        fieldApproveRoles(field).length > 0 &&
+        !userCanApproveField(user, field) &&
+        userHasWriteRole(user, normalizeAccessEntry(field.access?.write) ?? {}),
+    )
+    .map(([name]) => name);
+}
+
+export function scalarFieldDefault(field: FieldDefinition): unknown {
+  switch (field.type) {
+    case "text":
+    case "longText":
+    case "number":
+    case "boolean":
+    case "select":
+      return field.default;
+    default:
+      return undefined;
+  }
+}
+
+// The executor fills declared defaults before this check, so a create that leaves the field
+// alone arrives with the default and must pass like an empty one.
+function isUnsetCreateValue(field: FieldDefinition, value: unknown): boolean {
+  if (value === undefined || value === null || value === "") return true;
+  const fieldDefault = scalarFieldDefault(field);
+  return fieldDefault !== undefined && isUnchangedValue(value, fieldDefault);
 }
 
 export function fieldsAwaitingApproval(
@@ -45,7 +79,7 @@ export function fieldsAwaitingApproval(
     if (userCanApproveField(user, field)) continue;
     const skip =
       previous === undefined
-        ? isEmptyCreateValue(data[key])
+        ? isUnsetCreateValue(field, data[key])
         : isUnchangedValue(data[key], previous[key]);
     if (!skip) gated.push(key);
   }

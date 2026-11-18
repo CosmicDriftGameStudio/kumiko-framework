@@ -1,4 +1,8 @@
-export { createFormController, isCurrencyOnlyMoney } from "./form-controller.ts";
+export {
+  createFormController,
+  isCurrencyOnlyMoney,
+  snapshotWithPayloadPatch,
+} from "./form-controller.ts";
 export type {
   FieldConditionPredicate,
   FieldConditions,
@@ -9,6 +13,7 @@ export type {
   FormSnapshot,
   FormValues,
   SubmitConfig,
+  SubmitOverrides,
   SubmitPayloadMode,
   SubmitResult,
 } from "./types.ts";

@@ -11,14 +11,17 @@
 //                   (RenderEdit passes { entityName, entityId }).
 
 import {
+  type ExtensionSubmitResult,
   formatWhen,
   useDispatcher,
+  useExtensionFormSubmit,
   useLocale,
   usePrimitives,
   useQuery,
   useTranslation,
+  useUnsavedInputSource,
 } from "@cosmicdrift/kumiko-renderer";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import { NotesHistoryHandlers, NotesHistoryQueries } from "./constants.ts";
 
 type NoteRow = {
@@ -71,9 +74,35 @@ export function NotesSection({
     },
     { enabled },
   );
-  const [draft, setDraft] = useState("");
+  const [draft, setDraftState] = useState("");
+  // The leave guard asks right after a save, before React re-renders the cleared draft.
+  const draftRef = useRef("");
+  const setDraft = (next: string): void => {
+    draftRef.current = next;
+    setDraftState(next);
+  };
   const [busy, setBusy] = useState(false);
   const [errorKey, setErrorKey] = useState<string | null>(null);
+  useUnsavedInputSource(() => draftRef.current.trim() !== "");
+
+  const writeDraft = async (targetEntityId: string): Promise<ExtensionSubmitResult> => {
+    const body = draftRef.current.trim();
+    if (body === "") return { isSuccess: true };
+    const result = await dispatcher.write(NotesHistoryHandlers.addNote, {
+      entityType: entityName,
+      entityId: targetEntityId,
+      body,
+    });
+    if (!result.isSuccess) return { isSuccess: false, errorKey: result.error.i18nKey };
+    setDraft("");
+    await notes.refetch();
+    return { isSuccess: true };
+  };
+  // Inside a form the typed note is written by its one Save; only a standalone section adds it.
+  const composed = useExtensionFormSubmit({
+    dirty: draft.trim() !== "",
+    onSubmit: (ctx) => writeDraft(ctx.entityId),
+  });
 
   if (entityId === null) {
     return (
@@ -100,23 +129,13 @@ export function NotesSection({
   const rows = (notes.data?.rows ?? []).filter((n) => n.entityType === entityName);
 
   const addNote = (): void => {
-    const body = draft.trim();
-    if (body === "") return;
+    if (draft.trim() === "") return;
     setBusy(true);
     setErrorKey(null);
     void (async () => {
       try {
-        const result = await dispatcher.write(NotesHistoryHandlers.addNote, {
-          entityType: entityName,
-          entityId,
-          body,
-        });
-        if (!result.isSuccess) {
-          setErrorKey(result.error.i18nKey);
-          return;
-        }
-        setDraft("");
-        await notes.refetch();
+        const result = await writeDraft(entityId);
+        if (!result.isSuccess) setErrorKey(result.errorKey ?? null);
       } finally {
         setBusy(false);
       }
@@ -137,21 +156,25 @@ export function NotesSection({
           name="draft"
           value={draft}
           onChange={setDraft}
-          onSubmitShortcut={() => {
-            if (!busy && draft.trim() !== "") addNote();
-          }}
+          {...(!composed && {
+            onSubmitShortcut: () => {
+              if (!busy && draft.trim() !== "") addNote();
+            },
+          })}
         />
-        <div className="flex items-center justify-between gap-2">
-          <Text variant="small">{t("notesHistory.section.shortcutHint")}</Text>
-          <Button
-            variant="primary"
-            disabled={busy || draft.trim() === ""}
-            onClick={() => addNote()}
-            testId="notes-section-add"
-          >
-            {busy ? t("notesHistory.section.working") : t("notesHistory.section.add")}
-          </Button>
-        </div>
+        {!composed && (
+          <div className="flex items-center justify-between gap-2">
+            <Text variant="small">{t("notesHistory.section.shortcutHint")}</Text>
+            <Button
+              variant="primary"
+              disabled={busy || draft.trim() === ""}
+              onClick={() => addNote()}
+              testId="notes-section-add"
+            >
+              {busy ? t("notesHistory.section.working") : t("notesHistory.section.add")}
+            </Button>
+          </div>
+        )}
         {errorKey !== null && (
           <Banner variant="error" testId="notes-section-action-error">
             <Text>{t(errorKey)}</Text>

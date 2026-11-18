@@ -1,4 +1,4 @@
-import type { FormValues, SubmitResult } from "../headless/index.ts";
+import { type FormValues, type SubmitResult, snapshotWithPayloadPatch } from "../headless/index.ts";
 import {
   createdEntityIdOf,
   isSubmitBlockedByLayoutCondition,
@@ -7,13 +7,16 @@ import {
 import type { RenderEditEngineBase } from "./render-edit-render-model.ts";
 import { createSubmitResultHandlers } from "./render-edit-submit-result.ts";
 
-type SubmitOptions = { readonly saveNow?: boolean };
+export type RenderEditSubmitOptions<TValues extends FormValues> = {
+  readonly saveNow?: boolean;
+  readonly payloadPatch?: Partial<TValues>;
+};
 
 // Rebuilt every render on purpose: the closures read this render's props and
 // step state, while handleSubmitRef publishes the current one.
 export function createHandleSubmit<TValues extends FormValues, TCtx>(
   engine: RenderEditEngineBase<TValues, TCtx>,
-): (options?: SubmitOptions) => Promise<void> {
+): (options?: RenderEditSubmitOptions<TValues>) => Promise<void> {
   const { props, state, form, draft, steps, draftActions, nav } = engine;
   const { handleSubmitSuccess, applySubmitFailure } = createSubmitResultHandlers(engine);
   const { controller } = form;
@@ -76,7 +79,9 @@ export function createHandleSubmit<TValues extends FormValues, TCtx>(
   // disabled wizard must still be steppable (handleWizardNext itself
   // blocks validate()/saveDraft() while disabled). `saveNow` is the explicit
   // "Save and close" button and skips the step advance.
-  function advancesWizardInsteadOfSaving(options: SubmitOptions | undefined): boolean {
+  function advancesWizardInsteadOfSaving(
+    options: RenderEditSubmitOptions<TValues> | undefined,
+  ): boolean {
     return state.isWizard && !steps.isLastWizardStep && options?.saveNow !== true;
   }
 
@@ -95,9 +100,25 @@ export function createHandleSubmit<TValues extends FormValues, TCtx>(
     );
   }
 
+  // The saved patch joins the form, or a later "values" Save would send the old value and undo
+  // the footer action.
+  function adoptCustomSubmitted(payloadPatch: Partial<TValues> | undefined): void {
+    dropSavedSecrets();
+    if (payloadPatch !== undefined) controller.setValues(payloadPatch);
+    controller.rebase();
+  }
+
+  // A gated field's start value (a default, false, a prefill) would make the server refuse the
+  // create, and the read-only field gives the user no way to clear it.
+  function untouchedGatedFieldsOnCreate(): readonly string[] {
+    if (!state.isCreateMode) return [];
+    const { changes } = controller.getSnapshot();
+    return state.fieldApproval.gatedFields.filter((fieldName) => !(fieldName in changes));
+  }
+
   // Awaits only where the original did: a validation-blocked customSubmit
   // must settle in the same tick so setIsSubmitting(true/false) batch.
-  return async function handleSubmit(options?: SubmitOptions): Promise<void> {
+  return async function handleSubmit(options?: RenderEditSubmitOptions<TValues>): Promise<void> {
     if (advancesWizardInsteadOfSaving(options)) {
       nav.handleWizardNext();
       // skip: handled as a wizard step advance
@@ -111,22 +132,30 @@ export function createHandleSubmit<TValues extends FormValues, TCtx>(
     try {
       // Extension-only: only a section is dirty and the main form is unchanged.
       // Skip the entity write (it would send an empty changes payload) and only
-      // run the section handlers. Read live state: a caller in the same tick (submit for
-      // approval) may have just reset the main form after this render's snapshot.
-      if (controller.getSnapshot().isUnchanged && state.extensionDirtyRef.current) {
+      // run the section handlers. Read live state: a caller in the same tick
+      // may have just reset the main form after this render's snapshot.
+      const payloadPatch = options?.payloadPatch;
+      if (
+        payloadPatch === undefined &&
+        controller.getSnapshot().isUnchanged &&
+        state.extensionDirtyRef.current
+      ) {
         await submitExtensionsOnly();
         // skip: extension-only save needs no entity write
         return;
       }
       let result = customSubmit !== undefined ? blockedCustomSubmitResult() : undefined;
       if (result === undefined && customSubmit !== undefined) {
-        result = await customSubmit(controller.getSnapshot());
-        if (result.isSuccess) {
-          dropSavedSecrets();
-          controller.rebase();
-        }
+        const snapshot = controller.getSnapshot();
+        result = await customSubmit(
+          payloadPatch === undefined ? snapshot : snapshotWithPayloadPatch(snapshot, payloadPatch),
+        );
+        if (result.isSuccess) adoptCustomSubmitted(payloadPatch);
       } else if (result === undefined) {
-        result = await controller.submit();
+        result = await controller.submit({
+          payloadPatch,
+          omitFields: untouchedGatedFieldsOnCreate(),
+        });
       }
       let extensionsPersisted = true;
       if (result.isSuccess)

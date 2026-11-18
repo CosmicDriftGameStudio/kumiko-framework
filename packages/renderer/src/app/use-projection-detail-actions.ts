@@ -45,6 +45,7 @@ type DetailActionsInput = {
   readonly reloadDetail: ReturnType<typeof useProjectionDetailData>["reloadDetail"];
   readonly activeTabId: string | undefined;
   readonly writeForms: WriteFormRegistry;
+  readonly dirtyWriteForms: ReadonlySet<string>;
 };
 
 function isShownOnTab(action: RowAction, activeTabId: string | undefined): boolean {
@@ -72,7 +73,19 @@ export function useProjectionDetailActions(input: DetailActionsInput) {
     reloadDetail,
     activeTabId,
     writeForms,
+    dirtyWriteForms,
   } = input;
+  // Same question as entityEdit: these actions reload the detail and drop the typed input.
+  const discardChanges = useMemo(
+    () =>
+      dirtyWriteForms.size > 0
+        ? {
+            confirm: effectiveTranslate("kumiko.form.unsavedChangesActionConfirm"),
+            confirmLabel: effectiveTranslate("kumiko.form.unsavedChangesActionConfirmLabel"),
+          }
+        : undefined,
+    [dirtyWriteForms, effectiveTranslate],
+  );
   const handleRecordLeft = useCallback(
     (action: RowActionWriteHandler, resultData: unknown, deletedShownRecord: boolean) => {
       const record = detailQuery.data ?? {};
@@ -184,6 +197,7 @@ export function useProjectionDetailActions(input: DetailActionsInput) {
         openDrawer,
         onWriteSuccess: reloadDetail,
         onRecordLeft: handleRecordLeft,
+        ...(discardChanges !== undefined && { discardChanges }),
         sameEntityScreenId,
         clientActions,
       }),
@@ -197,6 +211,7 @@ export function useProjectionDetailActions(input: DetailActionsInput) {
       clientActions,
       openDrawer,
       handleRecordLeft,
+      discardChanges,
       sameEntityScreenId,
     ],
   );
@@ -216,6 +231,7 @@ export function useProjectionDetailActions(input: DetailActionsInput) {
         openDrawer,
         onWriteSuccess: reloadDetail,
         onRecordLeft: handleRecordLeft,
+        ...(discardChanges !== undefined && { discardChanges }),
         sameEntityScreenId,
         clientActions,
         defaultWritePayloadId: shownRecordId,
@@ -232,6 +248,7 @@ export function useProjectionDetailActions(input: DetailActionsInput) {
       clientActions,
       openDrawer,
       handleRecordLeft,
+      discardChanges,
       sameEntityScreenId,
     ],
   );
@@ -259,10 +276,12 @@ export function useProjectionDetailActions(input: DetailActionsInput) {
       openDrawer,
       onWriteSuccess: reloadDetail,
       onRecordLeft: handleRecordLeft,
+      ...(discardChanges !== undefined && { discardChanges }),
       sameEntityScreenId,
       clientActions,
       writeForms,
       submitWithIds,
+      dirtyWriteForms,
     });
     // skip: a declared or unavailable edit action leaves the resolved list untouched
     if (defaultEditAction === undefined || declaredHasEdit) return resolved;
@@ -280,9 +299,11 @@ export function useProjectionDetailActions(input: DetailActionsInput) {
     reloadDetail,
     openDrawer,
     handleRecordLeft,
+    discardChanges,
     sameEntityScreenId,
     writeForms,
     submitWithIds,
+    dirtyWriteForms,
   ]);
   // footerActions render in RenderEdit's pinned footer, so the header bar must not repeat them.
   const headerActions = useMemo(

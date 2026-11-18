@@ -13,6 +13,7 @@ import {
   renderTabStrip,
   renderWizardProgress,
 } from "./render-edit-banners.tsx";
+import { renderFieldApprovalDrawer } from "./render-edit-field-approval.tsx";
 import { renderFormActions } from "./render-edit-form-actions.tsx";
 import {
   buildHeaderActions,
@@ -174,6 +175,7 @@ export function renderEditLayout<TValues extends FormValues, TCtx>(
     <ExtensionFormRegistryProvider value={state.extensionFormRegistry}>
       <FormUploadTrackerProvider value={state.trackUpload}>
         {state.menuActionConfirmDialog}
+        {renderFieldApprovalDrawer(model)}
         {renderPageHeader(model, header)}
         <Form
           onSubmit={() => void handleSubmit()}

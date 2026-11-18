@@ -65,7 +65,7 @@ function renderRightRail(props: LayoutEditorBodyProps, m: LayoutEditorModel): Re
       {m.isMail ? (
         <UsedByRail layoutSlug={props.slug} kind={props.kind} rows={props.overviewRows} />
       ) : (
-        <LayoutUsageSection slug={props.slug} />
+        <LayoutUsageSection slug={props.slug} dirty={m.dirty} />
       )}
     </>
   );

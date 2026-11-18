@@ -49,6 +49,7 @@ export type {
   FormSnapshot,
   FormValues,
   SubmitConfig,
+  SubmitOverrides,
   SubmitPayloadMode,
   SubmitResult,
 } from "./form/index.ts";
@@ -58,6 +59,7 @@ export {
   I18N_KEY_PARAM,
   isCurrencyOnlyMoney,
   relevantFieldIssues,
+  snapshotWithPayloadPatch,
   zodErrorToFieldIssues,
 } from "./form/index.ts";
 export {

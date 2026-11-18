@@ -44,6 +44,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     screen: props.screen,
     entityId: props.entityId,
     translate: props.translate,
+    approvalEnabled: props.customSubmit === undefined && props.writeCommand !== undefined,
   });
   const form = useRenderEditForm(props, state);
   const draft = useRenderEditDraftSave(props, state, form);

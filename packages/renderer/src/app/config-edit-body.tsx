@@ -10,12 +10,13 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { evalFieldCondition } from "@cosmicdrift/kumiko-framework/ui-types";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
-import { type ComponentProps, type ReactNode, useCallback, useMemo } from "react";
+import { type ComponentProps, type ReactNode, useCallback, useMemo, useRef } from "react";
 import {
   QueryOptionLabel,
   resolveOptionsQueryPayload,
 } from "../components/query-options-select.tsx";
 import { RenderEdit } from "../components/render-edit.tsx";
+import type { RenderEditControls } from "../components/render-edit-types.ts";
 import { useDispatcher } from "../context/dispatcher-context.tsx";
 import type {
   Command,
@@ -190,6 +191,16 @@ function isEmptyNumericFormValue(value: unknown): boolean {
   return typeof value === "number" && !Number.isFinite(value);
 }
 
+// Config values are string|number|boolean; the form state expects the field's native type.
+function configFormValue(fieldDef: unknown, stored: string | number | boolean): unknown {
+  const ftype = propertyOf(fieldDef, "type");
+  if (ftype === "number" || ftype === "money") {
+    return typeof stored === "number" ? stored : Number(stored);
+  }
+  if (ftype === "boolean") return typeof stored === "boolean" ? stored : stored === "true";
+  return typeof stored === "string" ? stored : String(stored);
+}
+
 // Same wire shape as a writeOnly config field: null removes, a string replaces.
 function secretChangeCommand(
   secretKey: string,
@@ -342,20 +353,8 @@ export function ConfigEditBody({
         out[shortName] = ownedByThisScope && hasStoredValue(stored) ? true : null;
         continue;
       }
-      if (stored === undefined) {
-        out[shortName] = defaults[shortName];
-        continue;
-      }
-      const ftype = propertyOf(fieldDef, "type");
-      // Field type coercion: config values are string|number|boolean, but the
-      // form state expects the matching native field type.
-      if (ftype === "number" || ftype === "money") {
-        out[shortName] = typeof stored === "number" ? stored : Number(stored);
-      } else if (ftype === "boolean") {
-        out[shortName] = typeof stored === "boolean" ? stored : stored === "true";
-      } else {
-        out[shortName] = typeof stored === "string" ? stored : String(stored);
-      }
+      out[shortName] =
+        stored === undefined ? defaults[shortName] : configFormValue(fieldDef, stored);
     }
     return out;
   }, [
@@ -392,13 +391,54 @@ export function ConfigEditBody({
   // commits all N, but the browser connection pool sporadically returns
   // "Failed to fetch" for individual responses, customSubmit returns failure
   // although the write went through, and the form stays dirty.
+  const formControlsRef = useRef<RenderEditControls<FormValues> | null>(null);
+  // Field name -> the inherited value a reset put into the form. Save sends the reset only while
+  // the field still holds that value; typing over it saves the typed value instead.
+  const pendingResetsRef = useRef(new Map<string, unknown>());
+  const markReset = (fieldName: string): void => {
+    const levels = cascades[fieldName]?.levels ?? [];
+    const activeIndex = levels.findIndex((level) => level.isActive);
+    const inheritedValue = levels.slice(activeIndex + 1).find((level) => level.hasValue)?.value;
+    const fieldDef = screen.fields[fieldName];
+    const formValue = isWriteOnlyTextField(fieldDef)
+      ? null
+      : inheritedValue === undefined
+        ? buildConfigEditDefaults(screen.fields)[fieldName]
+        : configFormValue(fieldDef, inheritedValue);
+    formControlsRef.current?.patch({ [fieldName]: formValue });
+    const qualified = screen.configKeys[fieldName];
+    // An override equal to the inherited value leaves the form unchanged, so Save would never
+    // send a staged reset; nothing visible changes either, so writing it now hides no edit.
+    if (qualified !== undefined && Object.is(initial?.[fieldName], formValue)) {
+      void dispatcher
+        .write("config:write:reset", { key: qualified, scope: screen.scope })
+        .then(() => cascadeQuery.refetch?.());
+      return;
+    }
+    pendingResetsRef.current.set(fieldName, formValue);
+  };
+
   const customSubmit = useCallback(
     async (snapshot: FormSnapshot<FormValues>): Promise<SubmitResult<unknown>> => {
       const commands: Command[] = [];
       const commandFieldNames: string[] = [];
       const hiddenFieldNames = hiddenLayoutFieldNames(synthScreen, snapshot.values);
+      const pendingResets = pendingResetsRef.current;
       for (const [shortName, value] of Object.entries(snapshot.changes)) {
         if (hiddenFieldNames.has(shortName)) continue;
+        const qualified = screen.configKeys[shortName];
+        if (
+          qualified !== undefined &&
+          pendingResets.has(shortName) &&
+          Object.is(pendingResets.get(shortName), value)
+        ) {
+          commandFieldNames.push(shortName);
+          commands.push({
+            type: "config:write:reset",
+            payload: { key: qualified, scope: screen.scope },
+          });
+          continue;
+        }
         const command = configChangeCommand({
           shortName,
           value,
@@ -414,6 +454,7 @@ export function ConfigEditBody({
         return { validationBlocked: false, isSuccess: true, data: undefined };
       }
       const result = await dispatcher.batch(commands);
+      if (result.isSuccess) pendingResets.clear();
       if (!result.isSuccess) {
         return {
           validationBlocked: false,
@@ -501,6 +542,14 @@ export function ConfigEditBody({
       initial={initial}
       schema={boundsSchema}
       customSubmit={customSubmit}
+      onControlsReady={(controls) => {
+        formControlsRef.current = controls;
+      }}
+      onDirtyChange={(dirty) => {
+        // A discarded or typed-back form drops its reset marks, so a later Save cannot turn a
+        // typed inherited value into a reset.
+        if (!dirty) pendingResetsRef.current.clear();
+      }}
       dirtyFooter
       validateOnChange
       {...(screenFillsHeight(screen) && { fillScreenHeight: true })}
@@ -537,10 +586,7 @@ export function ConfigEditBody({
             required={screen.requiredFields?.includes(fieldName) ?? false}
             {...(renderValue !== undefined && { renderValue })}
             {...(!readOnlyFields.has(fieldName) && {
-              onReset: async (key: string, scope: ConfigScope) => {
-                await dispatcher.write("config:write:reset", { key, scope });
-                await Promise.allSettled([valuesQuery.refetch?.(), cascadeQuery.refetch?.()]);
-              },
+              onReset: () => markReset(fieldName),
             })}
           />
         );

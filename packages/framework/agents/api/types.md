@@ -2170,7 +2170,7 @@ type FormController<TValues extends FormValues> = {
   rebaseFields(fields: string[]): void;
   seedField(field: string, value: unknown): void;
   setCtx(ctx: unknown): void;
-  submit<TData = unknown>(): Promise<SubmitResult<TData>>;
+  submit<TData = unknown>(payloadPatch?: Partial<TValues>): Promise<SubmitResult<TData>>;
 };
 type FormControllerOptions<TValues extends FormValues, TCtx = unknown> = {
   initial: TValues;

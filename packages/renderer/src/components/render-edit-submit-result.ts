@@ -1,6 +1,6 @@
 import type { DispatcherError, FormValues, SubmitResult } from "../headless/index.ts";
 import { groupIssuesByPath } from "../headless/index.ts";
-import { hasIssueWithoutRenderedField, isFieldApprovalRequired } from "./render-edit-logic.ts";
+import { hasIssueWithoutRenderedField } from "./render-edit-logic.ts";
 import type { RenderEditEngineBase } from "./render-edit-render-model.ts";
 
 export function createSubmitResultHandlers<TValues extends FormValues, TCtx>({
@@ -71,22 +71,14 @@ export function createSubmitResultHandlers<TValues extends FormValues, TCtx>({
     // rendered field can show (`version`, `id`, a root-level refine, a
     // hidden field) keeps the banner, jump or not.
     jumpToFirstErroringStep(issuePaths);
-    // An approval is not an input error: the banner says it once and the field only carries a
-    // marker, so the issues the controller stored for the gated fields must not render as errors.
-    if (isFieldApprovalRequired(error)) {
-      for (const path of issuePaths) controller.clearErrors(path);
-    }
     state.setExtraDeleteIssues([]);
     state.setFormErrorSource("submit");
-    // The approval banner carries the submit-for-approval action, so it shows even though
-    // the gated fields are rendered.
     state.setFormError(
-      isFieldApprovalRequired(error) ||
-        hasIssueWithoutRenderedField(
-          issuePaths,
-          sections.filteredSections,
-          new Set(Object.keys(props.formDerivation?.derive ?? {})),
-        )
+      hasIssueWithoutRenderedField(
+        issuePaths,
+        sections.filteredSections,
+        new Set(Object.keys(props.formDerivation?.derive ?? {})),
+      )
         ? error
         : null,
     );

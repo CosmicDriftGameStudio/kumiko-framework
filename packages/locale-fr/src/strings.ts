@@ -928,8 +928,12 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "kumiko.field.writeOnly.undo": "Annuler",
   "kumiko.field.writeOnly.willRemove": "Supprimé à l'enregistrement",
   "kumiko.form.all-required": "Tous les champs sont obligatoires.",
-  "kumiko.form.fieldApproval.fields": "Les modifications de {fields} nécessitent une approbation.",
-  "kumiko.form.fieldApproval.required": "Approbation requise",
+  "kumiko.form.fieldApproval.requestChange": "Demander une modification",
+  "kumiko.form.fieldApproval.drawerHint":
+    "Les champs modifiés s'appliquent une fois approuvés par une personne habilitée.",
+  "kumiko.form.fieldApproval.withdraw": "Retirer la demande",
+  "kumiko.form.fieldApproval.withdrawn": "Demande retirée",
+  "kumiko.form.fieldApproval.afterCreate": "Demander l'approbation après la création",
   "kumiko.form.fieldApproval.submitted": "Soumis pour approbation",
   "kumiko.form.fieldApproval.submit": "Soumettre pour approbation",
   "kumiko.form.fieldApproval.pending": "En attente d'approbation",
@@ -1989,6 +1993,8 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "documentDesigner.usedBy.templates.other": "{count} modèles",
   "documentDesigner.usedBy.title": "Utilisé par",
   "documentDesigner.usedBy.none": "Aucun modèle n'utilise encore cette mise en page.",
+  "documentDesigner.usedBy.saveFirst":
+    "Enregistrez d'abord la mise en page. La publication et l'application utilisent la version enregistrée.",
   "documentDesigner.usedBy.publishHint":
     "La publication met en ligne le brouillon complet de chaque modèle listé, y compris les modifications de texte faites en dehors de cette mise en page.",
   "documentDesigner.overriddenBy.tenants": "{active} organisations",

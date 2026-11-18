@@ -914,8 +914,12 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "kumiko.field.writeOnly.undo": "Deshacer",
   "kumiko.field.writeOnly.willRemove": "Se quitará al guardar",
   "kumiko.form.all-required": "Todos los campos son obligatorios.",
-  "kumiko.form.fieldApproval.fields": "Los cambios en {fields} necesitan aprobación.",
-  "kumiko.form.fieldApproval.required": "Necesita aprobación",
+  "kumiko.form.fieldApproval.requestChange": "Solicitar cambio",
+  "kumiko.form.fieldApproval.drawerHint":
+    "Los campos modificados se aplican cuando alguien con permiso de aprobación los aprueba.",
+  "kumiko.form.fieldApproval.withdraw": "Retirar solicitud",
+  "kumiko.form.fieldApproval.withdrawn": "Solicitud retirada",
+  "kumiko.form.fieldApproval.afterCreate": "Solicitar aprobación después de crear el registro",
   "kumiko.form.fieldApproval.submitted": "Enviado a aprobación",
   "kumiko.form.fieldApproval.submit": "Enviar a aprobación",
   "kumiko.form.fieldApproval.pending": "Pendiente de aprobación",
@@ -1964,6 +1968,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "documentDesigner.usedBy.templates.other": "{count} plantillas",
   "documentDesigner.usedBy.title": "Usada por",
   "documentDesigner.usedBy.none": "Ninguna plantilla usa todavía este diseño.",
+  "documentDesigner.usedBy.saveFirst":
+    "Guarda primero el diseño. Publicar y aplicar usan la versión guardada.",
   "documentDesigner.usedBy.publishHint":
     "Al publicar, el borrador completo de cada plantilla listada pasa a producción, también los cambios de texto hechos fuera de este diseño.",
   "documentDesigner.overriddenBy.tenants": "{active} organizaciones",

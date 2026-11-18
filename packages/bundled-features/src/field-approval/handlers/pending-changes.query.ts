@@ -3,6 +3,7 @@ import {
   defineQueryHandler,
   type EntityDefinition,
   type FieldDefinition,
+  fieldsRequiringApprovalRequest,
   type HandlerContext,
   listAllPages,
   maskWriteOnlyFields,
@@ -35,7 +36,7 @@ function pendingRequestFilters(
   if (input.entityType !== undefined) {
     filters.push({ field: "entityType", op: "eq", value: input.entityType });
   }
-  if (input.entityId !== undefined) {
+  if (typeof input.entityId === "string") {
     filters.push({ field: "entityId", op: "eq", value: input.entityId });
   }
   return filters;
@@ -192,13 +193,23 @@ export function createPendingChangesQuery(
     schema: pendingFieldChangesQuerySchema,
     access,
     description:
-      "Lists open field change requests the caller may decide or has filed, with the requested value.",
+      "Lists open field change requests the caller may decide or has filed, with the requested value. With an entityType it also returns gatedFields: the fields of that entity the caller may write but must request (a form shows them read-only with a request action). entityId null answers for a record not created yet: no rows, only gatedFields.",
     unfilteredResult: {
       reason:
         "rows are request summaries filtered per host record and approver role by the handler",
     },
     handler: async (query, ctx) => {
       const user = query.user;
+      const { entityType, entityId } = query.payload;
+      const hostEntity = entityType === undefined ? undefined : ctx.registry.getEntity(entityType);
+      const gated =
+        entityType === undefined
+          ? {}
+          : {
+              gatedFields:
+                hostEntity === undefined ? [] : fieldsRequiringApprovalRequest(hostEntity, user),
+            };
+      if (entityId === null) return { rows: [], ...gated };
       const filters = pendingRequestFilters(query.payload);
       const pending = await listAllPages((page) =>
         requestExecutor.list({ ...page, filters }, user, ctx.db),
@@ -217,6 +228,7 @@ export function createPendingChangesQuery(
           requestedByName:
             typeof row.requestedBy === "string" ? names.get(row.requestedBy) : undefined,
         })),
+        ...gated,
       };
     },
   });

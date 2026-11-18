@@ -61,6 +61,11 @@ function fakeDispatcher(source: LayoutSourceView | null, calls: Call[]): Dispatc
     ...(source !== null && { "template-resolver:query:layout-source": source }),
     "template-resolver:query:overview": { rows: [], nextCursor: null, total: 0 },
     "template-resolver:query:validate": okValidation,
+    "template-resolver:query:usage": {
+      usedByTemplates: [
+        { slug: "invoice", locale: "de", title: "Invoice", status: "draft", version: 1 },
+      ],
+    },
     "branding:query:tokens": {
       title: "Nordlicht",
       accentColor: "#205265",
@@ -506,6 +511,23 @@ describe("pdf layout letter settings", () => {
     fireEvent.change(await screen.findByTestId("layout-table-line"), { target: { value: "blue" } });
     await waitFor(() =>
       expect(screen.getByTestId("document-designer-save").hasAttribute("disabled")).toBe(true),
+    );
+  });
+
+  test("an unsaved layout blocks publishing drafts and applying it elsewhere until it is saved", async () => {
+    renderEditor(["TenantAdmin"], pdfSource, [], pdfParams);
+    const publish = await screen.findByTestId("layout-usage-publish");
+    const applyOpen = screen.getByTestId("layout-apply-open");
+    expect(publish.hasAttribute("disabled")).toBe(false);
+    expect(applyOpen.hasAttribute("disabled")).toBe(false);
+    expect(screen.queryByText(/Save the layout first/)).toBeNull();
+
+    fireEvent.change(screen.getByTestId("layout-table-line"), { target: { value: "#336699" } });
+
+    await waitFor(() => expect(publish.hasAttribute("disabled")).toBe(true));
+    expect(applyOpen.hasAttribute("disabled")).toBe(true);
+    expect(screen.getByText(/Save the layout first/).textContent).toBe(
+      "Save the layout first. Publishing and applying use the saved version.",
     );
   });
 });

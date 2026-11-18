@@ -112,7 +112,7 @@ function renderWizardNextButton<TValues extends FormValues, TCtx>({
 }
 
 function renderFooterActionButtons<TValues extends FormValues, TCtx>({
-  engine: { props, state, form, handleSubmit },
+  engine: { props, state, handleSubmit },
   footer,
 }: RenderEditModel<TValues, TCtx>): ReactNode {
   const { Button } = state.primitives;
@@ -126,8 +126,7 @@ function renderFooterActionButtons<TValues extends FormValues, TCtx>({
         {...(action.icon !== undefined && { icon: action.icon })}
         disabled={isSubmitHeldBack(state) || props.disabled}
         onClick={() => {
-          form.controller.setValues(action.patch as Partial<TValues>); // @cast-boundary form-values
-          void handleSubmit();
+          void handleSubmit({ payloadPatch: action.patch as Partial<TValues> }); // @cast-boundary form-values
         }}
         testId={`render-edit-footer-action-${action.id}`}
       >

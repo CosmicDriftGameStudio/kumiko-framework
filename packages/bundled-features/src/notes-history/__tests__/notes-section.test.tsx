@@ -9,7 +9,12 @@ import { describe, expect, test } from "bun:test";
 import {
   createStaticLocaleResolver,
   DispatcherProvider,
+  type ExtensionFormRegistry,
+  ExtensionFormRegistryProvider,
+  type ExtensionSubmitContext,
+  type ExtensionSubmitResult,
   formatWhen,
+  hasUnsavedInput,
   kumikoDefaultTranslations,
   type LiveEventSubscriber,
   LiveEventsProvider,
@@ -24,7 +29,7 @@ import {
   type MockWriteHandler,
 } from "@cosmicdrift/kumiko-renderer/testing";
 import { defaultPrimitives, defaultTokens } from "@cosmicdrift/kumiko-renderer/web";
-import { fireEvent, render, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { NotesHistoryHandlers, NotesHistoryQueries } from "../web/constants.ts";
 import { defaultTranslations } from "../web/i18n.ts";
@@ -337,5 +342,78 @@ describe("NotesSection — Ctrl/Cmd+Enter submit shortcut", () => {
     // tick, then assert nothing landed.
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(writes).toHaveLength(0);
+  });
+});
+
+describe("NotesSection — inside a form with one Save", () => {
+  type Registration = {
+    readonly dirty: boolean;
+    readonly handler: (ctx: ExtensionSubmitContext) => Promise<ExtensionSubmitResult>;
+  };
+
+  function renderComposed(dispatcher: Dispatcher): {
+    readonly view: ReturnType<typeof render>;
+    readonly latest: () => Registration | undefined;
+  } {
+    let registration: Registration | undefined;
+    const registry: ExtensionFormRegistry = {
+      upsert: (entry) => {
+        registration = entry;
+      },
+      remove: () => {
+        registration = undefined;
+      },
+    };
+    const view = render(
+      <TokensProvider value={stubTokens}>
+        <LocaleProvider
+          resolver={stubResolver}
+          fallbackBundles={[defaultTranslations, kumikoDefaultTranslations]}
+        >
+          <PrimitivesProvider value={defaultPrimitives}>
+            <LiveEventsProvider value={stubLiveEvents}>
+              <DispatcherProvider dispatcher={dispatcher}>
+                <ExtensionFormRegistryProvider value={registry}>
+                  <NotesSection entityName="contact" entityId="contact-1" />
+                </ExtensionFormRegistryProvider>
+              </DispatcherProvider>
+            </LiveEventsProvider>
+          </PrimitivesProvider>
+        </LocaleProvider>
+      </TokensProvider>,
+    );
+    return { view, latest: () => registration };
+  }
+
+  test("a typed note marks the form dirty, has no own add button and is written by the form's Save", async () => {
+    const { dispatcher, writes } = makeWriteCapturingDispatcher();
+    const { view, latest } = renderComposed(dispatcher);
+    await waitFor(() => view.getByTestId("notes-section-new"));
+    expect(view.queryByTestId("notes-section-add")).toBeNull();
+
+    fireEvent.change(requireTextarea(view.container), { target: { value: "Typed, not added" } });
+    await waitFor(() => expect(latest()?.dirty).toBe(true));
+    expect(hasUnsavedInput()).toBe(true);
+
+    const saved = await act(() => latest()?.handler({ entityId: "contact-1" }));
+    expect(saved).toEqual({ isSuccess: true });
+    expect(writes).toEqual([
+      {
+        type: NotesHistoryHandlers.addNote,
+        payload: { entityType: "contact", entityId: "contact-1", body: "Typed, not added" },
+      },
+    ]);
+    expect(hasUnsavedInput()).toBe(false);
+  });
+
+  test("an empty draft writes nothing on the form's Save", async () => {
+    const { dispatcher, writes } = makeWriteCapturingDispatcher();
+    const { view, latest } = renderComposed(dispatcher);
+    await waitFor(() => view.getByTestId("notes-section-new"));
+
+    expect(latest()?.dirty).toBe(false);
+    const saved = await act(() => latest()?.handler({ entityId: "contact-1" }));
+    expect(saved).toEqual({ isSuccess: true });
+    expect(writes).toEqual([]);
   });
 });

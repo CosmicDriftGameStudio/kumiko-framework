@@ -8,7 +8,12 @@ import {
   isPiiCiphertext,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
-import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createEntity,
+  createSelectField,
+  createTextField,
+  defineFeature,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
@@ -60,6 +65,11 @@ const contactEntity = createEntity({
       personal: "tenant",
       find: "secret",
       writeOnly: true,
+      access: { approve: ["Accountant"], write: ["PropertyManager", "Accountant"] },
+    }),
+    channel: createSelectField({
+      options: ["mail", "phone"],
+      default: "mail",
       access: { approve: ["Accountant"], write: ["PropertyManager", "Accountant"] },
     }),
   },
@@ -189,6 +199,16 @@ describe("field-approval executor gate", () => {
     expect(refused.httpStatus).toBe(403);
     expect(refused.details).toMatchObject({ reason: "field_approval_required" });
     await stack.http.writeOk(CREATE, { name: "B" }, pm);
+  });
+
+  test("create by a non-approver may keep a gated field's default but not choose another value", async () => {
+    await stack.http.writeOk(CREATE, { name: "C", channel: "mail" }, pm);
+    const refused = await stack.http.writeErr(CREATE, { name: "D", channel: "phone" }, pm);
+    expect(refused.httpStatus).toBe(403);
+    expect(refused.details).toMatchObject({
+      reason: "field_approval_required",
+      fields: ["channel"],
+    });
   });
 
   test("an approver writes the field directly", async () => {
@@ -468,5 +488,49 @@ describe("field-approval request ids", () => {
     const contactId = await seedContact();
     const { id } = await fileRequest(contactId, NEW_IBAN, pm);
     expect(id).toBe(fieldChangeRequestAggregateId(pm.tenantId, "contact", contactId, "iban"));
+  });
+});
+
+describe("field-approval gated fields", () => {
+  type GatedAnswer = PendingRows & { readonly gatedFields?: readonly string[] };
+  const gatedFor = (user: typeof pm, entityId: string | null) =>
+    stack.http.queryOk<GatedAnswer>(
+      FieldApprovalQueries.pendingChanges,
+      { entityType: "contact", entityId },
+      user,
+    );
+
+  test("a writer without an approve role must request the gated fields, others must not", async () => {
+    const contactId = await seedContact();
+    expect((await gatedFor(pm, contactId)).gatedFields).toEqual([
+      "iban",
+      "bic",
+      "accessPin",
+      "channel",
+    ]);
+    expect((await gatedFor(accA, contactId)).gatedFields).toEqual([]);
+    expect((await gatedFor(viewer, contactId)).gatedFields).toEqual([]);
+  });
+
+  test("a record not created yet has no requests but names the gated fields", async () => {
+    const contactId = await seedContact();
+    await fileRequest(contactId, NEW_IBAN, pm);
+    expect(await gatedFor(pm, null)).toEqual({
+      rows: [],
+      gatedFields: ["iban", "bic", "accessPin", "channel"],
+    });
+  });
+
+  test("without an entityType the list answers without gatedFields", async () => {
+    const contactId = await seedContact();
+    const { id } = await fileRequest(contactId, NEW_IBAN, pm);
+    // Scoped to this record: earlier tests left requests whose subject keys are gone.
+    const answer = await stack.http.queryOk<GatedAnswer>(
+      FieldApprovalQueries.pendingChanges,
+      { entityId: contactId },
+      accA,
+    );
+    expect("gatedFields" in answer).toBe(false);
+    expect(answer.rows.map((row) => row.id)).toContain(id);
   });
 });

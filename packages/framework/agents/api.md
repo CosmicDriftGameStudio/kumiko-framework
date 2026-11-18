@@ -8,7 +8,7 @@ Format: one line per function or constant, object and options types as property 
 
 | Import path | File | Exports |
 | --- | --- | --- |
-| `@cosmicdrift/kumiko-framework/engine` | `api/framework-engine.md` | 464 |
+| `@cosmicdrift/kumiko-framework/engine` | `api/framework-engine.md` | 465 |
 | `@cosmicdrift/kumiko-framework/errors` | `api/framework-errors.md` | 32 |
 | `@cosmicdrift/kumiko-framework/ui-types` | `api/framework-ui-types.md` | 202 |
 | `@cosmicdrift/kumiko-framework/db` | `api/framework-db.md` | 180 |

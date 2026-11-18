@@ -88,6 +88,7 @@ function extensionUsageEscapeHatchReason(usage: Pick<RegistrarExtensionRegistrat
 function fieldApproveRoles(field: FieldDefinition): string[];
 function fieldToZod(field: FieldDefinition, currencies: string[], opts?: { applyDefaults?: boolean; isUpdate?: boolean; }): z.ZodTypeAny;
 function fieldsAwaitingApproval(entity: EntityDefinition, user: Pick<SessionUser, "roles">, data: Readonly<Record<string, unknown>>, previous: Readonly<Record<string, unknown>> | undefined): string[];
+function fieldsRequiringApprovalRequest(entity: EntityDefinition, user: Pick<SessionUser, "roles">): string[];
 function filterEntriesAfter(entries: ChangelogEntry[], version: string): ChangelogEntry[];
 function filterReadFields(entity: EntityDefinition, data: Readonly<Record<string, unknown>>, user: SessionUser): Record<string, unknown>;
 function findEntity(features: ReadonlyMap<string, FeatureDefinition>, entityName: string): EntityDefinition | undefined;

@@ -20,6 +20,7 @@ export type DecideFieldChangePayload = z.infer<typeof decideFieldChangePayloadSc
 
 export const pendingFieldChangesQuerySchema = z.object({
   entityType: z.string().max(64).optional(),
-  entityId: z.string().max(128).optional(),
+  // null: the form asks for a record that is not created yet.
+  entityId: z.string().max(128).nullable().optional(),
 });
 export type PendingFieldChangesQuery = z.infer<typeof pendingFieldChangesQuerySchema>;

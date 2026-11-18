@@ -19,7 +19,7 @@ import { GridCellForField } from "./grid-cell-for-field.tsx";
 import { narrowAwareDescription } from "./narrow-description.tsx";
 import { appendixCellProps } from "./render-edit-field-grid.tsx";
 import { hasIssueWithoutVisibleField, issuesAfterEdit } from "./render-edit-logic.ts";
-import { useWriteFormRegistry } from "./write-form-registry.ts";
+import { useReportWriteFormDirty, useWriteFormRegistry } from "./write-form-registry.ts";
 
 function buildWriteFormSchema(fields: readonly EditFieldViewModel[]): z.ZodType {
   return z
@@ -163,6 +163,7 @@ export function WriteFormSection({
     schema,
   });
   useUnsavedInputSource(() => controller.getSnapshot().isDirty);
+  useReportWriteFormDirty(snapshot.isDirty, section.submitWith);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<ErrorNotice | null>(null);
   const { submitWith } = section;

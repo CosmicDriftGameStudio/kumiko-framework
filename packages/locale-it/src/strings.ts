@@ -915,8 +915,12 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "kumiko.field.writeOnly.undo": "Annulla",
   "kumiko.field.writeOnly.willRemove": "Verrà rimosso al salvataggio",
   "kumiko.form.all-required": "Tutti i campi sono obbligatori.",
-  "kumiko.form.fieldApproval.fields": "Le modifiche a {fields} richiedono un'approvazione.",
-  "kumiko.form.fieldApproval.required": "Richiede approvazione",
+  "kumiko.form.fieldApproval.requestChange": "Richiedi modifica",
+  "kumiko.form.fieldApproval.drawerHint":
+    "I campi modificati valgono solo dopo l'approvazione di chi ha il permesso.",
+  "kumiko.form.fieldApproval.withdraw": "Ritira richiesta",
+  "kumiko.form.fieldApproval.withdrawn": "Richiesta ritirata",
+  "kumiko.form.fieldApproval.afterCreate": "Richiedi l'approvazione dopo la creazione",
   "kumiko.form.fieldApproval.submitted": "Inviato per approvazione",
   "kumiko.form.fieldApproval.submit": "Invia per approvazione",
   "kumiko.form.fieldApproval.pending": "In attesa di approvazione",
@@ -1970,6 +1974,8 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "documentDesigner.usedBy.templates.other": "{count} modelli",
   "documentDesigner.usedBy.title": "Usato da",
   "documentDesigner.usedBy.none": "Nessun modello usa ancora questo layout.",
+  "documentDesigner.usedBy.saveFirst":
+    "Salva prima il layout. Pubblicazione e applicazione usano la versione salvata.",
   "documentDesigner.usedBy.publishHint":
     "La pubblicazione mette online l'intera bozza di ogni modello elencato, comprese le modifiche al testo fatte fuori da questo layout.",
   "documentDesigner.overriddenBy.tenants": "{active} organizzazioni",

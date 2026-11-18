@@ -3,7 +3,7 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import * as z from "zod";
 import { buildFormSchema } from "../../app/form-schema.ts";
 import type { SubmitResult } from "../../headless/index.ts";
@@ -629,6 +629,98 @@ describe("RenderEdit", () => {
     expect(payload?.["isUrgent"]).toBe(true);
   });
 
+  test("a failed footer action leaves its patch out of the form, so the next Save does not send it", async () => {
+    const write = mock<MockWriteHandler>(async () => ({ isSuccess: true, data: { id: "1" } }));
+    write.mockImplementationOnce(async () => ({
+      isSuccess: false,
+      error: {
+        code: "internal_error",
+        httpStatus: 500,
+        i18nKey: "errors.internal",
+        message: "boom",
+      },
+    }));
+    const screenDef: EntityEditScreenDefinition = {
+      id: "orders:screen:order-edit",
+      type: "entityEdit",
+      entity: "order",
+      layout: { sections: [{ fields: ["title"] }] },
+    };
+
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher(write)}>
+        <RenderEdit<TestValues>
+          screen={screenDef}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "", isUrgent: false }}
+          writeCommand="order:create"
+          footerActions={[{ id: "mark-urgent", label: "Mark urgent", patch: { isUrgent: true } }]}
+        />
+      </DispatcherProvider>,
+    );
+
+    const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    fireEvent.change(titleInput, { target: { value: "Hello" } });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("render-edit-footer-action-mark-urgent"));
+      await Promise.resolve();
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("render-edit-submit"));
+      await Promise.resolve();
+    });
+
+    const payloads = (
+      write as unknown as { mock: { calls: [string, Record<string, unknown>][] } }
+    ).mock.calls.map((call) => call[1]);
+    expect(payloads).toHaveLength(2);
+    expect(payloads[0]).toMatchObject({ title: "Hello", isUrgent: true });
+    expect(payloads[1]).toMatchObject({ title: "Hello", isUrgent: false });
+  });
+
+  test("a saved footer action keeps its patch in the form, so the next Save does not undo it", async () => {
+    const write = mock<MockWriteHandler>(async () => ({ isSuccess: true, data: { id: "1" } }));
+    const screenDef: EntityEditScreenDefinition = {
+      id: "orders:screen:order-edit",
+      type: "entityEdit",
+      entity: "order",
+      layout: { sections: [{ fields: ["title"] }] },
+    };
+
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher(write)}>
+        <RenderEdit<TestValues>
+          screen={screenDef}
+          entity={orderEntity}
+          featureName="orders"
+          entityId="1"
+          initial={{ title: "Hello", isUrgent: false }}
+          writeCommand="order:update"
+          footerActions={[{ id: "mark-urgent", label: "Mark urgent", patch: { isUrgent: true } }]}
+        />
+      </DispatcherProvider>,
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("render-edit-footer-action-mark-urgent"));
+      await Promise.resolve();
+    });
+    const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    fireEvent.change(titleInput, { target: { value: "Hello again" } });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("render-edit-submit"));
+      await Promise.resolve();
+    });
+
+    const payloads = (
+      write as unknown as { mock: { calls: [string, Record<string, unknown>][] } }
+    ).mock.calls.map((call) => call[1]);
+    expect(payloads).toHaveLength(2);
+    expect(payloads[0]).toMatchObject({ isUrgent: true });
+    expect(payloads[1]).toMatchObject({ title: "Hello again", isUrgent: true });
+  });
+
   test("layout.width defaults the form shell to max-w-4xl when unset", () => {
     render(
       <DispatcherProvider dispatcher={makeDispatcher()}>
@@ -1157,5 +1249,50 @@ describe("RenderEdit — composed extension save", () => {
     });
     expect(submitSpy).toHaveBeenCalledWith({ entityId: "order-99" });
     expect(writeSpy).not.toHaveBeenCalled();
+  });
+});
+
+function SelfSavingSection(_: { entityName: string; entityId: string | null }): ReactNode {
+  const composed = useExtensionFormSubmit({
+    dirty: false,
+    onSubmit: async () => ({ isSuccess: true as const }),
+  });
+  return <span data-testid="self-saving-composed">{String(composed)}</span>;
+}
+
+describe("RenderEdit — a self-saving extension without a host Save", () => {
+  test("in view mode the section keeps its own save, since the host shows none", () => {
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <ExtensionSectionsProvider value={{ SelfSavingSection }}>
+          <RenderEdit<TestValues>
+            screen={{
+              id: "orders:screen:order-edit",
+              type: "entityEdit",
+              entity: "order",
+              layout: {
+                sections: [
+                  { title: "Basics", fields: ["title"] },
+                  {
+                    kind: "extension",
+                    title: "Notes",
+                    component: { react: { __component: "SelfSavingSection" } },
+                  },
+                ],
+              },
+            }}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "Existing", count: 0, isUrgent: false }}
+            entityId="order-99"
+            writeCommand="order:update"
+            viewMode
+          />
+        </ExtensionSectionsProvider>
+      </DispatcherProvider>,
+    );
+
+    expect(screen.getByTestId("self-saving-composed").textContent).toBe("false");
+    expect(screen.queryByTestId("render-edit-submit")).toBeNull();
   });
 });

@@ -1,5 +1,5 @@
 import type { ParentVisibilityOption } from "@cosmicdrift/kumiko-types/event-store-executor-types";
-import type { EntityDefinition, FieldDefinition } from "@cosmicdrift/kumiko-types/fields";
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import type { EntityId } from "@cosmicdrift/kumiko-types/identifiers";
 import { requestContext } from "../api/request-context.ts";
 import {
@@ -16,6 +16,7 @@ import { personalFieldsRekeyedOnOwnerTransition } from "../crypto/owner-transiti
 import type { ErasedSubjectHandling } from "../crypto/pii-field-encryption.ts";
 import { executeRawQueryRead } from "../db/queries/raw-sql.ts";
 import type { WhereObject } from "../db/query.ts";
+import { scalarFieldDefault } from "../engine/field-approval.ts";
 import { shiftParams } from "../engine/ownership.ts";
 import { SYSTEM_TENANT_ID } from "../engine/types/identifiers.ts";
 import type { SessionUser, TenantId } from "../engine/types/index.ts";
@@ -118,19 +119,6 @@ export function isForeignTenantOnGlobalEntity(
 ): boolean {
   if (entity.tenancy !== "global") return false;
   return tenantIdValue !== undefined && tenantIdValue !== SYSTEM_TENANT_ID;
-}
-
-function scalarDefault(field: FieldDefinition): unknown {
-  switch (field.type) {
-    case "text":
-    case "longText":
-    case "number":
-    case "boolean":
-    case "select":
-      return field.default;
-    default:
-      return undefined;
-  }
 }
 
 // Maps PG-23505 (unique-violation) caught from applyEntityEvent
@@ -348,7 +336,7 @@ export function buildExecutorContext(
   // Pre-compute defaults once so create() doesn't loop the entity every call.
   const fieldDefaults: Record<string, unknown> = {};
   for (const [name, field] of Object.entries(entity.fields)) {
-    const def = scalarDefault(field);
+    const def = scalarFieldDefault(field);
     if (def !== undefined) fieldDefaults[name] = def;
   }
 

@@ -8,6 +8,7 @@ import type {
   FormControllerOptions,
   FormSnapshot,
   FormValues,
+  SubmitOverrides,
   SubmitResult,
 } from "./types.ts";
 import { groupIssuesByPath, relevantFieldIssues, zodErrorToFieldIssues } from "./zod-bridge.ts";
@@ -141,12 +142,34 @@ function omitPayloadFields(payload: unknown, omitFields: readonly string[] | und
   return Object.fromEntries(Object.entries(payload).filter(([key]) => !omitFields.includes(key)));
 }
 
+function mergedOmitFields(
+  configured: readonly string[] | undefined,
+  perSubmit: readonly string[] | undefined,
+): readonly string[] {
+  return [...(configured ?? []), ...(perSubmit ?? [])];
+}
+
 function isTransportFailure(result: WriteResult): boolean {
   return (
     !result.isSuccess &&
     result.error.httpStatus === 0 &&
     (result.error.code === "network_error" || result.error.code === "aborted")
   );
+}
+
+// A footer action's values go into this one submit; only a successful write takes them into the
+// form, so a failed submit does not leave them behind for the next Save.
+export function snapshotWithPayloadPatch<TValues extends FormValues>(
+  snapshot: FormSnapshot<TValues>,
+  payloadPatch: Partial<TValues>,
+): FormSnapshot<TValues> {
+  return {
+    ...snapshot,
+    values: { ...snapshot.values, ...payloadPatch },
+    changes: { ...snapshot.changes, ...payloadPatch },
+    isDirty: true,
+    isUnchanged: false,
+  };
 }
 
 export function createFormController<TValues extends FormValues, TCtx = unknown>(
@@ -385,7 +408,9 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
       ctx = nextCtx as TCtx;
       invalidate();
     },
-    async submit<TData = unknown>(): Promise<SubmitResult<TData>> {
+    async submit<TData = unknown>(
+      overrides?: SubmitOverrides<TValues>,
+    ): Promise<SubmitResult<TData>> {
       const submitCfg = options.submit;
       if (!submitCfg) {
         throw new Error(
@@ -413,7 +438,13 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
       // the user would see it as "saved" despite the server never seeing
       // it. Same snapshot is fed to buildPayload — a custom transformer
       // (nested-write case) sees exactly what submit() sees.
-      const submittedSnapshot = snapshotStore.getSnapshot();
+      const payloadPatch = overrides?.payloadPatch;
+      const omitFields = mergedOmitFields(submitCfg.omitFields, overrides?.omitFields);
+      const formSnapshot = snapshotStore.getSnapshot();
+      const submittedSnapshot =
+        payloadPatch === undefined
+          ? formSnapshot
+          : snapshotWithPayloadPatch(formSnapshot, payloadPatch);
       const submittedValues = submittedSnapshot.values;
 
       // buildPayload wins over payloadMode when both are set.
@@ -427,7 +458,7 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
                 submittedSnapshot.initial,
                 forceIncludeEmpty,
               ),
-          submitCfg.omitFields,
+          omitFields,
         );
         payload = submitCfg.buildPayload(submittedSnapshot, shapedValues);
       } else if (payloadMode === "changes") {
@@ -453,7 +484,7 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
       // A prefix means the builder nested the values under a key, so a
       // top-level omit would hit wrapper keys instead of form fields.
       if (submitCfg.serverFieldPathPrefix === undefined) {
-        payload = omitPayloadFields(payload, submitCfg.omitFields);
+        payload = omitPayloadFields(payload, omitFields);
       }
 
       // Only enforced here, right before the write actually happens — a
@@ -496,7 +527,9 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
             }
           }
           // Rebase to the SNAPSHOT, not to the current values — see
-          // runRebaseToSnapshot comment for why.
+          // runRebaseToSnapshot comment for why. The saved patch joins the form, or a later
+          // "values" Save would send the old value and undo the footer action.
+          if (payloadPatch !== undefined) values = { ...values, ...payloadPatch };
           runRebaseToSnapshot(submittedValues);
           return { validationBlocked: false, isSuccess: true, isNoOp: false, data: result.data };
         }

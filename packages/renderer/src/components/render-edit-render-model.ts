@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { EditSectionViewModel, FormValues } from "../headless/index.ts";
 import type { FooterFlags, LayoutFlags } from "./render-edit-layout-flags.ts";
+import type { RenderEditSubmitOptions } from "./render-edit-submit.ts";
 import type { TitleModel } from "./render-edit-titles.ts";
 import type { RenderEditProps } from "./render-edit-types.ts";
 import type { WizardNavigation } from "./render-edit-wizard-navigation.ts";
@@ -87,7 +88,7 @@ export type RenderEditEngine<TValues extends FormValues, TCtx = unknown> = Rende
   TValues,
   TCtx
 > & {
-  readonly handleSubmit: (options?: { readonly saveNow?: boolean }) => Promise<void>;
+  readonly handleSubmit: (options?: RenderEditSubmitOptions<TValues>) => Promise<void>;
 };
 
 export type RenderEditModel<TValues extends FormValues, TCtx = unknown> = {
