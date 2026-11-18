@@ -18,6 +18,7 @@ import { isRealProviderRun } from "../helpers/real-providers.ts";
 import { SERVICE_ENV_DEFAULTS } from "../preload/service-env-defaults-values";
 import {
   DESKTOP_VIEWPORT,
+  E2E_MEILI_INDEX_PREFIX,
   E2E_MEILI_RUN_PREFIX_ENV,
   E2E_REMOTE_BASE_URL_ENV,
   E2E_STORAGE_STATE_ENV,
@@ -236,7 +237,7 @@ function seedTokenForRun(): string {
 // The run's database is thrown away, a shared Meilisearch is not: a prefix per run lets the
 // teardown drop exactly this run's indexes. Dedicated env, so a prefix set in the shell is never dropped.
 function meiliIndexPrefixForRun(): string {
-  process.env[E2E_MEILI_RUN_PREFIX_ENV] ??= `e2e_${randomUUID()}_`;
+  process.env[E2E_MEILI_RUN_PREFIX_ENV] ??= `${E2E_MEILI_INDEX_PREFIX}${randomUUID()}_`;
   return process.env[E2E_MEILI_RUN_PREFIX_ENV];
 }
 
