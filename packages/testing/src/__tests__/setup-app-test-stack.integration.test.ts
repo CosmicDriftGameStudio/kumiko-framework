@@ -75,6 +75,23 @@ describe("setupAppTestStack", () => {
     }
   });
 
+  test("registryTables: false boots with featureToggles and a tier-engine mounted", async () => {
+    const tierFeature = createTierEngineFeature({
+      tierMap: { free: { features: [], caps: {} } },
+      defaultTier: "free",
+    });
+    const stack = await setupAppTestStack([tierFeature], {
+      registryTables: false,
+      featureToggles: true,
+    });
+    try {
+      expect(stack.registry.getFeature("feature-toggles")).toBeDefined();
+      expect(await tableExists(stack.db, "public.read_tier_assignments")).toBe(false);
+    } finally {
+      await stack.cleanup();
+    }
+  });
+
   test("includeBundled: false mounts only the given features", async () => {
     const stack = await setupAppTestStack([noteFeature], { includeBundled: false });
     try {

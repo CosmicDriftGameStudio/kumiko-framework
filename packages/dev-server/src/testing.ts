@@ -45,7 +45,8 @@ export type SetupAppTestStackOptions = SetupTestStackFromFeaturesOptions & {
 
 // A feature with a tenantTierResolver (tier-engine with a tierMap) gates handlers per tenant like
 // runDevApp does; an explicit effectiveFeatures replaces it. With registryTables: false the tier
-// gate is skipped: its boot preload reads read_tier_assignments, which stays unpushed by contract.
+// gate and the operator toggles are skipped: their boot preloads read read_tier_assignments and the
+// toggle table, which stay unpushed by contract.
 export async function setupAppTestStack(
   features: readonly FeatureDefinition[],
   options: SetupAppTestStackOptions = {},
@@ -70,8 +71,8 @@ export async function setupAppTestStack(
     stackOptions.effectiveFeatures === undefined
       ? createLateBoundEffectiveFeatures(
           lateBindings,
-          toggles !== undefined ||
-            (registryTables && findTierResolverUsage(stackFeatures) !== undefined),
+          registryTables &&
+            (toggles !== undefined || findTierResolverUsage(stackFeatures) !== undefined),
         )
       : undefined;
   const stack = await setupTestStackFromFeatures(stackFeatures, {
