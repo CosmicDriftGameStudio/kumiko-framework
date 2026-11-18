@@ -145,7 +145,7 @@ function contactHref(field: EditFieldViewModel): string | undefined {
   return undefined;
 }
 
-function displayTextOf(
+export function displayTextOf(
   field: EditFieldViewModel,
   appLocale: string,
   t: ControlContext["t"],

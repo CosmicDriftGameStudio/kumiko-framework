@@ -184,6 +184,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.form.fieldApproval.submitted": "Submitted for approval",
     "kumiko.form.fieldApproval.submit": "Submit for approval",
     "kumiko.form.fieldApproval.pending": "Awaiting approval",
+    "kumiko.form.fieldApproval.pendingValue": "Requested: {value} · awaiting approval",
     "kumiko.pager.pageSize": "{size} per page",
     "kumiko.pager.pageOf": "Page {page} of {total}",
     "kumiko.time.justNow": "just now",

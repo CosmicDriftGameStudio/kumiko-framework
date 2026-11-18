@@ -925,6 +925,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "kumiko.form.fieldApproval.submitted": "Zur Freigabe eingereicht",
   "kumiko.form.fieldApproval.submit": "Zur Freigabe einreichen",
   "kumiko.form.fieldApproval.pending": "Wartet auf Freigabe",
+  "kumiko.form.fieldApproval.pendingValue": "Beantragt: {value} · wartet auf Freigabe",
   "kumiko.form.changed": "geändert",
   "kumiko.form.discard": "Verwerfen",
   "kumiko.form.draft.resume-multiple":

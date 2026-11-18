@@ -919,6 +919,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "kumiko.form.fieldApproval.submitted": "Enviado a aprobación",
   "kumiko.form.fieldApproval.submit": "Enviar a aprobación",
   "kumiko.form.fieldApproval.pending": "Pendiente de aprobación",
+  "kumiko.form.fieldApproval.pendingValue": "Solicitado: {value} · pendiente de aprobación",
   "kumiko.form.changed": "modificado",
   "kumiko.form.discard": "Descartar",
   "kumiko.form.draft.resume-multiple":

@@ -86,11 +86,21 @@ export type FieldApprovalFeatureOptions = {
   readonly roles?: readonly string[];
   /** Host entities whose fields may declare access.approve. Required and non-empty. */
   readonly parents: readonly string[];
-  /** Roles that see the approval list and its nav entry, usually the union of the host fields'
-   *  access.approve roles. Default: the feature access. */
+  /** Roles that see the approval list and its nav entry in addition to the feature access,
+   *  usually the union of the host fields' access.approve roles. Default: the feature access. */
   readonly approverRoles?: readonly string[];
   readonly nav?: FieldApprovalNavOptions;
 };
+
+// A requester withdraws their request from the list, so the list stays open to every role
+// that may file one; pending-changes still returns only rows the caller may decide or filed.
+function approvalListAccess(
+  access: AccessRule,
+  approverRoles: readonly string[] | undefined,
+): AccessRule {
+  if (approverRoles === undefined || !("roles" in access)) return access;
+  return { ...access, roles: [...new Set([...approverRoles, ...access.roles])] };
+}
 
 export function createFieldApprovalFeature(opts: FieldApprovalFeatureOptions): FeatureDefinition {
   if (opts.parents.length === 0) {
@@ -101,7 +111,7 @@ export function createFieldApprovalFeature(opts: FieldApprovalFeatureOptions): F
     });
   }
   const access = resolveFeatureAccess(opts, DEFAULT_FIELD_APPROVAL_ACCESS);
-  const listAccess = opts.approverRoles === undefined ? access : { roles: opts.approverRoles };
+  const listAccess = approvalListAccess(access, opts.approverRoles);
   return defineFeature(FIELD_APPROVAL_FEATURE_NAME, (r) =>
     registerFieldApproval(r, access, listAccess, opts.parents, opts.nav ?? {}),
   );

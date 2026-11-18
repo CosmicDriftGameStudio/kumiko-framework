@@ -14,7 +14,12 @@ import { usePageHeaderCompact, usePageHeaderSlotAvailable } from "../page-header
 import { usePrimitives } from "../primitives.tsx";
 import { useFormPendingUploadsHost } from "./form-pending-uploads.tsx";
 import type { FormErrorSource } from "./render-edit-helpers.tsx";
-import { FIELD_APPROVAL_FEATURE, FIELD_APPROVAL_PENDING_CHANGES } from "./render-edit-logic.ts";
+import {
+  FIELD_APPROVAL_FEATURE,
+  FIELD_APPROVAL_PENDING_CHANGES,
+  mergePendingApprovalRequests,
+  type PendingApprovalRequest,
+} from "./render-edit-logic.ts";
 import { useActionMenuItems } from "./use-action-menu-items.tsx";
 import { useWizardFormDraftState } from "./use-wizard-form-draft.ts";
 
@@ -37,7 +42,9 @@ function useSubmitFeedbackState() {
   // flex justify-end action bar.
   const [actionError, setActionError] = useState<ErrorNotice | null>(null);
   // Fields filed for approval keep their old value and show they are waiting.
-  const [pendingApprovalFields, setPendingApprovalFields] = useState<readonly string[]>([]);
+  const [pendingApprovalRequests, setPendingApprovalRequests] = useState<
+    readonly PendingApprovalRequest[]
+  >([]);
   return {
     confirmDeleteOpen,
     setConfirmDeleteOpen,
@@ -55,8 +62,8 @@ function useSubmitFeedbackState() {
     setExtraDeleteIssues,
     actionError,
     setActionError,
-    pendingApprovalFields,
-    setPendingApprovalFields,
+    pendingApprovalRequests,
+    setPendingApprovalRequests,
   };
 }
 
@@ -119,17 +126,19 @@ function useExtensionComposition() {
   };
 }
 
-type OpenApprovalRequests = { readonly rows?: readonly { readonly fieldName?: unknown }[] };
+type OpenApprovalRequests = {
+  readonly rows?: readonly { readonly fieldName?: unknown; readonly value?: unknown }[];
+};
 
 // The open requests live on the server, so the hint survives a reload and also shows a request
 // someone filed elsewhere. The query only returns requests the caller filed or may decide.
-function useOpenApprovalFields(
+function useOpenApprovalRequests(
   dispatcher: Dispatcher | undefined,
   entityType: string,
   entityId: string | null | undefined,
   enabled: boolean,
-): readonly string[] {
-  const [fields, setFields] = useState<readonly string[]>([]);
+): readonly PendingApprovalRequest[] {
+  const [requests, setRequests] = useState<readonly PendingApprovalRequest[]>([]);
   useEffect(() => {
     // skip: no field-approval, no saved record or no server to ask
     if (!enabled || dispatcher === undefined || typeof entityId !== "string") return;
@@ -142,9 +151,15 @@ function useOpenApprovalFields(
         );
         // skip: superseded, or the caller may not ask; the form works without the hint
         if (cancelled || !result.isSuccess) return;
-        setFields(
+        setRequests(
           (result.data.rows ?? []).flatMap((row) =>
-            typeof row.fieldName === "string" ? [row.fieldName] : [],
+            typeof row.fieldName === "string"
+              ? [
+                  row.value === undefined
+                    ? { fieldName: row.fieldName }
+                    : { fieldName: row.fieldName, requestedValue: row.value },
+                ]
+              : [],
           ),
         );
       } catch (err: unknown) {
@@ -155,7 +170,7 @@ function useOpenApprovalFields(
       cancelled = true;
     };
   }, [dispatcher, entityType, entityId, enabled]);
-  return fields;
+  return requests;
 }
 
 export function isCreateModeEntityId(entityId: string | null | undefined): boolean {
@@ -195,7 +210,7 @@ export function useRenderEditState({
   const isCreateMode = isCreateModeEntityId(entityId);
   const draftStorage = useDraftStorage();
   const feedback = useSubmitFeedbackState();
-  const openApprovalFields = useOpenApprovalFields(
+  const openApprovalRequests = useOpenApprovalRequests(
     dispatcher,
     screen.entity,
     entityId,
@@ -231,7 +246,10 @@ export function useRenderEditState({
     isCreateMode,
     draftStorage,
     ...feedback,
-    pendingApprovalFields: [...new Set([...feedback.pendingApprovalFields, ...openApprovalFields])],
+    pendingApprovalRequests: mergePendingApprovalRequests(
+      feedback.pendingApprovalRequests,
+      openApprovalRequests,
+    ),
     ...stepState,
     draftState,
     ...extensions,

@@ -107,6 +107,17 @@ describe("embedded sub-types — every allowed sub-type is checked on write", ()
     expect(schema?.safeParse({ tier: "gold" }).success).toBe(true);
     expect(schema?.safeParse({ tier: "platinum" }).success).toBe(false);
   });
+
+  test("a key outside the declared sub-fields is refused, in a single row and in a list row", () => {
+    expect(schema?.safeParse({ tier: "gold", blob: { nested: "x" } }).success).toBe(false);
+    const listSchema = buildCustomFieldValueSchema({
+      type: "embedded",
+      multiple: true,
+      schema: { city: { type: "text" } },
+    });
+    expect(listSchema?.safeParse([{ city: "Bonn" }]).success).toBe(true);
+    expect(listSchema?.safeParse([{ city: "Bonn", blob: [1, 2, 3] }]).success).toBe(false);
+  });
 });
 
 describe("define payload — an embedded sub-type without a write check is refused", () => {
@@ -146,12 +157,18 @@ describe("define payload — an embedded sub-type without a write check is refus
     );
   });
 
-  test("an update with an unchecked sub-type is refused too", () => {
+  test("refuses an empty sub-field schema, which would check nothing", () => {
+    expect(defineWith({ type: "embedded", schema: {} }).success).toBe(false);
+  });
+
+  // The update payload may omit type, and a stored definition may hold a sub-type refused
+  // today; only update-tenant-field knows both, so the refusal is tested over HTTP there.
+  test("the update payload leaves the sub-type check to the handler", () => {
     const result = updateFieldPayloadSchema.safeParse({
       entityName: "property",
       fieldKey: "extra",
       serializedField: { schema: { blob: { type: "json" } } },
     });
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 });

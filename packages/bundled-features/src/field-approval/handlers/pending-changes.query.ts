@@ -5,6 +5,7 @@ import {
   type FieldDefinition,
   type HandlerContext,
   listAllPages,
+  maskWriteOnlyFields,
   normalizeAccessEntry,
   registeredEntityExecutor,
   type SessionUser,
@@ -68,17 +69,28 @@ function hostFeatureOf(ctx: PendingChangesContext, entityType: string): string {
   return entityType;
 }
 
+// The handler is unfilteredResult, so the writeOnly mask of the entity read path never runs
+// on these values; a writeOnly field leaves as set/empty marker, never as plaintext.
+function maskedFieldValue(
+  hostEntity: EntityDefinition,
+  fieldName: string,
+  value: unknown,
+): unknown {
+  return maskWriteOnlyFields(hostEntity, { [fieldName]: value })[fieldName];
+}
+
 // A field the caller may not read shows no value, so the list never leaks it.
 function readableValue(
   user: SessionUser,
-  field: FieldDefinition | undefined,
+  hostEntity: EntityDefinition,
   hostRow: Record<string, unknown>,
   fieldName: string,
 ): unknown {
+  const field = hostEntity.fields[fieldName];
   if (field === undefined) return undefined;
   const readMap = normalizeAccessEntry(field.access?.read);
   if (readMap !== undefined && !userCanReadFieldRow(user, readMap, hostRow)) return undefined;
-  return hostRow[fieldName];
+  return maskedFieldValue(hostEntity, fieldName, hostRow[fieldName]);
 }
 
 function recordLabelOf(
@@ -89,13 +101,14 @@ function recordLabelOf(
 ): unknown {
   const labelField = ctx.registry.getSearchableFields(hostEntity.name)[0];
   if (labelField === undefined) return undefined;
-  return readableValue(user, hostEntity.fields[labelField], hostRow, labelField);
+  return readableValue(user, hostEntity, hostRow, labelField);
 }
 
 // An approver who may not read the field does not see the request; a requester who may not
 // read it sees that it is open, never the value.
 async function visibleRequestedValue(
   row: PendingRequestRow,
+  hostEntity: EntityDefinition,
   field: FieldDefinition,
   user: SessionUser,
   hostRow: Record<string, unknown>,
@@ -105,8 +118,9 @@ async function visibleRequestedValue(
   if (readMap !== undefined && !userCanReadFieldRow(user, readMap, hostRow)) {
     return filedByCaller ? { value: undefined } : undefined;
   }
-  const opened = await openRequestedValue(row["requestedValue"], String(row["fieldName"]));
-  return opened.ok ? { value: opened.value } : undefined;
+  const fieldName = String(row["fieldName"]);
+  const opened = await openRequestedValue(row["requestedValue"], fieldName);
+  return opened.ok ? { value: maskedFieldValue(hostEntity, fieldName, opened.value) } : undefined;
 }
 
 async function toPendingChangeSummary(
@@ -131,7 +145,14 @@ async function toPendingChangeSummary(
     ctx.db,
   );
   if (!hostRow) return undefined;
-  const requested = await visibleRequestedValue(row, field, user, hostRow, filedByCaller);
+  const requested = await visibleRequestedValue(
+    row,
+    hostEntity,
+    field,
+    user,
+    hostRow,
+    filedByCaller,
+  );
   if (requested === undefined) return undefined;
   return {
     id: String(row["id"]),
@@ -141,7 +162,7 @@ async function toPendingChangeSummary(
     recordLabel: recordLabelOf(ctx, user, hostEntity, hostRow) ?? entityId,
     fieldName,
     fieldLabel: fieldLabelKey(hostFeatureOf(ctx, entityType), entityType, fieldName),
-    currentValue: readableValue(user, field, hostRow, fieldName),
+    currentValue: readableValue(user, hostEntity, hostRow, fieldName),
     value: requested.value,
     requestedBy: requesterIdOf(row),
     requestedAt: row["modifiedAt"] ?? row["insertedAt"],

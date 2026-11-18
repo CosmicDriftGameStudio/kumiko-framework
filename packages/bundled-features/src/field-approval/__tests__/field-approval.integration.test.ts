@@ -56,6 +56,12 @@ const contactEntity = createEntity({
         read: ["PropertyManager"],
       },
     }),
+    accessPin: createTextField({
+      personal: "tenant",
+      find: "secret",
+      writeOnly: true,
+      access: { approve: ["Accountant"], write: ["PropertyManager", "Accountant"] },
+    }),
   },
 });
 
@@ -86,8 +92,10 @@ type PendingRows = {
     id: string;
     version: number;
     fieldName: string;
+    currentValue?: unknown;
     value: unknown;
     canApprove: boolean;
+    filedByCaller?: boolean;
     requestedAt?: unknown;
     requestedByName?: unknown;
   }>;
@@ -378,6 +386,44 @@ describe("field-approval list", () => {
       filedByCaller: false,
     });
     expect(typeof row?.requestedAt).toBe("string");
+  });
+
+  test("a writeOnly field shows neither its current nor its requested value in plaintext", async () => {
+    const oldPin = "pin-old-4711";
+    const newPin = "pin-new-0815";
+    const created = await stack.http.writeOk<{ id: string }>(
+      CREATE,
+      { name: "Owner", accessPin: oldPin },
+      accA,
+    );
+    await stack.http.writeOk(
+      FieldApprovalHandlers.requestChange,
+      { entityType: "contact", entityId: created.id, fieldName: "accessPin", value: newPin },
+      pm,
+    );
+
+    for (const user of [accA, pm]) {
+      const row = (await pendingFor(user, created.id)).find((r) => r.fieldName === "accessPin");
+      expect(row).toMatchObject({ currentValue: true, value: true });
+      expect(JSON.stringify(row)).not.toContain(oldPin);
+      expect(JSON.stringify(row)).not.toContain(newPin);
+    }
+  });
+
+  test("a requester sees only their own requests, an approver all, a third role none", async () => {
+    const pmContact = await seedContact();
+    const pm2Contact = await seedContact();
+    const pmRequest = await fileRequest(pmContact, NEW_IBAN, pm);
+    const pm2Request = await fileRequest(pm2Contact, SECOND_IBAN, pm2);
+
+    const idsFor = async (user: typeof pm) =>
+      [...(await pendingFor(user, pmContact)), ...(await pendingFor(user, pm2Contact))].map(
+        (row) => row.id,
+      );
+    expect(await idsFor(pm)).toEqual([pmRequest.id]);
+    expect(await idsFor(pm2)).toEqual([pm2Request.id]);
+    expect((await idsFor(accA)).sort()).toEqual([pmRequest.id, pm2Request.id].sort());
+    expect(await idsFor(viewer)).toEqual([]);
   });
 
   test("an approver who is no admin sees the requester's display name, never the email", async () => {

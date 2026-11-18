@@ -624,6 +624,52 @@ describe("NavTree collapse state survives remount and navigation", () => {
   });
 });
 
+describe("NavTree scrolls the active entry into view", () => {
+  let scrolled: { readonly label: string | null; readonly options: unknown }[] = [];
+  const originalScrollIntoView = Element.prototype.scrollIntoView;
+  beforeEach(() => {
+    scrolled = [];
+    Element.prototype.scrollIntoView = function (this: Element, options?: unknown) {
+      scrolled.push({
+        label: this.querySelector("span[title]")?.getAttribute("title") ?? null,
+        options,
+      });
+    };
+  });
+  afterEach(() => {
+    Element.prototype.scrollIntoView = originalScrollIntoView;
+  });
+
+  test("on mount, also when the entry sits in a container the user collapsed", () => {
+    const first = render(<NavTree schema={twoContainerSchema()} />);
+    fireEvent.click(collapseButton("BList"));
+    first.unmount();
+
+    render(
+      <NavProvider value={navWithRoute("b-child")}>
+        <NavTree schema={twoContainerSchema()} />
+      </NavProvider>,
+    );
+    expect(scrolled).toEqual([{ label: "BChild", options: { block: "nearest" } }]);
+  });
+
+  test("on a route change, and not again when the user collapses another container", () => {
+    const schema = twoContainerSchema();
+    const view = render(
+      <NavProvider value={navWithRoute("a-child")}>
+        <NavTree schema={schema} />
+      </NavProvider>,
+    );
+    view.rerender(
+      <NavProvider value={navWithRoute("b-child")}>
+        <NavTree schema={schema} />
+      </NavProvider>,
+    );
+    fireEvent.click(collapseButton("AList"));
+    expect(scrolled.map((entry) => entry.label)).toEqual(["AChild", "BChild"]);
+  });
+});
+
 describe("NavTree active-marker parent fallback", () => {
   test("screen without its own nav entry highlights the resolved parent, without aria-current", () => {
     const schema: FeatureSchema = {

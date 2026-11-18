@@ -52,17 +52,28 @@ describe("field-approval list screen", () => {
     ).not.toThrow();
   });
 
-  test("screen and nav are visible only to the approver roles", () => {
+  test("screen and nav reach the approver roles and every role that may file a request", () => {
     const feature = createFieldApprovalFeature({
       parents: ["payee"],
+      roles: ["PropertyManager"],
+      approverRoles: ["Accountant"],
+    });
+    const listAccess = { roles: ["Accountant", "PropertyManager"] };
+    expect(feature.screens[FIELD_APPROVAL_LIST_SCREEN_ID]?.access).toEqual(listAccess);
+    const nav = Object.values(feature.navs)[0];
+    expect(nav?.access).toEqual(listAccess);
+    expect(nav?.adminArea).toBe("tenant");
+  });
+
+  test("an approver role that is already a feature role is listed once", () => {
+    const feature = createFieldApprovalFeature({
+      parents: ["payee"],
+      roles: ["Accountant", "PropertyManager"],
       approverRoles: ["Accountant"],
     });
     expect(feature.screens[FIELD_APPROVAL_LIST_SCREEN_ID]?.access).toEqual({
-      roles: ["Accountant"],
+      roles: ["Accountant", "PropertyManager"],
     });
-    const nav = Object.values(feature.navs)[0];
-    expect(nav?.access).toEqual({ roles: ["Accountant"] });
-    expect(nav?.adminArea).toBe("tenant");
   });
 
   test("an app moves the nav entry into its own group", () => {

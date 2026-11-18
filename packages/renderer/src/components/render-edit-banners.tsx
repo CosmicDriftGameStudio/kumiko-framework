@@ -147,13 +147,17 @@ async function submitForApproval<TValues extends FormValues, TCtx>(
     model.setFieldUntyped(fieldName, initial[fieldName]);
     form.controller.clearErrors(fieldName);
   }
-  state.setPendingApprovalFields(fields);
+  state.setPendingApprovalRequests(
+    fields.map((fieldName) => ({ fieldName, requestedValue: values[fieldName] })),
+  );
   state.setFormError(null);
   state.notifyAction?.({
     tone: "success",
     text: state.translate("kumiko.form.fieldApproval.submitted"),
   });
-  if (form.controller.getSnapshot().isDirty) await handleSubmit({ saveNow: true });
+  if (form.controller.getSnapshot().isDirty || state.extensionDirtyRef.current) {
+    await handleSubmit({ saveNow: true });
+  }
 }
 
 function renderFieldApprovalParts<TValues extends FormValues, TCtx>(

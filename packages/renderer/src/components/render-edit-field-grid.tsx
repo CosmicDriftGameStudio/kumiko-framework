@@ -1,14 +1,15 @@
 import { type ComponentType, Fragment, type ReactNode } from "react";
-import type { EditFieldViewModel, FormValues } from "../headless/index.ts";
+import type { EditFieldViewModel, FormValues, Translate } from "../headless/index.ts";
 import type { StatusBadgeProps } from "../primitives.tsx";
 import { statusToneForOptionTone } from "../status-tone.ts";
 import { fieldCellWidth, GridCellForField } from "./grid-cell-for-field.tsx";
-import { fieldApprovalFields } from "./render-edit-logic.ts";
+import { fieldApprovalFields, type PendingApprovalRequest } from "./render-edit-logic.ts";
 import type {
   FieldsSection,
   RenderEditModel,
   ResolvedRenderEditProps,
 } from "./render-edit-render-model.ts";
+import { displayTextOf } from "./render-field-control.tsx";
 
 type AppendixProps = Pick<
   ResolvedRenderEditProps<FormValues>,
@@ -58,6 +59,28 @@ export function appendixCellProps(
   };
 }
 
+// The field still holds its saved value, so the hint names the requested one; a writeOnly value
+// never shows, and a request the caller may not read carries none. A reference value is a record
+// id whose label needs a live lookup, so it is left out rather than shown raw.
+function pendingApprovalDescription(
+  field: EditFieldViewModel,
+  request: PendingApprovalRequest,
+  translate: Translate,
+  appLocale: string,
+): string {
+  const { requestedValue } = request;
+  if (
+    requestedValue === undefined ||
+    field.type === "reference" ||
+    (field.type === "text" && field.writeOnly === true)
+  ) {
+    return translate("kumiko.form.fieldApproval.pending");
+  }
+  return translate("kumiko.form.fieldApproval.pendingValue", {
+    value: displayTextOf({ ...field, value: requestedValue }, appLocale, translate),
+  });
+}
+
 // Multi-line and wide kinds (textarea, lists, files) take the whole row of a facts grid; a plain
 // read-only text would also count as full width, so the width is asked as if the field were editable.
 function spanLongValue(field: EditFieldViewModel, columns: number): EditFieldViewModel {
@@ -87,6 +110,9 @@ function createFieldCellRenderer<TValues extends FormValues, TCtx>(
   };
   return (rawField) => {
     const field = facts ? spanLongValue(rawField, columns) : rawField;
+    const pendingApproval = state.pendingApprovalRequests.find(
+      (request) => request.fieldName === field.field,
+    );
     return (
       <GridCellForField
         key={field.field}
@@ -111,8 +137,13 @@ function createFieldCellRenderer<TValues extends FormValues, TCtx>(
         GridCell={GridCell}
         featureName={props.featureName}
         {...appendixCellProps(props, field, snapshot.values, state.primitives.StatusBadge)}
-        {...(state.pendingApprovalFields.includes(field.field) && {
-          description: state.translate("kumiko.form.fieldApproval.pending"),
+        {...(pendingApproval !== undefined && {
+          description: pendingApprovalDescription(
+            field,
+            pendingApproval,
+            state.translate,
+            state.appLocale,
+          ),
         })}
         {...(approvalRequiredFields.includes(field.field) && {
           status: {

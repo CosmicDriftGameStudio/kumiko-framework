@@ -185,6 +185,18 @@ export function NavTree({
     if (path !== undefined) revealOnScreenChange(revealScreenId, path);
   }, [revealScreenId, revealOnScreenChange]);
 
+  // Runs after every commit because the reveal above only renders a collapsed path's entry in the
+  // next commit; the ref keeps a later collapse elsewhere from pulling the list back.
+  const treeElementRef = useRef<HTMLDivElement>(null);
+  const scrolledScreenIdRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (revealScreenId === undefined || scrolledScreenIdRef.current === revealScreenId) return;
+    const activeEntry = treeElementRef.current?.querySelector('[data-active="true"]');
+    if (activeEntry === null || activeEntry === undefined) return;
+    scrolledScreenIdRef.current = revealScreenId;
+    activeEntry.scrollIntoView({ block: "nearest" });
+  });
+
   const t = useTranslation();
   const plain = useShellNavStyle() === "plain";
   const { state: sidebarState } = useSidebar();
@@ -209,6 +221,7 @@ export function NavTree({
       <NavFilterContext.Provider value={navFilter}>
         <NavBadgesContext.Provider value={navBadges ?? EMPTY_BADGES}>
           <div
+            ref={treeElementRef}
             data-testid={testId}
             data-kumiko-layout="nav-tree"
             className="flex w-full flex-col gap-3"

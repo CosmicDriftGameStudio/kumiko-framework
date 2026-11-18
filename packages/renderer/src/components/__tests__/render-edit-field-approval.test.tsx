@@ -1,14 +1,19 @@
-import { describe, expect, test } from "bun:test";
+import { beforeEach, describe, expect, test } from "bun:test";
 import type {
   EntityDefinition,
   EntityEditScreenDefinition,
   FeatureSchema,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { fireEvent, render, screen as rtlScreen, waitFor } from "@testing-library/react";
-import type { ComponentType, ReactNode } from "react";
+import { type ComponentType, type ReactNode, useState } from "react";
 import { type RecordedWrite, stubDispatcher } from "../../__tests__/stub-dispatcher.ts";
 import { AppFeaturesProvider } from "../../app/app-features-context.tsx";
 import { type ActionNotice, ActionNoticeProvider } from "../../app/client-actions.tsx";
+import {
+  type ExtensionSubmitContext,
+  useExtensionFormSubmit,
+} from "../../app/extension-form-submit.tsx";
+import { ExtensionSectionsProvider } from "../../app/extension-sections.tsx";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import type { WriteResult } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
@@ -92,8 +97,13 @@ const entity: EntityDefinition = {
   fields: {
     name: { type: "text", allowPlaintext: "test fixture", maxLength: 64 },
     iban: { type: "text", allowPlaintext: "test fixture", maxLength: 34 },
+    accessPin: { type: "text", allowPlaintext: "test fixture", writeOnly: true },
+    manager: { type: "reference", entity: "user", labelField: "name" },
+    notes: { type: "longText", allowPlaintext: "test fixture" },
   },
 };
+
+const MANAGER_ID = "7f3c2a10-0000-4000-8000-000000000001";
 
 const editScreen: EntityEditScreenDefinition = {
   id: "contact-edit",
@@ -101,6 +111,60 @@ const editScreen: EntityEditScreenDefinition = {
   entity: "contact",
   layout: { sections: [{ title: "Main", fields: ["name", "iban"] }] },
 };
+
+const editScreenWithCustomFields: EntityEditScreenDefinition = {
+  ...editScreen,
+  layout: {
+    sections: [
+      { title: "Main", fields: ["name", "iban"] },
+      {
+        kind: "extension",
+        title: "Custom Fields",
+        component: { react: { __component: "ContactCustomFields" } },
+        contributesToFormSubmit: true,
+      },
+    ],
+  },
+};
+
+const editScreenWithAccessPin: EntityEditScreenDefinition = {
+  ...editScreen,
+  layout: { sections: [{ title: "Main", fields: ["name", "iban", "accessPin"] }] },
+};
+
+const editScreenWithManagerAndNotes: EntityEditScreenDefinition = {
+  ...editScreen,
+  layout: {
+    sections: [
+      {
+        title: "Main",
+        fields: ["name", "iban", "manager", { field: "notes", editor: "document" }],
+      },
+    ],
+  },
+};
+
+let customFieldSubmits: ExtensionSubmitContext[] = [];
+
+beforeEach(() => {
+  customFieldSubmits = [];
+});
+
+function ContactCustomFields(): ReactNode {
+  const [touched, setTouched] = useState(false);
+  useExtensionFormSubmit({
+    dirty: touched,
+    onSubmit: async (ctx) => {
+      customFieldSubmits.push(ctx);
+      return { isSuccess: true as const };
+    },
+  });
+  return (
+    <button type="button" data-testid="custom-fields-touch" onClick={() => setTouched(true)}>
+      touch
+    </button>
+  );
+}
 
 const fieldApprovalSchema: FeatureSchema = {
   featureName: "field-approval",
@@ -122,8 +186,10 @@ type RecordedQuery = { readonly type: string; readonly payload: unknown };
 function renderContactEdit(
   features: readonly FeatureSchema[],
   notices: ActionNotice[] = [],
-  openRequests: readonly { readonly fieldName: string }[] = [],
+  openRequests: readonly { readonly fieldName: string; readonly value?: unknown }[] = [],
   queries: RecordedQuery[] = [],
+  screen: EntityEditScreenDefinition = editScreen,
+  buildPayload?: (snapshot: { readonly changes: Readonly<Record<string, unknown>> }) => unknown,
 ): RecordedWrite[] {
   let updates = 0;
   const { dispatcher, writes } = stubDispatcher({
@@ -164,15 +230,18 @@ function renderContactEdit(
                 Text: testText,
               })}
             >
-              <RenderEdit<Values>
-                screen={editScreen}
-                entity={entity}
-                featureName="contacts"
-                entityId="c1"
-                writeCommand={UPDATE}
-                payloadMode="changes"
-                initial={{ name: "Owner", iban: OLD_IBAN }}
-              />
+              <ExtensionSectionsProvider value={{ ContactCustomFields }}>
+                <RenderEdit<Values>
+                  screen={screen}
+                  entity={entity}
+                  featureName="contacts"
+                  entityId="c1"
+                  writeCommand={UPDATE}
+                  payloadMode="changes"
+                  {...(buildPayload !== undefined && { buildPayload })}
+                  initial={{ name: "Owner", iban: OLD_IBAN }}
+                />
+              </ExtensionSectionsProvider>
             </PrimitivesProvider>
           </ActionNoticeProvider>
         </DispatcherProvider>
@@ -235,10 +304,43 @@ describe("RenderEdit — field approval required", () => {
     expect(saved).toContain("Owner GmbH");
     expect(saved).not.toContain(NEW_IBAN);
     await waitFor(() => expect(input("iban").value).toBe(OLD_IBAN));
-    const hint = rtlScreen.getByText("Awaiting approval");
+    const hintText = `Requested: ${NEW_IBAN} · awaiting approval`;
+    const hint = rtlScreen.getByText(hintText);
     expect(hint.parentElement?.contains(input("iban"))).toBe(true);
-    expect(rtlScreen.getAllByText("Awaiting approval")).toHaveLength(1);
+    expect(rtlScreen.getAllByText(hintText)).toHaveLength(1);
     expect(rtlScreen.queryByText("Needs approval")).toBeNull();
+  });
+
+  test("a change only in an extension section is saved after submitting for approval", async () => {
+    const writes = renderContactEdit([fieldApprovalSchema], [], [], [], editScreenWithCustomFields);
+    fireEvent.click(rtlScreen.getByTestId("custom-fields-touch"));
+    fireEvent.change(input("iban"), { target: { value: NEW_IBAN } });
+    fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
+    await waitFor(() => rtlScreen.getByTestId("render-edit-form-error"));
+    expect(customFieldSubmits).toEqual([]);
+
+    fireEvent.click(rtlScreen.getByTestId("render-edit-field-approval-submit"));
+    await waitFor(() => expect(customFieldSubmits).toEqual([{ entityId: "c1" }]));
+    expect(writes.filter((w) => w.type === UPDATE)).toHaveLength(1);
+  });
+
+  test("with the entity-edit payload builder, an extension-only change sends no empty update", async () => {
+    const writes = renderContactEdit(
+      [fieldApprovalSchema],
+      [],
+      [],
+      [],
+      editScreenWithCustomFields,
+      (snapshot) => ({ id: "c1", version: 1, changes: snapshot.changes }),
+    );
+    fireEvent.click(rtlScreen.getByTestId("custom-fields-touch"));
+    fireEvent.change(input("iban"), { target: { value: NEW_IBAN } });
+    fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
+    await waitFor(() => rtlScreen.getByTestId("render-edit-form-error"));
+
+    fireEvent.click(rtlScreen.getByTestId("render-edit-field-approval-submit"));
+    await waitFor(() => expect(customFieldSubmits).toEqual([{ entityId: "c1" }]));
+    expect(writes.filter((w) => w.type === UPDATE)).toHaveLength(1);
   });
 
   test("submitting for approval confirms through the action notifier", async () => {
@@ -276,6 +378,56 @@ describe("RenderEdit — open approval request", () => {
       type: PENDING_CHANGES,
       payload: { entityType: "contact", entityId: "c1" },
     });
+  });
+
+  test("a reopened form names the requested value while the field keeps the saved one", async () => {
+    renderContactEdit([fieldApprovalSchema], [], [{ fieldName: "iban", value: NEW_IBAN }]);
+
+    const hint = await rtlScreen.findByText(`Requested: ${NEW_IBAN} · awaiting approval`);
+    expect(rtlScreen.getByTestId("field-kumiko-edit-iban").contains(hint)).toBe(true);
+    expect(input("iban").value).toBe(OLD_IBAN);
+    expect(rtlScreen.queryByText("Awaiting approval")).toBeNull();
+  });
+
+  test("a writeOnly field shows only that a request is open, never a value", async () => {
+    renderContactEdit(
+      [fieldApprovalSchema],
+      [],
+      [{ fieldName: "accessPin", value: true }],
+      [],
+      editScreenWithAccessPin,
+    );
+
+    const hint = await rtlScreen.findByText("Awaiting approval");
+    expect(rtlScreen.getByTestId("field-kumiko-edit-accessPin").contains(hint)).toBe(true);
+    expect(rtlScreen.queryByText(/Requested:/)).toBeNull();
+  });
+
+  test("a reference field never shows the raw record id as the requested value", async () => {
+    renderContactEdit(
+      [fieldApprovalSchema],
+      [],
+      [{ fieldName: "manager", value: MANAGER_ID }],
+      [],
+      editScreenWithManagerAndNotes,
+    );
+
+    const hint = await rtlScreen.findByText("Awaiting approval");
+    expect(rtlScreen.getByTestId("field-kumiko-edit-manager").contains(hint)).toBe(true);
+    expect(rtlScreen.queryByText(new RegExp(MANAGER_ID))).toBeNull();
+  });
+
+  test("a document field names the requested value as plain text, not HTML", async () => {
+    renderContactEdit(
+      [fieldApprovalSchema],
+      [],
+      [{ fieldName: "notes", value: "<p>New <strong>text</strong></p>" }],
+      [],
+      editScreenWithManagerAndNotes,
+    );
+
+    const hint = await rtlScreen.findByText("Requested: New text · awaiting approval");
+    expect(rtlScreen.getByTestId("field-kumiko-edit-notes").contains(hint)).toBe(true);
   });
 
   test("without the field-approval feature the form asks for no open requests", async () => {

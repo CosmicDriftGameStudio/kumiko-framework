@@ -208,3 +208,19 @@ export function isFieldApprovalRequired(error: DispatcherError | null): boolean 
 export function fieldApprovalFields(error: DispatcherError | null): readonly string[] {
   return isFieldApprovalRequired(error) ? (error?.details?.fields ?? []).map((i) => i.path) : [];
 }
+
+// requestedValue is absent when the caller may not read the field; the form then only says
+// that a request is open.
+export type PendingApprovalRequest = {
+  readonly fieldName: string;
+  readonly requestedValue?: unknown;
+};
+
+// A request filed in this form replaces the server's view of the same field.
+export function mergePendingApprovalRequests(
+  filedHere: readonly PendingApprovalRequest[],
+  open: readonly PendingApprovalRequest[],
+): readonly PendingApprovalRequest[] {
+  const filedFields = new Set(filedHere.map((request) => request.fieldName));
+  return [...filedHere, ...open.filter((request) => !filedFields.has(request.fieldName))];
+}

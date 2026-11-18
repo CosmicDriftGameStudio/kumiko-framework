@@ -63,32 +63,33 @@ function isCheckedEmbeddedSubField(sub: unknown, definitionCurrency: unknown): b
 }
 
 // Each sub-field must be one set-custom-field can check, otherwise its values would be stored unchecked.
-const rejectUncheckedEmbeddedSubFields = [
-  (v: Record<string, unknown>) => {
-    if (v["type"] !== undefined && v["type"] !== "embedded") return true;
-    const schema = v["schema"];
-    if (schema === undefined && v["type"] === undefined) return true;
-    return (
-      isPlainObject(schema) &&
-      Object.values(schema).every((sub) => isCheckedEmbeddedSubField(sub, v["currency"]))
-    );
-  },
-  `embedded sub-fields must be one of ${SUPPORTED_EMBEDDED_SUB_TYPES.join(", ")}; enum needs values, money needs the definition's currency`,
-] as const;
+export function hasCheckedEmbeddedSubFields(serializedField: Record<string, unknown>): boolean {
+  if (serializedField["type"] !== "embedded") return true;
+  const schema = serializedField["schema"];
+  return (
+    isPlainObject(schema) &&
+    Object.keys(schema).length > 0 &&
+    Object.values(schema).every((sub) =>
+      isCheckedEmbeddedSubField(sub, serializedField["currency"]),
+    )
+  );
+}
+
+const UNCHECKED_EMBEDDED_SUB_FIELDS_MESSAGE = `embedded needs at least one sub-field, each one of ${SUPPORTED_EMBEDDED_SUB_TYPES.join(", ")}; enum needs values, money needs the definition's currency`;
 
 const serializedFieldSchema = z
   .looseObject({ type: fieldTypeSchema, ...serializedFieldBaseShape })
   .refine((v) => typeof v["type"] === "string", "serializedField must have a string `type`")
   .refine(...rejectSensitive)
   .refine(...rejectRetention)
-  .refine(...rejectUncheckedEmbeddedSubFields);
+  .refine(hasCheckedEmbeddedSubFields, UNCHECKED_EMBEDDED_SUB_FIELDS_MESSAGE);
 
 // Update may omit `type`: it is immutable, so the handler takes it from the stored definition.
+// The embedded sub-field check needs that type and the stored sub-fields, so it runs there.
 const updateSerializedFieldSchema = z
   .looseObject({ type: fieldTypeSchema.optional(), ...serializedFieldBaseShape })
   .refine(...rejectSensitive)
-  .refine(...rejectRetention)
-  .refine(...rejectUncheckedEmbeddedSubFields);
+  .refine(...rejectRetention);
 
 // i18n labels — `{ de: "...", en: "...", ... }`. At least one entry.
 const labelSchema = z.record(z.string().min(2).max(8), z.string().min(1));

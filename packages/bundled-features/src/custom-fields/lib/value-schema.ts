@@ -4,7 +4,7 @@ import {
   fieldToZod,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
-import type * as z from "zod";
+import * as z from "zod";
 import { SUPPORTED_EMBEDDED_SUB_TYPES, SUPPORTED_FIELD_TYPES } from "../web/constants.ts";
 
 // Builds a Zod schema that validates a custom-field VALUE against its
@@ -81,5 +81,30 @@ export function buildCustomFieldValueSchema(parsedField: unknown): z.ZodTypeAny 
   // @cast-boundary serialized-field is the dehydrated r.field.X() output =
   // a FieldDefinition; fieldToZod reads only its type-specific keys (the
   // extra fieldAccess/label keys are ignored).
-  return fieldToZod(fieldDef as unknown as FieldDefinition, currencies);
+  const valueSchema = fieldToZod(fieldDef as unknown as FieldDefinition, currencies);
+  return strippedSubSchema === undefined
+    ? valueSchema
+    : refusingUndeclaredSubFields(valueSchema, new Set(Object.keys(strippedSubSchema)));
+}
+
+// fieldToZod's embedded row only strips undeclared keys from its parse output, while
+// set-custom-field stores the value as sent, so such a key would land in the event unchecked.
+function refusingUndeclaredSubFields(
+  valueSchema: z.ZodTypeAny,
+  subFieldKeys: ReadonlySet<string>,
+): z.ZodTypeAny {
+  return z
+    .unknown()
+    .superRefine((value, ctx) => {
+      const rows = Array.isArray(value) ? value : [value];
+      for (const row of rows) {
+        if (!isPlainObject(row)) continue;
+        for (const key of Object.keys(row)) {
+          if (!subFieldKeys.has(key)) {
+            ctx.addIssue({ code: "custom", message: `undeclared embedded sub-field "${key}"` });
+          }
+        }
+      }
+    })
+    .pipe(valueSchema);
 }

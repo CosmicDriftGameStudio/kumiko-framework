@@ -9,14 +9,14 @@ import { createSubmitResultHandlers } from "./render-edit-submit-result.ts";
 
 type SubmitOptions = { readonly saveNow?: boolean };
 
-// Rebuilt every render on purpose: the closures read this render's snapshot
-// and extension state, while handleSubmitRef publishes the current one.
+// Rebuilt every render on purpose: the closures read this render's props and
+// step state, while handleSubmitRef publishes the current one.
 export function createHandleSubmit<TValues extends FormValues, TCtx>(
   engine: RenderEditEngineBase<TValues, TCtx>,
 ): (options?: SubmitOptions) => Promise<void> {
   const { props, state, form, draft, steps, draftActions, nav } = engine;
   const { handleSubmitSuccess, applySubmitFailure } = createSubmitResultHandlers(engine);
-  const { controller, snapshot } = form;
+  const { controller } = form;
   const { customSubmit } = props;
   const { submittedRef, isSubmittingRef } = draft.refs;
 
@@ -111,8 +111,9 @@ export function createHandleSubmit<TValues extends FormValues, TCtx>(
     try {
       // Extension-only: only a section is dirty and the main form is unchanged.
       // Skip the entity write (it would send an empty changes payload) and only
-      // run the section handlers.
-      if (snapshot.isUnchanged && state.extensionDirty) {
+      // run the section handlers. Read live state: a caller in the same tick (submit for
+      // approval) may have just reset the main form after this render's snapshot.
+      if (controller.getSnapshot().isUnchanged && state.extensionDirtyRef.current) {
         await submitExtensionsOnly();
         // skip: extension-only save needs no entity write
         return;
