@@ -41,3 +41,12 @@ export async function storedBytes(db: Db): Promise<number> {
   );
   return (total?.value ?? 0) - (removed?.value ?? 0);
 }
+
+// Bytes still in the file store, files in deleting folders included. The quota takes this one, not
+// `storedBytes`: if the deletion job hangs, upload-delete-upload must still hit the limit, since the bytes stay until the sweep ran.
+export async function physicalStoredBytes(db: Db): Promise<number> {
+  const [total] = await db.aggregate(inboundItemTable, {
+    measure: { fn: "sum", field: "sizeBytes" },
+  });
+  return total?.value ?? 0;
+}

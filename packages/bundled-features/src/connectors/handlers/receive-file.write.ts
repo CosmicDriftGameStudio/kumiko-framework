@@ -19,7 +19,7 @@ import { CONNECTOR_STATUS, ConnectorErrors, MAX_ID_GENERATIONS } from "../consta
 import { ensureFolderChain } from "../folder-chain.ts";
 import { connectorExecutor } from "../schema/connector.ts";
 import { inboundItemExecutor } from "../schema/inbound-item.ts";
-import { deletingFolderIds, storedBytes } from "../stored-bytes.ts";
+import { deletingFolderIds, physicalStoredBytes } from "../stored-bytes.ts";
 
 export const ReceiveFileSchema = z.object({
   connectorId: z.uuid(),
@@ -82,7 +82,7 @@ export function createReceiveFileWrite(maxStoredBytes: number) {
       const { payload } = event;
       if (await itemExists(payload, event.user, ctx.db)) return { isSuccess: true, data: null };
       // ponytail: sum then store without a lock, so parallel uploads can overshoot the quota by their combined size; the per-file cap and the upload rate limit bound that
-      if ((await storedBytes(ctx.db)) + payload.data.byteLength > maxStoredBytes) {
+      if ((await physicalStoredBytes(ctx.db)) + payload.data.byteLength > maxStoredBytes) {
         return unprocessable(
           ConnectorErrors.storageQuotaExceeded,
           "errors.connectors.storageQuotaExceeded",

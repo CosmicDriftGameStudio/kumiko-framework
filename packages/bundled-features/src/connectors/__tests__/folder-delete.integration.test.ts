@@ -163,3 +163,38 @@ describe("delivering again after a deletion", () => {
     ]);
   });
 });
+
+describe("quota while the deletion job has not run", () => {
+  test("deleted bytes still count against the quota until the sweep removed them", async () => {
+    const quotaStack = await setupConnectorsStack(
+      { maxStoredBytesPerTenant: 30 },
+      undefined,
+      createInMemoryFileProvider(),
+    );
+    try {
+      const paired = await pairDevice(quotaStack);
+      const send = (path: string) => upload(quotaStack, paired.token, { path, bytes: bytesOf(20) });
+      expect((await send("Full/a.pdf")).status).toBe(201);
+      const folder = (
+        await quotaStack.http.queryOk<TreeAnswer>(
+          ConnectorQueries.inboundFolder,
+          { connectorId: paired.connectorId },
+          tenantAdmin,
+        )
+      ).rows.find((row) => row.name === "Full");
+      await quotaStack.http.writeOk(
+        ConnectorHandlers.deleteFolder,
+        { id: folder?.id },
+        tenantAdmin,
+      );
+
+      const blocked = await send("Other/b.pdf");
+      expect(blocked.status).toBe(507);
+
+      await runDeletionJobs(quotaStack);
+      expect((await send("Other/b.pdf")).status).toBe(201);
+    } finally {
+      await teardownConnectorsStack(quotaStack);
+    }
+  });
+});
