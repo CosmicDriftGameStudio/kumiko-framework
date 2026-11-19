@@ -6,7 +6,7 @@
     "packages/dev-server:legit-bridge": 2,
     "packages/feature-ast:legit-boundary": 39,
     "packages/feature-ast:legit-bridge": 1,
-    "packages/framework:legit-boundary": 230,
+    "packages/framework:legit-boundary": 229,
     "packages/framework:legit-bridge": 19,
     "packages/renderer:legit-boundary": 18,
     "packages/renderer:legit-bridge": 5,

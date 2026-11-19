@@ -1,6 +1,7 @@
 import type { JobDefinition } from "@cosmicdrift/kumiko-types/config";
 import type { DispatchWriteRef } from "@cosmicdrift/kumiko-types/handlers";
 import type { Tracer } from "@cosmicdrift/kumiko-types/observability";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { JobType, Queue } from "bullmq";
 import { UnrecoverableError } from "bullmq";
 import type { AppContext, JobRunIn, Registry, TenantId } from "../engine/types/index.ts";
@@ -15,8 +16,8 @@ import type {
 import type { DistributedLock } from "../pipeline/distributed-lock.ts";
 import {
   handlerPayloadOf,
-  isActiveBefore,
   jobSubjectKey,
+  jobsActivatedBefore,
   tenantIdOfJobData,
 } from "./job-runner-helpers.ts";
 import type { JobRunner, JobRunnerOptions } from "./job-runner-types.ts";
@@ -48,6 +49,14 @@ export function laneForJob(def: { readonly runIn?: JobRunIn | undefined }): JobR
   return def.runIn ?? "worker";
 }
 
+type CountableJobQueue = {
+  getJobs(
+    types: JobType[],
+  ): Promise<
+    readonly { readonly id?: string | undefined; readonly name: string; readonly data: unknown }[]
+  >;
+};
+
 // Counts active + waiting jobs with this name for this tenant across
 // BOTH lane queues. Jobs with the same name should only live in one
 // lane (jobDef.runIn is static), but walking both is cheap and avoids
@@ -58,30 +67,29 @@ export function laneForJob(def: { readonly runIn?: JobRunIn | undefined }): JobR
 // from the count; that gap let a third dispatch pass the cap in CI.
 // Only this snapshot is atomic: dispatch and handleEvent hold the tenant-cap lock across the
 // check and the following queue.add, otherwise concurrent dispatches could pass together.
-// `activeOnly` + `self` serve the defer check, which runs inside the job being
-// counted: it must not see waiting jobs or itself, and only counts jobs that
-// became active before it. Without that order, workers that fetch a burst of
-// jobs together all see each other as active and all defer, again and again.
+// `activatedBefore` serves the defer check, which runs inside the job being counted:
+// it counts only active jobs activated before that job, in BullMQ's activation order
+// (see jobsActivatedBefore). Counting every active job would let a burst fetched
+// together see each other and all defer, again and again; ordering by worker
+// timestamps let two jobs of one tenant pass together. Same-name jobs in the other
+// lane's queue always count: the limit holds, and a rare double defer retries jittered.
 export async function isOverPerTenantLimit(
-  scope: JobRunnerScope,
+  scope: { readonly queues: Readonly<Record<JobRunIn, CountableJobQueue>> },
   jobName: string,
   tenantId: string,
   max: number,
-  countFilter: {
-    readonly activeOnly?: boolean;
-    readonly self?: { readonly id: string | undefined; readonly processedOn: number | undefined };
-  } = {},
+  countFilter: { readonly activatedBefore?: { readonly jobId: string | undefined } } = {},
 ): Promise<boolean> {
   const { queues } = scope;
-  const types: JobType[] = countFilter.activeOnly ? ["active"] : ["active", "waiting"];
+  const { activatedBefore } = countFilter;
+  const types: JobType[] = activatedBefore ? ["active"] : ["active", "waiting"];
   const results = await Promise.all([queues.api.getJobs(types), queues.worker.getJobs(types)]);
   let count = 0;
   for (const list of results) {
-    for (const j of list) {
+    const counted = activatedBefore ? jobsActivatedBefore(list, activatedBefore.jobId) : list;
+    for (const j of counted) {
       if (j === undefined || j.name !== jobName) continue;
-      if (countFilter.self && !isActiveBefore(j, countFilter.self)) continue;
-      const t = (j.data as { _tenantId?: string } | undefined)?._tenantId; // @cast-boundary dynamic-key
-      if (t === tenantId) {
+      if (propertyOf(j.data, "_tenantId") === tenantId) {
         count += 1;
         if (count >= max) return true;
       }
