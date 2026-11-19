@@ -2,11 +2,17 @@ import { updateMany } from "@cosmicdrift/kumiko-framework/db";
 import { access, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { unprocessable } from "../../shared/index.ts";
-import { ConnectorErrors, DEVICE_AUTHORIZATION_STATUS } from "../constants.ts";
+import {
+  CODE_CHECK_VALID_SECONDS,
+  ConnectorErrors,
+  DEVICE_AUTHORIZATION_STATUS,
+} from "../constants.ts";
 import { deviceAuthorizationTable } from "../schema/device-authorization.ts";
 
 // pending -> approved in one conditional update, so a code confirmed twice (or confirmed while
-// expired, denied or already used) claims nothing and the caller's connector rolls back.
+// expired, unchecked or already used) claims nothing and the caller's connector rolls back.
+// The same admin must have checked the code a moment ago: a link that prefills the confirm
+// screen with an attacker's code (RFC 8628 section 5.4) therefore never confirms by itself.
 export const claimAuthorizationWrite = defineWriteHandler({
   name: "claim-authorization",
   schema: z.object({
@@ -29,6 +35,8 @@ export const claimAuthorizationWrite = defineWriteHandler({
         userCodeHash,
         status: DEVICE_AUTHORIZATION_STATUS.pending,
         expiresAt: { gt: ctx.tz.now() },
+        checkedByUserId: claim.approvedByUserId,
+        checkedAt: { gt: ctx.tz.now().subtract({ seconds: CODE_CHECK_VALID_SECONDS }) },
       },
     );
     if (claimed.length === 0) {

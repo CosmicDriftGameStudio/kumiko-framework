@@ -132,6 +132,19 @@ describe("connectors upload and heartbeat", () => {
     expect(noToken.status).toBe(401);
   });
 
+  test("a heartbeat with a new version inside the throttle window still updates the version", async () => {
+    const sent = await upload(stack, token, { path: "x/fresh.bin", bytes: Uint8Array.from([7]) });
+    expect(sent.status).toBe(201);
+    const heartbeat = await stack.app.request(HEARTBEAT_PATH, {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify({ version: "1.5.0" }),
+    });
+    expect(heartbeat.status).toBe(200);
+    const connector = (await listConnectors(stack)).find((c) => c.id === connectorId);
+    expect(connector?.reportedVersion).toBe("1.5.0");
+  });
+
   test("revoking the connector stops the token at once", async () => {
     await stack.http.writeOk(ConnectorHandlers.revoke, { id: connectorId }, tenantAdmin);
     const res = await upload(stack, token, { path: "after/revoke.bin", bytes: BINARY });

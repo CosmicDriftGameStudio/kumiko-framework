@@ -3,6 +3,7 @@ import { access, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
 import {
+  APPROVED_REDEEM_GRACE_SECONDS,
   DEVICE_AUTHORIZATION_STATUS,
   POLL_INTERVAL_SECONDS,
   USER_CODE_TTL_SECONDS,
@@ -23,7 +24,14 @@ export const deviceStartWrite = defineWriteHandler({
     "Internal: starts a device pairing for the satellite route and returns a device code, a user code to confirm, its lifetime and the polling interval.",
   handler: async (event, ctx) => {
     const now = ctx.tz.now();
-    await deleteMany(ctx.db, deviceAuthorizationTable, { expiresAt: { lt: now } });
+    await deleteMany(ctx.db, deviceAuthorizationTable, {
+      status: { ne: DEVICE_AUTHORIZATION_STATUS.approved },
+      expiresAt: { lt: now },
+    });
+    await deleteMany(ctx.db, deviceAuthorizationTable, {
+      status: DEVICE_AUTHORIZATION_STATUS.approved,
+      expiresAt: { lt: now.subtract({ seconds: APPROVED_REDEEM_GRACE_SECONDS }) },
+    });
     const deviceCode = mintDeviceCode();
     // Checked before the insert: a unique violation would abort the surrounding transaction.
     for (let attempt = 0; attempt < MAX_USER_CODE_ATTEMPTS; attempt++) {

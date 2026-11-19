@@ -1,11 +1,13 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { CONNECTOR_CLIENT_ID, ConnectorHandlers } from "../constants.ts";
 import { hashDeviceSecret } from "../hash.ts";
 import { deviceTable } from "../schema/device.ts";
 import {
   approve,
+  checkCode,
   DEVICE_GRANT,
   listConnectors,
   pairDevice,
@@ -94,6 +96,7 @@ describe("connectors device flow", () => {
 
   test("a code expires after 600 seconds, for the device and for the admin", async () => {
     const started = await startPairing(stack);
+    await checkCode(stack, started.user_code);
     stack.clock?.advance({ seconds: 601 });
     const expired = await pollToken(stack, started.device_code);
     expect(await expired.json()).toEqual({ error: "expired_token" });
@@ -103,6 +106,38 @@ describe("connectors device flow", () => {
       tenantAdmin,
     );
     expect(res.ok).toBe(false);
+  });
+
+  test("a confirmation needs a check of the same code by the same admin in the last 5 minutes", async () => {
+    const otherAdmin = createTestUser({ id: 77, roles: ["TenantAdmin"] });
+    const confirm = (userCode: string, user: typeof tenantAdmin, name: string) =>
+      stack.http.write(ConnectorHandlers.approveDevice, { userCode, name }, user);
+
+    // One pairing, because the start endpoint allows 30 requests per minute and address.
+    const started = await startPairing(stack);
+    expect((await confirm(started.user_code, tenantAdmin, "Unchecked")).ok).toBe(false);
+
+    await checkCode(stack, started.user_code, otherAdmin);
+    expect((await confirm(started.user_code, tenantAdmin, "Other admin")).ok).toBe(false);
+
+    await checkCode(stack, started.user_code);
+    stack.clock?.advance({ seconds: 301 });
+    expect((await confirm(started.user_code, tenantAdmin, "Stale")).ok).toBe(false);
+
+    await checkCode(stack, started.user_code);
+    expect((await confirm(started.user_code, tenantAdmin, "Checked")).ok).toBe(true);
+    for (const name of ["Unchecked", "Other admin", "Stale"]) {
+      expect((await listConnectors(stack)).some((c) => c.name === name)).toBe(false);
+    }
+  });
+
+  test("a confirmation in the last seconds of the code is still collected after the code expired", async () => {
+    const started = await startPairing(stack);
+    stack.clock?.advance({ seconds: 595 });
+    await approve(stack, started.user_code);
+    stack.clock?.advance({ seconds: 30 });
+    const granted = await pollToken(stack, started.device_code);
+    expect(granted.status).toBe(200);
   });
 
   test("only a TenantAdmin can confirm, and an unknown code claims nothing", async () => {

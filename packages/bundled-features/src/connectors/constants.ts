@@ -24,6 +24,10 @@ export const PENDING_REQUEST_RATE_LIMIT = {
   windowSeconds: 300,
 } as const;
 export const USER_CODE_TTL_SECONDS = 600;
+// An admin's confirmation can land just before a code expires; the waiting device still collects its token.
+export const APPROVED_REDEEM_GRACE_SECONDS = 600;
+// Confirming needs a check by the same admin this recently, so a prefilled link cannot skip the check step.
+export const CODE_CHECK_VALID_SECONDS = 300;
 export const POLL_INTERVAL_SECONDS = 5;
 export const SLOW_DOWN_INCREMENT_SECONDS = 5;
 export const HEARTBEAT_MIN_INTERVAL_MINUTES = 5;
@@ -48,6 +52,7 @@ export const ConnectorHandlers = {
   deviceStart: "connectors:write:device-start",
   devicePoll: "connectors:write:device-poll",
   claimAuthorization: "connectors:write:claim-authorization",
+  markChecked: "connectors:write:mark-device-checked",
   revokeDeviceTokens: "connectors:write:revoke-device-tokens",
   touchDevice: "connectors:write:touch-device",
   receiveFile: "connectors:write:receive-file",

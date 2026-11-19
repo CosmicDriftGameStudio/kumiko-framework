@@ -8,6 +8,7 @@ import {
   signatureRoute,
 } from "@cosmicdrift/kumiko-framework/api";
 import { parseTenantId, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { FrameworkReasons, VERSION_CONFLICT_CODE } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { Context } from "hono";
 import * as z from "zod";
@@ -53,8 +54,8 @@ const pollOutcomeSchema = z.object({
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 
 // What x/oauth2 and every RFC 8628 client expect: HTTP 400 with `{error}` for protocol errors.
-function oauthError(c: Context, error: string, status: 400 | 401 = 400): Response {
-  return c.json({ error }, status, NO_STORE);
+function oauthError(c: Context, error: string): Response {
+  return c.json({ error }, 400, NO_STORE);
 }
 
 function clientIdOf(
@@ -179,11 +180,11 @@ async function receiveUpload(
   const { code } = result.error;
   // A parallel delivery of the same file committed first: for the satellite that is a duplicate.
   // ponytail: a lost race answers 200 duplicate without re-reading the winner; re-read the item if satellites ever need its id from the body
-  if (code === "version_conflict") return c.json({ id: itemId, duplicate: true }, 200);
+  if (code === VERSION_CONFLICT_CODE) return c.json({ id: itemId, duplicate: true }, 200);
   const reason = failureReason(result.error);
   if (reason === ConnectorErrors.connectorRevoked)
     return c.json({ error: "connector_revoked" }, 403);
-  if (reason === "file_rejected") return c.json({ error: "file_rejected" }, 422);
+  if (reason === FrameworkReasons.fileRejected) return c.json({ error: "file_rejected" }, 422);
   return c.json({ error: "server_error" }, 500);
 }
 

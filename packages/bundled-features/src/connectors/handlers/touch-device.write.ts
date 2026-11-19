@@ -5,7 +5,8 @@ import { HEARTBEAT_MIN_INTERVAL_MINUTES } from "../constants.ts";
 import { deviceTable } from "../schema/device.ts";
 
 // Throttled: a device that uploads in bursts must not rewrite its row per file. `where` has no OR,
-// so "never seen" and "seen long ago" are two conditional updates.
+// so each way to qualify is its own conditional update: never seen, seen long ago, or a reported
+// version that differs from the stored one (an upgrade must show up at once, not after the throttle).
 export const touchDeviceWrite = defineWriteHandler({
   name: "touch-device",
   schema: z.object({
@@ -25,12 +26,17 @@ export const touchDeviceWrite = defineWriteHandler({
       }),
     };
     const { deviceId } = event.payload;
-    const first = await updateMany(ctx.db, deviceTable, set, { id: deviceId, lastSeenAt: null });
-    if (first.length === 0) {
-      await updateMany(ctx.db, deviceTable, set, {
-        id: deviceId,
-        lastSeenAt: { lt: now.subtract({ minutes: HEARTBEAT_MIN_INTERVAL_MINUTES }) },
-      });
+    const { reportedVersion } = event.payload;
+    const qualifying = [
+      { lastSeenAt: null },
+      { lastSeenAt: { lt: now.subtract({ minutes: HEARTBEAT_MIN_INTERVAL_MINUTES }) } },
+      ...(reportedVersion === undefined
+        ? []
+        : [{ reportedVersion: null }, { reportedVersion: { ne: reportedVersion } }]),
+    ];
+    for (const condition of qualifying) {
+      const updated = await updateMany(ctx.db, deviceTable, set, { id: deviceId, ...condition });
+      if (updated.length > 0) break;
     }
     return { isSuccess: true as const, data: { ok: true } };
   },

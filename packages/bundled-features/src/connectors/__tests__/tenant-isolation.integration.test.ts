@@ -3,6 +3,7 @@ import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seed
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { ConnectorHandlers, ConnectorQueries } from "../constants.ts";
 import {
+  checkCode,
   HEARTBEAT_PATH,
   pollToken,
   setupConnectorsStack,
@@ -26,6 +27,7 @@ const listAs = async (user: typeof adminA) =>
 beforeAll(async () => {
   stack = await setupConnectorsStack();
   const started = await startPairing(stack);
+  await checkCode(stack, started.user_code, adminA);
   const approved = await stack.http.writeOk<{ connectorId: string }>(
     ConnectorHandlers.approveDevice,
     { userCode: started.user_code, name: "Tenant A server" },
@@ -62,6 +64,7 @@ describe("connectors across tenants", () => {
 
   test("a device paired by tenant B appears only for B", async () => {
     const started = await startPairing(stack);
+    await checkCode(stack, started.user_code, adminB);
     const { connectorId } = await stack.http.writeOk<{ connectorId: string }>(
       ConnectorHandlers.approveDevice,
       { userCode: started.user_code, name: "Tenant B server" },

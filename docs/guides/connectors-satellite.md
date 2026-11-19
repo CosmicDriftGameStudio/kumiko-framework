@@ -16,7 +16,7 @@ The satellite uses the fixed client id `kumiko-satellite`. It may send it as a f
 
 1. `POST /v1/device_authorization` with `client_id=kumiko-satellite` returns
    `{device_code, user_code, verification_uri, expires_in, interval}`. The user code looks like `AB12-CD34` and is valid for 600 seconds; `interval` is 5 seconds. Show `user_code` and `verification_uri` to the person at the machine.
-2. A TenantAdmin of the tenant opens the pairing screen (`connector-pair`), enters the code and presses Check; on the confirm step (`connector-confirm`) the admin sees when and from which IP the request came, names the connector and confirms. Codes are read leniently: case, dashes and spaces are ignored and I and L count as 1, O as 0.
+2. A TenantAdmin of the tenant opens the pairing screen (`connector-pair`), enters the code and presses Check; on the confirm step (`connector-confirm`) the admin sees when and from which IP the request came, names the connector and confirms. Codes are read leniently: case, dashes and spaces are ignored and I and L count as 1, O as 0. Confirming works only for a code the same admin checked in the last 5 minutes, because a link can prefill the confirm screen with a code an attacker's satellite shows (RFC 8628 section 5.4); without that check the admin would confirm a stranger's device without ever comparing the request.
 3. The satellite polls `POST /v1/token` with `grant_type=urn:ietf:params:oauth:grant-type:device_code`, `device_code` and `client_id`, no faster than `interval` seconds.
 
 Token endpoint answers, all as HTTP 400 `{"error": ...}` except success:
@@ -25,7 +25,7 @@ Token endpoint answers, all as HTTP 400 `{"error": ...}` except success:
 | --- | --- |
 | `authorization_pending` | not confirmed yet, keep polling |
 | `slow_down` | polled too fast, add 5 seconds to the interval |
-| `expired_token` | the 600 seconds are over, or nobody confirmed the code; start again. There is no "reject": a code belongs to no tenant before it is confirmed, so an admin of another tenant could end your pairing attempt |
+| `expired_token` | the 600 seconds are over, or nobody confirmed the code (a confirmation in the last moments stays collectable for 600 more seconds); start again. There is no "reject": a code belongs to no tenant before it is confirmed, so an admin of another tenant could end your pairing attempt |
 | `invalid_grant` | unknown device code, or the token was already collected |
 | `unsupported_grant_type` | wrong `grant_type` |
 

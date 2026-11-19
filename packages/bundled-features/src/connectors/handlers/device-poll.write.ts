@@ -3,7 +3,11 @@ import { access, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
-import { DEVICE_AUTHORIZATION_STATUS, SLOW_DOWN_INCREMENT_SECONDS } from "../constants.ts";
+import {
+  APPROVED_REDEEM_GRACE_SECONDS,
+  DEVICE_AUTHORIZATION_STATUS,
+  SLOW_DOWN_INCREMENT_SECONDS,
+} from "../constants.ts";
 import { hashDeviceSecret, mintDeviceToken } from "../hash.ts";
 import { deviceTable } from "../schema/device.ts";
 import { deviceAuthorizationTable } from "../schema/device-authorization.ts";
@@ -43,7 +47,12 @@ export const devicePollWrite = defineWriteHandler({
       deviceCodeHash: hashDeviceSecret(event.payload.deviceCode),
     });
     if (row === undefined) return outcome({ kind: "invalid_grant" });
-    if (row.expiresAt.epochMilliseconds <= now.epochMilliseconds) {
+    // A confirmed code stays redeemable past its expiry: the admin may confirm in its last seconds.
+    const redeemableUntil =
+      row.status === DEVICE_AUTHORIZATION_STATUS.approved
+        ? row.expiresAt.add({ seconds: APPROVED_REDEEM_GRACE_SECONDS })
+        : row.expiresAt;
+    if (redeemableUntil.epochMilliseconds <= now.epochMilliseconds) {
       return outcome({ kind: "expired_token" });
     }
     if (row.status === DEVICE_AUTHORIZATION_STATUS.redeemed) {

@@ -60,6 +60,13 @@ export const deviceAuthorizationEntity = createEntity({
       personal: false,
       reason: "pseudonymous_fk",
     }),
+    checkedByUserId: createTextField({
+      maxLength: 36,
+      access: privilegedWrite,
+      personal: false,
+      reason: "pseudonymous_fk",
+    }),
+    checkedAt: createTimestampField({ access: privilegedWrite }),
     requestIp: createTextField({
       required: true,
       maxLength: 64,

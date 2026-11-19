@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-11-19T10:47:31.750Z",
+  "generatedAt": "2026-11-19T11:10:40.892Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -5576,6 +5576,16 @@
         {
           "name": "approved_by_user_id",
           "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "checked_by_user_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "checked_at",
+          "pgType": "timestamptz",
           "notNull": false
         },
         {

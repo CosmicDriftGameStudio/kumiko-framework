@@ -8,6 +8,7 @@ import { approveDeviceWrite, checkDeviceWrite } from "./handlers/approve-device.
 import { claimAuthorizationWrite } from "./handlers/claim-authorization.write.ts";
 import { devicePollWrite } from "./handlers/device-poll.write.ts";
 import { deviceStartWrite } from "./handlers/device-start.write.ts";
+import { markDeviceCheckedWrite } from "./handlers/mark-device-checked.write.ts";
 import {
   listConnectorsQuery,
   listDevicesQuery,
@@ -68,6 +69,7 @@ export function createConnectorsFeature(): FeatureDefinition {
     r.writeHandler(deviceStartWrite);
     r.writeHandler(devicePollWrite);
     r.writeHandler(claimAuthorizationWrite);
+    r.writeHandler(markDeviceCheckedWrite);
     r.writeHandler(revokeDeviceTokensWrite);
     r.writeHandler(touchDeviceWrite);
     r.writeHandler(receiveFileWrite);

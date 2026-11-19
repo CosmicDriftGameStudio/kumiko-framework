@@ -92,7 +92,17 @@ export function pollToken(stack: TestStack, deviceCode: string) {
   });
 }
 
+// Confirming needs a check of the same code by the same admin first (the confirm screen's step one).
+export function checkCode(
+  stack: TestStack,
+  userCode: string,
+  user: typeof tenantAdmin = tenantAdmin,
+) {
+  return stack.http.writeOk(ConnectorHandlers.checkDevice, { userCode }, user);
+}
+
 export async function approve(stack: TestStack, userCode: string, name = "Office server") {
+  await checkCode(stack, userCode);
   return stack.http.writeOk<{ connectorId: string }>(
     ConnectorHandlers.approveDevice,
     { userCode, name },

@@ -123,7 +123,8 @@ export const connectorPairScreen: ActionFormScreenDefinition = {
   dormant: true,
 };
 
-// Step two: reached only through step one, which seeds the checked code into the URL.
+// Step two: step one seeds the checked code into the URL, but any link can prefill that URL too.
+// The server therefore confirms only a code the same admin checked in the last few minutes.
 export const connectorConfirmScreen: ActionFormScreenDefinition = {
   id: ConnectorScreens.confirm,
   type: "actionForm",

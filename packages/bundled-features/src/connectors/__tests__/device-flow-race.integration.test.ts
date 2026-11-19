@@ -4,6 +4,7 @@ import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { ConnectorHandlers } from "../constants.ts";
 import { deviceTable } from "../schema/device.ts";
 import {
+  checkCode,
   listConnectors,
   pollToken,
   setupConnectorsStack,
@@ -22,6 +23,7 @@ afterAll(() => teardownConnectorsStack(stack));
 describe("connectors device flow under concurrency", () => {
   test("parallel polls of one confirmed pairing redeem exactly one token", async () => {
     const started = await startPairing(stack);
+    await checkCode(stack, started.user_code);
     await stack.http.writeOk(
       ConnectorHandlers.approveDevice,
       { userCode: started.user_code, name: "Racy" },
@@ -40,6 +42,7 @@ describe("connectors device flow under concurrency", () => {
 
   test("a code confirmed twice at once creates one connector and one winner", async () => {
     const started = await startPairing(stack);
+    await checkCode(stack, started.user_code);
     const before = (await listConnectors(stack)).length;
     const results = await Promise.all(
       ["Left", "Right"].map((name) =>
