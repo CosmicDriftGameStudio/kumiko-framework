@@ -27,6 +27,7 @@ import {
 import {
   SIGNATURE_FAILURE_REASON,
   SIGNATURE_METHOD,
+  SIGNATURE_REQUEST_ENTITY,
   SIGNATURE_REQUEST_STATUS,
   SIGNATURE_SIGNER_STATUS,
   type SignatureFailureReason,
@@ -180,6 +181,11 @@ async function finalizeRequest(ctx: JobContext, request: RequestRow): Promise<vo
     fileName: "signed-document.pdf",
     mimeType: PDF_MIME_TYPE,
     data: completed,
+    attachTo: {
+      entityType: SIGNATURE_REQUEST_ENTITY,
+      fieldName: "completedFileId",
+      entityId: request.id,
+    },
   });
   if (!stored.isSuccess) {
     ctx.obs.log.warn("[signature:sweep] storing the completed pdf failed", {

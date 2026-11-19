@@ -1,4 +1,9 @@
-export { isOpenWaitlistStatus, waitlistEntryEntity, waitlistEntryTable } from "./entity.ts";
+export {
+  isOpenWaitlistStatus,
+  type WaitlistRetention,
+  waitlistEntryEntity,
+  waitlistEntryTable,
+} from "./entity.ts";
 export { createWaitlistFeature } from "./feature.ts";
 export {
   importWaitlistEntry,

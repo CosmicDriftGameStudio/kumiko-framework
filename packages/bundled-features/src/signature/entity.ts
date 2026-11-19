@@ -1,6 +1,7 @@
 import {
   createEntity,
   createEntityExecutor,
+  createFileField,
   createLongTextField,
   createNumberField,
   createSelectField,
@@ -130,11 +131,9 @@ function buildSignatureRequestEntity(
         reason: "is_deadline",
         sortable: true,
       }),
-      completedFileId: createTextField({
-        personal: false,
-        reason: "technical_reference",
-        maxLength: 64,
-      }),
+      // A file field so the sealed pdf can be owned by its request: documents filed from it pass
+      // the file-owner read gate only when the file belongs to a readable record.
+      completedFileId: createFileField({ personal: false, reason: "technical_reference" }),
       completedAt: createTimestampField({
         personal: false,
         reason: "is_business_timestamp",

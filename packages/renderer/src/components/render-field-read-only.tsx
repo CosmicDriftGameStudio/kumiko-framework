@@ -52,6 +52,11 @@ export function FieldRendererOutput({
         />
       );
     }
+    // applyFormatSpec collapses an empty value to "" for list cells; a read-only field shows the
+    // placeholder instead so its label never stands alone. priority keeps its own emptyLabel.
+    if (isEmptyFieldValue(field.value) && renderer.format !== "priority") {
+      return <Text testId={valueTestId}>{EMPTY_VALUE_PLACEHOLDER}</Text>;
+    }
     // App locale as default when the FormatSpec declares none of its own —
     // otherwise locale-sensitive formats (timestamp/date/number/decimal/
     // bigInt/unit) fell back to Intl's runtime default instead of the app
@@ -85,6 +90,9 @@ export function FieldRendererOutput({
   return <Text testId={valueTestId}>{stringValue(field.value)}</Text>;
 }
 
+const isEmptyFieldValue = (value: unknown): boolean =>
+  value === undefined || value === null || value === "";
+
 function stringPropertyOf(value: unknown, key: string): string | undefined {
   const property = propertyOf(value, key);
   return typeof property === "string" ? property : undefined;
@@ -103,7 +111,7 @@ export function readOnlyDisplayText(
   t: ReturnType<typeof useTranslation>,
 ): string {
   const { type, value } = field;
-  if (value === undefined || value === null || value === "") return EMPTY_VALUE_PLACEHOLDER;
+  if (isEmptyFieldValue(value)) return EMPTY_VALUE_PLACEHOLDER;
   if (type === "text" && field.writeOnly === true) return t("kumiko.field.writeOnly.set");
   if (type === "text" && field.format === "password") return "••••••••";
   const toText = DISPLAY_TEXT_BY_TYPE.get(type) ?? defaultDisplayText;

@@ -97,8 +97,8 @@ describe("RenderField enumOption-FormatSpec renders different labels for the sam
     expect(captured?.children).toBe("archived");
   });
 
-  test("empty value renders empty", () => {
+  test("empty value renders the placeholder like every other read-only field", () => {
     renderUnderLocale("de", statusField(null));
-    expect(captured?.children).toBe("");
+    expect(captured?.children).toBe("—");
   });
 });

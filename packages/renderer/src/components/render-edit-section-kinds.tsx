@@ -33,6 +33,7 @@ function renderExtensionSection<TValues extends FormValues, TCtx>(
       patch={model.patchForExtension}
       validate={draft.scopedValidate}
       markSaved={draft.markSaved}
+      {...(props.onReload !== undefined && { reloadHost: props.onReload })}
       hideTitle={hideSectionTitles}
       {...(state.isWizard &&
         !state.isCreateMode && {
@@ -295,6 +296,7 @@ function withSectionPresentation<TValues extends FormValues, TCtx>(
           entityName={sections.vm.entityName}
           entityId={resolveExtensionEntityId(props.entityId, sections.vm.id)}
           values={form.snapshot.values}
+          {...(props.onReload !== undefined && { reloadHost: props.onReload })}
           {...(props.activeTabId !== undefined && { activeTabId: props.activeTabId })}
         />
       )}

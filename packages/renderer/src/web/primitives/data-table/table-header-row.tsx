@@ -3,11 +3,11 @@ import type { ListColumnViewModel } from "../../../headless/index.ts";
 import { cn } from "../../lib/cn.ts";
 import { TableHead, TableHeader, TableRow } from "../../ui/table.tsx";
 import { NUMERIC_COLUMN_TYPES } from "../data-table-cell.tsx";
-import { ActionsHeaderCell } from "./actions-column.tsx";
+import { ActionsHeaderCell, stickyActionsCellClass } from "./actions-column.tsx";
 import { ColumnResizeHandle } from "./column-resize-handle.tsx";
 import { COLUMN_ROLE_ATTRIBUTE } from "./column-role.ts";
 import { hintColumnWidthStyle } from "./hint-column-width.ts";
-import { isRowActionColumn } from "./row-action-column.ts";
+import { isRowActionColumn, isStickyRowActionColumn } from "./row-action-column.ts";
 import { SortableHeader } from "./sortable-header.tsx";
 import { EXPAND_TOGGLE_CELL_CLASS } from "./table-chrome.tsx";
 import { EXPAND_COLUMN_KEY, SELECT_COLUMN_KEY } from "./use-column-pins.ts";
@@ -27,7 +27,11 @@ function renderColumnHeader(m: DataTableModel, col: ListColumnViewModel): ReactN
       actionColumn={isRowActionColumn(col)}
       fitContent={col.fileDisplay !== undefined}
       compact={m.compactHeader === true}
-      className={cn(m.density.header, headerPin.className)}
+      className={cn(
+        m.density.header,
+        isStickyRowActionColumn(m.columns, col, m.hasTableActions) && stickyActionsCellClass(false),
+        headerPin.className,
+      )}
       style={{ ...headerPin.style, ...hintColumnWidthStyle(col, sizing !== undefined) }}
       columnField={headerPin.columnField}
       trailing={
