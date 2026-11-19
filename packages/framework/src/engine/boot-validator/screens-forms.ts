@@ -980,18 +980,38 @@ function validateInlineFormNavTargets(
 
 // actionForm/secretMint have no entity link, only a write-handler QN +
 // inline fields: checks handler registration, field types, layout refs, and nav targets.
+function assertActionFormKnownFields(
+  featureName: string,
+  screenId: string,
+  fieldNames: ReadonlySet<string>,
+  owner: string,
+  named: readonly string[],
+  rule: (typeof FORM_FIELD_RULES)[keyof typeof FORM_FIELD_RULES],
+): void {
+  for (const name of named) {
+    if (fieldNames.has(name)) continue;
+    throw bootRuleError(rule, {
+      message: `[Feature ${featureName}] Screen "${screenId}" (actionForm) ${owner} names unknown field "${name}". Known fields: ${[...fieldNames].sort().join(", ")}`,
+    });
+  }
+}
+
 function validateActionFormFieldTexts(
   featureName: string,
   screenId: string,
   screen: ActionFormScreenDefinition,
   fieldNames: ReadonlySet<string>,
 ): void {
-  for (const described of Object.keys(screen.fieldDescriptions ?? {})) {
-    if (fieldNames.has(described)) continue;
-    throw bootRuleError(FORM_FIELD_RULES.fieldDescriptionUnknownField, {
-      message: `[Feature ${featureName}] Screen "${screenId}" (actionForm) fieldDescriptions names unknown field "${described}". Known fields: ${[...fieldNames].sort().join(", ")}`,
-    });
-  }
+  const assertKnown = (
+    owner: string,
+    named: readonly string[],
+    rule: (typeof FORM_FIELD_RULES)[keyof typeof FORM_FIELD_RULES],
+  ) => assertActionFormKnownFields(featureName, screenId, fieldNames, owner, named, rule);
+  assertKnown(
+    "fieldDescriptions",
+    Object.keys(screen.fieldDescriptions ?? {}),
+    FORM_FIELD_RULES.fieldDescriptionUnknownField,
+  );
   for (const [owner, texts] of [
     ["fieldLabels", screen.fieldLabels],
     ["fieldDescriptions", screen.fieldDescriptions],
@@ -1006,12 +1026,16 @@ function validateActionFormFieldTexts(
       }
     }
   }
-  for (const badged of Object.keys(screen.fieldBadges ?? {})) {
-    if (fieldNames.has(badged)) continue;
-    throw bootRuleError(FORM_FIELD_RULES.fieldBadgeUnknownField, {
-      message: `[Feature ${featureName}] Screen "${screenId}" (actionForm) fieldBadges names unknown field "${badged}". Known fields: ${[...fieldNames].sort().join(", ")}`,
-    });
-  }
+  assertKnown(
+    "fieldBadges",
+    Object.keys(screen.fieldBadges ?? {}),
+    FORM_FIELD_RULES.fieldBadgeUnknownField,
+  );
+  assertKnown(
+    "linkPrefillFields",
+    screen.linkPrefillFields ?? [],
+    FORM_FIELD_RULES.linkPrefillUnknownField,
+  );
 }
 
 function validateActionFormLabelEntity(

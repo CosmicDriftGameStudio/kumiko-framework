@@ -12,9 +12,9 @@ afterEach(() => {
 
 const PRESET = "@cosmicdrift/kumiko-framework/biome-rules";
 
-// Inside the package so @biomejs/biome and the preset resolve from the workspace's node_modules.
+// Inside the package so @biomejs/biome and the preset resolve, but outside src/: guard tests glob packages/*/src and would read a dir being removed.
 function repoWith(source: string, biomeConfig: object = { extends: [PRESET] }): string {
-  const dir = mkdtempSync(join(import.meta.dir, "lint-repo-"));
+  const dir = mkdtempSync(join(import.meta.dir, "../../..", ".lint-repo-"));
   dirs.push(dir);
   mkdirSync(join(dir, "src"));
   writeFileSync(join(dir, "biome.json"), JSON.stringify({ root: true, ...biomeConfig }));
@@ -83,7 +83,7 @@ describe("kumiko check lint step", () => {
       );
       writeFileSync(
         join(dir, "shared.json"),
-        JSON.stringify({ extends: ["../../../../../framework/presets/biome-rules.json"] }),
+        JSON.stringify({ extends: ["../../framework/presets/biome-rules.json"] }),
       );
       expect(await runLintCheckStep(run.out, dir)).toBe(0);
     });

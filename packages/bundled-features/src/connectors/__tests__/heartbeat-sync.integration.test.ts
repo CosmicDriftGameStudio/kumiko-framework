@@ -84,3 +84,45 @@ describe("heartbeat sync report and retry signal", () => {
     expect(await second.json()).toEqual({ ok: true });
   });
 });
+describe("connector list names a full storage after an upload was refused", () => {
+  test("a refused upload shows it, space and an accepted upload clear it", async () => {
+    const small = await setupConnectorsStack({ maxStoredBytesPerTenant: 20 });
+    try {
+      const paired = await pairDevice(small);
+      const send = (body: unknown) =>
+        small.app.request(HEARTBEAT_PATH, {
+          method: "POST",
+          headers: { authorization: `Bearer ${paired.token}`, "content-type": "application/json" },
+          body: JSON.stringify(body),
+        });
+      const detail = async () =>
+        (await listConnectors(small)).find((c) => c.id === paired.connectorId)?.syncDetail;
+
+      const first = await upload(small, paired.token, {
+        path: "a/one.bin",
+        bytes: new Uint8Array(12).fill(1),
+      });
+      expect(first.status).toBe(201);
+      await send({ version: "1.0.0", sync: { state: "error", queued: 4, failed: 0 } });
+      expect(await detail()).toBeNull();
+
+      const refused = await upload(small, paired.token, {
+        path: "a/two.bin",
+        bytes: new Uint8Array(12).fill(2),
+      });
+      expect(refused.status).toBe(507);
+      expect(await detail()).toEqual({ i18nKey: "connectors.sync.detail.storageFull" });
+
+      const { id } = (await first.json()) as { id: string };
+      await small.http.writeOk(ConnectorHandlers.deleteFile, { id }, tenantAdmin);
+      const accepted = await upload(small, paired.token, {
+        path: "a/two.bin",
+        bytes: new Uint8Array(12).fill(2),
+      });
+      expect(accepted.status).toBe(201);
+      expect(await detail()).toBeNull();
+    } finally {
+      await teardownConnectorsStack(small);
+    }
+  });
+});

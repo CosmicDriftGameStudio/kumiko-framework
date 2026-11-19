@@ -231,14 +231,20 @@ describe("connectors device flow", () => {
 describe("connectors verification URI", () => {
   async function verificationUris(target: TestStack) {
     const res = await postForm(target, START_PATH, { client_id: CONNECTOR_CLIENT_ID });
-    return (await res.json()) as { user_code: string; verification_uri: string };
+    return (await res.json()) as {
+      user_code: string;
+      verification_uri: string;
+      verification_uri_complete: string;
+    };
   }
 
   test("defaults to the pairing screen's URL on the address the satellite reached", async () => {
     const body = await verificationUris(stack);
     const { origin } = new URL(START_PATH, "http://localhost");
     expect(body.verification_uri).toBe(`${origin}/connector-pair`);
-    expect(Object.keys(body)).not.toContain("verification_uri_complete");
+    expect(body.verification_uri_complete).toBe(
+      `${origin}/connector-pair?userCode=${encodeURIComponent(body.user_code)}`,
+    );
   });
 
   test("APP_BASE_URL wins over the request address", async () => {

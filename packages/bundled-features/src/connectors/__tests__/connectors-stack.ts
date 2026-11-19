@@ -158,7 +158,7 @@ export async function listConnectors(stack: TestStack) {
       lastSeenAt: string | null;
       reportedVersion: string | null;
       syncStatus: string;
-      syncDetail: { i18nKey: string; i18nParams: { count: number } } | null;
+      syncDetail: { i18nKey: string; i18nParams?: { count: number } } | null;
     }[];
   }>(ConnectorQueries.list, {}, tenantAdmin);
   return page.rows;

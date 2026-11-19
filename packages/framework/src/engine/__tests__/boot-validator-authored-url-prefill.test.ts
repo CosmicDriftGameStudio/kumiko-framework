@@ -72,3 +72,26 @@ describe("validateBoot — redirect handOff", () => {
     ).not.toThrow();
   });
 });
+
+describe("validateBoot — linkPrefillFields", () => {
+  test("a name that is no field of the form → Throw naming the field", () => {
+    const feature = defineFeature("billing", (r) => {
+      r.writeHandler({
+        name: "check",
+        schema: z.object({ iban: z.string() }),
+        access: { openToAll: { reason: "test fixture" } },
+        handler: async () => ({ isSuccess: true as const, data: {} }),
+      });
+      r.screen({
+        id: "record-payment",
+        type: "actionForm",
+        handler: "billing:write:check",
+        fields: { iban: { type: "text" } },
+        layout: { sections: [{ title: "x", fields: ["iban"] }] },
+        linkPrefillFields: ["nope"],
+        dormant: true,
+      } as ScreenDefinition);
+    });
+    expect(() => validateBoot([feature])).toThrow(/linkPrefillFields names unknown field "nope"/);
+  });
+});

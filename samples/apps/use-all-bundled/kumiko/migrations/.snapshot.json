@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-11-19T14:14:09.335Z",
+  "generatedAt": "2026-11-19T16:58:15.550Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -5460,6 +5460,11 @@
         },
         {
           "name": "retry_requested_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "quota_rejected_at",
           "pgType": "timestamptz",
           "notNull": false
         },

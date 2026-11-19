@@ -6,6 +6,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { unprocessable } from "../../shared/index.ts";
+import { pairingAddressDisplay } from "../address-key.ts";
 import { ConnectorErrors, ConnectorQueries, PENDING_REQUEST_RATE_LIMIT } from "../constants.ts";
 import { hashUserCode, normalizeUserCode } from "../hash.ts";
 
@@ -40,6 +41,13 @@ export const pendingRequestQuery = defineQueryHandler({
     if (pending === null) {
       return unprocessable(ConnectorErrors.invalidUserCode, "errors.connectors.invalidUserCode");
     }
-    return pending;
+    const address = pairingAddressDisplay(pending.requestIp);
+    return {
+      requestedAt: pending.requestedAt,
+      expiresAt: pending.expiresAt,
+      ...(address.kind === "local"
+        ? { requestIpLocal: "connectors.pair.request.ipLocal" }
+        : { requestIp: address.text }),
+    };
   },
 });

@@ -87,6 +87,11 @@ row action, a form bulk action whose `idsField` is no count list and a preview o
 `workload.integration.test.ts` runs the hand-written query over HTTP and checks
 the grouped sums and the filtered total, the preview query, and the handler's unknown-id and over-cap rejections.
 
+- `linkPrefillFields` and `successFacts` with `valueIsI18nKey`: the `task-status-link`
+  form lets a plain link (`?status=done`) fill `status` and nothing else; a name that is not a
+  form field fails boot (`form/link-prefill-unknown-field`). Its success box shows the
+  `statusKey` the handler returns as a translated text instead of the raw key.
+
 ## Source files
 
 ### src/__tests__/feature.test.ts
@@ -203,6 +208,40 @@ describe("list-table-options recipe", () => {
     expect(() =>
       validateBoot([withPreview({ query: "preview-bad:query:task:p", fields: ["owner"] })]),
     ).toThrow(/sends field "owner"/);
+  });
+
+  test("the status link form keeps its link prefill and i18n-key fact on the registered screen", () => {
+    const feature = createTaskBoardFeature();
+    expect(() => validateBoot([feature])).not.toThrow();
+    const screen = createRegistry([feature]).getScreen("task-board:screen:task-status-link");
+    expect(screen?.type === "actionForm" ? screen.linkPrefillFields : undefined).toEqual([
+      "status",
+    ]);
+    expect(screen?.type === "actionForm" ? screen.successFacts : undefined).toEqual([
+      { field: "count", label: "Tasks changed" },
+      { field: "statusKey", label: "New status", valueIsI18nKey: true },
+    ]);
+  });
+
+  test("linkPrefillFields naming an unknown field is rejected", () => {
+    const feature = defineFeature("link-prefill-bad", (r) => {
+      r.writeHandler({
+        name: "task:noop",
+        schema: z.object({ status: z.string() }),
+        access: openAccess.access,
+        handler: async () => ({ isSuccess: true as const, data: {} }),
+      });
+      r.screen({
+        id: "noop-form",
+        type: "actionForm",
+        dormant: true,
+        handler: "link-prefill-bad:write:task:noop",
+        linkPrefillFields: ["owner"],
+        fields: { status: { type: "text" } },
+        layout: { sections: [{ fields: ["status"] }] },
+      });
+    });
+    expect(() => validateBoot([feature])).toThrow(/form\/link-prefill-unknown-field/);
   });
 
   test("a bulk action that points at a navigate row action is rejected", () => {
@@ -398,12 +437,12 @@ describe("form bulk action handler", () => {
       ),
     );
     const taskIds = created.map((task) => task.data.id);
-    const result = await stack.http.writeOk<{ count: number; via: string }>(
+    const result = await stack.http.writeOk<{ count: number; statusKey: string; via: string }>(
       "task-board:write:task:set-status-via",
       { via: "inbox", values: { taskIds, status: "done" } },
       user,
     );
-    expect(result).toEqual({ count: 2, via: "inbox" });
+    expect(result).toEqual({ count: 2, statusKey: "task-board:status.done", via: "inbox" });
     const list = await stack.http.queryOk<{ rows: { title: string; status: string }[] }>(
       "task-board:query:task:list",
       { sort: "title" },
@@ -502,6 +541,7 @@ import {
   taskEditScreen,
   taskOverdueScreen,
   taskSetStatusScreen,
+  taskStatusLinkScreen,
   taskWorkloadScreen,
 } from "./screens";
 
@@ -682,7 +722,10 @@ export function createTaskBoardFeature(
           );
           if (!result.isSuccess) return result;
         }
-        return { isSuccess: true as const, data: { count: changed.length } };
+        return {
+          isSuccess: true as const,
+          data: { count: changed.length, statusKey: `task-board:status.${status}` },
+        };
       },
     });
 
@@ -730,6 +773,7 @@ export function createTaskBoardFeature(
     });
 
     r.screen(taskSetStatusScreen);
+    r.screen(taskStatusLinkScreen);
 
     r.nav({ id: "tasks", label: "task-board:nav.tasks", icon: "list", order: 10 });
     r.nav({
@@ -927,5 +971,28 @@ export const taskSetStatusScreen: ScreenDefinition = {
       ],
     },
   },
+};
+
+// A plain link such as `?status=done` fills `status` (and only `status`); the success box names
+// the applied status by an i18n key the handler returns, shown translated.
+export const taskStatusLinkScreen: ScreenDefinition = {
+  id: "task-status-link",
+  type: "actionForm",
+  dormant: true,
+  handler: "task-board:write:task:set-status",
+  labelEntity: "task",
+  linkPrefillFields: ["status"],
+  fields: {
+    taskIds: { type: "multiSelect", options: [], display: "count" },
+    status: createSelectField({
+      options: ["open", "inProgress", "blocked", "done"] as const,
+      required: true,
+    }),
+  },
+  layout: { sections: [{ fields: ["taskIds", "status"] }] },
+  successFacts: [
+    { field: "count", label: "Tasks changed" },
+    { field: "statusKey", label: "New status", valueIsI18nKey: true },
+  ],
 };
 ```

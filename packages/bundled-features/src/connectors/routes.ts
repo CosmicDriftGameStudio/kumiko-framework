@@ -33,7 +33,7 @@ import {
   bearerTokenOf,
   normalizeRelativePath,
 } from "./device-auth.ts";
-import { syncReportSchema } from "./handlers/touch-device.write.ts";
+import { syncReportSchema, type uploadOutcomeSchema } from "./handlers/touch-device.write.ts";
 import { exceedsFolderLimits, isBallastPath } from "./path-rules.ts";
 
 export type ConnectorRouteOptions = {
@@ -41,9 +41,9 @@ export type ConnectorRouteOptions = {
   readonly basePath?: string;
   /** Per-file cap in bytes. Default 50 MiB. */
   readonly maxUploadBytes?: number;
-  /** Page where a TenantAdmin confirms the user code; shown to the satellite. Default: the
-   *  public app URL (APP_BASE_URL), else the address the satellite reached the app on, plus "/connector-pair" (the pairing screen's URL
-   *  in an app without workspaces or a base path; set this option otherwise). */
+  /** Absolute URL of the page where a TenantAdmin confirms the user code; shown to the satellite.
+   *  Default: the public app URL (APP_BASE_URL), else the address the satellite reached the app on,
+   *  plus "/connector-pair" (the pairing screen's URL without a base path; set this option behind one). */
   readonly verificationUri?: string;
   /** Flood protection of the pairing start (client_id is public). Defaults: 10 starts per minute and
    *  address, 3 open requests per address, 1000 open requests overall. */
@@ -125,11 +125,13 @@ async function touchDevice(
   deps: SignatureExtraRouteDeps,
   device: AuthenticatedDevice,
   heartbeat?: { readonly version: string; readonly sync?: z.infer<typeof syncReportSchema> },
+  upload?: z.infer<typeof uploadOutcomeSchema>,
 ): Promise<boolean> {
   const result = await deps.dispatchWriteAs({
     handlerQn: ConnectorHandlers.touchDevice,
     payload: {
       deviceId: device.deviceId,
+      ...(upload !== undefined && { upload }),
       ...(heartbeat && {
         reportedVersion: heartbeat.version,
         ...(heartbeat.sync && { sync: heartbeat.sync }),
@@ -140,6 +142,17 @@ async function touchDevice(
     roles: [],
   });
   return result.isSuccess && touchResultSchema.parse(result.data).retry;
+}
+
+function uploadOutcomeOf(result: {
+  readonly isSuccess: boolean;
+  readonly error?: { readonly details?: unknown };
+}): z.infer<typeof uploadOutcomeSchema> | undefined {
+  if (result.isSuccess) return "accepted";
+  return result.error !== undefined &&
+    failureReason(result.error) === ConnectorErrors.storageQuotaExceeded
+    ? "quotaRejected"
+    : undefined;
 }
 
 function badRequest(c: Context, description: string): Response {
@@ -230,7 +243,7 @@ async function receiveUpload(
     tenantId,
     roles: [],
   });
-  await touchDevice(deps, device);
+  await touchDevice(deps, device, undefined, uploadOutcomeOf(result));
 
   if (result.isSuccess) {
     const { id, duplicate } = receivedSchema.parse(result.data);
@@ -254,6 +267,13 @@ async function receiveHeartbeat(c: Context, deps: SignatureExtraRouteDeps): Prom
   return c.json(retry ? { ok: true, retry: true } : { ok: true }, 200);
 }
 
+// RFC 8628 §3.3.1: the code only prefills the pair screen; the admin still presses Check.
+function completeUriOf(verificationUri: string, userCode: string): string {
+  const url = new URL(verificationUri);
+  url.searchParams.set("userCode", userCode);
+  return url.toString();
+}
+
 function verificationUriOf(c: Context, options: ConnectorRouteOptions): string {
   const origin = publicOriginOf(process.env["APP_BASE_URL"] ?? "") ?? new URL(c.req.url).origin;
   return options.verificationUri ?? `${origin}/${ConnectorScreens.pair}`;
@@ -271,6 +291,11 @@ export function createConnectorRoutes(
 ): readonly ExtraRouteDefinition[] {
   const basePath = options.basePath ?? DEFAULT_CONNECTORS_BASE_PATH;
   const maxUploadBytes = options.maxUploadBytes ?? DEFAULT_MAX_UPLOAD_BYTES;
+  if (options.verificationUri !== undefined && !URL.canParse(options.verificationUri)) {
+    throw new Error(
+      `createConnectorRoutes: verificationUri must be an absolute URL, got "${options.verificationUri}"`,
+    );
+  }
 
   const deviceAuthorization = signatureRoute({
     method: "POST",
@@ -319,6 +344,7 @@ export function createConnectorRoutes(
           device_code: data.deviceCode,
           user_code: data.userCode,
           verification_uri: verificationUri,
+          verification_uri_complete: completeUriOf(verificationUri, data.userCode),
           expires_in: data.expiresIn,
           interval: data.interval,
         },

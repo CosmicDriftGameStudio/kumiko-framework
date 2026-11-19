@@ -134,6 +134,11 @@ const PENDING_REQUEST_PREVIEW = {
   facts: [
     { field: "requestedAt", label: i18nKey("connectors.pair.request.at"), type: "timestamp" },
     { field: "requestIp", label: i18nKey("connectors.pair.request.ip") },
+    {
+      field: "requestIpLocal",
+      label: i18nKey("connectors.pair.request.ip"),
+      valueIsI18nKey: true,
+    },
   ],
 } as const;
 
@@ -145,6 +150,8 @@ export const connectorPairScreen: ActionFormScreenDefinition = {
   type: "actionForm",
   agent: { expose: false },
   handler: ConnectorHandlers.checkDevice,
+  linkPrefillFields: ["userCode"],
+  submitPrefilled: true,
   fields: { userCode: USER_CODE_FIELD },
   layout: { sections: [{ fields: ["userCode"] }] },
   submitLabel: i18nKey("connectors.pair.check"),

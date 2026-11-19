@@ -10,6 +10,7 @@ export type DeviceRow = {
   readonly syncQueued: number | null;
   readonly syncFailed: number | null;
   readonly lastSeenAt: Temporal.Instant | null;
+  readonly quotaRejectedAt: Temporal.Instant | null;
   readonly createdAt: Temporal.Instant;
   readonly revokedAt: Temporal.Instant | null;
 };

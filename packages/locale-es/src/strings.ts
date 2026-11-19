@@ -3377,6 +3377,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "connectors.pair.request.title": "Solicitud de emparejamiento",
   "connectors.pair.request.at": "Solicitado el",
   "connectors.pair.request.ip": "Desde la dirección IP",
+  "connectors.pair.request.ipLocal": "local (este servidor)",
   "connectors:entity:__action-form__:field:userCode": "Código",
   "connectors:entity:__action-form__:field:name": "Nombre",
   "errors.connectors.storageQuotaExceeded":
@@ -3389,6 +3390,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "connectors.list.sync.status.failed": "Error",
   "connectors.list.sync.queued": "{count} en cola",
   "connectors.list.sync.failedCount": "{count} con error",
+  "connectors.sync.detail.storageFull": "Almacenamiento lleno, subidas en pausa",
   "connectors.list.retry": "Reintentar",
   "screen:connector-files.title": "Archivos",
   "connectors.files.root": "Todos los dispositivos",

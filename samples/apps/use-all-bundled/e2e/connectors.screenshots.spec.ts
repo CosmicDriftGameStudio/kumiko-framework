@@ -240,3 +240,36 @@ test("file tree: root, folder, delete confirmation", async ({ page, request, see
   // The sample's e2e server runs no job worker, so the sweep itself is proven by folder-delete.integration.test.ts.
   await captureScreenshot(page, "c10-files-folder-deleting");
 });
+test("the verification link the satellite shows opens the pair screen", async ({
+  page,
+  request,
+  seedTenant,
+}) => {
+  const tenant = await seedTenant({
+    name: "Indusnova Anlagenbau",
+    admin: { displayName: "Eva Lindner", email: "eva@indusnova.example" },
+  });
+  await tenant.loginAs(page, tenant.admin);
+
+  const res = await request.post("/connectors/v1/device_authorization", {
+    form: { client_id: CLIENT_ID },
+    headers: { [CLIENT_IP_HEADER]: SATELLITE_IP },
+  });
+  const body = (await res.json()) as {
+    user_code: string;
+    verification_uri: string;
+    verification_uri_complete: string;
+  };
+
+  await page.goto(new URL(body.verification_uri).pathname);
+  await expect(page).toHaveURL(/\/tenant-admin\/connector-pair$/);
+  await reachConfirmStep(page, body.user_code);
+  const { pathname, search } = new URL(body.verification_uri_complete);
+  await page.goto(`${pathname}${search}`);
+  await expect(page).toHaveURL(/\/tenant-admin\/connector-pair\?userCode=/);
+  await expect(page.getByLabel("Code")).toHaveValue(body.user_code);
+  // The link only fills the field: nothing is sent until the admin presses Check.
+  await expect(page.getByTestId("action-form-preview")).toHaveCount(0);
+  await page.getByRole("button", { name: "Prüfen" }).click();
+  await expect(page.getByTestId("action-form-preview")).toContainText(SATELLITE_IP);
+});

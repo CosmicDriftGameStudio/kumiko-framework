@@ -5,6 +5,8 @@ import * as z from "zod";
 import { HEARTBEAT_MIN_INTERVAL_MINUTES, SYNC_STATE } from "../constants.ts";
 import { deviceTable } from "../schema/device.ts";
 
+export const uploadOutcomeSchema = z.enum(["accepted", "quotaRejected"]);
+
 export const syncReportSchema = z.object({
   state: z.enum([SYNC_STATE.idle, SYNC_STATE.syncing, SYNC_STATE.error]),
   queued: z.number().int().min(0),
@@ -23,6 +25,7 @@ export const touchDeviceWrite = defineWriteHandler({
     sync: syncReportSchema.optional(),
     // Only the heartbeat hands the retry signal to the satellite; an upload must not swallow it.
     consumeRetry: z.boolean().optional(),
+    upload: uploadOutcomeSchema.optional(),
   }),
   access: { roles: access.system },
   agent: { expose: false },
@@ -66,6 +69,22 @@ export const touchDeviceWrite = defineWriteHandler({
     for (const condition of qualifying) {
       const updated = await updateMany(ctx.db, deviceTable, set, { id: deviceId, ...condition });
       if (updated.length > 0) break;
+    }
+    // Conditional both ways: a paused satellite retrying or a normal upload adds no write.
+    if (event.payload.upload === "quotaRejected") {
+      await updateMany(
+        ctx.db,
+        deviceTable,
+        { quotaRejectedAt: now },
+        { id: deviceId, quotaRejectedAt: null },
+      );
+    } else if (event.payload.upload === "accepted") {
+      await updateMany(
+        ctx.db,
+        deviceTable,
+        { quotaRejectedAt: null },
+        { id: deviceId, quotaRejectedAt: { ne: null } },
+      );
     }
     // One conditional update: of two parallel heartbeats only one clears the flag and gets `retry`.
     const retry =

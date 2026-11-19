@@ -20,6 +20,7 @@ const deviceSummariesSchema = z.array(
     syncState: z.string().nullable(),
     syncQueued: z.number().nullable(),
     syncFailed: z.number().nullable(),
+    storageFull: z.boolean(),
     lastSeenAt: z.string().nullable(),
     revokedAt: z.string().nullable(),
   }),
@@ -33,7 +34,12 @@ type ConnectorRow = {
   readonly insertedAt: Temporal.Instant;
 };
 
-type SyncReport = { state: string | null; queued: number | null; failed: number | null };
+type SyncReport = {
+  state: string | null;
+  queued: number | null;
+  failed: number | null;
+  storageFull: boolean;
+};
 
 function syncStatusOf({ state, failed }: SyncReport): string {
   if (state === null) return SYNC_STATUS.unknown;
@@ -42,7 +48,8 @@ function syncStatusOf({ state, failed }: SyncReport): string {
 }
 
 // Text for the "Details" column: counts the badge cannot carry.
-function syncDetailOf(status: string, { queued, failed }: SyncReport) {
+function syncDetailOf(status: string, { queued, failed, storageFull }: SyncReport) {
+  if (storageFull) return { i18nKey: "connectors.sync.detail.storageFull" };
   if (status === SYNC_STATUS.failed && (failed ?? 0) > 0) {
     return { i18nKey: "connectors.list.sync.failedCount", i18nParams: { count: failed ?? 0 } };
   }
@@ -76,6 +83,7 @@ export const listConnectorsQuery = defineQueryHandler({
         state: live?.syncState ?? null,
         queued: live?.syncQueued ?? null,
         failed: live?.syncFailed ?? null,
+        storageFull: live?.storageFull ?? false,
       };
       const syncStatus = syncStatusOf(report);
       return {

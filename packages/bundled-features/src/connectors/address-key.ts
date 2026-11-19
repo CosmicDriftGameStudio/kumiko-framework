@@ -37,3 +37,35 @@ export function pairingAddressKey(ip: string): string {
     .map((hextet) => hextet.toString(16))
     .join(":")}::/64`;
 }
+
+const STORED_PREFIX_PATTERN = /^([0-9a-f]{1,4}(?::[0-9a-f]{1,4}){3})::\/64$/;
+const LOOPBACK_IPV4_PATTERN = /^127\./;
+
+function compressIpv6(hextets: readonly string[]): string {
+  let best = { start: -1, length: 0 };
+  for (let start = 0; start < hextets.length; start += 1) {
+    let end = start;
+    while (end < hextets.length && hextets[end] === "0") end += 1;
+    if (end - start > best.length) best = { start, length: end - start };
+  }
+  if (best.length < 2) return hextets.join(":");
+  const head = hextets.slice(0, best.start).join(":");
+  const tail = hextets.slice(best.start + best.length).join(":");
+  return `${head}::${tail}`;
+}
+
+// What the admin reads on the confirm step: the stored key in RFC 5952 form (`2001:db8:1:2::/64`),
+// or "local" for a request from this very server, whose text the caller translates.
+export function pairingAddressDisplay(
+  storedKey: string,
+): { readonly kind: "local" } | { readonly kind: "address"; readonly text: string } {
+  if (LOOPBACK_IPV4_PATTERN.test(storedKey)) return { kind: "local" };
+  const prefix = STORED_PREFIX_PATTERN.exec(storedKey)?.[1];
+  if (prefix === undefined) return { kind: "address", text: storedKey };
+  const hextets = [
+    ...prefix.split(":").map((hextet) => hextet.replace(/^0+(?=.)/, "")),
+    ...Array(4).fill("0"),
+  ];
+  if (hextets.every((hextet) => hextet === "0")) return { kind: "local" };
+  return { kind: "address", text: `${compressIpv6(hextets)}/64` };
+}

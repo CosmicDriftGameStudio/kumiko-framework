@@ -192,6 +192,20 @@ export function WorkspaceShell({
     if (activeId === undefined) return;
     const routeScreenEmpty = nav.route?.screenId === undefined || nav.route.screenId === "";
     const workspaceMatches = routeWorkspaceId === activeId;
+    // A link without workspace ("/connector-pair?userCode=X", as an RFC 8628 verification URI
+    // has none) parses with the screen id in the workspace slot: keep it as the screen and its query.
+    if (
+      routeScreenEmpty &&
+      !workspaceMatches &&
+      routeWorkspaceId !== undefined &&
+      isScreenShortId(app, routeWorkspaceId)
+    ) {
+      nav.replace(
+        { workspaceId: activeId, screenId: routeWorkspaceId },
+        { searchParams: nav.searchParams },
+      );
+      return;
+    }
     if (workspaceMatches && !routeScreenEmpty) return; // URL is fine
     const target = visible.find((ws) => ws.definition.id === activeId);
     const navMembers = target?.navMembers;
@@ -413,4 +427,10 @@ export function resolveDefaultId(
   if (defaulted !== undefined) return defaulted.definition.id;
   // 3. First workspace the user can see.
   return visible[0]?.definition.id;
+}
+
+function isScreenShortId(app: AppSchema, shortId: string): boolean {
+  return app.features.some((feature) =>
+    feature.screens.some((screen) => lastSegment(screen.id) === shortId),
+  );
 }

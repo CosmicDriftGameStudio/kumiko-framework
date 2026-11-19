@@ -391,3 +391,26 @@ describe("buildAppSchema — urlPrefillFields derived from an actionForm redirec
     expect(prefill("plain-two")).toEqual([]);
   });
 });
+
+describe("buildAppSchema — urlPrefillFields from linkPrefillFields", () => {
+  const linkFeature = defineFeature("link-form", (r) => {
+    r.screen({
+      id: "pair",
+      type: "actionForm",
+      handler: "link-form:write:check",
+      fields: { userCode: { type: "text" }, name: { type: "text" } },
+      layout: { sections: [{ fields: ["userCode", "name"] }] },
+      linkPrefillFields: ["userCode"],
+    });
+  });
+
+  test("only the named field may be filled from a link", () => {
+    const app = buildAppSchema(createRegistry([linkFeature]));
+    const screen = app.features
+      .find((f) => f.featureName === "link-form")
+      ?.screens.find((s) => s.id === "pair");
+    expect(screen !== undefined && "urlPrefillFields" in screen && screen.urlPrefillFields).toEqual(
+      ["userCode"],
+    );
+  });
+});

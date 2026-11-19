@@ -78,3 +78,8 @@ without `pinning`, a width without `resizing` and a bulk action on a navigate
 row action, a form bulk action whose `idsField` is no count list and a preview over an unknown query or field are rejected.
 `workload.integration.test.ts` runs the hand-written query over HTTP and checks
 the grouped sums and the filtered total, the preview query, and the handler's unknown-id and over-cap rejections.
+
+- `linkPrefillFields` and `successFacts` with `valueIsI18nKey`: the `task-status-link`
+  form lets a plain link (`?status=done`) fill `status` and nothing else; a name that is not a
+  form field fails boot (`form/link-prefill-unknown-field`). Its success box shows the
+  `statusKey` the handler returns as a translated text instead of the raw key.
