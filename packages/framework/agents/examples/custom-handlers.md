@@ -44,6 +44,15 @@ logic is yours.
   (`eq`/`ne`/`lt`/`gt`/`lte`/`gte`/`in`) and `totalCount` to the executor's
   list. Never filter a page in TypeScript: list is paginated, so rows after
   the first page would be missed.
+- **`dispatchOnly` queries**: `counter:last-incremented-by` sets
+  `dispatchOnly: true`, so `/api/query` answers it with 404 as if it did
+  not exist. `counter:incremented-by-me` calls it with
+  `ctx.dispatch.query(ref, payload)` and returns only the derived answer.
+  Use it for a building block that other handlers share but no client
+  should call directly. It closes the HTTP entry only: its access rule still
+  counts as a read grant on the entity for linked lists and derived values.
+  The boot check rejects it wherever the browser would load it (screens,
+  field options, summary rows).
 - **`failNotFound` helper** — typed error response for the 404 case
   without a hand-built `KumikoError` subclass.
 
@@ -415,6 +424,49 @@ describe("named verbs and history", () => {
     expect(row?.["status"]).toBe("open");
   });
 });
+
+describe("dispatchOnly query", () => {
+  async function createCounter(name: string): Promise<string> {
+    const created = await stack.http.writeOk<SaveContext>(
+      "counters:write:counter:create",
+      { name },
+      admin,
+    );
+    return String(created.id);
+  }
+
+  test("/api/query answers 404 for the dispatchOnly query", async () => {
+    const id = await createCounter("dispatch-only-hidden");
+
+    const error = await stack.http.queryErr(
+      "counters:query:counter:last-incremented-by",
+      { id },
+      user,
+    );
+
+    expect(error.code).toBe("not_found");
+    expect(error.httpStatus).toBe(404);
+  });
+
+  test("the calling handler reads it through ctx.dispatch.query", async () => {
+    const id = await createCounter("dispatch-only-caller");
+    await stack.http.writeOk("counters:write:counter:increment", { id, amount: 1 }, user);
+
+    const mine = await stack.http.queryOk<{ incrementedByMe: boolean }>(
+      "counters:query:counter:incremented-by-me",
+      { id },
+      user,
+    );
+    const notAdmins = await stack.http.queryOk<{ incrementedByMe: boolean }>(
+      "counters:query:counter:incremented-by-me",
+      { id },
+      admin,
+    );
+
+    expect(mine.incrementedByMe).toBe(true);
+    expect(notAdmins.incrementedByMe).toBe(false);
+  });
+});
 ```
 
 ### src/feature.ts
@@ -423,7 +475,8 @@ describe("named verbs and history", () => {
 // Custom Handlers Sample
 // Shows: writeHandler with business logic, queryHandler with a server-side filter,
 // handler that modifies payload before DB write, named entity verbs (counter.archived,
-// counter.reset) with a checked transition, and the executor's history and as-of reads.
+// counter.reset) with a checked transition, the executor's history and as-of reads, and a
+// dispatchOnly query that only another handler can call.
 
 import {
   createEntity,
@@ -575,6 +628,28 @@ export const counterFeature = defineFeature("counters", (r) => {
           "any signed-in user may read a counter by id; the sample has no per-user counter ownership",
       },
     },
+  });
+
+  // dispatchOnly: reachable only through ctx.dispatch.query, /api/query answers 404 as for an unknown name.
+  const lastIncrementedBy = r.queryHandler({
+    name: "counter:last-incremented-by",
+    schema: z.object({ id: z.uuid() }),
+    dispatchOnly: true,
+    handler: async (query, ctx) => {
+      const counter = await counterExecutor.detail(query.payload, query.user, ctx.db);
+      return { lastIncrementedBy: counter?.lastIncrementedBy ?? null };
+    },
+    access: { roles: ["Admin", "User"] },
+  });
+
+  r.queryHandler({
+    name: "counter:incremented-by-me",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (query, ctx) => {
+      const result = await ctx.dispatch.query(lastIncrementedBy, query.payload);
+      return { incrementedByMe: result.lastIncrementedBy === `user:${query.user.id}` };
+    },
+    access: { roles: ["Admin", "User"] },
   });
 
   r.queryHandler({

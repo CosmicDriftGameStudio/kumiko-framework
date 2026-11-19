@@ -1,10 +1,12 @@
 import { kmsEnvSchema } from "@cosmicdrift/kumiko-bundled-features/crypto-shredding/env";
 import { runConsumerCli } from "@cosmicdrift/kumiko-framework/consumer-cli";
+import type { KmsMode } from "@cosmicdrift/kumiko-framework/crypto";
 import type { RowLevelSecurityMode } from "@cosmicdrift/kumiko-framework/db";
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { type ComposedEnvSchema, kmsSlotsOf } from "@cosmicdrift/kumiko-framework/env";
 import { runEventsCli } from "@cosmicdrift/kumiko-framework/events-cli";
 import { runSchemaCli } from "@cosmicdrift/kumiko-framework/schema-cli";
+import { productionKmsMode } from "./boot-options/prod-boot-defaults.ts";
 
 export type StandaloneCliOut = {
   readonly log: (line: string) => void;
@@ -16,8 +18,8 @@ export type StandaloneCliOptions = {
   /** The app's composed env schema (bin/env-schema.ts). */
   readonly envSchema: ComposedEnvSchema;
   readonly rowLevelSecurity?: RowLevelSecurityMode;
-  /** Passed to `schema apply`: fail before any migration when the KMS env is missing. */
-  readonly requireKms?: boolean;
+  /** The app's `kmsMode` (kumiko.config.ts); `schema apply` runs with `productionKmsMode` of it. */
+  readonly kmsMode?: KmsMode;
 };
 
 // `generate` writes files, `baseline` marks migrations applied without running SQL.
@@ -47,10 +49,11 @@ export async function runStandaloneCli(
     const kmsSlots = [
       ...new Set([...kmsSlotsOf(options.envSchema.schema), ...kmsSlotsOf(kmsEnvSchema)]),
     ];
+    const kmsMode = productionKmsMode(options.kmsMode, process.env);
     return runSchemaCli(rest, appCwd, out, {
       features: options.features,
       kmsSlots,
-      ...(options.requireKms === true && { requireKms: true }),
+      ...(kmsMode !== undefined && { kmsMode }),
       ...rowLevelSecurity,
     });
   }

@@ -165,6 +165,7 @@ export function createApiRoutes(
     try {
       assertPayloadDepthAllowed(body.payload);
       assertPatAllowed(user, body.type);
+      assertQueryEntryAllowed(registry, body.type);
       const result = await dispatcher.query(body.type, body.payload, user);
       return jsonResponse(c, { data: result });
     } catch (e) {
@@ -436,11 +437,22 @@ function assertPatAllowed(user: SessionUser, type: string): void {
 
 // The generic HTTP entry is the trust boundary for client dispatches; server code (auth routes,
 // ctx.dispatch, jobs, extra routes) calls the dispatcher directly and is not gated here.
+function assertNotDispatchOnly(
+  handler: { readonly dispatchOnly?: boolean } | undefined,
+  type: string,
+): void {
+  if (handler?.dispatchOnly) throw new NotFoundError("handler", type);
+}
+
+export function assertQueryEntryAllowed(registry: Registry, type: string): void {
+  assertNotDispatchOnly(registry.getQueryHandler(type), type);
+}
+
 function assertWriteEntryAllowed(registry: Registry, user: SessionUser, type: string): void {
   const handler = registry.getWriteHandler(type);
   // skip: unknown type, the dispatcher answers with its own 404.
   if (!handler) return;
-  if (handler.dispatchOnly) throw new NotFoundError("handler", type);
+  assertNotDispatchOnly(handler, type);
   // A handler the anonymous role cannot call keeps the dispatcher's 401, which clients key on.
   const anonymousMayCall = isSystemAnchoredAnonymous(user) && hasAccess(user, handler.access);
   if (anonymousMayCall && handler.tenantlessAnonymous !== true) {

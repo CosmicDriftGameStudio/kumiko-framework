@@ -109,7 +109,7 @@ function isDetailHandlerQn(qn: string, entityName: string): boolean {
  *  the resolver's own default is fail-closed on a missing `description`, and CRUD-generated
  *  handlers never carry one, so reusing it would delete every entity tool in every app. */
 function isExplicitlyAgentHidden(def: QueryHandlerDef): boolean {
-  return def.agent?.expose === false;
+  return def.agent?.expose === false || def.dispatchOnly === true;
 }
 
 /** The entity a query handler serves to this role as a registry-derived tool, if any. The

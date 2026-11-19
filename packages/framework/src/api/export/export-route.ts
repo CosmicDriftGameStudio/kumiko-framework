@@ -13,7 +13,11 @@ import { isValidIanaTimeZone } from "../../time/index.ts";
 import { Routes } from "../api-constants.ts";
 import { getUser } from "../auth-middleware.ts";
 import { requestContext } from "../request-context.ts";
-import { assertPayloadDepthAllowed, queryErrorResponse } from "../routes.ts";
+import {
+  assertPayloadDepthAllowed,
+  assertQueryEntryAllowed,
+  queryErrorResponse,
+} from "../routes.ts";
 import { EXPORT_TOO_MANY_I18N_KEY, exportRejection } from "./export-errors.ts";
 import { readExportRows } from "./export-rows.ts";
 import { resolveExportPlan } from "./export-screen.ts";
@@ -82,6 +86,7 @@ export function createExportRoutes(
       const body = parsed.data;
       assertPayloadDepthAllowed(body.payload);
       const plan = resolveExportPlan(registry, body.screen, body.columns, user);
+      assertQueryEntryAllowed(registry, plan.queryType);
       const result = await readExportRows(dispatcher, plan, body.payload, user);
       if (result.tooMany) {
         return c.json(

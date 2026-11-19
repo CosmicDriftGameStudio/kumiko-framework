@@ -6,4 +6,5 @@ export default defineAppConfig({
   prodFeatures: [auditExportFeature],
   client: { entries: ["src/client.tsx"] },
   ports: { dev: 4510, e2e: 4511, infra: { postgres: 15510 } },
+  kmsMode: "required",
 });

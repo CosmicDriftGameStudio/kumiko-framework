@@ -121,6 +121,7 @@ const QUERY_HANDLER_KEY_KINDS: Record<keyof QueryHandlerDef, KeyClassification> 
   unfilteredResult: "opaque",
   escapeHatch: "modeled",
   systemScope: "opaque",
+  dispatchOnly: "opaque",
 };
 
 const STREAM_HANDLER_KEY_KINDS: Record<keyof StreamHandlerDef, KeyClassification> = {

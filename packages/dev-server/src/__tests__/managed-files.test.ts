@@ -148,7 +148,7 @@ describe("bin/kumiko.ts template", () => {
     const entry = renderManagedTemplates(facts()).find((file) => file.path === "bin/kumiko.ts");
     if (entry === undefined) throw new Error("no bin/kumiko.ts template");
     expect(entry.content).toContain("runStandaloneCli");
-    expect(entry.content).toContain("requireKms");
+    expect(entry.content).toContain("kmsMode: appConfig.kmsMode");
     expect(readManagedMarker(entry.content).kind).toBe("managed");
   });
 });

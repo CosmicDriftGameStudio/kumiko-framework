@@ -506,7 +506,7 @@ export const envSchema = composeEnvSchema({
 function renderMain(appName: string): string {
   const tenantId = deriveTenantId(appName);
   const imports = renderSortedImports([
-    { specifier: "@cosmicdrift/kumiko-server-runtime", names: ["runProdApp"] },
+    { specifier: "@cosmicdrift/kumiko-server-runtime", names: ["productionKmsMode", "runProdApp"] },
     { specifier: "@cosmicdrift/kumiko-framework/engine", names: ["TenantId"], typeOnly: true },
     {
       specifier: "@cosmicdrift/kumiko-framework/crypto",
@@ -523,7 +523,8 @@ function renderMain(appName: string): string {
   ]);
 
   // Subject-key KMS is optional locally (plaintext + loud warning) but required
-  // under NODE_ENV=production, where kmsMode also resolves the *_CIPHERTEXT form via the Key Manager.
+  // under NODE_ENV=production unless kumiko.config.ts sets kmsMode, which also resolves the *_CIPHERTEXT
+  // form via the Key Manager.
   return `// biome-ignore-all lint/style/noProcessEnv: KMS wiring and the demo admin password are read before runProdApp parses the env contract, and the scaffold has no bin/env.ts
 // Production-bootstrap. KUMIKO_DRY_RUN_ENV=boot exits after
 // composeFeatures + validateBoot + createRegistry without DB/Redis-connect
@@ -539,10 +540,9 @@ const kmsOpts = {
     "no PLATFORM_KEK / SUBJECT_KEYS_DATABASE_URL / KUMIKO_BLIND_INDEX_KEY set — see .env.example",
 } as const;
 
-const kmsWiring =
-  process.env["NODE_ENV"] === "production"
-    ? { kmsMode: "required" as const }
-    : resolveKmsWiring(process.env, kmsOpts);
+// kmsMode in kumiko.config.ts is the production decision here and in schema apply (bin/kumiko.ts).
+const kmsMode = productionKmsMode(appConfig.kmsMode, process.env);
+const kmsWiring = kmsMode !== undefined ? { kmsMode } : resolveKmsWiring(process.env, kmsOpts);
 
 await runProdApp({
   features: APP_FEATURES,

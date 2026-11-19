@@ -371,7 +371,7 @@ describe("scaffoldApp", () => {
     );
     expect(kumikoBin.split("\n")[0]).toBe("#!/usr/bin/env bun");
     expect(kumikoBin.split("\n")[1]).toBe("// kumiko-managed");
-    expect(kumikoBin).toContain('requireKms: process.env["NODE_ENV"] === "production",');
+    expect(kumikoBin).toContain("...(appConfig.kmsMode && { kmsMode: appConfig.kmsMode }),");
   });
 
   test("framework-owned files carry the kumiko-managed marker", async () => {
@@ -599,10 +599,9 @@ describe("scaffoldApp", () => {
 
     const main = readFileSync(join(dest, "bin/main.ts"), "utf-8");
     expect(main).toContain('from "@cosmicdrift/kumiko-framework/crypto"');
-    expect(main).toContain('{ kmsMode: "required" as const }');
+    expect(main).toContain("productionKmsMode(appConfig.kmsMode, process.env)");
     expect(main).not.toContain("requireKmsWiring");
     expect(main).toContain("resolveKmsWiring(process.env");
-    expect(main).toContain('process.env["NODE_ENV"] === "production"');
     expect(main).not.toContain('if ("allowPlaintextPii" in kmsWiring)');
     expect(main).toContain("...kmsWiring,");
   });

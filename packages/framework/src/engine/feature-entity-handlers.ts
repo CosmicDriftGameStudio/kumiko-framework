@@ -247,6 +247,7 @@ export function buildEntityHandlerMethods<TName extends string>(
         ...(def.unfilteredResult && { unfilteredResult: def.unfilteredResult }),
         ...(def.escapeHatch && { escapeHatch: def.escapeHatch }),
         ...(def.systemScope === true && { systemScope: true as const }),
+        ...(def.dispatchOnly && { dispatchOnly: true }),
         // Carry the definePagedQueryHandler brand through — this rebuild
         // drops any field not explicitly listed.
         ...(isPagedQueryHandler(def) && { [PAGED_QUERY_HANDLER_BRAND]: true }),

@@ -14,7 +14,10 @@ the option.
   itself still comes from the `auth` option or `composeFeatures`.
 - **`composeSecurityStack({ includeSessions })`**: `sessions`,
   `crypto-shredding`, `rate-limiting` and `audit`. Needs a KMS decision
-  (`kmsMode`; in production it defaults to `"optional"`) and fails with `rateLimit: false`.
+  (`kmsMode`; in production `runProdApp` defaults to `"optional"`) and fails with `rateLimit: false`.
+  `schema apply` reads `kmsMode` from `kumiko.config.ts` instead and requires
+  the KMS env when it is unset, so an app relying on that boot default sets
+  `kmsMode: "optional"` there.
 - **`composeGdprStack({ tenantLifecycle, selfService })`**: `data-retention`
   and `compliance-profiles`, optionally `tenant-lifecycle`. `selfService` adds
   `sessions`, `user-data-rights` and `user-profile` (needs `mail`).

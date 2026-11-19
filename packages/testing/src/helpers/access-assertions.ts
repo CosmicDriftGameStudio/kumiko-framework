@@ -64,7 +64,7 @@ const DISPATCH_ONLY_UNREACHABLE: DeniedAnswer = {
  * Contract test: every role-restricted write/query handler in the stack rejects
  * a signed-in caller who holds none of its roles with 403 access_denied, over
  * real HTTP. Roles are checked centrally before payload parsing (pre-handler
- * gates / dispatch-query), so an empty payload is enough. A dispatchOnly write handler
+ * gates / dispatch-query), so an empty payload is enough. A dispatchOnly handler
  * must answer 404 not_found instead, proving HTTP cannot reach it at all. openToAll and
  * anySignedIn handlers and handlers without access are skipped. Throws once with all deviations;
  * `minimumHandlerCount` guards against an empty registry walk passing silently.
@@ -91,7 +91,10 @@ export async function expectRoleRestrictedHandlersDenyForeignRole(
   for (const [handlerName, handler] of stack.registry.getAllQueryHandlers()) {
     if (!isRoleRestricted(handler.access)) continue;
     checkedQueryHandlers++;
-    const outcome = await deniedOutcome(await stack.http.query(handlerName, {}, probe));
+    const outcome = await deniedOutcome(
+      await stack.http.query(handlerName, {}, probe),
+      handler.dispatchOnly ? DISPATCH_ONLY_UNREACHABLE : ACCESS_DENIED,
+    );
     if (outcome) deviations.push(`query ${handlerName}: ${outcome}`);
   }
 

@@ -5,7 +5,7 @@
 
 import { resolveKmsWiring } from "@cosmicdrift/kumiko-framework/crypto";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { runProdApp } from "@cosmicdrift/kumiko-server-runtime";
+import { productionKmsMode, runProdApp } from "@cosmicdrift/kumiko-server-runtime";
 import appConfig from "../kumiko.config";
 import { APP_FEATURES } from "../src/run-config";
 import { envSchema } from "./env-schema";
@@ -18,10 +18,9 @@ const kmsOpts = {
     "no PLATFORM_KEK / SUBJECT_KEYS_DATABASE_URL / KUMIKO_BLIND_INDEX_KEY set — see .env.example",
 } as const;
 
-const kmsWiring =
-  process.env["NODE_ENV"] === "production"
-    ? { kmsMode: "required" as const }
-    : resolveKmsWiring(process.env, kmsOpts);
+// kmsMode in kumiko.config.ts is the production decision here and in schema apply (bin/kumiko.ts).
+const kmsMode = productionKmsMode(appConfig.kmsMode, process.env);
+const kmsWiring = kmsMode !== undefined ? { kmsMode } : resolveKmsWiring(process.env, kmsOpts);
 
 await runProdApp({
   features: APP_FEATURES,

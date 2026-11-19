@@ -18,6 +18,6 @@ process.exitCode = await runStandaloneCli(Bun.argv.slice(2), cwd, out, {
   features: FEATURES,
   envSchema,
   ...(appConfig.rowLevelSecurity && { rowLevelSecurity: appConfig.rowLevelSecurity }),
-  // Same rule as bin/main.ts: production requires the KMS env (kmsMode "required").
-  requireKms: process.env["NODE_ENV"] === "production",
+  // The KMS decision bin/main.ts boots with: in production "required" unless kumiko.config.ts sets kmsMode.
+  ...(appConfig.kmsMode && { kmsMode: appConfig.kmsMode }),
 });

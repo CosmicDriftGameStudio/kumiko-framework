@@ -21,6 +21,7 @@ export {
   subjectKeyForRecord,
   subjectKeyForUser,
 } from "./kms-adapter.ts";
+export { findKmsModeProblem, type KmsMode } from "./kms-mode.ts";
 export { ENCRYPTION_UNAVAILABLE_CODE, EncryptionUnavailableError } from "./kms-outage.ts";
 export {
   type KmsWiring,

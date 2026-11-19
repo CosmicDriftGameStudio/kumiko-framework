@@ -1,17 +1,11 @@
-import { type KmsAdapter, resolveKmsWiringAsync } from "@cosmicdrift/kumiko-framework/crypto";
+import {
+  findKmsModeProblem,
+  type KmsAdapter,
+  type KmsMode,
+  resolveKmsWiringAsync,
+} from "@cosmicdrift/kumiko-framework/crypto";
 
-/** Short form over the low-level `kms` / `blindIndexKey` / `allowPlaintextPii`
- *  fields:
- *  - `"required"`: wires the subject-key KMS from `PLATFORM_KEK`,
- *    `SUBJECT_KEYS_DATABASE_URL` and `KUMIKO_BLIND_INDEX_KEY` (ciphertext
- *    slots resolved via the Key Manager); an empty trio aborts the boot.
- *  - `"optional"`: wires it when the trio is complete. An empty trio leaves the
- *    app without KMS and the PII boot gate decides: PII carriers abort.
- *  - `{ plaintextReason }`: no KMS, PII stays plaintext; the reason is logged
- *    for the audit trail. Use only for demo apps.
- *
- *  A partial trio throws in every mode. */
-export type KmsMode = "required" | "optional" | { readonly plaintextReason: string };
+export type { KmsMode };
 
 export type ResolvedKmsMode = {
   readonly kms?: KmsAdapter;
@@ -53,10 +47,9 @@ export async function resolveKmsMode(
       "[runProdApp] kmsMode cannot be combined with kms / blindIndexKey / allowPlaintextPii — pick the short form or the low-level fields.",
     );
   }
+  const problem = findKmsModeProblem(kmsMode);
+  if (problem !== undefined) throw new Error(`[runProdApp] ${problem}.`);
   if (typeof kmsMode === "object") {
-    if (kmsMode.plaintextReason.trim() === "") {
-      throw new Error("[runProdApp] kmsMode.plaintextReason must name a reason.");
-    }
     return { allowPlaintextPii: kmsMode.plaintextReason, close: noop };
   }
   const wiring = await resolveKmsWiringAsync(envSource, {

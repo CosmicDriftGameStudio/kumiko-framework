@@ -36,6 +36,15 @@ logic is yours.
   (`eq`/`ne`/`lt`/`gt`/`lte`/`gte`/`in`) and `totalCount` to the executor's
   list. Never filter a page in TypeScript: list is paginated, so rows after
   the first page would be missed.
+- **`dispatchOnly` queries**: `counter:last-incremented-by` sets
+  `dispatchOnly: true`, so `/api/query` answers it with 404 as if it did
+  not exist. `counter:incremented-by-me` calls it with
+  `ctx.dispatch.query(ref, payload)` and returns only the derived answer.
+  Use it for a building block that other handlers share but no client
+  should call directly. It closes the HTTP entry only: its access rule still
+  counts as a read grant on the entity for linked lists and derived values.
+  The boot check rejects it wherever the browser would load it (screens,
+  field options, summary rows).
 - **`failNotFound` helper** — typed error response for the 404 case
   without a hand-built `KumikoError` subclass.
 

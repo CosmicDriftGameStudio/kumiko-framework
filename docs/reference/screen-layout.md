@@ -422,6 +422,7 @@ aiAssist: {
 - A list that shows its `emptyState` has no entry-count footer.
 - A row click does not fire for clicks from controls inside custom cells (button, link, input) or from content portaled out of the row, such as a drawer or menu.
 - A banner with actions wraps below its text on phones: text first, actions on their own line.
+- An entityList sorts on the base columns `insertedAt` and `modifiedAt` without a declared field: list the column and set `defaultSort: { field: "insertedAt", dir: "desc" }` for newest first. The list handler orders by the column with the id as tie-breaker, also across cursor pages.
 
 ## Gates, fallbacks and parent values
 

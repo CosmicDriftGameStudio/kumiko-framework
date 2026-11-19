@@ -7,7 +7,7 @@ import type { EntityListScreenDefinition, RowAction, ToolbarAction } from "../ty
 import { bootRuleError } from "./boot-rule.ts";
 import { isSortableSqlDerivedField } from "./derived-sql-fields.ts";
 import { validateEntityListAggregateOptions } from "./entity-list-aggregate-options.ts";
-import { LIST_ROW_META_COLUMN_NAMES } from "./entity-list-screens.ts";
+import { isSortableRowMetaColumn, LIST_ROW_META_COLUMN_NAMES } from "./entity-list-screens.ts";
 import { ENTITY_LIST_RULES } from "./entity-list-screens-rules.ts";
 import { validateListBulkActions } from "./list-bulk-actions.ts";
 import { validateListRowGuidance } from "./list-row-guidance.ts";
@@ -116,6 +116,8 @@ function validateEntityListDefaultSort(
   fields: EntityListFields,
 ): void {
   const sortField = defaultSort.field;
+  // skip: insertedAt/modifiedAt are base columns the list handler sorts on directly
+  if (isSortableRowMetaColumn(sortField)) return;
   const sortsOnDerived = isSortableSqlDerivedField(fields.entityDef, sortField);
   if (!fields.fieldNames.has(sortField) && !sortsOnDerived) {
     throw bootRuleError(SCREEN_KIND_RULES.defaultSortUnknownField, {

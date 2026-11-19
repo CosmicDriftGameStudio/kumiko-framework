@@ -10,6 +10,7 @@ import { ZodObject } from "zod";
 import { holdsFileRefs } from "../../files/file-field-slots.ts";
 import { access as accessPresets } from "../config-helpers.ts";
 import { parseRefTarget } from "../parse-ref-target.ts";
+import { QnTypes, qualifyEntityName } from "../qualified-name.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 import { validateAgentProposalEffect } from "./agent-effect.ts";
 import { bootRuleError } from "./boot-rule.ts";
@@ -17,6 +18,7 @@ import { HANDLER_ACCESS_RULES } from "./entity-handler-access-rules.ts";
 import { ENTITY_REFERENCE_EMBEDDED_RULES } from "./entity-reference-embedded-rules.ts";
 import { ENTITY_STRUCTURE_RULES } from "./entity-structure-rules.ts";
 import { FIELD_CONDITION_RULES } from "./field-conditions-rules.ts";
+import { assertNotDispatchOnlyQuery } from "./query-refs.ts";
 import {
   validateBeforeTransactionWhenNested,
   validatePerCommandTransaction,
@@ -168,7 +170,7 @@ export function validateHandlerAccess(feature: FeatureDefinition): void {
   }
   for (const [name, handler] of Object.entries(feature.writeHandlers)) {
     validateTenantlessAnonymous(feature.name, name, handler);
-    validateDispatchOnly(feature.name, name, handler);
+    validateDispatchOnly(feature.name, "write", name, handler);
     validateAdditionalRateLimits(feature.name, name, handler);
     validateRateLimitCost(feature.name, name, handler);
     validatePerCommandTransaction(feature.name, name, handler);
@@ -176,6 +178,7 @@ export function validateHandlerAccess(feature: FeatureDefinition): void {
     validateAgentProposalEffect(feature.name, "write", name, handler.agent);
   }
   for (const [name, handler] of Object.entries(feature.queryHandlers)) {
+    validateDispatchOnly(feature.name, "query", name, handler);
     validateAgentProposalEffect(feature.name, "query", name, handler.agent);
   }
 }
@@ -303,18 +306,19 @@ export function validateTenantlessAnonymous(
 
 export function validateDispatchOnly(
   featureName: string,
+  kind: "write" | "query",
   handlerName: string,
-  handler: FeatureDefinition["writeHandlers"][string],
+  handler: FeatureDefinition["writeHandlers"][string] | FeatureDefinition["queryHandlers"][string],
 ): void {
   // skip: handler is reachable through the HTTP entry
   if (!handler.dispatchOnly) return;
-  const where = `write handler "${featureName}:write:${handlerName}" declares dispatchOnly`;
+  const where = `${kind} handler "${featureName}:${kind}:${handlerName}" declares dispatchOnly`;
   if (handler.agent?.expose === true) {
     throw bootRuleError(HANDLER_ACCESS_RULES.dispatchOnlyAgentExposed, {
       message: `${where} and agent.expose: true — a dispatch-only handler is never an agent tool. Drop agent.expose or dispatchOnly.`,
     });
   }
-  if (handler.tenantlessAnonymous) {
+  if ("tenantlessAnonymous" in handler && handler.tenantlessAnonymous) {
     throw bootRuleError(HANDLER_ACCESS_RULES.dispatchOnlyTenantless, {
       message: `${where} and tenantlessAnonymous — tenantlessAnonymous only matters for the HTTP entry dispatchOnly closes. Drop one of the two.`,
     });
@@ -669,7 +673,13 @@ function validateReferenceTarget(
         `different label/entity.`,
     });
   }
-  // The check above still applies when optionsQuery is set: optionsQuery only
+  assertNotDispatchOnlyQuery(
+    targetFeature.queryHandlers[expectedHandlerShortName],
+    qualifyEntityName(target.featureName, QnTypes.query, expectedHandlerShortName),
+    () =>
+      `[Feature ${feature.name}] Reference field "${fieldPath}" on entity "${entityName}" target list`,
+  );
+  // The checks above still apply when optionsQuery is set: optionsQuery only
   // replaces the picker's option list, while list cells keep resolving the
   // UUID through `<targetFeature>:query:<targetEntity>:list`
   // (use-reference-lookup).
@@ -705,6 +715,12 @@ function validateReferenceOptionsQuery(
         `is declared via r.queryHandler(...).`,
     });
   }
+  assertNotDispatchOnlyQuery(
+    queryHandlers.get(optionsQuery),
+    optionsQuery,
+    () =>
+      `[Feature ${feature.name}] Reference field "${fieldPath}" on entity "${entityName}" optionsQuery`,
+  );
 }
 
 // ReferenceFieldDef validation for top-level

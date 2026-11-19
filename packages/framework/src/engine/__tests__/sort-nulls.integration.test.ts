@@ -111,4 +111,81 @@ describe("sortNulls on a sortable field", () => {
     expect([...names.slice(0, 2)].sort()).toEqual(["manual-1", "manual-2"]);
     expect(names.slice(2)).toEqual(["old", "mid", "new"]);
   });
+
+  test("the insertedAt base column sorts newest first across cursor pages", async () => {
+    const names = await pagedNames("insertedAt", "desc");
+
+    expect(names).toEqual(["mid", "new", "manual-2", "old", "manual-1"]);
+  });
+});
+
+const burstEntity = createEntity({
+  name: "burst",
+  table: "sort_nulls_bursts",
+  fields: { name: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
+});
+
+const burstFeature = defineFeature("sort-burst", (r) => {
+  r.crud(burstEntity, {
+    write: { access: { roles: ["User"] } },
+    read: { access: { roles: ["User"] } },
+  });
+});
+
+type BurstRow = { readonly id: string; readonly insertedAt: string };
+type BurstPage = { readonly rows: readonly BurstRow[]; readonly nextCursor: string | null };
+
+// Rows created in one burst share inserted_at values; a cursor that dropped precision would
+// skip or repeat rows at those ties.
+describe("insertedAt cursor over rows created in one burst", () => {
+  const BURST_SIZE = 40;
+  const BURST_LIST = "sort-burst:query:burst:list";
+  let stack: TestStack;
+
+  beforeAll(async () => {
+    stack = await setupTestStack({ features: [burstFeature] });
+    await unsafeCreateEntityTable(stack.db, burstEntity);
+    await Promise.all(
+      Array.from({ length: BURST_SIZE }, (_, index) =>
+        stack.http.writeOk(
+          "sort-burst:write:burst:create",
+          { name: `burst-${index}` },
+          TestUsers.user,
+        ),
+      ),
+    );
+  });
+
+  afterAll(async () => {
+    await stack.cleanup();
+  });
+
+  test("limit 1 pages visit every row once, ordered by inserted_at desc then id", async () => {
+    const all = await stack.http.queryOk<BurstPage>(
+      BURST_LIST,
+      { limit: 200, sort: "insertedAt", sortDirection: "desc" },
+      TestUsers.user,
+    );
+    // The single query is the reference: the column keeps microseconds, the response milliseconds
+    // without trailing zeros ("…03.06Z"), so neither a text sort nor an id tie-break in the test
+    // matches the database order.
+    const expected = all.rows.map((row) => row.id);
+    const instants = all.rows.map((row) => Date.parse(row.insertedAt));
+    expect(instants).toEqual([...instants].sort((a, b) => b - a));
+
+    const paged: string[] = [];
+    let cursor: string | null = null;
+    do {
+      const page: BurstPage = await stack.http.queryOk<BurstPage>(
+        BURST_LIST,
+        { limit: 1, sort: "insertedAt", sortDirection: "desc", ...(cursor !== null && { cursor }) },
+        TestUsers.user,
+      );
+      paged.push(...page.rows.map((row) => row.id));
+      cursor = page.nextCursor;
+    } while (cursor !== null && paged.length <= BURST_SIZE);
+
+    expect(new Set(paged).size).toBe(BURST_SIZE);
+    expect(paged).toEqual(expected);
+  });
 });

@@ -5,6 +5,7 @@ import type {
   EditLayout,
   ScreenDefinition,
 } from "@cosmicdrift/kumiko-types/screen";
+import { toKebab } from "../qualified-name.ts";
 import { isFieldsEditSection, normalizeEditField, sectionFieldSpecs } from "../screen-helpers.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 import { bootRuleError } from "./boot-rule.ts";
@@ -26,11 +27,26 @@ export function checkQueryRef(
   query: string,
   buildPrefix: () => string,
 ): void {
-  // skip: empty/non-string queries get their own message in screens.ts;
-  // a registered query has nothing left to check.
-  if (!isNonEmptyQueryString(query) || queryHandlers.has(query)) return;
-  throw bootRuleError(QUERY_RULES.notRegistered, {
-    message: `${buildPrefix()} query "${query}" ${NOT_REGISTERED_SUFFIX}`,
+  // skip: empty/non-string queries get their own message in screens.ts
+  if (!isNonEmptyQueryString(query)) return;
+  if (!queryHandlers.has(query)) {
+    throw bootRuleError(QUERY_RULES.notRegistered, {
+      message: `${buildPrefix()} query "${query}" ${NOT_REGISTERED_SUFFIX}`,
+    });
+  }
+  assertNotDispatchOnlyQuery(queryHandlers.get(query), query, buildPrefix);
+}
+
+// For query references the browser loads over /api/query, which answers a dispatchOnly query with 404.
+// An unregistered query (undefined handler) passes here; the caller's own registration rule reports it.
+export function assertNotDispatchOnlyQuery(
+  handler: Pick<QueryHandlerDef, "dispatchOnly"> | undefined,
+  query: string,
+  buildPrefix: () => string,
+): void {
+  if (handler?.dispatchOnly !== true) return;
+  throw bootRuleError(QUERY_RULES.dispatchOnlyOnScreen, {
+    message: `${buildPrefix()} query "${query}" is dispatchOnly, so the browser can never load it. Drop dispatchOnly from the query, or point the reference at a query without it.`,
   });
 }
 
@@ -165,6 +181,15 @@ function checkFormFieldQueryRefs(
   fields: Readonly<Record<string, FieldDefinition>>,
 ): void {
   for (const [fieldName, field] of Object.entries(fields)) {
+    // Only the dispatchOnly gate: a form reference's optionsQuery has no registration rule at boot yet.
+    if (field.type === "reference" && field.optionsQuery !== undefined) {
+      assertNotDispatchOnlyQuery(
+        queryHandlers.get(field.optionsQuery),
+        field.optionsQuery,
+        () =>
+          `[Feature ${featureName}] Screen "${screenId}" (${screenType}) reference field "${fieldName}" optionsQuery`,
+      );
+    }
     if (field.type !== "select" && field.type !== "multiSelect") continue;
     if (field.optionsQuery !== undefined) {
       checkQueryRef(
@@ -325,6 +350,13 @@ function checkScreenQueryRefs(
     checkRowDecorationQueryRef(queryHandlers, featureName, screenId, screen);
     checkEmptyStateParamsQueryRefs(queryHandlers, featureName, screenId, screen);
   } else if (screen.type === "entityList") {
+    // The renderer loads the entity's own list query; no registration rule exists for it yet.
+    const listQuery = `${toKebab(featureName)}:query:${toKebab(screen.entity)}:list`;
+    assertNotDispatchOnlyQuery(
+      queryHandlers.get(listQuery),
+      listQuery,
+      () => `[Feature ${featureName}] Screen "${screenId}" (entityList)`,
+    );
     checkToolbarVisibleWhenQueryRefs(queryHandlers, featureName, screenId, screen);
     checkRowDecorationQueryRef(queryHandlers, featureName, screenId, screen);
     checkEmptyStateParamsQueryRefs(queryHandlers, featureName, screenId, screen);

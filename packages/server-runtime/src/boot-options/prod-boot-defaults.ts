@@ -19,3 +19,15 @@ export function prodKmsModeDefault(
   // "required" would abort apps without PII on an empty KMS env; the PII boot gate still aborts PII carriers without a KMS.
   return "optional";
 }
+
+/** The KMS mode bin/main.ts and `schema apply` share once the app sets `kmsMode` in
+ *  kumiko.config.ts: with NODE_ENV=production that mode, "required" when unset (while a bin/main.ts
+ *  that passes no kmsMode boots runProdApp with "optional"); otherwise undefined, so the caller
+ *  wires whatever KMS env is present. */
+export function productionKmsMode(
+  appKmsMode: KmsMode | undefined,
+  envSource: Record<string, string | undefined>,
+): KmsMode | undefined {
+  if (envSource["NODE_ENV"] !== "production") return undefined;
+  return appKmsMode ?? "required";
+}

@@ -28,7 +28,7 @@ evidence: "kumiko new app scaffold, packages/dev-server/src/managed-files/regist
 | `.husky/pre-push` | managed | Pre-push hook; app additions go to `scripts/pre-push-extra.sh` |
 | `bunfig.toml`, `bunfig.integration.toml`, `bunfig.real.toml`, `bunfig.dom.toml` | managed | Test configs; `bunfig.dom.toml` only with `uiRoots`. Extra sections such as `[install.scopes]` survive the sync |
 | `kumiko/schema.ts` | managed | `FEATURES` and `ENTITY_METAS` derived from `kumiko.config.ts` |
-| `bin/kumiko.ts` | managed | Calls `runStandaloneCli` (`@cosmicdrift/kumiko-server-runtime/standalone-cli`) for `schema`, `consumer` and `events` with `FEATURES`, `envSchema` from `bin/env-schema.ts` and `requireKms` under `NODE_ENV=production`; bundled to `dist-server/kumiko.js` |
+| `bin/kumiko.ts` | managed | Calls `runStandaloneCli` (`@cosmicdrift/kumiko-server-runtime/standalone-cli`) for `schema`, `consumer` and `events` with `FEATURES`, `envSchema` from `bin/env-schema.ts` and `kmsMode` from `kumiko.config.ts` (under `NODE_ENV=production` `"required"` when unset, through the same `productionKmsMode` the scaffolded `bin/main.ts` uses; a `bin/main.ts` that passes no `kmsMode` boots with the `runProdApp` default `"optional"`, so such an app sets `kmsMode: "optional"` in `kumiko.config.ts`, otherwise `schema apply` requires the KMS env); bundled to `dist-server/kumiko.js` |
 | `biome.json` | preset | `{ "extends": ["@cosmicdrift/kumiko-framework/biome"] }` |
 | `tsconfig.json` | preset | `extends: "@cosmicdrift/kumiko-framework/tsconfig.app.json"` |
 | `kumiko.config.ts` | preset | `defineAppConfig(...)`, see below |

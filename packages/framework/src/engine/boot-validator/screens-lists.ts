@@ -27,6 +27,7 @@ import { validateListRowGuidance, validatePhotoGrid } from "./list-row-guidance.
 import { LIST_ROW_GUIDANCE_RULES } from "./list-row-guidance-rules.ts";
 import { rejectSummaryRowOnRelatedList } from "./list-sort-summary.ts";
 import { validateListTableOptions } from "./list-table-options.ts";
+import { assertNotDispatchOnlyQuery } from "./query-refs.ts";
 import { validateRelatedListGroupingRules } from "./related-list-table-rules.ts";
 import { validateRelativeTimeFormat } from "./relative-time-format.ts";
 import type { NavigateSourceScreenType, NavigateTargetLookups } from "./screens-actions.ts";
@@ -710,9 +711,11 @@ function assertReferenceListHandlerRegistered(
     override?.queryQn ??
     qualifyEntityName(target.featureName, "query", `${target.entityName}:list`);
   for (const feature of featureMap.values()) {
-    for (const handlerName of Object.keys(feature.queryHandlers ?? {})) {
-      // skip: expected list handler found
-      if (qualifyEntityName(feature.name, "query", handlerName) === expectedQn) return;
+    for (const [handlerName, handler] of Object.entries(feature.queryHandlers ?? {})) {
+      // skip: another handler
+      if (qualifyEntityName(feature.name, "query", handlerName) !== expectedQn) continue;
+      assertNotDispatchOnlyQuery(handler, expectedQn, () => `${prefix} ${subject} options`);
+      return;
     }
   }
   throw bootRuleError(LIST_SCREEN_RULES.facetQueryUnregistered, {

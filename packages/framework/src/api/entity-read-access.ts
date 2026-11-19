@@ -65,13 +65,15 @@ export function collectEntityDetailAccess(registry: Registry): ReadonlyMap<strin
 // handler's own entity or one it declares via liveEntities). A live signal
 // carries the id of every row of the entity, so a signed-in connection gets it
 // only when one of these rules grants its roles. An aggregate type without a
-// reading query has no entry and is never put on the tenant channel.
+// reading query has no entry and is never put on the tenant channel. A dispatchOnly query
+// serves server code only, so its rule opens no signals.
 export function collectEntityReadAccess(
   registry: Registry,
 ): ReadonlyMap<string, readonly AccessRule[]> {
   assertNoAggregateTypeKeyCollisions(registry);
   const rulesByEntity = new Map<string, AccessRule[]>();
   for (const [handlerName, handler] of registry.getAllQueryHandlers()) {
+    if (handler.dispatchOnly) continue;
     const entities = new Set(handler.liveEntities ?? []);
     const ownEntity = registry.getHandlerEntity(handlerName);
     if (ownEntity !== undefined) entities.add(ownEntity);

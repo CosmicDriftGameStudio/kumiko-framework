@@ -5,6 +5,7 @@ import {
   requireKmsWiringAsync,
   resolveKmsWiringAsync,
 } from "../crypto/index.ts";
+import { findKmsModeProblem, type KmsMode } from "../crypto/kms-mode.ts";
 import { createDbConnection, type DbConnection, runMigrationsFromDir } from "../db/index.ts";
 import { createRegistry } from "../engine/registry.ts";
 import type { FeatureDefinition } from "../engine/types/feature.ts";
@@ -49,6 +50,28 @@ function reportAppliedMigrations(out: SchemaCliOut, result: MigrationRunResult):
   out.log("");
 }
 
+const APPLY_LOG_PREFIX = "[kumiko schema apply]";
+
+// Mirrors runProdApp's kmsMode: a plaintext app boots without KMS, so its rebuild must not encrypt either.
+async function resolveApplyKmsWiring(
+  kmsMode: KmsMode | undefined,
+  out: SchemaCliOut,
+  slots: readonly string[],
+): Promise<KmsWiring> {
+  const problem = kmsMode !== undefined && findKmsModeProblem(kmsMode);
+  if (problem) throw new Error(`${APPLY_LOG_PREFIX} ${problem}.`);
+  if (typeof kmsMode === "object") {
+    out.log(
+      `${APPLY_LOG_PREFIX} no KMS, PII stays plaintext (kmsMode): ${kmsMode.plaintextReason}`,
+    );
+    return { allowPlaintextPii: kmsMode.plaintextReason, close: () => Promise.resolve() };
+  }
+  const kmsOptions = { logPrefix: APPLY_LOG_PREFIX, log: out.log, slots };
+  return kmsMode === "required"
+    ? requireKmsWiringAsync(process.env, kmsOptions)
+    : resolveKmsWiringAsync(process.env, kmsOptions);
+}
+
 function configureRebuildKms(wiring: KmsWiring): void {
   if ("kms" in wiring) {
     configurePiiSubjectKms(wiring.kms);
@@ -89,15 +112,7 @@ export async function runApplyCommand(ctx: SchemaCliContext): Promise<number> {
     // the row. The wiring runs before the migrations so a broken KMS env
     // exits 1 before the database is touched.
     if (options.features) {
-      const kmsOptions = {
-        logPrefix: "[kumiko schema apply]",
-        log: out.log,
-        slots: options.kmsSlots,
-      };
-      wiring =
-        options.requireKms === true
-          ? await requireKmsWiringAsync(process.env, kmsOptions)
-          : await resolveKmsWiringAsync(process.env, kmsOptions);
+      wiring = await resolveApplyKmsWiring(options.kmsMode, out, options.kmsSlots);
       configureRebuildKms(wiring);
     }
     const result = await runMigrationsFromDir(db, migrationsDir);

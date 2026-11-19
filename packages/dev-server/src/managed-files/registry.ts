@@ -41,13 +41,13 @@ export type ManagedAppFacts = {
 };
 
 /** Infra tag the managed workflows pin while kumiko.deploy.infraRef is unset; Renovate keeps it current via the reusables-v* rule. */
-export const CURRENT_INFRA_REF = "reusables-v2.4.5";
+export const CURRENT_INFRA_REF = "reusables-v2.5.0";
 
 // The image build writes packages with inherited secrets, so a moved tag must not reach it.
 // ponytail: Renovate does not follow this pin; bump sha and tag together, an older build workflow stays valid.
 export const INFRA_BUILD_PIN = {
-  sha: "4226f110fbee6931fdaa7c24a234720007548de5",
-  tag: "reusables-v2.4.5",
+  sha: "4893596161cb0c20ca5f1e4df5707598a96895d6",
+  tag: "reusables-v2.5.0",
 } as const;
 
 /** Byte-compared after the marker lines are stripped. */

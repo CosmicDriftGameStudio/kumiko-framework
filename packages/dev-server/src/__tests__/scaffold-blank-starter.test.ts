@@ -68,7 +68,7 @@ describe("scaffoldApp starter blank", () => {
     const main = readFileSync(join(dest, "bin/main.ts"), "utf-8");
     expect(main).toContain("bootstrapAdminFromEnv");
     // The sync wiring rejects *_CIPHERTEXT keys; kmsMode resolves them through the Key Manager.
-    expect(main).toContain('{ kmsMode: "required" as const }');
+    expect(main).toContain("productionKmsMode(appConfig.kmsMode, process.env)");
     expect(main).not.toContain("requireKmsWiring");
     expect(readFileSync(join(dest, "bin/kumiko.ts"), "utf-8")).toContain("runStandaloneCli");
     expect(readFileSync(join(dest, ".env.example"), "utf-8")).toContain(
