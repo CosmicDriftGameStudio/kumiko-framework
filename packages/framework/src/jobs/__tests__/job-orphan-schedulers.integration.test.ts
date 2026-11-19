@@ -325,6 +325,64 @@ describe("orphan job schedulers while the runner keeps running", () => {
     }
   });
 
+  test("a runner without any cron job removes an expired foreign scheduler in its refresh tick", async () => {
+    const prefix = uniquePrefix();
+    const feature = defineFeature("orphan", (r) => {
+      r.job({ name: "manual-only", trigger: { manual: true }, handler: async () => {} });
+    });
+    const runner = createJobRunner({
+      registry: createRegistry([feature]),
+      context: {} as AppContext,
+      redisUrl,
+      consumerLane: "worker",
+      queueNamePrefix: prefix,
+      schedulerSeenRefreshMs: 50,
+    });
+    const orphanId = schedulerIdForJobName(ORPHAN_NAME);
+    const workerQueue = rawQueue(prefix, "worker");
+    const seenKey = workerQueue.toKey("kumiko-scheduler-seen");
+    try {
+      const client = await workerQueue.client;
+      await workerQueue.upsertJobScheduler(orphanId, { pattern: "0 0 1 1 *" }, template);
+      await client.hset(seenKey, { [orphanId]: String(Date.now() - 1000) });
+
+      await runner.start();
+      expect(await schedulerKeys(workerQueue)).toEqual([orphanId]);
+
+      await client.hset(seenKey, {
+        [orphanId]: String(Date.now() - ORPHAN_SCHEDULER_GRACE_MS - 60_000),
+      });
+
+      await waitFor(async () => (await schedulerKeys(workerQueue)).length === 0);
+      expect(await schedulerKeys(workerQueue)).toEqual([]);
+    } finally {
+      await runner.stop();
+      await workerQueue.close();
+      await purgeRawRedisKeys(redisUrl, `bull:${prefix}-worker:*`);
+      await purgeRawRedisKeys(redisUrl, `bull:${prefix}-api:*`);
+    }
+  });
+
+  test("an own scheduler removed from Redis while the runner keeps running is re-created by a refresh tick", async () => {
+    const prefix = uniquePrefix();
+    const runner = runnerWithCronJob(prefix, "kept");
+    const keptId = schedulerIdForJobName("orphan:job:kept");
+    const workerQueue = rawQueue(prefix, "worker");
+    try {
+      await runner.start();
+
+      await workerQueue.removeJobScheduler(keptId);
+
+      await waitFor(async () => (await schedulerKeys(workerQueue)).includes(keptId));
+      expect(await schedulerKeys(workerQueue)).toEqual([keptId]);
+    } finally {
+      await runner.stop();
+      await workerQueue.close();
+      await purgeRawRedisKeys(redisUrl, `bull:${prefix}-worker:*`);
+      await purgeRawRedisKeys(redisUrl, `bull:${prefix}-api:*`);
+    }
+  });
+
   test("a scheduler another live runner keeps stamping survives several refresh ticks", async () => {
     const prefix = uniquePrefix();
     const owner = runnerWithCronJob(prefix, "kept");

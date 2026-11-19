@@ -68,6 +68,17 @@ export async function markSchedulersSeen(
   await (await queue.client).hset(schedulerSeenKey(queue), entries);
 }
 
+// Collect first: removing while paging would shift the indices.
+export async function listJobSchedulerIds(queue: Queue): Promise<string[]> {
+  const existingKeys: string[] = [];
+  for (let start = 0; ; start += SCHEDULER_PAGE_SIZE) {
+    const page = await queue.getJobSchedulers(start, start + SCHEDULER_PAGE_SIZE - 1);
+    for (const scheduler of page) existingKeys.push(scheduler.key);
+    if (page.length < SCHEDULER_PAGE_SIZE) break;
+  }
+  return existingKeys;
+}
+
 type OrphanSchedulerLog = {
   info(msg: string, data?: Record<string, unknown>): void;
   warn(msg: string, data?: Record<string, unknown>): void;
@@ -85,13 +96,7 @@ export async function removeOrphanJobSchedulers(
   log: OrphanSchedulerLog,
 ): Promise<void> {
   try {
-    // Collect first: removing while paging would shift the indices.
-    const existingKeys: string[] = [];
-    for (let start = 0; ; start += SCHEDULER_PAGE_SIZE) {
-      const page = await queue.getJobSchedulers(start, start + SCHEDULER_PAGE_SIZE - 1);
-      for (const scheduler of page) existingKeys.push(scheduler.key);
-      if (page.length < SCHEDULER_PAGE_SIZE) break;
-    }
+    const existingKeys = await listJobSchedulerIds(queue);
     const client = await queue.client;
     const seenAt = await client.hgetall(schedulerSeenKey(queue));
     const now = Date.now();

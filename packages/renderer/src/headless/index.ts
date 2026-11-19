@@ -82,6 +82,7 @@ export {
   isSafeHref,
   RawHtml,
   raw,
+  referenceLabelText,
   resolveSafeMoneyLocale,
   stripControlChars,
   telHref,

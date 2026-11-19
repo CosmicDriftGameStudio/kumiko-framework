@@ -59,6 +59,7 @@ import {
   ACTIVE_TENANT_IDS_QUERY_NAME,
   bootJobIdForJobName,
   DEFAULT_QUEUE_NAME_PREFIX,
+  listJobSchedulerIds,
   markSchedulersSeen,
   ORPHAN_SCHEDULER_GRACE_MS,
   queueNameFor,
@@ -282,11 +283,13 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
   let worker: Worker | null = null;
   let queueDepthTimer: ReturnType<typeof setInterval> | null = null;
   let schedulerSeenTimer: ReturnType<typeof setInterval> | null = null;
-  let schedulerStampPending = false;
+  // A tick still running when stop() closes the queues fails on purpose; that is no warning.
+  const schedulerTickWarn = (msg: string, data?: Record<string, unknown>) =>
+    (stopping ? errorLogger.debug : errorLogger.warn)(msg, data);
   const orphanSchedulerLog = {
     info: (msg: string, data?: Record<string, unknown>) =>
       context.log ? context.log.info(msg, data) : errorLogger.debug(msg, data),
-    warn: errorLogger.warn,
+    warn: schedulerTickWarn,
   };
   // A timed-out gate is abandoned, not aborted (the job context carries no
   // AbortSignal); stop() waits for it so it cannot write after the shutdown.
@@ -420,12 +423,25 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     return ids;
   }
 
-  async function upsertCronSchedulers(queue: Queue, lane: JobRunIn): Promise<void> {
+  // With `skipIfPresent` only jobs with neither id in that set are upserted:
+  // the other wake flag's id belongs to a runner of another version, and
+  // re-creating ours beside it would fire the job twice.
+  async function upsertCronSchedulers(
+    queue: Queue,
+    lane: JobRunIn,
+    skipIfPresent?: ReadonlySet<string>,
+  ): Promise<string[]> {
+    const upserted: string[] = [];
     for (const [name, jobDef] of allJobs) {
       if (laneForJob(jobDef) !== lane) continue;
       if (isScheduledTrigger(jobDef.trigger)) {
+        const wakesSleepingApp = jobDef.trigger.wakesSleepingApp !== false;
+        const schedulerId = schedulerIdForJobName(name, wakesSleepingApp);
+        const otherFlagId = schedulerIdForJobName(name, !wakesSleepingApp);
+        if (skipIfPresent?.has(schedulerId) || skipIfPresent?.has(otherFlagId)) continue;
+        upserted.push(schedulerId);
         await queue.upsertJobScheduler(
-          schedulerIdForJobName(name, jobDef.trigger.wakesSleepingApp !== false),
+          schedulerId,
           scheduleRepeatOptions(jobDef.trigger, options.maintenanceWindow),
           {
             name: jobDef.perTenant ? `${PER_TENANT_PREFIX}${name}` : name,
@@ -440,11 +456,29 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         );
       }
     }
+    return upserted;
   }
 
-  // After a failed initial stamp an older runner may have removed our
-  // schedulers as unseen, so the next tick stamps and re-upserts before the
-  // flag clears.
+  // Another runner may have removed one of ours (its sweep after our stamps
+  // failed, a manual cleanup), so the tick re-creates the missing ones. Only
+  // the missing ones: an upsert of a live scheduler drops its queued next job.
+  async function recreateMissingCronSchedulers(
+    queue: Queue,
+    lane: JobRunIn,
+    schedulerIds: ReadonlySet<string>,
+  ): Promise<void> {
+    // skip: no cron scheduler on this lane to keep alive
+    if (schedulerIds.size === 0) return;
+    const existing = new Set(await listJobSchedulerIds(queue));
+    const recreated = await upsertCronSchedulers(queue, lane, existing);
+    if (recreated.length > 0) {
+      orphanSchedulerLog.info("re-created missing job schedulers", {
+        schedulerIds: recreated,
+        lane,
+      });
+    }
+  }
+
   // The orphan sweep repeats here because at start() the previous version's
   // schedulers are still within their grace period. It skips the superseded
   // rule: an older pod would see a newer pod's flipped-wake-flag id as
@@ -455,22 +489,20 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     schedulerIds: ReadonlySet<string>,
   ): Promise<void> {
     await markSchedulersSeen(queue, schedulerIds);
-    if (schedulerStampPending) {
-      await upsertCronSchedulers(queue, lane);
-      schedulerStampPending = false;
-    }
+    await recreateMissingCronSchedulers(queue, lane, schedulerIds);
     await removeOrphanJobSchedulers(queue, schedulerIds, new Set(), lane, orphanSchedulerLog);
   }
 
+  // Runs on a lane without own cron jobs too: a deploy that drops a lane's
+  // last cron job still has to sweep that job's scheduler.
   function startSchedulerSeenRefresh(
     queue: Queue,
     lane: JobRunIn,
     schedulerIds: ReadonlySet<string>,
-  ): ReturnType<typeof setInterval> | null {
-    if (schedulerIds.size === 0) return null;
+  ): ReturnType<typeof setInterval> {
     const timer = setInterval(() => {
       refreshSchedulerSeen(queue, lane, schedulerIds).catch((err: unknown) => {
-        errorLogger.warn("scheduler seen refresh failed", {
+        schedulerTickWarn("scheduler seen refresh failed", {
           error: err instanceof Error ? err.message : String(err),
         });
       });
@@ -558,8 +590,8 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       // Before the upserts: a seen entry without a scheduler is harmless, a
       // scheduler a concurrent older runner finds without one gets deleted.
       // Best-effort like the periodic refresh: a failed stamp must not stop the start.
+      // The refresh tick re-creates what an older runner removed in the meantime.
       await markSchedulersSeen(consumerQueue, expectedSchedulerIds).catch((err: unknown) => {
-        schedulerStampPending = true;
         errorLogger.warn("scheduler seen stamp failed", {
           error: err instanceof Error ? err.message : String(err),
         });

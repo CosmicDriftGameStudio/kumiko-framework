@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  enrichReferenceColumns,
   mergeChunkLookups,
   type PublishedReferenceChunk,
   referenceChunkKey,
@@ -73,5 +74,35 @@ describe("mergeChunkLookups", () => {
 
   test("nothing resolved yet publishes no lookup", () => {
     expect(mergeChunkLookups([["a"]], undefined)).toBeUndefined();
+  });
+});
+
+describe("eager-loaded reference labels", () => {
+  test("a money label field shows the formatted amount, not the compound object", () => {
+    const [column] = enrichReferenceColumns({
+      columns: [
+        {
+          field: "vehicle",
+          label: "Vehicle",
+          type: "reference",
+          sortable: false,
+          refEntity: "vehicle",
+          refLabelField: "price",
+        },
+      ],
+      referenceColumns: [
+        { field: "vehicle", refEntity: "vehicle", refFeature: "fleet", labelField: "price" },
+      ],
+      referenceLookups: {},
+      resolveReferenceLink: () => undefined,
+      featureName: "fleet",
+      translate: (key) => key,
+    });
+    const row = {
+      vehicle: "v1",
+      _refs: { vehicle: { id: "v1", price: { amount: 1890000, currency: "EUR" } } },
+    };
+
+    expect(typeof column?.renderer === "function" && column.renderer("v1", row)).toBe("€18,900.00");
   });
 });
