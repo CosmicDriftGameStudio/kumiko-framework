@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled + signup)",
-  "featureCount": 92,
+  "featureCount": 93,
   "features": [
     {
       "name": "account-security",
@@ -936,6 +936,57 @@
         "displayLabel": "Tenant Config Store",
         "category": "infrastructure",
         "recommended": true
+      }
+    },
+    {
+      "name": "connectors",
+      "description": "Lets a satellite program on a customer's own machine deliver files into the app. The satellite pairs through the OAuth device flow (RFC 8628): it shows a short code, a tenant admin confirms it, and the satellite receives a revocable `ksat_` device token of which only the SHA-256 is stored. With that token it uploads files (raw bytes plus relative path, SHA-256 and modification time; the same file again is the same item) and sends heartbeats. Each upload becomes a file reference plus an event-sourced `inbound-item`; other features consume its created event. The HTTP endpoints are not handlers: mount `createConnectorRoutes()` from `@cosmicdrift/kumiko-bundled-features/connectors` as `extraRoutes` (they live outside /api, so the satellite needs no session). The wire protocol is described in docs/guides/connectors-satellite.md.",
+      "toggleableDefault": null,
+      "requires": [
+        "files",
+        "tenant",
+        "tenant-lifecycle"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "tenantData",
+          "entityName": "inbound-folder"
+        },
+        {
+          "extensionName": "tenantData",
+          "entityName": "connector"
+        },
+        {
+          "extensionName": "tenantData",
+          "entityName": "inbound-item"
+        }
+      ],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [
+        "connectors:write:approve-device",
+        "connectors:write:check-device",
+        "connectors:write:claim-authorization",
+        "connectors:write:delete-file",
+        "connectors:write:delete-folder",
+        "connectors:write:device-poll",
+        "connectors:write:device-start",
+        "connectors:write:mark-device-checked",
+        "connectors:write:mark-device-retry",
+        "connectors:write:receive-file",
+        "connectors:write:request-retry",
+        "connectors:write:revoke",
+        "connectors:write:revoke-device-tokens",
+        "connectors:write:touch-device"
+      ],
+      "uiHints": {
+        "displayLabel": "Connectors",
+        "category": "integration",
+        "recommended": false
       }
     },
     {

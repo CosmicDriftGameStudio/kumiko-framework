@@ -171,6 +171,8 @@ export type ActionFormScreenDefinition = {
   readonly successItems?: ActionFormSuccessItems;
   /** Preview of what the submit will do, computed by a query from the current form values. */
   readonly preview?: ActionFormPreview;
+  /** "text" shows a `readOnly` field as plain text instead of a disabled input (a value to read, not a field to fill). Default "form". */
+  readonly valueDisplay?: "form" | "text";
   /** Reset the form to its initial values after a successful submit (prefill
    *  kept, typed values cleared). Only applies while the screen stays put,
    *  i.e. without `redirect`. */
@@ -236,6 +238,10 @@ export type ActionFormRedirect = {
    *  reach a custom screen that is driven by search params instead of a
    *  record id; a missing or non-string field leaves its param out. */
   readonly searchParams?: Readonly<Record<string, string>>;
+  /** Multi-step form: the `searchParams` are values for the target form fields (`searchParams`
+   *  required, target an actionForm). The target prefills the same-named fields from the URL, and
+   *  the redirect wins over a `returnTo` the form was opened with. Without it a redirect behaves as before. */
+  readonly handOff?: true;
 };
 
 export type ActionFormLoad = {

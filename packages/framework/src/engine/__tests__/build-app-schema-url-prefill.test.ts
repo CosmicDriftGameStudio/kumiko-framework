@@ -342,3 +342,52 @@ describe("buildAppSchema — urlPrefillFields derived from navigate params", () 
     expect(urlPrefillFieldsOf("leases", "item-from-banner")).toEqual(["bannerRef"]);
   });
 });
+
+describe("buildAppSchema — urlPrefillFields derived from an actionForm redirect", () => {
+  const twoStepFeature = defineFeature("two-step", (r) => {
+    r.screen({
+      id: "step-one",
+      type: "actionForm",
+      handler: "two-step:write:check",
+      fields: { code: { type: "text" } },
+      layout: { sections: [{ fields: ["code"] }] },
+      redirect: { screen: "step-two", searchParams: { code: "code" }, handOff: true },
+    });
+    r.screen({
+      id: "plain-one",
+      type: "actionForm",
+      handler: "two-step:write:check",
+      fields: { code: { type: "text" } },
+      layout: { sections: [{ fields: ["code"] }] },
+      redirect: { screen: "plain-two", searchParams: { code: "code" } },
+    });
+    r.screen({
+      id: "plain-two",
+      type: "actionForm",
+      handler: "two-step:write:confirm",
+      fields: { code: { type: "text" } },
+      layout: { sections: [{ fields: ["code"] }] },
+    });
+    r.screen({
+      id: "step-two",
+      type: "actionForm",
+      handler: "two-step:write:confirm",
+      fields: { code: { type: "text" }, name: { type: "text" } },
+      layout: { sections: [{ fields: ["code", "name"] }] },
+    });
+  });
+
+  test("the redirect target may prefill the params the redirect writes", () => {
+    const app = buildAppSchema(createRegistry([twoStepFeature]));
+    const screens = app.features.find((f) => f.featureName === "two-step")?.screens ?? [];
+    const prefill = (id: string): unknown => {
+      const screen = screens.find((s) => s.id === id);
+      return screen !== undefined && "urlPrefillFields" in screen
+        ? screen.urlPrefillFields
+        : undefined;
+    };
+    expect(prefill("step-two")).toEqual(["code"]);
+    expect(prefill("step-one")).toEqual([]);
+    expect(prefill("plain-two")).toEqual([]);
+  });
+});

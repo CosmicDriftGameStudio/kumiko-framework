@@ -797,8 +797,8 @@ export type DataTableRowAction = {
   readonly style?: "primary" | "secondary" | "danger";
   /** Translated confirmation prompt (dialog description). When set, a modal
    *  opens before execution. For style=danger without an explicit confirm,
-   *  the renderer should show a generic default. */
-  readonly confirm?: string;
+   *  the renderer should show a generic default. A function gets the clicked row. */
+  readonly confirm?: string | ((row: ListRowViewModel) => string);
   /** Translated confirm-button label in the dialog. Defaults to `label`
    *  (the action label is reused). */
   readonly confirmLabel?: string;

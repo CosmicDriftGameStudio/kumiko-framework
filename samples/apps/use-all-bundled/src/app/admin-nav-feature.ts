@@ -18,9 +18,29 @@ export const adminNavFeature = defineFeature("admin-nav", (r) => {
     order: 80,
     workspaces: ADMIN_NAV_WORKSPACES,
   });
+  r.nav({
+    id: "connectors",
+    label: "admin-nav:nav.connectors",
+    icon: "link",
+    screen: "connectors:screen:connector-list",
+    parent: ADMIN_NAV_QN,
+    order: 20,
+    workspaces: ADMIN_NAV_WORKSPACES,
+  });
+  r.nav({
+    id: "connector-files",
+    label: "admin-nav:nav.connectorFiles",
+    icon: "folder",
+    screen: "connectors:screen:connector-files",
+    parent: ADMIN_NAV_QN,
+    order: 21,
+    workspaces: ADMIN_NAV_WORKSPACES,
+  });
   r.translations({
     keys: {
+      "admin-nav:nav.connectorFiles": { de: "Dateien", en: "Files" },
       "admin-nav:nav.administration": { de: "Verwaltung", en: "Administration" },
+      "admin-nav:nav.connectors": { de: "Anschlüsse", en: "Connectors" },
     },
   });
   return {};

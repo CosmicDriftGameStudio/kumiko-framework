@@ -86,6 +86,30 @@ describe("custom redirect target id", () => {
     ).toBe(false);
     expect(returnToWinsOverRedirect(returnTarget, { screen: "cockpit" }, schema, [])).toBe(true);
   });
+
+  test("a redirect with search params but no handOff still loses to returnTo", () => {
+    const returnTarget = { screenId: "origin" };
+    expect(
+      returnToWinsOverRedirect(
+        returnTarget,
+        { screen: "cockpit", searchParams: { cmd: "threadId" } },
+        schema,
+        [],
+      ),
+    ).toBe(true);
+  });
+
+  test("a handOff redirect is not replaced by returnTo", () => {
+    const returnTarget = { screenId: "origin" };
+    expect(
+      returnToWinsOverRedirect(
+        returnTarget,
+        { screen: "cockpit", searchParams: { cmd: "threadId" }, handOff: true },
+        schema,
+        [],
+      ),
+    ).toBe(false);
+  });
 });
 
 describe("navigateToRedirectTarget", () => {

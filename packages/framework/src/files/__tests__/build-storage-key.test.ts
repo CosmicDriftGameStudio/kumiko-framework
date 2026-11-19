@@ -1,8 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import {
   assertSafeStorageKey,
+  buildNoBackupStorageKey,
   buildStorageKey,
+  isOwnUploadKey,
   tenantExportPrefix,
+  tenantNoBackupPrefix,
   tenantStoragePrefixes,
 } from "../types.ts";
 
@@ -62,6 +65,28 @@ describe("tenant storage prefixes", () => {
   test("a buildStorageKey() key always starts with one of the tenant's sweep prefixes", () => {
     const key = buildStorageKey(tenant, "invoice", 1, "attachment", "logo.png", "u1");
     expect(tenantStoragePrefixes(tenant).some((prefix) => key.startsWith(prefix))).toBe(true);
+  });
+});
+
+describe("no-backup keys", () => {
+  const tenant = "T1" as never;
+
+  test("sit under the nobackup prefix of their tenant, which the destroy sweep covers", () => {
+    const key = buildNoBackupStorageKey(tenant, "unattached", undefined, "file", "a.pdf", "u1");
+    expect(key).toBe("nobackup/T1/unattached/none/file/u1.pdf");
+    expect(key.startsWith(tenantNoBackupPrefix(tenant))).toBe(true);
+    expect(tenantStoragePrefixes(tenant)).toContain("nobackup/T1/");
+  });
+
+  test("refuse a tenant named like the reserved segment", () => {
+    expect(() => tenantNoBackupPrefix("nobackup" as never)).toThrow(/reserved/);
+  });
+
+  test("count as the tenant's own upload keys, a foreign tenant's do not", () => {
+    expect(isOwnUploadKey("T1", "T1/a/b")).toBe(true);
+    expect(isOwnUploadKey("T1", "nobackup/T1/a/b")).toBe(true);
+    expect(isOwnUploadKey("T1", "nobackup/T2/a/b")).toBe(false);
+    expect(isOwnUploadKey("T1", "T2/a/b")).toBe(false);
   });
 });
 

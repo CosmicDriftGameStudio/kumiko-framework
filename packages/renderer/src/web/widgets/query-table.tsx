@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { ListRowViewModel } from "../../headless/index.ts";
+import type { ListColumnViewModel, ListRowViewModel } from "../../headless/index.ts";
 import { type DataTableProps, usePrimitives, useQuery, useTranslation } from "../../index.ts";
 import { EmptyState, ErrorState, LoadingState } from "./states.tsx";
 
@@ -18,6 +18,10 @@ export type QueryTableColumn = {
   readonly label: string;
   /** Field type for cell formatting. Default: "text". */
   readonly type?: string;
+  /** Sortable header: needs `sort` and `onSortChange` on the table. Default false. */
+  readonly sortable?: boolean;
+  /** Custom cell, `{ react: { __component: "Name" } }` with Name registered in a client plugin's `columnRenderers`. */
+  readonly renderer?: ListColumnViewModel["renderer"];
 };
 
 export type QueryTableProps<TData = unknown> = {
@@ -38,6 +42,10 @@ export type QueryTableProps<TData = unknown> = {
   readonly toolbarTitle?: ReactNode;
   readonly toolbarEnd?: ReactNode;
   readonly testId?: string;
+  /** false: no outer padding, for a table inside a screen that pads itself. Default: the table's own padding. */
+  readonly screenPadding?: boolean;
+  readonly sort?: DataTableProps["sort"];
+  readonly onSortChange?: DataTableProps["onSortChange"];
 };
 
 function defaultRows(data: unknown): readonly Readonly<Record<string, unknown>>[] {
@@ -57,6 +65,9 @@ export function QueryTable<TData = unknown>({
   toolbarTitle,
   toolbarEnd,
   testId,
+  screenPadding,
+  sort,
+  onSortChange,
 }: QueryTableProps<TData>): ReactNode {
   const { DataTable } = usePrimitives();
   const t = useTranslation();
@@ -83,7 +94,8 @@ export function QueryTable<TData = unknown>({
         field: c.field,
         label: c.label,
         type: c.type ?? "text",
-        sortable: false,
+        sortable: c.sortable ?? false,
+        ...(c.renderer !== undefined && { renderer: c.renderer }),
       }))}
       rows={vmRows}
       onRowClick={onRowClick}
@@ -92,6 +104,9 @@ export function QueryTable<TData = unknown>({
       toolbarTitle={toolbarTitle}
       toolbarEnd={toolbarEnd}
       testId={testId}
+      screenPadding={screenPadding}
+      sort={sort}
+      onSortChange={onSortChange}
     />
   );
 }

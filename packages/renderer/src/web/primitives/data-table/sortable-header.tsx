@@ -128,7 +128,7 @@ export function SortableHeader({
           className={cn(
             "size-3.5",
             active === undefined &&
-              "opacity-0 group-hover/sort:opacity-40 group-focus-visible/sort:opacity-40",
+              "opacity-30 group-hover/sort:opacity-60 group-focus-visible/sort:opacity-60",
           )}
           aria-hidden="true"
         />

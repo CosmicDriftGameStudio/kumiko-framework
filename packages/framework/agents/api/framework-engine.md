@@ -305,6 +305,7 @@ type ActionFormScreenDefinition = {
   successFacts?: ActionFormSuccessFact[]; // Key figures from the handler's success payload, shown in the success box while the screen stays put (e.g. charged/skipped/failed of a batch run).
   successItems?: ActionFormSuccessItems; // One hint per entry of a success-payload array, each with its own link (e.g. "this file is already in the inbox" with "Open" per uploaded file).
   preview?: ActionFormPreview; // Preview of what the submit will do, computed by a query from the current form values.
+  valueDisplay?: "form" | "text"; // "text" shows a `readOnly` field as plain text instead of a disabled input (a value to read, not a field to fill).
   resetOnSuccess?: boolean; // Reset the form to its initial values after a successful submit (prefill kept, typed values cleared).
   load?: ActionFormLoad; // Load the initial values from a query.
   cancelTarget?: string | false; // Target of the Cancel button.
@@ -882,6 +883,7 @@ interface FieldFormatRegistry {
     dateStyle?: "full" | "long" | "medium" | "short";
     timeStyle?: "full" | "long" | "medium" | "short";
     timeZone?: string; // IANA zone id (e.g. "Europe/Berlin").
+    emptyLabel?: string; // i18n key of the text an empty value shows (e.g. "never"); without it an empty cell stays blank.
   };
   relativeTime: {
     locale?: string;

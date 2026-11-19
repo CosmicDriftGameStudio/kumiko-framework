@@ -1,0 +1,86 @@
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { ConnectorHandlers } from "../constants.ts";
+import {
+  HEARTBEAT_PATH,
+  listConnectors,
+  pairDevice,
+  setupConnectorsStack,
+  teardownConnectorsStack,
+  tenantAdmin,
+  upload,
+} from "./connectors-stack.ts";
+
+let stack: TestStack;
+let token: string;
+let connectorId: string;
+
+const heartbeat = (body: unknown) =>
+  stack.app.request(HEARTBEAT_PATH, {
+    method: "POST",
+    headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+const row = async () => (await listConnectors(stack)).find((c) => c.id === connectorId);
+
+beforeAll(async () => {
+  stack = await setupConnectorsStack();
+  ({ token, connectorId } = await pairDevice(stack));
+});
+afterAll(() => teardownConnectorsStack(stack));
+
+describe("heartbeat sync report and retry signal", () => {
+  test("an old satellite without sync still works and shows an unknown sync status", async () => {
+    const res = await heartbeat({ version: "1.0.0" });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
+    expect((await row())?.syncStatus).toBe("unknown");
+  });
+
+  test("a state or failure change is stored at once, inside the throttle window", async () => {
+    const syncing = await heartbeat({
+      version: "1.0.0",
+      sync: { state: "syncing", queued: 12, failed: 0, lastError: "x".repeat(500) },
+    });
+    expect(syncing.status).toBe(200);
+    expect((await row())?.syncStatus).toBe("syncing");
+    expect((await row())?.syncDetail).toEqual({
+      i18nKey: "connectors.list.sync.queued",
+      i18nParams: { count: 12 },
+    });
+
+    await heartbeat({ version: "1.0.0", sync: { state: "idle", queued: 0, failed: 3 } });
+    expect((await row())?.syncStatus).toBe("failed");
+    expect((await row())?.syncDetail).toEqual({
+      i18nKey: "connectors.list.sync.failedCount",
+      i18nParams: { count: 3 },
+    });
+  });
+
+  test("a malformed sync report is a 400", async () => {
+    const res = await heartbeat({
+      version: "1.0.0",
+      sync: { state: "bogus", queued: -1, failed: 0 },
+    });
+    expect(res.status).toBe(400);
+  });
+
+  test("retry: the flag set by the admin action rides on exactly one heartbeat answer, an upload does not take it", async () => {
+    await heartbeat({ version: "1.0.0", sync: { state: "idle", queued: 0, failed: 2 } });
+    await stack.http.writeOk(ConnectorHandlers.requestRetry, { id: connectorId }, tenantAdmin);
+
+    const sent = await upload(stack, token, { path: "r/a.bin", bytes: Uint8Array.from([1]) });
+    expect(sent.status).toBe(201);
+
+    const first = await heartbeat({
+      version: "1.0.0",
+      sync: { state: "idle", queued: 0, failed: 2 },
+    });
+    expect(await first.json()).toEqual({ ok: true, retry: true });
+    const second = await heartbeat({
+      version: "1.0.0",
+      sync: { state: "idle", queued: 0, failed: 2 },
+    });
+    expect(await second.json()).toEqual({ ok: true });
+  });
+});

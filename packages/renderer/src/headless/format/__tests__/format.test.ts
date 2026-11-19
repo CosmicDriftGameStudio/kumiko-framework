@@ -626,3 +626,24 @@ describe("applyFormatSpec — i18nText", () => {
     expect(seen).toEqual([{ ok: 1 }]);
   });
 });
+
+describe("applyFormatSpec — timestamp emptyLabel", () => {
+  const translate = (key: string): string => (key === "app.never" ? "noch nie" : key);
+
+  test("an empty value shows the translated emptyLabel", () => {
+    const spec = { format: "timestamp", emptyLabel: "app.never" };
+    expect(applyFormatSpec(spec, null, translate)).toBe("noch nie");
+    expect(applyFormatSpec(spec, undefined, translate)).toBe("noch nie");
+  });
+
+  test("without emptyLabel an empty value stays blank, and a value is formatted as before", () => {
+    expect(applyFormatSpec({ format: "timestamp" }, null, translate)).toBe("");
+    expect(
+      applyFormatSpec(
+        { format: "timestamp", emptyLabel: "app.never" },
+        "2026-11-18T08:30:00Z",
+        translate,
+      ),
+    ).not.toBe("noch nie");
+  });
+});

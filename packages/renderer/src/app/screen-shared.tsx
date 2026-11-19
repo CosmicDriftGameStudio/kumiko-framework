@@ -459,7 +459,13 @@ export function returnToWinsOverRedirect(
   schema: FeatureSchema,
   appFeatures: readonly FeatureSchema[],
 ): returnTarget is ScreenTarget {
-  return returnTarget !== undefined && !redirectTargetsRecord(redirect, schema, appFeatures);
+  // A handOff passes values to the next step (a checked code); returning to the origin would drop them.
+  const handsOverParams = typeof redirect === "object" && redirect.handOff === true;
+  return (
+    returnTarget !== undefined &&
+    !handsOverParams &&
+    !redirectTargetsRecord(redirect, schema, appFeatures)
+  );
 }
 
 // Resolves an object-form redirect to a nav target — shared by

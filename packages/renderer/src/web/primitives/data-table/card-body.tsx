@@ -11,6 +11,7 @@ import {
   CellPill,
   cellLinkProp,
   DataTableCell,
+  hasEmptyLabelFormat,
   isBadgeColumn,
   isEmptyCellValue,
   isUnlabeledFalse,
@@ -335,7 +336,7 @@ export function cardBodyParts(
 ): CardBodyParts {
   const shownMeta = roles.meta.filter(
     (col) =>
-      !isBlankCardValue(row.values[col.field]) &&
+      (!isBlankCardValue(row.values[col.field]) || hasEmptyLabelFormat(col.renderer)) &&
       !isUnlabeledFalse(col.type, row.values[col.field], col.renderer),
   );
   const aboveColumns = shownMeta.filter((col) => col.cardAbove === true);

@@ -66,11 +66,15 @@ export type {
 } from "./types.ts";
 export {
   assertSafeStorageKey,
+  buildNoBackupStorageKey,
   buildStorageKey,
   FileObjectMissingError,
+  isOwnUploadKey,
+  NO_BACKUP_STORAGE_PREFIX,
   normalizeMimeType,
   sniffMimeType,
   tenantExportPrefix,
+  tenantNoBackupPrefix,
   tenantStoragePrefixes,
   validateFile,
 } from "./types.ts";

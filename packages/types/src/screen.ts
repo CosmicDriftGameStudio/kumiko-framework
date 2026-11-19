@@ -73,6 +73,8 @@ export interface FieldFormatRegistry {
     readonly timeStyle?: "full" | "long" | "medium" | "short";
     /** IANA zone id (e.g. "Europe/Berlin"). Default: the runtime's zone. */
     readonly timeZone?: string;
+    /** i18n key of the text an empty value shows (e.g. "never"); without it an empty cell stays blank. */
+    readonly emptyLabel?: string;
   };
   /** Epoch ms or ISO timestamp, shown as "5 min. ago" at render time (a table cell does not tick).
    *  Defaults: `style: "short"`, `withTime: true` (clock time on "yesterday" and on the absolute date; `false` leaves it out),

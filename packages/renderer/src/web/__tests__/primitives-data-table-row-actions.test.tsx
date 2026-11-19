@@ -416,6 +416,56 @@ describe("DataTable", () => {
       expect(confirmBtn?.textContent).not.toContain("Mark Subscription");
     });
 
+    test("confirm as a function: the dialog text comes from the clicked row", async () => {
+      const user = userEvent.setup();
+      render(
+        <DataTable
+          columns={cols}
+          rows={rows}
+          testId="dt"
+          rowActions={[
+            {
+              id: "remove",
+              label: "Remove",
+              style: "danger",
+              confirm: (row) => `Remove ${String(row.values["name"])}?`,
+              onTrigger: mock(),
+            },
+          ]}
+        />,
+      );
+      await user.click(screen.getByTestId("row-r2-action-remove"));
+      expect(screen.getByTestId("row-r2-action-remove-dialog").textContent).toContain(
+        "Remove Beta?",
+      );
+    });
+
+    test("Kebab path: confirm as a function names the clicked row", async () => {
+      const user = userEvent.setup();
+      render(
+        <DataTable
+          columns={cols}
+          rows={rows}
+          testId="dt"
+          rowActions={[
+            { id: "a", label: "Archive", onTrigger: mock() },
+            {
+              id: "remove",
+              label: "Remove",
+              style: "danger",
+              confirm: (row) => `Remove ${String(row.values["name"])}?`,
+              onTrigger: mock(),
+            },
+          ]}
+        />,
+      );
+      await user.click(screen.getByTestId("row-r1-actions-menu"));
+      await user.click(await screen.findByText("Remove"));
+      expect(screen.getByTestId("row-r1-action-remove-dialog").textContent).toContain(
+        "Remove Alpha?",
+      );
+    });
+
     test("Kebab path: dialog button shows confirmLabel instead of label", async () => {
       const user = userEvent.setup();
       render(

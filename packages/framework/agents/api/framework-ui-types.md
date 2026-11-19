@@ -89,6 +89,7 @@ type ActionFormRedirect = { // Redirect target plus the success-payload field ca
   idFrom?: string; // Flat field name in the handler's success payload, e.g. "leaseId".
   tab?: string; // Section id to open on the target `projectionDetail` with `layout.mode: "tabs"` (the `tab` search param, same as `ToolbarAction` navigate `tab`).
   searchParams?: Readonly<Record<string, string>>; // URL search params of the target, each read from a flat success-payload field (`{ cmd: "threadId" }` opens `?cmd=<threadId>`).
+  handOff?: true; // Multi-step form: the `searchParams` are values for the target form fields (`searchParams` required, target an actionForm).
 };
 type ActionFormSuccessFact = { // One key figure of the success box, read from the handler's success payload.
   field: string; // Flat field name in the handler's success payload.

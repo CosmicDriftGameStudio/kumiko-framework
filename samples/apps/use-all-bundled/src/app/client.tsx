@@ -23,6 +23,7 @@ import { brandingClient } from "@cosmicdrift/kumiko-bundled-features/branding/we
 import { capOverviewClient } from "@cosmicdrift/kumiko-bundled-features/cap-overview/web";
 import { complianceProfilesClient } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles/web";
 import { configClient } from "@cosmicdrift/kumiko-bundled-features/config/web";
+import { connectorsClient } from "@cosmicdrift/kumiko-bundled-features/connectors/web";
 import { customFieldsClient } from "@cosmicdrift/kumiko-bundled-features/custom-fields/web";
 import { deliveryClient } from "@cosmicdrift/kumiko-bundled-features/delivery/web";
 import { documentDraftClient } from "@cosmicdrift/kumiko-bundled-features/document-draft/web";
@@ -134,6 +135,7 @@ createKumikoApp({
     brandingClient(),
     // Document editor of the page-edit body section.
     managedPagesClient(),
+    connectorsClient(),
     // template-resolver text-block tree + editor under the app-owned "content"
     // nav node. Points at SYSTEM_TENANT because that is where the legal and
     // marketing copy is seeded.
