@@ -896,6 +896,7 @@ export const featureNamespacedEnCatalog: Readonly<Record<string, string>> = {
   "connectors.pair.request.title": "Pairing request",
   "connectors.pair.request.at": "Requested at",
   "connectors.pair.request.ip": "From IP address",
+  "connectors.pair.request.ipLocal": "local (this server)",
   "connectors:entity:__action-form__:field:userCode": "Code",
   "connectors:entity:__action-form__:field:name": "Name",
   "errors.connectors.storageQuotaExceeded": "The storage quota of this account is used up.",

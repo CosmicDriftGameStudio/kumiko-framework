@@ -134,6 +134,11 @@ const PENDING_REQUEST_PREVIEW = {
   facts: [
     { field: "requestedAt", label: i18nKey("connectors.pair.request.at"), type: "timestamp" },
     { field: "requestIp", label: i18nKey("connectors.pair.request.ip") },
+    {
+      field: "requestIpLocal",
+      label: i18nKey("connectors.pair.request.ip"),
+      valueIsI18nKey: true,
+    },
   ],
 } as const;
 

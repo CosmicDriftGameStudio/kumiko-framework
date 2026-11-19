@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { pairingAddressKey } from "../address-key.ts";
+import { pairingAddressDisplay, pairingAddressKey } from "../address-key.ts";
 
 describe("pairingAddressKey", () => {
   test("keeps an IPv4 address and a non-IP value as they are", () => {
@@ -29,5 +29,33 @@ describe("pairingAddressKey", () => {
 
   test("ignores a zone id", () => {
     expect(pairingAddressKey("fe80::1%eth0")).toBe("fe80:0:0:0::/64");
+  });
+});
+
+describe("pairingAddressDisplay", () => {
+  test("shows a /64 prefix in the compact RFC 5952 form", () => {
+    expect(pairingAddressDisplay(pairingAddressKey("2001:db8:1:2::1"))).toEqual({
+      kind: "address",
+      text: "2001:db8:1:2::/64",
+    });
+    expect(pairingAddressDisplay(pairingAddressKey("2001:db8::1"))).toEqual({
+      kind: "address",
+      text: "2001:db8::/64",
+    });
+    expect(pairingAddressDisplay(pairingAddressKey("fe80::1%eth0"))).toEqual({
+      kind: "address",
+      text: "fe80::/64",
+    });
+  });
+
+  test("names loopback as local, in IPv6 and IPv4", () => {
+    expect(pairingAddressDisplay(pairingAddressKey("::1"))).toEqual({ kind: "local" });
+    expect(pairingAddressDisplay("0:0:0:0::/64")).toEqual({ kind: "local" });
+    expect(pairingAddressDisplay("127.0.0.1")).toEqual({ kind: "local" });
+  });
+
+  test("leaves IPv4 and other text as it is", () => {
+    expect(pairingAddressDisplay("203.0.113.7")).toEqual({ kind: "address", text: "203.0.113.7" });
+    expect(pairingAddressDisplay("unknown")).toEqual({ kind: "address", text: "unknown" });
   });
 });

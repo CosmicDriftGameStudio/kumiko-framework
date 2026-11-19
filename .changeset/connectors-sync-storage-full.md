@@ -38,3 +38,10 @@ type: improvement
 title: The satellite can offer a link that opens the pair screen with the code filled in
 detail: `POST /v1/device_authorization` also answers `verification_uri_complete` (`verification_uri` plus `?userCode=<code>`, RFC 8628 section 3.3.1). The pair screen fills the code from it; the admin still presses Check, and confirming stays bound to that Check by the same admin within 5 minutes.
 -->
+
+<!-- kumiko-changes
+feature: connectors
+type: fix
+title: The confirm step shows the requesting address readably
+detail: A request from an IPv6 address is shown as its /64 prefix in compact form (`2001:db8:1:2::/64`), and a request from this very server as "local (this server)", instead of `0:0:0:0::/64`. IPv4 is unchanged. Action form facts take `valueIsI18nKey` to show a translated value.
+-->

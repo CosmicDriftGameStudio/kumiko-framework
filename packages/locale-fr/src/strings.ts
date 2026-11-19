@@ -3412,6 +3412,7 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "connectors.pair.request.title": "Demande d'appairage",
   "connectors.pair.request.at": "Demandée le",
   "connectors.pair.request.ip": "Depuis l'adresse IP",
+  "connectors.pair.request.ipLocal": "local (ce serveur)",
   "connectors:entity:__action-form__:field:userCode": "Code",
   "connectors:entity:__action-form__:field:name": "Nom",
   "errors.connectors.storageQuotaExceeded": "Le quota de stockage de ce compte est épuisé.",

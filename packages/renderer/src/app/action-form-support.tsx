@@ -222,9 +222,10 @@ export function resolveSuccessFacts(
       return;
     }
     const entries = Array.isArray(value) ? value : [value];
-    const lines = entries.flatMap(
+    const rawLines = entries.flatMap(
       (entry) => formatTypedFact(entry, valueType, locale) ?? factLine(entry, locale) ?? [],
     );
+    const lines = fact.valueIsI18nKey === true ? rawLines.map(translate) : rawLines;
     if (lines.length > 0) {
       resolved.push({ key: String(index), label: translate(fact.label), lines });
     }
