@@ -22,6 +22,8 @@ import {
   DEFAULT_MAX_UPLOAD_BYTES,
   HEARTBEAT_MAX_BODY_BYTES,
   HEARTBEAT_RATE_LIMIT,
+  PAIRING_FLOOD_RETRY_AFTER_SECONDS,
+  PAIRING_STARTS_PER_MINUTE,
   UPLOAD_RATE_LIMIT,
 } from "./constants.ts";
 import {
@@ -40,12 +42,20 @@ export type ConnectorRouteOptions = {
    *  public app URL (APP_BASE_URL), else the address the satellite reached the app on, plus "/connector-pair" (the pairing screen's URL
    *  in an app without workspaces or a base path; set this option otherwise). */
   readonly verificationUri?: string;
+  /** Flood protection of the pairing start (client_id is public). Defaults: 10 starts per minute and
+   *  address, 3 open requests per address, 1000 open requests overall. */
+  readonly pairingLimits?: {
+    readonly startsPerMinute?: number;
+    readonly maxOpenPerIp?: number;
+    readonly maxOpenTotal?: number;
+  };
 };
 
 const DEVICE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code";
 const NO_STORE = { "Cache-Control": "no-store" } as const;
 const FORM_RATE_LIMIT_WINDOW_SECONDS = 60;
 const HEARTBEAT_SCHEMA = z.object({ version: z.string().min(1).max(64) });
+const tooManyOpenSchema = z.object({ tooManyOpenRequests: z.literal(true) });
 const receivedSchema = z.object({ duplicate: z.boolean() });
 const pollOutcomeSchema = z.object({
   kind: z.enum(["token", "authorization_pending", "slow_down", "expired_token", "invalid_grant"]),
@@ -225,16 +235,34 @@ export function createConnectorRoutes(
     method: "POST",
     path: `${basePath}/v1/device_authorization`,
     entry: "signature",
-    rateLimit: { per: "ip", limit: 30, windowSeconds: FORM_RATE_LIMIT_WINDOW_SECONDS },
+    rateLimit: {
+      per: "ip",
+      limit: options.pairingLimits?.startsPerMinute ?? PAIRING_STARTS_PER_MINUTE,
+      windowSeconds: FORM_RATE_LIMIT_WINDOW_SECONDS,
+    },
     verify: async ({ rawBody, headers }) => parseClientForm(rawBody, headers),
     handler: async (c, _form, deps) => {
       const started = await deps.dispatchWriteAs({
         handlerQn: ConnectorHandlers.deviceStart,
-        payload: { requestIp: deps.clientIp },
+        payload: {
+          requestIp: deps.clientIp,
+          ...(options.pairingLimits?.maxOpenPerIp !== undefined && {
+            maxOpenPerIp: options.pairingLimits.maxOpenPerIp,
+          }),
+          ...(options.pairingLimits?.maxOpenTotal !== undefined && {
+            maxOpenTotal: options.pairingLimits.maxOpenTotal,
+          }),
+        },
         tenantId: SYSTEM_TENANT_ID,
         roles: [],
       });
       if (!started.isSuccess) return c.json({ error: "server_error" }, 500, NO_STORE);
+      if (tooManyOpenSchema.safeParse(started.data).success) {
+        return c.json({ error: "slow_down" }, 429, {
+          ...NO_STORE,
+          "Retry-After": String(PAIRING_FLOOD_RETRY_AFTER_SECONDS),
+        });
+      }
       const data = z
         .object({
           deviceCode: z.string(),

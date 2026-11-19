@@ -46,7 +46,16 @@ export async function setupConnectorsStack(routes: ConnectorRouteOptions = {}): 
       createFilesFeature(),
       createConnectorsFeature(),
     ],
-    extraRoutes: createConnectorRoutes(routes),
+    // Generous defaults: most tests start many pairings from the one test address.
+    extraRoutes: createConnectorRoutes({
+      ...routes,
+      pairingLimits: {
+        startsPerMinute: 1000,
+        maxOpenPerIp: 1000,
+        maxOpenTotal: 100000,
+        ...routes.pairingLimits,
+      },
+    }),
     files: { storageProvider: createInMemoryFileProvider() },
     now: TEST_NOW,
   });

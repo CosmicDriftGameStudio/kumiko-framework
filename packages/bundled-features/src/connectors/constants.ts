@@ -24,6 +24,11 @@ export const PENDING_REQUEST_RATE_LIMIT = {
   windowSeconds: 300,
 } as const;
 export const USER_CODE_TTL_SECONDS = 600;
+// client_id is public, so anyone can start pairings; open requests are capped per address and overall.
+export const MAX_OPEN_REQUESTS_PER_IP = 3;
+export const MAX_OPEN_REQUESTS_TOTAL = 1000;
+export const PAIRING_STARTS_PER_MINUTE = 10;
+export const PAIRING_FLOOD_RETRY_AFTER_SECONDS = 60;
 // An admin's confirmation can land just before a code expires; the waiting device still collects its token.
 export const APPROVED_REDEEM_GRACE_SECONDS = 600;
 // Confirming needs a check by the same admin this recently, so a prefilled link cannot skip the check step.

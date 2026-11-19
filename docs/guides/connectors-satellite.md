@@ -31,6 +31,16 @@ Token endpoint answers, all as HTTP 400 `{"error": ...}` except success:
 
 Success is HTTP 200 `{"access_token":"ksat_...","token_type":"Bearer"}`. There is no `expires_in` and no refresh token: the token stays valid until the admin revokes the connector. It is handed out exactly once; the app keeps only its SHA-256. Every response of the two pairing endpoints carries `Cache-Control: no-store`.
 
+## Protection against floods
+
+The client id is public, so the pairing start has three limits; beyond the two open-request limits the endpoint answers HTTP 429 `{"error":"slow_down"}` with `Retry-After: 60` and stores nothing:
+
+- At most 10 starts per minute and address (rate limit of `/v1/device_authorization`).
+- At most 3 open (pending, not yet expired) requests per address; a confirmed or expired request frees its place.
+- At most 1000 open requests overall, so many addresses together cannot fill the table.
+
+Override them with the route option `pairingLimits: { startsPerMinute, maxOpenPerIp, maxOpenTotal }`.
+
 ## Uploading a file
 
 `POST /v1/files` with `Authorization: Bearer ksat_...` and the raw file bytes as the body.
