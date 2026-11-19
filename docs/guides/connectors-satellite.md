@@ -41,6 +41,8 @@ The client id is public, so the pairing start has three limits; beyond the two o
 
 Override them with the route option `pairingLimits: { startsPerMinute, maxOpenPerIp, maxOpenTotal }`.
 
+The address is the socket peer unless `KUMIKO_TRUSTED_PROXY_HOPS` is set, so a client cannot spoof it through `X-Forwarded-For`. Behind a reverse proxy set that value; otherwise every satellite shares the proxy address and the per-address limits apply to all of them together.
+
 ## Uploading a file
 
 `POST /v1/files` with `Authorization: Bearer ksat_...` and the raw file bytes as the body.
