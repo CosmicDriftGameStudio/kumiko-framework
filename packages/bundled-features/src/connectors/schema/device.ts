@@ -73,6 +73,7 @@ export const deviceEntity = createEntity({
     }),
     syncLastAt: createTimestampField({ access: privilegedWrite }),
     retryRequestedAt: createTimestampField({ access: privilegedWrite }),
+    quotaRejectedAt: createTimestampField({ access: privilegedWrite }),
     lastSeenAt: createTimestampField({ access: privilegedWrite }),
     createdAt: createTimestampField({ required: true, access: privilegedWrite }),
     revokedAt: createTimestampField({ access: privilegedWrite }),

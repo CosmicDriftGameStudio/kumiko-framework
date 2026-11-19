@@ -84,12 +84,9 @@ describe("heartbeat sync report and retry signal", () => {
     expect(await second.json()).toEqual({ ok: true });
   });
 });
-
-describe("heartbeat sync detail when the storage is full", () => {
-  const errorReport = { version: "1.0.0", sync: { state: "error", queued: 4, failed: 0 } };
-
-  test("a connector that is not idle says the storage is full once the quota is reached", async () => {
-    const small = await setupConnectorsStack({ maxStoredBytesPerTenant: 10 });
+describe("connector list names a full storage after an upload was refused", () => {
+  test("a refused upload shows it, space and an accepted upload clear it", async () => {
+    const small = await setupConnectorsStack({ maxStoredBytesPerTenant: 20 });
     try {
       const paired = await pairDevice(small);
       const send = (body: unknown) =>
@@ -98,25 +95,32 @@ describe("heartbeat sync detail when the storage is full", () => {
           headers: { authorization: `Bearer ${paired.token}`, "content-type": "application/json" },
           body: JSON.stringify(body),
         });
-      const smallRow = async () =>
-        (await listConnectors(small)).find((c) => c.id === paired.connectorId);
+      const detail = async () =>
+        (await listConnectors(small)).find((c) => c.id === paired.connectorId)?.syncDetail;
 
-      await send(errorReport);
-      expect((await smallRow())?.syncDetail).toBeNull();
-
-      const stored = await upload(small, paired.token, {
+      const first = await upload(small, paired.token, {
         path: "a/one.bin",
-        bytes: new Uint8Array(10),
+        bytes: new Uint8Array(12).fill(1),
       });
-      expect(stored.status).toBe(201);
+      expect(first.status).toBe(201);
+      await send({ version: "1.0.0", sync: { state: "error", queued: 4, failed: 0 } });
+      expect(await detail()).toBeNull();
 
-      await send(errorReport);
-      expect((await smallRow())?.syncDetail).toEqual({
-        i18nKey: "connectors.sync.detail.storageFull",
+      const refused = await upload(small, paired.token, {
+        path: "a/two.bin",
+        bytes: new Uint8Array(12).fill(2),
       });
+      expect(refused.status).toBe(507);
+      expect(await detail()).toEqual({ i18nKey: "connectors.sync.detail.storageFull" });
 
-      await send({ version: "1.0.0", sync: { state: "idle", queued: 0, failed: 0 } });
-      expect((await smallRow())?.syncDetail).toBeNull();
+      const { id } = (await first.json()) as { id: string };
+      await small.http.writeOk(ConnectorHandlers.deleteFile, { id }, tenantAdmin);
+      const accepted = await upload(small, paired.token, {
+        path: "a/two.bin",
+        bytes: new Uint8Array(12).fill(2),
+      });
+      expect(accepted.status).toBe(201);
+      expect(await detail()).toBeNull();
     } finally {
       await teardownConnectorsStack(small);
     }

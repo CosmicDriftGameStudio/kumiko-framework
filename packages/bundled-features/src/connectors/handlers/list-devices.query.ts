@@ -22,6 +22,7 @@ export const listDevicesQuery = defineQueryHandler({
       syncState: row.syncState,
       syncQueued: row.syncQueued,
       syncFailed: row.syncFailed,
+      storageFull: row.quotaRejectedAt !== null,
       lastSeenAt: isoOrNull(row.lastSeenAt),
       revokedAt: isoOrNull(row.revokedAt),
     })),

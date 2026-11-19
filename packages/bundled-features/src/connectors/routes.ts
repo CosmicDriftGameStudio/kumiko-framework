@@ -125,11 +125,13 @@ async function touchDevice(
   deps: SignatureExtraRouteDeps,
   device: AuthenticatedDevice,
   heartbeat?: { readonly version: string; readonly sync?: z.infer<typeof syncReportSchema> },
+  upload?: "accepted" | "quotaRejected",
 ): Promise<boolean> {
   const result = await deps.dispatchWriteAs({
     handlerQn: ConnectorHandlers.touchDevice,
     payload: {
       deviceId: device.deviceId,
+      ...(upload !== undefined && { upload }),
       ...(heartbeat && {
         reportedVersion: heartbeat.version,
         ...(heartbeat.sync && { sync: heartbeat.sync }),
@@ -140,6 +142,17 @@ async function touchDevice(
     roles: [],
   });
   return result.isSuccess && touchResultSchema.parse(result.data).retry;
+}
+
+function uploadOutcomeOf(result: {
+  readonly isSuccess: boolean;
+  readonly error?: { readonly details?: unknown };
+}): "accepted" | "quotaRejected" | undefined {
+  if (result.isSuccess) return "accepted";
+  return result.error !== undefined &&
+    failureReason(result.error) === ConnectorErrors.storageQuotaExceeded
+    ? "quotaRejected"
+    : undefined;
 }
 
 function badRequest(c: Context, description: string): Response {
@@ -230,7 +243,7 @@ async function receiveUpload(
     tenantId,
     roles: [],
   });
-  await touchDevice(deps, device);
+  await touchDevice(deps, device, undefined, uploadOutcomeOf(result));
 
   if (result.isSuccess) {
     const { id, duplicate } = receivedSchema.parse(result.data);
