@@ -16,13 +16,14 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { append } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
+import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createTestDb,
   type TestDb,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { backfillUserStreamTenants } from "../db/queries/stream-tenant-backfill.ts";
-import { userEntity, userTable } from "../schema/user.ts";
+import { USER_STATUS, userEntity, userTable } from "../schema/user.ts";
 
 const T1 = "00000000-0000-4000-8000-000000000011" as TenantId;
 const LEGACY_USER = "aaaaaaaa-0000-4000-8000-000000000001";
@@ -77,10 +78,20 @@ async function streamRows(
 }
 
 function seedUserRow(id: string, tenantId: TenantId, version: number) {
-  return asRawClient(testDb.db).unsafe(
-    `INSERT INTO "read_users" ("id", "tenant_id", "email", "display_name", "locale", "password_hash", "status", "version")
-     VALUES ($1::uuid, $2::uuid, $3, 'Legacy', 'de', 'x', 'active', $4)`,
-    [id, tenantId, `${id.slice(0, 8)}@example.com`, version],
+  return seedRow(
+    testDb.db,
+    userTable,
+    {
+      id,
+      tenantId,
+      email: `${id.slice(0, 8)}@example.com`,
+      displayName: "Legacy",
+      locale: "de",
+      passwordHash: "x",
+      status: USER_STATUS.Active,
+      version,
+    },
+    { projectionOnly: "projection of the legacy stream appended above, append() does not project" },
   );
 }
 

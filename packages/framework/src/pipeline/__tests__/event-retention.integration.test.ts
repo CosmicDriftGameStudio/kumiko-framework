@@ -20,6 +20,7 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
+import { insertConsumerIfAbsent } from "../../db/queries/event-consumer.ts";
 import { selectMany, updateMany } from "../../db/query.ts";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db.ts";
 import { defineFeature } from "../../engine/index.ts";
@@ -29,6 +30,7 @@ import {
   disableConsumer,
   eventConsumerStateTable,
   pruneEvents,
+  SHARED_INSTANCE_SENTINEL,
 } from "../../pipeline/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { generateId } from "../../utils/index.ts";
@@ -339,6 +341,100 @@ describe("E.2 — consumer-lag guard", () => {
       aggregateTypes: ["widget"],
     });
     expect(result.deletedCount).toBe(1);
+  });
+});
+
+describe("consumer rows the registry no longer declares", () => {
+  // Prod form: a renamed projection or a dropped catchUp job leaves its row behind at cursor 0.
+  const removedProjectionQn = "retention:projection:removed-observer";
+  const removedCatchUpJobConsumer = "job:retention:job:removed-catch-up";
+
+  // A row nothing has touched for longer than the abandonment period (7 days).
+  async function insertConsumerRowUntouchedFor(name: string, days: number): Promise<void> {
+    await insertConsumerIfAbsent(stack.db, name, SHARED_INSTANCE_SENTINEL);
+    await updateMany(
+      stack.db,
+      eventConsumerStateTable,
+      { updatedAt: Temporal.Now.instant().subtract({ hours: days * 24 }) },
+      { name },
+    );
+  }
+
+  async function caughtUpObserverWithStaleRows(): Promise<void> {
+    await appendAgedAggregateWidget("aged", 30);
+    await stack.eventDispatcher?.runOnce();
+    await insertConsumerRowUntouchedFor(removedProjectionQn, 8);
+    await insertConsumerRowUntouchedFor(removedCatchUpJobConsumer, 8);
+  }
+
+  // Another process (a differently composed worker, an old pod mid-rollout) may still drive it.
+  test("an undeclared consumer that moved recently still blocks with the registry", async () => {
+    await caughtUpObserverWithStaleRows();
+    await insertConsumerRowUntouchedFor("retention:projection:other-process", 6);
+
+    const pruning = pruneEvents(stack.db, {
+      olderThanDays: 7,
+      aggregateTypes: ["widget"],
+      registry: stack.registry,
+    });
+
+    await expect(pruning).rejects.toThrow(ConsumerLagError);
+    await expect(pruning).rejects.toMatchObject({
+      laggingConsumer: "retention:projection:other-process",
+    });
+  });
+
+  test("without the registry the stale rows still block the prune", async () => {
+    await caughtUpObserverWithStaleRows();
+
+    await expect(
+      pruneEvents(stack.db, { olderThanDays: 7, aggregateTypes: ["widget"] }),
+    ).rejects.toThrow(ConsumerLagError);
+  });
+
+  test("with the registry undeclared rows untouched for 8 days are skipped and the prune runs", async () => {
+    await caughtUpObserverWithStaleRows();
+
+    const result = await pruneEvents(stack.db, {
+      olderThanDays: 7,
+      aggregateTypes: ["widget"],
+      registry: stack.registry,
+    });
+
+    expect(result.deletedCount).toBe(1);
+    expect(await selectMany(stack.db, eventsTable)).toHaveLength(0);
+  });
+
+  test("a registered consumer behind the candidates still throws with the registry", async () => {
+    await caughtUpObserverWithStaleRows();
+    await updateMany(
+      stack.db,
+      eventConsumerStateTable,
+      { lastProcessedEventId: 0n, status: "idle" },
+      { name: observerQn },
+    );
+
+    const pruning = pruneEvents(stack.db, {
+      olderThanDays: 7,
+      aggregateTypes: ["widget"],
+      registry: stack.registry,
+    });
+
+    await expect(pruning).rejects.toThrow(ConsumerLagError);
+    await expect(pruning).rejects.toMatchObject({ laggingConsumer: observerQn });
+  });
+
+  test("an unknown consumer outside the registry's projection and job names keeps blocking", async () => {
+    await caughtUpObserverWithStaleRows();
+    await insertConsumerRowUntouchedFor("system:consumer:retired", 8);
+
+    const pruning = pruneEvents(stack.db, {
+      olderThanDays: 7,
+      aggregateTypes: ["widget"],
+      registry: stack.registry,
+    });
+
+    await expect(pruning).rejects.toMatchObject({ laggingConsumer: "system:consumer:retired" });
   });
 });
 

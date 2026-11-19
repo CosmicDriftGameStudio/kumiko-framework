@@ -11,11 +11,11 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.ts";
-import { insertMany } from "../../db/query.ts";
+import { runInNewTransaction } from "../../db/query.ts";
 import type { TenantId } from "../../engine/types/index.ts";
 import { ensureTemporalPolyfill } from "../../time/polyfill.ts";
 import { generateId as uuid } from "../../utils/index.ts";
-import { eventsTable, getStreamVersion } from "../index.ts";
+import { append, getStreamVersion } from "../index.ts";
 
 let testDb: BunTestDb;
 const tenantId: TenantId = uuid();
@@ -31,19 +31,21 @@ afterAll(async () => {
 });
 
 async function seedStream(aggregateId: string, count: number): Promise<void> {
-  // Bulk-seed — 2000 sequential append() calls dominate runtime and flake
-  // under load. We measure getStreamVersion(), not append latency.
-  const rows = Array.from({ length: count }, (_, i) => ({
-    aggregateId,
-    aggregateType: "perfAgg",
-    tenantId,
-    version: i + 1,
-    type: "perfAgg.created",
-    payload: { seq: i },
-    metadata: { userId },
-    createdBy: userId,
-  }));
-  await insertMany(testDb.db, eventsTable, rows);
+  // One transaction: per-append commits made the seed slow and flaky under
+  // load. appendMany takes only one event per aggregate, so it cannot build a stream.
+  await runInNewTransaction(testDb.db, async (tx) => {
+    for (let version = 0; version < count; version++) {
+      await append(tx, {
+        aggregateId,
+        aggregateType: "perfAgg",
+        tenantId,
+        expectedVersion: version,
+        type: "perfAgg.created",
+        payload: { seq: version },
+        metadata: { userId },
+      });
+    }
+  });
 }
 
 describe("event-store: getStreamVersion perf on hot streams", () => {

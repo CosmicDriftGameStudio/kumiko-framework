@@ -18,11 +18,11 @@
 // ownership, so the fixture stays unrestricted on purpose.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
-import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -88,10 +88,11 @@ beforeAll(async () => {
     CONTACT_6,
     CONTACT_SHARED,
   ]) {
-    await asRawClient(stack.db).unsafe(
-      `INSERT INTO ${CONTACT_TABLE} (id, tenant_id, name) VALUES ($1, $2, $3)`,
-      [id, admin.tenantId, id],
-    );
+    await seedRowViaEventStore(stack.db, buildEntityTable(contactEntity), {
+      id,
+      tenantId: admin.tenantId,
+      name: id,
+    });
   }
 });
 

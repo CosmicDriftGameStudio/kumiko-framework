@@ -23,6 +23,7 @@ import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import {
+  resetEventStore,
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
@@ -59,7 +60,7 @@ afterAll(async () => {
 beforeEach(async () => {
   kms = new InMemoryKmsAdapter();
   configurePiiSubjectKms(kms);
-  await asRawClient(stack.db).unsafe(`TRUNCATE read_document_extracts`);
+  await resetEventStore(stack, [documentExtractsTable]);
 });
 
 afterEach(() => {

@@ -2,7 +2,7 @@
 // lets a user write only notes whose host entityId is their own user id.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient, buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
@@ -10,7 +10,7 @@ import {
   from,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
-import { expectErrorIncludes } from "@cosmicdrift/kumiko-testing/helpers";
+import { expectErrorIncludes, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -69,10 +69,11 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, noteEntryEntity);
   await unsafeCreateEntityTable(stack.db, noteMentionEntity);
   await unsafeCreateEntityTable(stack.db, contactEntity);
-  await asRawClient(stack.db).unsafe(
-    `INSERT INTO ${CONTACT_TABLE} (id, tenant_id, name) VALUES ($1, $2, 'own')`,
-    [owner.id, owner.tenantId],
-  );
+  await seedRowViaEventStore(stack.db, buildEntityTable(contactEntity), {
+    id: owner.id,
+    tenantId: owner.tenantId,
+    name: "own",
+  });
 });
 
 afterAll(async () => {

@@ -1,7 +1,7 @@
 // The soft-delete cleanup job reads the per-tenant grace period through the real config
 // path (config:write:set + createConfigResolver), not a mocked resolver.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { asRawClient, buildEntityTable, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
@@ -9,8 +9,10 @@ import {
   defineEntityDeleteHandler,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { runSeedWritesAt, SEED_MODE_ENV } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
-import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import { waitFor, withEnv } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -60,18 +62,20 @@ afterAll(async () => {
 });
 
 async function createDeletedThing(user: typeof TestUsers.admin, ageDays: number): Promise<string> {
-  const created = await stack.http.writeOk<{ id: string }>(
-    "sdgd:write:thing:create",
-    { label: "x" },
-    user,
+  const deletedAt = getTemporal()
+    .Now.instant()
+    .subtract({ hours: ageDays * 24 });
+  return withEnv({ [SEED_MODE_ENV]: "1" }, () =>
+    runSeedWritesAt(deletedAt, async () => {
+      const created = await stack.http.writeOk<{ id: string }>(
+        "sdgd:write:thing:create",
+        { label: "x" },
+        user,
+      );
+      await stack.http.writeOk("sdgd:write:thing:delete", { id: created.id }, user);
+      return created.id;
+    }),
   );
-  await stack.http.writeOk("sdgd:write:thing:delete", { id: created.id }, user);
-  // kumiko-lint-ignore raw-sql test fixture sets deletedAt deterministically
-  await asRawClient(stack.db).unsafe(
-    "UPDATE sdgd_things SET deleted_at = now() - make_interval(days => $2) WHERE id = $1",
-    [created.id, ageDays],
-  );
-  return created.id;
 }
 
 describe("soft-delete cleanup honours the per-tenant grace days", () => {

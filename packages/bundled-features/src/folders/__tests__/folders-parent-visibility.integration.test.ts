@@ -10,7 +10,7 @@
 // read path (tenant scope plus its `access.read` ownership).
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient, buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
@@ -18,6 +18,7 @@ import {
   type EntityDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { seedRowsViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -104,13 +105,11 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, folderEntity);
   await unsafeCreateEntityTable(stack.db, folderAssignmentEntity);
   await unsafeCreateEntityTable(stack.db, projectEntity);
-  await asRawClient(stack.db).unsafe(
-    `INSERT INTO ${PROJECT_TABLE} (id, tenant_id, team_id, name) VALUES
-       ($1, $2, 'team-a', 'Project A'),
-       ($3, $2, 'team-a', 'Project A2'),
-       ($4, $2, 'team-a', 'Project A3')`,
-    [PROJECT_A, userA.tenantId, PROJECT_A2, PROJECT_A3],
-  );
+  await seedRowsViaEventStore(stack.db, buildEntityTable(projectEntity), [
+    { id: PROJECT_A, tenantId: userA.tenantId, teamId: "team-a", name: "Project A" },
+    { id: PROJECT_A2, tenantId: userA.tenantId, teamId: "team-a", name: "Project A2" },
+    { id: PROJECT_A3, tenantId: userA.tenantId, teamId: "team-a", name: "Project A3" },
+  ]);
 
   const folder = await stack.http.writeOk<{ id: string }>(
     FoldersHandlers.createFolder,

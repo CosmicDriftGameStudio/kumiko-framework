@@ -7,6 +7,10 @@ import type { EventConsumer } from "./event-dispatcher.ts";
 
 export const CATCH_UP_JOB_CONSUMER_PREFIX = "job:";
 
+export function catchUpJobConsumerName(jobName: string): string {
+  return `${CATCH_UP_JOB_CONSUMER_PREFIX}${jobName}`;
+}
+
 type EventJobTrigger = Extract<JobDefinition["trigger"], { readonly on: unknown }>;
 
 export function catchUpEventTypesOf(trigger: EventJobTrigger): ReadonlySet<string> {
@@ -28,7 +32,7 @@ export function createCatchUpJobEventConsumer(
   upcast: { readonly db: DbConnection; readonly upcasters: EventUpcasters },
 ): EventConsumer {
   return {
-    name: `${CATCH_UP_JOB_CONSUMER_PREFIX}${jobName}`,
+    name: catchUpJobConsumerName(jobName),
     delivery: "shared",
     startFrom: "beginning",
     ...(featureName !== undefined && { featureName }),

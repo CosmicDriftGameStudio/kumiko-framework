@@ -146,12 +146,18 @@ export async function reconcileSeededUserEmailVerified(
 // `email_bidx`. Repairs rows whose blind index is NULL or stale (written before
 // the key existed, key rotated, subject-key erased, stored with upper case),
 // which would otherwise stay invisible to every `fetchOne(userTable, { email })` lookup.
+export type UserEmailRewriteOutcome =
+  | "rewritten"
+  | "unchanged"
+  | typeof VERSION_CONFLICT_CODE
+  | "unique_violation";
+
 export async function rewriteSeededUserEmail(
   db: DbRunner,
   existingRow: Record<string, unknown>,
   email: string,
   by: SessionUser,
-): Promise<void> {
+): Promise<UserEmailRewriteOutcome> {
   const id = existingRow["id"];
   if (typeof id !== "string") {
     throw new Error("rewriteSeededUserEmail: existing user row has no string id");
@@ -171,7 +177,7 @@ export async function rewriteSeededUserEmail(
       emailBidx: computeBlindIndex(blindIndexKey, email),
     });
     // skip: the stored blind index already matches, a rewrite would only append a no-op event.
-    if (indexed) return;
+    if (indexed) return "unchanged";
   }
   const tdb = createTenantDb({
     db,
@@ -180,17 +186,21 @@ export async function rewriteSeededUserEmail(
     reason: "User is tenant-agnostic, seeding writes it through a system-mode handle",
   });
   const result = await userExecutor.update({ id, version, changes: { email } }, by, tdb);
-  // version_conflict: a concurrent write already changed the row — fine for a seed helper.
+  if (result.isSuccess) return "rewritten";
+  // version_conflict: a concurrent write already changed the row, the caller decides.
   // unique_violation: a duplicate row already holds the blind index; the repair
   // has to wait for a manual duplicate cleanup.
-  if (
-    !result.isSuccess &&
-    result.error.code !== VERSION_CONFLICT_CODE &&
-    result.error.code !== "unique_violation"
-  ) {
-    throw new Error(
-      `rewriteSeededUserEmail failed: ${result.error.code} — ${JSON.stringify(result.error.details ?? {})}`,
-    );
+  const code = result.error.code;
+  if (code === VERSION_CONFLICT_CODE || code === "unique_violation") return code;
+  throw new UserEmailRewriteError(code);
+}
+
+// Carries only the executor's error code: its details can echo field values, and the email must
+// not reach a log or an error message.
+export class UserEmailRewriteError extends Error {
+  constructor(readonly code: string) {
+    super(`rewriteSeededUserEmail failed: ${code}`);
+    this.name = "UserEmailRewriteError";
   }
 }
 

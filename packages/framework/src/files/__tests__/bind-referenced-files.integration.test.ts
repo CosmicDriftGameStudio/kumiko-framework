@@ -11,12 +11,13 @@ import {
   patchFileInstanceofForBunTest,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
+  resetEventStore,
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { createEventStoreExecutor, createTenantDb } from "../../db/index.ts";
-import { asRawClient, selectMany } from "../../db/query.ts";
+import { selectMany } from "../../db/query.ts";
 import {
   createEntity,
   createFileField,
@@ -92,9 +93,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await asRawClient(stack.db).unsafe(
-    `TRUNCATE bind_ref_dossiers, file_refs RESTART IDENTITY CASCADE`,
-  );
+  await resetEventStore(stack, ["bind_ref_dossiers", "file_refs"]);
 });
 
 const PDF_BYTES = new TextEncoder().encode("%PDF-1.4 minimal");

@@ -40,6 +40,7 @@ import {
 import { logRedisConnectionState } from "@cosmicdrift/kumiko-framework/redis";
 import type { MasterKeyProvider, SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import type { Redis } from "ioredis";
+import { startEntityRowRepairsOnBoot } from "./boot/entity-row-version-align-on-boot.ts";
 import { runEnvGate } from "./boot/env-gate.ts";
 import { startPiiEventBackfillOnBoot } from "./boot/pii-event-backfill-on-boot.ts";
 import { recordAppStartedOnBoot } from "./boot/record-app-started-on-boot.ts";
@@ -353,6 +354,7 @@ export async function runWorkerApp(rawOptions: RunWorkerAppOptions): Promise<Wor
     lifecycle: entrypoint.lifecycle,
     envSource,
   });
+  startEntityRowRepairsOnBoot({ db, registry, lifecycle: entrypoint.lifecycle });
   startSearchReindexOnBoot({
     db,
     registry,

@@ -26,6 +26,7 @@ import { createTenantDb, type TenantDb } from "../../db/tenant-db.ts";
 import {
   createEntity,
   createRegistry,
+  createSystemUser,
   createTextField,
   defineApply,
   defineFeature,
@@ -166,15 +167,18 @@ describe("rebuildProjection keeps row level security", () => {
       "mixed_role_insert",
     ]);
 
-    await raw.unsafe(
-      `INSERT INTO "${LIVE_TABLE}" (group_id, tenant_id, item_count) VALUES ($1::uuid, $2::uuid, 5), ($3::uuid, $4::uuid, 7)`,
-      [
-        "00000000-0000-4000-8000-0000000000b2",
-        otherTenant,
-        "00000000-0000-4000-8000-0000000000c2",
-        SYSTEM_TENANT_ID,
-      ],
-    );
+    for (const [foreignGroup, tenantId] of [
+      ["00000000-0000-4000-8000-0000000000b2", otherTenant],
+      ["00000000-0000-4000-8000-0000000000c2", SYSTEM_TENANT_ID],
+    ] as const) {
+      const created = await executor.create(
+        { groupId: foreignGroup, name: "foreign" },
+        createSystemUser(tenantId),
+        createTenantDb({ db: testDb.db, tenantId }),
+      );
+      if (!created.isSuccess) throw new Error(`seed item failed: ${created.error.code}`);
+    }
+    await rebuild();
     await grantProbeDml(testDb.db, [LIVE_TABLE]);
     const visible = await asProbe(testDb.db, { tenantId: admin.tenantId }, (probe) =>
       visibleTenants(probe, LIVE_TABLE),

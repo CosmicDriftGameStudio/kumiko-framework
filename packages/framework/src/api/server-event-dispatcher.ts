@@ -24,6 +24,7 @@ import {
 } from "../pipeline/event-dispatcher.ts";
 import { createJobTriggerEventConsumer } from "../pipeline/job-trigger-consumer.ts";
 import { createMultiStreamApplyContext } from "../pipeline/multi-stream-apply-context.ts";
+import { catchUpJobsOf } from "../pipeline/registry-consumer-names.ts";
 import {
   createAccessInvalidationEventConsumer,
   createSearchEventConsumer,
@@ -173,15 +174,14 @@ function buildCatchUpJobConsumers(
   if (!(options.eventDispatcher?.systemConsumers?.jobTrigger ?? true)) return [];
   const processLane: RunIn = options.processLane ?? "worker";
   const consumers: EventConsumer[] = [];
-  for (const [jobName, jobDef] of options.registry.getAllJobs()) {
-    if (!("on" in jobDef.trigger) || !jobDef.trigger.catchUp) continue;
-    if (!runsInLane(jobDef.runIn, processLane)) continue;
+  for (const job of catchUpJobsOf(options.registry)) {
+    if (!runsInLane(job.definition.runIn, processLane)) continue;
     consumers.push(
       createCatchUpJobEventConsumer(
         jobRunner,
-        jobName,
-        options.registry.getJobFeature(jobName),
-        catchUpEventTypesOf(jobDef.trigger),
+        job.name,
+        options.registry.getJobFeature(job.name),
+        catchUpEventTypesOf(job.trigger),
         upcast,
       ),
     );

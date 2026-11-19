@@ -270,7 +270,7 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
     schema: z.object({}),
     handler: async (_query, ctx) => {
       await asRawClient(ctx.db.unsafeRawAllTenants()).unsafe(
-        "UPDATE qam_notes SET body = 'tampered'",
+        "UPDATE store_qam_guard_notes SET body = 'tampered'",
       );
       return { ok: true };
     },
@@ -283,7 +283,7 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
     handler: async (_query, ctx) => {
       const raw = asRawClient(ctx.db.unsafeRawAllTenants());
       await raw.unsafe("SET TRANSACTION READ WRITE");
-      await raw.unsafe("UPDATE qam_notes SET body = 'tampered'");
+      await raw.unsafe("UPDATE store_qam_guard_notes SET body = 'tampered'");
       return { ok: true };
     },
     access: { roles: ["Admin", "User"] },
@@ -315,7 +315,7 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
     handler: async (_query, ctx) => {
       const raw = asRawClient(ctx.db.unsafeRawAllTenants());
       await raw.unsafe("COMMIT");
-      await raw.unsafe("UPDATE qam_notes SET body = 'tampered'");
+      await raw.unsafe("UPDATE store_qam_guard_notes SET body = 'tampered'");
       return { ok: true };
     },
     access: { roles: ["Admin", "User"] },
@@ -1082,6 +1082,7 @@ describe("ctx.dispatch.queryAsMember — database-level read-only (READ ONLY tra
     expect(err.code).toBe("access_denied");
     expect(errorReason(err.details)).toBe("member_resolution_read_only");
     expect(await readNoteBodies()).toEqual(["note-1"]);
+    expect(await readGuardBodies()).toEqual(["untouched"]);
   });
 
   test("c2) tries-unsafe-raw-write via a query-caller (pool path) is denied, notes unchanged", async () => {
@@ -1094,6 +1095,7 @@ describe("ctx.dispatch.queryAsMember — database-level read-only (READ ONLY tra
     expect(err.code).toBe("access_denied");
     expect(errorReason(err.details)).toBe("member_resolution_read_only");
     expect(await readNoteBodies()).toEqual(["note-1"]);
+    expect(await readGuardBodies()).toEqual(["untouched"]);
   });
 
   test("d1) tries-read-write-reset via a write-caller: request fails, notes unchanged", async () => {
@@ -1107,6 +1109,7 @@ describe("ctx.dispatch.queryAsMember — database-level read-only (READ ONLY tra
     expect(err.code).toBe("access_denied");
     expect(errorReason(err.details)).toBe("member_resolution_read_only");
     expect(await readNoteBodies()).toEqual(["note-1"]);
+    expect(await readGuardBodies()).toEqual(["untouched"]);
   });
 
   test("d2) tries-read-write-reset via a query-caller: request fails, notes unchanged", async () => {
@@ -1119,6 +1122,7 @@ describe("ctx.dispatch.queryAsMember — database-level read-only (READ ONLY tra
     expect(err.code).toBe("access_denied");
     expect(errorReason(err.details)).toBe("member_resolution_read_only");
     expect(await readNoteBodies()).toEqual(["note-1"]);
+    expect(await readGuardBodies()).toEqual(["untouched"]);
   });
 
   test("e) nested-db-write via a write-caller → denied with member_resolution_read_only, notes unchanged", async () => {
@@ -1213,6 +1217,7 @@ describe("ctx.dispatch.queryAsMember — database-level read-only (READ ONLY tra
     expect(err.code).toBe("access_denied");
     expect(errorReason(err.details)).toBe("member_resolution_read_only");
     expect(await readNoteBodies()).toEqual(["note-1"]);
+    expect(await readGuardBodies()).toEqual(["untouched"]);
   });
 
   test("j2) tries-commit-then-write via a query-caller (pool path) is denied, notes unchanged", async () => {
@@ -1225,6 +1230,7 @@ describe("ctx.dispatch.queryAsMember — database-level read-only (READ ONLY tra
     expect(err.code).toBe("access_denied");
     expect(errorReason(err.details)).toBe("member_resolution_read_only");
     expect(await readNoteBodies()).toEqual(["note-1"]);
+    expect(await readGuardBodies()).toEqual(["untouched"]);
   });
 
   test("k1) tries-raw-select via a write-caller is denied — no raw handle, not even for reads", async () => {

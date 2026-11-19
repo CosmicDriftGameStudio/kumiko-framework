@@ -27,10 +27,10 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
-import { insertMany } from "../../db/query.ts";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db.ts";
 import { defineFeature } from "../../engine/index.ts";
-import { eventsTable, type StoredEvent } from "../../event-store/index.ts";
+import { appendMany } from "../../event-store/append-many.ts";
+import type { StoredEvent } from "../../event-store/index.ts";
 import { type EventDispatcher, getConsumerState } from "../../pipeline/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { generateId } from "../../utils/index.ts";
@@ -77,23 +77,20 @@ async function appendWidget(name: string): Promise<void> {
   await executor.create({ name }, admin, tdb);
 }
 
-// Bulk-seed N widget.created events directly into the events table.
-// Used by the backlog test where the seed phase would otherwise dominate
-// runtime (2000 sequential executor.create = 2000 DB round-trips).
-// The dispatcher only reads from events — bypassing the projections-table
-// write is safe here; we're testing cursor catch-up, not the executor.
+// One batched append instead of N executor.create round-trips, which would dominate the
+// backlog test. appendMany does not project; the dispatcher reads only events, and the
+// test covers cursor catch-up, not the executor.
 async function bulkSeedWidgetCreated(count: number, namePrefix: string): Promise<void> {
-  const rows = Array.from({ length: count }, (_, i) => ({
+  const events = Array.from({ length: count }, (_, i) => ({
     aggregateId: generateId(),
     aggregateType: "widget",
     tenantId: admin.tenantId,
-    version: 1,
+    expectedVersion: 0,
     type: "widget.created",
     payload: { name: `${namePrefix}${i}` },
     metadata: { userId: admin.id },
-    createdBy: admin.id,
   }));
-  await insertMany(stack.db, eventsTable, rows);
+  await appendMany(stack.db, events);
 }
 
 function buildDispatcherWith(consumers: readonly EventConsumer[]): EventDispatcher {

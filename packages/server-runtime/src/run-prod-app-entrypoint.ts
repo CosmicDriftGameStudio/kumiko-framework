@@ -9,6 +9,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/entrypoint";
 import { appHookScopedRunner } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createMetricsForFactory } from "@cosmicdrift/kumiko-framework/observability";
+import { startEntityRowRepairsOnBoot } from "./boot/entity-row-version-align-on-boot.ts";
 import { jobRunLoggerCallbacks } from "./boot/job-run-logger.ts";
 import { startPiiEventBackfillOnBoot } from "./boot/pii-event-backfill-on-boot.ts";
 import { recordAppStartedOnBoot } from "./boot/record-app-started-on-boot.ts";
@@ -220,6 +221,11 @@ export async function startProdBackgroundWork(
     registry: composed.registry,
     lifecycle: entrypoint.lifecycle,
     envSource,
+  });
+  startEntityRowRepairsOnBoot({
+    db: connections.db,
+    registry: composed.registry,
+    lifecycle: entrypoint.lifecycle,
   });
   startSearchReindexOnBoot({
     db: connections.db,

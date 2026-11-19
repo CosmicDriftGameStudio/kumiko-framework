@@ -19,7 +19,7 @@
     "packages/renderer/src/web/__tests__/kumiko-screen.test.tsx": 1570,
     "packages/renderer/src/web/__tests__/projection-detail.test.tsx": 2101,
     "packages/renderer/src/web/__tests__/render-edit-states-slots.test.tsx": 1764,
-    "packages/server-runtime/src/__tests__/run-prod-app.integration.test.ts": 1789,
+    "packages/server-runtime/src/__tests__/run-prod-app.integration.test.ts": 1685,
     "packages/types/src/fields.ts": 1280
   }
 }

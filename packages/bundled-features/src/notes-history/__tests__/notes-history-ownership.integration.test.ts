@@ -20,7 +20,7 @@
 // proving.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient, buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
@@ -29,7 +29,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
-import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -113,10 +113,11 @@ async function insertProjects(
   ids: readonly string[],
 ): Promise<void> {
   for (const id of ids) {
-    await asRawClient(stack.db).unsafe(
-      `INSERT INTO ${PROJECT_TABLE} (id, tenant_id, name) VALUES ($1, $2, $3)`,
-      [id, tenantId, id],
-    );
+    await seedRowViaEventStore(stack.db, buildEntityTable(projectEntity), {
+      id,
+      tenantId,
+      name: id,
+    });
   }
 }
 

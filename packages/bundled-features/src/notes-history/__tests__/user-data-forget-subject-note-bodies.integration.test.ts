@@ -11,7 +11,7 @@ import {
   InMemoryKmsAdapter,
   PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import { asRawClient, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createFilesFeature, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
@@ -133,21 +133,22 @@ beforeAll(async () => {
   // No tenant feature is mounted here, so the membership table the forget
   // cleanup iterates is created from its entity.
   await unsafeCreateEntityTable(stack.db, tenantMembershipEntity);
-  await asRawClient(stack.db).unsafe(
-    `INSERT INTO ${CONTACT_TABLE} (id, tenant_id, name) VALUES ($1, $2, $3)
-     ON CONFLICT (id) DO NOTHING`,
-    [CONTACT_1, author.tenantId, "Contact 1"],
-  );
-  await asRawClient(stack.db).unsafe(
-    `INSERT INTO ${CONTACT_TABLE} (id, tenant_id, name) VALUES ($1, $2, $3)
-     ON CONFLICT (id) DO NOTHING`,
-    [CONTACT_X, author.tenantId, "Contact X"],
-  );
-  await asRawClient(stack.db).unsafe(
-    `INSERT INTO ${INVOICE_TABLE} (id, tenant_id, amount) VALUES ($1, $2, $3)
-     ON CONFLICT (id) DO NOTHING`,
-    [INVOICE_1, author.tenantId, "100.00"],
-  );
+  const contactTable = buildEntityTable(contactEntity);
+  await seedRowViaEventStore(stack.db, contactTable, {
+    id: CONTACT_1,
+    tenantId: author.tenantId,
+    name: "Contact 1",
+  });
+  await seedRowViaEventStore(stack.db, contactTable, {
+    id: CONTACT_X,
+    tenantId: author.tenantId,
+    name: "Contact X",
+  });
+  await seedRowViaEventStore(stack.db, buildEntityTable(invoiceEntity), {
+    id: INVOICE_1,
+    tenantId: author.tenantId,
+    amount: "100.00",
+  });
 
   overrideExecutor = createEventStoreExecutor(
     tenantRetentionOverrideTable,

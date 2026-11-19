@@ -7,11 +7,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-testing/helpers";
 import {
+  resetEventStore,
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { asRawClient } from "../db/query.ts";
 import { defineEntityQueryHandler, defineEntityWriteHandler } from "../engine/entity-handlers.ts";
 import { createEntity, createTextField, defineFeature, from } from "../engine/index.ts";
 import type { SessionUser, TenantId } from "../engine/types/index.ts";
@@ -132,7 +132,7 @@ let engRow: { id: string; version: number };
 let opsRow: { id: string; version: number };
 
 beforeEach(async () => {
-  await asRawClient(stack.db).unsafe("DELETE FROM h2_contracts");
+  await resetEventStore(stack, ["h2_contracts"]);
   const eng = await stack.http.writeOk<{ id: string; data: { version: number } }>(
     "h2contracts:write:contract:create",
     {

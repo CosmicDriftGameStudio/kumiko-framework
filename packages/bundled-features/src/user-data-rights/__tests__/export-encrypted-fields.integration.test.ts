@@ -117,11 +117,15 @@ beforeAll(async () => {
       api_key TEXT
     )
   `);
-  const storedNote = await cipher.encrypt(PLAINTEXT_NOTE);
-  const storedApiKey = await cipher.encrypt(PLAINTEXT_API_KEY);
-  await asRawClient(stack.db).unsafe(
-    `INSERT INTO read_vault_notes (tenant_id, owner_id, note, api_key) VALUES ('${TENANT}', '${USER_ID}', '${storedNote.replaceAll("'", "''")}', '${storedApiKey.replaceAll("'", "''")}')`,
-  );
+  // The executor encrypts on write, so the cipher is on only for the seed.
+  configureEntityFieldEncryption(cipher);
+  await seedRowViaEventStore(stack.db, vaultNotesTableRef, {
+    tenantId: TENANT,
+    ownerId: USER_ID,
+    note: PLAINTEXT_NOTE,
+    apiKey: PLAINTEXT_API_KEY,
+  });
+  resetEntityFieldEncryptionCacheForTests();
 });
 
 afterEach(() => {

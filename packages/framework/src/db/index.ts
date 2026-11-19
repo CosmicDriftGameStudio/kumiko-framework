@@ -101,6 +101,10 @@ export {
   tryWithSessionAdvisoryLock,
   withSessionAdvisoryLock,
 } from "./queries/session-advisory-lock.ts";
+export {
+  alignLiveRowVersionsWithStreams,
+  type LiveRowVersionAlignResult,
+} from "./queries/shadow-swap.ts";
 export type {
   JsonTextMatch,
   SelectOptions,

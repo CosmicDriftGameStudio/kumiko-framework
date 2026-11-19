@@ -3,7 +3,6 @@
 // right slices of it (tenant-isolated, filtered, paginated, content-intact).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
@@ -81,8 +80,7 @@ afterAll(async () => {
 beforeEach(async () => {
   // Fresh event log per test — the audit query reads the events table
   // directly, so stale events from previous tests would leak into results.
-  await resetEventStore(stack);
-  await asRawClient(stack.db).unsafe(`TRUNCATE audit_widgets`);
+  await resetEventStore(stack, ["audit_widgets"]);
 });
 
 async function createWidget(user: SessionUser, name: string, color?: string): Promise<string> {

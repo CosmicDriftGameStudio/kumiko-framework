@@ -25,6 +25,7 @@ import { InternalError } from "../errors/index.ts";
 import type { StoredEvent } from "../event-store/index.ts";
 import { createFallbackLogger } from "../logging/utils.ts";
 import type { SearchAdapter, SearchDocument } from "../search/types.ts";
+import { mapWithConcurrency } from "../utils/map-with-concurrency.ts";
 import type { EventConsumer } from "./event-dispatcher.ts";
 
 const log = createFallbackLogger("kumiko:search");
@@ -394,6 +395,9 @@ const TENANT_RETRY_MAX_DELAY_MS = 60_000;
 // Ten failures span about four minutes of backoff: enough for Meilisearch to restart, short
 // enough that a broken index or a poison document reaches ops as an error.
 const TENANT_HOLD_ESCALATION_FAILURES = 10;
+// Tenant flushes only talk to Meilisearch, never to the DB, so they do not draw on the pool the
+// turn slots protect; the cap keeps one turn from flooding Meilisearch with parallel requests.
+const SEARCH_TENANT_FLUSH_CONCURRENCY = 8;
 
 type TenantRetryState = {
   readonly consecutiveFailures: number;
@@ -454,8 +458,10 @@ export function createSearchEventConsumer(
         ctx,
         registry,
       );
-      const tenantIds = new Set<TenantId>([...perTenant.keys(), ...unresolved.keys()]);
-      for (const tenantId of tenantIds) {
+      const tenantIds = [...new Set<TenantId>([...perTenant.keys(), ...unresolved.keys()])];
+      // Each tenant waits for its own Meilisearch tasks; serially that adds up to seconds for a
+      // batch spanning many tenants. A tenant's ops still run in order inside its own flush.
+      await mapWithConcurrency(tenantIds, SEARCH_TENANT_FLUSH_CONCURRENCY, async (tenantId) => {
         const bucket = perTenant.get(tenantId);
         const unresolvedOps = unresolved.get(tenantId);
         const retry = tenantRetries.get(tenantId);
@@ -468,7 +474,7 @@ export function createSearchEventConsumer(
             retry.reason,
             { stillBackingOff: true },
           );
-          continue;
+          return;
         }
         // An unresolved event may carry an earlier op for an entity a later resolved op targets
         // (update fails, delete resolves); writing the later op now would let the retry resurrect it.
@@ -485,13 +491,13 @@ export function createSearchEventConsumer(
             : null;
         if (held) {
           turn.holdForRetry(held.eventIds, recordTenantFailure(tenantId, held));
-          continue;
+          return;
         }
         if (retry) {
           tenantRetries.delete(tenantId);
           log.info(`search index of tenant ${tenantId} accepts writes again`);
         }
-      }
+      });
     },
   };
 }

@@ -93,9 +93,7 @@ async function seedTenant(tenantId: typeof tenantA, userNumber: number): Promise
 
 async function reseed(): Promise<void> {
   await sql(
-    `TRUNCATE kumiko_events, kumiko_snapshots, ${Object.values(entities)
-      .map((entity) => entity.table)
-      .join(", ")} RESTART IDENTITY CASCADE`,
+    `TRUNCATE kumiko_events, kumiko_snapshots, ${TABLE_GONE_A}, ${TABLE_GONE_B}, ${TABLE_KEPT} RESTART IDENTITY CASCADE`,
   );
   await seedTenant(tenantA, 251);
   await seedTenant(tenantB, 252);

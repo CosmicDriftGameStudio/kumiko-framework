@@ -28,6 +28,7 @@ import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seed
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
   resetTestTables,
+  seedRow,
   seedRowViaEventStore,
   updateRowViaEventStore,
 } from "@cosmicdrift/kumiko-testing/helpers";
@@ -158,18 +159,24 @@ async function seedPendingJob(opts: { user?: typeof aliceUser } = {}): Promise<s
   return result.jobId;
 }
 
-// Force a UNIQUE-violation on read_export_download_tokens.job_id (test-fixture,
-// direct-INSERT is a test-only exemption) — the worker's tokenCrud.create then
-// fails with constraintName "read_export_download_tokens_one_per_job",
-// deterministically flipping the job to failed for the tests below.
-async function seedConflictingDownloadToken(jobId: string): Promise<void> {
-  await asRawClient(stack.db).unsafe(
-    `
-      INSERT INTO read_export_download_tokens
-        (id, tenant_id, job_id, token_hash, issued_at, expires_at, version, inserted_at, modified_at)
-      VALUES (gen_random_uuid(), $1, $2, $3, now(), now() + interval '7 days', 1, now(), now())
-    `,
-    [tenantA, jobId, "existing-hash"],
+// A token row for the job without its event stream: the worker rotates an existing
+// token in place, the update finds no aggregate and fails, deterministically
+// flipping the job to failed for the tests below. A token seeded through events
+// would rotate cleanly.
+async function seedTokenThatBreaksRotation(jobId: string): Promise<void> {
+  const issuedAt = getTemporal().Now.instant();
+  await seedRow(
+    stack.db,
+    exportDownloadTokensTable,
+    {
+      tenantId: tenantA,
+      jobId,
+      tokenHash: "existing-hash",
+      issuedAt,
+      expiresAt: issuedAt.add({ hours: 7 * 24 }),
+      version: 1,
+    },
+    { projectionOnly: "token row without events makes the worker's token rotation fail" },
   );
 }
 
@@ -890,16 +897,16 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
     expect(allTokens).toHaveLength(0);
   });
 
-  test("token-create UNIQUE violation → job=failed (not done) — sequencing pin", async () => {
-    // The token is created before the job is marked done. If token creation fails,
+  test("failed token rotation → job=failed (not done) — sequencing pin", async () => {
+    // The token is rotated before the job is marked done. If the rotation fails,
     // the worker marks the job failed rather than first committing done and then
     // reverting it.
     //
-    // Seed a pending job and a duplicate token row for the same jobId, then let
-    // the worker write the ZIP and fail on the token's UNIQUE constraint.
+    // Seed a pending job and an event-less token row for the same jobId: the worker
+    // writes the ZIP, then its in-place token rotation fails because the row has no stream.
     const jobId = await seedPendingJob();
 
-    await seedConflictingDownloadToken(jobId);
+    await seedTokenThatBreaksRotation(jobId);
 
     const result = await runExportJobs({
       db: stack.db,
@@ -922,7 +929,7 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
   test("failed job: sendExportFailedEmail is called with errorMessage + userEmail", async () => {
     const jobId = await seedPendingJob();
 
-    await seedConflictingDownloadToken(jobId);
+    await seedTokenThatBreaksRotation(jobId);
 
     type SentArgs = {
       userId: string;
@@ -955,7 +962,7 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
 
   test("failed job without callback: no email, worker run succeeded", async () => {
     const jobId = await seedPendingJob();
-    await seedConflictingDownloadToken(jobId);
+    await seedTokenThatBreaksRotation(jobId);
 
     const result = await runExportJobs({
       db: stack.db,
@@ -987,7 +994,7 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
     const jobAId = await seedPendingJob();
     const jobBId = await seedPendingJob({ user: bobUser });
     for (const jobId of [jobAId, jobBId]) {
-      await seedConflictingDownloadToken(jobId);
+      await seedTokenThatBreaksRotation(jobId);
     }
 
     const calls: string[] = [];
@@ -1018,7 +1025,7 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
   test("failed job, user without email → sendExportFailedEmail skipped (no throw)", async () => {
     await clearAliceEmail();
     const jobId = await seedPendingJob();
-    await seedConflictingDownloadToken(jobId);
+    await seedTokenThatBreaksRotation(jobId);
 
     let callbackInvoked = false;
     const result = await runExportJobs({

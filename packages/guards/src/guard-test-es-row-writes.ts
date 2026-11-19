@@ -1,10 +1,12 @@
 #!/usr/bin/env bun
 /**
- * Guard: framework tests do not write event-sourced rows through the seed bypass.
- * Flags calls to updateRows/deleteRows imported from kumiko-testing/helpers, seedRow on
- * an entity table the file builds itself, and raw DELETE/UPDATE SQL on read_ tables,
- * kumiko_events or such an entity table: they change the projection only, so the event
- * log drifts from it and a rebuild undoes the write.
+ * Guard: tests do not write event-sourced rows past the event store.
+ * Flags updateRows/deleteRows from kumiko-testing/helpers and seedRow on an entity table
+ * the file builds itself unless they carry a projectionOnly reason, raw INSERT/UPDATE/DELETE
+ * SQL on read_ tables, kumiko_events or such an entity table outside a projection's apply,
+ * and TRUNCATE of a projection without kumiko_events: they change the projection only, so
+ * the event log drifts from it and a rebuild undoes the write. It also flags row writes on
+ * eventsTable.
  *
  * Usage:
  *   bun packages/guards/src/guard-test-es-row-writes.ts
@@ -19,11 +21,29 @@ import {
   type ScanSpec,
 } from "./_lib/guard-kit";
 import { type RepoRoot, resolveRepoRoots } from "./_lib/roots";
-import { findRawSqlWrites, findSeedRowOnEntityTables } from "./_lib/test-es-raw-writes";
+import {
+  findEventsTableWrites,
+  findRawSqlWrites,
+  findSeedRowOnEntityTables,
+  hasProjectionOnlyReason,
+} from "./_lib/test-es-raw-writes";
 
-// Framework repo only: the consumer repos still call updateRows/deleteRows in their
-// tests, so rolling this out there needs a migration of those call sites first.
-const SCAN: ScanSpec = { scope: "tests", extensions: ["ts"], kinds: ["framework"] };
+// Test helpers next to the specs and Playwright dirs sit outside the manifests' testGlobs.
+const SCAN: ScanSpec = {
+  scope: "tests",
+  extensions: ["ts", "tsx"],
+  extraGlobs: [
+    "src/**/__tests__/**/*.{ts,tsx}",
+    "bin/**/__tests__/**/*.{ts,tsx}",
+    "bin/**/*.{test,integration}.{ts,tsx}",
+    "e2e/**/*.{ts,tsx}",
+    "packages/*/e2e/**/*.{ts,tsx}",
+    "packages/*/src/e2e/**/*.{ts,tsx}",
+    "samples/e2e/**/*.{ts,tsx}",
+    "samples/recipes/*/e2e/**/*.{ts,tsx}",
+    "samples/apps/*/e2e/**/*.{ts,tsx}",
+  ],
+};
 
 const ALLOWLIST: readonly RegExp[] = [
   // Home of the helpers.
@@ -90,7 +110,8 @@ const TESTING_HELPERS_RE =
   /^@cosmicdrift\/kumiko-testing\/helpers$|(^|\/)testing\/src\/helpers(\/|$)/;
 const MESSAGE =
   "updateRows/deleteRows bypass the event store: use the real command, seedUser, " +
-  "updateRowViaEventStore/deleteRowViaEventStore, or updateMany/deleteMany on a Writable table";
+  "updateRowViaEventStore/deleteRowViaEventStore, or updateMany/deleteMany on a Writable table; " +
+  "a deliberate projection-only state passes { projectionOnly: reason }";
 
 type HelperBindings = {
   readonly wanted: ReadonlySet<string>;
@@ -132,12 +153,15 @@ function collect(sourceFile: SourceFile, roots: readonly RepoRoot[]): GuardViola
   const bypassCalls = importsBypass
     ? sourceFile
         .getDescendantsOfKind(SyntaxKind.CallExpression)
-        .filter((call) => isHelperCallee(call.getExpression(), bypass))
+        .filter(
+          (call) => isHelperCallee(call.getExpression(), bypass) && !hasProjectionOnlyReason(call),
+        )
         .map((call) => ({ line: call.getStartLineNumber(), message: MESSAGE }))
     : [];
   return [
     ...bypassCalls,
     ...findSeedRowOnEntityTables(sourceFile, (callee) => isHelperCallee(callee, seedRow)),
+    ...findEventsTableWrites(sourceFile),
     ...findRawSqlWrites(sourceFile),
   ].map((finding) => ({ file, ...finding }));
 }
@@ -148,7 +172,9 @@ export const guard: AstGuard = {
   hint:
     "Change event-sourced rows through the real command, seedUser({...}), seedRowViaEventStore or " +
     "updateRowViaEventStore/deleteRowViaEventStore, reset them with resetTestTables plus eventsTable; " +
-    "use updateMany/deleteMany for non-event-sourced tables.",
+    "use updateMany/deleteMany for non-event-sourced tables. A state no event can produce (legacy row, " +
+    "lost read table, corrupt ciphertext, stale version) goes through seedRow/updateRows/deleteRows " +
+    "with { projectionOnly: reason }.",
   run(files, roots: readonly RepoRoot[] = resolveRepoRoots()) {
     return { violations: files.flatMap((sf) => collect(sf, roots)) };
   },

@@ -329,6 +329,34 @@ describe.skipIf(!MEILI_UP)("meilisearch adapter — lazy default config", () => 
     expect(results.some((r) => r.entityId === 1 && r.entityType === "user")).toBe(true);
   });
 
+  test("a new tenant's default config is one settings task, so its first write waits for three tasks instead of six", async () => {
+    const tenant = uuid();
+    const lazyAdapter = createMeilisearchAdapter({
+      url: MEILI_URL,
+      apiKey: MEILI_KEY,
+      indexPrefix: lazyPrefix,
+    });
+    lazyAdapter.setDefaultConfig?.({ searchableFields: ["firstName"] });
+
+    await lazyAdapter.indexBatch?.(tenant, [
+      { entityType: "user", entityId: 1, weight: 1, fields: { firstName: "Single" } },
+    ]);
+
+    const indexUid = meilisearchTenantIndex(lazyPrefix, tenant);
+    const settingsTasks = await lazyClient.tasks.getTasks({
+      indexUids: [indexUid],
+      types: ["settingsUpdate"],
+    });
+    expect(settingsTasks.results.length).toBe(1);
+    const settings = await lazyClient.index(indexUid).getSettings();
+    expect(settings.searchableAttributes).toEqual(["firstName"]);
+    expect(settings.filterableAttributes).toEqual(
+      expect.arrayContaining(["_type", "_weight", "_entityId", "_chunk"]),
+    );
+    expect(settings.sortableAttributes).toEqual(["_weight"]);
+    expect(settings.distinctAttribute).toBe("_entityId");
+  });
+
   test("first access via search() with filterType on a never-written tenant returns empty, not an error", async () => {
     const tenant = uuid();
     const lazyAdapter = createMeilisearchAdapter({

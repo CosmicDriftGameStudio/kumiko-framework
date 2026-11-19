@@ -5,8 +5,23 @@ import { lockEventConsumersShareMode } from "../db/queries/event-consumer.ts";
 import { selectExpiredStreamEventIds } from "../db/queries/event-store.ts";
 import { deleteMany, selectMany, transaction } from "../db/query.ts";
 import { runInSystemRowLevelSecurityScope } from "../db/row-level-security-scope.ts";
+import type { Registry } from "../engine/types/index.ts";
 import { eventsTable } from "../event-store/index.ts";
+import { createFallbackLogger } from "../logging/utils.ts";
 import { eventConsumerStateTable } from "./event-consumer-state.ts";
+import {
+  isRegistryShapedConsumerName,
+  registryDeclaredConsumerNames,
+} from "./registry-consumer-names.ts";
+
+const log = createFallbackLogger("event-retention");
+
+// The registry belongs to the process running retention; another process (a worker composed
+// differently, an old pod mid-rollout) may still drive a consumer this one does not declare. Every
+// pass that delivers or fails writes updated_at, so only a row that stood still this long counts as
+// abandoned. Seven days lies well above a rollout (minutes to hours) and an outage over a long
+// weekend; a caught-up idle consumer does not block pruning anyway, so its still updated_at is moot.
+const UNDECLARED_CONSUMER_ABANDONED_AFTER_DAYS = 7;
 
 // Retention for the events-table. Aggregate events are source of truth —
 // they power loadAggregate, projection rebuilds, asOf queries, audit.
@@ -26,7 +41,10 @@ import { eventConsumerStateTable } from "./event-consumer-state.ts";
 // non-disabled consumers is below the largest event id we'd delete, we
 // refuse with ConsumerLagError. A lagging consumer must either catch up,
 // be disabled, or the retention call must opt around it; pruning past its
-// cursor would silently drop deliveries.
+// cursor would silently drop deliveries. With `registry`, rows of projection
+// and catch-up-job consumers the app no longer declares are skipped once they
+// have not moved for UNDECLARED_CONSUMER_ABANDONED_AFTER_DAYS: nothing advances
+// them, so they would block retention forever.
 //
 // No background scheduler: the framework exposes the function. Ops wires
 // it into a cron, BullMQ repeating job, or pg_cron entry — whatever the
@@ -50,6 +68,9 @@ export type PruneEventsOptions = {
   // counts events and can exceed batchSize. Callers with a large backlog loop until
   // deletedCount < batchSize, which terminates because deletedCount >= number of streams.
   readonly batchSize?: number;
+  // The app's full registry, not one process's consumer list: a worker that runs a subset of the
+  // consumers must not treat the others as stale. Without it every non-disabled row counts.
+  readonly registry?: Registry;
 };
 
 export type PruneEventsResult = {
@@ -153,9 +174,26 @@ export async function pruneEvents(
         const activeConsumers = await selectMany<{
           name: string;
           lastProcessedEventId: bigint;
+          updatedAt: Temporal.Instant;
         }>(tx, eventConsumerStateTable, { status: { ne: "disabled" } });
 
+        const declaredConsumerNames = options.registry
+          ? registryDeclaredConsumerNames(options.registry)
+          : undefined;
+        const abandonedBefore = Temporal.Now.instant().subtract({
+          hours: UNDECLARED_CONSUMER_ABANDONED_AFTER_DAYS * 24,
+        });
+        const skippedConsumerNames = new Set<string>();
         for (const consumer of activeConsumers) {
+          if (
+            declaredConsumerNames &&
+            isRegistryShapedConsumerName(consumer.name) &&
+            !declaredConsumerNames.has(consumer.name) &&
+            Temporal.Instant.compare(consumer.updatedAt, abandonedBefore) < 0
+          ) {
+            skippedConsumerNames.add(consumer.name);
+            continue;
+          }
           if (consumer.lastProcessedEventId < maxCandidateId) {
             throw new ConsumerLagError(
               consumer.name,
@@ -163,6 +201,11 @@ export async function pruneEvents(
               maxCandidateId,
             );
           }
+        }
+        if (skippedConsumerNames.size > 0) {
+          log.warn("pruneEvents skipped consumers the registry no longer declares", {
+            consumers: [...skippedConsumerNames],
+          });
         }
 
         if (dryRun) {

@@ -228,19 +228,18 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
     config: SearchAdapterConfig,
     explicit: boolean,
   ): Promise<void> {
-    const index = client.index(meilisearchTenantIndex(prefix, tenantId));
+    // One settings task instead of one per attribute: the search consumer waits for every task
+    // of a new tenant in turn, so each extra task adds a full Meilisearch round to its batch.
     await awaitSucceededTask(
-      index.updateSearchableAttributes([...defaultSearchableAttributes(config)]),
-    );
-    await awaitSucceededTask(
-      index.updateFilterableAttributes(
-        explicit
+      client.index(meilisearchTenantIndex(prefix, tenantId)).updateSettings({
+        searchableAttributes: [...defaultSearchableAttributes(config)],
+        filterableAttributes: explicit
           ? [...DEFAULT_FILTERABLE_ATTRIBUTES, EXPLICIT_CONFIG_MARKER]
           : [...DEFAULT_FILTERABLE_ATTRIBUTES],
-      ),
+        sortableAttributes: [...DEFAULT_SORTABLE_ATTRIBUTES],
+        distinctAttribute: DISTINCT_ATTRIBUTE,
+      }),
     );
-    await awaitSucceededTask(index.updateSortableAttributes([...DEFAULT_SORTABLE_ATTRIBUTES]));
-    await awaitSucceededTask(index.updateDistinctAttribute(DISTINCT_ATTRIBUTE));
   }
 
   // Filter deletes need the filterable attributes, but a tenant whose index was never created has

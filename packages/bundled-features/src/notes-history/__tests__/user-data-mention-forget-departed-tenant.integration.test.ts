@@ -10,7 +10,7 @@ import {
   InMemoryKmsAdapter,
   PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
@@ -132,11 +132,11 @@ beforeAll(async () => {
     [CONTACT_T, TENANT_T],
     [CONTACT_V, TENANT_V],
   ] as const) {
-    await asRawClient(stack.db).unsafe(
-      `INSERT INTO ${CONTACT_TABLE} (id, tenant_id, name) VALUES ($1, $2, 'Contact')
-       ON CONFLICT (id) DO NOTHING`,
-      [id, tenantId],
-    );
+    await seedRowViaEventStore(stack.db, buildEntityTable(contactEntity), {
+      id,
+      tenantId,
+      name: "Contact",
+    });
   }
 });
 

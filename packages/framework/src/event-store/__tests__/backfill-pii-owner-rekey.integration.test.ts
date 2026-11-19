@@ -5,6 +5,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } fr
 import {
   resetBlindIndexKeyForTests,
   resetPiiSubjectKmsForTests,
+  seedRow,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createTestDb,
@@ -77,9 +78,9 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  const raw = asRawClient(testDb.db);
-  await raw.unsafe(`TRUNCATE "kumiko_events" RESTART IDENTITY`);
-  await raw.unsafe(`TRUNCATE "${memoTable.tableName}"`);
+  await asRawClient(testDb.db).unsafe(
+    `TRUNCATE "kumiko_events", "${memoTable.tableName}" RESTART IDENTITY`,
+  );
   // Plaintext era: NO KMS while the legacy events are appended.
   resetPiiSubjectKmsForTests();
   resetBlindIndexKeyForTests();
@@ -89,6 +90,22 @@ afterEach(() => {
   resetPiiSubjectKmsForTests();
   resetBlindIndexKeyForTests();
 });
+
+// append() does not project, and the owner stages read the current owner from the projection,
+// so the row stands in for the projection state each scenario needs.
+async function seedMemoProjection(
+  id: string,
+  tenantId: TenantId,
+  ownerId: string | null,
+  body: string | null,
+): Promise<void> {
+  await seedRow(
+    testDb.db,
+    memoTable,
+    { id, tenantId, ownerId, body },
+    { projectionOnly: "projection state for events appended raw, which append() does not project" },
+  );
+}
 
 function armKms(): void {
   kms = new InMemoryKmsAdapter();
@@ -115,10 +132,7 @@ describe("backfillEventPiiEncryption: owner re-key", () => {
     const first = await backfillEventPiiEncryption(testDb.db, registry);
     expect(first.failures).toEqual([]);
     expect(await createdBody(memoId)).toContain(`tenant:${TENANT}`);
-    await asRawClient(testDb.db).unsafe(
-      `INSERT INTO "${memoTable.tableName}" (id, tenant_id, owner_id, body) VALUES ($1, $2, $3, $4)`,
-      [memoId, projectionTenant, projectionOwner, "projection-row-body"],
-    );
+    await seedMemoProjection(memoId, projectionTenant, projectionOwner, "projection-row-body");
     return memoId;
   }
 
@@ -166,10 +180,7 @@ describe("backfillEventPiiEncryption: owner re-key", () => {
       "body",
     );
     await appendPlain(memoId, "memo", "memo.created", { id: memoId, body: foreign });
-    await asRawClient(testDb.db).unsafe(
-      `INSERT INTO "${memoTable.tableName}" (id, tenant_id, owner_id, body) VALUES ($1, $2, $3, $4)`,
-      [memoId, TENANT, user, "projection-row-body"],
-    );
+    await seedMemoProjection(memoId, TENANT, user, "projection-row-body");
 
     const result = await backfillEventPiiEncryption(testDb.db, registry, REKEY);
 
@@ -246,10 +257,7 @@ describe("backfillEventPiiEncryption: owner re-key", () => {
       { changes: { ownerId: userY }, previous: { id: memoId, ownerId: userX } },
       1,
     );
-    await asRawClient(testDb.db).unsafe(
-      `INSERT INTO "${memoTable.tableName}" (id, tenant_id, owner_id, body) VALUES ($1, $2, $3, $4)`,
-      [memoId, TENANT, userY, "projection-row-body"],
-    );
+    await seedMemoProjection(memoId, TENANT, userY, "projection-row-body");
     armKms();
     const first = await backfillEventPiiEncryption(testDb.db, registry, {
       resolveOwnerFromProjection: true,
@@ -295,10 +303,7 @@ describe("backfillEventPiiEncryption: owner re-key", () => {
       { changes: { ownerId: userY, body: copyUnderY }, previous: { id: memoId, ownerId: userX } },
       1,
     );
-    await asRawClient(testDb.db).unsafe(
-      `INSERT INTO "${memoTable.tableName}" (id, tenant_id, owner_id, body) VALUES ($1, $2, $3, $4)`,
-      [memoId, TENANT, userY, "projection-row-body"],
-    );
+    await seedMemoProjection(memoId, TENANT, userY, "projection-row-body");
 
     const result = await backfillEventPiiEncryption(testDb.db, registry, REKEY);
 
@@ -330,10 +335,7 @@ describe("backfillEventPiiEncryption: owner re-key", () => {
       { changes: { ownerId: userY, body: null }, previous: { id: memoId, ownerId: userX } },
       1,
     );
-    await asRawClient(testDb.db).unsafe(
-      `INSERT INTO "${memoTable.tableName}" (id, tenant_id, owner_id, body) VALUES ($1, $2, $3, $4)`,
-      [memoId, TENANT, userY, null],
-    );
+    await seedMemoProjection(memoId, TENANT, userY, null);
 
     const result = await backfillEventPiiEncryption(testDb.db, registry, REKEY);
 
@@ -350,10 +352,7 @@ describe("backfillEventPiiEncryption: owner re-key", () => {
       ownerId: userX,
       body: "Alice",
     });
-    await asRawClient(testDb.db).unsafe(
-      `INSERT INTO "${memoTable.tableName}" (id, tenant_id, owner_id, body) VALUES ($1, $2, $3, $4)`,
-      [memoId, TENANT, generateId(), "projection-row-body"],
-    );
+    await seedMemoProjection(memoId, TENANT, generateId(), "projection-row-body");
     armKms();
     await backfillEventPiiEncryption(testDb.db, registry);
     await kms.eraseKey({ kind: "user", userId: userX });
@@ -384,10 +383,7 @@ describe("backfillEventPiiEncryption: owner re-key", () => {
       { changes: { ownerId: null }, previous: { id: memoId, ownerId: userX } },
       2,
     );
-    await asRawClient(testDb.db).unsafe(
-      `INSERT INTO "${memoTable.tableName}" (id, tenant_id, owner_id, body) VALUES ($1, $2, $3, $4)`,
-      [memoId, TENANT, null, "projection-row-body"],
-    );
+    await seedMemoProjection(memoId, TENANT, null, "projection-row-body");
     armKms();
 
     const result = await backfillEventPiiEncryption(testDb.db, registry, REKEY);
@@ -422,10 +418,7 @@ describe("backfillEventPiiEncryption: owner re-key", () => {
       { changes: { body: "Carol" }, previous: { id: memoId, body: "Bob", ownerId: userX } },
       3,
     );
-    await asRawClient(testDb.db).unsafe(
-      `INSERT INTO "${memoTable.tableName}" (id, tenant_id, owner_id, body) VALUES ($1, $2, $3, $4)`,
-      [memoId, TENANT, null, "projection-row-body"],
-    );
+    await seedMemoProjection(memoId, TENANT, null, "projection-row-body");
     armKms();
 
     const result = await backfillEventPiiEncryption(testDb.db, registry, REKEY);
@@ -467,10 +460,7 @@ describe("backfillEventPiiEncryption: owner of a slim update is the stream's own
       { changes: { ownerId: ownerB }, previous: { ownerId: ownerA } },
       3,
     );
-    await asRawClient(testDb.db).unsafe(
-      `INSERT INTO "${memoTable.tableName}" (id, tenant_id, owner_id, body) VALUES ($1, $2, $3, $4)`,
-      [memoId, TENANT, ownerB, "projection-row-body"],
-    );
+    await seedMemoProjection(memoId, TENANT, ownerB, "projection-row-body");
     armKms();
 
     const result = await backfillEventPiiEncryption(testDb.db, registry, {

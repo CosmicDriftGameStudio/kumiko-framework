@@ -8,6 +8,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { seedRows } from "@cosmicdrift/kumiko-testing/helpers";
 import { createTestDb, type TestDb } from "@cosmicdrift/kumiko-testing/stack";
 import type { ColumnMeta, EntityTableMeta } from "../entity-table-meta.ts";
 import { diffSnapshots, renderMigrationSql, snapshotFromMetas } from "../migrate-generator.ts";
@@ -43,9 +44,10 @@ describe("managed projection recreate applies on a populated table", () => {
     // A populated managed projection in its OLD shape (id, name).
     await raw.unsafe(`DROP TABLE IF EXISTS "read_proof"`);
     await raw.unsafe(`CREATE TABLE "read_proof" ("id" uuid PRIMARY KEY, "name" text NOT NULL)`);
-    await raw.unsafe(
-      `INSERT INTO "read_proof" (id, name) VALUES (gen_random_uuid(), 'a'), (gen_random_uuid(), 'b')`,
-    );
+    await seedRows(testDb.db, managedMeta("read_proof", [ID_COL, NAME_COL]), [
+      { id: crypto.randomUUID(), name: "a" },
+      { id: crypto.randomUUID(), name: "b" },
+    ]);
 
     // Generate the migration: managed table gains `envelope NOT NULL` → DROP+CREATE.
     // (An in-place ALTER ADD COLUMN ... NOT NULL would die on the two existing

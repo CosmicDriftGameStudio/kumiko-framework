@@ -7,7 +7,10 @@ import { deliveryAttemptsTable } from "./tables.ts";
 export const DEFAULT_ATTEMPT_LOG_RETENTION_DAYS = 90;
 const ROW_DELETE_BATCH_SIZE = 1000;
 
-export type AttemptLogRetentionOptions = Pick<PruneEventsOptions, "olderThan" | "olderThanDays">;
+export type AttemptLogRetentionOptions = Pick<
+  PruneEventsOptions,
+  "olderThan" | "olderThanDays" | "registry"
+>;
 
 export function resolveAttemptLogRetentionDays(
   option: number | false | undefined,

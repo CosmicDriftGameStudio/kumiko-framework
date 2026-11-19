@@ -11,9 +11,10 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
-import { asRawClient, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { seedRowsViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -53,10 +54,10 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, folderEntity);
   await unsafeCreateEntityTable(stack.db, folderAssignmentEntity);
   await unsafeCreateEntityTable(stack.db, creditEntity);
-  await asRawClient(stack.db).unsafe(
-    `INSERT INTO ${CREDIT_TABLE} (id, tenant_id, name) VALUES ($1, $3, 'kept'), ($2, $3, 'cleared')`,
-    [CREDIT_KEPT, CREDIT_CLEARED, admin.tenantId],
-  );
+  await seedRowsViaEventStore(stack.db, buildEntityTable(creditEntity), [
+    { id: CREDIT_KEPT, tenantId: admin.tenantId, name: "kept" },
+    { id: CREDIT_CLEARED, tenantId: admin.tenantId, name: "cleared" },
+  ]);
 });
 
 afterAll(async () => {

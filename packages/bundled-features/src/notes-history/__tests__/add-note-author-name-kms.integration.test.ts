@@ -17,7 +17,7 @@ import {
   InMemoryKmsAdapter,
   isPiiCiphertext,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
@@ -25,7 +25,10 @@ import {
   type SessionUser,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  resetPiiSubjectKmsForTests,
+  seedRowViaEventStore,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -70,10 +73,11 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, noteMentionEntity);
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, contactEntity);
-  await asRawClient(stack.db).unsafe(
-    `INSERT INTO ${CONTACT_TABLE} (id, tenant_id, name) VALUES ($1, $2, $3)`,
-    [CONTACT_KMS_AUTHOR, tenantId, CONTACT_KMS_AUTHOR],
-  );
+  await seedRowViaEventStore(stack.db, buildEntityTable(contactEntity), {
+    id: CONTACT_KMS_AUTHOR,
+    tenantId,
+    name: CONTACT_KMS_AUTHOR,
+  });
 });
 
 afterAll(async () => {

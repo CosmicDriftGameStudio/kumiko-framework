@@ -12,12 +12,12 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-testing/helpers";
 import {
+  resetEventStore,
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import type { OwnershipRule } from "@cosmicdrift/kumiko-types/ownership";
-import { asRawClient } from "../db/query.ts";
 import { defineEntityQueryHandler, defineEntityWriteHandler } from "../engine/entity-handlers.ts";
 import { createEntity, createTextField, defineFeature } from "../engine/index.ts";
 import type { SessionUser, WhereRule } from "../engine/types/index.ts";
@@ -88,7 +88,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await asRawClient(stack.db).unsafe("DELETE FROM fw2626_memos");
+  await resetEventStore(stack, ["fw2626_memos"]);
   const row = await stack.http.writeOk<{ id: string; data: { version: number } }>(
     "fw2626memos:write:memo:create",
     { ownerId: member.id, title: "seed" },

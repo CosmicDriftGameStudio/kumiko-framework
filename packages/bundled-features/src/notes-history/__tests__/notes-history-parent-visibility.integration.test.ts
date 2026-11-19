@@ -173,12 +173,19 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(guardedStack.db, guardedProjectEntity);
   await unsafeCreateEntityTable(guardedStack.db, createNoteEntryEntity(undefined, ["project"]));
   await unsafeCreateEntityTable(guardedStack.db, noteMentionEntity);
-  await asRawClient(guardedStack.db).unsafe(
-    `INSERT INTO ${PROJECT_TABLE} (id, tenant_id, team_id, name) VALUES
-       ($1, $2, 'team-a', 'Project A'),
-       ($3, $2, 'team-a', 'Project A2')`,
-    [PROJECT_A, userA.tenantId, PROJECT_A2],
-  );
+  const guardedProjectTable = buildEntityTable(guardedProjectEntity);
+  await seedRowViaEventStore(guardedStack.db, guardedProjectTable, {
+    id: PROJECT_A,
+    tenantId: userA.tenantId,
+    teamId: "team-a",
+    name: "Project A",
+  });
+  await seedRowViaEventStore(guardedStack.db, guardedProjectTable, {
+    id: PROJECT_A2,
+    tenantId: userA.tenantId,
+    teamId: "team-a",
+    name: "Project A2",
+  });
 
   // Wider mount: the same feature listing every fixture host — proves the
   // parent-visibility check still runs per host, not only on a narrow allowlist.
@@ -194,10 +201,12 @@ beforeAll(async () => {
     createNoteEntryEntity(undefined, ["project", "contact", "ticket", "budget"]),
   );
   await unsafeCreateEntityTable(openStack.db, noteMentionEntity);
-  await asRawClient(openStack.db).unsafe(
-    `INSERT INTO ${PROJECT_TABLE} (id, tenant_id, team_id, name) VALUES ($1, $2, 'team-a', 'Project Open')`,
-    [PROJECT_OPEN, userA.tenantId],
-  );
+  await seedRowViaEventStore(openStack.db, guardedProjectTable, {
+    id: PROJECT_OPEN,
+    tenantId: userA.tenantId,
+    teamId: "team-a",
+    name: "Project Open",
+  });
   await unsafeCreateEntityTable(openStack.db, budgetEntity);
   await seedRowViaEventStore(openStack.db, buildEntityTable(budgetEntity), {
     id: BUDGET_ID,

@@ -12,10 +12,16 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
-import { asRawClient, createTenantDb, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import {
+  asRawClient,
+  buildEntityTable,
+  createTenantDb,
+  selectMany,
+} from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createFilesFeature } from "@cosmicdrift/kumiko-framework/files";
+import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -256,11 +262,17 @@ describe("tenant-invitation userData-hooks", () => {
     invitedBy: string,
     tenantId = TENANT_A,
   ): Promise<void> {
-    await asRawClient(full.db).unsafe(
-      `INSERT INTO read_tenant_invitations (id, tenant_id, email, role, status, invited_by, expires_at)
-       VALUES ($1, $2, $3, 'Member', 'pending', $4, now() + interval '7 days')`,
-      [id, tenantId, email, invitedBy],
-    );
+    await seedRowViaEventStore(full.db, buildEntityTable(tenantInvitationEntity), {
+      id,
+      tenantId,
+      email,
+      role: "Member",
+      status: "pending",
+      invitedBy,
+      expiresAt: getTemporal()
+        .Now.instant()
+        .add({ hours: 7 * 24 }),
+    });
   }
 
   test("export matches invitations by the user's email", async () => {
@@ -327,11 +339,14 @@ describe("tenant-invitation userData-hooks", () => {
 
 describe("notification-preference userData-hooks", () => {
   async function seedPreference(id: string, userId: string): Promise<void> {
-    await asRawClient(full.db).unsafe(
-      `INSERT INTO read_notification_preferences (id, tenant_id, user_id, notification_type, channel, enabled)
-       VALUES ($1, $2, $3, 'test:notify', 'email', false)`,
-      [id, TENANT_A, userId],
-    );
+    await seedRowViaEventStore(full.db, buildEntityTable(notificationPreferenceEntity), {
+      id,
+      tenantId: TENANT_A,
+      userId,
+      notificationType: "test:notify",
+      channel: "email",
+      enabled: false,
+    });
   }
 
   test("export returns prefs, forget purges them via Executor", async () => {
@@ -352,11 +367,13 @@ describe("notification-preference userData-hooks", () => {
 
 describe("config-value userData-hooks", () => {
   async function seedConfig(id: string, key: string, userId: string | null): Promise<void> {
-    await asRawClient(full.db).unsafe(
-      `INSERT INTO read_config_values (id, tenant_id, key, value, user_id)
-       VALUES ($1, $2, $3, '"dark"', $4)`,
-      [id, TENANT_A, key, userId],
-    );
+    await seedRowViaEventStore(full.db, buildEntityTable(configValueEntity), {
+      id,
+      tenantId: TENANT_A,
+      key,
+      value: '"dark"',
+      userId,
+    });
   }
 
   test("export + forget affect ONLY user-scoped rows, tenant scope remains", async () => {

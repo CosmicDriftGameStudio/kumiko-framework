@@ -15,11 +15,15 @@ import {
   tierAssignmentEntity,
 } from "@cosmicdrift/kumiko-bundled-features/tier-engine";
 import { userTable } from "@cosmicdrift/kumiko-bundled-features/user";
-import { asRawClient, buildEntityTable, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { runSeedWritesAt, SEED_MODE_ENV } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
+import { withEnv } from "@cosmicdrift/kumiko-testing/helpers";
 import {
+  resetEventStore,
   setupTestStack,
   type TestStack,
   unsafePushTables,
@@ -80,7 +84,7 @@ beforeAll(async () => {
 afterAll(async () => stack?.cleanup());
 
 beforeEach(async () => {
-  await asRawClient(stack.db).unsafe(`TRUNCATE read_tier_assignments RESTART IDENTITY CASCADE`);
+  await resetEventStore(stack, [tierAssignmentTable, tenantTable, tenantMembershipsTable]);
 });
 
 function sysAdminFor(tenantId: TenantId) {
@@ -168,7 +172,12 @@ describe("createTierResolver — trial", () => {
   });
 
   test("an expired trial keeps the stored tier", async () => {
-    await seedTenant(stack.db, { id: tenantTrial, key: "trial-c3", name: "trial-c3" });
+    // Back-dated so the zero-hour trial has ended regardless of clock resolution.
+    await withEnv({ [SEED_MODE_ENV]: "1" }, () =>
+      runSeedWritesAt(getTemporal().Now.instant().subtract({ hours: 1 }), () =>
+        seedTenant(stack.db, { id: tenantTrial, key: "trial-c3", name: "trial-c3" }),
+      ),
+    );
 
     const state = await expiredResolver.resolveTierState(dbFor(tenantTrial));
     expect(state.tier).toBe("free");

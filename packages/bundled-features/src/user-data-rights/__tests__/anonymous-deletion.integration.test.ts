@@ -155,6 +155,18 @@ describe("anonymous deletion flow", () => {
     expect(await statusOf()).toBe(USER_STATUS.Active);
   });
 
+  test("request-by-email in other casing finds the account", async () => {
+    await seedAlice();
+
+    const res = await stack.http.raw("POST", "/api/write", {
+      type: REQUEST_BY_EMAIL,
+      payload: { email: "Alice.Anon@Example.COM" },
+    });
+
+    expect(res.status).toBe(200);
+    expect(transport.sent.map((mail) => mail.to)).toEqual([ALICE_EMAIL]);
+  });
+
   test("confirm-by-token (anonymous) with valid token → grace period started", async () => {
     await seedAlice();
     await stack.http.raw("POST", "/api/write", {

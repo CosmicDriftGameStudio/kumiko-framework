@@ -4,14 +4,21 @@
 // itself; assignments of live hosts keep blocking.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
+import {
+  asRawClient,
+  buildEntityTable,
+  createEventStoreExecutor,
+  createTenantDb,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
+  createSystemUser,
   createTextField,
   defineFeature,
   type EntityDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { deleteRowViaEventStore, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -50,6 +57,10 @@ const docEntity = createEntity({
   access: teamOwnership,
 });
 
+const docTable = buildEntityTable(docEntity);
+const docTarget = { table: docTable, entity: docEntity, entityName: "doc" };
+const docExecutor = createEventStoreExecutor(docTable, docEntity, { entityName: "doc" });
+
 const hostFixturesFeature = defineFeature("folders-orphan-test-fixtures", (r) => {
   r.entity(docEntity);
 });
@@ -82,10 +93,11 @@ afterAll(async () => {
 async function createDocIn(folderId: string, team: string): Promise<string> {
   docCounter += 1;
   const docId = `d0000000-0000-4000-8000-${String(docCounter).padStart(12, "0")}`;
-  await asRawClient(stack.db).unsafe(
-    `INSERT INTO ${DOC_TABLE} (id, tenant_id, team_id) VALUES ($1, $2, $3)`,
-    [docId, userA.tenantId, team],
-  );
+  await seedRowViaEventStore(stack.db, docTable, {
+    id: docId,
+    tenantId: userA.tenantId,
+    teamId: team,
+  });
   const owner = team === "team-a" ? userA : userB;
   await stack.http.writeOk(
     FoldersHandlers.setFolder,
@@ -93,6 +105,21 @@ async function createDocIn(folderId: string, team: string): Promise<string> {
     owner,
   );
   return docId;
+}
+
+async function softDeleteDocs(ids: readonly string[]): Promise<void> {
+  for (const id of ids) {
+    await deleteRowViaEventStore(stack.db, docTarget, { id }, { tenantId: userA.tenantId });
+  }
+}
+
+// docEntity is soft-delete, so only forget (Art. 17 purge) removes a host row on the event path.
+async function hardDeleteDocs(ids: readonly string[]): Promise<void> {
+  const tenantDb = createTenantDb({ db: stack.db, tenantId: userA.tenantId });
+  for (const id of ids) {
+    const result = await docExecutor.forget({ id }, createSystemUser(userA.tenantId), tenantDb);
+    if (!result.isSuccess) throw new Error(`forget doc ${id} failed: ${result.error.code}`);
+  }
 }
 
 async function createFolder(): Promise<string> {
@@ -122,10 +149,7 @@ describe("folders integration — folder:delete with assignments of deleted host
     const doc1 = await createDocIn(folderId, "team-a");
     const doc2 = await createDocIn(folderId, "team-a");
     const doc3 = await createDocIn(folderId, "team-a");
-    await asRawClient(stack.db).unsafe(
-      `UPDATE ${DOC_TABLE} SET is_deleted = TRUE WHERE id = ANY($1::uuid[])`,
-      [[doc1, doc2, doc3]],
-    );
+    await softDeleteDocs([doc1, doc2, doc3]);
 
     await stack.http.writeOk(FoldersHandlers.deleteFolder, { id: folderId }, userA);
     expect(await activeAssignmentsIn(folderId)).toBe(0);
@@ -135,9 +159,7 @@ describe("folders integration — folder:delete with assignments of deleted host
     const folderId = await createFolder();
     const doc1 = await createDocIn(folderId, "team-a");
     const doc2 = await createDocIn(folderId, "team-a");
-    await asRawClient(stack.db).unsafe(`DELETE FROM ${DOC_TABLE} WHERE id = ANY($1::uuid[])`, [
-      [doc1, doc2],
-    ]);
+    await hardDeleteDocs([doc1, doc2]);
 
     await stack.http.writeOk(FoldersHandlers.deleteFolder, { id: folderId }, userA);
     expect(await activeAssignmentsIn(folderId)).toBe(0);
@@ -156,7 +178,7 @@ describe("folders integration — folder:delete with assignments of deleted host
     const folderId = await createFolder();
     const goneDoc = await createDocIn(folderId, "team-a");
     await createDocIn(folderId, "team-a");
-    await asRawClient(stack.db).unsafe(`DELETE FROM ${DOC_TABLE} WHERE id = $1`, [goneDoc]);
+    await hardDeleteDocs([goneDoc]);
 
     const err = await stack.http.writeErr(FoldersHandlers.deleteFolder, { id: folderId }, userA);
     expect(reasonOf(err)).toBe("folder_has_assignments");
