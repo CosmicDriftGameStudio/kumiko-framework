@@ -4,7 +4,7 @@
 // below set `ownership`, which used to be the only lever.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient, buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
@@ -12,6 +12,7 @@ import {
   type EntityDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -94,10 +95,17 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, projectEntity);
 
-  await asRawClient(stack.db).unsafe(
-    `INSERT INTO ${PROJECT_TABLE} (id, tenant_id, team_id) VALUES ($1, $3, 'team-a'), ($2, $3, 'team-b')`,
-    [PROJECT_A, PROJECT_B, userA.tenantId],
-  );
+  const projectTable = buildEntityTable(projectEntity);
+  await seedRowViaEventStore(stack.db, projectTable, {
+    id: PROJECT_A,
+    tenantId: userA.tenantId,
+    teamId: "team-a",
+  });
+  await seedRowViaEventStore(stack.db, projectTable, {
+    id: PROJECT_B,
+    tenantId: userA.tenantId,
+    teamId: "team-b",
+  });
 
   await stack.http.writeOk(
     NotesHistoryHandlers.addNote,
@@ -150,11 +158,14 @@ describe("notes-history read-gate", () => {
 
   test("a note whose entityType names no registered entity is invisible to everyone", async () => {
     const orphanId = "d0000000-0000-4000-8000-0000000000f1";
-    await asRawClient(stack.db).unsafe(
-      `INSERT INTO read_note_entries (id, tenant_id, entity_type, entity_id, body)
-       VALUES ($1, $2, 'not-a-registered-entity', $3, 'orphan')`,
-      [orphanId, userA.tenantId, ORPHAN_HOST_ID],
-    );
+    // The handler rejects an unknown host type, so the row goes in below it.
+    await seedRowViaEventStore(stack.db, buildEntityTable(noteEntryEntity), {
+      id: orphanId,
+      tenantId: userA.tenantId,
+      entityType: "not-a-registered-entity",
+      entityId: ORPHAN_HOST_ID,
+      body: "orphan",
+    });
 
     for (const user of [userA, userB]) {
       const page = await listNotes(
@@ -210,14 +221,16 @@ describe("notes-history read-gate — parents allowlist narrows both paths", () 
     await unsafeCreateEntityTable(allowStack.db, userEntity);
     await unsafeCreateEntityTable(allowStack.db, projectEntity);
     await unsafeCreateEntityTable(allowStack.db, otherEntity);
-    await asRawClient(allowStack.db).unsafe(
-      `INSERT INTO ${PROJECT_TABLE} (id, tenant_id, team_id) VALUES ($1, $2, 'team-a')`,
-      [PROJECT_A, userA.tenantId],
-    );
-    await asRawClient(allowStack.db).unsafe(
-      `INSERT INTO ${OTHER_TABLE} (id, tenant_id, label) VALUES ($1, $2, 'w')`,
-      [WIDGET, userA.tenantId],
-    );
+    await seedRowViaEventStore(allowStack.db, buildEntityTable(projectEntity), {
+      id: PROJECT_A,
+      tenantId: userA.tenantId,
+      teamId: "team-a",
+    });
+    await seedRowViaEventStore(allowStack.db, buildEntityTable(otherEntity), {
+      id: WIDGET,
+      tenantId: userA.tenantId,
+      label: "w",
+    });
   });
 
   afterAll(async () => {
@@ -235,11 +248,13 @@ describe("notes-history read-gate — parents allowlist narrows both paths", () 
 
   test("a row that slipped in on a non-allowlisted host stays invisible on read", async () => {
     const smuggled = "d0000000-0000-4000-8000-0000000000f2";
-    await asRawClient(allowStack.db).unsafe(
-      `INSERT INTO read_note_entries (id, tenant_id, entity_type, entity_id, body)
-       VALUES ($1, $2, 'widget', $3, 'smuggled')`,
-      [smuggled, userA.tenantId, WIDGET],
-    );
+    await seedRowViaEventStore(allowStack.db, buildEntityTable(noteEntryEntity), {
+      id: smuggled,
+      tenantId: userA.tenantId,
+      entityType: "widget",
+      entityId: WIDGET,
+      body: "smuggled",
+    });
     const page = await allowStack.http.queryOk<Page>(
       NotesHistoryQueries.noteList,
       { filter: { field: "entityId", op: "eq", value: WIDGET }, totalCount: true },

@@ -121,8 +121,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await resetEventStore(stack);
-  await asRawClient(stack.db).unsafe(`DELETE FROM ${PROBE_TABLE}`);
+  await resetEventStore(stack, [PROBE_TABLE]);
   await resetTestTables(stack.db, ["read_tenant_retention_overrides", "read_tenant_memberships"]);
 });
 

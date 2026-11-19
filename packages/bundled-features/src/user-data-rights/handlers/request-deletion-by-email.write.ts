@@ -1,7 +1,7 @@
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import * as z from "zod";
-import { resolveHandlerMailLocale } from "../../shared/index.ts";
+import { normalizeEmail, resolveHandlerMailLocale } from "../../shared/index.ts";
 import { USER_STATUS, userTable } from "../../user/index.ts";
 import { signDeletionToken } from "../deletion-token.ts";
 import {
@@ -59,7 +59,7 @@ export function buildDeletionVerifyUrl(base: string, token: string): string {
 export function createRequestDeletionByEmailHandler(opts: RequestDeletionByEmailOptions = {}) {
   return defineWriteHandler({
     name: "request-deletion-by-email",
-    schema: z.object({ email: z.email() }),
+    schema: z.object({ email: z.email().transform(normalizeEmail) }),
     access: {
       roles: ["anonymous"],
       anySignedIn: true,

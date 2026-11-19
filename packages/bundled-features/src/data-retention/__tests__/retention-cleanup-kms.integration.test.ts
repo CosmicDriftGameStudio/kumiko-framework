@@ -23,12 +23,21 @@ import {
   createTextField,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import {
+  eventsTable,
+  runSeedWritesAt,
+  SEED_MODE_ENV,
+} from "@cosmicdrift/kumiko-framework/event-store";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import {
+  resetPiiSubjectKmsForTests,
+  seedRowViaEventStore,
+  withEnv,
+} from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  resetEventStore,
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
@@ -129,14 +138,12 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  for (const t of [
+  await resetEventStore(stack, [
     "read_c9_record_owned",
     "read_c9_user_owned",
     "read_c9_self_fallback",
     "read_c9_anon_pii",
-  ]) {
-    await asRawClient(stack.db).unsafe(`DELETE FROM ${t}`);
-  }
+  ]);
   kms = new InMemoryKmsAdapter();
   configurePiiSubjectKms(kms);
 });
@@ -145,35 +152,32 @@ afterEach(() => {
   resetPiiSubjectKmsForTests();
 });
 
-// Ciphertext content is irrelevant to this test — it only proves which
-// subject's key eraseKey was (not) called for, not the field encryption
-// round-trip. The subject's key is pre-created here the same way the real
-// write path creates it on first encrypt (getOrCreateDek), so eraseKey's
-// effect is observable via getKey.
-async function seedRecordOwned(tenantId: string, insertedAtIso: string): Promise<string> {
-  const rows = (await asRawClient(stack.db).unsafe(
-    `INSERT INTO read_c9_record_owned (tenant_id, note, inserted_at) VALUES ($1, $2, $3::timestamptz) RETURNING id::text AS id`,
-    [tenantId, "pii:placeholder", insertedAtIso],
-  )) as { id: string }[];
-  const rowId = rows[0]?.id;
-  if (!rowId) throw new Error("seedRecordOwned: insert returned no id");
-  await kms.createKey({ kind: "record", entity: "c9-record-owned", id: rowId });
-  return rowId;
+// The create event is back-dated so the row lands past the cutoff; encrypting its note creates the
+// subject key (getOrCreateDek), so eraseKey's effect is observable via getKey.
+async function seedExpiredRow(
+  entity: Parameters<typeof buildEntityTable>[0],
+  values: Readonly<Record<string, unknown>>,
+  insertedAtIso: string,
+): Promise<string> {
+  const id = crypto.randomUUID();
+  await withEnv({ [SEED_MODE_ENV]: "1" }, () =>
+    runSeedWritesAt(getTemporal().Instant.from(insertedAtIso), () =>
+      seedRowViaEventStore(stack.db, buildEntityTable(entity), { id, ...values }),
+    ),
+  );
+  return id;
 }
 
-async function seedUserOwned(
+function seedRecordOwned(tenantId: string, insertedAtIso: string): Promise<string> {
+  return seedExpiredRow(recordOwnedEntity, { tenantId, note: "pii" }, insertedAtIso);
+}
+
+function seedUserOwned(
   tenantId: string,
   ownerUserId: string,
   insertedAtIso: string,
 ): Promise<string> {
-  const rows = (await asRawClient(stack.db).unsafe(
-    `INSERT INTO read_c9_user_owned (tenant_id, owner_user_id, note, inserted_at) VALUES ($1, $2, $3, $4::timestamptz) RETURNING id::text AS id`,
-    [tenantId, ownerUserId, "pii:placeholder", insertedAtIso],
-  )) as { id: string }[];
-  const rowId = rows[0]?.id;
-  if (!rowId) throw new Error("seedUserOwned: insert returned no id");
-  await kms.createKey({ kind: "user", userId: ownerUserId });
-  return rowId;
+  return seedExpiredRow(userOwnedEntity, { tenantId, ownerUserId, note: "pii" }, insertedAtIso);
 }
 
 describe("runRetentionCleanup :: anonymize over encrypted PII", () => {
@@ -273,19 +277,10 @@ describe("runRetentionCleanup :: hardDelete crypto-shredding", () => {
   test("whenAbsent self: erases the record key of an ownerless row, leaves the owner key of an owned row", async () => {
     const tenantId = testTenantId(9);
     const ownerUserId = crypto.randomUUID();
-    const insert = async (owner: string | null): Promise<string> => {
-      const rows = (await asRawClient(stack.db).unsafe(
-        `INSERT INTO read_c9_self_fallback (tenant_id, owner_user_id, note, inserted_at) VALUES ($1, $2, $3, $4::timestamptz) RETURNING id::text AS id`,
-        [tenantId, owner, "pii:placeholder", pastIso],
-      )) as { id: string }[];
-      const id = rows[0]?.id;
-      if (!id) throw new Error("insert returned no id");
-      return id;
-    };
+    const insert = (owner: string | null): Promise<string> =>
+      seedExpiredRow(selfFallbackEntity, { tenantId, ownerUserId: owner, note: "pii" }, pastIso);
     const ownerlessId = await insert(null);
     await insert(ownerUserId);
-    await kms.createKey({ kind: "record", entity: "c9-self-fallback", id: ownerlessId });
-    await kms.createKey({ kind: "user", userId: ownerUserId });
 
     const result = await runRetentionCleanup({
       db: stack.db,

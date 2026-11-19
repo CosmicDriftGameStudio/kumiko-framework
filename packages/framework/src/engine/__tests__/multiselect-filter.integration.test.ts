@@ -6,7 +6,7 @@
 // multiSelect field must use jsonb containment (`@>`), not scalar equality.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetTestTables, updateRows } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -14,6 +14,7 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import { deriveEntityTableMeta } from "../../db/entity-table-meta.ts";
 import { asRawClient, selectMany } from "../../db/query.ts";
+import { buildEntityTable } from "../../db/table-builder.ts";
 import { eventsTable } from "../../event-store/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { defineFeature } from "../define-feature.ts";
@@ -61,6 +62,20 @@ describe("multiSelect filterable — jsonb containment, not scalar equality", ()
     await stack.http.write(CREATE, { name: "Drill", tags: ["vip", "urgent"] }, TestUsers.admin);
     await stack.http.write(CREATE, { name: "Ladder", tags: ["loaner"] }, TestUsers.admin);
     await stack.http.write(CREATE, { name: "Saw", tags: [] }, TestUsers.admin);
+  }
+
+  // Legacy/hand-migrated tables can hold NULL even though the generated DDL is NOT NULL.
+  async function nullSawTagsLikeLegacyTable(): Promise<void> {
+    await asRawClient(stack.db).unsafe(
+      `ALTER TABLE "ms_filter_equipment" ALTER COLUMN "tags" DROP NOT NULL`,
+    );
+    await updateRows(
+      stack.db,
+      buildEntityTable(equipmentEntity),
+      { tags: null },
+      { name: "Saw" },
+      { projectionOnly: "legacy row with NULL in a column no event can set to NULL" },
+    );
   }
 
   test("op:eq on a multiSelect field returns rows whose array contains the value", async () => {
@@ -125,10 +140,7 @@ describe("multiSelect filterable — jsonb containment, not scalar equality", ()
 
   test("op:ne keeps rows whose multiSelect column is NULL", async () => {
     await seed();
-    // Legacy/hand-migrated tables can hold NULL even though the generated DDL is NOT NULL.
-    await asRawClient(stack.db).unsafe(
-      `ALTER TABLE "ms_filter_equipment" ALTER COLUMN "tags" DROP NOT NULL; UPDATE "ms_filter_equipment" SET "tags" = NULL WHERE "name" = 'Saw'`,
-    );
+    await nullSawTagsLikeLegacyTable();
     const result = await stack.http.queryOk<{
       readonly rows: readonly { readonly name: string }[];
     }>(LIST_QN, { limit: 50, filter: { field: "tags", op: "ne", value: "vip" } }, TestUsers.admin);
@@ -179,9 +191,7 @@ describe("multiSelect filterable — jsonb containment, not scalar equality", ()
 
     test("`ne` keeps rows whose column is NULL", async () => {
       await seed();
-      await asRawClient(stack.db).unsafe(
-        `ALTER TABLE "ms_filter_equipment" ALTER COLUMN "tags" DROP NOT NULL; UPDATE "ms_filter_equipment" SET "tags" = NULL WHERE "name" = 'Saw'`,
-      );
+      await nullSawTagsLikeLegacyTable();
       const rows = await selectMany<{ name: string }>(stack.db, meta, { tags: { ne: "vip" } });
       expect(rows.map((r) => r.name).sort()).toEqual(["Ladder", "Saw"]);
     });

@@ -9,6 +9,7 @@ Import from `@cosmicdrift/kumiko-framework/db`. Types used here but not exported
 ```ts
 function acquireNamespacedAdvisoryLock(db: AnyDb, namespace: number, key: string): Promise<void>; // pg_advisory_xact_lock keyed on namespace+key hash — xact-scoped, auto-released at commit/rollback.
 function aggregateWhere(db: AnyDb, table: TableLike, spec: AggregateSpec, where?: WhereObject): Promise<AggregateRow[]>;
+function alignLiveRowVersionsWithStreams(db: DbConnection, tableName: string, aggregateTypes: string[], systemStream: boolean, options?: { batchSize?: number; signal?: AbortSignal; }): Promise<LiveRowVersionAlignResult>;
 function answerListAggregate(executor: Pick<EventStoreExecutor, "aggregate">, request: AggregateRequest, user: Parameters<EventStoreExecutor["aggregate"]>[1], db: TenantDb, runtimeOptions: Parameters<EventStoreExecutor["aggregate"]>[3], labelDeps: LabelDeps): Promise<ListAggregateResult>;
 function applyEntityEvent(event: StoredEvent, table: Table, entity: EntityDefinition, tx: ExecutorManagedRunner): Promise<ApplyResult>; // Applies an auto-event idempotently to the entity table.
 function asEntityTableMeta(table: unknown): EntityTableMeta | undefined;
@@ -271,6 +272,10 @@ type JsonTextMatch = {
 type KnownTables = {
   has: (tableName: string) => boolean;
   readsSystemRows: (tableName: string) => boolean;
+};
+type LiveRowVersionAlignResult = {
+  alignedRows: number;
+  stoppedBy?: "aborted" | "lock_timeout";
 };
 type MoneyRead = { // Shape of a single rehydrated money field — `{ amount (integer, minor units), currency }`.
   amount: number;

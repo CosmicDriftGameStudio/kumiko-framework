@@ -9,6 +9,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } fr
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { seedRow, seedRows } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   configurePiiSubjectKms,
   encryptPiiValueForSubject,
@@ -16,6 +17,7 @@ import {
 } from "../../crypto/index.ts";
 import { resetPiiSubjectKmsForTests } from "../../crypto/pii-field-encryption.ts";
 import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.ts";
+import type { EntityTableMeta, PgType } from "../../db/entity-table-meta.ts";
 import { buildEntityTable } from "../../db/index.ts";
 import { asRawClient, insertOne, selectMany } from "../../db/query.ts";
 import { unsafeCreateEntityTable } from "../../db/table-push.ts";
@@ -43,6 +45,39 @@ const membershipEntity = createEntity({
   },
 });
 const membershipsTable = buildEntityTable(membershipEntity);
+
+// Stubs of the bundled read tables context.ts reads, shaped like their DDL below; the framework
+// cannot mount the features whose events would fill them.
+function stubTableMeta(
+  tableName: string,
+  columns: Readonly<Record<string, PgType>>,
+): EntityTableMeta {
+  return {
+    tableName,
+    source: "managed",
+    indexes: [],
+    columns: Object.entries(columns).map(([name, pgType]) => ({ name, pgType, notNull: false })),
+  };
+}
+const usersStubTable = stubTableMeta("read_users", {
+  id: "uuid",
+  email: "text",
+  tenant_id: "uuid",
+});
+const tenantsStubTable = stubTableMeta("read_tenants", {
+  id: "uuid",
+  name: "text",
+  key: "text",
+  inserted_at: "timestamptz",
+});
+const templateResourcesStubTable = stubTableMeta("read_template_resources", {
+  id: "uuid",
+  tenant_id: "uuid",
+  slug: "text",
+  kind: "text",
+  locale: "text",
+  status: "text",
+});
 
 async function seedMembershipRow(args: {
   readonly id: string;
@@ -140,13 +175,7 @@ describe("SeedMigrationContext.findUserByEmail (integration)", () => {
   test("correctly reads an existing user row and maps tenant_id → tenantId", async () => {
     const userId = "01900000-0000-7000-8000-000000000001";
     const tenantId = "00000000-0000-4000-8000-000000000099";
-    await asRawClient(testDb.db).unsafe(
-      `
-      INSERT INTO read_users (id, email, tenant_id)
-      VALUES ($1::uuid, 'admin@example.com', $2::uuid)
-    `,
-      [userId, tenantId],
-    );
+    await seedRow(testDb.db, usersStubTable, { id: userId, email: "admin@example.com", tenantId });
 
     const ctx = createSeedMigrationContext({
       dispatcher,
@@ -285,11 +314,20 @@ describe("SeedMigrationContext.findMembershipsOfUser (integration)", () => {
 
 describe("SeedMigrationContext.findTenants (integration)", () => {
   test("returns all tenants sorted by inserted_at", async () => {
-    await asRawClient(testDb.db).unsafe(`
-      INSERT INTO read_tenants (id, name, key, inserted_at) VALUES
-        ('00000000-0000-4000-8000-000000000002'::uuid, 'Beta',  'beta',  '2026-01-02'),
-        ('00000000-0000-4000-8000-000000000001'::uuid, 'Alpha', 'alpha', '2026-01-01')
-    `);
+    await seedRows(testDb.db, tenantsStubTable, [
+      {
+        id: "00000000-0000-4000-8000-000000000002",
+        name: "Beta",
+        key: "beta",
+        insertedAt: Temporal.Instant.from("2026-01-02T00:00:00Z"),
+      },
+      {
+        id: "00000000-0000-4000-8000-000000000001",
+        name: "Alpha",
+        key: "alpha",
+        insertedAt: Temporal.Instant.from("2026-01-01T00:00:00Z"),
+      },
+    ]);
     const ctx = createSeedMigrationContext({
       dispatcher,
       dbRunner: testDb.db,
@@ -316,9 +354,7 @@ describe("SeedMigrationContext.findTenants under an active PII KMS (integration)
       { requestId: "test" },
       "name",
     );
-    await asRawClient(testDb.db).unsafe(
-      `INSERT INTO read_tenants (id, name, key) VALUES ('${tenantId}'::uuid, '${ciphertext}', 'gamma')`,
-    );
+    await seedRow(testDb.db, tenantsStubTable, { id: tenantId, name: ciphertext, key: "gamma" });
     const ctx = createSeedMigrationContext({ dispatcher, dbRunner: testDb.db });
 
     const tenants = await ctx.findTenants();
@@ -404,10 +440,11 @@ describe("runPendingSeedMigrations: skippable + env-flag (integration)", () => {
 
 describe("SeedMigrationContext.db (escape-hatch, integration)", () => {
   test("ctx.db can be used for custom lookups (read-only)", async () => {
-    await asRawClient(testDb.db).unsafe(`
-      INSERT INTO read_tenants (id, name, key) VALUES
-        ('00000000-0000-4000-8000-000000000007'::uuid, 'Lucky', 'lucky')
-    `);
+    await seedRow(testDb.db, tenantsStubTable, {
+      id: "00000000-0000-4000-8000-000000000007",
+      name: "Lucky",
+      key: "lucky",
+    });
     const ctx = createSeedMigrationContext({
       dispatcher,
       dbRunner: testDb.db,
@@ -440,11 +477,7 @@ describe("SeedMigrationContext.findTemplateResources (integration)", () => {
     readonly locale: string;
     readonly status: string;
   }): Promise<void> {
-    await asRawClient(testDb.db).unsafe(
-      `INSERT INTO read_template_resources (id, tenant_id, slug, kind, locale, status)
-       VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6)`,
-      [args.id, args.tenantId, args.slug, args.kind, args.locale, args.status],
-    );
+    await seedRow(testDb.db, templateResourcesStubTable, args);
   }
 
   // framework cannot import template-resolver; the real-schema test lives in

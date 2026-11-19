@@ -15,9 +15,9 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createTestDb, type TestDb } from "@cosmicdrift/kumiko-testing/stack";
 import type { DbConnection, DbTx } from "../../db/connection.ts";
-import { asRawClient, insertOne } from "../../db/query.ts";
+import { asRawClient } from "../../db/query.ts";
 import type { AppContext } from "../../engine/types/index.ts";
-import { append, eventsTable } from "../../event-store/index.ts";
+import { append } from "../../event-store/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import {
   createEventConsumerStateTable,
@@ -43,16 +43,15 @@ function stubContext(): AppContext {
 }
 
 async function appendHistoricalEvent(type: string): Promise<void> {
-  await insertOne(testDb.db, eventsTable, {
+  await append(testDb.db, {
     aggregateId: crypto.randomUUID(),
     aggregateType: "start-from-test-source",
     tenantId: admin.tenantId,
-    version: 1,
+    expectedVersion: 0,
     type,
     eventVersion: 1,
     payload: {},
     metadata: { userId: admin.id },
-    createdBy: admin.id,
   });
   historicalEventCount += 1;
 }

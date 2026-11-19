@@ -26,7 +26,7 @@ import { SYSTEM_TENANT_ID } from "../../engine/types/identifiers.ts";
 import { InternalError } from "../../errors/index.ts";
 import type { DbConnection, DbTx } from "../connection.ts";
 import type { EntityTableMeta } from "../entity-table-meta.ts";
-import { extractPgError } from "../pg-error.ts";
+import { extractPgError, isLockNotAvailable } from "../pg-error.ts";
 import { type AnyDb, asEntityTableMeta, asRawClient } from "../query.ts";
 import { renderTableDdl } from "../render-ddl.ts";
 import { runInSystemRowLevelSecurityScope } from "../row-level-security-scope.ts";
@@ -579,5 +579,98 @@ export async function alignShadowRowVersionsWithStreams(
             AND s."version" < e."stream_version"`,
         params,
       ),
+  );
+}
+
+export const DEFAULT_ROW_VERSION_ALIGN_BATCH_SIZE = 1000;
+// Short on purpose: a batch that waits behind a live writer or a rebuild fence gives up instead of
+// queueing every later reader of the table behind its own row locks.
+const ROW_VERSION_ALIGN_LOCK_TIMEOUT_MS = 2_000;
+
+export type LiveRowVersionAlignResult = {
+  readonly alignedRows: number;
+  // Set when the table was left before its last row; the next run starts it over.
+  readonly stoppedBy?: "aborted" | "lock_timeout";
+};
+
+type RowVersionAlignBatch = {
+  last_id: unknown;
+  scanned: number | string;
+  aligned: number | string;
+};
+
+// Boot repair for rows that received domain events before a domain event moved the row version.
+// Driven by the rows, not by the events: every boot runs it, and one events_load_idx probe per
+// row stays cheaper than aggregating the whole event log per entity. Keyset batches by id, each in
+// its own short transaction under the pool's statement cap, so row locks never outlive a batch.
+// Never lowers a version, so a concurrent live write that already moved the row is left alone.
+export async function alignLiveRowVersionsWithStreams(
+  db: DbConnection,
+  tableName: string,
+  aggregateTypes: readonly string[],
+  systemStream: boolean,
+  options: { readonly batchSize?: number; readonly signal?: AbortSignal } = {},
+): Promise<LiveRowVersionAlignResult> {
+  // skip: no source streams, nothing to align
+  if (aggregateTypes.length === 0) return { alignedRows: 0 };
+  const batchSize = options.batchSize ?? DEFAULT_ROW_VERSION_ALIGN_BATCH_SIZE;
+  const ident = quoteIdent(tableName);
+  const fixedParams: unknown[] = [toPostgresArrayLiteral(aggregateTypes), batchSize];
+  if (systemStream) fixedParams.push(SYSTEM_TENANT_ID);
+  const tenantMatch = systemStream ? "$3" : 'r."tenant_id"';
+  const cursorParam = `$${fixedParams.length + 1}`;
+  let alignedRows = 0;
+  let lastId: unknown;
+  return runInSystemRowLevelSecurityScope(
+    "boot aligns live entity row versions with the event streams of every tenant",
+    async (): Promise<LiveRowVersionAlignResult> => {
+      for (;;) {
+        if (options.signal?.aborted) return { alignedRows, stoppedBy: "aborted" };
+        const cursor = lastId === undefined ? "" : `WHERE r."id" > ${cursorParam}`;
+        const params = lastId === undefined ? fixedParams : [...fixedParams, lastId];
+        let batch: RowVersionAlignBatch | undefined;
+        try {
+          batch = await db.begin(async (tx: DbTx) => {
+            await executeRawQuery(
+              tx,
+              `SET LOCAL lock_timeout = ${ROW_VERSION_ALIGN_LOCK_TIMEOUT_MS}`,
+            );
+            const rows = await executeRawQuery<RowVersionAlignBatch>(
+              tx,
+              `WITH "stream_versions" AS (
+                 SELECT r."id",
+                        (SELECT MAX(ev."version")
+                           FROM "kumiko_events" AS ev
+                          WHERE ev."aggregate_id" = r."id"
+                            AND ev."tenant_id" = ${tenantMatch}
+                            AND ev."aggregate_type" = ANY($1::text[])) AS "stream_version"
+                   FROM public.${ident} AS r
+                   ${cursor}
+                  ORDER BY r."id"
+                  LIMIT $2
+               ), "aligned" AS (
+                 UPDATE public.${ident} AS s
+                    SET "version" = e."stream_version"
+                   FROM "stream_versions" AS e
+                  WHERE e."id" = s."id"
+                    AND s."version" < e."stream_version"
+                 RETURNING s."id"
+               )
+               SELECT (SELECT "id" FROM "stream_versions" ORDER BY "id" DESC LIMIT 1) AS "last_id",
+                      (SELECT COUNT(*) FROM "stream_versions") AS "scanned",
+                      (SELECT COUNT(*) FROM "aligned") AS "aligned"`,
+              params,
+            );
+            return rows[0];
+          });
+        } catch (e) {
+          if (isLockNotAvailable(e)) return { alignedRows, stoppedBy: "lock_timeout" };
+          throw e;
+        }
+        alignedRows += Number(batch?.aligned ?? 0);
+        if (batch === undefined || Number(batch.scanned) < batchSize) return { alignedRows };
+        lastId = batch.last_id;
+      }
+    },
   );
 }

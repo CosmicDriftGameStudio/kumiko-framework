@@ -6,7 +6,7 @@
 // the only lever.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient, buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
@@ -14,6 +14,7 @@ import {
   type EntityDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -111,13 +112,15 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, tagAssignmentEntity);
   await unsafeCreateEntityTable(stack.db, projectEntity);
 
-  const values = [...TEAM_A_PROJECTS, ...TEAM_B_PROJECTS]
-    .map((id, i) => `('${id}', $1, '${i < TEAM_A_PROJECTS.length ? "team-a" : "team-b"}', 'p${i}')`)
-    .join(", ");
-  await asRawClient(stack.db).unsafe(
-    `INSERT INTO ${PROJECT_TABLE} (id, tenant_id, team_id, name) VALUES ${values}`,
-    [userA.tenantId],
-  );
+  const projectTable = buildEntityTable(projectEntity);
+  for (const [i, id] of [...TEAM_A_PROJECTS, ...TEAM_B_PROJECTS].entries()) {
+    await seedRowViaEventStore(stack.db, projectTable, {
+      id,
+      tenantId: userA.tenantId,
+      teamId: i < TEAM_A_PROJECTS.length ? "team-a" : "team-b",
+      name: `p${i}`,
+    });
+  }
 
   const tag = await stack.http.writeOk<{ id: string }>(
     TagsHandlers.createTag,
@@ -173,11 +176,14 @@ describe("tags read-gate — entityId-filtered list", () => {
 describe("tags read-gate — unregistered host type", () => {
   test("an assignment whose entityType names no registered entity is invisible to everyone", async () => {
     const orphanId = "c0000000-0000-4000-8000-0000000000f1";
-    await asRawClient(stack.db).unsafe(
-      `INSERT INTO read_tag_assignments (id, tenant_id, tag_id, entity_type, entity_id, is_deleted)
-       VALUES ($1, $2, $3, 'not-a-registered-entity', $4, FALSE)`,
-      [orphanId, userA.tenantId, tagId, ORPHAN_HOST_ID],
-    );
+    // The handler rejects an unknown host type, so the row goes in below it.
+    await seedRowViaEventStore(stack.db, buildEntityTable(tagAssignmentEntity), {
+      id: orphanId,
+      tenantId: userA.tenantId,
+      tagId,
+      entityType: "not-a-registered-entity",
+      entityId: ORPHAN_HOST_ID,
+    });
 
     for (const user of [userA, userB]) {
       const page = await listAssignments(
@@ -331,10 +337,11 @@ describe("tags read-gate — ownership narrows further, it does not replace the 
     await unsafeCreateEntityTable(ownedStack.db, tagEntity);
     await unsafeCreateEntityTable(ownedStack.db, tagAssignmentEntity);
     await unsafeCreateEntityTable(ownedStack.db, ownedEntity);
-    await asRawClient(ownedStack.db).unsafe(
-      `INSERT INTO ${OWNED_TABLE} (id, tenant_id, team_id) VALUES ($1, $2, 'team-a')`,
-      [HOST, tagger.tenantId],
-    );
+    await seedRowViaEventStore(ownedStack.db, buildEntityTable(ownedEntity), {
+      id: HOST,
+      tenantId: tagger.tenantId,
+      teamId: "team-a",
+    });
     const tag = await ownedStack.http.writeOk<{ id: string }>(
       TagsHandlers.createTag,
       { name: "Owned" },

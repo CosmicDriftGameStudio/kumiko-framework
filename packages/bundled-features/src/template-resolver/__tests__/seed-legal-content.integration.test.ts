@@ -1,12 +1,8 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import {
-  type DbConnection,
-  deleteMany,
-  fetchOne,
-  selectMany,
-} from "@cosmicdrift/kumiko-framework/db";
+import { type DbConnection, fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID, SYSTEM_USER_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -128,15 +124,25 @@ describe("seedLegalContentFromJson", () => {
   });
 
   test("orphan projection (row without events) is recreated on ifExists:update", async () => {
-    await seedLegalContentFromJson(db, [
-      { slug: "orphan-privacy", locale: "de", title: "DS", content: "old" },
-    ]);
+    await seedRow(
+      db,
+      templateResourcesTable,
+      {
+        tenantId: SYSTEM_TENANT_ID,
+        slug: "orphan-privacy",
+        kind: TEXT_BLOCK_KIND,
+        locale: "de",
+        title: "DS",
+        content: "old",
+        contentFormat: "markdown",
+        scope: "system",
+        status: "active",
+      },
+      { projectionOnly: "prod desync: projection row left behind with an empty event stream" },
+    );
     const before = await read("orphan-privacy", "de");
     expect(before).not.toBeNull();
-
-    // Same desync as prod: projection left behind, event stream empty.
-    await deleteMany(db, eventsTable, { aggregateId: String(before!.id) });
-    expect(await read("orphan-privacy", "de")).not.toBeNull();
+    expect(await selectMany(db, eventsTable, { aggregateId: String(before!.id) })).toEqual([]);
 
     await seedLegalContentFromJson(db, [
       {
@@ -164,13 +170,24 @@ describe("seedLegalContentFromJson", () => {
       contentFormat: "plain",
       ifExists: "update",
     };
-    await seedSystemTemplate(db, opts);
+    await seedRow(
+      db,
+      templateResourcesTable,
+      {
+        tenantId: SYSTEM_TENANT_ID,
+        slug: opts.slug,
+        kind: opts.kind,
+        locale: opts.locale,
+        content: opts.content,
+        contentFormat: opts.contentFormat,
+        scope: "system",
+        status: "active",
+      },
+      { projectionOnly: "prod desync: projection row left behind with an empty event stream" },
+    );
     const before = await readSystemTemplate(opts.slug, opts.locale, opts.kind);
     expect(before).not.toBeNull();
-
-    // Same desync as prod: projection left behind, event stream empty.
-    await deleteMany(db, eventsTable, { aggregateId: String(before!.id) });
-    expect(await readSystemTemplate(opts.slug, opts.locale, opts.kind)).not.toBeNull();
+    expect(await selectMany(db, eventsTable, { aggregateId: String(before!.id) })).toEqual([]);
 
     await seedSystemTemplate(db, { ...opts, content: "new from template" });
     const after = await readSystemTemplate(opts.slug, opts.locale, opts.kind);

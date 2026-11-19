@@ -14,7 +14,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 
-import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient, buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import type { JobContext } from "@cosmicdrift/kumiko-framework/engine";
 import {
   bridgeStub,
@@ -22,10 +22,12 @@ import {
   createTextField,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { runSeedWritesAt, SEED_MODE_ENV } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+import { seedRowViaEventStore, waitFor, withEnv } from "@cosmicdrift/kumiko-testing/helpers";
 import {
+  resetEventStore,
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
@@ -218,11 +220,30 @@ afterAll(async () => {
   await stack.cleanup();
 });
 
-async function seed(table: string, tenantId: string, label: string, insertedAtIso: string) {
-  await asRawClient(stack.db).unsafe(
-    `INSERT INTO ${table} (tenant_id, label, inserted_at) VALUES ($1, $2, $3::timestamptz)`,
-    [tenantId, label, insertedAtIso],
+// Back-dated create events give the row its inserted_at, the column the retention policy reads.
+async function seedAt(
+  entity: Parameters<typeof buildEntityTable>[0],
+  values: Readonly<Record<string, unknown>>,
+  insertedAtIso: string,
+): Promise<void> {
+  await withEnv({ [SEED_MODE_ENV]: "1" }, () =>
+    runSeedWritesAt(getTemporal().Instant.from(insertedAtIso), () =>
+      seedRowViaEventStore(stack.db, buildEntityTable(entity), values),
+    ),
   );
+}
+
+function seed(
+  entity: Parameters<typeof buildEntityTable>[0],
+  tenantId: string,
+  label: string,
+  insertedAtIso: string,
+): Promise<void> {
+  return seedAt(entity, { tenantId, label }, insertedAtIso);
+}
+
+function seedAnonAt(label: string, note: string, insertedAtIso: string): Promise<void> {
+  return seedAt(anonEntity, { tenantId: T1, label, note }, insertedAtIso);
 }
 
 async function labels(table: string, tenantId: string): Promise<string[]> {
@@ -242,7 +263,7 @@ async function liveGadgetLabels(tenantId: string): Promise<string[]> {
 }
 
 beforeEach(async () => {
-  for (const t of [
+  await resetEventStore(stack, [
     "read_c7_widget",
     "read_c7_gadget",
     "read_c7_plain",
@@ -253,16 +274,14 @@ beforeEach(async () => {
     "read_c7_barehold",
     "read_c7_personalhold",
     "read_c7_holdsubjectref",
-  ]) {
-    await asRawClient(stack.db).unsafe(`DELETE FROM ${t}`);
-  }
+  ]);
 });
 
 describe("runRetentionCleanup :: real postgres", () => {
   test("hardDelete removes only expired rows of the tenant, keeps fresh rows + other tenant", async () => {
-    await seed("read_c7_widget", T1, "expired-t1", pastIso);
-    await seed("read_c7_widget", T1, "fresh-t1", withinIso);
-    await seed("read_c7_widget", T2, "expired-t2", pastIso);
+    await seed(widgetEntity, T1, "expired-t1", pastIso);
+    await seed(widgetEntity, T1, "fresh-t1", withinIso);
+    await seed(widgetEntity, T2, "expired-t2", pastIso);
 
     const result = await runRetentionCleanup({
       db: stack.db,
@@ -278,8 +297,8 @@ describe("runRetentionCleanup :: real postgres", () => {
   });
 
   test("softDelete markiert abgelaufene Rows, frische bleiben live", async () => {
-    await seed("read_c7_gadget", T1, "expired", pastIso);
-    await seed("read_c7_gadget", T1, "fresh", withinIso);
+    await seed(gadgetEntity, T1, "expired", pastIso);
+    await seed(gadgetEntity, T1, "fresh", withinIso);
 
     const result = await runRetentionCleanup({
       db: stack.db,
@@ -296,7 +315,7 @@ describe("runRetentionCleanup :: real postgres", () => {
   });
 
   test("Entity without a policy remains completely untouched", async () => {
-    await seed("read_c7_plain", T1, "ancient", pastIso);
+    await seed(plainEntity, T1, "ancient", pastIso);
 
     await runRetentionCleanup({
       db: stack.db,
@@ -310,7 +329,7 @@ describe("runRetentionCleanup :: real postgres", () => {
   });
 
   test("missing reference column → skip instead of mass delete", async () => {
-    await seed("read_c7_stale", T1, "should-survive", pastIso);
+    await seed(staleEntity, T1, "should-survive", pastIso);
 
     const result = await runRetentionCleanup({
       db: stack.db,
@@ -333,8 +352,8 @@ describe("runRetentionCleanup :: real postgres", () => {
     // tests above call it directly, bypassing the handler body entirely — a bug in
     // the ctx.systemUser?.tenantId ?? ctx.user.tenantId resolution or the throw-guard
     // would be invisible to both. Invoke the ACTUAL registered handler.
-    await seed("read_c7_widget", T1, "expired-via-handler", pastIso);
-    await seed("read_c7_widget", T1, "fresh-via-handler", withinIso);
+    await seed(widgetEntity, T1, "expired-via-handler", pastIso);
+    await seed(widgetEntity, T1, "fresh-via-handler", withinIso);
 
     const job = stack.registry.getJob("data-retention:job:retention-cleanup");
     expect(job).toBeDefined();
@@ -367,8 +386,8 @@ describe("runRetentionCleanup :: real postgres", () => {
   });
 
   test("the job dispatched through the job runner hard-deletes past the irreversible-operation gate", async () => {
-    await seed("read_c7_widget", T1, "expired-via-runner", pastIso);
-    await seed("read_c7_widget", T1, "fresh-via-runner", withinIso);
+    await seed(widgetEntity, T1, "expired-via-runner", pastIso);
+    await seed(widgetEntity, T1, "fresh-via-runner", withinIso);
 
     await stack.jobRunner?.dispatch("data-retention:job:retention-cleanup", {});
     await waitFor(async () => {
@@ -377,8 +396,8 @@ describe("runRetentionCleanup :: real postgres", () => {
   });
 
   test("blockDelete: within keepFor untouched, after expiry anonymized — row NEVER deleted", async () => {
-    await seed("read_c7_retained", T1, "in-hold", withinIso);
-    await seed("read_c7_retained", T1, "hold-expired", pastIso);
+    await seed(retainedEntity, T1, "in-hold", withinIso);
+    await seed(retainedEntity, T1, "hold-expired", pastIso);
 
     const result = await runRetentionCleanup({
       db: stack.db,
@@ -396,14 +415,8 @@ describe("runRetentionCleanup :: real postgres", () => {
   });
 
   test("anonymize: expired row gets field functions applied, other fields + fresh rows untouched", async () => {
-    await asRawClient(stack.db).unsafe(
-      `INSERT INTO read_c7_anon (tenant_id, label, note, inserted_at) VALUES ($1, 'old-pii', 'business-note', $2::timestamptz)`,
-      [T1, pastIso],
-    );
-    await asRawClient(stack.db).unsafe(
-      `INSERT INTO read_c7_anon (tenant_id, label, note, inserted_at) VALUES ($1, 'fresh-pii', 'fresh-note', $2::timestamptz)`,
-      [T1, withinIso],
-    );
+    await seedAnonAt("old-pii", "business-note", pastIso);
+    await seedAnonAt("fresh-pii", "fresh-note", withinIso);
 
     const result = await runRetentionCleanup({
       db: stack.db,
@@ -425,10 +438,7 @@ describe("runRetentionCleanup :: real postgres", () => {
   });
 
   test("anonymize is idempotent: second run appends ZERO events (no daily event spam)", async () => {
-    await asRawClient(stack.db).unsafe(
-      `INSERT INTO read_c7_anon (tenant_id, label, note, inserted_at) VALUES ($1, 'old-pii', 'n', $2::timestamptz)`,
-      [T1, pastIso],
-    );
+    await seedAnonAt("old-pii", "n", pastIso);
 
     const first = await runRetentionCleanup({
       db: stack.db,
@@ -460,10 +470,7 @@ describe("runRetentionCleanup :: real postgres", () => {
 
   test("anonymize converges under batchLimit=1: cursor pages past already-anonymized rows", async () => {
     for (const label of ["a-pii", "b-pii", "c-pii"]) {
-      await asRawClient(stack.db).unsafe(
-        `INSERT INTO read_c7_anon (tenant_id, label, note, inserted_at) VALUES ($1, $2, $3, $4::timestamptz)`,
-        [T1, label, `note-${label}`, pastIso],
-      );
+      await seedAnonAt(label, `note-${label}`, pastIso);
     }
 
     const run = () =>
@@ -489,7 +496,7 @@ describe("runRetentionCleanup :: real postgres", () => {
   });
 
   test("anonymize strategy without anonymize fields → skipped with reason, rows untouched", async () => {
-    await seed("read_c7_bare", T1, "survives", pastIso);
+    await seed(bareEntity, T1, "survives", pastIso);
 
     const result = await runRetentionCleanup({
       db: stack.db,
@@ -507,7 +514,7 @@ describe("runRetentionCleanup :: real postgres", () => {
   });
 
   test("blockDelete without anonymize fields → no skipped entry, rows untouched", async () => {
-    await seed("read_c7_barehold", T1, "survives", pastIso);
+    await seed(bareHoldEntity, T1, "survives", pastIso);
 
     const result = await runRetentionCleanup({
       db: stack.db,
@@ -522,7 +529,7 @@ describe("runRetentionCleanup :: real postgres", () => {
   });
 
   test("blockDelete with only a subjectRef field → pure hold, no skipped entry, rows untouched", async () => {
-    await seed("read_c7_holdsubjectref", T1, "survives", pastIso);
+    await seed(subjectRefHoldEntity, T1, "survives", pastIso);
 
     const result = await runRetentionCleanup({
       db: stack.db,
@@ -537,7 +544,7 @@ describe("runRetentionCleanup :: real postgres", () => {
   });
 
   test("blockDelete with a personal field but no anonymize function → still skipped missing_anonymize_fields", async () => {
-    await seed("read_c7_personalhold", T1, "survives", pastIso);
+    await seed(personalHoldEntity, T1, "survives", pastIso);
 
     const result = await runRetentionCleanup({
       db: stack.db,

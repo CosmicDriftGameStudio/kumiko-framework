@@ -101,6 +101,32 @@ describe("search consumer without a db on its context", () => {
     expect(held[0]?.reason).toContain("no db on the consumer context");
   });
 
+  test("the tenants of one batch are flushed side by side, not one after another", async () => {
+    let inFlight = 0;
+    let mostInFlight = 0;
+    const adapter: SearchAdapter = {
+      ...createInMemorySearchAdapter(),
+      removeBatch: async () => {
+        inFlight += 1;
+        mostInFlight = Math.max(mostInFlight, inFlight);
+        await Promise.resolve();
+        inFlight -= 1;
+      },
+    };
+    const consumer = createSearchEventConsumer(adapter, noteRegistry());
+    const tenants = [1, 2, 3].map((n) => `00000000-0000-4000-8000-00000000000${n}` as TenantId);
+
+    await consumer.batchHandler?.(
+      tenants.map((tenantId, i) =>
+        eventOf(String(i + 1), "note.deleted", tenantId, crypto.randomUUID()),
+      ),
+      {} as Parameters<typeof consumer.handler>[1],
+      { holdForRetry: () => undefined },
+    );
+
+    expect(mostInFlight).toBe(tenants.length);
+  });
+
   test("a later delete waits behind an unresolved update of the same tenant, so the retry cannot resurrect the entry", async () => {
     const removed: string[] = [];
     const consumer = createSearchEventConsumer(removalRecordingAdapter(removed), noteRegistry());

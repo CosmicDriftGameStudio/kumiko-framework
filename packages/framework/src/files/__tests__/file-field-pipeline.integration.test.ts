@@ -21,11 +21,11 @@ import {
   patchFileInstanceofForBunTest,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
+  resetEventStore,
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { asRawClient } from "../../db/query.ts";
 import {
   createEntity,
   createFileField,
@@ -89,7 +89,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await asRawClient(stack.db).unsafe(`TRUNCATE pipeline_documents`);
+  await resetEventStore(stack, ["pipeline_documents"]);
 });
 
 const PDF_BYTES = new TextEncoder().encode("%PDF-1.4 minimal");

@@ -13,7 +13,11 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 
-import { asRawClient, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
+import {
+  asRawClient,
+  buildEntityTable,
+  createEventStoreExecutor,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   bridgeStub,
   createEntity,
@@ -24,6 +28,7 @@ import {
   defineFeature,
   type JobContext,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { runSeedWritesAt, SEED_MODE_ENV } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createFileContext,
   createInMemoryFileProvider,
@@ -35,6 +40,12 @@ import {
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
+  seedRowViaEventStore,
+  updateRowViaEventStore,
+  withEnv,
+} from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  resetEventStore,
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
@@ -143,24 +154,37 @@ function filesCtx(p: FileStorageProvider = provider) {
   return createFileContext(() => Promise.resolve(p));
 }
 
+type DocEntity = Parameters<typeof buildEntityTable>[0];
+
+// Back-dated create events give the row its inserted_at, the column the retention policy reads.
 async function seedDoc(
-  table: string,
+  entity: DocEntity,
   tenantId: string,
   label: string,
   insertedAtIso: string,
 ): Promise<string> {
-  const rows = (await asRawClient(stack.db).unsafe(
-    `INSERT INTO ${table} (tenant_id, label, inserted_at) VALUES ($1, $2, $3::timestamptz) RETURNING id`,
-    [tenantId, label, insertedAtIso],
-  )) as { id: string | number }[];
-  return String(rows[0]?.id);
+  const id = crypto.randomUUID();
+  await withEnv({ [SEED_MODE_ENV]: "1" }, () =>
+    runSeedWritesAt(getTemporal().Instant.from(insertedAtIso), () =>
+      seedRowViaEventStore(stack.db, buildEntityTable(entity), { id, tenantId, label }),
+    ),
+  );
+  return id;
 }
 
-async function setCover(table: string, rowId: string, fileRefId: string | null): Promise<void> {
-  await asRawClient(stack.db).unsafe(`UPDATE ${table} SET cover = $1 WHERE id = $2`, [
-    fileRefId,
-    rowId,
-  ]);
+async function setCover(
+  entity: DocEntity,
+  rowId: string,
+  fileRefId: string,
+  tenantId: string = T1,
+): Promise<void> {
+  await updateRowViaEventStore(
+    stack.db,
+    { table: buildEntityTable(entity), entity, entityName: entity.name },
+    { id: rowId },
+    { cover: fileRefId },
+    { tenantId },
+  );
 }
 
 async function seedFileRef(args: {
@@ -211,16 +235,19 @@ async function labels(table: string, tenantId: string): Promise<string[]> {
 }
 
 beforeEach(async () => {
-  for (const t of ["read_c8_doc", "read_c8_soft_doc", "read_c8_anon_doc", "read_c8_other_doc"]) {
-    await asRawClient(stack.db).unsafe(`DELETE FROM ${t}`);
-  }
-  await asRawClient(stack.db).unsafe(`DELETE FROM file_refs`);
+  await resetEventStore(stack, [
+    "read_c8_doc",
+    "read_c8_soft_doc",
+    "read_c8_anon_doc",
+    "read_c8_other_doc",
+    fileRefsTable,
+  ]);
   provider.clear();
 });
 
 describe("runRetentionCleanup :: hardDelete purges file bytes + derivatives + fileRefs", () => {
   test("expired row: bytes + derivatives + fileRefs (single + plural field) gone; fresh + other-tenant untouched", async () => {
-    const expiredId = await seedDoc("read_c8_doc", T1, "expired", pastIso);
+    const expiredId = await seedDoc(docEntity, T1, "expired", pastIso);
     const coverKey = "t1/expired/cover/orig.jpg";
     const coverId = await seedFileRef({
       tenantId: T1,
@@ -229,7 +256,7 @@ describe("runRetentionCleanup :: hardDelete purges file bytes + derivatives + fi
       fieldName: "cover",
       key: coverKey,
     });
-    await setCover("read_c8_doc", expiredId, coverId);
+    await setCover(docEntity, expiredId, coverId);
     // Derivative-suffix grammar is "<name>-<16 hex chars>" (variantSuffix),
     // not a bare variant name — see isDerivativeKeyOf/DERIVATIVE_SUFFIX_PATTERN.
     const thumbKey = deriveKey(coverKey, "thumb-0123456789abcdef");
@@ -244,7 +271,7 @@ describe("runRetentionCleanup :: hardDelete purges file bytes + derivatives + fi
       key: attKey,
     });
 
-    const freshId = await seedDoc("read_c8_doc", T1, "fresh", withinIso);
+    const freshId = await seedDoc(docEntity, T1, "fresh", withinIso);
     const freshCoverKey = "t1/fresh/cover/orig.jpg";
     const freshCoverId = await seedFileRef({
       tenantId: T1,
@@ -253,9 +280,9 @@ describe("runRetentionCleanup :: hardDelete purges file bytes + derivatives + fi
       fieldName: "cover",
       key: freshCoverKey,
     });
-    await setCover("read_c8_doc", freshId, freshCoverId);
+    await setCover(docEntity, freshId, freshCoverId);
 
-    const otherTenantId = await seedDoc("read_c8_doc", T2, "expired-t2", pastIso);
+    const otherTenantId = await seedDoc(docEntity, T2, "expired-t2", pastIso);
     const otherTenantKey = "t2/expired/cover/orig.jpg";
     const otherTenantCoverId = await seedFileRef({
       tenantId: T2,
@@ -264,7 +291,7 @@ describe("runRetentionCleanup :: hardDelete purges file bytes + derivatives + fi
       fieldName: "cover",
       key: otherTenantKey,
     });
-    await setCover("read_c8_doc", otherTenantId, otherTenantCoverId);
+    await setCover(docEntity, otherTenantId, otherTenantCoverId, T2);
 
     const result = await runRetentionCleanup({
       db: stack.db,
@@ -293,8 +320,8 @@ describe("runRetentionCleanup :: hardDelete purges file bytes + derivatives + fi
   });
 
   test("shared fileRef (same entity, second row) survives even though its owning row is purged", async () => {
-    const rowA = await seedDoc("read_c8_doc", T1, "expired-shared", pastIso);
-    const rowB = await seedDoc("read_c8_doc", T1, "fresh-shared", withinIso);
+    const rowA = await seedDoc(docEntity, T1, "expired-shared", pastIso);
+    const rowB = await seedDoc(docEntity, T1, "fresh-shared", withinIso);
     const sharedKey = "t1/shared/cover/orig.jpg";
     const sharedId = await seedFileRef({
       tenantId: T1,
@@ -303,8 +330,8 @@ describe("runRetentionCleanup :: hardDelete purges file bytes + derivatives + fi
       fieldName: "cover",
       key: sharedKey,
     });
-    await setCover("read_c8_doc", rowA, sharedId);
-    await setCover("read_c8_doc", rowB, sharedId);
+    await setCover(docEntity, rowA, sharedId);
+    await setCover(docEntity, rowB, sharedId);
 
     const result = await runRetentionCleanup({
       db: stack.db,
@@ -322,8 +349,8 @@ describe("runRetentionCleanup :: hardDelete purges file bytes + derivatives + fi
   });
 
   test("unbound fileRef shared with another entity type's live row survives", async () => {
-    const rowA = await seedDoc("read_c8_doc", T1, "expired-xshared", pastIso);
-    const rowB = await seedDoc("read_c8_other_doc", T1, "live-other", withinIso);
+    const rowA = await seedDoc(docEntity, T1, "expired-xshared", pastIso);
+    const rowB = await seedDoc(otherDocEntity, T1, "live-other", withinIso);
     const key = "t1/xshared/cover/orig.jpg";
     const sharedId = await seedFileRef({
       tenantId: T1,
@@ -332,8 +359,8 @@ describe("runRetentionCleanup :: hardDelete purges file bytes + derivatives + fi
       fieldName: null,
       key,
     });
-    await setCover("read_c8_doc", rowA, sharedId);
-    await setCover("read_c8_other_doc", rowB, sharedId);
+    await setCover(docEntity, rowA, sharedId);
+    await setCover(otherDocEntity, rowB, sharedId);
 
     const result = await runRetentionCleanup({
       db: stack.db,
@@ -352,7 +379,7 @@ describe("runRetentionCleanup :: hardDelete purges file bytes + derivatives + fi
   });
 
   test("a throwing storage list() skips the row (file_delete_failed) without aborting the tenant run", async () => {
-    const failingRow = await seedDoc("read_c8_doc", T1, "expired-list-throws", pastIso);
+    const failingRow = await seedDoc(docEntity, T1, "expired-list-throws", pastIso);
     const key = "t1/list-throws/cover/orig.jpg";
     const fileRefId = await seedFileRef({
       tenantId: T1,
@@ -361,8 +388,8 @@ describe("runRetentionCleanup :: hardDelete purges file bytes + derivatives + fi
       fieldName: "cover",
       key,
     });
-    await setCover("read_c8_doc", failingRow, fileRefId);
-    await seedDoc("read_c8_doc", T1, "expired-plain", pastIso);
+    await setCover(docEntity, failingRow, fileRefId);
+    await seedDoc(docEntity, T1, "expired-plain", pastIso);
 
     const noListProvider: FileStorageProvider = {
       ...provider,
@@ -387,7 +414,7 @@ describe("runRetentionCleanup :: hardDelete purges file bytes + derivatives + fi
   });
 
   test("storage-delete failure fails the row closed; skipped + convergence on retry", async () => {
-    const rowId = await seedDoc("read_c8_doc", T1, "expired-fails", pastIso);
+    const rowId = await seedDoc(docEntity, T1, "expired-fails", pastIso);
     const key = "t1/fails/cover/orig.jpg";
     const fileRefId = await seedFileRef({
       tenantId: T1,
@@ -396,7 +423,7 @@ describe("runRetentionCleanup :: hardDelete purges file bytes + derivatives + fi
       fieldName: "cover",
       key,
     });
-    await setCover("read_c8_doc", rowId, fileRefId);
+    await setCover(docEntity, rowId, fileRefId);
 
     const failingProvider: FileStorageProvider = {
       ...provider,
@@ -438,7 +465,7 @@ describe("runRetentionCleanup :: hardDelete purges file bytes + derivatives + fi
   test("rows stuck on storage failure do not starve rows behind them (batchLimit=2)", async () => {
     const stuckKeys = new Set<string>();
     for (const n of ["a", "b"]) {
-      const rowId = await seedDoc("read_c8_doc", T1, `stuck-${n}`, pastIso);
+      const rowId = await seedDoc(docEntity, T1, `stuck-${n}`, pastIso);
       const key = `t1/stuck-${n}/cover/orig.jpg`;
       stuckKeys.add(key);
       const fileRefId = await seedFileRef({
@@ -448,9 +475,9 @@ describe("runRetentionCleanup :: hardDelete purges file bytes + derivatives + fi
         fieldName: "cover",
         key,
       });
-      await setCover("read_c8_doc", rowId, fileRefId);
+      await setCover(docEntity, rowId, fileRefId);
     }
-    await seedDoc("read_c8_doc", T1, "no-files", pastIso);
+    await seedDoc(docEntity, T1, "no-files", pastIso);
 
     const failingProvider: FileStorageProvider = {
       ...provider,
@@ -475,7 +502,7 @@ describe("runRetentionCleanup :: hardDelete purges file bytes + derivatives + fi
   });
 
   test("no file storage wired → row stays, skipped missing_file_storage", async () => {
-    const rowId = await seedDoc("read_c8_doc", T1, "expired-no-storage", pastIso);
+    const rowId = await seedDoc(docEntity, T1, "expired-no-storage", pastIso);
     const key = "t1/no-storage/cover/orig.jpg";
     const fileRefId = await seedFileRef({
       tenantId: T1,
@@ -484,7 +511,7 @@ describe("runRetentionCleanup :: hardDelete purges file bytes + derivatives + fi
       fieldName: "cover",
       key,
     });
-    await setCover("read_c8_doc", rowId, fileRefId);
+    await setCover(docEntity, rowId, fileRefId);
 
     const result = await runRetentionCleanup({
       db: stack.db,
@@ -504,7 +531,7 @@ describe("runRetentionCleanup :: hardDelete purges file bytes + derivatives + fi
   });
 
   test("softDelete and anonymize entities with a file field never touch bytes", async () => {
-    const softRowId = await seedDoc("read_c8_soft_doc", T1, "soft-expired", pastIso);
+    const softRowId = await seedDoc(softDocEntity, T1, "soft-expired", pastIso);
     const softKey = "t1/soft/cover/orig.jpg";
     const softFileRefId = await seedFileRef({
       tenantId: T1,
@@ -513,9 +540,9 @@ describe("runRetentionCleanup :: hardDelete purges file bytes + derivatives + fi
       fieldName: "cover",
       key: softKey,
     });
-    await setCover("read_c8_soft_doc", softRowId, softFileRefId);
+    await setCover(softDocEntity, softRowId, softFileRefId);
 
-    const anonRowId = await seedDoc("read_c8_anon_doc", T1, "anon-expired", pastIso);
+    const anonRowId = await seedDoc(anonDocEntity, T1, "anon-expired", pastIso);
     const anonKey = "t1/anon/cover/orig.jpg";
     const anonFileRefId = await seedFileRef({
       tenantId: T1,
@@ -524,7 +551,7 @@ describe("runRetentionCleanup :: hardDelete purges file bytes + derivatives + fi
       fieldName: "cover",
       key: anonKey,
     });
-    await setCover("read_c8_anon_doc", anonRowId, anonFileRefId);
+    await setCover(anonDocEntity, anonRowId, anonFileRefId);
 
     const result = await runRetentionCleanup({
       db: stack.db,
@@ -544,7 +571,7 @@ describe("runRetentionCleanup :: hardDelete purges file bytes + derivatives + fi
   });
 
   test("the registered job handler forwards ctx.files — bytes gone after the cron runs", async () => {
-    const rowId = await seedDoc("read_c8_doc", T1, "expired-via-job", pastIso);
+    const rowId = await seedDoc(docEntity, T1, "expired-via-job", pastIso);
     const key = "t1/via-job/cover/orig.jpg";
     const fileRefId = await seedFileRef({
       tenantId: T1,
@@ -553,7 +580,7 @@ describe("runRetentionCleanup :: hardDelete purges file bytes + derivatives + fi
       fieldName: "cover",
       key,
     });
-    await setCover("read_c8_doc", rowId, fileRefId);
+    await setCover(docEntity, rowId, fileRefId);
 
     const job = stack.registry.getJob("data-retention:job:retention-cleanup");
     expect(job).toBeDefined();

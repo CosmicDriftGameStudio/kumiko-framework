@@ -17,6 +17,7 @@ import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-feature
 
 import {
   asRawClient,
+  buildEntityTable,
   createEventStoreExecutor,
   entityEventName,
   selectMany,
@@ -35,7 +36,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { append } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
-import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   resetEventStore,
   setupTestStack,
@@ -51,6 +52,7 @@ import {
   tenantRetentionOverrideEntity,
 } from "../../data-retention/index.ts";
 import { createSessionsFeature } from "../../sessions/index.ts";
+import { collectErasureFailure, throwIfErasureFailed } from "../../shared/index.ts";
 import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.ts";
 import { seedTenantMembership } from "../../tenant/seeding.ts";
 import { createUserFeature, userEntity } from "../../user/index.ts";
@@ -75,18 +77,24 @@ const scopedEntity = createEntity({
   },
 });
 
-// "tenant-scoped" is a managed r.entity table (not Writable),
-// so TenantDb's typed write methods reject it; this delete is raw SQL, still
-// filtered by tenant_id.
-const TENANT_SCOPED_DELETE_REASON =
-  "fw#2914 test fixture: tenant-scoped erasure against a managed entity table needs raw SQL (TenantDb's typed write API rejects non-Writable tables); filtered by tenant_id";
+const scopedTable = buildEntityTable(scopedEntity);
+const scopedExecutor = createEventStoreExecutor(scopedTable, scopedEntity, {
+  entityName: "tenant-scoped",
+});
 
 const tenantScopedDeleteHook: UserDataDeleteHook = async (ctx) => {
   if (ctx.tenantModel !== "single-user") return; // shared tenant: erasing would hit co-members
-  await asRawClient(ctx.db.unsafeRawAllTenants()).unsafe(
-    `DELETE FROM ${TABLE} WHERE tenant_id = $1`,
-    [ctx.tenantId],
-  );
+  const rows = await ctx.db.selectMany<{ id: string }>(scopedTable, { tenantId: ctx.tenantId });
+  const failures: string[] = [];
+  for (const { id } of rows) {
+    collectErasureFailure(
+      await scopedExecutor.forget({ id }, createSystemUser(ctx.tenantId), ctx.db),
+      "tenant-scoped",
+      id,
+      failures,
+    );
+  }
+  throwIfErasureFailed(failures);
 };
 
 const contributorFeature = defineFeature("dsgvo-tenant-scoped", (r) => {
@@ -96,7 +104,6 @@ const contributorFeature = defineFeature("dsgvo-tenant-scoped", (r) => {
     entity: "tenant-scoped",
     export: async () => null,
     delete: tenantScopedDeleteHook,
-    escapeHatch: { reason: TENANT_SCOPED_DELETE_REASON },
   });
 });
 
@@ -138,16 +145,12 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await resetEventStore(stack);
-  await asRawClient(stack.db).unsafe(`DELETE FROM ${TABLE}`);
+  await resetEventStore(stack, [TABLE]);
   await resetTestTables(stack.db, ["read_tenant_memberships", "read_users"]);
 });
 
 async function seedScopedRow(rowId: string): Promise<void> {
-  await asRawClient(stack.db).unsafe(
-    `INSERT INTO ${TABLE} (id, tenant_id, name) VALUES ($1, $2, 'loan')`,
-    [rowId, TENANT],
-  );
+  await seedRowViaEventStore(stack.db, scopedTable, { id: rowId, tenantId: TENANT, name: "loan" });
 }
 
 async function rowCount(): Promise<number> {

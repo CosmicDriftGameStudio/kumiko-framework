@@ -202,6 +202,7 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
           try {
             const pruned = await runAttemptLogRetention(db, {
               olderThanDays: attemptLogRetentionDays,
+              registry: ctx.registry,
             });
             ctx.obs.log.info("delivery attempt log pruned", pruned);
           } catch (error) {

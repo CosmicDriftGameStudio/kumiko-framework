@@ -7,10 +7,11 @@ import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test
 import {
   createTestEnvelopeCipher,
   resetEntityFieldEncryptionCacheForTests,
+  updateRows,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import { resetEventStore, setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { configureEntityFieldEncryption } from "../../db/entity-field-encryption.ts";
-import { asRawClient } from "../../db/query.ts";
+import { buildEntityTable } from "../../db/table-builder.ts";
 import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 
@@ -69,9 +70,12 @@ async function createNote(title: string, secret: string): Promise<string> {
 }
 
 async function corruptStoredSecret(id: string): Promise<void> {
-  await asRawClient(stack.db).unsafe(
-    `UPDATE uef_notes SET secret = 'not-an-envelope', required_secret = 'not-an-envelope' WHERE id = $1`,
-    [id],
+  await updateRows(
+    stack.db,
+    buildEntityTable(noteEntity),
+    { secret: "not-an-envelope", requiredSecret: "not-an-envelope" },
+    { id },
+    { projectionOnly: "corrupt ciphertext in the read model that no event can produce" },
   );
 }
 

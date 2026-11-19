@@ -2,7 +2,7 @@
 // Real HTTP via setupTestStack — no mocks.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   createEmbeddedField,
@@ -161,10 +161,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await resetEventStore(stack);
-  await asRawClient(stack.db).unsafe(
-    `TRUNCATE audit_sec_widgets, audit_sec_dossiers, audit_sec_memos`,
-  );
+  await resetEventStore(stack, ["audit_sec_widgets", "audit_sec_dossiers", "audit_sec_memos"]);
   TENANT_ID = testTenantId(1);
   await seedTenant(stack.db, { id: TENANT_ID, key: "audit-sec", name: "Audit Sec" });
   ({ id: tenantAdminId } = await seedUser(stack.db, {

@@ -37,7 +37,7 @@ export async function runStreamRetention(
     const keepFor = args.registry.getEntity(projection.source)?.streamRetention?.keepFor;
     if (keepFor === undefined) continue;
     const cutoff = computeCutoff(keepFor, args.now);
-    deletedEvents += await pruneStreams(args.db, projection.source, cutoff);
+    deletedEvents += await pruneStreams(args.db, args.registry, projection.source, cutoff);
     deletedRows += await deleteRowsWithoutStream(args.db, projection.table, cutoff);
   }
   return { deletedEvents, deletedRows };
@@ -45,6 +45,7 @@ export async function runStreamRetention(
 
 async function pruneStreams(
   db: DbConnection,
+  registry: Registry,
   aggregateType: string,
   cutoff: Instant,
 ): Promise<number> {
@@ -54,6 +55,7 @@ async function pruneStreams(
       aggregateTypes: [aggregateType],
       olderThan: cutoff,
       batchSize: STREAM_BATCH_SIZE,
+      registry,
     });
     deleted += batch.deletedCount;
     // deletedCount counts events, at least one per pruned stream, so a short batch means no backlog.

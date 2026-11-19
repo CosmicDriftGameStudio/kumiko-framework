@@ -7,6 +7,10 @@ export {
 } from "./db/queries/stream-tenant-backfill.ts";
 export { createUserFeature } from "./feature.ts";
 export {
+  normalizeStoredUserEmails,
+  type StoredEmailNormalizationResult,
+} from "./normalize-stored-emails.ts";
+export {
   isPrincipalBlocked,
   isPrincipalBlockedForNewAuth,
   isPrincipalRowBlocked,

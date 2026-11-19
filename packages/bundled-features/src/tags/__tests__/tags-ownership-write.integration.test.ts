@@ -3,7 +3,7 @@
 // lets a user write only assignments whose host entityId is their own user id.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient, buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
@@ -11,7 +11,7 @@ import {
   from,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
-import { expectErrorIncludes } from "@cosmicdrift/kumiko-testing/helpers";
+import { expectErrorIncludes, seedRowsViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -71,10 +71,10 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, tagEntity);
   await unsafeCreateEntityTable(stack.db, tagAssignmentEntity);
   await unsafeCreateEntityTable(stack.db, projectEntity);
-  await asRawClient(stack.db).unsafe(
-    `INSERT INTO ${PROJECT_TABLE} (id, tenant_id, name) VALUES ($1, $3, 'own'), ($2, $3, 'other')`,
-    [owner.id, stranger.id, owner.tenantId],
-  );
+  await seedRowsViaEventStore(stack.db, buildEntityTable(projectEntity), [
+    { id: owner.id, tenantId: owner.tenantId, name: "own" },
+    { id: stranger.id, tenantId: owner.tenantId, name: "other" },
+  ]);
   const tag = await stack.http.writeOk<{ id: string }>(
     TagsHandlers.createTag,
     { name: "Owned" },

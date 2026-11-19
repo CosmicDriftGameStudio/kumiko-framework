@@ -17,12 +17,12 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 
-import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient, buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
-import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -82,10 +82,11 @@ async function seedHostRows(
   tenantId: string,
 ): Promise<void> {
   for (const label of labels) {
-    await asRawClient(target.db).unsafe(
-      `INSERT INTO ${CREDIT_TABLE} (id, tenant_id, name) VALUES ($1, $2, $3)`,
-      [hostId(label), tenantId, label],
-    );
+    await seedRowViaEventStore(target.db, buildEntityTable(creditEntity), {
+      id: hostId(label),
+      tenantId,
+      name: label,
+    });
   }
 }
 

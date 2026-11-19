@@ -7,18 +7,27 @@ import {
   InMemoryKmsAdapter,
   PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
   defineFeature,
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import {
+  eventsTable,
+  runSeedWritesAt,
+  SEED_MODE_ENV,
+} from "@cosmicdrift/kumiko-framework/event-store";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { resetPiiSubjectKmsForTests, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  resetPiiSubjectKmsForTests,
+  resetTestTables,
+  seedRowViaEventStore,
+  withEnv,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -93,18 +102,24 @@ afterEach(() => {
   resetPiiSubjectKmsForTests();
 });
 
+// The create event is back-dated, so the row's inserted_at lands before the cutoff. A global
+// entity takes no tenantId; the helper writes it in the system tenant.
 async function seedDoc(
-  table: string,
-  tenantId: string,
+  entity: Parameters<typeof buildEntityTable>[0],
+  tenantId: string | undefined,
   title: string,
   ageHours = 24 * 60,
 ): Promise<string> {
-  const rows = (await asRawClient(stack.db).unsafe(
-    `INSERT INTO ${table} (tenant_id, title, inserted_at) VALUES ($1, $2, $3::timestamptz) RETURNING id::text AS id`,
-    [tenantId, title, now.subtract({ hours: ageHours }).toString()],
-  )) as { id: string }[];
-  const id = rows[0]?.id;
-  if (!id) throw new Error("seedDoc: insert returned no id");
+  const id = crypto.randomUUID();
+  await withEnv({ [SEED_MODE_ENV]: "1" }, () =>
+    runSeedWritesAt(now.subtract({ hours: ageHours }), () =>
+      seedRowViaEventStore(stack.db, buildEntityTable(entity), {
+        id,
+        title,
+        ...(tenantId !== undefined && { tenantId }),
+      }),
+    ),
+  );
   return id;
 }
 
@@ -138,8 +153,8 @@ const runCleanup = (tenantId: string) =>
 
 describe("retention hardDelete cascades to the notes on the parent", () => {
   test("a tenant-scoped parent loses its note bodies, notes on other rows stay", async () => {
-    const expired = await seedDoc("read_notes_retention_scoped_docs", writer.tenantId, "old");
-    const live = await seedDoc("read_notes_retention_scoped_docs", writer.tenantId, "kept", 1);
+    const expired = await seedDoc(scopedEntity, writer.tenantId, "old");
+    const live = await seedDoc(scopedEntity, writer.tenantId, "kept", 1);
     const onExpired = await addNote("notes-retention-scoped-doc", expired, "about the old doc");
     const onLive = await addNote("notes-retention-scoped-doc", live, "about the kept doc");
 
@@ -150,7 +165,7 @@ describe("retention hardDelete cascades to the notes on the parent", () => {
   });
 
   test("a global parent swept in the system tenant takes notes written in a customer tenant", async () => {
-    const expired = await seedDoc("read_notes_retention_global_docs", SYSTEM_TENANT_ID, "old");
+    const expired = await seedDoc(globalEntity, undefined, "old");
     const note = await addNote("notes-retention-global-doc", expired, "operator note");
 
     expect((await runCleanup(SYSTEM_TENANT_ID)).hardDeleted).toBe(1);

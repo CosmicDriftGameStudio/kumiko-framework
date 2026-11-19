@@ -5,7 +5,7 @@
 // opt-in lever either. The gate below is default-on.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient, buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
@@ -13,6 +13,7 @@ import {
   type EntityDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -91,10 +92,17 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, folderAssignmentEntity);
   await unsafeCreateEntityTable(stack.db, projectEntity);
 
-  await asRawClient(stack.db).unsafe(
-    `INSERT INTO ${PROJECT_TABLE} (id, tenant_id, team_id) VALUES ($1, $3, 'team-a'), ($2, $3, 'team-b')`,
-    [PROJECT_A, PROJECT_B, userA.tenantId],
-  );
+  const projectTable = buildEntityTable(projectEntity);
+  await seedRowViaEventStore(stack.db, projectTable, {
+    id: PROJECT_A,
+    tenantId: userA.tenantId,
+    teamId: "team-a",
+  });
+  await seedRowViaEventStore(stack.db, projectTable, {
+    id: PROJECT_B,
+    tenantId: userA.tenantId,
+    teamId: "team-b",
+  });
 
   const folder = await stack.http.writeOk<{ id: string }>(
     FoldersHandlers.createFolder,
@@ -160,11 +168,14 @@ describe("folders read-gate", () => {
 
   test("an assignment whose entityType names no registered entity is invisible to everyone", async () => {
     const orphanId = "e0000000-0000-4000-8000-0000000000f1";
-    await asRawClient(stack.db).unsafe(
-      `INSERT INTO read_folder_assignments (id, tenant_id, folder_id, entity_type, entity_id, is_deleted)
-       VALUES ($1, $2, $3, 'not-a-registered-entity', $4, FALSE)`,
-      [orphanId, userA.tenantId, folderId, ORPHAN_HOST_ID],
-    );
+    // The handler rejects an unknown host type, so the row goes in below it.
+    await seedRowViaEventStore(stack.db, buildEntityTable(folderAssignmentEntity), {
+      id: orphanId,
+      tenantId: userA.tenantId,
+      folderId,
+      entityType: "not-a-registered-entity",
+      entityId: ORPHAN_HOST_ID,
+    });
 
     for (const user of [userA, userB]) {
       const page = await listAssignments(

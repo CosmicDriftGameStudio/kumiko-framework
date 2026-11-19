@@ -8,11 +8,12 @@ import {
   patchFileInstanceofForBunTest,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
+  resetEventStore,
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { asRawClient, selectMany } from "../../db/query.ts";
+import { selectMany } from "../../db/query.ts";
 import {
   createBooleanField,
   createEntity,
@@ -112,9 +113,7 @@ afterAll(async () => {
 beforeEach(async () => {
   beforeBytesLand = undefined;
   provider.clear();
-  await asRawClient(stack.db).unsafe(
-    `TRUNCATE upload_check_dossiers, upload_check_owned, file_refs RESTART IDENTITY CASCADE`,
-  );
+  await resetEventStore(stack, ["upload_check_dossiers", "upload_check_owned", "file_refs"]);
 });
 
 type UploadFields = {

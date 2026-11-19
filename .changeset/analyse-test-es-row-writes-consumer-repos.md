@@ -1,0 +1,14 @@
+---
+"@cosmicdrift/kumiko-guards": minor
+---
+
+The Test-ES-Row-Writes guard now runs in app and library repos and catches raw SQL writes on `read_*` tables and row writes on the events table in tests.
+
+<!-- kumiko-changes
+feature: guards
+type: breaking
+title: Test-ES-Row-Writes guard checks app and library tests
+detail: The guard was limited to the framework repo (`kinds: ["framework"]`), so `kumiko-guards guards` in an app never ran it. It now scans every non-tooling repo: the manifest's test files plus helper files in `src/**/__tests__`, `bin/**/__tests__`, `bin/**/*.test.ts` and `e2e/`. In every repo it now reports raw `INSERT INTO`, `UPDATE`, `DELETE FROM`, `MERGE INTO` and `COPY … FROM` (also with `ONLY` or a schema prefix) on `read_*` tables, on tables the file builds with `buildEntityTable` and on tables the file declares with `createEntity({ table })`, written literally or through a const in the same file whose value is such a name or comes from `<table>.tableName` (except inside a projection's `apply` and for an entity the file derives with `deriveEntityTableMeta(entity, { source: "unmanaged" })`), `TRUNCATE` of such a table without `kumiko_events` in the same statement, a `TRUNCATE kumiko_events` without the projection in a file that knows one, and `DELETE FROM kumiko_events`. A projection's `apply` never exempts writes on `kumiko_events`. It also reports calls like `insertOne`, `insertMany`, `deleteMany`, `deleteRows` or `seedRow` that take `eventsTable`. DDL (`ALTER TABLE … RENAME`, `CREATE TABLE`) and a `TRUNCATE` of projection and `kumiko_events` together (a reset) are not reported. `seedRow`, `updateRows` and `deleteRows` with a non-empty `{ projectionOnly: reason }`, inline or through a const in the same file, are no longer reported in any repo; on `eventsTable` they still are.
+migration: Replace each reported write in a test. Rows that events can produce go through the real command, `seedRowViaEventStore`, `updateRowViaEventStore` or `deleteRowViaEventStore`. A state no event produces goes through the testing helpers with a reason: `asRawClient(db).unsafe('UPDATE "read_x" SET "version" = 0 …')` (stale-version race), `UPDATE "read_x" SET "<pii column>" = <corrupted ciphertext>` and `UPDATE "read_x" SET "<column>" = NULL` (state after a column migration) become `updateRows(db, xTable, { … }, { id }, { projectionOnly: "<scenario>" })`, which writes the values verbatim without encrypting or bumping the version; `TRUNCATE "read_x"` (lost read table before a rebuild) becomes `deleteRows(db, xTable, {}, { projectionOnly: "<scenario>" })`; a raw `INSERT INTO read_x` legacy row becomes `seedRow(db, xTable, row, { projectionOnly: "<scenario>" })`. A reset keeps the events: `resetEventStore(stack, [xTable])` or `resetTestTables(db, [xTable, eventsTable])`.
+affects: kumiko-guards guards, Test-ES-Row-Writes Guard
+-->

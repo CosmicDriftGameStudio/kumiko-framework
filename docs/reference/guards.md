@@ -61,7 +61,7 @@ A marker that suppresses nothing in a run fails the `unused-ignore-tags` check; 
 | `guard-tailwind-scan-surface` | Guard: `className` string-literal tokens under kumiko-framework's `packages/bundled-features/src/**` must already be reachable through the real Tailwind `@source` scan surface (`packages/renderer/src` + `samples/**\/src`, see `packages/renderer/src/web/styles.css`). | `kumiko-lint-ignore tailwind-scan-surface` |
 | `guard-tenant-escalation` | Guard: tenant / privilege-escalation safety. | - |
 | `guard-test-env-writes` | Test-Env-Writes Guard — direct writes to `process.env` / `Bun.env` in tests are frozen per file in `.kumiko-test-env-writes-baseline.json` and may not grow; tests set env through `withEnv`, `withEnvForEachTest` or `withEnvForSuite` so the previous value is always restored. | - |
-| `guard-test-es-row-writes` | Guard: framework tests do not write event-sourced rows through the seed bypass. | - |
+| `guard-test-es-row-writes` | Guard: tests do not write event-sourced rows past the event store. | - |
 | `guard-test-stack-drift` | Guard: *.integration.ts / *.integration.test.ts files must not construct a parallel server stack. | - |
 | `guard-test-template-drift` | Guard: apps must not locally reimplement the e2e/screenshot template that `@cosmicdrift/kumiko-testing` already owns. | `kumiko-lint-ignore test-template-drift` |
 | `guard-test-timeouts` | Guard: tests wait for a condition, not for time. | `kumiko-lint-ignore test-timeouts` |

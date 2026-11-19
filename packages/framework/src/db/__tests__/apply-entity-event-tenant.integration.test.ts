@@ -17,10 +17,11 @@
 // to pass before the refactor.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import { asRawClient, selectMany } from "../../db/query.ts";
 import { createEntity, createTextField } from "../../engine/factories.ts";
 import type { TenantId } from "../../engine/types/index.ts";
-import type { StoredEvent } from "../../event-store/index.ts";
+import { eventsTable, type StoredEvent } from "../../event-store/index.ts";
 import { ensureTemporalPolyfill } from "../../time/polyfill.ts";
 import { applyEntityEvent } from "../apply-entity-event.ts";
 import { buildEntityTable } from "../table-builder.ts";
@@ -60,7 +61,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await asRawClient(testDb.db).unsafe(`TRUNCATE read_apply_tenant_check`);
+  await resetTestTables(testDb.db, [table, eventsTable]);
 });
 
 const TENANT_OPERATOR = "11111111-1111-1111-1111-111111111111" as TenantId;

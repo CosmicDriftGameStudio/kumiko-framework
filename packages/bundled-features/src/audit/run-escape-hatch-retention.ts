@@ -131,7 +131,11 @@ async function storingTenantIds(
   });
 }
 
-async function pruneAggregates(db: DbConnection, aggregateIds: readonly string[]): Promise<number> {
+async function pruneAggregates(
+  db: DbConnection,
+  registry: Registry,
+  aggregateIds: readonly string[],
+): Promise<number> {
   const now = getTemporal().Now.instant();
   let deletedCount = 0;
   for (let i = 0; i < aggregateIds.length; i += PRUNE_CHUNK_SIZE) {
@@ -139,6 +143,7 @@ async function pruneAggregates(db: DbConnection, aggregateIds: readonly string[]
       aggregateTypes: [ESCAPE_HATCH_USE_AGGREGATE_TYPE],
       aggregateIds: aggregateIds.slice(i, i + PRUNE_CHUNK_SIZE),
       olderThan: now,
+      registry,
     });
     deletedCount += result.deletedCount;
   }
@@ -147,6 +152,7 @@ async function pruneAggregates(db: DbConnection, aggregateIds: readonly string[]
 
 async function pruneByTenantProfiles(
   db: DbConnection,
+  registry: Registry,
   operatorRetentionDays: number | undefined,
   scanPageSize: number,
 ): Promise<number> {
@@ -197,7 +203,7 @@ async function pruneByTenantProfiles(
           expiredAggregateIds.push(row.aggregateId);
         }
       }
-      deletedCount += await pruneAggregates(db, expiredAggregateIds);
+      deletedCount += await pruneAggregates(db, registry, expiredAggregateIds);
       const lastRow = page[page.length - 1];
       if (lastRow === undefined || page.length < scanPageSize) break;
       afterId = lastRow.id;
@@ -208,6 +214,7 @@ async function pruneByTenantProfiles(
 
 async function pruneInBatches(
   db: DbConnection,
+  registry: Registry,
   olderThanDays: number,
   batchSize = PRUNE_BATCH_SIZE,
 ): Promise<number> {
@@ -220,6 +227,7 @@ async function pruneInBatches(
       aggregateTypes: [ESCAPE_HATCH_USE_AGGREGATE_TYPE],
       olderThan,
       batchSize,
+      registry,
     });
     deletedCount += batch.deletedCount;
     if (batch.deletedCount < batchSize) return deletedCount;
@@ -241,13 +249,14 @@ export async function runEscapeHatchRetention(args: {
 
   if (!args.registry.getEntity(COMPLIANCE_PROFILE_ENTITY)) {
     const olderThanDays = await resolveRetentionDays({ ...args, db });
-    return { deletedCount: await pruneInBatches(db, olderThanDays, args.batchSize) };
+    return { deletedCount: await pruneInBatches(db, args.registry, olderThanDays, args.batchSize) };
   }
 
   const operatorRetentionDays = await resolveExplicitRetentionDays({ ...args, db });
   return {
     deletedCount: await pruneByTenantProfiles(
       db,
+      args.registry,
       operatorRetentionDays,
       args.scanPageSize ?? SCAN_PAGE_SIZE,
     ),

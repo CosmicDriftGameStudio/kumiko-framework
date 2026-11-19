@@ -7,6 +7,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } fr
 import {
   resetBlindIndexKeyForTests,
   resetPiiSubjectKmsForTests,
+  seedRow,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createTestDb,
@@ -321,9 +322,16 @@ describe("blind-index rebuild + forget", () => {
     const created = await crud.create({ email: "marc@example.com" }, adminUser, tdb);
     if (!created.isSuccess) throw new Error("create failed");
     const subjectId = String(created.data.id);
-    await asRawClient(testDb.db).unsafe(
-      `INSERT INTO read_bidx_drift (id, tenant_id, email, email_bidx) VALUES ($1, $2, $3, 'h')`,
-      [subjectId, adminUser.tenantId, `kumiko-pii:v1:user:${subjectId}:x`],
+    await seedRow(
+      testDb.db,
+      buildEntityTable(driftEntity),
+      {
+        id: subjectId,
+        tenantId: adminUser.tenantId,
+        email: `kumiko-pii:v1:user:${subjectId}:x`,
+        emailBidx: "h",
+      },
+      { projectionOnly: "second self-PII row on the person's id; that aggregate id is taken" },
     );
     await kms.eraseKey({ kind: "user", userId: subjectId });
 

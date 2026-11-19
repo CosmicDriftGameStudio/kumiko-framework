@@ -15,16 +15,16 @@
 //      pollIntervalMs.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { sharedWidgetEntity, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+import { sharedWidgetEntity, waitFor, withEnv } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   resetEventStore,
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { asRawClient, insertOne, selectMany, updateMany } from "../../db/query.ts";
+import { asRawClient, selectMany, updateMany } from "../../db/query.ts";
 import { defineFeature } from "../../engine/index.ts";
-import { eventsTable } from "../../event-store/index.ts";
+import { append, runSeedWritesAt, SEED_MODE_ENV } from "../../event-store/index.ts";
 import {
   DEFAULT_SENSITIVE_CONFIG,
   type MetricEvent,
@@ -80,17 +80,19 @@ afterEach(async () => {
 });
 
 async function seedOldWidgetEvent(createdAt: Temporal.Instant): Promise<void> {
-  await insertOne(stack.db, eventsTable, {
-    aggregateId: generateId(),
-    aggregateType: "widget",
-    tenantId: admin.tenantId,
-    version: 1,
-    type: "widget.created",
-    payload: {},
-    metadata: { userId: admin.id },
-    createdAt,
-    createdBy: admin.id,
-  });
+  await withEnv({ [SEED_MODE_ENV]: "1" }, () =>
+    runSeedWritesAt(createdAt, () =>
+      append(stack.db, {
+        aggregateId: generateId(),
+        aggregateType: "widget",
+        tenantId: admin.tenantId,
+        expectedVersion: 0,
+        type: "widget.created",
+        payload: {},
+        metadata: { userId: admin.id },
+      }),
+    ),
+  );
 }
 
 // --- Fix #1 — Prune-vs-new-consumer race (pre-registration) ---
