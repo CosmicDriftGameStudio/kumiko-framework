@@ -60,8 +60,10 @@ export type ActionFormScreenDefinition = {
   readonly visibleWhen?: ScreenVisibility;
   /** Same-feature short id or cross-feature QN `<feature>:screen:<id>` shown when `visibleWhen` is unmet (default: standard notice). */
   readonly fallback?: ScreenFallback;
-  /** Derived by buildAppSchema — see EntityEditScreenDefinition.urlPrefillFields. */
+  /** Derived by buildAppSchema from navigate `params` and handOff redirects — see EntityEditScreenDefinition.urlPrefillFields. An authored value is rejected at boot; use `linkPrefillFields` for fields a plain link may fill. */
   readonly urlPrefillFields?: readonly string[];
+  /** Fields a plain link may fill from its URL query (`?userCode=...`), for forms no navigate action leads to, such as a code from a device flow. Only these names; each value is coerced by its field, nothing is submitted by the link. */
+  readonly linkPrefillFields?: readonly string[];
   /** Derived by buildAppSchema from the `excludedFields` of the called `handler`; the form
    *  shows these fields read-only, not required and never in the payload. An authored value is overwritten. */
   readonly writeExcludedFields?: readonly string[];

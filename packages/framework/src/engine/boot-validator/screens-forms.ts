@@ -1012,6 +1012,12 @@ function validateActionFormFieldTexts(
       message: `[Feature ${featureName}] Screen "${screenId}" (actionForm) fieldBadges names unknown field "${badged}". Known fields: ${[...fieldNames].sort().join(", ")}`,
     });
   }
+  for (const linked of screen.linkPrefillFields ?? []) {
+    if (fieldNames.has(linked)) continue;
+    throw bootRuleError(FORM_FIELD_RULES.linkPrefillUnknownField, {
+      message: `[Feature ${featureName}] Screen "${screenId}" (actionForm) linkPrefillFields names unknown field "${linked}". Known fields: ${[...fieldNames].sort().join(", ")}`,
+    });
+  }
 }
 
 function validateActionFormLabelEntity(

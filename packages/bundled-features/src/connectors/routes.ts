@@ -267,6 +267,13 @@ async function receiveHeartbeat(c: Context, deps: SignatureExtraRouteDeps): Prom
   return c.json(retry ? { ok: true, retry: true } : { ok: true }, 200);
 }
 
+// RFC 8628 §3.3.1: the code only prefills the pair screen; the admin still presses Check.
+function completeUriOf(verificationUri: string, userCode: string): string {
+  const url = new URL(verificationUri);
+  url.searchParams.set("userCode", userCode);
+  return url.toString();
+}
+
 function verificationUriOf(c: Context, options: ConnectorRouteOptions): string {
   const origin = publicOriginOf(process.env["APP_BASE_URL"] ?? "") ?? new URL(c.req.url).origin;
   return options.verificationUri ?? `${origin}/${ConnectorScreens.pair}`;
@@ -332,6 +339,7 @@ export function createConnectorRoutes(
           device_code: data.deviceCode,
           user_code: data.userCode,
           verification_uri: verificationUri,
+          verification_uri_complete: completeUriOf(verificationUri, data.userCode),
           expires_in: data.expiresIn,
           interval: data.interval,
         },

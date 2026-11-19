@@ -145,6 +145,8 @@ export const connectorPairScreen: ActionFormScreenDefinition = {
   type: "actionForm",
   agent: { expose: false },
   handler: ConnectorHandlers.checkDevice,
+  linkPrefillFields: ["userCode"],
+  submitPrefilled: true,
   fields: { userCode: USER_CODE_FIELD },
   layout: { sections: [{ fields: ["userCode"] }] },
   submitLabel: i18nKey("connectors.pair.check"),

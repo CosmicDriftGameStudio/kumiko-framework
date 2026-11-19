@@ -56,6 +56,11 @@ export const FORM_FIELD_RULES = {
     summary: "actionForm fieldLabels and fieldDescriptions params name fields of the form.",
     fix: "Point each param at a field of the form or use the plain i18n key.",
   },
+  linkPrefillUnknownField: {
+    id: "form/link-prefill-unknown-field",
+    summary: "actionForm linkPrefillFields names fields of the form.",
+    fix: "Name a field of the form or remove the entry.",
+  },
   fieldBadgeUnknownField: {
     id: "form/field-badge-unknown-field",
     summary: "actionForm fieldBadges keys name fields of the form.",

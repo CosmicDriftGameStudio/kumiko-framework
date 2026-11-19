@@ -414,7 +414,11 @@ function projectScreens(
       return {
         ...authoredScreen,
         urlPrefillFields: sortedUrlPrefillFields(
-          urlPrefillFieldsByScreenQn.get(qualifyEntityName(featureName, "screen", shortId)),
+          new Set([
+            ...(urlPrefillFieldsByScreenQn.get(qualifyEntityName(featureName, "screen", shortId)) ??
+              []),
+            ...(screen.linkPrefillFields ?? []),
+          ]),
         ),
         ...(excluded !== undefined && { writeExcludedFields: excluded }),
         ...(labelEntityFields.length > 0 && { labelEntityFields }),

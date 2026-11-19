@@ -276,7 +276,8 @@ type ActionFormScreenDefinition = {
   dormant?: boolean; // Screen has no nav entry by design (opened via link or navved by the app); exempts it from the nav-area boot check.
   visibleWhen?: ScreenVisibility; // UI-only gate, also on direct URL access; handlers still enforce access.
   fallback?: ScreenFallback; // Same-feature short id or cross-feature QN `<feature>:screen:<id>` shown when `visibleWhen` is unmet (default: standard notice).
-  urlPrefillFields?: string[]; // Derived by buildAppSchema — see EntityEditScreenDefinition.urlPrefillFields.
+  urlPrefillFields?: string[]; // Derived by buildAppSchema from navigate `params` and handOff redirects — see EntityEditScreenDefinition.urlPrefillFields.
+  linkPrefillFields?: string[]; // Fields a plain link may fill from its URL query (`?userCode=...`), for forms no navigate action leads to, such as a code from a device flow.
   writeExcludedFields?: string[]; // Derived by buildAppSchema from the `excludedFields` of the called `handler`; the form shows these fields read-only, not required and never in the payload.
   submitPrefilled?: boolean; // Submit is enabled without edits: values seeded from navigate `params` count as the user's intent.
   handler: string; // Write-handler QN called on submit.
