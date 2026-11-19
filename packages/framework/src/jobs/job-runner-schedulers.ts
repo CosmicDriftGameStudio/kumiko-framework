@@ -75,7 +75,8 @@ type OrphanSchedulerLog = {
 
 // A cron job dropped from the app (or an older scheduler-id format) leaves its
 // scheduler in Redis, where it keeps firing jobs the worker no longer knows
-// ("Unknown job"). Best-effort: a Redis hiccup here must not stop the start.
+// ("Unknown job"). Best-effort: a Redis hiccup here must not stop the start or
+// the refresh tick.
 export async function removeOrphanJobSchedulers(
   queue: Queue,
   expectedSchedulerIds: ReadonlySet<string>,
@@ -99,9 +100,10 @@ export async function removeOrphanJobSchedulers(
       const lastSeen = Number(seenAt[key]);
       const isWithinGrace = key in seenAt && now - lastSeen < ORPHAN_SCHEDULER_GRACE_MS;
       if (isWithinGrace && !supersededSchedulerIds.has(key)) continue;
-      await queue.removeJobScheduler(key);
+      // false when a concurrent runner removed it first
+      const removedHere = await queue.removeJobScheduler(key);
       await client.hdel(schedulerSeenKey(queue), key);
-      log.info("removed orphan job scheduler", { schedulerId: key, lane });
+      if (removedHere) log.info("removed orphan job scheduler", { schedulerId: key, lane });
     }
   } catch (err) {
     log.warn("orphan job scheduler cleanup failed", {

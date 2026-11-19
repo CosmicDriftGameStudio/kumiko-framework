@@ -283,6 +283,11 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
   let queueDepthTimer: ReturnType<typeof setInterval> | null = null;
   let schedulerSeenTimer: ReturnType<typeof setInterval> | null = null;
   let schedulerStampPending = false;
+  const orphanSchedulerLog = {
+    info: (msg: string, data?: Record<string, unknown>) =>
+      context.log ? context.log.info(msg, data) : errorLogger.debug(msg, data),
+    warn: errorLogger.warn,
+  };
   // A timed-out gate is abandoned, not aborted (the job context carries no
   // AbortSignal); stop() waits for it so it cannot write after the shutdown.
   const abandonedBootGates = new Set<Promise<void>>();
@@ -440,6 +445,10 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
   // After a failed initial stamp an older runner may have removed our
   // schedulers as unseen, so the next tick stamps and re-upserts before the
   // flag clears.
+  // The orphan sweep repeats here because at start() the previous version's
+  // schedulers are still within their grace period. It skips the superseded
+  // rule: an older pod would see a newer pod's flipped-wake-flag id as
+  // superseded and delete it on every tick of a rolling update.
   async function refreshSchedulerSeen(
     queue: Queue,
     lane: JobRunIn,
@@ -450,6 +459,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       await upsertCronSchedulers(queue, lane);
       schedulerStampPending = false;
     }
+    await removeOrphanJobSchedulers(queue, schedulerIds, new Set(), lane, orphanSchedulerLog);
   }
 
   function startSchedulerSeenRefresh(
@@ -560,11 +570,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         expectedSchedulerIds,
         cronSchedulerIdsForLane(consumerLane, true),
         consumerLane,
-        {
-          info: (msg, data) =>
-            context.log ? context.log.info(msg, data) : errorLogger.debug(msg, data),
-          warn: errorLogger.warn,
-        },
+        orphanSchedulerLog,
       );
 
       // Persistent marker outside the swept completed/failed sets: a plain

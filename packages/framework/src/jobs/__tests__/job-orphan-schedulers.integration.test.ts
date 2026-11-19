@@ -254,3 +254,123 @@ describe("orphan job schedulers", () => {
     }
   });
 });
+
+describe("orphan job schedulers while the runner keeps running", () => {
+  function runnerWithCronJob(
+    prefix: string,
+    jobName: string,
+    wakesSleepingApp = true,
+  ): ReturnType<typeof createJobRunner> {
+    const feature = defineFeature("orphan", (r) => {
+      r.job({
+        name: jobName,
+        trigger: wakesSleepingApp
+          ? { cron: "0 0 1 1 *" }
+          : { cron: "0 0 1 1 *", wakesSleepingApp: false },
+        handler: async () => {},
+      });
+    });
+    return createJobRunner({
+      registry: createRegistry([feature]),
+      context: {} as AppContext,
+      redisUrl,
+      consumerLane: "worker",
+      queueNamePrefix: prefix,
+      schedulerSeenRefreshMs: 50,
+    });
+  }
+
+  // Each observed change of the runner's own stamp is one completed refresh tick.
+  async function waitForRefreshTicks(queue: Queue, seenKey: string, schedulerId: string) {
+    const client = await queue.client;
+    const observedStamps = new Set<string>();
+    await waitFor(
+      async () => {
+        const stamp = await client.hget(seenKey, schedulerId);
+        if (stamp !== null) observedStamps.add(stamp);
+        return observedStamps.size >= 4;
+      },
+      { delays: Array.from({ length: 80 }, () => 50) },
+    );
+  }
+
+  test("a scheduler of the previous version survives the start and is removed by a refresh tick once its grace period ran out", async () => {
+    const prefix = uniquePrefix();
+    const runner = runnerWithCronJob(prefix, "kept");
+    const keptId = schedulerIdForJobName("orphan:job:kept");
+    const orphanId = schedulerIdForJobName(ORPHAN_NAME);
+    const workerQueue = rawQueue(prefix, "worker");
+    const seenKey = workerQueue.toKey("kumiko-scheduler-seen");
+    try {
+      const client = await workerQueue.client;
+      await workerQueue.upsertJobScheduler(orphanId, { pattern: "0 0 1 1 *" }, template);
+      await client.hset(seenKey, { [orphanId]: String(Date.now() - 1000) });
+
+      await runner.start();
+      expect(await schedulerKeys(workerQueue)).toEqual([keptId, orphanId].sort());
+
+      // The previous version stopped stamping; its last stamp is now older than the grace period.
+      await client.hset(seenKey, {
+        [orphanId]: String(Date.now() - ORPHAN_SCHEDULER_GRACE_MS - 60_000),
+      });
+
+      await waitFor(async () => !(await schedulerKeys(workerQueue)).includes(orphanId));
+      expect(await schedulerKeys(workerQueue)).toEqual([keptId]);
+      expect(await client.hexists(seenKey, orphanId)).toBe(0);
+    } finally {
+      await runner.stop();
+      await workerQueue.close();
+      await purgeRawRedisKeys(redisUrl, `bull:${prefix}-worker:*`);
+      await purgeRawRedisKeys(redisUrl, `bull:${prefix}-api:*`);
+    }
+  });
+
+  test("a scheduler another live runner keeps stamping survives several refresh ticks", async () => {
+    const prefix = uniquePrefix();
+    const owner = runnerWithCronJob(prefix, "kept");
+    const other = runnerWithCronJob(prefix, "other");
+    const keptId = schedulerIdForJobName("orphan:job:kept");
+    const otherId = schedulerIdForJobName("orphan:job:other");
+    const workerQueue = rawQueue(prefix, "worker");
+    const seenKey = workerQueue.toKey("kumiko-scheduler-seen");
+    try {
+      await owner.start();
+      await other.start();
+
+      await waitForRefreshTicks(workerQueue, seenKey, otherId);
+
+      expect(await schedulerKeys(workerQueue)).toEqual([keptId, otherId].sort());
+    } finally {
+      await other.stop();
+      await owner.stop();
+      await workerQueue.close();
+      await purgeRawRedisKeys(redisUrl, `bull:${prefix}-worker:*`);
+      await purgeRawRedisKeys(redisUrl, `bull:${prefix}-api:*`);
+    }
+  });
+
+  test("an older runner's refresh tick leaves the scheduler a newer runner registered with the other wake flag", async () => {
+    const prefix = uniquePrefix();
+    const older = runnerWithCronJob(prefix, "probe");
+    const newer = runnerWithCronJob(prefix, "probe", false);
+    const olderId = schedulerIdForJobName("orphan:job:probe");
+    const newerId = schedulerIdForJobName("orphan:job:probe", false);
+    const workerQueue = rawQueue(prefix, "worker");
+    const seenKey = workerQueue.toKey("kumiko-scheduler-seen");
+    try {
+      await older.start();
+      await newer.start();
+      expect(await schedulerKeys(workerQueue)).toEqual([newerId]);
+
+      await waitForRefreshTicks(workerQueue, seenKey, olderId);
+
+      expect(await schedulerKeys(workerQueue)).toEqual([newerId]);
+    } finally {
+      await newer.stop();
+      await older.stop();
+      await workerQueue.close();
+      await purgeRawRedisKeys(redisUrl, `bull:${prefix}-worker:*`);
+      await purgeRawRedisKeys(redisUrl, `bull:${prefix}-api:*`);
+    }
+  });
+});
