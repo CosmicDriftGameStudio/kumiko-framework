@@ -471,6 +471,9 @@ export function defineAppE2eConfig(input: AppE2eConfigInput): PlaywrightTestConf
         },
         reuseExistingServer: false,
         timeout: E2E_TIMEOUT_MS.webServer,
+        // Playwright's default teardown is SIGKILL, so the dev server's stop() never ran and
+        // left its per-boot `bull:kumiko-dev-*` queues in the shared Redis.
+        gracefulShutdown: { signal: "SIGTERM", timeout: E2E_TIMEOUT_MS.webServerShutdown },
         stdout: "pipe",
         stderr: "pipe",
       },

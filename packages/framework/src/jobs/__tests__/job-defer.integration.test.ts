@@ -9,6 +9,7 @@ import { Queue } from "bullmq";
 import { createRegistry, defineFeature } from "../../engine/index.ts";
 import type { AppContext } from "../../engine/types/index.ts";
 import { bootJobIdForJobName, createJobRunner, type JobMeta } from "../job-runner.ts";
+import { purgeRawRedisKeys } from "./purge-raw-redis-keys.ts";
 
 let testRedis: TestRedis;
 let redisUrl: string;
@@ -27,8 +28,7 @@ function uniquePrefix(tag: string): string {
 }
 
 async function purgeWorkerKeys(queueNamePrefix: string): Promise<void> {
-  const keys = await testRedis.redis.keys(`bull:${queueNamePrefix}-worker:*`);
-  if (keys.length > 0) await testRedis.redis.del(...keys);
+  await purgeRawRedisKeys(testRedis.redisUrl, `bull:${queueNamePrefix}-worker:*`);
 }
 
 describe("ctx.defer", () => {

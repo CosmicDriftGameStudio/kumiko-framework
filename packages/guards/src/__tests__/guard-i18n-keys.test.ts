@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Project } from "ts-morph";
@@ -109,6 +109,49 @@ describe("guard-i18n-keys — keys of installed framework packages", () => {
       const keys = collectInstalledFrameworkKeys(app);
       expect(keys.has("auth:auth.login.title")).toBe(true);
       expect(keys.has("auth:auth.declared")).toBe(false);
+    } finally {
+      rmSync(parent, { recursive: true, force: true });
+    }
+  });
+
+  test("reads only the app's own scope dir, even when its path contains glob characters", () => {
+    const parent = mkdtempSync(join(tmpdir(), "i18n-scope-"));
+    const writeInstalledFeature = (appDir: string, key: string): void => {
+      const pkg = join(parent, appDir, "node_modules/@cosmicdrift/kumiko-bundled-features/src");
+      mkdirSync(pkg, { recursive: true });
+      writeFileSync(
+        join(pkg, "feature.ts"),
+        `export const authFeature = defineFeature("auth", (r) => {
+          r.translations({ keys: { "${key}": { en: "x" } } });
+        });`,
+      );
+    };
+    try {
+      writeInstalledFeature("app[1]", "auth.own");
+      writeInstalledFeature("app1", "auth.sibling");
+      const keys = collectInstalledFrameworkKeys(join(parent, "app[1]"));
+      expect(keys.has("auth:auth.own")).toBe(true);
+      expect(keys.has("auth:auth.sibling")).toBe(false);
+    } finally {
+      rmSync(parent, { recursive: true, force: true });
+    }
+  });
+
+  test("follows workspace-linked packages that are symlinks into the framework checkout", () => {
+    const parent = mkdtempSync(join(tmpdir(), "i18n-linked-"));
+    try {
+      const linkedPackage = join(parent, "framework/packages/bundled-features");
+      mkdirSync(join(linkedPackage, "src"), { recursive: true });
+      writeFileSync(
+        join(linkedPackage, "src/feature.ts"),
+        `export const authFeature = defineFeature("auth", (r) => {
+          r.translations({ keys: { "auth.linked": { en: "x" } } });
+        });`,
+      );
+      const scope = join(parent, "app/node_modules/@cosmicdrift");
+      mkdirSync(scope, { recursive: true });
+      symlinkSync(linkedPackage, join(scope, "kumiko-bundled-features"));
+      expect(collectInstalledFrameworkKeys(join(parent, "app")).has("auth:auth.linked")).toBe(true);
     } finally {
       rmSync(parent, { recursive: true, force: true });
     }

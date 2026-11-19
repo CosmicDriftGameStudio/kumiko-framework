@@ -198,6 +198,15 @@ describe("defineAppE2eConfig defaults", () => {
     expect(server.timeout).toBe(E2E_TIMEOUT_MS.webServer);
   });
 
+  test("stops the server with SIGTERM so the dev server's stop() removes its job queues", () => {
+    const server = defineAppE2eConfig({ port: 4321 }).webServer;
+    if (Array.isArray(server) || server === undefined) throw new Error("expected one webServer");
+    expect(server.gracefulShutdown).toEqual({
+      signal: "SIGTERM",
+      timeout: E2E_TIMEOUT_MS.webServerShutdown,
+    });
+  });
+
   test("screenshot specs only run when SCREENSHOT_DIR is set", () => {
     expect(defineAppE2eConfig({ port: 4321 }).testIgnore).toContain("**/screenshots.spec.ts");
 

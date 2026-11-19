@@ -4,7 +4,7 @@
 // spawned as a subprocess by bin/commands.
 
 import { createWriteStream, existsSync, readdirSync, writeFileSync } from "node:fs";
-import { availableParallelism, loadavg } from "node:os";
+import { availableParallelism, loadavg, totalmem } from "node:os";
 import { join, resolve as resolvePath } from "node:path";
 import {
   formatCheckWorkContext,
@@ -20,14 +20,14 @@ import {
 import { CHECK_PHASES, type CheckPhase, parseCheckPhases } from "./_lib/check-phases";
 import { decideGuardScanRoot } from "./_lib/guard-scan-root";
 
-// Fast checks are CPU-bound (tsc, ts-morph guards). A fixed pool=6 thrashes
-// wherever spare CPU < 6 — the 1-CPU CI runner, or a loaded dev box (4 parallel
-// sessions) — inflating every step 5-6×. Size to *currently free* capacity
-// (cores − 1-min load), not raw core count, so a busy machine doesn't
-// oversubscribe. Override with KUMIKO_FAST_POOL.
-const FAST_POOL =
-  Number(process.env.KUMIKO_FAST_POOL) ||
-  Math.max(1, Math.min(availableParallelism() - 1, Math.round(availableParallelism() - loadavg()[0])));
+import { computeFastPool } from "./_lib/fast-pool";
+
+const FAST_POOL = computeFastPool({
+  override: process.env.KUMIKO_FAST_POOL,
+  cores: availableParallelism(),
+  loadAverage1Min: loadavg()[0] ?? 0,
+  totalMemoryBytes: totalmem(),
+});
 import {
   INTEGRATION_RUNNER,
 } from "./_lib/integration-test";

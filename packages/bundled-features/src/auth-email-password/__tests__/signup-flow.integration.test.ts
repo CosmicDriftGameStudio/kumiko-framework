@@ -197,8 +197,7 @@ beforeEach(async () => {
   tenantMembershipPostSaveFired.count = 0;
   tenantMembershipPostSaveFired.seenTenantIds = [];
   // Clear Redis so resend tests do not leak state.
-  const allKeys = await stack.redis.redis.keys("signup:*");
-  if (allKeys.length > 0) await stack.redis.redis.del(...allKeys);
+  await stack.redis.flushNamespace();
 });
 
 async function postSignupRequest(

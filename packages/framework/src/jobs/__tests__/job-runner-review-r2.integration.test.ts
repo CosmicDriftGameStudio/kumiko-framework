@@ -20,6 +20,7 @@ import { createPrometheusMeter } from "../../observability/index.ts";
 import { createDistributedLock } from "../../pipeline/distributed-lock.ts";
 import { RedisKeys } from "../../pipeline/redis-keys.ts";
 import { createJobRunner, type JobOutcomeMeta } from "../job-runner.ts";
+import { purgeRawRedisKeys } from "./purge-raw-redis-keys.ts";
 import { waitForNoPendingJobs } from "./wait-for-no-pending-jobs.ts";
 
 let testRedis: TestRedis;
@@ -42,8 +43,7 @@ function uniquePrefix(tag: string): string {
 }
 
 async function purgeWorkerKeys(queueNamePrefix: string): Promise<void> {
-  const keys = await testRedis.redis.keys(`bull:${queueNamePrefix}-worker:*`);
-  if (keys.length > 0) await testRedis.redis.del(...keys);
+  await purgeRawRedisKeys(testRedis.redisUrl, `bull:${queueNamePrefix}-worker:*`);
 }
 
 describe("job runner without a db connection", () => {

@@ -11,8 +11,8 @@ import type { TenantId } from "../../engine/types/identifiers.ts";
 import type { AppContext, Registry } from "../../engine/types/index.ts";
 import { createNoopProvider, createPrometheusMeter } from "../../observability/index.ts";
 import { registerStandardMetrics } from "../../observability/standard-metrics.ts";
-
 import { createJobRunner, type JobRunnerOptions } from "../job-runner.ts";
+import { purgeRawRedisKeys } from "./purge-raw-redis-keys.ts";
 
 const JWT = "job-last-success-test-secret-minimum-32-chars!!";
 const SUCCEEDS = "liveness:job:succeeds";
@@ -83,8 +83,7 @@ async function withRunner(
     await fn(runner, failures);
   } finally {
     await runner.stop();
-    const keys = await testRedis.redis.keys(`bull:${queueNamePrefix}-worker:*`);
-    if (keys.length > 0) await testRedis.redis.del(...keys);
+    await purgeRawRedisKeys(testRedis.redisUrl, `bull:${queueNamePrefix}-worker:*`);
   }
 }
 

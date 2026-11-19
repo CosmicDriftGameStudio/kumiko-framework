@@ -19,6 +19,7 @@ import { Queue } from "bullmq";
 import { createRegistry, defineFeature } from "../../engine/index.ts";
 import type { AppContext, TenantId } from "../../engine/types/index.ts";
 import { bootJobIdForJobName, createJobRunner, type JobMeta } from "../job-runner.ts";
+import { purgeRawRedisKeys } from "./purge-raw-redis-keys.ts";
 import { waitForNoPendingJobs } from "./wait-for-no-pending-jobs.ts";
 
 let testRedis: TestRedis;
@@ -41,8 +42,7 @@ async function purgeWorkerKeys(queueNamePrefix: string): Promise<void> {
   // Cron leaves its repeatable scheduler firing into a stopped worker if not
   // purged — the same hazard the jobs.integration.test.ts helper guards
   // against.
-  const keys = await testRedis.redis.keys(`bull:${queueNamePrefix}-worker:*`);
-  if (keys.length > 0) await testRedis.redis.del(...keys);
+  await purgeRawRedisKeys(testRedis.redisUrl, `bull:${queueNamePrefix}-worker:*`);
 }
 
 describe("job retries on every enqueue path", () => {

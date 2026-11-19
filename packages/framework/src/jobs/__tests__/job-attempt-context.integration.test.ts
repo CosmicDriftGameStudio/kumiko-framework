@@ -15,6 +15,7 @@ import { createDistributedLock } from "../../pipeline/distributed-lock.ts";
 import { RedisKeys } from "../../pipeline/redis-keys.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { createJobRunner } from "../job-runner.ts";
+import { purgeRawRedisKeys } from "./purge-raw-redis-keys.ts";
 
 const retryRuns: [number, boolean][] = [];
 const singleRuns: [number, boolean][] = [];
@@ -125,8 +126,7 @@ describe("JobContext.attempt / finalAttempt through the runner's other entry poi
   }
 
   async function purgeWorkerKeys(queueNamePrefix: string): Promise<void> {
-    const keys = await testRedis.redis.keys(`bull:${queueNamePrefix}-worker:*`);
-    if (keys.length > 0) await testRedis.redis.del(...keys);
+    await purgeRawRedisKeys(testRedis.redisUrl, `bull:${queueNamePrefix}-worker:*`);
   }
 
   test("a sequential retry that hits a busy lock keeps counting instead of restarting at 1", async () => {

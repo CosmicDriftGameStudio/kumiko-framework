@@ -173,8 +173,7 @@ beforeEach(async () => {
     `TRUNCATE kumiko_events, kumiko_snapshots, signup_handover_run, signup_handover_photo, signup_handover_note, file_refs RESTART IDENTITY CASCADE`,
   );
   emailTransport.sent.length = 0;
-  const allKeys = await stack.redis.redis.keys("signup:*");
-  if (allKeys.length > 0) await stack.redis.redis.del(...allKeys);
+  await stack.redis.flushNamespace();
 });
 
 async function seedRun(tenantId: TenantId, name: string): Promise<string> {

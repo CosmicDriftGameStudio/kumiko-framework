@@ -217,10 +217,7 @@ beforeEach(async () => {
     eventsTable,
   ]);
   emailTransport.sent.length = 0;
-  for (const pattern of ["signup:*", "invite:*"] as const) {
-    const keys = await stack.redis.redis.keys(pattern);
-    if (keys.length > 0) await stack.redis.redis.del(...keys);
-  }
+  await stack.redis.flushNamespace();
 });
 
 describe("saas-identity-wire", () => {

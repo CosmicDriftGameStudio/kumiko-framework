@@ -11,6 +11,7 @@
 
 import { existsSync } from "node:fs";
 import * as path from "node:path";
+import { Glob } from "bun";
 import {
   type Node,
   type ObjectLiteralExpression,
@@ -276,12 +277,28 @@ export function isFrameworkMonorepo(root: string): boolean {
 }
 
 // Published packages ship `dist` (compiled JS) only; workspace links also carry `src`.
-const INSTALLED_FRAMEWORK_SOURCES = [
-  "kumiko-*/{src,dist}/**/*.{ts,tsx,js}",
-  "!kumiko-*/**/__tests__/**",
-  "!kumiko-*/**/*.test.{ts,tsx,js}",
-  "!kumiko-*/**/*.d.ts",
-];
+const INSTALLED_FRAMEWORK_SOURCES = new Glob("kumiko-*/{src,dist}/**/*.{ts,tsx,js}");
+const INSTALLED_FRAMEWORK_EXCLUDES = [
+  "kumiko-*/**/__tests__/**",
+  "kumiko-*/**/*.test.{ts,tsx,js}",
+  "kumiko-*/**/*.d.ts",
+].map((pattern) => new Glob(pattern));
+
+// Globs stay relative to the scope dir: ts-morph's absolute globs walk from `/` when the scope lies
+// outside process.cwd(), and glob characters in the scope path itself would match sibling dirs.
+function findInstalledFrameworkSources(scopeDir: string): string[] {
+  const files: string[] = [];
+  // Workspace-linked packages are symlinks into the framework checkout.
+  for (const rel of INSTALLED_FRAMEWORK_SOURCES.scanSync({
+    cwd: scopeDir,
+    onlyFiles: true,
+    followSymlinks: true,
+  })) {
+    if (INSTALLED_FRAMEWORK_EXCLUDES.some((exclude) => exclude.match(rel))) continue;
+    files.push(path.join(scopeDir, rel));
+  }
+  return files;
+}
 
 /** Every `node_modules/@cosmicdrift` from the app root upwards: Node resolves per package, so an app's own
  *  scope dir (a few linked packages) must not hide the hoisted one of the bun workspace above it. */
@@ -306,11 +323,7 @@ export function collectInstalledFrameworkKeys(root: string = ROOT): Set<string> 
     compilerOptions: { allowJs: true },
   });
   for (const scopeDir of findInstalledScopeDirs(root)) {
-    project.addSourceFilesAtPaths(
-      INSTALLED_FRAMEWORK_SOURCES.map((glob) =>
-        glob.startsWith("!") ? `!${path.join(scopeDir, glob.slice(1))}` : path.join(scopeDir, glob),
-      ),
-    );
+    for (const file of findInstalledFrameworkSources(scopeDir)) project.addSourceFileAtPath(file);
   }
   const keys = new Set<string>();
   for (const sf of project.getSourceFiles()) {

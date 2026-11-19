@@ -123,10 +123,7 @@ beforeEach(async () => {
     eventsTable,
   ]);
   emailTransport.sent.length = 0;
-  const signupKeys = await stack.redis.redis.keys("signup:*");
-  if (signupKeys.length > 0) await stack.redis.redis.del(...signupKeys);
-  const inviteKeys = await stack.redis.redis.keys("invite:*");
-  if (inviteKeys.length > 0) await stack.redis.redis.del(...inviteKeys);
+  await stack.redis.flushNamespace();
 });
 
 function newTenantId(): TenantId {

@@ -139,8 +139,7 @@ beforeEach(async () => {
     eventsTable,
   ]);
   emailTransport.sent.length = 0;
-  const allKeys = await stack.redis.redis.keys("invite:*");
-  if (allKeys.length > 0) await stack.redis.redis.del(...allKeys);
+  await stack.redis.flushNamespace();
 
   TENANT_A_ID = newTenantId();
   await seedTenant(stack.db, {

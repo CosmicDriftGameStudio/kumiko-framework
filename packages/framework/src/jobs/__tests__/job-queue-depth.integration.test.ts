@@ -9,8 +9,8 @@ import { createRegistry, defineFeature } from "../../engine/index.ts";
 import type { AppContext, Registry } from "../../engine/types/index.ts";
 import { createPrometheusMeter } from "../../observability/index.ts";
 import { registerStandardMetrics } from "../../observability/standard-metrics.ts";
-
 import { createJobRunner } from "../job-runner.ts";
+import { purgeRawRedisKeys } from "./purge-raw-redis-keys.ts";
 
 let testRedis: TestRedis;
 let redisUrl: string;
@@ -64,8 +64,7 @@ describe("job-runner — kumiko_job_queue_depth", () => {
       await sleep(50);
     } finally {
       await runner.stop();
-      const keys = await testRedis.redis.keys(`bull:${queueNamePrefix}-worker:*`);
-      if (keys.length > 0) await testRedis.redis.del(...keys);
+      await purgeRawRedisKeys(testRedis.redisUrl, `bull:${queueNamePrefix}-worker:*`);
     }
   });
 
