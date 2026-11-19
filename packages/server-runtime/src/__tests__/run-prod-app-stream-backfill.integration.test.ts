@@ -213,7 +213,11 @@ describe("runProdApp stream tenant backfill", () => {
     const rowsBefore = (await selectMany(testDb, tenantTable, {})).length;
     handle = await bootProdApp();
     expect((await selectMany(testDb, tenantTable, {})).length).toBe(rowsBefore);
-    // A clean boot writes nothing: no pending row is left, and none was ever needed.
-    expect(await selectMany(testDb, esOperationsTable, {})).toEqual([]);
+    // A clean boot writes nothing: no pending row is left, and none was ever needed. Only the
+    // backfill's own rows count: the search reindex runs in the background of every boot and
+    // writes its completion marker whenever it finishes before stop, independent of the backfill.
+    expect(
+      await selectMany(testDb, esOperationsTable, { operationType: "stream-migration" }),
+    ).toEqual([]);
   });
 });
