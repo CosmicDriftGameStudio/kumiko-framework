@@ -66,7 +66,7 @@ const inboundMailScriptRoute = signatureRoute<z.infer<typeof inboundMailScriptSc
 
 await runDevApp({
   ...devAppOptions,
-  extraRoutes: [...createE2eSeedRoutes(), inboundMailScriptRoute],
+  extraRoutes: [...devAppOptions.extraRoutes, ...createE2eSeedRoutes(), inboundMailScriptRoute],
   wire: (deps) => {
     supervisor = createInboundMailSupervisor({
       providerCtx: { registry: deps.registry },

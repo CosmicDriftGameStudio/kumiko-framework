@@ -202,6 +202,34 @@ export function collectUrlPrefillFieldsByScreenQn(
   for (const [qn, sources] of collectUrlPrefillSourcesByScreenQn(features)) {
     result.set(qn, new Set(sources.flatMap((source) => rowFieldExtractorKeys(source.params))));
   }
+  for (const [qn, names] of collectRedirectPrefillFieldsByScreenQn(features)) {
+    result.set(qn, new Set([...(result.get(qn) ?? []), ...names]));
+  }
+  return result;
+}
+
+// An actionForm whose `redirect` sets `handOff` writes its `searchParams` into the target form's
+// URL, so the target may prefill the same-named fields (a multi-step form hands the checked value
+// to its next step). Opt-in: other redirects with searchParams grant no URL prefill.
+function collectRedirectPrefillFieldsByScreenQn(
+  features: readonly FeatureDefinition[],
+): Map<string, Set<string>> {
+  const screensByShortId = collectScreensByShortId(features);
+  const result = new Map<string, Set<string>>();
+  for (const feature of features) {
+    for (const screen of Object.values(feature.screens)) {
+      if (screen.type !== "actionForm") continue;
+      const { redirect } = screen;
+      if (typeof redirect !== "object" || redirect.handOff !== true) continue;
+      if (redirect.searchParams === undefined) continue;
+      const target = findScreenEntryForNavTarget(screensByShortId, redirect.screen);
+      if (target === undefined) continue;
+      const targetScreen = target.screen;
+      if (targetScreen.type !== "actionForm" && targetScreen.type !== "secretMint") continue;
+      const qn = qualifyEntityName(target.featureName, "screen", target.shortId);
+      result.set(qn, new Set([...(result.get(qn) ?? []), ...Object.keys(redirect.searchParams)]));
+    }
+  }
   return result;
 }
 

@@ -39,6 +39,7 @@ import { createChannelTelegramFeature } from "@cosmicdrift/kumiko-bundled-featur
 import { createChannelWhatsappFeature } from "@cosmicdrift/kumiko-bundled-features/channel-whatsapp";
 import { createComplianceProfilesFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
 import { createComplianceProfilesOpsFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles-ops";
+import { createConnectorsFeature } from "@cosmicdrift/kumiko-bundled-features/connectors";
 import { createCustomFieldsFeature } from "@cosmicdrift/kumiko-bundled-features/custom-fields";
 import { createDataRetentionFeature } from "@cosmicdrift/kumiko-bundled-features/data-retention";
 import { createDeliveryFeature } from "@cosmicdrift/kumiko-bundled-features/delivery";
@@ -154,6 +155,8 @@ export const APP_FEATURES = [
   // registers against below — required whenever a bearer-auth provider is
   // mounted (kumiko-framework#1369).
   createAuthFoundationFeature(),
+  // Satellite pairing and file intake; its HTTP routes mount separately (createConnectorRoutes).
+  createConnectorsFeature(),
   // Per-domain scopes (like cashcolt's credit/bauspar/miete): the token picks
   // WHICH API × the permission LEVEL (read vs read+write). Each domain declares
   // its read + write QN globs.

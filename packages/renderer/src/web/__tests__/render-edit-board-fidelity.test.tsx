@@ -89,6 +89,31 @@ describe("RenderEdit board fidelity", () => {
     expect(screen.getByTestId("field-price").textContent).toContain("*");
   });
 
+  test("a read-only field next to one required field does not count: no hint, the field keeps its star", () => {
+    const entity = {
+      fields: {
+        code: { type: "text", required: true },
+        name: { type: "text", required: true },
+      },
+    } as unknown as EntityDefinition;
+    render(
+      <DispatcherProvider dispatcher={createMockDispatcher({})}>
+        <RenderEdit
+          screen={{
+            ...screenWith([]),
+            layout: { sections: [{ fields: [{ field: "code", readOnly: true }, "name"] }] },
+          }}
+          entity={entity}
+          featureName="orders"
+          initial={{}}
+          writeCommand="order:create"
+        />
+      </DispatcherProvider>,
+    );
+    expect(screen.queryByTestId("render-edit-all-required-hint")).toBeNull();
+    expect(screen.getByTestId("field-name").textContent).toContain("*");
+  });
+
   test("a required boolean shows no required mark and does not block the all-required hint", () => {
     const entity = {
       fields: {

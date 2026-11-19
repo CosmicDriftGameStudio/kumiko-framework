@@ -118,6 +118,8 @@ export type SignatureExtraRouteDeps = {
    *  with the "system" role plus exactly `roles` (no SystemAdmin), so the write
    *  passes app-role access checks. */
   readonly dispatchWriteAs: (args: RoleDispatchArgs) => Promise<WriteResult>;
+  /** Resolved by the server's single trustedProxyHops-aware resolver; never read X-Forwarded-For yourself. */
+  readonly clientIp: string;
 };
 
 export type VerifiedRouteRateLimit<TVerified> = {
@@ -129,7 +131,17 @@ export type VerifiedRouteRateLimit<TVerified> = {
   readonly rejectionBody?: (decision: RateLimitDecision) => unknown;
 };
 
-export type SignatureExtraRoute<TVerified> = {
+export type BinaryBodyOptions = {
+  /** Hard cap for the request body in bytes; replaces the server-wide maxRequestBytes for this route. */
+  readonly maxBytes: number;
+};
+
+export type BinarySignatureExtraRouteVerifyRequest = Omit<
+  SignatureExtraRouteVerifyRequest,
+  "rawBody"
+>;
+
+type SignatureExtraRouteBase<TVerified> = {
   readonly method: HttpRouteMethod;
   readonly path: string;
   readonly entry: "signature";
@@ -139,10 +151,6 @@ export type SignatureExtraRoute<TVerified> = {
   readonly rateLimit?: HttpRouteRateLimit;
   /** Limit keyed by the verified caller, checked after verify() and before the handler through the server's shared rate-limit store. Fail-open; skipped when the server has no Redis. */
   readonly verifiedRateLimit?: VerifiedRouteRateLimit<TVerified>;
-  readonly verify: (
-    request: SignatureExtraRouteVerifyRequest,
-    deps: SignatureExtraRouteVerifyDeps,
-  ) => Promise<TVerified>;
   readonly handler: (
     // biome-ignore lint/suspicious/noExplicitAny: Hono context generics are invisible at the framework boundary
     c: Context<any, any>,
@@ -150,6 +158,28 @@ export type SignatureExtraRoute<TVerified> = {
     deps: SignatureExtraRouteDeps,
   ) => Response | Promise<Response>;
 };
+
+export type TextBodySignatureExtraRoute<TVerified> = SignatureExtraRouteBase<TVerified> & {
+  readonly binaryBody?: undefined;
+  readonly verify: (
+    request: SignatureExtraRouteVerifyRequest,
+    deps: SignatureExtraRouteVerifyDeps,
+  ) => Promise<TVerified>;
+};
+
+/** The body is not read before verify(): the handler reads it from `c.req` itself, so
+ *  non-UTF-8 bytes stay intact, and the route gets its own size cap. Only outside "/api/". */
+export type BinaryBodySignatureExtraRoute<TVerified> = SignatureExtraRouteBase<TVerified> & {
+  readonly binaryBody: BinaryBodyOptions;
+  readonly verify: (
+    request: BinarySignatureExtraRouteVerifyRequest,
+    deps: SignatureExtraRouteVerifyDeps,
+  ) => Promise<TVerified>;
+};
+
+export type SignatureExtraRoute<TVerified> =
+  | TextBodySignatureExtraRoute<TVerified>
+  | BinaryBodySignatureExtraRoute<TVerified>;
 
 export type ExtraRouteDefinition =
   | AnonymousExtraRoute
@@ -160,6 +190,15 @@ export type ExtraRouteDefinition =
  *  union. The single point where the verify/handler generic `T` is erased —
  *  callers keep full type-safety between their own verify() and handler(). */
 export function signatureRoute<T>(def: SignatureExtraRoute<T>): ExtraRouteDefinition {
+  // @cast-boundary generic erasure at the public ExtraRouteDefinition boundary;
+  // verify() and handler() above stay paired through T at the call site.
+  return def as unknown as SignatureExtraRoute<unknown>;
+}
+
+/** Same erasure as signatureRoute, for routes that declare `binaryBody`. */
+export function binaryBodySignatureRoute<T>(
+  def: BinaryBodySignatureExtraRoute<T>,
+): ExtraRouteDefinition {
   // @cast-boundary generic erasure at the public ExtraRouteDefinition boundary;
   // verify() and handler() above stay paired through T at the call site.
   return def as unknown as SignatureExtraRoute<unknown>;

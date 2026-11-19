@@ -1,0 +1,12 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-connector-satellite",
+  "description": "A satellite program pairs through the OAuth device flow, a tenant admin confirms the code, and the satellite uploads files into the app: the connectors bundled feature with its HTTP routes.",
+  "private": true,
+  "dependencies": {
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*"
+  },
+  "devDependencies": {
+    "@cosmicdrift/kumiko-testing": "workspace:*"
+  }
+}

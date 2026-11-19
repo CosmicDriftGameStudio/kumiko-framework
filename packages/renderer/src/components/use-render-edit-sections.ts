@@ -88,8 +88,11 @@ function useAllFieldsRequired(filteredSections: readonly EditSectionViewModel[])
       section.kind === "fields" ? section.fields.filter((field) => field.visible) : [],
     );
     const fillable = shown.filter((field) => !field.readOnly && field.type !== "boolean");
-    // A lone field carries its own required marker; "all required" only says something for several.
-    return shown.length >= 2 && fillable.length > 0 && fillable.every((field) => field.required);
+    // A lone editable field carries its own required marker (a read-only one does not count); "all required" only says something for several.
+    const editableShown = shown.filter((field) => !field.readOnly);
+    return (
+      editableShown.length >= 2 && fillable.length > 0 && fillable.every((field) => field.required)
+    );
   }, [filteredSections]);
 }
 

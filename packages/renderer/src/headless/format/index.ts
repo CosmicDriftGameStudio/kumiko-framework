@@ -262,7 +262,10 @@ export function applyFormatSpec(
 ): string {
   // priority renders its emptyLabel for empty values — every other format
   // collapses empty to "".
-  if (isEmptyCellValue(value) && spec.format !== "priority") return "";
+  if (isEmptyCellValue(value) && spec.format !== "priority") {
+    const emptyLabel = spec.format === "timestamp" ? stringSpec(spec, "emptyLabel") : undefined;
+    return emptyLabel === undefined ? "" : (translate?.(emptyLabel) ?? emptyLabel);
+  }
   if (!isBuiltInCellFormat(spec.format)) return formatUnknownCellFormat(spec, value);
   return CELL_FORMATTERS[spec.format](spec, value, translate);
 }

@@ -144,17 +144,25 @@ type AnonymousExtraRouteDeps = {
   query: ContractQuery; // Same caller and tenant contract as `write`: runs as the session the /api chain resolved for this request, so it can read exactly what that caller could read via /api/query, nothing more.
   clientIp: string; // Resolved by the server's single trustedProxyHops-aware resolver — never read X-Forwarded-For yourself.
 };
+type BinaryBodyOptions = {
+  maxBytes: number; // Hard cap for the request body in bytes; replaces the server-wide maxRequestBytes for this route.
+};
+type BinaryBodySignatureExtraRoute<TVerified> = SignatureExtraRouteBase<TVerified> & { // The body is not read before verify(): the handler reads it from `c.req` itself, so non-UTF-8 bytes stay intact, and the route gets its own size cap.
+  binaryBody: BinaryBodyOptions;
+  verify: (request: BinarySignatureExtraRouteVerifyRequest, deps: SignatureExtraRouteVerifyDeps) => Promise<TVerified>;
+};
+type BinarySignatureExtraRouteVerifyRequest = Omit<SignatureExtraRouteVerifyRequest, "rawBody">;
 type ExtraRouteDefinition = AnonymousExtraRoute | UserExtraRoute | SignatureExtraRoute<unknown>;
 type RoleDispatchArgs = SystemDispatchArgs & {
   roles: string[];
 };
-type SignatureExtraRoute<TVerified> = {
+type SignatureExtraRoute<TVerified> = TextBodySignatureExtraRoute<TVerified> | BinaryBodySignatureExtraRoute<TVerified>;
+type SignatureExtraRouteBase<TVerified> = {
   method: HttpRouteMethod;
   path: string;
   entry: "signature";
   rateLimit?: HttpRouteRateLimit; // Same option and buckets as r.httpRoute's rateLimit, enforced through the server's shared rate-limit store before the body limit, verify() and the handler.
   verifiedRateLimit?: VerifiedRouteRateLimit<TVerified>; // Limit keyed by the verified caller, checked after verify() and before the handler through the server's shared rate-limit store.
-  verify: (request: SignatureExtraRouteVerifyRequest, deps: SignatureExtraRouteVerifyDeps) => Promise<TVerified>;
   handler: (c: Context<any, any>, verified: TVerified, deps: SignatureExtraRouteDeps) => Response | Promise<Response>;
 };
 type SignatureExtraRouteDeps = {
@@ -165,6 +173,7 @@ type SignatureExtraRouteDeps = {
   dispatchSystemWrite: (args: SystemDispatchArgs) => Promise<WriteResult>; // Privilege scope: SystemAdmin of the target tenant, WITHOUT the route's access check — only reachable because verify() has already proven the caller's authenticity (signature, HMAC state, etc.).
   dispatchSystemQuery: (args: SystemDispatchArgs) => Promise<unknown>;
   dispatchWriteAs: (args: RoleDispatchArgs) => Promise<WriteResult>; // Same trust as dispatchSystemWrite, but runs as the tenant's system user with the "system" role plus exactly `roles` (no SystemAdmin), so the write passes app-role access checks.
+  clientIp: string; // Resolved by the server's single trustedProxyHops-aware resolver; never read X-Forwarded-For yourself.
 };
 type SignatureExtraRouteVerifyDeps = {
   registry: Registry;
@@ -180,6 +189,10 @@ type SystemDispatchArgs = {
   handlerQn: string;
   payload: unknown;
   tenantId: TenantId;
+};
+type TextBodySignatureExtraRoute<TVerified> = SignatureExtraRouteBase<TVerified> & {
+  binaryBody?: undefined;
+  verify: (request: SignatureExtraRouteVerifyRequest, deps: SignatureExtraRouteVerifyDeps) => Promise<TVerified>;
 };
 type UserExtraRoute = {
   method: HttpRouteMethod;

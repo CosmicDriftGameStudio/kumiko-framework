@@ -573,6 +573,15 @@ function isFunctionRenderer(renderer: unknown): renderer is FunctionRenderer {
   return typeof renderer === "function";
 }
 
+// A timestamp format with an emptyLabel words its own empty cell, instead of the placeholder dash.
+export function hasEmptyLabelFormat(renderer: unknown): boolean {
+  return (
+    isFormatSpecRenderer(renderer) &&
+    renderer.format === "timestamp" &&
+    typeof renderer["emptyLabel"] === "string"
+  );
+}
+
 function isFormatSpecRenderer(renderer: unknown): renderer is FormatSpecRenderer {
   return typeof renderer === "object" && renderer !== null && "format" in renderer;
 }
@@ -770,7 +779,7 @@ function DataTableCellBody({
       ? isEmptyCellValue(value)
       : typeof emptyPlaceholder === "string" &&
         (isEmptyCellValue(value) || (Array.isArray(value) && value.length === 0));
-  if (showsPlaceholder && componentRef === undefined) {
+  if (showsPlaceholder && componentRef === undefined && !hasEmptyLabelFormat(renderer)) {
     return <EmptyCell placeholder={emptyPlaceholder} />;
   }
   if (value === PII_ERASED_SENTINEL && translate !== undefined) {

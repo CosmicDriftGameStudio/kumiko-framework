@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "tables": [
+    "read_connector_inbound_items",
+    "read_connectors"
+  ]
+}

@@ -116,10 +116,20 @@ export function mountExtraRoutes(
       });
       mountHonoRoute(app, route.method, route.path, honoHandler, [
         ...buildRouteRateLimitGuards(route, wiring),
-        ...bodyLimitForRoutePath(route.path, options.maxRequestBytes ?? DEFAULT_MAX_REQUEST_BYTES),
+        ...bodyLimitForRoutePath(route.path, routeBodyLimitBytes(route, options.maxRequestBytes)),
       ]);
     }
   }
+}
+
+function routeBodyLimitBytes(
+  route: ExtraRouteDefinition,
+  maxRequestBytes: number | undefined,
+): number {
+  if (route.entry === ExtraRouteEntries.signature && route.binaryBody !== undefined) {
+    return route.binaryBody.maxBytes;
+  }
+  return maxRequestBytes ?? DEFAULT_MAX_REQUEST_BYTES;
 }
 
 function assertValidExtraRoute(route: ExtraRouteDefinition): void {
@@ -161,6 +171,20 @@ function assertValidExtraRoute(route: ExtraRouteDefinition): void {
       throw new Error(
         `[kumiko] extraRoutes: entry:"signature" route "${route.method} ${route.path}" must not ` +
           `match the framework path "${shadowedFrameworkPath}" — it would bypass the auth chain for it.`,
+      );
+    }
+  }
+  if (route.entry === ExtraRouteEntries.signature && route.binaryBody !== undefined) {
+    if (route.path === "/api" || route.path.startsWith("/api/")) {
+      throw new Error(
+        `[kumiko] extraRoutes: entry:"signature" route "${route.method} ${route.path}" must not ` +
+          'declare binaryBody under "/api/" — the /api body limit would still apply there.',
+      );
+    }
+    if (!Number.isSafeInteger(route.binaryBody.maxBytes) || route.binaryBody.maxBytes < 1) {
+      throw new Error(
+        `[kumiko] extraRoutes: "${route.method} ${route.path}" binaryBody.maxBytes must be a ` +
+          "safe integer >= 1.",
       );
     }
   }
@@ -368,17 +392,18 @@ function buildExtraRouteHonoHandler(
       };
     case ExtraRouteEntries.signature:
       return async (c) => {
-        const rawBody = await c.req.text();
         const headers: Record<string, string> = {};
         c.req.raw.headers.forEach((value, key) => {
           headers[key.toLowerCase()] = value;
         });
         let verified: unknown;
         try {
-          verified = await route.verify(
-            { rawBody, headers, params: c.req.param(), query: c.req.query() },
-            { registry: shared.registry, secrets: shared.secrets },
-          );
+          const verifyDeps = { registry: shared.registry, secrets: shared.secrets };
+          const request = { headers, params: c.req.param(), query: c.req.query() };
+          verified =
+            route.binaryBody !== undefined
+              ? await route.verify(request, verifyDeps)
+              : await route.verify({ ...request, rawBody: await c.req.text() }, verifyDeps);
         } catch (e) {
           if (e instanceof ExtraRouteRejection) {
             if (e.retryAfterSeconds !== undefined) {
@@ -411,6 +436,7 @@ function buildExtraRouteHonoHandler(
           dispatchSystemWrite: shared.dispatchSystemWrite,
           dispatchSystemQuery: shared.dispatchSystemQuery,
           dispatchWriteAs: shared.dispatchWriteAs,
+          clientIp: shared.clientIpResolver.resolve(clientIpSourceFromHonoContext(c)),
         });
       };
     default:

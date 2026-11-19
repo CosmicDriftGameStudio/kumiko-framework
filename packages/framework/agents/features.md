@@ -223,6 +223,14 @@ Stores per-tenant (and optionally per-user) configuration values with a multi-la
 
 Category: infrastructure
 
+## connectors
+
+Lets a satellite program on a customer's own machine deliver files into the app. The satellite pairs through the OAuth device flow (RFC 8628): it shows a short code, a tenant admin confirms it, and the satellite receives a revocable `ksat_` device token of which only the SHA-256 is stored. With that token it uploads files (raw bytes plus relative path, SHA-256 and modification time; the same file again is the same item) and sends heartbeats. Each upload becomes a file reference plus an event-sourced `inbound-item`; other features consume its created event. The HTTP endpoints are not handlers: mount `createConnectorRoutes()` from `@cosmicdrift/kumiko-bundled-features/connectors` as `extraRoutes` (they live outside /api, so the satellite needs no session). The wire protocol is described in docs/guides/connectors-satellite.md.
+
+Category: integration
+
+Requires: `files`, `tenant`, `tenant-lifecycle`
+
 ## crypto-shredding
 
 Operator-level crypto-shredding trigger. `forget-subject` forgets the subject's rows of entities that declare `forgetWithSubject`, purges its search documents, files and blind indexes, closes a user's login and appends a `subject-forgotten` event in one transaction; the `subject-key-eraser` consumer then erases the subject key in the configured KMS adapter, making every PII field encrypted under it permanently unreadable (reads render the `[[erased]]` sentinel). Requires a KMS adapter (`runProdApp({ kms })`). The automated Art.-17 deletion pipeline in `user-data-rights` erases keys itself; this command covers manual forgets (authority requests, operator recovery, tenant destroy).

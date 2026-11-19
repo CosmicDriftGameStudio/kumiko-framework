@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { render, screen } from "@testing-library/react";
 import { createStaticLocaleResolver, LocaleProvider } from "../../../index.ts";
+import { setViewportWidth } from "../../__tests__/test-utils.tsx";
 import { defaultPrimitives } from "../index.tsx";
 
 const { DataTable } = defaultPrimitives;
@@ -79,5 +80,69 @@ describe("DataTable format cells", () => {
     const link = screen.getByTestId("cell-r1-message").querySelector("a");
     expect(link?.getAttribute("href")).toBe("/fix");
     expect(link?.textContent).toBe("Login rejected");
+  });
+});
+
+describe("DataTable timestamp emptyLabel", () => {
+  const resolver = {
+    ...createStaticLocaleResolver(),
+    translate: (key: string) => (key === "app.never" ? "noch nie" : key),
+  };
+
+  function renderRow(lastSeenAt: string | null, emptyLabel: boolean) {
+    render(
+      <LocaleProvider resolver={resolver}>
+        <DataTable
+          columns={[
+            {
+              field: "lastSeenAt",
+              label: "Last seen",
+              type: "text",
+              sortable: false,
+              renderer: { format: "timestamp", ...(emptyLabel && { emptyLabel: "app.never" }) },
+            },
+          ]}
+          rows={[{ id: "r1", values: { lastSeenAt } }]}
+          testId="t"
+        />
+      </LocaleProvider>,
+    );
+    return screen.getByTestId("cell-r1-lastSeenAt");
+  }
+
+  test("an empty cell shows the translated emptyLabel", () => {
+    expect(renderRow(null, true).textContent).toBe("noch nie");
+  });
+
+  test("without emptyLabel the cell keeps its placeholder", () => {
+    expect(renderRow(null, false).textContent).not.toBe("noch nie");
+  });
+
+  test("the narrow card keeps the emptyLabel line instead of dropping the blank meta value", () => {
+    const originalWidth = window.innerWidth;
+    setViewportWidth(500);
+    try {
+      render(
+        <LocaleProvider resolver={resolver}>
+          <DataTable
+            columns={[
+              { field: "name", label: "Name", type: "text", sortable: false },
+              {
+                field: "lastSeenAt",
+                label: "Last seen",
+                type: "text",
+                sortable: false,
+                renderer: { format: "timestamp", emptyLabel: "app.never" },
+              },
+            ]}
+            rows={[{ id: "r1", values: { name: "Laptop", lastSeenAt: null } }]}
+            testId="t"
+          />
+        </LocaleProvider>,
+      );
+      expect(screen.getByTestId("row-r1").textContent).toContain("noch nie");
+    } finally {
+      setViewportWidth(originalWidth);
+    }
   });
 });
