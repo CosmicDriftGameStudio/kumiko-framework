@@ -139,6 +139,41 @@ function decodedHeader(c: Context, name: string): string | undefined {
   }
 }
 
+type UploadHeaders = {
+  readonly relativePath: string;
+  readonly sha256: string;
+  readonly sourceModifiedAt: Temporal.Instant;
+};
+
+function parseUploadHeaders(c: Context): UploadHeaders | Response {
+  const relativePath = normalizeRelativePath(decodedHeader(c, "x-kumiko-path") ?? "");
+  if (relativePath === null)
+    return badRequest(c, "X-Kumiko-Path is missing or not a relative path");
+  const sha256 = c.req.header("x-kumiko-sha256")?.toLowerCase() ?? "";
+  if (!SHA256_PATTERN.test(sha256)) return badRequest(c, "X-Kumiko-Sha256 must be 64 hex digits");
+  try {
+    const sourceModifiedAt = Temporal.Instant.from(c.req.header("x-kumiko-mtime") ?? "");
+    return { relativePath, sha256, sourceModifiedAt };
+  } catch {
+    return badRequest(c, "X-Kumiko-Mtime must be an ISO 8601 instant");
+  }
+}
+
+function uploadFailureResponse(
+  c: Context,
+  error: { readonly code: string; readonly details?: unknown },
+  itemId: string,
+): Response {
+  // A parallel delivery of the same file committed first: for the satellite that is a duplicate.
+  // ponytail: a lost race answers 200 duplicate without re-reading the winner; re-read the item if satellites ever need its id from the body
+  if (error.code === VERSION_CONFLICT_CODE) return c.json({ id: itemId, duplicate: true }, 200);
+  const reason = failureReason(error);
+  if (reason === ConnectorErrors.connectorRevoked)
+    return c.json({ error: "connector_revoked" }, 403);
+  if (reason === FrameworkReasons.fileRejected) return c.json({ error: "file_rejected" }, 422);
+  return c.json({ error: "server_error" }, 500);
+}
+
 async function receiveUpload(
   c: Context,
   deps: SignatureExtraRouteDeps,
@@ -149,17 +184,9 @@ async function receiveUpload(
   const tenantId = parseTenantId(device.ownerTenantId);
   if (tenantId === null) return unauthorized(c);
 
-  const relativePath = normalizeRelativePath(decodedHeader(c, "x-kumiko-path") ?? "");
-  if (relativePath === null)
-    return badRequest(c, "X-Kumiko-Path is missing or not a relative path");
-  const sha256 = c.req.header("x-kumiko-sha256")?.toLowerCase() ?? "";
-  if (!SHA256_PATTERN.test(sha256)) return badRequest(c, "X-Kumiko-Sha256 must be 64 hex digits");
-  let sourceModifiedAt: Temporal.Instant;
-  try {
-    sourceModifiedAt = Temporal.Instant.from(c.req.header("x-kumiko-mtime") ?? "");
-  } catch {
-    return badRequest(c, "X-Kumiko-Mtime must be an ISO 8601 instant");
-  }
+  const headers = parseUploadHeaders(c);
+  if (headers instanceof Response) return headers;
+  const { relativePath, sha256, sourceModifiedAt } = headers;
 
   const data = new Uint8Array(await c.req.arrayBuffer());
   if (createHash("sha256").update(data).digest("hex") !== sha256) {
@@ -187,15 +214,7 @@ async function receiveUpload(
     const { duplicate } = receivedSchema.parse(result.data);
     return c.json({ id: itemId, duplicate }, duplicate ? 200 : 201);
   }
-  const { code } = result.error;
-  // A parallel delivery of the same file committed first: for the satellite that is a duplicate.
-  // ponytail: a lost race answers 200 duplicate without re-reading the winner; re-read the item if satellites ever need its id from the body
-  if (code === VERSION_CONFLICT_CODE) return c.json({ id: itemId, duplicate: true }, 200);
-  const reason = failureReason(result.error);
-  if (reason === ConnectorErrors.connectorRevoked)
-    return c.json({ error: "connector_revoked" }, 403);
-  if (reason === FrameworkReasons.fileRejected) return c.json({ error: "file_rejected" }, 422);
-  return c.json({ error: "server_error" }, 500);
+  return uploadFailureResponse(c, result.error, itemId);
 }
 
 async function receiveHeartbeat(c: Context, deps: SignatureExtraRouteDeps): Promise<Response> {

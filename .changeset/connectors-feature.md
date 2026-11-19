@@ -1,5 +1,9 @@
 ---
 "@cosmicdrift/kumiko-bundled-features": patch
+"@cosmicdrift/kumiko-locale-de": patch
+"@cosmicdrift/kumiko-locale-es": patch
+"@cosmicdrift/kumiko-locale-fr": patch
+"@cosmicdrift/kumiko-locale-it": patch
 ---
 
 New `connectors` feature: a satellite pairs through the OAuth device flow and delivers files.

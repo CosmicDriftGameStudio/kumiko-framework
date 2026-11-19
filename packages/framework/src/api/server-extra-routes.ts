@@ -174,20 +174,27 @@ function assertValidExtraRoute(route: ExtraRouteDefinition): void {
       );
     }
   }
-  if (route.entry === ExtraRouteEntries.signature && route.binaryBody !== undefined) {
-    if (route.path === "/api" || route.path.startsWith("/api/")) {
-      throw new Error(
-        `[kumiko] extraRoutes: entry:"signature" route "${route.method} ${route.path}" must not ` +
-          'declare binaryBody under "/api/" — the /api body limit would still apply there.',
-      );
-    }
-    if (!Number.isSafeInteger(route.binaryBody.maxBytes) || route.binaryBody.maxBytes < 1) {
-      throw new Error(
-        `[kumiko] extraRoutes: "${route.method} ${route.path}" binaryBody.maxBytes must be a ` +
-          "safe integer >= 1.",
-      );
-    }
+  assertValidBinaryBody(route);
+  assertValidRateLimits(route);
+}
+
+function assertValidBinaryBody(route: ExtraRouteDefinition): void {
+  if (route.entry !== ExtraRouteEntries.signature || route.binaryBody === undefined) return;
+  if (route.path === "/api" || route.path.startsWith("/api/")) {
+    throw new Error(
+      `[kumiko] extraRoutes: entry:"signature" route "${route.method} ${route.path}" must not ` +
+        'declare binaryBody under "/api/" — the /api body limit would still apply there.',
+    );
   }
+  if (!Number.isSafeInteger(route.binaryBody.maxBytes) || route.binaryBody.maxBytes < 1) {
+    throw new Error(
+      `[kumiko] extraRoutes: "${route.method} ${route.path}" binaryBody.maxBytes must be a ` +
+        "safe integer >= 1.",
+    );
+  }
+}
+
+function assertValidRateLimits(route: ExtraRouteDefinition): void {
   if (route.rateLimit !== undefined && !isValidHttpRouteRateLimit(route.rateLimit)) {
     throw new Error(
       `[kumiko] extraRoutes: "${route.method} ${route.path}" rateLimit needs positive integer ` +

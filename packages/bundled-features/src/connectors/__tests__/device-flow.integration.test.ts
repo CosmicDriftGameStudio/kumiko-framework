@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { withEnv } from "@cosmicdrift/kumiko-testing/helpers";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { CONNECTOR_CLIENT_ID, ConnectorHandlers } from "../constants.ts";
 import { hashDeviceSecret } from "../hash.ts";
@@ -230,15 +231,10 @@ describe("connectors verification URI", () => {
   });
 
   test("APP_BASE_URL wins over the request address", async () => {
-    const previous = process.env["APP_BASE_URL"];
-    process.env["APP_BASE_URL"] = "https://app.example/some/path";
-    try {
+    await withEnv({ APP_BASE_URL: "https://app.example/some/path" }, async () => {
       const body = await verificationUris(stack);
       expect(body.verification_uri).toBe("https://app.example/connector-pair");
-    } finally {
-      if (previous === undefined) delete process.env["APP_BASE_URL"];
-      else process.env["APP_BASE_URL"] = previous;
-    }
+    });
   });
 
   test("the verificationUri option wins over the default", async () => {

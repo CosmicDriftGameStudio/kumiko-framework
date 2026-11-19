@@ -18,6 +18,12 @@ export const DEVICE_TOKEN_PREFIX = "ksat_";
 export const DEVICE_TOKEN_PATTERN = /^ksat_[A-Za-z0-9_-]{20,200}$/;
 
 // The preview asks once per typed character, so it gets more room than the confirm attempts.
+export const CODE_ATTEMPT_RATE_LIMIT = {
+  per: "user+handler",
+  limit: 20,
+  windowSeconds: 300,
+} as const;
+
 export const PENDING_REQUEST_RATE_LIMIT = {
   per: "user+handler",
   limit: 60,

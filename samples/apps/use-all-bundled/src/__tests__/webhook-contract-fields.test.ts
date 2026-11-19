@@ -13,6 +13,8 @@ import config from "../../kumiko.config";
 
 const RELEASABLE_FIELDS: Readonly<Record<string, string>> = {
   "config/config-value": "id key value userId",
+  "connectors/connector": "id name kind status",
+  "connectors/inbound-item": "id connectorId fileRefId relativePath sizeBytes sourceModifiedAt",
   "user/user": "id locale timezone emailVerified roles status gracePeriodEnd",
   "tenant/tenant":
     "id key isEnabled status destroyRequestedAt destroyRequestedBy gracePeriodEnd destroyStartedAt destroyedAt",

@@ -199,9 +199,7 @@ export function signatureRoute<T>(def: SignatureExtraRoute<T>): ExtraRouteDefini
 export function binaryBodySignatureRoute<T>(
   def: BinaryBodySignatureExtraRoute<T>,
 ): ExtraRouteDefinition {
-  // @cast-boundary generic erasure at the public ExtraRouteDefinition boundary;
-  // verify() and handler() above stay paired through T at the call site.
-  return def as unknown as SignatureExtraRoute<unknown>;
+  return signatureRoute(def);
 }
 
 export type ExtraRouteRejectionStatus = 400 | 401 | 403 | 404 | 500 | 503;

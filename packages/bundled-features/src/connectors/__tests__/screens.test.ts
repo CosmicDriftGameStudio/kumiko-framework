@@ -22,8 +22,7 @@ describe("connector list screen", () => {
     }
     for (const status of ["active", "revoked"]) {
       const entry = CONNECTORS_I18N[`${renderer.keyPrefix}${status}`];
-      expect(entry?.en).toBeTruthy();
-      expect(entry?.de).toBeTruthy();
+      expect(entry).toEqual({ en: expect.any(String), de: expect.any(String) });
     }
   });
 
@@ -39,7 +38,10 @@ describe("connector list screen", () => {
     expect(revoke.handler).toBe(ConnectorHandlers.revoke);
     expect(revoke.style).toBe("danger");
     expect(revoke.visible).toEqual({ field: "status", ne: "revoked" });
-    expect(CONNECTORS_I18N[revoke.confirm ?? ""]?.de).toBeTruthy();
+    expect(revoke.confirm).toBe("connectors.list.revoke.confirm");
+    expect(CONNECTORS_I18N[revoke.confirm ?? ""]?.de).toBe(
+      "Diesen Anschluss sperren? Das Gerät kann sofort keine Dateien mehr liefern.",
+    );
   });
 
   test("the empty state offers the same pairing action as the toolbar", () => {
@@ -76,7 +78,7 @@ describe("connector pairing screens", () => {
 });
 
 describe("connector list columns", () => {
-  test('a device never seen reads "noch nie"', () => {
+  test("a device never seen shows the never-seen label", () => {
     const column = connectorListScreen.columns.find(
       (c) => typeof c !== "string" && c.field === "lastSeenAt",
     );

@@ -4,19 +4,18 @@ import {
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { CONNECTOR_ENTITY, CONNECTORS_FEATURE, INBOUND_ITEM_ENTITY } from "./constants.ts";
-import { approveDeviceWrite, checkDeviceWrite } from "./handlers/approve-device.write.ts";
+import { approveDeviceWrite } from "./handlers/approve-device.write.ts";
+import { checkDeviceWrite } from "./handlers/check-device.write.ts";
 import { claimAuthorizationWrite } from "./handlers/claim-authorization.write.ts";
 import { devicePollWrite } from "./handlers/device-poll.write.ts";
 import { deviceStartWrite } from "./handlers/device-start.write.ts";
+import { listConnectorsQuery } from "./handlers/list-connectors.query.ts";
+import { listDevicesQuery } from "./handlers/list-devices.query.ts";
 import { markDeviceCheckedWrite } from "./handlers/mark-device-checked.write.ts";
-import {
-  listConnectorsQuery,
-  listDevicesQuery,
-  pendingRequestQuery,
-  resolveDeviceQuery,
-  resolvePendingAuthorizationQuery,
-} from "./handlers/queries.ts";
+import { pendingRequestQuery } from "./handlers/pending-request.query.ts";
 import { receiveFileWrite } from "./handlers/receive-file.write.ts";
+import { resolveDeviceQuery } from "./handlers/resolve-device.query.ts";
+import { resolvePendingAuthorizationQuery } from "./handlers/resolve-pending-authorization.query.ts";
 import { revokeConnectorWrite } from "./handlers/revoke.write.ts";
 import { revokeDeviceTokensWrite } from "./handlers/revoke-device-tokens.write.ts";
 import { touchDeviceWrite } from "./handlers/touch-device.write.ts";

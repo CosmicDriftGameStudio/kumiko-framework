@@ -965,11 +965,11 @@
       "secrets": [],
       "writeHandlers": [
         "connectors:write:approve-device",
+        "connectors:write:check-device",
         "connectors:write:claim-authorization",
-        "connectors:write:deny-authorization",
-        "connectors:write:deny-device",
         "connectors:write:device-poll",
         "connectors:write:device-start",
+        "connectors:write:mark-device-checked",
         "connectors:write:receive-file",
         "connectors:write:revoke",
         "connectors:write:revoke-device-tokens",
