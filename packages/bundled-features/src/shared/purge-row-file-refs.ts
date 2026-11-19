@@ -1,6 +1,10 @@
 import { type DbRunner, selectMany, type WhereObject } from "@cosmicdrift/kumiko-framework/db";
 import type { EntityDefinition, Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { fileRefsTable, holdsFileRefs } from "@cosmicdrift/kumiko-framework/files";
+import {
+  type FileRefOwner,
+  fileRefsTable,
+  holdsFileRefs,
+} from "@cosmicdrift/kumiko-framework/files";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 
 type EntityFields = EntityDefinition["fields"];
@@ -14,6 +18,7 @@ export type FileFieldPlan = {
 };
 
 export type SingleFileHolder = {
+  readonly entityName: string;
   readonly table: EntityTable;
   readonly tableHasTenantId: boolean;
   readonly singleFields: readonly string[];
@@ -55,6 +60,7 @@ export function collectSingleFileHolders(registry: Registry): readonly SingleFil
     const { singleFields } = planFileFields(entity.fields);
     if (singleFields.length === 0) continue;
     holders.push({
+      entityName: proj.source,
       table: proj.table,
       tableHasTenantId: propertyOf(proj.table, "tenantId") !== undefined,
       singleFields,
@@ -117,7 +123,7 @@ function isFileRefBoundElsewhere(
 // A single-field fileRef-id can be shared by more than one row, in the SAME
 // table or in another entity's table; with a partial field set, also by another
 // field of the same row. Purging its bytes would corrupt the holder that stays.
-async function isFileRefSharedByOtherHolder(
+async function findOtherHolder(
   db: DbRunner,
   holders: readonly SingleFileHolder[],
   ownTable: EntityTable,
@@ -125,7 +131,7 @@ async function isFileRefSharedByOtherHolder(
   rowId: string,
   fileRefId: string,
   fieldNames: readonly string[] | undefined,
-): Promise<boolean> {
+): Promise<FileRefOwner | undefined> {
   for (const holder of holders) {
     for (const field of holder.singleFields) {
       const where: WhereObject = { [field]: fileRefId };
@@ -134,11 +140,21 @@ async function isFileRefSharedByOtherHolder(
         where["id"] = fieldIsPurged ? { ne: rowId } : rowId;
       }
       if (holder.tableHasTenantId) where["tenantId"] = tenantId;
-      const others = await selectMany(db, holder.table, where, { limit: 1 });
-      if (others.length > 0) return true;
+      const others = await selectMany<{ id: string }>(db, holder.table, where, {
+        limit: 1,
+        orderBy: { col: "id" },
+      });
+      const other = others[0];
+      if (other !== undefined) {
+        return { entityType: holder.entityName, entityId: String(other.id), fieldName: field };
+      }
     }
   }
-  return false;
+  return undefined;
+}
+
+function isBoundToRow(fileRef: Record<string, unknown>, entityName: string, rowId: string) {
+  return fileRef["entityType"] === entityName && fileRef["entityId"] === rowId;
 }
 
 // Deletes the un-shared fileRefs a row's file-fields reference: bytes (incl.
@@ -159,6 +175,12 @@ export async function purgeRowFileRefs(args: {
   /** Returns the keys whose delete failed; undefined = no storage reachable. */
   readonly deleteBytes: ((storageKey: string) => Promise<readonly string[]>) | undefined;
   readonly fileRefForget: (fileRefId: string) => Promise<boolean>;
+  /** Moves a shared fileRef off the purged row onto the holder that stays; false = not moved. */
+  readonly fileRefRebind?: (
+    fileRefId: string,
+    from: FileRefOwner,
+    to: FileRefOwner,
+  ) => Promise<boolean>;
   readonly onBytesDeleteFailed?: (failedKeys: readonly string[]) => void;
 }): Promise<FileRefPurgeOutcome> {
   const rowId = String(args.row["id"]);
@@ -178,9 +200,10 @@ export async function purgeRowFileRefs(args: {
   });
 
   const toDelete: Record<string, unknown>[] = [];
+  const toRebind: RebindMove[] = [];
   for (const fileRef of fileRefRows) {
     if (isFileRefBoundElsewhere(fileRef, args.entityName, rowId, args.fieldNames)) continue;
-    const shared = await isFileRefSharedByOtherHolder(
+    const holder = await findOtherHolder(
       args.db,
       args.fileHolders,
       args.table,
@@ -189,27 +212,65 @@ export async function purgeRowFileRefs(args: {
       String(fileRef["id"]),
       args.fieldNames,
     );
-    if (shared) continue;
-    toDelete.push(fileRef);
+    if (holder === undefined) {
+      toDelete.push(fileRef);
+      continue;
+    }
+    const move = rebindMoveOf(fileRef, args.entityName, rowId, holder);
+    if (args.fileRefRebind && move !== undefined) toRebind.push(move);
+  }
+  if (args.fileRefRebind) {
+    for (const move of toRebind) {
+      if (!(await args.fileRefRebind(move.id, move.from, move.to))) return "file_delete_failed";
+    }
   }
   if (toDelete.length === 0) return "purged";
 
   if (!args.deleteBytes) return "missing_file_storage";
+  return await deleteFileRefsBytesFirst(toDelete, args.deleteBytes, args);
+}
 
+type RebindMove = { id: string; from: FileRefOwner; to: FileRefOwner };
+
+// The purged row's binding would hide the file from the holder that stays (owner-row read
+// gates). Several holders: the first by id, so repeated runs pick the same one.
+function rebindMoveOf(
+  fileRef: Record<string, unknown>,
+  entityName: string,
+  rowId: string,
+  holder: FileRefOwner,
+): RebindMove | undefined {
+  const fieldName = fileRef["fieldName"];
+  if (!isBoundToRow(fileRef, entityName, rowId) || typeof fieldName !== "string") return undefined;
+  return {
+    id: String(fileRef["id"]),
+    from: { entityType: entityName, entityId: rowId, fieldName },
+    to: holder,
+  };
+}
+
+async function deleteFileRefsBytesFirst(
+  toDelete: readonly Record<string, unknown>[],
+  deleteBytes: (storageKey: string) => Promise<readonly string[]>,
+  hooks: {
+    readonly fileRefForget: (fileRefId: string) => Promise<boolean>;
+    readonly onBytesDeleteFailed?: (failedKeys: readonly string[]) => void;
+  },
+): Promise<FileRefPurgeOutcome> {
   let anyFailed = false;
   for (const fileRef of toDelete) {
     const key = fileRef["storageKey"];
     if (typeof key !== "string" || key.length === 0) continue;
-    const failedKeys = await args.deleteBytes(key);
+    const failedKeys = await deleteBytes(key);
     if (failedKeys.length > 0) {
       anyFailed = true;
-      args.onBytesDeleteFailed?.(failedKeys);
+      hooks.onBytesDeleteFailed?.(failedKeys);
     }
   }
   if (anyFailed) return "file_delete_failed";
 
   for (const fileRef of toDelete) {
-    if (!(await args.fileRefForget(String(fileRef["id"])))) return "file_delete_failed";
+    if (!(await hooks.fileRefForget(String(fileRef["id"])))) return "file_delete_failed";
   }
   return "purged";
 }

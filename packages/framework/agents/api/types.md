@@ -1699,6 +1699,7 @@ type ExtensionSectionProps = {
   patch?: (partial: Readonly<Record<string, unknown>>) => void; // Sets host RenderEdit form values from outside (e.g. a VIN-decode roundtrip that fills other fields) — same function as `RenderEditControls.patch`, merges only the given keys.
   validate?: () => boolean; // Validates the host form without writing — same function as `RenderEditControls.validate`; field errors land in `snapshot.errors` on the field instead of a collective message.
   markSaved?: (fields?: string[]) => void; // Marks host form values as saved after the section wrote them itself, so a following navigation does not ask to discard.
+  reloadHost?: () => void; // Reloads the host record (the detail query behind the screen) after the section wrote data itself, so derived host content such as next-step guidance refreshes.
   hasUnsavedChanges?: boolean; // Whether the host form has unsaved changes.
   wizardStep?: {
     index: number;

@@ -17,6 +17,7 @@ import {
   asRawClient,
   buildEntityTable,
   createEventStoreExecutor,
+  selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   bridgeStub,
@@ -346,6 +347,40 @@ describe("runRetentionCleanup :: hardDelete purges file bytes + derivatives + fi
     expect(await labels("read_c8_doc", T1)).toEqual(["fresh-shared"]);
     expect(await provider.exists(sharedKey)).toBe(true);
     expect(await fileRefExists(sharedId)).toBe(true);
+  });
+
+  test("a fileRef bound to the purged row but held by another entity's live row is rebound to that holder", async () => {
+    const rowA = await seedDoc("read_c8_doc", T1, "expired-owner", pastIso);
+    const rowB = await seedDoc("read_c8_other_doc", T1, "live-holder", withinIso);
+    const sharedId = await seedFileRef({
+      tenantId: T1,
+      entityName: "c8-doc",
+      entityId: rowA,
+      fieldName: "cover",
+      key: "t1/rebind/cover/orig.jpg",
+    });
+    await setCover("read_c8_doc", rowA, sharedId);
+    await setCover("read_c8_other_doc", rowB, sharedId);
+
+    await runRetentionCleanup({
+      db: stack.db,
+      registry: stack.registry,
+      tenantId: T1,
+      preloadedTenantPreset: null,
+      now,
+      files: filesCtx(),
+    });
+
+    expect(await labels("read_c8_doc", T1)).toEqual([]);
+    expect(await provider.exists("t1/rebind/cover/orig.jpg")).toBe(true);
+    const [ref] = await selectMany<Record<string, unknown>>(stack.db, fileRefsTable, {
+      id: sharedId,
+    });
+    expect(ref).toMatchObject({
+      entityType: "c8-other-doc",
+      entityId: rowB,
+      fieldName: "cover",
+    });
   });
 
   test("unbound fileRef shared with another entity type's live row survives", async () => {

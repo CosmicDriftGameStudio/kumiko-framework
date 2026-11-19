@@ -23,6 +23,7 @@ import {
   fileRefEntity,
   fileRefsTable,
   listActionFormFileFields,
+  rebindFileRef,
 } from "@cosmicdrift/kumiko-framework/files";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
@@ -227,6 +228,11 @@ export async function purgeFilesReachingSubject(args: {
             : undefined,
           fileRefForget: async (fileRefId) =>
             (await fileRefExecutor.forget({ id: fileRefId }, systemUser, tdb)).isSuccess,
+          fileRefRebind: async (fileRefId, from, to) =>
+            (await rebindFileRef(
+              { db: tdb, registry: registry, user: systemUser },
+              { fileRefId, from, to },
+            )) === "rebound",
         });
         if (outcome === "missing_file_storage" && missingStorage.mode === "skip") {
           missingStorage.warn(tenantId);
