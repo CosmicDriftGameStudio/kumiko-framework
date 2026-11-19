@@ -9,11 +9,14 @@ export function CollapsibleSection({
   defaultOpen = false,
   children,
   testId,
+  onOpenChange,
 }: {
   readonly title: string;
   readonly defaultOpen?: boolean;
   readonly children: ReactNode;
   readonly testId?: string;
+  /** Called when the user opens or closes the section; `defaultOpen` does not trigger it. */
+  readonly onOpenChange?: (open: boolean) => void;
 }): ReactNode {
   const [open, setOpen] = useState(defaultOpen);
   // useState(defaultOpen) reads only the mount-time value; an asynchronously hydrated
@@ -27,7 +30,14 @@ export function CollapsibleSection({
       data-testid={testId}
       className="group rounded-lg border bg-card"
       open={open}
-      onToggle={(e) => setOpen(e.currentTarget.open)}
+      onToggle={(e) => {
+        const next = e.currentTarget.open;
+        // The browser also fires toggle when React sets `open` (mount with defaultOpen,
+        // late hydration); only a change against our state comes from the user.
+        if (next === open) return;
+        setOpen(next);
+        onOpenChange?.(next);
+      }}
     >
       {/* min-h-9 matches the form controls it often sits next to */}
       <summary className="flex min-h-9 py-1.5 cursor-pointer select-none items-center justify-between gap-2 rounded-lg px-4 text-sm font-medium hover:bg-muted/50 [&::-webkit-details-marker]:hidden">

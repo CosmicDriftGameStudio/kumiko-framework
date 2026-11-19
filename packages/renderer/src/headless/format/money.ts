@@ -1,4 +1,5 @@
 import { currencyDecimals } from "@cosmicdrift/kumiko-types/minor-units";
+import { cachedNumberFormat, canonicalLocaleOr } from "./number-format-cache.ts";
 
 export { currencyDecimals };
 
@@ -23,11 +24,7 @@ const FALLBACK_MONEY_LOCALE = "en-US";
 // front keeps server renders and client cells safe. No navigator lookup, so it
 // behaves the same on the server.
 export function resolveSafeMoneyLocale(locale: string | undefined): string {
-  try {
-    return Intl.getCanonicalLocales(locale ?? FALLBACK_MONEY_LOCALE)[0] ?? FALLBACK_MONEY_LOCALE;
-  } catch {
-    return FALLBACK_MONEY_LOCALE;
-  }
+  return canonicalLocaleOr(locale ?? FALLBACK_MONEY_LOCALE, FALLBACK_MONEY_LOCALE);
 }
 
 export function isCurrencyCode(code: string): boolean {
@@ -48,7 +45,7 @@ export function formatMoney(
   const max =
     options.maximumFractionDigits ?? Math.max(decimals, options.minimumFractionDigits ?? decimals);
   const min = options.minimumFractionDigits ?? Math.min(decimals, max);
-  return new Intl.NumberFormat(resolveSafeMoneyLocale(options.locale), {
+  return cachedNumberFormat(resolveSafeMoneyLocale(options.locale), {
     ...(validCurrency && { style: "currency", currency }),
     minimumFractionDigits: min,
     maximumFractionDigits: max,
