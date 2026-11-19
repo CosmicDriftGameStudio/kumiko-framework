@@ -11,6 +11,7 @@ import { MAX_SEARCH_HITS, MIN_SEARCH_TERM_LENGTH } from "../constants.ts";
 import { connectorTable } from "../schema/connector.ts";
 import { inboundFolderExecutor, inboundFolderTable } from "../schema/inbound-folder.ts";
 import { inboundItemExecutor } from "../schema/inbound-item.ts";
+import { deletingFolderIds } from "../stored-bytes.ts";
 
 type Db = HandlerContext["db"];
 type FolderRef = {
@@ -96,6 +97,7 @@ async function fileHits(
     readonly folderIds: readonly string[] | null;
     readonly needle: string;
     readonly budget: Budget;
+    readonly doomed: ReadonlySet<string>;
   },
 ): Promise<Hit[]> {
   const hits: Hit[] = [];
@@ -108,9 +110,15 @@ async function fileHits(
       chunk === null ? base : [...base, { field: "folderId", op: "in" as const, value: chunk }];
     let cursor: string | undefined;
     do {
-      const page = await inboundItemExecutor.list({ filters, limit: PAGE_SIZE, cursor }, user, db);
-      const scanned = spend(scope.budget, page.rows.length);
-      for (const row of page.rows.slice(0, scanned)) {
+      const listed = await inboundItemExecutor.list(
+        { filters, limit: PAGE_SIZE, cursor },
+        user,
+        db,
+      );
+      // Files of a folder being deleted are about to vanish: neither scanned nor shown.
+      const rows = listed.rows.filter((row) => !scope.doomed.has(String(row["folderId"])));
+      const scanned = spend(scope.budget, rows.length);
+      for (const row of rows.slice(0, scanned)) {
         const name = fileNameOf(String(row["relativePath"]));
         if (!matches(name, scope.needle)) continue;
         hits.push({
@@ -123,7 +131,7 @@ async function fileHits(
           totalBytes: Number(row["sizeBytes"]),
         });
       }
-      cursor = scanned < page.rows.length ? undefined : (page.nextCursor ?? undefined);
+      cursor = scanned < rows.length ? undefined : (listed.nextCursor ?? undefined);
     } while (cursor !== undefined);
   }
   return hits;
@@ -153,7 +161,10 @@ export function createInboundSearchQuery(maxNames: number) {
       }
 
       const budget: Budget = { remaining: maxNames, truncated: false };
-      const scope = await scopeFolders(ctx.db, connectorId, view, maxNames + 1);
+      const doomed = new Set(await deletingFolderIds(ctx.db));
+      const scope = (await scopeFolders(ctx.db, connectorId, view, maxNames + 1)).filter(
+        (folder) => !doomed.has(folder.id),
+      );
       const scanned = spend(budget, scope.length);
       const names = await namesOf(
         ctx.db,
@@ -180,6 +191,7 @@ export function createInboundSearchQuery(maxNames: number) {
           folderIds: view ? scope.map((folder) => folder.id) : null,
           needle,
           budget,
+          doomed,
         })),
       ];
       const shown = hits.slice(0, MAX_SEARCH_HITS);

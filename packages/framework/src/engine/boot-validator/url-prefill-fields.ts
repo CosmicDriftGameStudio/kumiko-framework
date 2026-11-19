@@ -221,11 +221,11 @@ function collectRedirectPrefillFieldsByScreenQn(
       if (screen.type !== "actionForm") continue;
       const { redirect } = screen;
       if (typeof redirect !== "object" || redirect.handOff !== true) continue;
-      if (redirect.searchParams === undefined) continue;
+      if (redirect.searchParams === undefined) continue; // boot rejects handOff without searchParams in screens-actions
       const target = findScreenEntryForNavTarget(screensByShortId, redirect.screen);
       if (target === undefined) continue;
       const targetScreen = target.screen;
-      if (targetScreen.type !== "actionForm" && targetScreen.type !== "secretMint") continue;
+      if (targetScreen.type !== "actionForm") continue;
       const qn = qualifyEntityName(target.featureName, "screen", target.shortId);
       result.set(qn, new Set([...(result.get(qn) ?? []), ...Object.keys(redirect.searchParams)]));
     }

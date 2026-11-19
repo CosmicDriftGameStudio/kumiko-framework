@@ -72,6 +72,17 @@ describe("connectors device flow", () => {
     });
   });
 
+  test("a connector revoked before the satellite collected its token gets none", async () => {
+    const started = await startPairing(stack);
+    const { connectorId } = await approve(stack, started.user_code, "Revoked early");
+    await stack.http.writeOk(ConnectorHandlers.revoke, { id: connectorId }, tenantAdmin);
+
+    const polled = await pollToken(stack, started.device_code);
+    expect(polled.status).toBe(400);
+    expect(await polled.json()).toEqual({ error: "invalid_grant" });
+    expect(await selectMany(stack.db, deviceTable, { connectorId })).toEqual([]);
+  });
+
   test("the user code is accepted as typed: lower case, no dash, I/L/O read as 1/0", async () => {
     const started = await startPairing(stack);
     const typed = started.user_code

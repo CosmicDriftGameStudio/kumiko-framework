@@ -74,6 +74,23 @@ describe("connectors upload and heartbeat", () => {
     expect(items[0]?.fileRefId).toBeTruthy();
   });
 
+  test("a file delivered again after its deletion answers with the id of the new item", async () => {
+    const bytes = Uint8Array.from([9, 8, 7, 6]);
+    const first = (await (
+      await upload(stack, token, { path: "redo/x.bin", bytes })
+    ).json()) as UploadAnswer;
+    await stack.http.writeOk(ConnectorHandlers.deleteFile, { id: first.id }, tenantAdmin);
+
+    const second = await upload(stack, token, { path: "redo/x.bin", bytes });
+    expect(second.status).toBe(201);
+    const revived = (await second.json()) as UploadAnswer;
+    expect(revived.id).not.toBe(first.id);
+
+    const third = await upload(stack, token, { path: "redo/x.bin", bytes });
+    expect(third.status).toBe(200);
+    expect(await third.json()).toEqual({ id: revived.id, duplicate: true });
+  });
+
   test("the same bytes under another path are a new item", async () => {
     const before = await itemCount();
     const res = await upload(stack, token, { path: "invoices/2026/copy.bin", bytes: BINARY });

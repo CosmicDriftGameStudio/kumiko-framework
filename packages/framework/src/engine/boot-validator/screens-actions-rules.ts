@@ -140,6 +140,11 @@ export const SCREEN_ACTION_RULES = {
     summary: "A redirect searchParams is only set on actionForm redirects.",
     fix: "Remove searchParams; other screen kinds do not read it.",
   },
+  redirectHandOffNeedsSearchParams: {
+    id: "screen/redirect-hand-off-needs-search-params",
+    summary: "A redirect with handOff sets searchParams.",
+    fix: "Add searchParams (URL param to payload field) or drop handOff.",
+  },
   redirectSearchParamsEmpty: {
     id: "screen/redirect-search-params-empty",
     summary: "A redirect searchParams entry has a non-empty param name and payload field.",

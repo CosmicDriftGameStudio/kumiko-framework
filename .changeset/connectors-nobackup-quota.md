@@ -32,7 +32,7 @@ detail: The heartbeat takes an optional `sync: { state, queued, failed, lastSync
 
 <!-- kumiko-changes
 feature: connectors
-type: feature
+type: improvement
 title: Delivered files form a folder tree with a "Dateien" screen
 detail: The path's directory part becomes an event-sourced `inbound-folder` tree per device (`inbound-item.folderId`); folders hold counts and sizes over the whole subtree. The custom screen `connector-files` shows breadcrumb, folders and files with storage used against the quota, and deletes a file or a folder with its subtree and bytes (TenantAdmin; a folder is marked at once and the `delete-folder-tree` job removes the subtree in batches, any size). Apps mount `connectorsClient()` from `@cosmicdrift/kumiko-bundled-features/connectors/web`, place the screen in their nav and set the quota only on `createConnectorsFeature()`; the upload check and the screen share it. Paths deeper than 20 folders or with a segment over 255 characters answer `422 path_rejected`. New tables: run the migration `0072_connectors`.
 -->

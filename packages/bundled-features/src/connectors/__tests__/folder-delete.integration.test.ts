@@ -66,14 +66,14 @@ describe("deleting a folder", () => {
     const big = device.rows.find((row) => row.name === "Big");
     await stack.http.writeOk(ConnectorHandlers.deleteFolder, { id: big?.id }, tenantAdmin);
 
-    expect((await view({})).usedBytes).toBe(12);
+    expect(await view({})).toMatchObject({ usedBytes: 26 * 12, deletingBytes: 25 * 12 });
     await runDeletionJobs(stack);
 
     expect(await selectMany(stack.db, inboundFolderTable, {})).toHaveLength(0);
     const items = await selectMany(stack.db, inboundItemTable, {});
     expect(items).toHaveLength(1);
     expect((await provider.list("")).length).toBe(1);
-    expect((await view({})).usedBytes).toBe(12);
+    expect(await view({})).toMatchObject({ usedBytes: 12, deletingBytes: 0 });
   });
 
   test("an upload into a folder being deleted lands in a fresh folder", async () => {

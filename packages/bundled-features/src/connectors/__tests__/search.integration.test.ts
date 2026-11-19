@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createInMemoryFileProvider } from "@cosmicdrift/kumiko-framework/files";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
-import { ConnectorQueries } from "../constants.ts";
+import { ConnectorHandlers, ConnectorQueries } from "../constants.ts";
 import {
   pairDevice,
   setupConnectorsStack,
@@ -96,6 +96,23 @@ describe("file search", () => {
     const folder = (await search({ term: "Lieferscheine", connectorId })).rows[0];
     const below = await search({ term: "pdf", connectorId, folderId: folder?.id });
     expect(below.rows.map((row) => row.name)).toEqual(["LS-4471.pdf"]);
+  });
+
+  test("a folder being deleted and its files are left out", async () => {
+    const own = await seededStack({});
+    try {
+      const find = (term: string) =>
+        own.http.queryOk<SearchAnswer>(ConnectorQueries.inboundSearch, { term }, tenantAdmin);
+      const folder = (await find("Lieferscheine")).rows[0];
+      await own.http.writeOk(ConnectorHandlers.deleteFolder, { id: folder?.id }, tenantAdmin);
+      expect((await find("Lieferscheine")).rows).toEqual([]);
+      expect((await find("pdf")).rows.map((row) => row.name).sort()).toEqual([
+        "Angebot.pdf",
+        "Rechnung-Meier.pdf",
+      ]);
+    } finally {
+      await teardownConnectorsStack(own);
+    }
   });
 
   test("another tenant sees nothing", async () => {

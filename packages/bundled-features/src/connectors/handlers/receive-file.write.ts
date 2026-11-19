@@ -1,8 +1,8 @@
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   defineWriteHandler,
   type HandlerContext,
-  type SessionUser,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { failNotFound } from "@cosmicdrift/kumiko-framework/errors";
 import {
@@ -18,7 +18,7 @@ import { inboundItemAggregateId } from "../aggregate-id.ts";
 import { CONNECTOR_STATUS, ConnectorErrors, MAX_ID_GENERATIONS } from "../constants.ts";
 import { ensureFolderChain } from "../folder-chain.ts";
 import { connectorExecutor } from "../schema/connector.ts";
-import { inboundItemExecutor } from "../schema/inbound-item.ts";
+import { inboundItemExecutor, inboundItemTable } from "../schema/inbound-item.ts";
 import { deletingFolderIds, physicalStoredBytes } from "../stored-bytes.ts";
 
 export const ReceiveFileSchema = z.object({
@@ -39,25 +39,25 @@ function fileNameOf(relativePath: string): string {
 }
 
 // An item sitting in a folder that is being deleted does not count as delivered: the sweep removes it.
-// Stops at the first free generation; a deleted generation 0 below a live generation 1 is caught by the create loop.
-async function itemExists(
+// One read over every generation's id: a forgotten generation leaves no row, so a live later generation is found past the gap.
+async function liveItemId(
   payload: ReceiveFilePayload,
-  user: SessionUser,
   db: HandlerContext["db"],
-): Promise<boolean> {
+): Promise<string | null> {
+  const ids = Array.from({ length: MAX_ID_GENERATIONS }, (_, generation) =>
+    inboundItemAggregateId(payload.connectorId, payload.sha256, payload.relativePath, generation),
+  );
+  const rows = await selectMany<{ id: string; folderId: string | null }>(
+    db,
+    inboundItemTable,
+    { id: { in: ids } },
+    { fields: ["id", "folderId"] },
+  );
   const doomed = new Set(await deletingFolderIds(db));
-  for (let generation = 0; generation < MAX_ID_GENERATIONS; generation += 1) {
-    const id = inboundItemAggregateId(
-      payload.connectorId,
-      payload.sha256,
-      payload.relativePath,
-      generation,
-    );
-    const existing = await inboundItemExecutor.detail({ id }, user, db);
-    if (!existing) return false;
-    if (!doomed.has(String(existing["folderId"]))) return true;
-  }
-  return false;
+  const live = new Set(
+    rows.filter((row) => row.folderId === null || !doomed.has(row.folderId)).map((row) => row.id),
+  );
+  return ids.find((id) => live.has(id)) ?? null;
 }
 
 // Duplicate is a success with `duplicate: true`: a satellite that retries after a lost response
@@ -80,7 +80,9 @@ export function createReceiveFileWrite(maxStoredBytes: number) {
       ctx,
     ): Promise<BeforeTransactionResult<UploadedFileBytes | null>> => {
       const { payload } = event;
-      if (await itemExists(payload, event.user, ctx.db)) return { isSuccess: true, data: null };
+      if ((await liveItemId(payload, ctx.db)) !== null) {
+        return { isSuccess: true, data: null };
+      }
       // ponytail: sum then store without a lock, so parallel uploads can overshoot the quota by their combined size; the per-file cap and the upload rate limit bound that
       if ((await physicalStoredBytes(ctx.db)) + payload.data.byteLength > maxStoredBytes) {
         return unprocessable(
@@ -111,14 +113,15 @@ export function createReceiveFileWrite(maxStoredBytes: number) {
           "errors.connectors.connectorRevoked",
         );
       }
-      if (event.prepared === null || (await itemExists(payload, event.user, ctx.db))) {
-        return {
-          isSuccess: true as const,
-          data: {
-            id: inboundItemAggregateId(payload.connectorId, payload.sha256, payload.relativePath),
-            duplicate: true,
-          },
-        };
+      const liveId = await liveItemId(payload, ctx.db);
+      if (liveId !== null)
+        return { isSuccess: true as const, data: { id: liveId, duplicate: true } };
+      // Delivered and deleted again between the byte check and here: nothing was written, the satellite sends it again.
+      if (event.prepared === null) {
+        return unprocessable(
+          ConnectorErrors.uploadNotPrepared,
+          "errors.connectors.uploadNotPrepared",
+        );
       }
       const fileRef =
         event.prepared === undefined

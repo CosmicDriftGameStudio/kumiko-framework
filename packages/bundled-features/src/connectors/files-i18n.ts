@@ -15,6 +15,10 @@ export const CONNECTOR_FILES_I18N: Readonly<Record<string, Localized>> = {
   "connectors.files.kind.file": { en: "File", de: "Datei" },
   "connectors.files.storage": { en: "Storage used", de: "Speicher belegt" },
   "connectors.files.storageOf": { en: "of {quota}", de: "von {quota}" },
+  "connectors.files.storageDeleting": {
+    en: "{size} of it is being deleted",
+    de: "davon {size} werden gelöscht",
+  },
   "connectors.files.empty.title": {
     en: "Nothing delivered here yet",
     de: "Hier ist noch nichts angekommen",

@@ -11,7 +11,7 @@ import { FILES_PAGE_SIZE } from "../constants.ts";
 import { connectorExecutor, connectorTable } from "../schema/connector.ts";
 import { inboundFolderExecutor, inboundFolderTable } from "../schema/inbound-folder.ts";
 import { inboundItemExecutor, inboundItemTable } from "../schema/inbound-item.ts";
-import { storedBytes } from "../stored-bytes.ts";
+import { physicalStoredBytes, storedBytes } from "../stored-bytes.ts";
 
 type Totals = { readonly fileCount: number; readonly totalBytes: number };
 type FolderLink = { readonly id: string; readonly parentId: string | null };
@@ -280,7 +280,13 @@ export function createInboundFolderQuery(maxStoredBytes: number) {
         field: query.payload.sort ?? "name",
         direction: query.payload.sortDirection ?? "asc",
       };
-      const header = { usedBytes: await storedBytes(ctx.db), quotaBytes: maxStoredBytes };
+      // The same sum the quota checks; what sits in deleting folders is named apart until the sweep removed it.
+      const usedBytes = await physicalStoredBytes(ctx.db);
+      const header = {
+        usedBytes,
+        deletingBytes: usedBytes - (await storedBytes(ctx.db)),
+        quotaBytes: maxStoredBytes,
+      };
 
       if (connectorId === undefined) {
         return { ...header, breadcrumb: [], rows: await deviceRows(ctx.db), nextCursor: null };

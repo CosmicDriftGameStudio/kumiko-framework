@@ -2630,7 +2630,7 @@ type DataTableRowAction = {
   id: string; // Stable ID for aria-labels and data-testids.
   label: string; // Translated Label.
   style?: "primary" | "secondary" | "danger"; // Visual style — "danger" renders the red variant in the default primitive.
-  confirm?: string; // Translated confirmation prompt (dialog description).
+  confirm?: string | ((row: ListRowViewModel) => string); // Translated confirmation prompt (dialog description).
   confirmLabel?: string; // Translated confirm-button label in the dialog.
   confirmRequired?: boolean; // Overrides the default "danger implies a confirm dialog" rule.
   onTrigger: (row: ListRowViewModel) => Promise<void> | void; // Called with the clicked row's `ListRowViewModel`.

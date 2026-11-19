@@ -152,13 +152,13 @@ describe("file tree", () => {
     const rechnungen = device.rows.find((row) => row.name === "Rechnungen");
     const before = (await provider.list("")).length;
     await stack.http.writeOk(ConnectorHandlers.deleteFolder, { id: rechnungen?.id }, tenantAdmin);
-    // Marked at once: shown as being deleted, its files no longer count.
+    // Marked at once and named apart, but the bytes count until the sweep removed them.
     const marked = await view({ connectorId });
     expect(marked.rows.find((row) => row.name === "Rechnungen")?.deleting).toBe(true);
-    expect((await view({})).usedBytes).toBe(15 + 50);
+    expect(await view({})).toMatchObject({ usedBytes: 15 + 50 + 50, deletingBytes: 50 });
     await runDeletionJobs(stack);
     expect((await provider.list("")).length).toBe(before - 2);
-    expect((await view({})).usedBytes).toBe(15 + 50);
+    expect(await view({})).toMatchObject({ usedBytes: 15 + 50, deletingBytes: 0 });
     const after = await view({ connectorId });
     expect(after.rows.map((row) => row.name)).toEqual(["Lieferscheine", "Neu"]);
     const items = await selectMany(stack.db, inboundItemTable, {});

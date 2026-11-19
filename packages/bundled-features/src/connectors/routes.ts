@@ -65,7 +65,7 @@ const HEARTBEAT_SCHEMA = z.object({
 });
 const touchResultSchema = z.object({ retry: z.boolean() });
 const tooManyOpenSchema = z.object({ tooManyOpenRequests: z.literal(true) });
-const receivedSchema = z.object({ duplicate: z.boolean() });
+const receivedSchema = z.object({ id: z.uuid(), duplicate: z.boolean() });
 const pollOutcomeSchema = z.object({
   kind: z.enum(["token", "authorization_pending", "slow_down", "expired_token", "invalid_grant"]),
   accessToken: z.string().optional(),
@@ -233,8 +233,8 @@ async function receiveUpload(
   await touchDevice(deps, device);
 
   if (result.isSuccess) {
-    const { duplicate } = receivedSchema.parse(result.data);
-    return c.json({ id: itemId, duplicate }, duplicate ? 200 : 201);
+    const { id, duplicate } = receivedSchema.parse(result.data);
+    return c.json({ id, duplicate }, duplicate ? 200 : 201);
   }
   return uploadFailureResponse(c, result.error, itemId);
 }

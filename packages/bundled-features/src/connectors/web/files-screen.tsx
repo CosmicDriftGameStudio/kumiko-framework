@@ -26,6 +26,7 @@ type FileRow = Readonly<Record<string, unknown>> & {
 };
 type FilesData = {
   readonly usedBytes: number;
+  readonly deletingBytes: number;
   readonly quotaBytes: number;
   readonly breadcrumb: readonly Crumb[];
   readonly rows: readonly FileRow[];
@@ -77,9 +78,72 @@ function formatBytes(bytes: number): string {
   return `${unit === 0 ? value : value.toFixed(1)} ${BYTE_UNITS[unit]}`;
 }
 
+function SearchResults({
+  location,
+  term,
+  onOpen,
+}: {
+  readonly location: Location;
+  readonly term: string;
+  readonly onOpen: (hit: SearchHit) => void;
+}): ReactNode {
+  const t = useTranslation();
+  const { DataTable } = usePrimitives();
+  const { data: found } = useQuery<SearchData>(ConnectorQueries.inboundSearch, {
+    connectorId: location.connectorId,
+    folderId: location.folderId,
+    term,
+  });
+  return (
+    <>
+      <DataTable
+        testId="connector-files-search-results"
+        screenPadding={false}
+        columns={[
+          {
+            field: "name",
+            label: t("connectors.files.col.name"),
+            type: "text",
+            sortable: false,
+            renderer: { react: { __component: FILE_NAME_CELL_COMPONENT } },
+          },
+          {
+            field: "path",
+            label: t("connectors.files.col.path"),
+            type: "text",
+            sortable: false,
+          },
+          {
+            field: "size",
+            label: t("connectors.files.col.size"),
+            type: "text",
+            sortable: false,
+          },
+        ]}
+        rows={(found?.rows ?? []).map((hit) => ({
+          id: hit.id,
+          values: {
+            ...hit,
+            size: hit.kind === "file" ? formatBytes(hit.totalBytes) : "",
+            deleting: false,
+          },
+        }))}
+        onRowClick={(row) => {
+          const hit = found?.rows.find((candidate) => candidate.id === row.id);
+          if (hit) onOpen(hit);
+        }}
+        emptyState={<p>{t("connectors.files.search.empty")}</p>}
+      />
+      {found?.truncated ? (
+        <p className="text-sm text-muted-foreground">{t("connectors.files.search.truncated")}</p>
+      ) : null}
+    </>
+  );
+}
+
 export function ConnectorFilesScreen(): ReactNode {
   const t = useTranslation();
-  const { Button, Input, DataTable } = usePrimitives();
+  const { Button, Input } = usePrimitives();
   const [searchText, setSearchText] = useState("");
   const term = useDebouncedValue(searchText.trim(), SEARCH_DEBOUNCE_MS);
   const searching = term.length >= MIN_SEARCH_TERM_LENGTH;
@@ -102,11 +166,6 @@ export function ConnectorFilesScreen(): ReactNode {
     await refetch();
   };
 
-  const { data: found } = useQuery<SearchData>(
-    ConnectorQueries.inboundSearch,
-    { connectorId: location.connectorId, folderId: location.folderId, term },
-    { enabled: searching },
-  );
   const openHit = (hit: SearchHit): void => {
     setSearchText("");
     setLocation({
@@ -140,7 +199,12 @@ export function ConnectorFilesScreen(): ReactNode {
       <StatCard
         label={t("connectors.files.storage")}
         value={formatBytes(data?.usedBytes ?? 0)}
-        sub={t("connectors.files.storageOf", { quota: formatBytes(data?.quotaBytes ?? 0) })}
+        sub={[
+          t("connectors.files.storageOf", { quota: formatBytes(data?.quotaBytes ?? 0) }),
+          ...(data && data.deletingBytes > 0
+            ? [t("connectors.files.storageDeleting", { size: formatBytes(data.deletingBytes) })]
+            : []),
+        ].join(" · ")}
         testId="connector-files-storage"
       />
       <nav aria-label="breadcrumb" className="flex flex-wrap items-center gap-1.5 text-sm">
@@ -189,51 +253,7 @@ export function ConnectorFilesScreen(): ReactNode {
         placeholder={t("connectors.files.search.placeholder")}
       />
       {searching ? (
-        <>
-          <DataTable
-            testId="connector-files-search-results"
-            screenPadding={false}
-            columns={[
-              {
-                field: "name",
-                label: t("connectors.files.col.name"),
-                type: "text",
-                sortable: false,
-                renderer: { react: { __component: FILE_NAME_CELL_COMPONENT } },
-              },
-              {
-                field: "path",
-                label: t("connectors.files.col.path"),
-                type: "text",
-                sortable: false,
-              },
-              {
-                field: "size",
-                label: t("connectors.files.col.size"),
-                type: "text",
-                sortable: false,
-              },
-            ]}
-            rows={(found?.rows ?? []).map((hit) => ({
-              id: hit.id,
-              values: {
-                ...hit,
-                size: hit.kind === "file" ? formatBytes(hit.totalBytes) : "",
-                deleting: false,
-              },
-            }))}
-            onRowClick={(row) => {
-              const hit = found?.rows.find((candidate) => candidate.id === row.id);
-              if (hit) openHit(hit);
-            }}
-            emptyState={<p>{t("connectors.files.search.empty")}</p>}
-          />
-          {found?.truncated ? (
-            <p className="text-sm text-muted-foreground">
-              {t("connectors.files.search.truncated")}
-            </p>
-          ) : null}
-        </>
+        <SearchResults location={location} term={term} onOpen={openHit} />
       ) : (
         <QueryTable<FilesData>
           query={ConnectorQueries.inboundFolder}
