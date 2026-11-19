@@ -3,10 +3,18 @@
 // revoked device, the confirm step with the request preview and a code with no pairing attempt. The
 // satellite side runs over the real HTTP endpoints; the admin types the codes in the browser.
 //
-// SCREENSHOT_DIR=<dir> bun run connectors-shots writes <dir>/c01-empty.png ... c04-unknown-code.png.
+// SCREENSHOT_DIR=<dir> bun run connectors-shots writes <dir>/c01-empty.png ... c10-files-folder-deleting.png.
 
-import { CLIENT_IP_HEADER, captureScreenshot, expect, test } from "@cosmicdrift/kumiko-testing/e2e";
+import { createHash } from "node:crypto";
+import {
+  CLIENT_IP_HEADER,
+  CSRF_COOKIE_NAME,
+  captureScreenshot,
+  expect,
+  test,
+} from "@cosmicdrift/kumiko-testing/e2e";
 import type { APIRequestContext, Page } from "@playwright/test";
+import { loginAsAdmin } from "./_helpers/login";
 
 const VIEWPORT = { width: 1440, height: 900 } as const;
 const LOCALE_STORAGE_KEY = "kumiko:locale";
@@ -97,7 +105,7 @@ test("empty list, paired and revoked devices, confirm step and unknown code", as
   const token = await collectToken(request, fileserver.deviceCode);
   const heartbeat = await request.post("/connectors/v1/heartbeat", {
     headers: { authorization: `Bearer ${token}` },
-    data: { version: "1.0.0" },
+    data: { version: "1.0.0", sync: { state: "idle", queued: 0, failed: 3 } },
   });
   expect(heartbeat.status()).toBe(200);
 
@@ -114,10 +122,121 @@ test("empty list, paired and revoked devices, confirm step and unknown code", as
   await page.reload();
   await expect(page.getByRole("row").filter({ hasText: ACTIVE_DEVICE })).toContainText("1.0.0");
   await expect(page.getByRole("row").filter({ hasText: ACTIVE_DEVICE })).toContainText("Aktiv");
+  await expect(page.getByRole("row").filter({ hasText: ACTIVE_DEVICE })).toContainText("3 Fehler");
   await captureScreenshot(page, "c02-list");
+
+  // Revoke is the first row action; the retry sits behind the row's overflow button.
+  await page.getByRole("row").filter({ hasText: ACTIVE_DEVICE }).getByRole("button").last().click();
+  await page.getByRole("menuitem", { name: "Erneut versuchen" }).click();
+  // The click is async in the browser; a heartbeat without the flag set yet answers without `retry`.
+  await expect
+    .poll(async () => {
+      const answer = await request.post("/connectors/v1/heartbeat", {
+        headers: { authorization: `Bearer ${token}` },
+        data: { version: "1.0.0", sync: { state: "idle", queued: 0, failed: 3 } },
+      });
+      return (await answer.json()) as { retry?: boolean };
+    })
+    .toEqual({ ok: true, retry: true });
 
   await openPairScreen(page);
   await checkCode(page, "ZZZZ-ZZZZ");
   await expect(page.getByText("Kein Kopplungsversuch mit diesem Code")).toBeVisible();
   await captureScreenshot(page, "c04-unknown-code");
+});
+
+const FILES_PATH = "/tenant-admin/connector-files";
+const PDF_HEADER = "%PDF-1.4\n";
+
+async function deliverPdf(
+  request: APIRequestContext,
+  token: string,
+  path: string,
+  sizeBytes: number,
+): Promise<void> {
+  // The file guard checks magic bytes, so the fixture starts like a PDF.
+  const body = Buffer.alloc(sizeBytes, 0x20);
+  body.write(PDF_HEADER);
+  const res = await request.post("/connectors/v1/files", {
+    headers: {
+      authorization: `Bearer ${token}`,
+      "content-type": "application/pdf",
+      "x-kumiko-path": encodeURIComponent(path),
+      "x-kumiko-sha256": createHash("sha256").update(body).digest("hex"),
+      "x-kumiko-mtime": "2026-11-18T08:30:00Z",
+    },
+    data: body,
+  });
+  expect(res.status()).toBe(201);
+}
+
+test("file tree: root, folder, delete confirmation", async ({ page, request, seedTenant }) => {
+  const tenant = await seedTenant({
+    name: "Indusnova Werkzeugbau",
+    admin: { displayName: "Jens Albrecht", email: "jens@indusnova.example" },
+  });
+  // Uploads need a storage provider; the sample ships none selected, and only a SystemAdmin sets it.
+  await loginAsAdmin(page);
+  const csrf =
+    (await page.context().cookies()).find((c) => c.name === CSRF_COOKIE_NAME)?.value ?? "";
+  const provider = await page.request.post("/api/write", {
+    headers: { "X-CSRF-Token": csrf },
+    data: {
+      type: "config:write:set",
+      payload: { key: "file-foundation:config:provider", value: "inmemory", scope: "system" },
+    },
+  });
+  expect(provider.ok()).toBe(true);
+  await tenant.loginAs(page, tenant.admin);
+  const pairing = await requestPairing(request);
+  await pairThroughScreen(page, pairing.userCode, ACTIVE_DEVICE);
+  const token = await collectToken(request, pairing.deviceCode);
+
+  await deliverPdf(request, token, "Rechnungen/2026/Rechnung-2026-0142-Meier-GmbH.pdf", 184_320);
+  await deliverPdf(request, token, "Rechnungen/2026/Rechnung-2026-0143-Brandt-KG.pdf", 96_256);
+  await deliverPdf(request, token, "Lieferscheine/LS-4471-Stahlhandel-Nord.pdf", 52_480);
+  await deliverPdf(request, token, "Angebot-Hallenkran-Frühjahr.pdf", 410_624);
+
+  await page.goto(FILES_PATH);
+  const table = page.getByTestId("connector-files-table");
+  await expect(table.getByText(ACTIVE_DEVICE)).toBeVisible();
+  await captureScreenshot(page, "c05-files-root");
+
+  // The breadcrumb's current entry follows the settled answer for the opened folder; the table keeps showing the previous rows until then, so a click before it would hit stale rows.
+  const currentCrumb = page
+    .getByRole("navigation", { name: "breadcrumb" })
+    .locator("[aria-current=page]");
+  await table.getByText(ACTIVE_DEVICE).click();
+  await expect(currentCrumb).toHaveText(ACTIVE_DEVICE);
+  await expect(table.getByText("Rechnungen")).toBeVisible();
+  await expect(table.getByText("Lieferscheine")).toBeVisible();
+  await captureScreenshot(page, "c06-files-device");
+
+  await table.getByText("Rechnungen").click();
+  await expect(currentCrumb).toHaveText("Rechnungen");
+  await table.getByText("2026", { exact: true }).click();
+  await expect(currentCrumb).toHaveText("2026");
+  await expect(table.getByText("Rechnung-2026-0142-Meier-GmbH.pdf")).toBeVisible();
+  await captureScreenshot(page, "c07-files-folder");
+
+  await page.getByRole("button", { name: ACTIVE_DEVICE }).click();
+  await expect(currentCrumb).toHaveText(ACTIVE_DEVICE);
+  await page.getByTestId("connector-files-search").fill("meier");
+  const results = page.getByTestId("connector-files-search-results");
+  await expect(results.getByText("Rechnung-2026-0142-Meier-GmbH.pdf")).toBeVisible();
+  await expect(results.getByText(/Rechnungen \/ 2026/)).toBeVisible();
+  await captureScreenshot(page, "c09-files-search");
+  await page.getByTestId("connector-files-search").fill("");
+  await expect(table.getByText("Rechnungen")).toBeVisible();
+  await table.getByRole("row").filter({ hasText: "Rechnungen" }).getByRole("button").last().click();
+  await page.getByRole("menuitem", { name: "Ordner löschen" }).click();
+  await expect(page.getByRole("dialog")).toContainText(
+    "Ordner „Rechnungen“ mit 2 Dateien (274.0 KB) löschen?",
+  );
+  await captureScreenshot(page, "c08-files-delete-folder");
+  await page.getByRole("dialog").getByRole("button", { name: "Ordner löschen" }).click();
+  // Marked at once; the deletion job removes it a moment later.
+  await expect(table.getByText("wird gelöscht")).toBeVisible();
+  // The sample's e2e server runs no job worker, so the sweep itself is proven by folder-delete.integration.test.ts.
+  await captureScreenshot(page, "c10-files-folder-deleting");
 });

@@ -1,8 +1,16 @@
 import { updateMany } from "@cosmicdrift/kumiko-framework/db";
 import { access, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
-import { HEARTBEAT_MIN_INTERVAL_MINUTES } from "../constants.ts";
+import { HEARTBEAT_MIN_INTERVAL_MINUTES, SYNC_STATE } from "../constants.ts";
 import { deviceTable } from "../schema/device.ts";
+
+export const syncReportSchema = z.object({
+  state: z.enum([SYNC_STATE.idle, SYNC_STATE.syncing, SYNC_STATE.error]),
+  queued: z.number().int().min(0),
+  failed: z.number().int().min(0),
+  lastSyncAt: z.iso.datetime().optional(),
+});
 
 // Throttled: a device that uploads in bursts must not rewrite its row per file. `where` has no OR,
 // so each way to qualify is its own conditional update: never seen, seen long ago, or a reported
@@ -12,6 +20,9 @@ export const touchDeviceWrite = defineWriteHandler({
   schema: z.object({
     deviceId: z.uuid(),
     reportedVersion: z.string().min(1).max(64).optional(),
+    sync: syncReportSchema.optional(),
+    // Only the heartbeat hands the retry signal to the satellite; an upload must not swallow it.
+    consumeRetry: z.boolean().optional(),
   }),
   access: { roles: access.system },
   agent: { expose: false },
@@ -19,10 +30,19 @@ export const touchDeviceWrite = defineWriteHandler({
     "Internal: records that a device was seen (and the software version it reported), at most once per few minutes.",
   handler: async (event, ctx) => {
     const now = ctx.tz.now();
+    const { sync } = event.payload;
     const set = {
       lastSeenAt: now,
       ...(event.payload.reportedVersion !== undefined && {
         reportedVersion: event.payload.reportedVersion,
+      }),
+      ...(sync !== undefined && {
+        syncState: sync.state,
+        syncQueued: sync.queued,
+        syncFailed: sync.failed,
+        ...(sync.lastSyncAt !== undefined && {
+          syncLastAt: Temporal.Instant.from(sync.lastSyncAt),
+        }),
       }),
     };
     const { deviceId } = event.payload;
@@ -33,11 +53,31 @@ export const touchDeviceWrite = defineWriteHandler({
       ...(reportedVersion === undefined
         ? []
         : [{ reportedVersion: null }, { reportedVersion: { ne: reportedVersion } }]),
+      // A change of state or failure count is shown at once, like a new version.
+      ...(sync === undefined
+        ? []
+        : [
+            { syncState: null },
+            { syncState: { ne: sync.state } },
+            { syncFailed: null },
+            { syncFailed: { ne: sync.failed } },
+          ]),
     ];
     for (const condition of qualifying) {
       const updated = await updateMany(ctx.db, deviceTable, set, { id: deviceId, ...condition });
       if (updated.length > 0) break;
     }
-    return { isSuccess: true as const, data: { ok: true } };
+    // One conditional update: of two parallel heartbeats only one clears the flag and gets `retry`.
+    const retry =
+      event.payload.consumeRetry === true &&
+      (
+        await updateMany(
+          ctx.db,
+          deviceTable,
+          { retryRequestedAt: null },
+          { id: deviceId, retryRequestedAt: { ne: null } },
+        )
+      ).length > 0;
+    return { isSuccess: true as const, data: { ok: true, retry } };
   },
 });

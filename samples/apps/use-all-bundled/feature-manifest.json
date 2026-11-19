@@ -954,6 +954,10 @@
       "extensionsUsed": [
         {
           "extensionName": "tenantData",
+          "entityName": "inbound-folder"
+        },
+        {
+          "extensionName": "tenantData",
           "entityName": "connector"
         },
         {
@@ -967,10 +971,14 @@
         "connectors:write:approve-device",
         "connectors:write:check-device",
         "connectors:write:claim-authorization",
+        "connectors:write:delete-file",
+        "connectors:write:delete-folder",
         "connectors:write:device-poll",
         "connectors:write:device-start",
         "connectors:write:mark-device-checked",
+        "connectors:write:mark-device-retry",
         "connectors:write:receive-file",
+        "connectors:write:request-retry",
         "connectors:write:revoke",
         "connectors:write:revoke-device-tokens",
         "connectors:write:touch-device"

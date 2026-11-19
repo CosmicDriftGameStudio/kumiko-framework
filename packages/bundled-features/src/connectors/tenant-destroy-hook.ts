@@ -1,10 +1,11 @@
 import { deleteMany } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID, type TenantDataHookCtx } from "@cosmicdrift/kumiko-framework/engine";
 import { archiveAndDeleteTenantRows } from "../tenant-lifecycle/index.ts";
-import { CONNECTOR_ENTITY, INBOUND_ITEM_ENTITY } from "./constants.ts";
+import { CONNECTOR_ENTITY, INBOUND_FOLDER_ENTITY, INBOUND_ITEM_ENTITY } from "./constants.ts";
 import { connectorTable } from "./schema/connector.ts";
 import { deviceTable } from "./schema/device.ts";
 import { deviceAuthorizationTable } from "./schema/device-authorization.ts";
+import { inboundFolderTable } from "./schema/inbound-folder.ts";
 import { inboundItemTable } from "./schema/inbound-item.ts";
 
 export const CONNECTORS_TENANT_DESTROY_ARCHIVE_REASON =
@@ -33,6 +34,15 @@ export async function inboundItemTenantDestroyHook(ctx: TenantDataHookCtx): Prom
     ctx,
     inboundItemTable,
     INBOUND_ITEM_ENTITY,
+    CONNECTORS_TENANT_DESTROY_ARCHIVE_REASON,
+  );
+}
+
+export async function inboundFolderTenantDestroyHook(ctx: TenantDataHookCtx): Promise<void> {
+  await archiveAndDeleteTenantRows(
+    ctx,
+    inboundFolderTable,
+    INBOUND_FOLDER_ENTITY,
     CONNECTORS_TENANT_DESTROY_ARCHIVE_REASON,
   );
 }

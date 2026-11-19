@@ -1,8 +1,10 @@
+import { CONNECTOR_FILES_I18N } from "./files-i18n.ts";
 import { CONNECTOR_STATUS_OPTION_KEY_PREFIX, connectorFieldLabelKey } from "./screens.ts";
 
 type Localized = { readonly en: string; readonly de: string };
 
 export const CONNECTORS_I18N: Readonly<Record<string, Localized>> = {
+  ...CONNECTOR_FILES_I18N,
   "errors.connectors.invalidUserCode": {
     en: "No pairing attempt with this code. Start the satellite and enter the code it shows right now.",
     de: "Kein Kopplungsversuch mit diesem Code. Starte den Satelliten und gib den Code ein, den er gerade anzeigt.",
@@ -15,6 +17,21 @@ export const CONNECTORS_I18N: Readonly<Record<string, Localized>> = {
     en: "The file could not be stored.",
     de: "Die Datei konnte nicht gespeichert werden.",
   },
+
+  "errors.connectors.storageQuotaExceeded": {
+    en: "The storage quota of this account is used up.",
+    de: "Das Speicherkontingent dieses Kontos ist aufgebraucht.",
+  },
+
+  "connectors.list.col.sync": { en: "Sync", de: "Sync" },
+  "connectors.list.col.syncDetail": { en: "Details", de: "Details" },
+  "connectors.list.sync.status.unknown": { en: "Unknown", de: "Unbekannt" },
+  "connectors.list.sync.status.synced": { en: "In sync", de: "Synchron" },
+  "connectors.list.sync.status.syncing": { en: "Running", de: "Läuft" },
+  "connectors.list.sync.status.failed": { en: "Failed", de: "Fehler" },
+  "connectors.list.sync.queued": { en: "{count} in the queue", de: "{count} in der Warteschlange" },
+  "connectors.list.sync.failedCount": { en: "{count} failed", de: "{count} Fehler" },
+  "connectors.list.retry": { en: "Retry", de: "Erneut versuchen" },
 
   "screen:connector-list.title": { en: "Connectors", de: "Anschlüsse" },
   "screen:connector-pair.title": { en: "Pair a device", de: "Gerät koppeln" },

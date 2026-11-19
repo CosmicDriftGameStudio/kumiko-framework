@@ -21,6 +21,7 @@ import {
   assertSafeStorageKey,
   fileRefEntity,
   fileRefsTable,
+  NO_BACKUP_STORAGE_PREFIX,
   storageKeyStemPrefix,
   tenantStoragePrefixes,
 } from "@cosmicdrift/kumiko-framework/files";
@@ -93,11 +94,17 @@ export const fileRefTenantDestroyHook: TenantDataDestroyHook = async (ctx) => {
 };
 
 // The bytes live under the tenant that uploaded them (`<tenantId>/…` or
-// `exports/<tenantId>/…`), so with per-tenant storage config that tenant's
+// `exports/<tenantId>/…`, `nobackup/<tenantId>/…`), so with per-tenant storage config that tenant's
 // provider — not the destroyed destination tenant's — holds them.
+const NO_BACKUP_SEGMENT = NO_BACKUP_STORAGE_PREFIX.slice(0, -1);
+
 function storageKeyOwnerTenant(storageKey: string, fallback: TenantId): TenantId {
   const [first, second] = storageKey.split("/");
-  return parseTenantId(first) ?? (first === "exports" ? parseTenantId(second) : null) ?? fallback;
+  return (
+    parseTenantId(first) ??
+    (first === "exports" || first === NO_BACKUP_SEGMENT ? parseTenantId(second) : null) ??
+    fallback
+  );
 }
 
 async function deleteHandedOverBinary(ctx: TenantDataHookCtx, storageKey: string): Promise<void> {

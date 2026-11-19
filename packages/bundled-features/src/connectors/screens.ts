@@ -5,7 +5,10 @@ import {
   MAX_LIST_LIMIT,
   type ProjectionListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { ACTION_FORM_ENTITY } from "@cosmicdrift/kumiko-framework/ui-types";
+import {
+  ACTION_FORM_ENTITY,
+  type CustomScreenDefinition,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 import { fieldLabelKey } from "@cosmicdrift/kumiko-renderer/headless";
 import {
   CONNECTOR_STATUS,
@@ -13,9 +16,12 @@ import {
   ConnectorHandlers,
   ConnectorQueries,
   ConnectorScreens,
+  SYNC_STATUS,
 } from "./constants.ts";
 
 export const CONNECTOR_STATUS_OPTION_KEY_PREFIX = "connectors.list.status.";
+
+export const SYNC_STATUS_OPTION_KEY_PREFIX = "connectors.list.sync.status.";
 
 export const connectorFieldLabelKey = (field: string): string =>
   fieldLabelKey(CONNECTORS_FEATURE, ACTION_FORM_ENTITY, field);
@@ -50,6 +56,28 @@ export const connectorListScreen: ProjectionListScreenDefinition = {
       renderer: { format: "enumOption", keyPrefix: CONNECTOR_STATUS_OPTION_KEY_PREFIX },
     },
     {
+      field: "syncStatus",
+      label: i18nKey("connectors.list.col.sync"),
+      sortable: false,
+      renderer: {
+        format: "enumOption",
+        keyPrefix: SYNC_STATUS_OPTION_KEY_PREFIX,
+        tones: {
+          [SYNC_STATUS.unknown]: "neutral",
+          [SYNC_STATUS.synced]: "ok",
+          [SYNC_STATUS.syncing]: "accent",
+          [SYNC_STATUS.failed]: "bad",
+        },
+      },
+    },
+    {
+      field: "syncDetail",
+      label: i18nKey("connectors.list.col.syncDetail"),
+      sortable: false,
+      hideOnNarrow: true,
+      renderer: { format: "i18nText" },
+    },
+    {
       field: "lastSeenAt",
       label: i18nKey("connectors.list.col.lastSeen"),
       sortable: false,
@@ -78,6 +106,13 @@ export const connectorListScreen: ProjectionListScreenDefinition = {
       style: "danger",
       confirm: i18nKey("connectors.list.revoke.confirm"),
       visible: { field: "status", ne: CONNECTOR_STATUS.revoked },
+    },
+    {
+      kind: "writeHandler",
+      id: "retry",
+      label: i18nKey("connectors.list.retry"),
+      handler: ConnectorHandlers.requestRetry,
+      visible: { field: "syncStatus", eq: SYNC_STATUS.failed },
     },
   ],
   toolbarActions: [PAIR_ACTION],
@@ -147,6 +182,18 @@ export const connectorConfirmScreen: ActionFormScreenDefinition = {
   submitLabel: i18nKey("connectors.pair.submit"),
   redirect: ConnectorScreens.list,
   cancelTarget: ConnectorScreens.list,
+  access: ADMIN_ACCESS,
+  dormant: true,
+};
+
+// The file tree needs breadcrumb navigation inside one screen, which no generated list screen
+// offers; the web client plugin mounts the component under this id.
+export const connectorFilesScreen: CustomScreenDefinition = {
+  id: ConnectorScreens.files,
+  type: "custom",
+  renderer: { react: { __component: ConnectorScreens.files } },
+  description:
+    "The files the connectors delivered as a folder tree: breadcrumb, folders with file count and size, the files of the open folder, storage used against the quota, and delete for files and folders.",
   access: ADMIN_ACCESS,
   dormant: true,
 };

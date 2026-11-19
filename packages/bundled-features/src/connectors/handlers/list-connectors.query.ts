@@ -7,7 +7,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
-import { ConnectorQueries } from "../constants.ts";
+import { ConnectorQueries, SYNC_STATE, SYNC_STATUS } from "../constants.ts";
 import { connectorTable } from "../schema/connector.ts";
 
 const LIST_DEVICES_REASON =
@@ -17,6 +17,9 @@ const deviceSummariesSchema = z.array(
   z.object({
     connectorId: z.string(),
     reportedVersion: z.string().nullable(),
+    syncState: z.string().nullable(),
+    syncQueued: z.number().nullable(),
+    syncFailed: z.number().nullable(),
     lastSeenAt: z.string().nullable(),
     revokedAt: z.string().nullable(),
   }),
@@ -29,6 +32,25 @@ type ConnectorRow = {
   readonly status: string;
   readonly insertedAt: Temporal.Instant;
 };
+
+type SyncReport = { state: string | null; queued: number | null; failed: number | null };
+
+function syncStatusOf({ state, failed }: SyncReport): string {
+  if (state === null) return SYNC_STATUS.unknown;
+  if ((failed ?? 0) > 0 || state === SYNC_STATE.error) return SYNC_STATUS.failed;
+  return state === SYNC_STATE.syncing ? SYNC_STATUS.syncing : SYNC_STATUS.synced;
+}
+
+// Text for the "Details" column: counts the badge cannot carry.
+function syncDetailOf(status: string, { queued, failed }: SyncReport) {
+  if (status === SYNC_STATUS.failed && (failed ?? 0) > 0) {
+    return { i18nKey: "connectors.list.sync.failedCount", i18nParams: { count: failed ?? 0 } };
+  }
+  if (status === SYNC_STATUS.syncing) {
+    return { i18nKey: "connectors.list.sync.queued", i18nParams: { count: queued ?? 0 } };
+  }
+  return null;
+}
 
 export const listConnectorsQuery = defineQueryHandler({
   name: "list",
@@ -50,7 +72,15 @@ export const listConnectorsQuery = defineQueryHandler({
       const live = devices.find(
         (device) => device.connectorId === connector.id && device.revokedAt === null,
       );
+      const report: SyncReport = {
+        state: live?.syncState ?? null,
+        queued: live?.syncQueued ?? null,
+        failed: live?.syncFailed ?? null,
+      };
+      const syncStatus = syncStatusOf(report);
       return {
+        syncStatus,
+        syncDetail: syncDetailOf(syncStatus, report),
         id: connector.id,
         name: connector.name,
         kind: connector.kind,

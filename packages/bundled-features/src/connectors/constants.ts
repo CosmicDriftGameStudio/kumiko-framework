@@ -1,6 +1,7 @@
 export const CONNECTORS_FEATURE = "connectors";
 export const CONNECTOR_ENTITY = "connector";
 export const INBOUND_ITEM_ENTITY = "inbound-item";
+export const INBOUND_FOLDER_ENTITY = "inbound-folder";
 
 export const CONNECTOR_KIND = { satellite: "satellite" } as const;
 export const CONNECTOR_STATUS = { active: "active", revoked: "revoked" } as const;
@@ -41,11 +42,54 @@ export const CODE_CHECK_VALID_SECONDS = 300;
 export const POLL_INTERVAL_SECONDS = 5;
 export const SLOW_DOWN_INCREMENT_SECONDS = 5;
 export const HEARTBEAT_MIN_INTERVAL_MINUTES = 5;
+
+export const SYNC_STATE = { idle: "idle", syncing: "syncing", error: "error" } as const;
+export type SyncState = (typeof SYNC_STATE)[keyof typeof SYNC_STATE];
+// What the list shows; derived from the reported state and counts.
+export const SYNC_STATUS = {
+  unknown: "unknown",
+  synced: "synced",
+  syncing: "syncing",
+  failed: "failed",
+} as const;
 export const DEFAULT_MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
+// Per tenant, over all connectors: one misbehaving satellite must not fill the file store.
+export const DEFAULT_MAX_STORED_BYTES_PER_TENANT = 5 * 1024 * 1024 * 1024;
+
+// Windows and macOS system files a satellite must never deliver (matched per path segment, lower case).
+export const BALLAST_PATH_SEGMENTS: readonly string[] = [
+  "$recycle.bin",
+  "system volume information",
+  "thumbs.db",
+  "desktop.ini",
+  ".ds_store",
+  "pagefile.sys",
+  "hiberfil.sys",
+  "swapfile.sys",
+];
+// Office lock files ("~$Angebot.docx").
+export const BALLAST_PATH_PREFIXES: readonly string[] = ["~$"];
 export const HEARTBEAT_MAX_BODY_BYTES = 4096;
 export const UPLOAD_RATE_LIMIT = { limit: 600, windowSeconds: 60 } as const;
 export const HEARTBEAT_RATE_LIMIT = { limit: 60, windowSeconds: 60 } as const;
 export const RELATIVE_PATH_MAX_LENGTH = 1024;
+// Deep chains and long names only inflate the folder tree; a real file share stays far below both.
+export const MAX_FOLDER_DEPTH = 20;
+export const MAX_FOLDER_NAME_LENGTH = 255;
+// A folder id is a 36-character uuid plus its slash, one per ancestor.
+export const ID_PATH_MAX_LENGTH = (MAX_FOLDER_DEPTH + 1) * 37 + 1;
+// Files listed per page; the folder deletion job removes this many per batch.
+export const FILES_PAGE_SIZE = 100;
+export const FOLDER_DELETE_BATCH_SIZE = 100;
+// ponytail: the search decrypts and scans names, so it stops after this many and says `truncated`; a searchable name index would need plaintext, which the PII rules rule out.
+export const MAX_SEARCH_NAMES = 20_000;
+export const MAX_SEARCH_HITS = 100;
+export const MIN_SEARCH_TERM_LENGTH = 2;
+
+// Generations of one derived id (a folder name, a delivered file) that were deleted; far above any real share.
+export const MAX_ID_GENERATIONS = 50;
+
+export const FILE_NAME_CELL_COMPONENT = "ConnectorFileNameCell" as const;
 
 export const DEFAULT_CONNECTORS_BASE_PATH = "/connectors";
 
@@ -53,6 +97,7 @@ export const ConnectorScreens = {
   list: "connector-list",
   pair: "connector-pair",
   confirm: "connector-confirm",
+  files: "connector-files",
 } as const;
 
 export const ConnectorHandlers = {
@@ -65,7 +110,11 @@ export const ConnectorHandlers = {
   markChecked: "connectors:write:mark-device-checked",
   revokeDeviceTokens: "connectors:write:revoke-device-tokens",
   touchDevice: "connectors:write:touch-device",
+  requestRetry: "connectors:write:request-retry",
+  markDeviceRetry: "connectors:write:mark-device-retry",
   receiveFile: "connectors:write:receive-file",
+  deleteFile: "connectors:write:delete-file",
+  deleteFolder: "connectors:write:delete-folder",
 } as const;
 
 export const ConnectorQueries = {
@@ -74,6 +123,8 @@ export const ConnectorQueries = {
   listDevices: "connectors:query:list-devices",
   pendingRequest: "connectors:query:pending-request",
   resolvePendingAuthorization: "connectors:query:resolve-pending-authorization",
+  inboundFolder: "connectors:query:inbound-folder",
+  inboundSearch: "connectors:query:inbound-search",
 } as const;
 
 export const ConnectorErrors = {
@@ -81,4 +132,5 @@ export const ConnectorErrors = {
   connectorNotFound: "connector_not_found",
   connectorRevoked: "connector_revoked",
   uploadNotPrepared: "upload_not_prepared",
+  storageQuotaExceeded: "storage_quota_exceeded",
 } as const;

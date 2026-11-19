@@ -1,4 +1,8 @@
 {
   "version": 1,
-  "tables": ["read_connector_inbound_items", "read_connectors"]
+  "tables": [
+    "read_connector_inbound_folders",
+    "read_connector_inbound_items",
+    "read_connectors"
+  ]
 }

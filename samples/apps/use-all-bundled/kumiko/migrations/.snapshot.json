@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-11-19T11:10:40.892Z",
+  "generatedAt": "2026-11-19T14:14:09.335Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -339,6 +339,93 @@
       "entityEventVersion": 1
     },
     {
+      "tableName": "read_connector_inbound_folders",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "defaultSql": "gen_random_uuid()",
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "connector_id",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "parent_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "name",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "id_path",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "deleting",
+          "pgType": "boolean",
+          "notNull": true,
+          "defaultSql": "false"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "read_connector_inbound_folders_tenant_id_idx",
+          "columns": ["tenant_id"]
+        },
+        {
+          "name": "read_connector_inbound_folders_connector_id_parent_id_idx",
+          "columns": ["connector_id", "parent_id"]
+        },
+        {
+          "name": "read_connector_inbound_folders_id_path_idx",
+          "columns": ["id_path"]
+        }
+      ],
+      "source": "managed",
+      "piiSubjectFields": ["name"],
+      "entityEventVersion": 1
+    },
+    {
       "tableName": "read_connector_inbound_items",
       "columns": [
         {
@@ -386,6 +473,11 @@
           "notNull": true
         },
         {
+          "name": "folder_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
           "name": "file_ref_id",
           "pgType": "uuid",
           "notNull": false
@@ -421,8 +513,8 @@
           "columns": ["file_ref_id"]
         },
         {
-          "name": "read_connector_inbound_items_connector_id_idx",
-          "columns": ["connector_id"]
+          "name": "read_connector_inbound_items_connector_id_folder_id_idx",
+          "columns": ["connector_id", "folder_id"]
         }
       ],
       "source": "managed",
@@ -5347,6 +5439,31 @@
           "notNull": false
         },
         {
+          "name": "sync_state",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "sync_queued",
+          "pgType": "integer",
+          "notNull": false
+        },
+        {
+          "name": "sync_failed",
+          "pgType": "integer",
+          "notNull": false
+        },
+        {
+          "name": "sync_last_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "retry_requested_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
           "name": "last_seen_at",
           "pgType": "timestamptz",
           "notNull": false
@@ -6558,6 +6675,18 @@
           "kind": "PERMISSIVE",
           "rolesSql": "PUBLIC",
           "using": "\"tenant_id\" = '00000000-0000-4000-8000-000000000000'::uuid AND NULLIF(current_setting('kumiko.tenant_id', true), '') IS NOT NULL"
+        }
+      ]
+    },
+    "read_connector_inbound_folders": {
+      "policies": [
+        {
+          "name": "kumiko_tenant_isolation",
+          "command": "ALL",
+          "kind": "PERMISSIVE",
+          "rolesSql": "PUBLIC",
+          "using": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'",
+          "withCheck": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'"
         }
       ]
     },

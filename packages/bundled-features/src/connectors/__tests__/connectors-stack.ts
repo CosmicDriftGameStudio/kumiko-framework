@@ -3,8 +3,10 @@ import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-
 import {
   createFilesFeature,
   createInMemoryFileProvider,
+  type InMemoryFileProvider,
 } from "@cosmicdrift/kumiko-framework/files";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -16,12 +18,13 @@ import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
 import { createConfigFeature } from "../../config/feature.ts";
 import { configValuesTable } from "../../config/table.ts";
+import { createFilesTenantDataFeature } from "../../files-tenant-data/index.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
 import { tenantEntity } from "../../tenant/schema/tenant.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import { CONNECTOR_CLIENT_ID, ConnectorHandlers, ConnectorQueries } from "../constants.ts";
-import { createConnectorsFeature } from "../feature.ts";
+import { type ConnectorsFeatureOptions, createConnectorsFeature } from "../feature.ts";
 import { type ConnectorRouteOptions, createConnectorRoutes } from "../routes.ts";
 
 export const TEST_NOW = Temporal.Instant.from("2026-11-19T10:00:00Z");
@@ -35,9 +38,11 @@ export const HEARTBEAT_PATH = "/connectors/v1/heartbeat";
 export const DEVICE_GRANT = "urn:ietf:params:oauth:grant-type:device_code";
 
 export async function setupConnectorsStack(
-  routes: ConnectorRouteOptions = {},
+  options: ConnectorRouteOptions & ConnectorsFeatureOptions = {},
   trustedProxyHops?: number,
+  fileProvider: InMemoryFileProvider = createInMemoryFileProvider(),
 ): Promise<TestStack> {
+  const { maxStoredBytesPerTenant, folderDeleteBatchSize, maxSearchNames, ...routes } = options;
   resetPiiSubjectKmsForTests();
   configurePiiSubjectKms(new InMemoryKmsAdapter());
   const stack = await setupTestStack({
@@ -47,7 +52,12 @@ export async function setupConnectorsStack(
       createComplianceProfilesFeature(),
       createTenantLifecycleFeature(),
       createFilesFeature(),
-      createConnectorsFeature(),
+      createFilesTenantDataFeature(),
+      createConnectorsFeature({
+        ...(maxStoredBytesPerTenant !== undefined && { maxStoredBytesPerTenant }),
+        ...(folderDeleteBatchSize !== undefined && { folderDeleteBatchSize }),
+        ...(maxSearchNames !== undefined && { maxSearchNames }),
+      }),
     ],
     // Generous defaults: most tests start many pairings from the one test address.
     extraRoutes: createConnectorRoutes({
@@ -59,13 +69,21 @@ export async function setupConnectorsStack(
         ...routes.pairingLimits,
       },
     }),
-    files: { storageProvider: createInMemoryFileProvider() },
+    files: { storageProvider: fileProvider },
+    // The folder deletion job runs on the worker lane; tests drain it with `runDeletionJobs`.
+    jobs: { consumerLane: "worker", queueNamePrefix: `connectors-${generateId()}` },
     now: TEST_NOW,
     ...(trustedProxyHops !== undefined && { trustedProxyHops }),
   });
   await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
   await unsafeCreateEntityTable(stack.db, tenantEntity, "tenant");
   return stack;
+}
+
+// The job-trigger consumer picks the folder's update event up, then the queue runs the job.
+export async function runDeletionJobs(stack: TestStack): Promise<void> {
+  await stack.eventDispatcher?.runOnce();
+  await stack.drainJobs();
 }
 
 export function teardownConnectorsStack(stack: TestStack): Promise<void> {
@@ -139,6 +157,8 @@ export async function listConnectors(stack: TestStack) {
       status: string;
       lastSeenAt: string | null;
       reportedVersion: string | null;
+      syncStatus: string;
+      syncDetail: { i18nKey: string; i18nParams: { count: number } } | null;
     }[];
   }>(ConnectorQueries.list, {}, tenantAdmin);
   return page.rows;

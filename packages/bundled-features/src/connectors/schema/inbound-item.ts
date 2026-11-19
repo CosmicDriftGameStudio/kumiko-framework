@@ -22,6 +22,13 @@ export const inboundItemEntity = createEntity({
       personal: false,
       reason: "technical_reference",
     }),
+    // Null at the device root.
+    folderId: createTextField({
+      maxLength: 36,
+      filterable: true,
+      personal: false,
+      reason: "technical_reference",
+    }),
     fileRefId: createFileField({ personal: false, reason: "technical_reference" }),
     relativePath: createTextField({
       required: true,
@@ -42,7 +49,7 @@ export const inboundItemEntity = createEntity({
       reason: "is_business_timestamp",
     }),
   },
-  indexes: [{ columns: ["connectorId"] }],
+  indexes: [{ columns: ["connectorId", "folderId"] }],
 });
 
 export const { table: inboundItemTable, executor: inboundItemExecutor } =

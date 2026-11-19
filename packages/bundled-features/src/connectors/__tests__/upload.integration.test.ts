@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { createInMemoryFileProvider } from "@cosmicdrift/kumiko-framework/files";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { ConnectorHandlers } from "../constants.ts";
 import { inboundItemTable } from "../schema/inbound-item.ts";
@@ -19,6 +20,7 @@ const MAX_UPLOAD = 4096;
 // Not valid UTF-8: the route must hand the bytes through untouched.
 const BINARY = Uint8Array.from([0xff, 0xfe, 0x80, 0x00, 0x41, 0xc3, 0x28]);
 
+const provider = createInMemoryFileProvider();
 let stack: TestStack;
 let token: string;
 let connectorId: string;
@@ -28,7 +30,7 @@ type UploadAnswer = { id: string; duplicate: boolean };
 const itemCount = async () => (await selectMany(stack.db, inboundItemTable, {})).length;
 
 beforeAll(async () => {
-  stack = await setupConnectorsStack({ maxUploadBytes: MAX_UPLOAD });
+  stack = await setupConnectorsStack({ maxUploadBytes: MAX_UPLOAD }, undefined, provider);
   ({ token, connectorId } = await pairDevice(stack));
 });
 afterAll(() => teardownConnectorsStack(stack));
@@ -157,5 +159,63 @@ describe("connectors upload and heartbeat", () => {
     expect(heartbeat.status).toBe(401);
     expect((await listConnectors(stack)).find((c) => c.id === connectorId)?.status).toBe("revoked");
     expect(FILES_PATH).toBe("/connectors/v1/files");
+  });
+});
+
+describe("connectors upload rules", () => {
+  let freshToken: string;
+  beforeAll(async () => {
+    ({ token: freshToken } = await pairDevice(stack, "Rules"));
+  });
+
+  test("system and lock files are refused with path_rejected and create nothing", async () => {
+    const before = await itemCount();
+    for (const path of ["Rechnungen/Thumbs.db", "$RECYCLE.BIN/x.pdf", "Büro/~$Angebot.docx"]) {
+      const res = await upload(stack, freshToken, { path, bytes: BINARY });
+      expect(res.status).toBe(422);
+      expect(await res.json()).toEqual({ error: "path_rejected" });
+    }
+    expect(await itemCount()).toBe(before);
+  });
+
+  test("a stored file lives under the nobackup prefix of its tenant", async () => {
+    const res = await upload(stack, freshToken, {
+      path: "Lieferscheine/LS-0001.bin",
+      bytes: BINARY,
+    });
+    expect(res.status).toBe(201);
+    const keys = await provider.list("");
+    expect(keys.length).toBeGreaterThan(0);
+    expect(keys.every((key) => key.startsWith(`nobackup/${tenantAdmin.tenantId}/`))).toBe(true);
+  });
+});
+
+describe("connectors storage quota", () => {
+  test("an upload beyond the tenant quota stores nothing and answers 507", async () => {
+    const quotaProvider = createInMemoryFileProvider();
+    const small = await setupConnectorsStack(
+      { maxStoredBytesPerTenant: 10 },
+      undefined,
+      quotaProvider,
+    );
+    try {
+      const { token: smallToken } = await pairDevice(small);
+      const fits = await upload(small, smallToken, { path: "a/one.bin", bytes: new Uint8Array(6) });
+      expect(fits.status).toBe(201);
+
+      const over = await upload(small, smallToken, { path: "a/two.bin", bytes: new Uint8Array(5) });
+      expect(over.status).toBe(507);
+      expect(await over.json()).toEqual({ error: "storage_quota_exceeded" });
+      expect(await selectMany(small.db, inboundItemTable, {})).toHaveLength(1);
+      expect(await quotaProvider.list("")).toHaveLength(1);
+
+      const again = await upload(small, smallToken, {
+        path: "a/one.bin",
+        bytes: new Uint8Array(6),
+      });
+      expect(again.status).toBe(200);
+    } finally {
+      await teardownConnectorsStack(small);
+    }
   });
 });

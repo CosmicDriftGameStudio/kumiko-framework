@@ -637,3 +637,19 @@ Rejected: a workaround comment form matched against the kumiko-upgrade changelog
 ### 2026-11-19 A pairing code cannot be rejected, and pairing takes two steps
 
 **The connectors pairing screens have no "reject": a satellite's code belongs to no tenant until an admin confirms it, so a reject would let any admin of any tenant end another tenant's pairing attempt; an unconfirmed code expires after 600 s (`expired_token`) anyway.** Pairing is two screens: step one only checks that the code belongs to an open request (`check-device`, a write handler that changes nothing because an actionForm submits to one), step two names the device and confirms, showing time and IP of the request. Step one hands the checked code over through the generic mechanism that an actionForm `redirect` with `handOff: true` lets its target form prefill the same-named fields from the URL (`urlPrefillFields` also derives from such a redirect, not only from navigate `params`; opt-in, other redirects are unchanged). A single screen with a live preview and fields hidden until it succeeded was rejected: it needs the preview result lifted into the form state, a renderer change for one screen. A `timestamp` list cell takes `emptyLabel` (i18n key) for an empty value ("noch nie"). No contradiction with an earlier entry found.
+
+### 2026-11-19 Connector files are stored under `nobackup/`
+
+**Files a satellite delivers are stored under `nobackup/<tenantId>/…` (option `backup: false` on the file upload helpers) and capped per tenant (5 GiB by default); `tenantStoragePrefixes()` includes that prefix, so tenant destroy deletes them.** The customer's machine remains the source and the satellite redelivers, so mirroring a customer's whole share into the offsite backup would multiply the bucket for no gain; one fixed leading segment lets one exclude rule cover every tenant (like `exports/`). Excluding by a per-file flag in the fileRef row was rejected: the mirror job works on keys, not on database rows. No contradiction with an earlier entry found.
+
+### 2026-11-19 Connector files: a folder entity, not a path column
+
+**The delivered files' tree is an event-sourced `inbound-folder` entity (name encrypted, `idPath` of ancestor ids, deterministic id from connector, parent and name) and `inbound-item.folderId`; counts and sizes come from database aggregates grouped by folder, rolled up over the folder rows.** A clear-text path column would leak customer folder names, and summing over all files in memory does not scale. Parallel uploads into a new folder race on the same deterministic id: one create wins, the others reuse it. Folder delete is synchronous in fixed batches until a job exists.
+
+### 2026-11-19 Connector file search scans decrypted names on the server, no plaintext index
+
+**`inbound-search` decrypts folder and file names page by page and matches part of a name, ignoring case; one search reads at most 20 000 names and returns at most 100 hits, and reaching either limit answers `truncated: true` so the screen asks to switch into a folder.** The names are PII (`personal: "tenant"`, `find: "none"`), so a Meilisearch or plaintext column would put them outside crypto-shredding; the scan keeps them encrypted at rest. A blind index would be the way to scale past the cap and needs a framework feature first.
+
+### 2026-11-19 Connector folder and item ids carry a generation
+
+**Folder and item aggregate ids are derived from connector, parent, name (and sha256 and path for items) plus a generation suffix (`#1`, `#2`, …).** A forgotten stream stays unusable (create conflicts, detail finds nothing), so re-delivering a deleted file or re-creating a deleted folder moves to the next generation instead of being answered as a duplicate. A folder being deleted takes no new files and the duplicate check ignores items in it: the upload lands in a fresh folder and survives the sweep.

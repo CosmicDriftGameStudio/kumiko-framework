@@ -377,6 +377,29 @@ export function buildStorageKey(
 }
 
 const EXPORTS_PREFIX_SEGMENT = "exports";
+const NO_BACKUP_PREFIX_SEGMENT = "nobackup";
+
+/** Leading path of every key stored with `backup: false`; the offsite mirror excludes it (rclone `--exclude "nobackup/**"`). */
+export const NO_BACKUP_STORAGE_PREFIX = `${NO_BACKUP_PREFIX_SEGMENT}/`;
+
+/** Same layout as buildStorageKey, moved under the fixed `nobackup/` segment so one exclude rule covers every tenant. */
+export function buildNoBackupStorageKey(...args: Parameters<typeof buildStorageKey>): string {
+  return `${NO_BACKUP_STORAGE_PREFIX}${buildStorageKey(...args)}`;
+}
+
+export function tenantNoBackupPrefix(tenantId: TenantId): string {
+  if (tenantId === NO_BACKUP_PREFIX_SEGMENT) {
+    throw new Error(`tenantId "${tenantId}" collides with the reserved storage segment`);
+  }
+  return `${NO_BACKUP_STORAGE_PREFIX}${tenantId}/`;
+}
+
+/** True for a key a tenant's own uploads may use: `<tenant>/…` or `nobackup/<tenant>/…`. */
+export function isOwnUploadKey(tenantId: string, key: string): boolean {
+  return (
+    key.startsWith(`${tenantId}/`) || key.startsWith(`${NO_BACKUP_STORAGE_PREFIX}${tenantId}/`)
+  );
+}
 
 /** Fixed leading segment so one S3 lifecycle rule (Prefix: "exports/") can expire export bundles for every tenant without matching a buildStorageKey() upload. */
 export function tenantExportPrefix(tenantId: TenantId): string {
@@ -395,5 +418,5 @@ export function tenantExportPrefix(tenantId: TenantId): string {
  * the tenant first need adding here too, or a sweep silently stops covering them.
  */
 export function tenantStoragePrefixes(tenantId: TenantId): readonly string[] {
-  return [`${tenantId}/`, tenantExportPrefix(tenantId)];
+  return [`${tenantId}/`, tenantExportPrefix(tenantId), tenantNoBackupPrefix(tenantId)];
 }

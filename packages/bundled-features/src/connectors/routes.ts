@@ -33,6 +33,8 @@ import {
   bearerTokenOf,
   normalizeRelativePath,
 } from "./device-auth.ts";
+import { syncReportSchema } from "./handlers/touch-device.write.ts";
+import { exceedsFolderLimits, isBallastPath } from "./path-rules.ts";
 
 export type ConnectorRouteOptions = {
   /** Mount point of the satellite endpoints. Default "/connectors". Must not be under "/api/". */
@@ -55,7 +57,13 @@ export type ConnectorRouteOptions = {
 const DEVICE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code";
 const NO_STORE = { "Cache-Control": "no-store" } as const;
 const FORM_RATE_LIMIT_WINDOW_SECONDS = 60;
-const HEARTBEAT_SCHEMA = z.object({ version: z.string().min(1).max(64) });
+// `sync` is optional so satellites that predate the status log keep working. A `lastError` text they
+// send is dropped by the parse on purpose (see the device schema).
+const HEARTBEAT_SCHEMA = z.object({
+  version: z.string().min(1).max(64),
+  sync: syncReportSchema.optional(),
+});
+const touchResultSchema = z.object({ retry: z.boolean() });
 const tooManyOpenSchema = z.object({ tooManyOpenRequests: z.literal(true) });
 const receivedSchema = z.object({ duplicate: z.boolean() });
 const pollOutcomeSchema = z.object({
@@ -116,14 +124,22 @@ function failureReason(error: { readonly details?: unknown }): string | undefine
 async function touchDevice(
   deps: SignatureExtraRouteDeps,
   device: AuthenticatedDevice,
-  reportedVersion?: string,
-): Promise<void> {
-  await deps.dispatchWriteAs({
+  heartbeat?: { readonly version: string; readonly sync?: z.infer<typeof syncReportSchema> },
+): Promise<boolean> {
+  const result = await deps.dispatchWriteAs({
     handlerQn: ConnectorHandlers.touchDevice,
-    payload: { deviceId: device.deviceId, ...(reportedVersion && { reportedVersion }) },
+    payload: {
+      deviceId: device.deviceId,
+      ...(heartbeat && {
+        reportedVersion: heartbeat.version,
+        ...(heartbeat.sync && { sync: heartbeat.sync }),
+        consumeRetry: true,
+      }),
+    },
     tenantId: SYSTEM_TENANT_ID,
     roles: [],
   });
+  return result.isSuccess && touchResultSchema.parse(result.data).retry;
 }
 
 function badRequest(c: Context, description: string): Response {
@@ -150,6 +166,8 @@ function parseUploadHeaders(c: Context): UploadHeaders | Response {
   const relativePath = normalizeRelativePath(decodedHeader(c, "x-kumiko-path") ?? "");
   if (relativePath === null)
     return badRequest(c, "X-Kumiko-Path is missing or not a relative path");
+  if (isBallastPath(relativePath) || exceedsFolderLimits(relativePath))
+    return c.json({ error: "path_rejected" }, 422);
   const sha256 = c.req.header("x-kumiko-sha256")?.toLowerCase() ?? "";
   if (!SHA256_PATTERN.test(sha256)) return badRequest(c, "X-Kumiko-Sha256 must be 64 hex digits");
   try {
@@ -171,6 +189,9 @@ function uploadFailureResponse(
   const reason = failureReason(error);
   if (reason === ConnectorErrors.connectorRevoked)
     return c.json({ error: "connector_revoked" }, 403);
+  if (reason === ConnectorErrors.storageQuotaExceeded) {
+    return c.json({ error: "storage_quota_exceeded" }, 507);
+  }
   if (reason === FrameworkReasons.fileRejected) return c.json({ error: "file_rejected" }, 422);
   return c.json({ error: "server_error" }, 500);
 }
@@ -229,8 +250,8 @@ async function receiveHeartbeat(c: Context, deps: SignatureExtraRouteDeps): Prom
   }
   const parsed = HEARTBEAT_SCHEMA.safeParse(body);
   if (!parsed.success) return badRequest(c, 'body must be {"version": "<1-64 characters>"}');
-  await touchDevice(deps, device, parsed.data.version);
-  return c.json({ ok: true }, 200);
+  const retry = await touchDevice(deps, device, parsed.data);
+  return c.json(retry ? { ok: true, retry: true } : { ok: true }, 200);
 }
 
 function verificationUriOf(c: Context, options: ConnectorRouteOptions): string {

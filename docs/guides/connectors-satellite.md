@@ -33,7 +33,7 @@ Success is HTTP 200 `{"access_token":"ksat_...","token_type":"Bearer"}`. There i
 
 ## Protection against floods
 
-The client id is public, so the pairing start has three limits; beyond the two open-request limits the endpoint answers HTTP 429 `{"error":"slow_down"}` with `Retry-After: 60` and stores nothing:
+The client id is public, so the pairing start has three limits; beyond the two open-request limits the endpoint answers HTTP 429 `{"error":"slow_down"}` with `Retry-After: 60` and stores nothing. The per-minute limit answers 429 as well. Every 429 from `/v1/device_authorization` carries `Retry-After` (seconds): wait that long before starting again, do not retry at once.
 
 - At most 10 starts per minute and address (rate limit of `/v1/device_authorization`).
 - At most 3 open (pending, not yet expired) requests per address; a confirmed or expired request frees its place.
@@ -64,11 +64,33 @@ Answers:
 - `401 invalid_token`: unknown, malformed or revoked token. Stop and pair again.
 - `403 connector_revoked`, `413` (over the per-file cap, 50 MiB by default), `422 file_rejected` (the file store refused the type or size).
 
-The same bytes under another path are another item.
+; case does not matter). The satellite should not send them in the first place; the server refuses them as well.
+- `507 storage_quota_exceeded`: the tenant's connector files together would exceed the quota (5 GiB by default; feature option `maxStoredBytesPerTenant` of `createConnectorsFeature()`). Nothing is stored; free space or raise the option, retrying does not help. Parallel uploads can overshoot the quota by their combined size.
+
+### Storage and backup
+
+The delivered bytes are not part of the offsite backup: their storage keys start with `nobackup/<tenantId>/` (exported as `NO_BACKUP_STORAGE_PREFIX` from `@cosmicdrift/kumiko-framework/files`, so the mirror job can exclude it). The data lives on the customer's machine, and the satellite delivers it again when needed. Destroying the tenant deletes these files and the inbound items with it (mount `files-tenant-data`; `createFileRefFromBytes` and `uploadFileBytesBeforeTransaction` take `backup: false` for any other feature that wants the same).
+
+### Folders
+
+The path's directory part becomes a folder tree per device: a first upload of `Rechnungen/2026/a.pdf` creates the folders `Rechnungen` and `2026`. A path may have at most 20 folder levels and no segment longer than 255 characters (`422 path_rejected` otherwise). Folder names and file paths are stored encrypted.
 
 ## Heartbeat
 
-`POST /v1/heartbeat` with the bearer token and the JSON body `{"version": "1.4.2"}` (1 to 64 characters). Answer `200 {"ok":true}`. The connector list shows the version and the last time the device was seen; any upload counts as being seen too.
+`POST /v1/heartbeat` with the bearer token and a JSON body. Answer `200 {"ok":true}`. The connector list shows the version, the last time the device was seen (any upload counts as being seen too) and the sync status.
+
+```json
+{
+  "version": "1.4.2",
+  "sync": { "state": "syncing", "queued": 12, "failed": 0, "lastSyncAt": "2026-11-19T08:30:00Z" }
+}
+```
+
+- `version`: 1 to 64 characters, required.
+- `sync` is optional, so satellites without a status log keep working. `state` is `idle`, `syncing` or `error`; `queued` and `failed` are counts (0 or more); `lastSyncAt` is an ISO 8601 instant. Anything else is `400 invalid_request`. The list shows "In sync", "Running (12 in the queue)" or "3 failed". A `lastError` text is accepted and dropped: it is free text from the customer's machine and is not stored.
+- Storage is throttled to once per 5 minutes, except that a change of `state` or `failed` (like a new version) is written at once.
+
+**Retry signal.** An admin can press "Retry" on a connector whose sync failed. The satellite only connects outward, so the server answers the next heartbeat with `{"ok":true,"retry":true}` and clears the flag in the same step: the following heartbeat answers without `retry`. On `retry` the satellite requeues its failed files. An upload does not consume the signal, only a heartbeat does.
 
 ## Revoking
 
@@ -76,6 +98,10 @@ A TenantAdmin revokes a connector with `connectors:write:revoke`. Its token stop
 
 ## Admin screens
 
-The feature ships three TenantAdmin screens: `connector-list` (connectors with status, last seen and version, a revoke action), `connector-pair` (enter the code; a code with no open request shows a hint) and `connector-confirm` (reached through the pair screen: request time and IP, a name, Confirm). All three are `dormant`: place the list in your admin area with one `r.nav({ id: "connectors", label, screen: "connectors:screen:connector-list", parent })`.
+The feature ships four TenantAdmin screens. `connector-files` ("Dateien") shows the delivered files as a folder tree: breadcrumb, folders with file count and size over their whole subtree, the files of the open folder, and storage used against the quota. Row actions delete a file or a folder with everything below it, bytes included (a folder is marked "wird gelöscht" at once and no longer counts against the quota; the `delete-folder-tree` job removes everything below it in batches of 100, however many files). Columns Name, Größe and Eingang sort (folders stay first; Größe and Eingang sort in the database, Name within the page only because the name is encrypted). It is a custom screen: mount `connectorsClient()` from `@cosmicdrift/kumiko-bundled-features/connectors/web` in `clientFeatures`, set the quota once with `createConnectorsFeature({ maxStoredBytesPerTenant })` (upload check and screen read the same value), and place it with `r.nav({ id: "connector-files", label, screen: "connectors:screen:connector-files", parent })`. The other three: `connector-list` (connectors with status, last seen and version, a revoke action), `connector-pair` (enter the code; a code with no open request shows a hint) and `connector-confirm` (reached through the pair screen: request time and IP, a name, Confirm). All three are `dormant`: place the list in your admin area with one `r.nav({ id: "connectors", label, screen: "connectors:screen:connector-list", parent })`.
 
 Without `verificationUri`, the satellite is shown `<origin>/connector-pair`, where origin is the origin of `APP_BASE_URL` if set, else the address the satellite reached. That is the screen's URL only in an app without workspaces or a base path; otherwise pass the full screen URL as `verificationUri`. There is no `verification_uri_complete`: the admin types the code on the pair screen.
+
+## Search in the file tree
+
+File and folder names are encrypted, so `inbound-search` decrypts and scans them on the server: part of a name, ignoring case, at least two characters, in the open folder's subtree (or the whole tree). One search reads at most 20 000 names and returns at most 100 hits; hitting either limit answers `truncated: true` and the screen asks to switch into a folder. A hit opens its folder.

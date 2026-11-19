@@ -2,6 +2,7 @@ import { deriveEntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   createEntity,
+  createNumberField,
   createTextField,
   createTimestampField,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -50,6 +51,28 @@ export const deviceEntity = createEntity({
       personal: false,
       reason: "software_version_of_the_device",
     }),
+    // The satellite's own report. Its free-text last error is not stored: it can carry file names of the
+    // customer (personal), has no reader, and a raw conditional update cannot encrypt it.
+    syncState: createTextField({
+      maxLength: 16,
+      access: privilegedWrite,
+      personal: false,
+      reason: "sync_state_enum_of_the_device",
+    }),
+    syncQueued: createNumberField({
+      integer: true,
+      access: privilegedWrite,
+      personal: false,
+      reason: "queue_length_counter_of_the_device",
+    }),
+    syncFailed: createNumberField({
+      integer: true,
+      access: privilegedWrite,
+      personal: false,
+      reason: "failure_counter_of_the_device",
+    }),
+    syncLastAt: createTimestampField({ access: privilegedWrite }),
+    retryRequestedAt: createTimestampField({ access: privilegedWrite }),
     lastSeenAt: createTimestampField({ access: privilegedWrite }),
     createdAt: createTimestampField({ required: true, access: privilegedWrite }),
     revokedAt: createTimestampField({ access: privilegedWrite }),
